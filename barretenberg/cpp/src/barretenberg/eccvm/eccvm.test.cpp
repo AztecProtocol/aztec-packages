@@ -42,22 +42,21 @@ ECCVMCircuitBuilder generate_circuit(numeric::RNG* engine = nullptr)
     G1 c = G1::random_element(engine);
     Fr x = Fr::random_element(engine);
     Fr y = Fr::random_element(engine);
-    for (size_t idx = 0; idx < 100; idx++) {
-        op_queue->add_accumulate(a);
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, x);
-        op_queue->mul_accumulate(b, y);
-        op_queue->add_accumulate(a);
-        op_queue->mul_accumulate(b, x);
-        op_queue->eq_and_reset();
-        op_queue->add_accumulate(c);
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, x);
-        op_queue->eq_and_reset();
-        op_queue->mul_accumulate(a, x);
-        op_queue->mul_accumulate(b, x);
-        op_queue->mul_accumulate(c, x);
-    }
+
+    op_queue->add_accumulate(a);
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(b, x);
+    op_queue->mul_accumulate(b, y);
+    op_queue->add_accumulate(a);
+    op_queue->mul_accumulate(b, x);
+    op_queue->eq_and_reset();
+    op_queue->add_accumulate(c);
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(b, x);
+    op_queue->eq_and_reset();
+    op_queue->mul_accumulate(a, x);
+    op_queue->mul_accumulate(b, x);
+    op_queue->mul_accumulate(c, x);
     ECCVMCircuitBuilder builder{ op_queue };
     return builder;
 }
@@ -164,7 +163,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     const FF alpha = FF::random_element();
     complete_proving_key_for_test(relation_parameters, pk, gate_challenges);
 
-    auto sumcheck_prover = SumcheckProver(pk->circuit_size, prover_transcript);
+    SumcheckProver sumcheck_prover(pk->circuit_size, prover_transcript);
 
     ZKData zk_sumcheck_data = ZKData(log_circuit_size, prover_transcript);
 

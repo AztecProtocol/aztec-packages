@@ -35,5 +35,5 @@ static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
 // - Each fold polynomial is opened at two points, the number of resulting claims is bounded by 2*CONST_PROOF_SIZE_LOG_N
 // - The interleaving trick needed for Translator adds 2 extra claims
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
-static constexpr uint32_t NUM_GEMINI_CLAIMS = 2 * CONST_PROOF_SIZE_LOG_N + 2;
+static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 } // namespace bb

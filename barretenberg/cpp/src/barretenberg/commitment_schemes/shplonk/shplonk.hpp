@@ -90,7 +90,7 @@ template <typename Curve> class ShplonkProver_ {
         // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
         // interleaving.
         if (!libra_opening_claims.empty()) {
-            current_nu = nu.pow(2 * virtual_log_n + 2);
+            current_nu = nu.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
         }
 
         for (const auto& claim : libra_opening_claims) {
@@ -198,7 +198,7 @@ template <typename Curve> class ShplonkProver_ {
 
         // Take into account the constant proof size in Gemini
         if (!libra_opening_claims.empty()) {
-            current_nu = nu_challenge.pow(2 * virtual_log_n + 2);
+            current_nu = nu_challenge.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
         }
 
         for (const auto& claim : libra_opening_claims) {
@@ -441,7 +441,8 @@ template <typename Curve> class ShplonkVerifier_ {
                                                                 const std::vector<Fr>& gemini_eval_challenge_powers)
     {
         std::vector<Fr> denominators;
-        denominators.reserve(2 * gemini_eval_challenge_powers.size() + 2);
+        const size_t virtual_log_n = gemini_eval_challenge_powers.size();
+        denominators.reserve(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
 
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
             // Place 1/(z - r ^ {2^j})
@@ -472,7 +473,8 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
                                                                  bool has_zk = false,
                                                                  bool committed_sumcheck = false)
 {
-    size_t num_powers = 2 * virtual_log_n + 2;
+    // Minimum size of `denominators`
+    size_t num_powers = 2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS;
     // Each round univariate is opened at 0, 1, and a round challenge.
     static constexpr size_t NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND = 3;
 
@@ -481,6 +483,7 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
         num_powers += NUM_SMALL_IPA_EVALUATIONS;
     }
 
+    // Commited sumcheck adds 3 claims per round.
     if (committed_sumcheck) {
         num_powers += NUM_COMMITTED_SUMCHECK_CLAIMS_PER_ROUND * virtual_log_n;
     }

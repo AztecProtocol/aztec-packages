@@ -40,12 +40,15 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
     // Lowest possible size for the translator circuit (this sets the mini_circuit_size)
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
+    // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
     static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 8192;
-    static constexpr size_t CONST_TRANSLATOR_LOG_N = 17;
     static_assert(TRANSLATOR_VM_FIXED_SIZE >= MINIMUM_MINI_CIRCUIT_SIZE);
+
+    // The log of the size of the full Translator circuit with the minicircuit of TRANSLATOR_VM_FIXED_SIZE. Used by
+    // Sumcheck Prover and Verifier.
+    static constexpr size_t CONST_TRANSLATOR_LOG_N = 17;
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
     // except for Permutation and DeltaRangeConstraint) can be evaluated just on the first chunk
@@ -56,6 +59,8 @@ class TranslatorFlavor {
 
     // How many mini_circuit_size polynomials are interleaved in one interleaved_*
     static constexpr size_t INTERLEAVING_GROUP_SIZE = 16;
+    // Ensure the correctness of the fixed Translator size
+    static_assert(CONST_TRANSLATOR_LOG_N == numeric::get_msb(TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE));
 
     // The number of interleaved_* wires
     static constexpr size_t NUM_INTERLEAVED_WIRES = 4;

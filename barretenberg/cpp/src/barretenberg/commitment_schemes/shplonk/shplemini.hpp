@@ -179,8 +179,6 @@ template <typename Curve> class ShpleminiProver_ {
  * described above. In the case of IPA, the total number of batch_mul calls needed to verify the multivariate evaluation
  * claims is reduced by \f$ 5 \f$.
  *
- * TODO (https://github.com/AztecProtocol/barretenberg/issues/1084) Reduce the size of batch_mul further by eliminating
- * shifted commitments.
  */
 
 template <typename Curve> class ShpleminiVerifier_ {
@@ -284,7 +282,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Get Shplonk opening point z
         const Fr shplonk_evaluation_challenge = transcript->template get_challenge<Fr>("Shplonk:z");
-        info("verifier shplemini z ", shplonk_evaluation_challenge);
 
         // Start computing the scalar to be multiplied by [1]₁
         Fr constant_term_accumulator = Fr(0);
@@ -642,7 +639,8 @@ template <typename Curve> class ShpleminiVerifier_ {
         // compute the scalars to be multiplied against the commitments [libra_concatenated], [grand_sum], [grand_sum],
         // and [libra_quotient]
         for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-            Fr scaling_factor = denominators[idx] * shplonk_batching_challenge_powers[2 * virtual_log_n + 2 + idx];
+            Fr scaling_factor = denominators[idx] *
+                                shplonk_batching_challenge_powers[2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS + idx];
             batching_scalars[idx] = -scaling_factor;
             constant_term_accumulator += scaling_factor * libra_evaluations[idx];
         }
@@ -668,7 +666,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *   \alpha_i^2 = \frac{\nu^{k+3i+2}}{z - u_i},
      * \f]
      * where \f$ z\f$ is the Shplonk evaluation challenge, \f$\nu\f$ is the batching challenge, and \f$k\f$ is an
-     * offset exponent equal to CONST_PROOF_SIZE_LOG_N + 2 + NUM_LIBRA_EVALATIONS. Then:
+     * offset exponent equal to CONST_PROOF_SIZE_LOG_N + NUM_INTERLEAVING_CLAIMS + NUM_LIBRA_EVALATIONS. Then:
      *
      * - The **batched scalar** appended to \p scalars is
      *   \f[
@@ -734,7 +732,9 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Each commitment to a sumcheck round univariate [S_i] is multiplied by the sum of three scalars corresponding
         // to the evaluations at 0, 1, and the round challenge u_i
         size_t round_idx = 0;
-        size_t power = 2 * multilinear_challenge.size() + 2 + NUM_SMALL_IPA_EVALUATIONS;
+        // Compute the power of `shplonk_batching_challenge` to add sumcheck univariate commitments and evaluations to
+        // the batch.
+        size_t power = 2 * log_circuit_size + NUM_INTERLEAVING_CLAIMS + NUM_SMALL_IPA_EVALUATIONS;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);
