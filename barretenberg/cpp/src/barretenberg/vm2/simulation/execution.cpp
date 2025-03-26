@@ -126,7 +126,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             // "Emit" the context event
             // TODO: think about whether we need to know the success at this point
-            auto context_event = context.get_current_context();
+            auto context_event = context.serialize_context_event();
             ex_event.context_event = context_event;
 
             // Execute the opcode.

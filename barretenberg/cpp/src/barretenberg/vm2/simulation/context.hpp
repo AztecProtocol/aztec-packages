@@ -42,6 +42,9 @@ class ContextInterface {
     virtual std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const = 0;
     virtual std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) = 0;
     virtual ContextInterface& get_child_context() = 0;
+    // The child context needs to be accessible by this context in order to access the child
+    // memory for returndata. We own it so that it's lifetime is as long as decided by this context
+    // (i.e. if it is replaced by another child OR this parent context falls out of scope)
     virtual void set_child_context(std::unique_ptr<ContextInterface> child_ctx) = 0;
 
     virtual MemoryAddress get_last_rd_offset() const = 0;
@@ -54,7 +57,7 @@ class ContextInterface {
     virtual void set_last_success(bool success) = 0;
 
     // Events
-    virtual ContextEvent get_current_context() = 0;
+    virtual ContextEvent serialize_context_event() = 0;
 };
 
 // The context for a single nested call.
@@ -113,10 +116,11 @@ class BaseContext : public ContextInterface {
         MemoryInterface& child_memory = get_child_context().get_memory();
         auto get_returndata_size = child_memory.get(last_child_rd_size);
         uint32_t returndata_size = static_cast<uint32_t>(get_returndata_size.value);
-        [[maybe_unused]] uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
-        std::vector<FF>
-            retrieved_returndata = {}; // child_memory.set_slice(get_last_rd_offset() + rd_offset, write_size)
+        uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
+
+        std::vector<FF> retrieved_returndata = child_memory.get_slice(get_last_rd_offset() + rd_offset, write_size);
         retrieved_returndata.resize(rd_size);
+
         return retrieved_returndata;
     };
 
@@ -157,7 +161,7 @@ class EnqueuedCallContext : public BaseContext {
     {}
 
     // Event Emitting
-    ContextEvent get_current_context() override
+    ContextEvent serialize_context_event() override
     {
         return { .id = get_context_id(),
                  .pc = get_pc(),
@@ -211,7 +215,7 @@ class NestedContext : public BaseContext {
     {}
 
     // Event Emitting
-    ContextEvent get_current_context() override
+    ContextEvent serialize_context_event() override
     {
         return { .id = get_context_id(),
                  .pc = get_pc(),

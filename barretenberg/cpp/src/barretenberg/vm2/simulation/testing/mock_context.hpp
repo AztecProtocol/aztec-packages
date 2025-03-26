@@ -50,7 +50,7 @@ class MockContext : public ContextInterface {
     MOCK_METHOD(void, set_last_success, (bool success), (override));
 
     // Event Emitting
-    MOCK_METHOD(ContextEvent, get_current_context, (), (override));
+    MOCK_METHOD(ContextEvent, serialize_context_event, (), (override));
 };
 
 } // namespace bb::avm2::simulation
