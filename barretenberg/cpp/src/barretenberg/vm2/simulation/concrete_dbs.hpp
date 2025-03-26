@@ -36,16 +36,24 @@ class ContractDB final : public ContractDBInterface {
 };
 
 // Generates events.
-class MerkleDB final : public MerkleDBInterface {
+class MerkleDB final : public HighLevelMerkleDBInterface {
   public:
-    MerkleDB(MerkleDBInterface& raw_merkle_db)
+    MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db)
         : raw_merkle_db(raw_merkle_db)
     {}
 
+    // Unconstrained.
     const TreeSnapshots& get_tree_roots() const override;
 
+    // Constrained.
+    // TODO: When actually using this, consider siloing inside (and taking a silo gadget in the constructor).
+    // Probably better like this though.
+    FF storage_read(const FF& leaf_slot) const override;
+
   private:
-    MerkleDBInterface& raw_merkle_db;
+    LowLevelMerkleDBInterface& raw_merkle_db;
+    // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
+    // It's usually ok for mutexes but a gadget is big...
 };
 
 } // namespace bb::avm2::simulation

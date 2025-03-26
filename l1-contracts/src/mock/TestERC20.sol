@@ -36,13 +36,13 @@ contract TestERC20 is ERC20, IMintableERC20, Ownable {
     emit MinterRemoved(_minter);
   }
 
-  function transferOwnership(address newOwner) public override(Ownable) onlyOwner {
-    if (newOwner == address(0)) {
+  function transferOwnership(address _newOwner) public override(Ownable) onlyOwner {
+    if (_newOwner == address(0)) {
       revert OwnableInvalidOwner(address(0));
     }
     removeMinter(owner());
-    addMinter(newOwner);
-    _transferOwnership(newOwner);
+    addMinter(_newOwner);
+    _transferOwnership(_newOwner);
   }
 }
 // docs:end:contract

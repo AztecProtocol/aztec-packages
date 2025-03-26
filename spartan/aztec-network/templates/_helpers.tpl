@@ -288,6 +288,8 @@ Combined wait-for-services and configure-env container for full nodes
       value: "{{ .Values.aztec.contracts.registryAddress }}"
     - name: SLASH_FACTORY_CONTRACT_ADDRESS
       value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
+    - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+      value: "{{ .Values.aztec.contracts.feeAssetHandlerContractAddress }}"
 {{- end -}}
 
 {{/*

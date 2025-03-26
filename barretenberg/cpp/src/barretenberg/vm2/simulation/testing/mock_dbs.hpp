@@ -18,12 +18,32 @@ class MockContractDB : public ContractDBInterface {
     MOCK_METHOD(std::optional<ContractClass>, get_contract_class, (const ContractClassId& class_id), (const, override));
 };
 
-class MockMerkleDB : public MerkleDBInterface {
+class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
     // https://google.github.io/googletest/gmock_cook_book.html#making-the-compilation-faster
-    MockMerkleDB();
-    ~MockMerkleDB() override;
+    MockLowLevelMerkleDB();
+    ~MockLowLevelMerkleDB() override;
 
     MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
+    MOCK_METHOD(crypto::merkle_tree::fr_sibling_path,
+                get_sibling_path,
+                (world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index),
+                (const, override));
+    MOCK_METHOD(crypto::merkle_tree::GetLowIndexedLeafResponse,
+                get_low_indexed_leaf,
+                (world_state::MerkleTreeId tree_id, const FF& value),
+                (const, override));
+    MOCK_METHOD(crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>,
+                get_leaf_preimage_public_data_tree,
+                (crypto::merkle_tree::index_t leaf_index),
+                (const, override));
+};
+
+class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
+    // https://google.github.io/googletest/gmock_cook_book.html#making-the-compilation-faster
+    MockHighLevelMerkleDB();
+    ~MockHighLevelMerkleDB() override;
+
+    MOCK_METHOD(FF, storage_read, (const FF& key), (const, override));
 };
 
 } // namespace bb::avm2::simulation

@@ -1,0 +1,12 @@
+SetMintIntervalTest
+├── when caller of setMintInterval is not owner
+│   └── it reverts
+├── when caller of setMintInterval is owner
+│   ├── it sets the mint interval
+│   └── it emits a {IntervalUpdated} event
+├── when owner tries to mint before the new interval has passed
+│   └── it reverts
+└── when owner tries to mint after the new interval has passed
+    ├── it mints
+    ├── it emits a {Minted} event
+    └── it updates the last mint timestamp

@@ -51,6 +51,8 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
+    rollupAddress: "" # only needed for blob sink
+    feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
@@ -59,6 +61,7 @@ aztec:
 
   l1Salt: "" # leave empty for random salt
   testAccounts: true
+  sponsoredFPC: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
 

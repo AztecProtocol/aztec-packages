@@ -89,6 +89,8 @@ spec:
               value: "{{ .Values.ethereum.acceleratedTestDeployments }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: REGISTRY_CONTRACT_ADDRESS
               value: "{{ .Values.bootNode.contracts.registryAddress }}"
             - name: TELEMETRY
@@ -230,6 +232,8 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

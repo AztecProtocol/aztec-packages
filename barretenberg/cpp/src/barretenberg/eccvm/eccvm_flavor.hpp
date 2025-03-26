@@ -107,7 +107,6 @@ class ECCVMFlavor {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
-  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -353,16 +352,7 @@ class ECCVMFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-        // get_wires is inherited
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
@@ -372,7 +362,6 @@ class ECCVMFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.

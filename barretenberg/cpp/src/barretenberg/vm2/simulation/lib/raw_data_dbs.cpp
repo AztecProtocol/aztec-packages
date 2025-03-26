@@ -1,22 +1,24 @@
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
-#include "barretenberg/common/log.hpp"
-#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 #include <cassert>
 #include <optional>
+#include <stdexcept>
+
+#include "barretenberg/common/log.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {
 
 // HintedRawContractDB starts.
 HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
 {
-    vinfo("Initializing HintedRawContractDB with ",
+    vinfo("Initializing HintedRawContractDB with...",
+          "\n * contractInstances: ",
           hints.contractInstances.size(),
-          " contract instances, ",
+          "\n * contractClasses: ",
           hints.contractClasses.size(),
-          " contract classes, and ",
-          hints.bytecodeCommitments.size(),
-          " bytecode commitments.");
+          "\n * bytecodeCommitments: ",
+          hints.bytecodeCommitments.size());
 
     for (const auto& contract_instance_hint : hints.contractInstances) {
         // TODO(fcarreiro): We are currently generating duplicates in TS.
@@ -90,8 +92,137 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 }
 
 // Hinted MerkleDB starts.
-HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints&, const TreeSnapshots& tree_roots)
+HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots)
     : tree_roots(tree_roots)
-{}
+{
+    vinfo("Initializing HintedRawMerkleDB with...",
+          "\n * get_sibling_path hints: ",
+          hints.getSiblingPathHints.size(),
+          "\n * get_previous_value_index hints: ",
+          hints.getPreviousValueIndexHints.size(),
+          "\n * get_leaf_preimage hints_public_data_tree: ",
+          hints.getLeafPreimageHintsPublicDataTree.size());
+    debug("Initializing HintedRawMerkleDB with snapshots...",
+          "\n * nullifierTree: ",
+          tree_roots.nullifierTree.root,
+          " (size: ",
+          tree_roots.nullifierTree.nextAvailableLeafIndex,
+          ")",
+          "\n * publicDataTree: ",
+          tree_roots.publicDataTree.root,
+          " (size: ",
+          tree_roots.publicDataTree.nextAvailableLeafIndex,
+          ")",
+          "\n * noteHashTree: ",
+          tree_roots.noteHashTree.root,
+          " (size: ",
+          tree_roots.noteHashTree.nextAvailableLeafIndex,
+          ")",
+          "\n * l1ToL2MessageTree: ",
+          tree_roots.l1ToL2MessageTree.root,
+          " (size: ",
+          tree_roots.l1ToL2MessageTree.nextAvailableLeafIndex,
+          ")");
+
+    for (const auto& get_sibling_path_hint : hints.getSiblingPathHints) {
+        GetSiblingPathKey key = { get_sibling_path_hint.hintKey,
+                                  get_sibling_path_hint.treeId,
+                                  get_sibling_path_hint.index };
+        get_sibling_path_hints[key] = get_sibling_path_hint.path;
+    }
+
+    for (const auto& get_previous_value_index_hint : hints.getPreviousValueIndexHints) {
+        GetPreviousValueIndexKey key = { get_previous_value_index_hint.hintKey,
+                                         get_previous_value_index_hint.treeId,
+                                         get_previous_value_index_hint.value };
+        get_previous_value_index_hints[key] = {
+            get_previous_value_index_hint.alreadyPresent,
+            get_previous_value_index_hint.index,
+        };
+    }
+
+    for (const auto& get_leaf_preimage_hint : hints.getLeafPreimageHintsPublicDataTree) {
+        GetLeafPreimageKey key = { get_leaf_preimage_hint.hintKey, get_leaf_preimage_hint.index };
+        get_leaf_preimage_hints_public_data_tree[key] = {
+            /*val=*/get_leaf_preimage_hint.leaf,
+            /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
+            /*nextVal=*/get_leaf_preimage_hint.nextValue,
+        };
+    }
+}
+
+const AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id) const
+{
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NULLIFIER_TREE:
+        return tree_roots.nullifierTree;
+    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+        return tree_roots.publicDataTree;
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        return tree_roots.noteHashTree;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        return tree_roots.l1ToL2MessageTree;
+    default:
+        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
+    }
+}
+
+crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
+                                                                         crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(tree_id);
+    GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
+    auto it = get_sibling_path_hints.find(key);
+    if (it == get_sibling_path_hints.end()) {
+        throw std::runtime_error(format("Sibling path not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
+                                        ", leaf_index: ",
+                                        leaf_index,
+                                        ")"));
+    }
+    return it->second;
+}
+
+crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(
+    world_state::MerkleTreeId tree_id, const FF& value) const
+{
+    auto tree_info = get_tree_info(tree_id);
+    GetPreviousValueIndexKey key = { tree_info, tree_id, value };
+    auto it = get_previous_value_index_hints.find(key);
+    if (it == get_previous_value_index_hints.end()) {
+        throw std::runtime_error(format("Low indexed leaf not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
+                                        ", value: ",
+                                        value,
+                                        ")"));
+    }
+    return it->second;
+}
+
+crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
+    get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
+    GetLeafPreimageKey key = { tree_info, leaf_index };
+    auto it = get_leaf_preimage_hints_public_data_tree.find(key);
+    if (it == get_leaf_preimage_hints_public_data_tree.end()) {
+        throw std::runtime_error(format("Leaf preimage (PUBLIC_DATA_TREE) not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", leaf_index: ",
+                                        leaf_index,
+                                        ")"));
+    }
+    return it->second;
+}
 
 } // namespace bb::avm2::simulation

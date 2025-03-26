@@ -42,7 +42,7 @@ export async function depositGovernanceTokens({
 
   const addresses = await RegistryContract.collectAddresses(publicClient, registryAddress, 'canonical');
   const governanceAddress = addresses.governanceAddress.toString();
-  const tokenAddress = addresses.feeJuiceAddress.toString();
+  const tokenAddress = addresses.stakingAssetAddress.toString();
 
   const feeJuice = new FeeJuiceContract(tokenAddress, publicClient, walletClient);
   const governance = new GovernanceContract(governanceAddress, publicClient, walletClient);

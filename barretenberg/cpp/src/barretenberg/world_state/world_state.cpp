@@ -255,8 +255,10 @@ Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
     }
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
-        auto store = std::make_unique<FrStore>(
-            getMerkleTreeName(L1_TO_L2_MESSAGE_TREE), levels, blockNumber, _persistentStores->messageStore);
+        auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::L1_TO_L2_MESSAGE_TREE),
+                                               levels,
+                                               blockNumber,
+                                               _persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree)) });
     }

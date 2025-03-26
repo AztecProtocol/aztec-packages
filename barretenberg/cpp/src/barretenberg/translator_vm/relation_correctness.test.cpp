@@ -694,7 +694,7 @@ TEST_F(TranslatorRelationCorrectnessTests, ZeroKnowledgePermutation)
 
     // Populate the first 4 ordered polynomials with the random values from the interleaved polynomials
     for (size_t i = 0; i < 4; i++) {
-        auto& ordered = prover_polynomials.get_ordered_constraints()[i];
+        auto& ordered = prover_polynomials.get_ordered_range_constraints()[i];
         auto& interleaved = prover_polynomials.get_interleaved()[i];
         for (size_t j = real_circuit_size; j < full_circuit_size; j++) {
             ordered.at(j) = interleaved.at(j);

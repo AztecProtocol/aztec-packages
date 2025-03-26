@@ -250,9 +250,9 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using simulation::BytecodeId;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::NO_ERROR;
     using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
     using simulation::InstrDeserializationError::PC_OUT_OF_RANGE;
+    using simulation::InstrDeserializationError::TAG_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -273,12 +273,29 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint32_t size_in_bytes = 0;
         ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
         std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors{};
+        uint8_t has_tag = 0;
+        uint8_t tag_is_op2 = 0;
+        uint8_t tag_value = 0;
 
         if (wire_opcode_in_range) {
             const auto& wire_instr_spec = WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode));
             size_in_bytes = wire_instr_spec.size_in_bytes;
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;
+
+            if (wire_instr_spec.tag_operand_idx.has_value()) {
+                const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
+                assert((tag_value_idx == 2 || tag_value_idx == 3) &&
+                       "Current constraints support only tag for operand index equal to 2 or 3");
+                has_tag = 1;
+
+                if (tag_value_idx == 2) {
+                    tag_is_op2 = 1;
+                    tag_value = static_cast<uint8_t>(get_operand(1)); // in instruction.operands, op2 has index 1
+                } else {
+                    tag_value = static_cast<uint8_t>(get_operand(2));
+                }
+            }
         }
 
         const uint32_t bytes_remaining =
@@ -352,6 +369,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       // From instruction table.
                       { C::instr_fetching_exec_opcode, static_cast<uint32_t>(exec_opcode) },
                       { C::instr_fetching_instr_size, size_in_bytes },
+                      { C::instr_fetching_sel_has_tag, has_tag },
+                      { C::instr_fetching_sel_tag_is_op2, tag_is_op2 },
 
                       // Fill operand decomposition selectors
                       { C::instr_fetching_sel_op_dc_0, op_dc_selectors.at(0) },
@@ -377,10 +396,11 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_parsing_err, event.error != NO_ERROR ? 1 : 0 },
+                      { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_parsing_err, event.error.has_value() ? 1 : 0 },
 
                       // selector for lookups
-                      { C::instr_fetching_sel_opcode_defined, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
 
                       { C::instr_fetching_bytecode_size, bytecode_size },
                       { C::instr_fetching_bytes_to_read, bytes_to_read },
@@ -388,6 +408,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_pc_abs_diff, pc_abs_diff },
                       { C::instr_fetching_pc_size_in_bits,
                         AVM_PC_SIZE_IN_BITS }, // Remove when we support constants in lookups
+                      { C::instr_fetching_tag_value, tag_value },
                   } });
         row++;
     }

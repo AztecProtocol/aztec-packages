@@ -1,3 +1,4 @@
+import { MerkleTreeId } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,
@@ -8,15 +9,16 @@ import {
   TxProofValidator,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { readPublicState } from '@aztec/simulator/server';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
+import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
 } from '@aztec/stdlib/interfaces/server';
+import type { PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { ArchiveCache } from './archive_cache.js';
@@ -92,8 +94,20 @@ export function createValidatorsForBlockBuilding(
 class DatabasePublicStateSource implements PublicStateSource {
   constructor(private db: MerkleTreeReadOperations) {}
 
-  storageRead(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
-    return readPublicState(this.db, contractAddress, slot);
+  async storageRead(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
+    const leafSlot = (await computePublicDataTreeLeafSlot(contractAddress, slot)).toBigInt();
+
+    const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
+      return Fr.ZERO;
+    }
+
+    const preimage = (await this.db.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+
+    return preimage.value;
   }
 }
 

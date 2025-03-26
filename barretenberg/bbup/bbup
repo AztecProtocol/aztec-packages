@@ -6,7 +6,9 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
+BOLD="\033[1m"
 SUCCESS="✓"
 ERROR="✗"
 
@@ -25,6 +27,10 @@ print_spinner() {
         printf "\b\b\b\b\b\b"
     done
     printf "    \b\b\b\b"
+}
+
+warn() {
+    echo -e "${BOLD}${YELLOW}WARN: ${1}${NC}"
 }
 
 get_bb_version_for_noir() {
@@ -57,6 +63,13 @@ install_bb() {
     local version=$1
     local architecture=$(uname -m)
     local platform=""
+
+    if ! version_gte "$version" "0.82.0"; then
+        # Unknown when this vulnerability was introduced so we warn on all versions prior to fix.
+        # See: https://github.com/AztecProtocol/aztec-packages/pull/12602
+        warn "There is a critical soundness issue in Ultrahonk in this version of Barretenberg. It is recommended to update to v0.82.2 or greater."
+        warn "Any solidity verifier contracts must be regenerated using a patched version of Barretenberg."
+    fi
 
     # Convert architecture names
     if [ "$architecture" = "arm64" ] || [ "$architecture" = "aarch64" ]; then

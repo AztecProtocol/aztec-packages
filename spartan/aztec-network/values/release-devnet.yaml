@@ -32,6 +32,7 @@ aztec:
   realProofs: false
   extraAccounts: 9
   extraAccountsStartIndex: 69
+  sponsoredFPC: true
 
 jobs:
   deployL1Verifier:

@@ -36,6 +36,8 @@ export type ProverNodeConfig = ArchiverConfig &
   SpecificProverNodeConfig & {
     /** Whether to populate the genesis state with initial fee juice for the test accounts */
     testAccounts: boolean;
+    /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
+    sponsoredFPC: boolean;
   };
 
 type SpecificProverNodeConfig = {
@@ -93,6 +95,11 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   testAccounts: {
     env: 'TEST_ACCOUNTS',
     description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
+    ...booleanConfigHelper(false),
+  },
+  sponsoredFPC: {
+    env: 'SPONSORED_FPC',
+    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
     ...booleanConfigHelper(false),
   },
 };
