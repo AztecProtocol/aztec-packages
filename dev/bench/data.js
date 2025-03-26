@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742987002723,
+  "lastUpdate": 1742990255281,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7aa0b871bb154ad50cb4643bae0879d89244f784",
-          "message": "fix: pass bot salt (#12923)\n\nPass deployment salt for the bot's account contract based on the its pod\nname. (This way we can have multiple bots all producing private txs)",
-          "timestamp": "2025-03-21T11:56:10Z",
-          "tree_id": "8eb2656a7b0c3e8945c741f701f5852dc442b313",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7aa0b871bb154ad50cb4643bae0879d89244f784"
-        },
-        "date": 1742560102273,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 39320,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 26069,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 12123,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14626,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 14994,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3012,6 +2958,84 @@ window.BENCHMARK_DATA = {
             "value": 15234,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "9820846+rw0x0@users.noreply.github.com",
+            "name": "Roman Walch",
+            "username": "rw0x0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76ef873f0721843bb2f44e2428d352edf595d1c3",
+          "message": "fix: make circuit parsing deterministic (#11772)",
+          "timestamp": "2025-03-26T11:36:28Z",
+          "tree_id": "99813f93acb4c2bca53cf02b059d89b9e26d43ba",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76ef873f0721843bb2f44e2428d352edf595d1c3"
+        },
+        "date": 1742990247860,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 21614.970891000212,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 18120.057146999996 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 118227670340.3,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1773106846,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 290829806,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19088.287865999973,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16436.150061 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 54827.784203,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 54827786000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4207.124961999398,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3548.114936 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12138.142678000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12138144000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2233.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
