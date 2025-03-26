@@ -30,8 +30,8 @@ class MerkleCheckInterface {
 
 class MerkleCheck : public MerkleCheckInterface {
   public:
-    MerkleCheck(Poseidon2& poseidon2, EventEmitterInterface<MerkleCheckEvent>& emitter)
-        : events(emitter)
+    MerkleCheck(Poseidon2& poseidon2, EventEmitterInterface<MerkleCheckEvent>& event_emitter)
+        : events(event_emitter)
         , poseidon2(poseidon2)
     {}
 
