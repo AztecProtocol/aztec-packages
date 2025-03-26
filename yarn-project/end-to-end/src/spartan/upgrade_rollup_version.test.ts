@@ -97,7 +97,7 @@ describe('spartan_upgrade_rollup_version', () => {
       debugLogger.info(`l1WalletClient: ${l1WalletClient.account.address}`);
       const initialTestAccounts = await getInitialTestAccounts();
 
-      const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialTestAccounts.map(a => a.address));
+      const { genesisArchiveRoot } = await getGenesisValues(initialTestAccounts.map(a => a.address));
 
       const { rollup: newRollup, payloadAddress } = await deployRollupForUpgrade(
         {
@@ -110,7 +110,6 @@ describe('spartan_upgrade_rollup_version', () => {
           protocolContractTreeRoot,
           l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
           genesisArchiveRoot,
-          genesisBlockHash,
           ethereumSlotDuration: 12,
           aztecSlotDuration: 24,
           aztecEpochDuration: 4,

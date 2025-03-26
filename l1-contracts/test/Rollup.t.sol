@@ -215,7 +215,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
@@ -243,7 +242,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: new bytes32[](0)
     });
@@ -310,7 +308,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -338,7 +335,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -413,7 +409,6 @@ contract RollupTest is RollupBase {
       ProposeArgs memory args = ProposeArgs({
         header: header,
         archive: data.archive,
-        blockHash: data.blockHash,
         oracleInput: OracleInput(0),
         txHashes: new bytes32[](0)
       });
@@ -445,8 +440,6 @@ contract RollupTest is RollupBase {
         1,
         blockLog.archive,
         data.archive,
-        blockLog.blockHash,
-        data.blockHash,
         blobPublicInputs,
         prover,
         data.decodedHeader.globalVariables.coinbase,
@@ -475,8 +468,6 @@ contract RollupTest is RollupBase {
         1,
         blockLog.archive,
         data.archive,
-        blockLog.blockHash,
-        data.blockHash,
         this.getBlobPublicInputs(data.blobInputs),
         address(42),
         data.decodedHeader.globalVariables.coinbase,
@@ -582,8 +573,6 @@ contract RollupTest is RollupBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: blockLog.archive,
       endArchive: data.archive,
-      previousBlockHash: blockLog.blockHash,
-      endBlockHash: data.blockHash,
       endTimestamp: Timestamp.wrap(0),
       outHash: bytes32(0),
       proverId: address(0)
@@ -633,16 +622,7 @@ contract RollupTest is RollupBase {
       this.getBlobPublicInputs(load("mixed_block_1").block.blobInputs),
       this.getBlobPublicInputs(data.blobInputs)
     );
-    _submitEpochProof(
-      1,
-      2,
-      blockLog.archive,
-      data.archive,
-      blockLog.blockHash,
-      data.blockHash,
-      blobPublicInputs,
-      address(0)
-    );
+    _submitEpochProof(1, 2, blockLog.archive, data.archive, blobPublicInputs, address(0));
 
     assertEq(rollup.getPendingBlockNumber(), 2, "Invalid pending block number");
     assertEq(rollup.getProvenBlockNumber(), 2, "Invalid proven block number");
@@ -704,7 +684,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -725,7 +704,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -746,7 +724,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -772,7 +749,6 @@ contract RollupTest is RollupBase {
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,
-      blockHash: data.blockHash,
       oracleInput: OracleInput(0),
       txHashes: txHashes
     });
@@ -791,15 +767,7 @@ contract RollupTest is RollupBase {
         Errors.Rollup__InvalidPreviousArchive.selector, blockLog.archive, wrong
       )
     );
-    _submitEpochProof(
-      1, 1, wrong, data.archive, blockLog.blockHash, data.blockHash, blobPublicInputs, address(0)
-    );
-
-    // TODO: Reenable when we setup proper initial block hash
-    // vm.expectRevert(
-    //   abi.encodeWithSelector(Errors.Rollup__InvalidPreviousBlockHash.selector, preBlockHash, wrong)
-    // );
-    // _submitEpochProof(rollup, 1, preArchive, data.archive, wrong, data.blockHash, bytes32(0));
+    _submitEpochProof(1, 1, wrong, data.archive, blobPublicInputs, address(0));
   }
 
   function testSubmitProofInvalidArchive() public setUpFor("empty_block_1") {
@@ -813,41 +781,7 @@ contract RollupTest is RollupBase {
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Rollup__InvalidArchive.selector, data.archive, 0xdeadbeef)
     );
-    _submitEpochProof(
-      1,
-      1,
-      blockLog.archive,
-      wrongArchive,
-      blockLog.blockHash,
-      data.blockHash,
-      blobPublicInputs,
-      address(0)
-    );
-  }
-
-  function testSubmitProofInvalidBlockHash() public setUpFor("empty_block_1") {
-    _proposeBlock("empty_block_1", 1);
-
-    DecoderBase.Data memory data = load("empty_block_1").block;
-    bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
-    bytes32 wrongBlockHash = bytes32(uint256(0xdeadbeef));
-
-    BlockLog memory parentBlockLog = rollup.getBlock(0);
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.Rollup__InvalidBlockHash.selector, data.blockHash, wrongBlockHash
-      )
-    );
-    _submitEpochProof(
-      1,
-      1,
-      parentBlockLog.archive,
-      data.archive,
-      parentBlockLog.blockHash,
-      wrongBlockHash,
-      blobPublicInputs,
-      address(0)
-    );
+    _submitEpochProof(1, 1, blockLog.archive, wrongArchive, blobPublicInputs, address(0));
   }
 
   function _testSubmitProofInvalidBlobPublicInput() public setUpFor("empty_block_1") {
@@ -869,16 +803,7 @@ contract RollupTest is RollupBase {
         wrongBlobPublicInputsHash
       )
     );
-    _submitEpochProof(
-      1,
-      1,
-      blockLog.archive,
-      data.archive,
-      blockLog.blockHash,
-      data.blockHash,
-      blobPublicInputs,
-      address(0)
-    );
+    _submitEpochProof(1, 1, blockLog.archive, data.archive, blobPublicInputs, address(0));
   }
 
   function _submitEpochProof(
@@ -886,22 +811,11 @@ contract RollupTest is RollupBase {
     uint256 _end,
     bytes32 _prevArchive,
     bytes32 _archive,
-    bytes32 _prevBlockHash,
-    bytes32 _blockHash,
     bytes memory _blobPublicInputs,
     address _prover
   ) internal {
     _submitEpochProofWithFee(
-      _start,
-      _end,
-      _prevArchive,
-      _archive,
-      _prevBlockHash,
-      _blockHash,
-      _blobPublicInputs,
-      _prover,
-      address(0),
-      0
+      _start, _end, _prevArchive, _archive, _blobPublicInputs, _prover, address(0), 0
     );
   }
 
@@ -910,8 +824,6 @@ contract RollupTest is RollupBase {
     uint256 _end,
     bytes32 _prevArchive,
     bytes32 _archive,
-    bytes32 _prevBlockHash,
-    bytes32 _blockHash,
     bytes memory _blobPublicInputs,
     address _prover,
     address _coinbase,
@@ -920,8 +832,6 @@ contract RollupTest is RollupBase {
     PublicInputArgs memory args = PublicInputArgs({
       previousArchive: _prevArchive,
       endArchive: _archive,
-      previousBlockHash: _prevBlockHash,
-      endBlockHash: _blockHash,
       endTimestamp: Timestamp.wrap(0),
       outHash: bytes32(0),
       proverId: _prover

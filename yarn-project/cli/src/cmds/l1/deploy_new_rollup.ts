@@ -23,7 +23,7 @@ export async function deployNewRollup(
   const config = getL1ContractsConfigEnvVars();
 
   const initialFundedAccounts = testAccounts ? await getInitialTestAccounts() : [];
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  const { genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
 
   const { payloadAddress, rollup } = await deployNewRollupContracts(
     registryAddress,
@@ -35,7 +35,6 @@ export async function deployNewRollup(
     salt,
     initialValidators,
     genesisArchiveRoot,
-    genesisBlockHash,
     config,
     debugLogger,
   );
