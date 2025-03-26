@@ -211,8 +211,7 @@ template <typename Curve> struct MockClaimGenerator {
     }
 
     template <typename Flavor>
-    void compute_sumcheck_opening_data(const size_t n,
-                                       const size_t log_n,
+    void compute_sumcheck_opening_data(const size_t log_n,
                                        const size_t sumcheck_univariate_length,
                                        std::vector<Fr>& challenge,
                                        std::shared_ptr<CommitmentKey>& ck)
@@ -233,14 +232,6 @@ template <typename Curve> struct MockClaimGenerator {
 
             mock_sumcheck_polynomials.update_zk_sumcheck_data(challenge[idx], idx);
             round_univariates.push_back(round_univariate);
-        }
-
-        // Simulate the `const proof size` logic
-        auto round_univariate = bb::Polynomial<Fr>(n);
-        for (size_t idx = log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            round_univariates.push_back(round_univariate);
-            sumcheck_commitments.push_back(ck->commit(round_univariate));
-            sumcheck_evaluations.push_back({ Fr(0), Fr(0), Fr(0) });
         }
     }
 };

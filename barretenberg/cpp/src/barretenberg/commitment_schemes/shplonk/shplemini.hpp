@@ -666,7 +666,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *   \alpha_i^2 = \frac{\nu^{k+3i+2}}{z - u_i},
      * \f]
      * where \f$ z\f$ is the Shplonk evaluation challenge, \f$\nu\f$ is the batching challenge, and \f$k\f$ is an
-     * offset exponent equal to CONST_PROOF_SIZE_LOG_N + NUM_INTERLEAVING_CLAIMS + NUM_LIBRA_EVALATIONS. Then:
+     * offset exponent equal to virtual_log_n + NUM_INTERLEAVING_CLAIMS + NUM_LIBRA_EVALATIONS. Then:
      *
      * - The **batched scalar** appended to \p scalars is
      *   \f[
