@@ -80,7 +80,7 @@ fn compute_log<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
     recipient: AztecAddress,
-    sender: AztecAddress,
+    _sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Event: EventInterface<N>,
