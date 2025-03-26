@@ -78,7 +78,6 @@ TYPED_TEST_SUITE(ShpleminiTest, TestSettings);
 TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 {
     using Curve = typename TypeParam::Curve;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -166,8 +165,9 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     mock_claims.claim_batcher.compute_scalars_for_each_batch(
         inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
-    ShpleminiVerifier::batch_multivariate_opening_claims(
-        mock_claims.claim_batcher, rho, commitments, scalars, verifier_batched_evaluation);
+    rho_power = Fr{ 1 };
+    mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
+        commitments, scalars, verifier_batched_evaluation, rho, rho_power);
 
     // Final pairing check
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
@@ -196,6 +196,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
     Fr shplonk_batching_challenge = Fr::random_element();
+
+    std::vector<Fr> shplonk_batching_challenge_powers =
+        compute_shplonk_batching_challenge_powers(shplonk_batching_challenge);
+
     Fr shplonk_eval_challenge = Fr::random_element();
 
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
@@ -224,8 +228,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
         prover_commitments.emplace_back(commitment);
     }
 
-    auto [A_0_pos, A_0_neg] = GeminiProver::compute_partially_evaluated_batch_polynomials(
-        this->log_n, mock_claims.polynomial_batcher, gemini_eval_challenge);
+    auto [A_0_pos, A_0_neg] =
+        mock_claims.polynomial_batcher.compute_partially_evaluated_batch_polynomials(gemini_eval_challenge);
 
     const auto opening_claims = GeminiProver::construct_univariate_opening_claims(
         this->log_n, std::move(A_0_pos), std::move(A_0_neg), std::move(fold_polynomials), gemini_eval_challenge);
@@ -239,32 +243,44 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_eval_challenge, this->log_n);
 
     GroupElement expected_result = GroupElement::zero();
-    std::vector<Fr> expected_inverse_vanishing_evals(this->log_n + 1);
+    std::vector<Fr> expected_inverse_vanishing_evals;
+    expected_inverse_vanishing_evals.reserve(2 * this->log_n);
     // Compute expected inverses
-    expected_inverse_vanishing_evals[0] = (shplonk_eval_challenge - r_squares[0]).invert();
-    for (size_t idx = 1; idx < this->log_n + 1; idx++) {
-        expected_inverse_vanishing_evals[idx] = (shplonk_eval_challenge + r_squares[idx - 1]).invert();
+    for (size_t idx = 0; idx < this->log_n; idx++) {
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge - r_squares[idx]).invert());
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge + r_squares[idx]).invert());
     }
 
     Fr current_challenge{ shplonk_batching_challenge * shplonk_batching_challenge };
     for (size_t idx = 0; idx < prover_commitments.size(); ++idx) {
-        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[idx + 2];
+        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[2 * idx + 2];
+        current_challenge *= shplonk_batching_challenge;
+        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[2 * idx + 3];
         current_challenge *= shplonk_batching_challenge;
     }
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverted_gemini_denominators(this->log_n + 1, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
+    Fr expected_constant_term_accumulator{ 0 };
+
+    std::vector<Fr> gemini_fold_pos_evaluations =
+        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(this->log_n,
+                                                             expected_constant_term_accumulator,
+                                                             mle_opening_point,
+                                                             r_squares,
+                                                             prover_evaluations,
+                                                             expected_constant_term_accumulator);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
-    Fr expected_constant_term_accumulator{ 0 };
 
     ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
                                                                 prover_commitments,
                                                                 prover_evaluations,
+                                                                gemini_fold_pos_evaluations,
                                                                 inverse_vanishing_evals,
-                                                                shplonk_batching_challenge,
+                                                                shplonk_batching_challenge_powers,
                                                                 commitments,
                                                                 scalars,
                                                                 expected_constant_term_accumulator);
@@ -323,6 +339,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, const_size_mle_opening_point, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
 
     // Reduce to KZG or IPA based on the curve used in the test Flavor
     const auto opening_claim = ShpleminiProver::prove(this->n,
@@ -357,7 +374,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     EXPECT_EQ(libra_evaluation, claimed_inner_product);
 
     // Finalize the array of Libra/SmallSubgroupIpa commitments
-    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     // Used to verify the consistency of the evaluations of the concatenated libra polynomial, big sum polynomial, and
@@ -430,6 +447,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     // Instantiate SmallSubgroupIPAProver, this prover sends commitments to Big Sum and Quotient polynomials
     SmallSubgroupIPAProver<TypeParam> small_subgroup_ipa_prover(
         zk_sumcheck_data, challenge, claimed_inner_product, prover_transcript, ck);
+    small_subgroup_ipa_prover.prove();
 
     // Reduce proving to a single claimed fed to KZG or IPA
     const auto opening_claim = ShpleminiProver::prove(this->n,
@@ -465,7 +483,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     EXPECT_EQ(libra_evaluation, claimed_inner_product);
 
     // Finalize the array of Libra/SmallSubgroupIpa commitments
-    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+    libra_commitments[1] = verifier_transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
     libra_commitments[2] = verifier_transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
 
     bool consistency_checked = true;

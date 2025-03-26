@@ -138,7 +138,7 @@ Unconstrained functions can be directly called from the contract interface. Noti
 The test environment provides two different ways of creating accounts, depending on the testing needs. For most cases, it is only necessary to obtain a valid `AztecAddress` that represents the user's account contract. For this, is is enough to do:
 
 ```rust
-let mocked_account_address = env.create_account();
+let mocked_account_address = env.create_account(secret);
 ```
 
 These accounts also create the necessary keys to ensure notes can be created/nullified, etc.

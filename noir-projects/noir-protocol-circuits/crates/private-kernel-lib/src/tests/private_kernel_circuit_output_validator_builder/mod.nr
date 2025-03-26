@@ -12,9 +12,11 @@ use dep::types::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputsArrayLengths,
         private_call_request::PrivateCallRequest,
         private_circuit_public_inputs::PrivateCircuitPublicInputsArrayLengths,
+        side_effect::OrderedValue,
     },
-    constants::PRIVATE_KERNEL_INIT_INDEX,
+    constants::{DEFAULT_UPDATE_DELAY, PRIVATE_KERNEL_INIT_INDEX},
     tests::fixture_builder::FixtureBuilder,
+    traits::Empty,
     transaction::tx_request::TxRequest,
 };
 
@@ -33,6 +35,10 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let mut output = FixtureBuilder::new();
         let tx_request = output.build_tx_request();
         output.claimed_first_nullifier = 27;
+        output.set_max_block_number(
+            (previous_kernel.historical_header.global_variables.block_number) as u32
+                + DEFAULT_UPDATE_DELAY,
+        );
         previous_kernel.claimed_first_nullifier = 27;
         previous_kernel = previous_kernel.in_vk_tree(PRIVATE_KERNEL_INIT_INDEX);
 
@@ -74,7 +80,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         let output = self.output.to_private_kernel_circuit_public_inputs();
         PrivateKernelCircuitOutputValidator::new(output).validate_as_first_call(
             self.tx_request,
-            private_call.public_inputs,
+            private_call,
             array_lengths,
             FixtureBuilder::vk_tree_root(),
             self.private_call.protocol_contract_tree_root,
@@ -100,7 +106,7 @@ impl PrivateKernelCircuitOutputValidatorBuilder {
         PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
             previous_kernel,
             previous_kernel_array_lengths,
-            private_call.public_inputs,
+            private_call,
             private_call_array_lengths,
         );
     }

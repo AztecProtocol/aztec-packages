@@ -17,6 +17,7 @@
 .env.test.local
 .env.production.local
 .env
+.yarn
 
 npm-debug.log*
 yarn-debug.log*
@@ -24,4 +25,5 @@ yarn-error.log*
 
 /docs/developers/reference/aztecjs
 /docs/developers/reference/smart_contract_reference/aztec-nr
+/docs/docs/protocol-specs/public-vm/gen
 test-results

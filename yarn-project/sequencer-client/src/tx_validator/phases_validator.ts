@@ -1,21 +1,21 @@
+import { createLogger } from '@aztec/foundation/log';
+import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
-  type AllowedElement,
-  type PublicExecutionRequest,
+  PublicCallRequestWithCalldata,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
   type TxValidator,
-} from '@aztec/circuit-types';
-import { type ContractDataSource } from '@aztec/circuits.js';
-import { createLogger } from '@aztec/foundation/log';
-import { ContractsDataSourcePublicDB, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+} from '@aztec/stdlib/tx';
 
 export class PhasesTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_phases');
-  private contractDataSource: ContractsDataSourcePublicDB;
+  private contractsDB: PublicContractsDB;
 
-  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[]) {
-    this.contractDataSource = new ContractsDataSourcePublicDB(contracts);
+  constructor(contracts: ContractDataSource, private setupAllowList: AllowedElement[], private blockNumber: number) {
+    this.contractsDB = new PublicContractsDB(contracts);
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
@@ -23,20 +23,22 @@ export class PhasesTxValidator implements TxValidator<Tx> {
       // TODO(@spalladino): We add this just to handle public authwit-check calls during setup
       // which are needed for public FPC flows, but fail if the account contract hasnt been deployed yet,
       // which is what we're trying to do as part of the current txs.
-      await this.contractDataSource.addNewContracts(tx);
+      await this.contractsDB.addNewContracts(tx);
 
       if (!tx.data.forPublic) {
-        this.#log.debug(`Tx ${Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`);
+        this.#log.debug(
+          `Tx ${await Tx.getHash(tx)} does not contain enqueued public functions. Skipping phases validation.`,
+        );
         return { result: 'valid' };
       }
 
-      const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+      const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
       for (const setupFn of setupFns) {
         if (!(await this.isOnAllowList(setupFn, this.setupAllowList))) {
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(tx)} because it calls setup function not on allow list: ${
-              setupFn.callContext.contractAddress
-            }:${setupFn.callContext.functionSelector}`,
+            `Rejecting tx ${await Tx.getHash(tx)} because it calls setup function not on allow list: ${
+              setupFn.request.contractAddress
+            }:${setupFn.functionSelector}`,
             { allowList: this.setupAllowList },
           );
 
@@ -46,16 +48,20 @@ export class PhasesTxValidator implements TxValidator<Tx> {
 
       return { result: 'valid' };
     } finally {
-      await this.contractDataSource.removeNewContracts(tx);
+      this.contractsDB.clearContractsForTx();
     }
   }
 
-  async isOnAllowList(publicCall: PublicExecutionRequest, allowList: AllowedElement[]): Promise<boolean> {
+  private async isOnAllowList(
+    publicCall: PublicCallRequestWithCalldata,
+    allowList: AllowedElement[],
+  ): Promise<boolean> {
     if (publicCall.isEmpty()) {
       return true;
     }
 
-    const { contractAddress, functionSelector } = publicCall.callContext;
+    const contractAddress = publicCall.request.contractAddress;
+    const functionSelector = publicCall.functionSelector;
 
     // do these checks first since they don't require the contract class
     for (const entry of allowList) {
@@ -71,21 +77,21 @@ export class PhasesTxValidator implements TxValidator<Tx> {
         }
       }
 
-      const contractClass = await this.contractDataSource.getContractInstance(contractAddress);
+      const contractClass = await this.contractsDB.getContractInstance(contractAddress, this.blockNumber);
 
       if (!contractClass) {
         throw new Error(`Contract not found: ${contractAddress}`);
       }
 
       if ('classId' in entry && !('selector' in entry)) {
-        if (contractClass.contractClassId.equals(entry.classId)) {
+        if (contractClass.currentContractClassId.equals(entry.classId)) {
           return true;
         }
       }
 
       if ('classId' in entry && 'selector' in entry) {
         if (
-          contractClass.contractClassId.equals(entry.classId) &&
+          contractClass.currentContractClassId.equals(entry.classId) &&
           (entry.selector === undefined || entry.selector.equals(functionSelector))
         ) {
           return true;

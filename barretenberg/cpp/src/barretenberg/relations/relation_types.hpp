@@ -21,10 +21,10 @@ namespace bb {
 template <typename Params, typename View>
 using GetParameterView = std::conditional_t<IsField<typename Params::DataType>, typename Params::DataType, View>;
 
-template <typename T, size_t subrelation_idx>
+template <typename T>
 concept HasSubrelationLinearlyIndependentMember = requires(T) {
     {
-        std::get<subrelation_idx>(T::SUBRELATION_LINEARLY_INDEPENDENT)
+        std::get<0>(T::SUBRELATION_LINEARLY_INDEPENDENT)
     } -> std::convertible_to<bool>;
 };
 
@@ -41,7 +41,7 @@ concept HasParameterLengthAdjustmentsMember = requires { T::TOTAL_LENGTH_ADJUSTM
  */
 template <typename Relation, size_t subrelation_index> constexpr bool subrelation_is_linearly_independent()
 {
-    if constexpr (HasSubrelationLinearlyIndependentMember<Relation, subrelation_index>) {
+    if constexpr (HasSubrelationLinearlyIndependentMember<Relation>) {
         return std::get<subrelation_index>(Relation::SUBRELATION_LINEARLY_INDEPENDENT);
     } else {
         return true;

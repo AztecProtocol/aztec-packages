@@ -1,31 +1,29 @@
-import DialogTitle from "@mui/material/DialogTitle";
-import Dialog from "@mui/material/Dialog";
-import { AbiType, AuthWitness, AztecAddress, Contract } from "@aztec/aztec.js";
-import {
-  Button,
-  CircularProgress,
-  FormControl,
-  FormGroup,
-  TextField,
-  Typography,
-  css,
-} from "@mui/material";
-import { useContext, useState } from "react";
-import { AztecContext } from "../../../aztecEnv";
-import { FunctionParameter } from "../../common/fnParameter";
+import DialogTitle from '@mui/material/DialogTitle';
+import Dialog from '@mui/material/Dialog';
+import { type AbiType, AuthWitness, AztecAddress } from '@aztec/aztec.js';
+import Button from '@mui/material/Button';
+import CircularProgress from '@mui/material/CircularProgress';
+import FormControl from '@mui/material/FormControl';
+import FormGroup from '@mui/material/FormGroup';
+import TextField from '@mui/material/TextField';
+import Typography from '@mui/material/Typography';
+import { css } from '@mui/styled-engine';
+import { useContext, useState } from 'react';
+import { AztecContext } from '../../../aztecEnv';
+import { FunctionParameter } from '../../common/fnParameter';
 
 const creationForm = css({
-  display: "flex",
-  flexDirection: "column",
-  gap: "1rem",
-  padding: "1rem",
-  alignItems: "center",
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '1rem',
+  padding: '1rem',
+  alignItems: 'center',
 });
 
 const aztecAddressTypeLike: AbiType = {
-  kind: "struct",
-  path: "address::AztecAddress",
-  fields: [{ name: "inner", type: { kind: "field" } }],
+  kind: 'struct',
+  path: 'address::AztecAddress',
+  fields: [{ name: 'inner', type: { kind: 'field' } }],
 };
 
 export function CreateAuthwitDialog({
@@ -37,12 +35,13 @@ export function CreateAuthwitDialog({
 }: {
   open: boolean;
   fnName: string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any[];
   isPrivate: boolean;
   onClose: (witness?: AuthWitness, alias?: string) => void;
 }) {
-  const [alias, setAlias] = useState("");
-  const [caller, setCaller] = useState("");
+  const [alias, setAlias] = useState('');
+  const [caller, setCaller] = useState('');
   const [creating, setCreating] = useState(false);
 
   const { wallet, currentContract } = useContext(AztecContext);
@@ -63,11 +62,11 @@ export function CreateAuthwitDialog({
     } else {
       const validateActionInteraction = await wallet.setPublicAuthWit(
         { caller: AztecAddress.fromString(caller), action },
-        true
+        true,
       );
       await validateActionInteraction.send().wait();
     }
-    setAlias("");
+    setAlias('');
     setCreating(false);
     onClose(witness, alias);
   };
@@ -83,12 +82,12 @@ export function CreateAuthwitDialog({
           </>
         ) : (
           <>
-            <FormGroup sx={{ display: "flex" }}>
+            <FormGroup sx={{ display: 'flex' }}>
               <FunctionParameter
                 parameter={{
-                  name: "caller",
+                  name: 'caller',
                   type: aztecAddressTypeLike,
-                  visibility: "private",
+                  visibility: 'private',
                 }}
                 onParameterChange={setCaller}
               ></FunctionParameter>
@@ -98,15 +97,15 @@ export function CreateAuthwitDialog({
                     placeholder="Alias"
                     value={alias}
                     label="Alias"
-                    sx={{ marginTop: "1rem" }}
-                    onChange={(event) => {
+                    sx={{ marginTop: '1rem' }}
+                    onChange={event => {
                       setAlias(event.target.value);
                     }}
                   />
                 </FormControl>
               )}
             </FormGroup>
-            <Button disabled={alias === ""} onClick={createAuthwit}>
+            <Button disabled={alias === ''} onClick={createAuthwit}>
               Create
             </Button>
             <Button color="error" onClick={handleClose}>

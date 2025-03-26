@@ -51,6 +51,51 @@ pub fn min(f1: Field, f2: Field) -> Field {
     }
 }
 
+global C1: u32 = 28;
+global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
+global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
+
+pub(crate) fn pow(x: Field, y: Field) -> Field {
+    let mut r = 1 as Field;
+    let b: [u1; 254] = y.to_le_bits();
+
+    for i in 0..254 {
+        r *= r;
+        r *= (b[254 - 1 - i] as Field) * x + (1 - b[254 - 1 - i] as Field);
+    }
+
+    r
+}
+
+// Tonelli-Shanks algorithm for computing the square root of a Field element.
+// Requires C1 = max{c: 2^c divides (p-1)}, where p is the order of Field
+// as well as C3 = (C2 - 1)/2, where C2 = (p-1)/(2^c1),
+// and C5 = ZETA^C2, where ZETA is a non-square element of Field.
+// These are pre-computed above as globals.
+pub(crate) fn sqrt(x: Field) -> Field {
+    let mut z = pow(x, C3);
+    let mut t = z * z * x;
+    z *= x;
+    let mut b = t;
+    let mut c = C5;
+
+    for i in 0..(C1 - 1) {
+        for _j in 1..(C1 - i - 1) {
+            b *= b;
+        }
+
+        z *= if b == 1 { 1 } else { c };
+
+        c *= c;
+
+        t *= if b == 1 { 1 } else { c };
+
+        b = t;
+    }
+
+    z
+}
+
 #[test]
 unconstrained fn bytes_field_test() {
     // Tests correctness of field_from_bytes_32_trunc against existing methods

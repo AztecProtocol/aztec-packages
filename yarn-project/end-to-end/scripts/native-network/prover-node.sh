@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # Get the name of the script without the path and extension
@@ -19,7 +19,7 @@ until [ -f "$REPO"/yarn-project/end-to-end/scripts/native-network/state/l1-contr
 done
 
 # Get the chain ID from the Ethereum node
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
+export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
 source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
 
 echo "Waiting for Aztec Node..."
@@ -50,6 +50,7 @@ export OTEL_RESOURCE_ATTRIBUTES="service.name=prover-node-${PORT}"
 export OTEL_EXPORTER_OTLP_METRICS_ENDPOINT="${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-}"
 export OTEL_EXPORTER_OTLP_TRACES_ENDPOINT="${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-}"
 export OTEL_EXPORTER_OTLP_LOGS_ENDPOINT="${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:-}"
+export TEST_ACCOUNTS="true"
 
 # Start the Prover Node with the prover and archiver
 node --no-warnings "$REPO"/yarn-project/aztec/dest/bin/index.js start --port="$PORT" --prover-node --prover-broker --archiver

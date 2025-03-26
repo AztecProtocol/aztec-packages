@@ -241,7 +241,10 @@ template <class Curve> class CommitmentKey {
         points.reserve(total_num_scalars * 2);
         for (const auto& [first, second] : active_ranges) {
             auto poly_start = &polynomial[first];
-            auto poly_end = &polynomial[second];
+            // Pointer to the first element past the active range. Accessing `&polynomial[second]` directly can trigger
+            // an assertion when `second == polynomial_size`, so we compute the pointer using `polynomial.data()`
+            // to ensure safe range handling.
+            auto poly_end = polynomial.data() + (second - polynomial.start_index);
             scalars.insert(scalars.end(), poly_start, poly_end);
 
             auto pts_start = &point_table[2 * first];

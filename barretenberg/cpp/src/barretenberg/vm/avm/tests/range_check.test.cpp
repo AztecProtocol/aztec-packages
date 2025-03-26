@@ -118,7 +118,7 @@ TEST(AvmRangeCheck, shouldRangeCheck)
         using LookupRelations = std::tuple_element_t<i, AllLookupRelations>;
 
         // Check the logderivative relation
-        bb::compute_logderivative_inverse<AvmFlavor, LookupRelations>(polys, params, num_rows);
+        bb::compute_logderivative_inverse<FF, LookupRelations>(polys, params, num_rows);
 
         typename LookupRelations::SumcheckArrayOfValuesOverSubrelations lookup_result;
 

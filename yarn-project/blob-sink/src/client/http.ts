@@ -1,18 +1,25 @@
-import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/foundation/blob';
+import { Blob, BlobDeserializationError, type BlobJson } from '@aztec/blob-lib';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
+import { bufferToHex } from '@aztec/foundation/string';
 
+import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
+
+import { createBlobArchiveClient } from '../archive/factory.js';
+import type { BlobArchiveClient } from '../archive/interface.js';
 import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
-import { type BlobSinkClientInterface } from './interface.js';
+import type { BlobSinkClientInterface } from './interface.js';
 
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
-  private readonly log: Logger;
-  private readonly config: BlobSinkConfig;
-  private readonly fetch: typeof fetch;
+  protected readonly log: Logger;
+  protected readonly config: BlobSinkConfig;
+  protected readonly archiveClient: BlobArchiveClient | undefined;
+  protected readonly fetch: typeof fetch;
 
   constructor(config?: BlobSinkConfig) {
     this.config = config ?? getBlobSinkConfigFromEnv();
+    this.archiveClient = createBlobArchiveClient(this.config);
     this.log = createLogger('aztec:blob-sink-client');
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
@@ -53,7 +60,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         return true;
       }
 
-      this.log.error('Failed to send blobs to blob sink', res.status);
+      this.log.error('Failed to send blobs to blob sink', { status: res.status });
       return false;
     } catch (err) {
       this.log.warn(`Blob sink url configured, but unable to send blobs`, {
@@ -71,44 +78,62 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * If requesting from the beacon node, we send the slot number
    *
    * 1. First atttempts to get blobs from a configured blob sink
-   * 2. If no blob sink is configured, attempts to get blobs from a configured consensus host
-
-   * // TODO(md): blow up?
-   * 3. If none configured, fails
+   * 2. On failure, attempts to get blobs from a configured consensus host
+   * 3. On failure, attempts to get blobs from an archive client (eg blobscan)
+   * 4. Else, fails
    *
    * @param blockHash - The block hash
    * @param indices - The indices of the blobs to get
    * @returns The blobs
    */
-  public async getBlobSidecar(blockHash: string, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
+  public async getBlobSidecar(blockHash: `0x${string}`, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
     let blobs: Blob[] = [];
 
-    if (this.config.blobSinkUrl) {
-      this.log.debug('Getting blob sidecar from blob sink');
-      blobs = await this.getBlobSidecarFrom(this.config.blobSinkUrl, blockHash, blobHashes, indices);
-      this.log.debug(`Got ${blobs.length} blobs from blob sink`);
+    const { blobSinkUrl, l1ConsensusHostUrl } = this.config;
+    const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
+
+    if (blobSinkUrl) {
+      this.log.trace(`Attempting to get blobs from blob sink`, { blobSinkUrl, ...ctx });
+      blobs = await this.getBlobSidecarFrom(blobSinkUrl, blockHash, blobHashes, indices);
+      this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
       if (blobs.length > 0) {
         return blobs;
       }
     }
 
-    if (blobs.length == 0 && this.config.l1ConsensusHostUrl) {
+    if (blobs.length == 0 && l1ConsensusHostUrl) {
       // The beacon api can query by slot number, so we get that first
-      this.log.debug('Getting slot number from consensus host', {
-        blockHash,
-        consensusHostUrl: this.config.l1ConsensusHostUrl,
-      });
+      const consensusCtx = { l1ConsensusHostUrl, ...ctx };
+      this.log.trace(`Attempting to get slot number for block hash`, consensusCtx);
       const slotNumber = await this.getSlotNumber(blockHash);
+      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, consensusCtx);
       if (slotNumber) {
-        const blobs = await this.getBlobSidecarFrom(this.config.l1ConsensusHostUrl, slotNumber, blobHashes, indices);
-        this.log.debug(`Got ${blobs.length} blobs from consensus host`);
+        this.log.trace(`Attempting to get blobs from consensus host`, { slotNumber, ...consensusCtx });
+        const blobs = await this.getBlobSidecarFrom(l1ConsensusHostUrl, slotNumber, blobHashes, indices);
+        this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, ...consensusCtx });
         if (blobs.length > 0) {
           return blobs;
         }
       }
     }
 
-    this.log.verbose('No blob sources available');
+    if (blobs.length == 0 && this.archiveClient) {
+      const archiveCtx = { archiveUrl: this.archiveClient.getBaseUrl(), ...ctx };
+      this.log.trace(`Attempting to get blobs from archive`, archiveCtx);
+      const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
+      if (!allBlobs) {
+        this.log.debug('No blobs found from archive client', archiveCtx);
+        return [];
+      }
+      this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
+      blobs = await getRelevantBlobs(allBlobs, blobHashes, this.log);
+      this.log.debug(`Got ${blobs.length} blobs from archive client`, archiveCtx);
+      if (blobs.length > 0) {
+        return blobs;
+      }
+    }
+
+    this.log.debug('No blob sources available');
     return [];
   }
 
@@ -117,6 +142,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     blockHashOrSlot: string | number,
     blobHashes: Buffer[],
     indices?: number[],
+    maxRetries = 10,
   ): Promise<Blob[]> {
     try {
       let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
@@ -126,45 +152,26 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
       const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config);
 
-      this.log.debug(`Fetching blob sidecar from ${url} with options`, options);
-
+      this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
       const res = await this.fetch(url, options);
 
       if (res.ok) {
         const body = await res.json();
-        const preFilteredBlobsPromise = body.data
-          // Filter out blobs that did not come from our rollup
-          .filter((b: BlobJson) => {
-            const committment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
-            const blobHash = Blob.getEthVersionedBlobHash(committment);
-            return blobHashes.some(hash => hash.equals(blobHash));
-          })
-          // Attempt to deserialise the blob
-          // If we cannot decode it, then it is malicious and we should not use it
-          .map(async (b: BlobJson): Promise<Blob | undefined> => {
-            try {
-              return await Blob.fromJson(b);
-            } catch (err) {
-              if (err instanceof BlobDeserializationError) {
-                this.log.warn(`Failed to deserialise blob`, { commitment: b.kzg_commitment });
-                return undefined;
-              }
-              throw err;
-            }
-          });
-
-        // Second map is async, so we need to await it
-        const preFilteredBlobs = await Promise.all(preFilteredBlobsPromise);
-
-        // Filter out blobs that did not deserialise
-        const filteredBlobs = preFilteredBlobs.filter((b: Blob | undefined) => {
-          return b !== undefined;
-        });
-
-        return filteredBlobs;
+        const blobs = await getRelevantBlobs(body.data, blobHashes, this.log);
+        return blobs;
+      } else if (res.status === 404) {
+        // L1 slot may have been missed, try next few
+        if (typeof blockHashOrSlot === 'number' && maxRetries > 0) {
+          const nextSlot = Number(blockHashOrSlot) + 1;
+          this.log.debug(`L1 slot ${blockHashOrSlot} not found, trying next slot ${nextSlot}`);
+          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1);
+        }
       }
 
-      this.log.debug(`Unable to get blob sidecar`, res.status);
+      this.log.debug(`Unable to get blob sidecar for ${blockHashOrSlot}`, {
+        status: res.status,
+        statusText: res.statusText,
+      });
       return [];
     } catch (err: any) {
       this.log.warn(`Unable to get blob sidecar from ${hostUrl}`, err.message);
@@ -186,36 +193,30 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @param blockHash - The block hash
    * @returns The slot number
    */
-  private async getSlotNumber(blockHash: string): Promise<number | undefined> {
+  private async getSlotNumber(blockHash: `0x${string}`): Promise<number | undefined> {
     if (!this.config.l1ConsensusHostUrl) {
       this.log.debug('No consensus host url configured');
       return undefined;
     }
 
-    if (!this.config.l1RpcUrl) {
+    if (!this.config.l1RpcUrls) {
       this.log.debug('No execution host url configured');
       return undefined;
     }
 
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
+    const client = createPublicClient({
+      transport: fallback(this.config.l1RpcUrls.map(url => http(url))),
+    });
     try {
-      const res = await this.fetch(`${this.config.l1RpcUrl}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'eth_getBlockByHash',
-          params: [blockHash, /*tx flag*/ false],
-          id: 1,
-        }),
+      const res: RpcBlock = await client.request({
+        method: 'eth_getBlockByHash',
+        params: [blockHash, /*tx flag*/ false],
       });
 
-      if (res.ok) {
-        const body = await res.json();
-        parentBeaconBlockRoot = body.result.parentBeaconBlockRoot;
+      if (res.parentBeaconBlockRoot) {
+        parentBeaconBlockRoot = res.parentBeaconBlockRoot;
       }
     } catch (err) {
       this.log.error(`Error getting parent beacon block root`, err);
@@ -248,10 +249,48 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   }
 }
 
+async function getRelevantBlobs(data: any, blobHashes: Buffer[], logger: Logger): Promise<Blob[]> {
+  const preFilteredBlobsPromise = data
+    // Filter out blobs that did not come from our rollup
+    .filter((b: BlobJson) => {
+      const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
+      const blobHash = Blob.getEthVersionedBlobHash(commitment);
+      logger.trace(`Filtering blob with hash ${blobHash.toString('hex')}`);
+      return blobHashes.some(hash => hash.equals(blobHash));
+    })
+    // Attempt to deserialise the blob
+    // If we cannot decode it, then it is malicious and we should not use it
+    .map(async (b: BlobJson): Promise<Blob | undefined> => {
+      try {
+        return await Blob.fromJson(b);
+      } catch (err) {
+        if (err instanceof BlobDeserializationError) {
+          logger.warn(`Failed to deserialise blob`, { commitment: b.kzg_commitment });
+          return undefined;
+        }
+        throw err;
+      }
+    });
+
+  // Second map is async, so we need to await it
+  const preFilteredBlobs = await Promise.all(preFilteredBlobsPromise);
+
+  // Filter out blobs that did not deserialise
+  const filteredBlobs = preFilteredBlobs.filter((b: Blob | undefined) => {
+    return b !== undefined;
+  });
+
+  return filteredBlobs;
+}
+
 function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
   let formattedUrl = url;
   if (config.l1ConsensusHostApiKey && !config.l1ConsensusHostApiKeyHeader) {
     formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${config.l1ConsensusHostApiKey}`;
+  }
+  // check if l1ConsensusHostUrl has a trailing '/' and remove it
+  if (config.l1ConsensusHostUrl && config.l1ConsensusHostUrl.endsWith('/')) {
+    config.l1ConsensusHostUrl = config.l1ConsensusHostUrl.slice(0, -1);
   }
   return {
     url: formattedUrl,

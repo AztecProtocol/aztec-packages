@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DecoderBase} from "../decoders/Base.sol";
+import {DecoderBase} from "../base/DecoderBase.sol";
 
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -12,15 +12,13 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, Config} from "@aztec/core/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
-import {
-  ProposeArgs, OracleInput, ProposeLib
-} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
@@ -102,18 +100,9 @@ contract ValidatorSelectionTest is DecoderBase {
       _fpcJuicePortal: new MockFeeJuicePortal(),
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
-      _vkTreeRoot: bytes32(0),
-      _protocolContractTreeRoot: bytes32(0),
-      _ares: address(this),
-      _config: Config({
-        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecEpochProofClaimWindowInL2Slots: TestConstants.AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-      })
+      _governance: address(this),
+      _genesisState: TestConstants.getGenesisState(),
+      _config: TestConstants.getRollupConfigInput()
     });
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
@@ -122,8 +111,8 @@ contract ValidatorSelectionTest is DecoderBase {
     testERC20.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * _validatorCount);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
-    inbox = Inbox(address(rollup.INBOX()));
-    outbox = Outbox(address(rollup.OUTBOX()));
+    inbox = Inbox(address(rollup.getInbox()));
+    outbox = Outbox(address(rollup.getOutbox()));
 
     merkleTestUtil = new MerkleTestUtil();
 
@@ -267,7 +256,7 @@ contract ValidatorSelectionTest is DecoderBase {
       header: header,
       archive: full.block.archive,
       blockHash: bytes32(0),
-      oracleInput: OracleInput(0, 0),
+      oracleInput: OracleInput(0),
       txHashes: txHashes
     });
 
@@ -313,14 +302,14 @@ contract ValidatorSelectionTest is DecoderBase {
 
       emit log("Time to propose");
       vm.prank(ree.proposer);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
 
       if (ree.shouldRevert) {
         return;
       }
     } else {
       Signature[] memory signatures = new Signature[](0);
-      rollup.propose(args, signatures, full.block.body, full.block.blobInputs);
+      rollup.propose(args, signatures, full.block.blobInputs);
     }
 
     assertEq(_expectRevert, ree.shouldRevert, "Does not match revert expectation");

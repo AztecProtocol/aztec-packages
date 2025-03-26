@@ -1,6 +1,6 @@
-import { type AccountManager, type DeployAccountOptions } from '@aztec/aztec.js';
+import type { AccountManager, DeployAccountOptions } from '@aztec/aztec.js';
 import { prettyPrintJSON } from '@aztec/cli/cli-utils';
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
@@ -27,7 +27,7 @@ export async function deployAccount(
   } else {
     log(`\nNew account:\n`);
     log(`Address:         ${address.toString()}`);
-    log(`Public key:      0x${publicKeys.toString()}`);
+    log(`Public key:      ${publicKeys.toString()}`);
     if (secretKey) {
       log(`Secret key:     ${secretKey.toString()}`);
     }
@@ -40,12 +40,13 @@ export async function deployAccount(
   let tx;
   let txReceipt;
 
-  const sendOpts: DeployAccountOptions = {
-    ...(await feeOpts.toSendOpts(wallet)),
+  const deployOpts: DeployAccountOptions = {
     skipInitialization: false,
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
+
   if (feeOpts.estimateOnly) {
-    const gas = await (await account.getDeployMethod()).estimateGas({ ...sendOpts });
+    const gas = await account.estimateDeploymentGas(deployOpts);
     if (json) {
       out.fee = {
         gasLimits: {
@@ -61,7 +62,7 @@ export async function deployAccount(
       printGasEstimates(feeOpts, gas, log);
     }
   } else {
-    tx = account.deploy({ ...sendOpts });
+    tx = account.deploy(deployOpts);
     const txHash = await tx.getTxHash();
     debugLogger.debug(`Account contract tx sent with hash ${txHash}`);
     out.txHash = txHash;

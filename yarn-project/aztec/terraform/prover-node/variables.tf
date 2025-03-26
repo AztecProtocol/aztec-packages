@@ -7,7 +7,7 @@ variable "IMAGE_TAG" {
   default = "latest"
 }
 
-variable "ETHEREUM_HOST" {
+variable "ETHEREUM_HOSTS" {
   type    = string
   default = ""
 }
@@ -39,11 +39,6 @@ variable "NODE_P2P_UDP_PORT" {
 
 variable "DOCKERHUB_ACCOUNT" {
   type = string
-}
-
-variable "P2P_MIN_PEERS" {
-  type    = string
-  default = 5
 }
 
 variable "P2P_MAX_PEERS" {

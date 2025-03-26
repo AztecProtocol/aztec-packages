@@ -1,5 +1,7 @@
-import { type AnyTx, type Tx, mockTx, mockTxForRollup } from '@aztec/circuit-types';
-import { Fr, MaxBlockNumber } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
+import type { AnyTx, Tx } from '@aztec/stdlib/tx';
+import { MaxBlockNumber } from '@aztec/stdlib/tx';
 
 import { MetadataTxValidator } from './metadata_validator.js';
 

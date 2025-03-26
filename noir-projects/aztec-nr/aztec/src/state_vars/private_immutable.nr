@@ -8,7 +8,7 @@ use crate::note::{
     lifecycle::create_note,
     note_emission::NoteEmission,
     note_getter::{get_note, view_notes},
-    note_interface::{NoteInterface, NullifiableNote},
+    note_interface::{NoteHash, NoteType},
     note_viewer_options::NoteViewerOptions,
 };
 use crate::oracle::notes::check_nullifier_exists;
@@ -54,9 +54,9 @@ impl<Note, Context> PrivateImmutable<Note, Context> {
 
 impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:initialize
-    pub fn initialize<let N: u32>(self, note: &mut Note) -> NoteEmission<Note>
+    pub fn initialize<let N: u32>(self, note: Note) -> NoteEmission<Note>
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         // Nullify the storage slot.
         let nullifier = self.compute_initialization_nullifier();
@@ -69,15 +69,23 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:start:get_note
     pub fn get_note<let N: u32>(self) -> Note
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteType + NoteHash + Packable<N>,
     {
         let storage_slot = self.storage_slot;
-        get_note(self.context, storage_slot).0
+        let retrieved_note = get_note(self.context, storage_slot).0;
+
+        // Because the notes obtained from PrivateImmutable are not meant to be nullified and get_note(...) function
+        // has already constrained the note (by pushing a read request to the context), we can return just the note
+        // and skip the additional data in RetrievedNote.
+        retrieved_note.note
     }
     // docs:end:get_note
 }
 
-impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
+impl<Note, let N: u32> PrivateImmutable<Note, UnconstrainedContext>
+where
+    Note: NoteType + NoteHash + Packable<N> + Eq,
+{
     // docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
@@ -87,10 +95,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    pub unconstrained fn view_note<let N: u32>(self) -> Note
-    where
-        Note: NoteInterface<N> + NullifiableNote,
-    {
+    pub unconstrained fn view_note(self) -> Note {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

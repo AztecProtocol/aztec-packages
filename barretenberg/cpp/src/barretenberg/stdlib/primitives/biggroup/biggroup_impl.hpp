@@ -836,15 +836,28 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::batch_mul(const std::vector<element
         return accumulator;
     }
 }
-
 /**
- * Implements scalar multiplication.
- *
- * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
- **/
+ * Implements scalar multiplication operator.
+ */
 template <typename C, class Fq, class Fr, class G>
 element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
 {
+    // Use `scalar_mul` method without specifying the length of `scalar`.
+    return scalar_mul(scalar);
+}
+
+template <typename C, class Fq, class Fr, class G>
+/**
+ * @brief Implements scalar multiplication that supports short scalars.
+ * For multiple scalar multiplication use one of the `batch_mul` methods to save gates.
+ * @param scalar A field element. If `max_num_bits`>0, the length of the scalar must not exceed `max_num_bits`.
+ * @param max_num_bits Even integer < 254. Default value 0 corresponds to scalar multiplication by scalars of
+ * unspecified length.
+ * @return element<C, Fq, Fr, G>
+ */
+element<C, Fq, Fr, G> element<C, Fq, Fr, G>::scalar_mul(const Fr& scalar, const size_t max_num_bits) const
+{
+    ASSERT(max_num_bits % 2 == 0);
     /**
      *
      * Let's say we have some curve E defined over a field Fq. The order of E is p, which is prime.
@@ -868,27 +881,31 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator*(const Fr& scalar) const
      * specifics.
      *
      **/
+    OriginTag tag{};
+    tag = OriginTag(tag, OriginTag(this->get_origin_tag(), scalar.get_origin_tag()));
 
-    constexpr uint64_t num_rounds = Fr::modulus.get_msb() + 1;
+    bool_ct is_point_at_infinity = this->is_point_at_infinity();
 
-    std::vector<bool_ct> naf_entries = compute_naf(scalar);
+    const size_t num_rounds = (max_num_bits == 0) ? Fr::modulus.get_msb() + 1 : max_num_bits;
 
-    const auto offset_generators = compute_offset_generators(num_rounds);
+    element result;
+    if (max_num_bits != 0) {
+        // The case of short scalars
+        result = element::bn254_endo_batch_mul({}, {}, { *this }, { scalar }, num_rounds);
+    } else {
+        // The case of arbitrary length scalars
+        result = element::bn254_endo_batch_mul({ *this }, { scalar }, {}, {}, num_rounds);
+    };
 
-    element accumulator = *this + offset_generators.first;
+    // Handle point at infinity
+    result.x = Fq::conditional_assign(is_point_at_infinity, x, result.x);
+    result.y = Fq::conditional_assign(is_point_at_infinity, y, result.y);
 
-    for (size_t i = 1; i < num_rounds; ++i) {
-        bool_ct predicate = naf_entries[i];
-        bigfield y_test = y.conditional_negate(predicate);
-        element to_add(x, y_test);
-        accumulator = accumulator.montgomery_ladder(to_add);
-    }
+    result.set_point_at_infinity(is_point_at_infinity);
 
-    element skew_output = accumulator - (*this);
+    // Propagate the origin tag
+    result.set_origin_tag(tag);
 
-    Fq out_x = accumulator.x.conditional_select(skew_output.x, naf_entries[num_rounds]);
-    Fq out_y = accumulator.y.conditional_select(skew_output.y, naf_entries[num_rounds]);
-
-    return element(out_x, out_y) - element(offset_generators.second);
+    return result;
 }
 } // namespace bb::stdlib::element_default

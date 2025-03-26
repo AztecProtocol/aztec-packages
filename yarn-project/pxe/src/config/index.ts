@@ -1,4 +1,4 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -7,7 +7,10 @@ import {
   parseBooleanEnv,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type Network } from '@aztec/types/network';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import type { Network } from '@aztec/stdlib/network';
+
+export { getPackageInfo } from './package_info.js';
 
 /**
  * Temporary configuration until WASM can be used instead of native
@@ -33,7 +36,7 @@ export interface PXEConfig {
   l2StartingBlock: number;
 }
 
-export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig;
+export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig;
 
 export type CliPXEOptions = {
   /** External Aztec network to connect to. e.g. devnet */
@@ -46,6 +49,7 @@ export type CliPXEOptions = {
 
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...dataConfigMappings,
+  ...chainConfigMappings,
   l2StartingBlock: {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),
@@ -67,7 +71,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(true),
   },
 };
 
@@ -103,6 +107,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
+    defaultValue: true,
   },
 };
 

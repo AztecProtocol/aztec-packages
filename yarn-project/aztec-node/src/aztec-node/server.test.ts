@@ -1,27 +1,25 @@
 import { TestCircuitVerifier } from '@aztec/bb-prover';
-import {
-  type AztecNode,
-  type L1ToL2MessageSource,
-  type L2BlockSource,
-  type L2LogsSource,
-  MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type NullifierWithBlockSource,
-  type WorldStateSynchronizer,
-  mockTxForRollup,
-} from '@aztec/circuit-types';
-import {
-  type ContractDataSource,
-  EthAddress,
-  Fr,
-  GasFees,
-  MaxBlockNumber,
-  RollupValidationRequests,
-} from '@aztec/circuits.js';
-import { type P2P } from '@aztec/p2p';
-import { type GlobalVariableBuilder } from '@aztec/sequencer-client';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import type { P2P } from '@aztec/p2p';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
+import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import { RollupValidationRequests } from '@aztec/stdlib/kernel';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { mockTx } from '@aztec/stdlib/testing';
+import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/stdlib/tx';
 
+import { readFileSync } from 'fs';
 import { type MockProxy, mock } from 'jest-mock-extended';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
 
 import { type AztecNodeConfig, getConfigEnvVars } from './config.js';
 import { AztecNodeService } from './server.js';
@@ -30,15 +28,28 @@ describe('aztec node', () => {
   let p2p: MockProxy<P2P>;
   let globalVariablesBuilder: MockProxy<GlobalVariableBuilder>;
   let merkleTreeOps: MockProxy<MerkleTreeReadOperations>;
-
+  let l2BlockSource: MockProxy<L2BlockSource>;
   let lastBlockNumber: number;
-
   let node: AztecNode;
+  let feePayer: AztecAddress;
 
   const chainId = new Fr(12345);
 
-  beforeEach(() => {
+  const mockTxForRollup = async (seed: number) => {
+    return await mockTx(seed, {
+      numberOfNonRevertiblePublicCallRequests: 0,
+      numberOfRevertiblePublicCallRequests: 0,
+      feePayer,
+    });
+  };
+
+  beforeEach(async () => {
     lastBlockNumber = 0;
+
+    feePayer = await AztecAddress.random();
+    const feePayerSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    const feePayerSlotIndex = 87654n;
+    const feePayerBalance = 10n ** 20n;
 
     p2p = mock<P2P>();
 
@@ -53,14 +64,29 @@ describe('aztec node', () => {
         return Promise.resolve([undefined]);
       }
     });
+    merkleTreeOps.getPreviousValueIndex.mockImplementation((treeId: MerkleTreeId, value: bigint) => {
+      if (treeId === MerkleTreeId.PUBLIC_DATA_TREE && value === feePayerSlot.toBigInt()) {
+        return Promise.resolve({ index: feePayerSlotIndex, alreadyPresent: true });
+      } else {
+        return Promise.resolve(undefined);
+      }
+    });
+    merkleTreeOps.getLeafPreimage.mockImplementation((treeId: MerkleTreeId, index: bigint) => {
+      if (treeId === MerkleTreeId.PUBLIC_DATA_TREE && index === feePayerSlotIndex) {
+        return Promise.resolve(
+          new PublicDataTreeLeafPreimage(feePayerSlot, new Fr(feePayerBalance), Fr.random(), feePayerSlotIndex + 1n),
+        );
+      } else {
+        return Promise.resolve(undefined);
+      }
+    });
 
     const worldState = mock<WorldStateSynchronizer>({
       getCommitted: () => merkleTreeOps,
     });
 
-    const l2BlockSource = mock<L2BlockSource>({
-      getBlockNumber: () => Promise.resolve(lastBlockNumber),
-    });
+    l2BlockSource = mock<L2BlockSource>();
+    l2BlockSource.getBlockNumber.mockImplementation(() => Promise.resolve(lastBlockNumber));
 
     const l2LogsSource = mock<L2LogsSource>();
 
@@ -68,8 +94,6 @@ describe('aztec node', () => {
 
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
-
-    const nullifierWithBlockSource = mock<NullifierWithBlockSource>();
 
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
@@ -89,8 +113,8 @@ describe('aztec node', () => {
       l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
-      nullifierWithBlockSource,
       worldState,
+      undefined,
       undefined,
       12345,
       1,
@@ -178,6 +202,59 @@ describe('aztec node', () => {
       });
       // Tx with max block number >= current block number should be valid
       expect(await node.isValidTx(validMaxBlockNumberMetadata)).toEqual({ result: 'valid' });
+    });
+  });
+
+  describe('Node Info', () => {
+    it('returns the correct node version', async () => {
+      const releasePleaseVersionFile = readFileSync(
+        resolve(dirname(fileURLToPath(import.meta.url)), '../../../../.release-please-manifest.json'),
+      ).toString();
+      const releasePleaseVersion = JSON.parse(releasePleaseVersionFile)['.'];
+
+      const nodeInfo = await node.getNodeInfo();
+      expect(nodeInfo.nodeVersion).toBe(releasePleaseVersion);
+    });
+  });
+
+  describe('getters', () => {
+    describe('getBlockHeader', () => {
+      let initialHeader: BlockHeader;
+      let header1: BlockHeader;
+      let header2: BlockHeader;
+
+      beforeEach(() => {
+        initialHeader = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(0) }) });
+        header1 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(1) }) });
+        header2 = BlockHeader.empty({ globalVariables: GlobalVariables.empty({ blockNumber: new Fr(2) }) });
+
+        merkleTreeOps.getInitialHeader.mockReturnValue(initialHeader);
+        l2BlockSource.getBlockNumber.mockResolvedValue(2);
+      });
+
+      it('returns requested block number', async () => {
+        l2BlockSource.getBlockHeader.mockResolvedValue(header1);
+        expect(await node.getBlockHeader(1)).toEqual(header1);
+      });
+
+      it('returns latest', async () => {
+        l2BlockSource.getBlockHeader.mockResolvedValue(header2);
+        expect(await node.getBlockHeader('latest')).toEqual(header2);
+      });
+
+      it('returns initial header on zero', async () => {
+        expect(await node.getBlockHeader(0)).toEqual(initialHeader);
+      });
+
+      it('returns initial header if no blocks mined', async () => {
+        l2BlockSource.getBlockNumber.mockResolvedValue(0);
+        expect(await node.getBlockHeader('latest')).toEqual(initialHeader);
+      });
+
+      it('returns undefined for non-existent block', async () => {
+        l2BlockSource.getBlockHeader.mockResolvedValue(undefined);
+        expect(await node.getBlockHeader(3)).toEqual(undefined);
+      });
     });
   });
 });

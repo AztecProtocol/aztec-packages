@@ -41,7 +41,7 @@ pub fn generate_fake_client_ivc_vk_for_index(
     VerificationKey { key, hash: verification_key_hash(key) }
 }
 
-pub fn get_vk_merkle_tree() -> MerkleTree<VK_TREE_WIDTH> {
+pub global VK_MERKLE_TREE: MerkleTree<VK_TREE_WIDTH> = {
     let mut leaves = [0; VK_TREE_WIDTH];
 
     // Fake VK hashes for testing purposes
@@ -76,4 +76,4 @@ pub fn get_vk_merkle_tree() -> MerkleTree<VK_TREE_WIDTH> {
         generate_fake_rollup_honk_vk_for_index(BLOCK_ROOT_ROLLUP_EMPTY_INDEX).hash;
 
     MerkleTree::new(leaves)
-}
+};

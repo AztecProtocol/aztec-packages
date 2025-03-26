@@ -1,10 +1,11 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
-import { CompleteAddress, type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
-import { Fr } from '@aztec/foundation/fields';
-import { type SpamContract } from '@aztec/noir-contracts.js/Spam';
-import { createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe';
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import type { InitialAccountData } from '@aztec/accounts/testing';
+import type { AztecNodeService } from '@aztec/aztec-node';
+import { type Logger, type SentTx, TxStatus } from '@aztec/aztec.js';
+import type { SpamContract } from '@aztec/noir-contracts.js/Spam';
+import { createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
 
-import { type NodeContext } from '../fixtures/setup_p2p_test.js';
+import type { NodeContext } from '../fixtures/setup_p2p_test.js';
 import { submitTxsTo } from '../shared/submit-transactions.js';
 
 // submits a set of transactions to the provided Private eXecution Environment (PXE)
@@ -43,18 +44,24 @@ export const createPXEServiceAndSubmitTransactions = async (
   logger: Logger,
   node: AztecNodeService,
   numTxs: number,
+  fundedAccount: InitialAccountData,
 ): Promise<NodeContext> => {
   const rpcConfig = getRpcConfig();
+  rpcConfig.proverEnabled = false;
   const pxeService = await createPXEService(node, rpcConfig, true);
 
-  const secretKey = Fr.random();
-  const completeAddress = await CompleteAddress.fromSecretKeyAndPartialAddress(secretKey, Fr.random());
-  await pxeService.registerAccount(secretKey, completeAddress.partialAddress);
+  const account = await getSchnorrAccount(
+    pxeService,
+    fundedAccount.secret,
+    fundedAccount.signingKey,
+    fundedAccount.salt,
+  );
+  await account.register();
+  const wallet = await account.getWallet();
 
-  const txs = await submitTxsTo(pxeService, numTxs, logger);
+  const txs = await submitTxsTo(pxeService, numTxs, wallet, logger);
   return {
     txs,
-    account: completeAddress.address,
     pxeService,
     node,
   };

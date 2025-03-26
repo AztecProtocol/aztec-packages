@@ -3,7 +3,8 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../harnesses/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
@@ -21,7 +22,6 @@ import {UniswapPortal} from "./UniswapPortal.sol";
 
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
 
 contract UniswapPortalTest is Test {
@@ -58,7 +58,12 @@ contract UniswapPortalTest is Test {
     registry = new Registry(address(this));
     RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, DAI, bytes32(0), bytes32(0), address(this)
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      DAI,
+      address(this),
+      TestConstants.getGenesisState(),
+      TestConstants.getRollupConfigInput()
     );
     registry.upgrade(address(rollup));
 
@@ -80,7 +85,7 @@ contract UniswapPortalTest is Test {
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
 
-    outbox = rollup.OUTBOX();
+    outbox = rollup.getOutbox();
   }
 
   /**

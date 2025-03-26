@@ -109,7 +109,7 @@ TEST(AvmMerkleTree, shouldCheckMembership)
     using PermRelations = perm_merkle_poseidon2_relation<FF>;
 
     // Check the logderivative relation
-    bb::compute_logderivative_inverse<AvmFlavor, PermRelations>(polys, params, num_rows);
+    bb::compute_logderivative_inverse<FF, PermRelations>(polys, params, num_rows);
 
     typename PermRelations::SumcheckArrayOfValuesOverSubrelations lookup_result;
 

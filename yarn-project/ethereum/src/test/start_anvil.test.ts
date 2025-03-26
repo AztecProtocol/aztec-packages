@@ -1,4 +1,5 @@
 import { times } from '@aztec/foundation/collection';
+import { createLogger } from '@aztec/foundation/log';
 
 import { createPublicClient, http } from 'viem';
 
@@ -21,7 +22,7 @@ describe('start_anvil', () => {
     expect(chainId).toEqual(31337);
     expect(anvil.status).toEqual('listening');
 
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
     expect(anvil.status).toEqual('idle');
   });
 

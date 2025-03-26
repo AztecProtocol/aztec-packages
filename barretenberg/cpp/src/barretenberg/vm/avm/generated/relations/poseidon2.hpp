@@ -387,782 +387,716 @@ template <typename FF_> class poseidon2Impl {
             uint256_t{ 1233442753680249567UL, 15490006495937952898UL, 7249042245074469654UL, 2138985910652398451UL });
         const auto poseidon2_params_C_63_3 =
             FF(uint256_t{ 4115849303762846724UL, 2230284817967990783UL, 5095423606777193313UL, 1685862792723606183UL });
-        const auto poseidon2_EXT_LAYER_0 = (new_term.poseidon2_a_0 + new_term.poseidon2_a_1);
-        const auto poseidon2_EXT_LAYER_1 = (new_term.poseidon2_a_2 + new_term.poseidon2_a_3);
-        const auto poseidon2_EXT_LAYER_2 = ((FF(2) * new_term.poseidon2_a_1) + poseidon2_EXT_LAYER_1);
-        const auto poseidon2_EXT_LAYER_3 = ((FF(2) * new_term.poseidon2_a_3) + poseidon2_EXT_LAYER_0);
-        const auto poseidon2_ARK_0_0 = (new_term.poseidon2_EXT_LAYER_6 + poseidon2_params_C_0_0);
-        const auto poseidon2_ARK_0_1 = (new_term.poseidon2_EXT_LAYER_5 + poseidon2_params_C_0_1);
-        const auto poseidon2_ARK_0_2 = (new_term.poseidon2_EXT_LAYER_7 + poseidon2_params_C_0_2);
-        const auto poseidon2_ARK_0_3 = (new_term.poseidon2_EXT_LAYER_4 + poseidon2_params_C_0_3);
+        const auto poseidon2_EXT_LAYER_0 = new_term.poseidon2_a_0 + new_term.poseidon2_a_1;
+        const auto poseidon2_EXT_LAYER_1 = new_term.poseidon2_a_2 + new_term.poseidon2_a_3;
+        const auto poseidon2_EXT_LAYER_2 = FF(2) * new_term.poseidon2_a_1 + poseidon2_EXT_LAYER_1;
+        const auto poseidon2_EXT_LAYER_3 = FF(2) * new_term.poseidon2_a_3 + poseidon2_EXT_LAYER_0;
+        const auto poseidon2_ARK_0_0 = new_term.poseidon2_EXT_LAYER_6 + poseidon2_params_C_0_0;
+        const auto poseidon2_ARK_0_1 = new_term.poseidon2_EXT_LAYER_5 + poseidon2_params_C_0_1;
+        const auto poseidon2_ARK_0_2 = new_term.poseidon2_EXT_LAYER_7 + poseidon2_params_C_0_2;
+        const auto poseidon2_ARK_0_3 = new_term.poseidon2_EXT_LAYER_4 + poseidon2_params_C_0_3;
         const auto poseidon2_A_0_0 =
-            ((((poseidon2_ARK_0_0 * poseidon2_ARK_0_0) * poseidon2_ARK_0_0) * poseidon2_ARK_0_0) * poseidon2_ARK_0_0);
+            poseidon2_ARK_0_0 * poseidon2_ARK_0_0 * poseidon2_ARK_0_0 * poseidon2_ARK_0_0 * poseidon2_ARK_0_0;
         const auto poseidon2_A_0_1 =
-            ((((poseidon2_ARK_0_1 * poseidon2_ARK_0_1) * poseidon2_ARK_0_1) * poseidon2_ARK_0_1) * poseidon2_ARK_0_1);
+            poseidon2_ARK_0_1 * poseidon2_ARK_0_1 * poseidon2_ARK_0_1 * poseidon2_ARK_0_1 * poseidon2_ARK_0_1;
         const auto poseidon2_A_0_2 =
-            ((((poseidon2_ARK_0_2 * poseidon2_ARK_0_2) * poseidon2_ARK_0_2) * poseidon2_ARK_0_2) * poseidon2_ARK_0_2);
+            poseidon2_ARK_0_2 * poseidon2_ARK_0_2 * poseidon2_ARK_0_2 * poseidon2_ARK_0_2 * poseidon2_ARK_0_2;
         const auto poseidon2_A_0_3 =
-            ((((poseidon2_ARK_0_3 * poseidon2_ARK_0_3) * poseidon2_ARK_0_3) * poseidon2_ARK_0_3) * poseidon2_ARK_0_3);
-        const auto poseidon2_T_0_0 = (poseidon2_A_0_0 + poseidon2_A_0_1);
-        const auto poseidon2_T_0_1 = (poseidon2_A_0_2 + poseidon2_A_0_3);
-        const auto poseidon2_T_0_2 = ((FF(2) * poseidon2_A_0_1) + poseidon2_T_0_1);
-        const auto poseidon2_T_0_3 = ((FF(2) * poseidon2_A_0_3) + poseidon2_T_0_0);
-        const auto poseidon2_ARK_1_0 = (new_term.poseidon2_T_0_6 + poseidon2_params_C_1_0);
-        const auto poseidon2_ARK_1_1 = (new_term.poseidon2_T_0_5 + poseidon2_params_C_1_1);
-        const auto poseidon2_ARK_1_2 = (new_term.poseidon2_T_0_7 + poseidon2_params_C_1_2);
-        const auto poseidon2_ARK_1_3 = (new_term.poseidon2_T_0_4 + poseidon2_params_C_1_3);
+            poseidon2_ARK_0_3 * poseidon2_ARK_0_3 * poseidon2_ARK_0_3 * poseidon2_ARK_0_3 * poseidon2_ARK_0_3;
+        const auto poseidon2_T_0_0 = poseidon2_A_0_0 + poseidon2_A_0_1;
+        const auto poseidon2_T_0_1 = poseidon2_A_0_2 + poseidon2_A_0_3;
+        const auto poseidon2_T_0_2 = FF(2) * poseidon2_A_0_1 + poseidon2_T_0_1;
+        const auto poseidon2_T_0_3 = FF(2) * poseidon2_A_0_3 + poseidon2_T_0_0;
+        const auto poseidon2_ARK_1_0 = new_term.poseidon2_T_0_6 + poseidon2_params_C_1_0;
+        const auto poseidon2_ARK_1_1 = new_term.poseidon2_T_0_5 + poseidon2_params_C_1_1;
+        const auto poseidon2_ARK_1_2 = new_term.poseidon2_T_0_7 + poseidon2_params_C_1_2;
+        const auto poseidon2_ARK_1_3 = new_term.poseidon2_T_0_4 + poseidon2_params_C_1_3;
         const auto poseidon2_A_1_0 =
-            ((((poseidon2_ARK_1_0 * poseidon2_ARK_1_0) * poseidon2_ARK_1_0) * poseidon2_ARK_1_0) * poseidon2_ARK_1_0);
+            poseidon2_ARK_1_0 * poseidon2_ARK_1_0 * poseidon2_ARK_1_0 * poseidon2_ARK_1_0 * poseidon2_ARK_1_0;
         const auto poseidon2_A_1_1 =
-            ((((poseidon2_ARK_1_1 * poseidon2_ARK_1_1) * poseidon2_ARK_1_1) * poseidon2_ARK_1_1) * poseidon2_ARK_1_1);
+            poseidon2_ARK_1_1 * poseidon2_ARK_1_1 * poseidon2_ARK_1_1 * poseidon2_ARK_1_1 * poseidon2_ARK_1_1;
         const auto poseidon2_A_1_2 =
-            ((((poseidon2_ARK_1_2 * poseidon2_ARK_1_2) * poseidon2_ARK_1_2) * poseidon2_ARK_1_2) * poseidon2_ARK_1_2);
+            poseidon2_ARK_1_2 * poseidon2_ARK_1_2 * poseidon2_ARK_1_2 * poseidon2_ARK_1_2 * poseidon2_ARK_1_2;
         const auto poseidon2_A_1_3 =
-            ((((poseidon2_ARK_1_3 * poseidon2_ARK_1_3) * poseidon2_ARK_1_3) * poseidon2_ARK_1_3) * poseidon2_ARK_1_3);
-        const auto poseidon2_T_1_0 = (poseidon2_A_1_0 + poseidon2_A_1_1);
-        const auto poseidon2_T_1_1 = (poseidon2_A_1_2 + poseidon2_A_1_3);
-        const auto poseidon2_T_1_2 = ((FF(2) * poseidon2_A_1_1) + poseidon2_T_1_1);
-        const auto poseidon2_T_1_3 = ((FF(2) * poseidon2_A_1_3) + poseidon2_T_1_0);
-        const auto poseidon2_ARK_2_0 = (new_term.poseidon2_T_1_6 + poseidon2_params_C_2_0);
-        const auto poseidon2_ARK_2_1 = (new_term.poseidon2_T_1_5 + poseidon2_params_C_2_1);
-        const auto poseidon2_ARK_2_2 = (new_term.poseidon2_T_1_7 + poseidon2_params_C_2_2);
-        const auto poseidon2_ARK_2_3 = (new_term.poseidon2_T_1_4 + poseidon2_params_C_2_3);
+            poseidon2_ARK_1_3 * poseidon2_ARK_1_3 * poseidon2_ARK_1_3 * poseidon2_ARK_1_3 * poseidon2_ARK_1_3;
+        const auto poseidon2_T_1_0 = poseidon2_A_1_0 + poseidon2_A_1_1;
+        const auto poseidon2_T_1_1 = poseidon2_A_1_2 + poseidon2_A_1_3;
+        const auto poseidon2_T_1_2 = FF(2) * poseidon2_A_1_1 + poseidon2_T_1_1;
+        const auto poseidon2_T_1_3 = FF(2) * poseidon2_A_1_3 + poseidon2_T_1_0;
+        const auto poseidon2_ARK_2_0 = new_term.poseidon2_T_1_6 + poseidon2_params_C_2_0;
+        const auto poseidon2_ARK_2_1 = new_term.poseidon2_T_1_5 + poseidon2_params_C_2_1;
+        const auto poseidon2_ARK_2_2 = new_term.poseidon2_T_1_7 + poseidon2_params_C_2_2;
+        const auto poseidon2_ARK_2_3 = new_term.poseidon2_T_1_4 + poseidon2_params_C_2_3;
         const auto poseidon2_A_2_0 =
-            ((((poseidon2_ARK_2_0 * poseidon2_ARK_2_0) * poseidon2_ARK_2_0) * poseidon2_ARK_2_0) * poseidon2_ARK_2_0);
+            poseidon2_ARK_2_0 * poseidon2_ARK_2_0 * poseidon2_ARK_2_0 * poseidon2_ARK_2_0 * poseidon2_ARK_2_0;
         const auto poseidon2_A_2_1 =
-            ((((poseidon2_ARK_2_1 * poseidon2_ARK_2_1) * poseidon2_ARK_2_1) * poseidon2_ARK_2_1) * poseidon2_ARK_2_1);
+            poseidon2_ARK_2_1 * poseidon2_ARK_2_1 * poseidon2_ARK_2_1 * poseidon2_ARK_2_1 * poseidon2_ARK_2_1;
         const auto poseidon2_A_2_2 =
-            ((((poseidon2_ARK_2_2 * poseidon2_ARK_2_2) * poseidon2_ARK_2_2) * poseidon2_ARK_2_2) * poseidon2_ARK_2_2);
+            poseidon2_ARK_2_2 * poseidon2_ARK_2_2 * poseidon2_ARK_2_2 * poseidon2_ARK_2_2 * poseidon2_ARK_2_2;
         const auto poseidon2_A_2_3 =
-            ((((poseidon2_ARK_2_3 * poseidon2_ARK_2_3) * poseidon2_ARK_2_3) * poseidon2_ARK_2_3) * poseidon2_ARK_2_3);
-        const auto poseidon2_T_2_0 = (poseidon2_A_2_0 + poseidon2_A_2_1);
-        const auto poseidon2_T_2_1 = (poseidon2_A_2_2 + poseidon2_A_2_3);
-        const auto poseidon2_T_2_2 = ((FF(2) * poseidon2_A_2_1) + poseidon2_T_2_1);
-        const auto poseidon2_T_2_3 = ((FF(2) * poseidon2_A_2_3) + poseidon2_T_2_0);
-        const auto poseidon2_ARK_3_0 = (new_term.poseidon2_T_2_6 + poseidon2_params_C_3_0);
-        const auto poseidon2_ARK_3_1 = (new_term.poseidon2_T_2_5 + poseidon2_params_C_3_1);
-        const auto poseidon2_ARK_3_2 = (new_term.poseidon2_T_2_7 + poseidon2_params_C_3_2);
-        const auto poseidon2_ARK_3_3 = (new_term.poseidon2_T_2_4 + poseidon2_params_C_3_3);
+            poseidon2_ARK_2_3 * poseidon2_ARK_2_3 * poseidon2_ARK_2_3 * poseidon2_ARK_2_3 * poseidon2_ARK_2_3;
+        const auto poseidon2_T_2_0 = poseidon2_A_2_0 + poseidon2_A_2_1;
+        const auto poseidon2_T_2_1 = poseidon2_A_2_2 + poseidon2_A_2_3;
+        const auto poseidon2_T_2_2 = FF(2) * poseidon2_A_2_1 + poseidon2_T_2_1;
+        const auto poseidon2_T_2_3 = FF(2) * poseidon2_A_2_3 + poseidon2_T_2_0;
+        const auto poseidon2_ARK_3_0 = new_term.poseidon2_T_2_6 + poseidon2_params_C_3_0;
+        const auto poseidon2_ARK_3_1 = new_term.poseidon2_T_2_5 + poseidon2_params_C_3_1;
+        const auto poseidon2_ARK_3_2 = new_term.poseidon2_T_2_7 + poseidon2_params_C_3_2;
+        const auto poseidon2_ARK_3_3 = new_term.poseidon2_T_2_4 + poseidon2_params_C_3_3;
         const auto poseidon2_A_3_0 =
-            ((((poseidon2_ARK_3_0 * poseidon2_ARK_3_0) * poseidon2_ARK_3_0) * poseidon2_ARK_3_0) * poseidon2_ARK_3_0);
+            poseidon2_ARK_3_0 * poseidon2_ARK_3_0 * poseidon2_ARK_3_0 * poseidon2_ARK_3_0 * poseidon2_ARK_3_0;
         const auto poseidon2_A_3_1 =
-            ((((poseidon2_ARK_3_1 * poseidon2_ARK_3_1) * poseidon2_ARK_3_1) * poseidon2_ARK_3_1) * poseidon2_ARK_3_1);
+            poseidon2_ARK_3_1 * poseidon2_ARK_3_1 * poseidon2_ARK_3_1 * poseidon2_ARK_3_1 * poseidon2_ARK_3_1;
         const auto poseidon2_A_3_2 =
-            ((((poseidon2_ARK_3_2 * poseidon2_ARK_3_2) * poseidon2_ARK_3_2) * poseidon2_ARK_3_2) * poseidon2_ARK_3_2);
+            poseidon2_ARK_3_2 * poseidon2_ARK_3_2 * poseidon2_ARK_3_2 * poseidon2_ARK_3_2 * poseidon2_ARK_3_2;
         const auto poseidon2_A_3_3 =
-            ((((poseidon2_ARK_3_3 * poseidon2_ARK_3_3) * poseidon2_ARK_3_3) * poseidon2_ARK_3_3) * poseidon2_ARK_3_3);
-        const auto poseidon2_T_3_0 = (poseidon2_A_3_0 + poseidon2_A_3_1);
-        const auto poseidon2_T_3_1 = (poseidon2_A_3_2 + poseidon2_A_3_3);
-        const auto poseidon2_T_3_2 = ((FF(2) * poseidon2_A_3_1) + poseidon2_T_3_1);
-        const auto poseidon2_T_3_3 = ((FF(2) * poseidon2_A_3_3) + poseidon2_T_3_0);
-        const auto poseidon2_ARK_4_0 = (new_term.poseidon2_T_3_6 + poseidon2_params_C_4_0);
-        const auto poseidon2_ARK_4_1 = (new_term.poseidon2_T_3_5 + poseidon2_params_C_4_1);
-        const auto poseidon2_ARK_4_2 = (new_term.poseidon2_T_3_7 + poseidon2_params_C_4_2);
-        const auto poseidon2_ARK_4_3 = (new_term.poseidon2_T_3_4 + poseidon2_params_C_4_3);
+            poseidon2_ARK_3_3 * poseidon2_ARK_3_3 * poseidon2_ARK_3_3 * poseidon2_ARK_3_3 * poseidon2_ARK_3_3;
+        const auto poseidon2_T_3_0 = poseidon2_A_3_0 + poseidon2_A_3_1;
+        const auto poseidon2_T_3_1 = poseidon2_A_3_2 + poseidon2_A_3_3;
+        const auto poseidon2_T_3_2 = FF(2) * poseidon2_A_3_1 + poseidon2_T_3_1;
+        const auto poseidon2_T_3_3 = FF(2) * poseidon2_A_3_3 + poseidon2_T_3_0;
+        const auto poseidon2_ARK_4_0 = new_term.poseidon2_T_3_6 + poseidon2_params_C_4_0;
+        const auto poseidon2_ARK_4_1 = new_term.poseidon2_T_3_5 + poseidon2_params_C_4_1;
+        const auto poseidon2_ARK_4_2 = new_term.poseidon2_T_3_7 + poseidon2_params_C_4_2;
+        const auto poseidon2_ARK_4_3 = new_term.poseidon2_T_3_4 + poseidon2_params_C_4_3;
         const auto poseidon2_A_4_0 =
-            ((((poseidon2_ARK_4_0 * poseidon2_ARK_4_0) * poseidon2_ARK_4_0) * poseidon2_ARK_4_0) * poseidon2_ARK_4_0);
+            poseidon2_ARK_4_0 * poseidon2_ARK_4_0 * poseidon2_ARK_4_0 * poseidon2_ARK_4_0 * poseidon2_ARK_4_0;
         const auto poseidon2_A_4_1 = poseidon2_ARK_4_1;
         const auto poseidon2_A_4_2 = poseidon2_ARK_4_2;
         const auto poseidon2_A_4_3 = poseidon2_ARK_4_3;
-        const auto poseidon2_SUM_4 = (((poseidon2_A_4_0 + poseidon2_A_4_1) + poseidon2_A_4_2) + poseidon2_A_4_3);
-        const auto poseidon2_ARK_5_0 = (new_term.poseidon2_B_4_0 + poseidon2_params_C_5_0);
-        const auto poseidon2_ARK_5_1 = (new_term.poseidon2_B_4_1 + poseidon2_params_C_5_1);
-        const auto poseidon2_ARK_5_2 = (new_term.poseidon2_B_4_2 + poseidon2_params_C_5_2);
-        const auto poseidon2_ARK_5_3 = (new_term.poseidon2_B_4_3 + poseidon2_params_C_5_3);
+        const auto poseidon2_SUM_4 = poseidon2_A_4_0 + poseidon2_A_4_1 + poseidon2_A_4_2 + poseidon2_A_4_3;
+        const auto poseidon2_ARK_5_0 = new_term.poseidon2_B_4_0 + poseidon2_params_C_5_0;
+        const auto poseidon2_ARK_5_1 = new_term.poseidon2_B_4_1 + poseidon2_params_C_5_1;
+        const auto poseidon2_ARK_5_2 = new_term.poseidon2_B_4_2 + poseidon2_params_C_5_2;
+        const auto poseidon2_ARK_5_3 = new_term.poseidon2_B_4_3 + poseidon2_params_C_5_3;
         const auto poseidon2_A_5_0 =
-            ((((poseidon2_ARK_5_0 * poseidon2_ARK_5_0) * poseidon2_ARK_5_0) * poseidon2_ARK_5_0) * poseidon2_ARK_5_0);
+            poseidon2_ARK_5_0 * poseidon2_ARK_5_0 * poseidon2_ARK_5_0 * poseidon2_ARK_5_0 * poseidon2_ARK_5_0;
         const auto poseidon2_A_5_1 = poseidon2_ARK_5_1;
         const auto poseidon2_A_5_2 = poseidon2_ARK_5_2;
         const auto poseidon2_A_5_3 = poseidon2_ARK_5_3;
-        const auto poseidon2_SUM_5 = (((poseidon2_A_5_0 + poseidon2_A_5_1) + poseidon2_A_5_2) + poseidon2_A_5_3);
-        const auto poseidon2_ARK_6_0 = (new_term.poseidon2_B_5_0 + poseidon2_params_C_6_0);
-        const auto poseidon2_ARK_6_1 = (new_term.poseidon2_B_5_1 + poseidon2_params_C_6_1);
-        const auto poseidon2_ARK_6_2 = (new_term.poseidon2_B_5_2 + poseidon2_params_C_6_2);
-        const auto poseidon2_ARK_6_3 = (new_term.poseidon2_B_5_3 + poseidon2_params_C_6_3);
+        const auto poseidon2_SUM_5 = poseidon2_A_5_0 + poseidon2_A_5_1 + poseidon2_A_5_2 + poseidon2_A_5_3;
+        const auto poseidon2_ARK_6_0 = new_term.poseidon2_B_5_0 + poseidon2_params_C_6_0;
+        const auto poseidon2_ARK_6_1 = new_term.poseidon2_B_5_1 + poseidon2_params_C_6_1;
+        const auto poseidon2_ARK_6_2 = new_term.poseidon2_B_5_2 + poseidon2_params_C_6_2;
+        const auto poseidon2_ARK_6_3 = new_term.poseidon2_B_5_3 + poseidon2_params_C_6_3;
         const auto poseidon2_A_6_0 =
-            ((((poseidon2_ARK_6_0 * poseidon2_ARK_6_0) * poseidon2_ARK_6_0) * poseidon2_ARK_6_0) * poseidon2_ARK_6_0);
+            poseidon2_ARK_6_0 * poseidon2_ARK_6_0 * poseidon2_ARK_6_0 * poseidon2_ARK_6_0 * poseidon2_ARK_6_0;
         const auto poseidon2_A_6_1 = poseidon2_ARK_6_1;
         const auto poseidon2_A_6_2 = poseidon2_ARK_6_2;
         const auto poseidon2_A_6_3 = poseidon2_ARK_6_3;
-        const auto poseidon2_SUM_6 = (((poseidon2_A_6_0 + poseidon2_A_6_1) + poseidon2_A_6_2) + poseidon2_A_6_3);
-        const auto poseidon2_ARK_7_0 = (new_term.poseidon2_B_6_0 + poseidon2_params_C_7_0);
-        const auto poseidon2_ARK_7_1 = (new_term.poseidon2_B_6_1 + poseidon2_params_C_7_1);
-        const auto poseidon2_ARK_7_2 = (new_term.poseidon2_B_6_2 + poseidon2_params_C_7_2);
-        const auto poseidon2_ARK_7_3 = (new_term.poseidon2_B_6_3 + poseidon2_params_C_7_3);
+        const auto poseidon2_SUM_6 = poseidon2_A_6_0 + poseidon2_A_6_1 + poseidon2_A_6_2 + poseidon2_A_6_3;
+        const auto poseidon2_ARK_7_0 = new_term.poseidon2_B_6_0 + poseidon2_params_C_7_0;
+        const auto poseidon2_ARK_7_1 = new_term.poseidon2_B_6_1 + poseidon2_params_C_7_1;
+        const auto poseidon2_ARK_7_2 = new_term.poseidon2_B_6_2 + poseidon2_params_C_7_2;
+        const auto poseidon2_ARK_7_3 = new_term.poseidon2_B_6_3 + poseidon2_params_C_7_3;
         const auto poseidon2_A_7_0 =
-            ((((poseidon2_ARK_7_0 * poseidon2_ARK_7_0) * poseidon2_ARK_7_0) * poseidon2_ARK_7_0) * poseidon2_ARK_7_0);
+            poseidon2_ARK_7_0 * poseidon2_ARK_7_0 * poseidon2_ARK_7_0 * poseidon2_ARK_7_0 * poseidon2_ARK_7_0;
         const auto poseidon2_A_7_1 = poseidon2_ARK_7_1;
         const auto poseidon2_A_7_2 = poseidon2_ARK_7_2;
         const auto poseidon2_A_7_3 = poseidon2_ARK_7_3;
-        const auto poseidon2_SUM_7 = (((poseidon2_A_7_0 + poseidon2_A_7_1) + poseidon2_A_7_2) + poseidon2_A_7_3);
-        const auto poseidon2_ARK_8_0 = (new_term.poseidon2_B_7_0 + poseidon2_params_C_8_0);
-        const auto poseidon2_ARK_8_1 = (new_term.poseidon2_B_7_1 + poseidon2_params_C_8_1);
-        const auto poseidon2_ARK_8_2 = (new_term.poseidon2_B_7_2 + poseidon2_params_C_8_2);
-        const auto poseidon2_ARK_8_3 = (new_term.poseidon2_B_7_3 + poseidon2_params_C_8_3);
+        const auto poseidon2_SUM_7 = poseidon2_A_7_0 + poseidon2_A_7_1 + poseidon2_A_7_2 + poseidon2_A_7_3;
+        const auto poseidon2_ARK_8_0 = new_term.poseidon2_B_7_0 + poseidon2_params_C_8_0;
+        const auto poseidon2_ARK_8_1 = new_term.poseidon2_B_7_1 + poseidon2_params_C_8_1;
+        const auto poseidon2_ARK_8_2 = new_term.poseidon2_B_7_2 + poseidon2_params_C_8_2;
+        const auto poseidon2_ARK_8_3 = new_term.poseidon2_B_7_3 + poseidon2_params_C_8_3;
         const auto poseidon2_A_8_0 =
-            ((((poseidon2_ARK_8_0 * poseidon2_ARK_8_0) * poseidon2_ARK_8_0) * poseidon2_ARK_8_0) * poseidon2_ARK_8_0);
+            poseidon2_ARK_8_0 * poseidon2_ARK_8_0 * poseidon2_ARK_8_0 * poseidon2_ARK_8_0 * poseidon2_ARK_8_0;
         const auto poseidon2_A_8_1 = poseidon2_ARK_8_1;
         const auto poseidon2_A_8_2 = poseidon2_ARK_8_2;
         const auto poseidon2_A_8_3 = poseidon2_ARK_8_3;
-        const auto poseidon2_SUM_8 = (((poseidon2_A_8_0 + poseidon2_A_8_1) + poseidon2_A_8_2) + poseidon2_A_8_3);
-        const auto poseidon2_ARK_9_0 = (new_term.poseidon2_B_8_0 + poseidon2_params_C_9_0);
-        const auto poseidon2_ARK_9_1 = (new_term.poseidon2_B_8_1 + poseidon2_params_C_9_1);
-        const auto poseidon2_ARK_9_2 = (new_term.poseidon2_B_8_2 + poseidon2_params_C_9_2);
-        const auto poseidon2_ARK_9_3 = (new_term.poseidon2_B_8_3 + poseidon2_params_C_9_3);
+        const auto poseidon2_SUM_8 = poseidon2_A_8_0 + poseidon2_A_8_1 + poseidon2_A_8_2 + poseidon2_A_8_3;
+        const auto poseidon2_ARK_9_0 = new_term.poseidon2_B_8_0 + poseidon2_params_C_9_0;
+        const auto poseidon2_ARK_9_1 = new_term.poseidon2_B_8_1 + poseidon2_params_C_9_1;
+        const auto poseidon2_ARK_9_2 = new_term.poseidon2_B_8_2 + poseidon2_params_C_9_2;
+        const auto poseidon2_ARK_9_3 = new_term.poseidon2_B_8_3 + poseidon2_params_C_9_3;
         const auto poseidon2_A_9_0 =
-            ((((poseidon2_ARK_9_0 * poseidon2_ARK_9_0) * poseidon2_ARK_9_0) * poseidon2_ARK_9_0) * poseidon2_ARK_9_0);
+            poseidon2_ARK_9_0 * poseidon2_ARK_9_0 * poseidon2_ARK_9_0 * poseidon2_ARK_9_0 * poseidon2_ARK_9_0;
         const auto poseidon2_A_9_1 = poseidon2_ARK_9_1;
         const auto poseidon2_A_9_2 = poseidon2_ARK_9_2;
         const auto poseidon2_A_9_3 = poseidon2_ARK_9_3;
-        const auto poseidon2_SUM_9 = (((poseidon2_A_9_0 + poseidon2_A_9_1) + poseidon2_A_9_2) + poseidon2_A_9_3);
-        const auto poseidon2_ARK_10_0 = (new_term.poseidon2_B_9_0 + poseidon2_params_C_10_0);
-        const auto poseidon2_ARK_10_1 = (new_term.poseidon2_B_9_1 + poseidon2_params_C_10_1);
-        const auto poseidon2_ARK_10_2 = (new_term.poseidon2_B_9_2 + poseidon2_params_C_10_2);
-        const auto poseidon2_ARK_10_3 = (new_term.poseidon2_B_9_3 + poseidon2_params_C_10_3);
+        const auto poseidon2_SUM_9 = poseidon2_A_9_0 + poseidon2_A_9_1 + poseidon2_A_9_2 + poseidon2_A_9_3;
+        const auto poseidon2_ARK_10_0 = new_term.poseidon2_B_9_0 + poseidon2_params_C_10_0;
+        const auto poseidon2_ARK_10_1 = new_term.poseidon2_B_9_1 + poseidon2_params_C_10_1;
+        const auto poseidon2_ARK_10_2 = new_term.poseidon2_B_9_2 + poseidon2_params_C_10_2;
+        const auto poseidon2_ARK_10_3 = new_term.poseidon2_B_9_3 + poseidon2_params_C_10_3;
         const auto poseidon2_A_10_0 =
-            ((((poseidon2_ARK_10_0 * poseidon2_ARK_10_0) * poseidon2_ARK_10_0) * poseidon2_ARK_10_0) *
-             poseidon2_ARK_10_0);
+            poseidon2_ARK_10_0 * poseidon2_ARK_10_0 * poseidon2_ARK_10_0 * poseidon2_ARK_10_0 * poseidon2_ARK_10_0;
         const auto poseidon2_A_10_1 = poseidon2_ARK_10_1;
         const auto poseidon2_A_10_2 = poseidon2_ARK_10_2;
         const auto poseidon2_A_10_3 = poseidon2_ARK_10_3;
-        const auto poseidon2_SUM_10 = (((poseidon2_A_10_0 + poseidon2_A_10_1) + poseidon2_A_10_2) + poseidon2_A_10_3);
-        const auto poseidon2_ARK_11_0 = (new_term.poseidon2_B_10_0 + poseidon2_params_C_11_0);
-        const auto poseidon2_ARK_11_1 = (new_term.poseidon2_B_10_1 + poseidon2_params_C_11_1);
-        const auto poseidon2_ARK_11_2 = (new_term.poseidon2_B_10_2 + poseidon2_params_C_11_2);
-        const auto poseidon2_ARK_11_3 = (new_term.poseidon2_B_10_3 + poseidon2_params_C_11_3);
+        const auto poseidon2_SUM_10 = poseidon2_A_10_0 + poseidon2_A_10_1 + poseidon2_A_10_2 + poseidon2_A_10_3;
+        const auto poseidon2_ARK_11_0 = new_term.poseidon2_B_10_0 + poseidon2_params_C_11_0;
+        const auto poseidon2_ARK_11_1 = new_term.poseidon2_B_10_1 + poseidon2_params_C_11_1;
+        const auto poseidon2_ARK_11_2 = new_term.poseidon2_B_10_2 + poseidon2_params_C_11_2;
+        const auto poseidon2_ARK_11_3 = new_term.poseidon2_B_10_3 + poseidon2_params_C_11_3;
         const auto poseidon2_A_11_0 =
-            ((((poseidon2_ARK_11_0 * poseidon2_ARK_11_0) * poseidon2_ARK_11_0) * poseidon2_ARK_11_0) *
-             poseidon2_ARK_11_0);
+            poseidon2_ARK_11_0 * poseidon2_ARK_11_0 * poseidon2_ARK_11_0 * poseidon2_ARK_11_0 * poseidon2_ARK_11_0;
         const auto poseidon2_A_11_1 = poseidon2_ARK_11_1;
         const auto poseidon2_A_11_2 = poseidon2_ARK_11_2;
         const auto poseidon2_A_11_3 = poseidon2_ARK_11_3;
-        const auto poseidon2_SUM_11 = (((poseidon2_A_11_0 + poseidon2_A_11_1) + poseidon2_A_11_2) + poseidon2_A_11_3);
-        const auto poseidon2_ARK_12_0 = (new_term.poseidon2_B_11_0 + poseidon2_params_C_12_0);
-        const auto poseidon2_ARK_12_1 = (new_term.poseidon2_B_11_1 + poseidon2_params_C_12_1);
-        const auto poseidon2_ARK_12_2 = (new_term.poseidon2_B_11_2 + poseidon2_params_C_12_2);
-        const auto poseidon2_ARK_12_3 = (new_term.poseidon2_B_11_3 + poseidon2_params_C_12_3);
+        const auto poseidon2_SUM_11 = poseidon2_A_11_0 + poseidon2_A_11_1 + poseidon2_A_11_2 + poseidon2_A_11_3;
+        const auto poseidon2_ARK_12_0 = new_term.poseidon2_B_11_0 + poseidon2_params_C_12_0;
+        const auto poseidon2_ARK_12_1 = new_term.poseidon2_B_11_1 + poseidon2_params_C_12_1;
+        const auto poseidon2_ARK_12_2 = new_term.poseidon2_B_11_2 + poseidon2_params_C_12_2;
+        const auto poseidon2_ARK_12_3 = new_term.poseidon2_B_11_3 + poseidon2_params_C_12_3;
         const auto poseidon2_A_12_0 =
-            ((((poseidon2_ARK_12_0 * poseidon2_ARK_12_0) * poseidon2_ARK_12_0) * poseidon2_ARK_12_0) *
-             poseidon2_ARK_12_0);
+            poseidon2_ARK_12_0 * poseidon2_ARK_12_0 * poseidon2_ARK_12_0 * poseidon2_ARK_12_0 * poseidon2_ARK_12_0;
         const auto poseidon2_A_12_1 = poseidon2_ARK_12_1;
         const auto poseidon2_A_12_2 = poseidon2_ARK_12_2;
         const auto poseidon2_A_12_3 = poseidon2_ARK_12_3;
-        const auto poseidon2_SUM_12 = (((poseidon2_A_12_0 + poseidon2_A_12_1) + poseidon2_A_12_2) + poseidon2_A_12_3);
-        const auto poseidon2_ARK_13_0 = (new_term.poseidon2_B_12_0 + poseidon2_params_C_13_0);
-        const auto poseidon2_ARK_13_1 = (new_term.poseidon2_B_12_1 + poseidon2_params_C_13_1);
-        const auto poseidon2_ARK_13_2 = (new_term.poseidon2_B_12_2 + poseidon2_params_C_13_2);
-        const auto poseidon2_ARK_13_3 = (new_term.poseidon2_B_12_3 + poseidon2_params_C_13_3);
+        const auto poseidon2_SUM_12 = poseidon2_A_12_0 + poseidon2_A_12_1 + poseidon2_A_12_2 + poseidon2_A_12_3;
+        const auto poseidon2_ARK_13_0 = new_term.poseidon2_B_12_0 + poseidon2_params_C_13_0;
+        const auto poseidon2_ARK_13_1 = new_term.poseidon2_B_12_1 + poseidon2_params_C_13_1;
+        const auto poseidon2_ARK_13_2 = new_term.poseidon2_B_12_2 + poseidon2_params_C_13_2;
+        const auto poseidon2_ARK_13_3 = new_term.poseidon2_B_12_3 + poseidon2_params_C_13_3;
         const auto poseidon2_A_13_0 =
-            ((((poseidon2_ARK_13_0 * poseidon2_ARK_13_0) * poseidon2_ARK_13_0) * poseidon2_ARK_13_0) *
-             poseidon2_ARK_13_0);
+            poseidon2_ARK_13_0 * poseidon2_ARK_13_0 * poseidon2_ARK_13_0 * poseidon2_ARK_13_0 * poseidon2_ARK_13_0;
         const auto poseidon2_A_13_1 = poseidon2_ARK_13_1;
         const auto poseidon2_A_13_2 = poseidon2_ARK_13_2;
         const auto poseidon2_A_13_3 = poseidon2_ARK_13_3;
-        const auto poseidon2_SUM_13 = (((poseidon2_A_13_0 + poseidon2_A_13_1) + poseidon2_A_13_2) + poseidon2_A_13_3);
-        const auto poseidon2_ARK_14_0 = (new_term.poseidon2_B_13_0 + poseidon2_params_C_14_0);
-        const auto poseidon2_ARK_14_1 = (new_term.poseidon2_B_13_1 + poseidon2_params_C_14_1);
-        const auto poseidon2_ARK_14_2 = (new_term.poseidon2_B_13_2 + poseidon2_params_C_14_2);
-        const auto poseidon2_ARK_14_3 = (new_term.poseidon2_B_13_3 + poseidon2_params_C_14_3);
+        const auto poseidon2_SUM_13 = poseidon2_A_13_0 + poseidon2_A_13_1 + poseidon2_A_13_2 + poseidon2_A_13_3;
+        const auto poseidon2_ARK_14_0 = new_term.poseidon2_B_13_0 + poseidon2_params_C_14_0;
+        const auto poseidon2_ARK_14_1 = new_term.poseidon2_B_13_1 + poseidon2_params_C_14_1;
+        const auto poseidon2_ARK_14_2 = new_term.poseidon2_B_13_2 + poseidon2_params_C_14_2;
+        const auto poseidon2_ARK_14_3 = new_term.poseidon2_B_13_3 + poseidon2_params_C_14_3;
         const auto poseidon2_A_14_0 =
-            ((((poseidon2_ARK_14_0 * poseidon2_ARK_14_0) * poseidon2_ARK_14_0) * poseidon2_ARK_14_0) *
-             poseidon2_ARK_14_0);
+            poseidon2_ARK_14_0 * poseidon2_ARK_14_0 * poseidon2_ARK_14_0 * poseidon2_ARK_14_0 * poseidon2_ARK_14_0;
         const auto poseidon2_A_14_1 = poseidon2_ARK_14_1;
         const auto poseidon2_A_14_2 = poseidon2_ARK_14_2;
         const auto poseidon2_A_14_3 = poseidon2_ARK_14_3;
-        const auto poseidon2_SUM_14 = (((poseidon2_A_14_0 + poseidon2_A_14_1) + poseidon2_A_14_2) + poseidon2_A_14_3);
-        const auto poseidon2_ARK_15_0 = (new_term.poseidon2_B_14_0 + poseidon2_params_C_15_0);
-        const auto poseidon2_ARK_15_1 = (new_term.poseidon2_B_14_1 + poseidon2_params_C_15_1);
-        const auto poseidon2_ARK_15_2 = (new_term.poseidon2_B_14_2 + poseidon2_params_C_15_2);
-        const auto poseidon2_ARK_15_3 = (new_term.poseidon2_B_14_3 + poseidon2_params_C_15_3);
+        const auto poseidon2_SUM_14 = poseidon2_A_14_0 + poseidon2_A_14_1 + poseidon2_A_14_2 + poseidon2_A_14_3;
+        const auto poseidon2_ARK_15_0 = new_term.poseidon2_B_14_0 + poseidon2_params_C_15_0;
+        const auto poseidon2_ARK_15_1 = new_term.poseidon2_B_14_1 + poseidon2_params_C_15_1;
+        const auto poseidon2_ARK_15_2 = new_term.poseidon2_B_14_2 + poseidon2_params_C_15_2;
+        const auto poseidon2_ARK_15_3 = new_term.poseidon2_B_14_3 + poseidon2_params_C_15_3;
         const auto poseidon2_A_15_0 =
-            ((((poseidon2_ARK_15_0 * poseidon2_ARK_15_0) * poseidon2_ARK_15_0) * poseidon2_ARK_15_0) *
-             poseidon2_ARK_15_0);
+            poseidon2_ARK_15_0 * poseidon2_ARK_15_0 * poseidon2_ARK_15_0 * poseidon2_ARK_15_0 * poseidon2_ARK_15_0;
         const auto poseidon2_A_15_1 = poseidon2_ARK_15_1;
         const auto poseidon2_A_15_2 = poseidon2_ARK_15_2;
         const auto poseidon2_A_15_3 = poseidon2_ARK_15_3;
-        const auto poseidon2_SUM_15 = (((poseidon2_A_15_0 + poseidon2_A_15_1) + poseidon2_A_15_2) + poseidon2_A_15_3);
-        const auto poseidon2_ARK_16_0 = (new_term.poseidon2_B_15_0 + poseidon2_params_C_16_0);
-        const auto poseidon2_ARK_16_1 = (new_term.poseidon2_B_15_1 + poseidon2_params_C_16_1);
-        const auto poseidon2_ARK_16_2 = (new_term.poseidon2_B_15_2 + poseidon2_params_C_16_2);
-        const auto poseidon2_ARK_16_3 = (new_term.poseidon2_B_15_3 + poseidon2_params_C_16_3);
+        const auto poseidon2_SUM_15 = poseidon2_A_15_0 + poseidon2_A_15_1 + poseidon2_A_15_2 + poseidon2_A_15_3;
+        const auto poseidon2_ARK_16_0 = new_term.poseidon2_B_15_0 + poseidon2_params_C_16_0;
+        const auto poseidon2_ARK_16_1 = new_term.poseidon2_B_15_1 + poseidon2_params_C_16_1;
+        const auto poseidon2_ARK_16_2 = new_term.poseidon2_B_15_2 + poseidon2_params_C_16_2;
+        const auto poseidon2_ARK_16_3 = new_term.poseidon2_B_15_3 + poseidon2_params_C_16_3;
         const auto poseidon2_A_16_0 =
-            ((((poseidon2_ARK_16_0 * poseidon2_ARK_16_0) * poseidon2_ARK_16_0) * poseidon2_ARK_16_0) *
-             poseidon2_ARK_16_0);
+            poseidon2_ARK_16_0 * poseidon2_ARK_16_0 * poseidon2_ARK_16_0 * poseidon2_ARK_16_0 * poseidon2_ARK_16_0;
         const auto poseidon2_A_16_1 = poseidon2_ARK_16_1;
         const auto poseidon2_A_16_2 = poseidon2_ARK_16_2;
         const auto poseidon2_A_16_3 = poseidon2_ARK_16_3;
-        const auto poseidon2_SUM_16 = (((poseidon2_A_16_0 + poseidon2_A_16_1) + poseidon2_A_16_2) + poseidon2_A_16_3);
-        const auto poseidon2_ARK_17_0 = (new_term.poseidon2_B_16_0 + poseidon2_params_C_17_0);
-        const auto poseidon2_ARK_17_1 = (new_term.poseidon2_B_16_1 + poseidon2_params_C_17_1);
-        const auto poseidon2_ARK_17_2 = (new_term.poseidon2_B_16_2 + poseidon2_params_C_17_2);
-        const auto poseidon2_ARK_17_3 = (new_term.poseidon2_B_16_3 + poseidon2_params_C_17_3);
+        const auto poseidon2_SUM_16 = poseidon2_A_16_0 + poseidon2_A_16_1 + poseidon2_A_16_2 + poseidon2_A_16_3;
+        const auto poseidon2_ARK_17_0 = new_term.poseidon2_B_16_0 + poseidon2_params_C_17_0;
+        const auto poseidon2_ARK_17_1 = new_term.poseidon2_B_16_1 + poseidon2_params_C_17_1;
+        const auto poseidon2_ARK_17_2 = new_term.poseidon2_B_16_2 + poseidon2_params_C_17_2;
+        const auto poseidon2_ARK_17_3 = new_term.poseidon2_B_16_3 + poseidon2_params_C_17_3;
         const auto poseidon2_A_17_0 =
-            ((((poseidon2_ARK_17_0 * poseidon2_ARK_17_0) * poseidon2_ARK_17_0) * poseidon2_ARK_17_0) *
-             poseidon2_ARK_17_0);
+            poseidon2_ARK_17_0 * poseidon2_ARK_17_0 * poseidon2_ARK_17_0 * poseidon2_ARK_17_0 * poseidon2_ARK_17_0;
         const auto poseidon2_A_17_1 = poseidon2_ARK_17_1;
         const auto poseidon2_A_17_2 = poseidon2_ARK_17_2;
         const auto poseidon2_A_17_3 = poseidon2_ARK_17_3;
-        const auto poseidon2_SUM_17 = (((poseidon2_A_17_0 + poseidon2_A_17_1) + poseidon2_A_17_2) + poseidon2_A_17_3);
-        const auto poseidon2_ARK_18_0 = (new_term.poseidon2_B_17_0 + poseidon2_params_C_18_0);
-        const auto poseidon2_ARK_18_1 = (new_term.poseidon2_B_17_1 + poseidon2_params_C_18_1);
-        const auto poseidon2_ARK_18_2 = (new_term.poseidon2_B_17_2 + poseidon2_params_C_18_2);
-        const auto poseidon2_ARK_18_3 = (new_term.poseidon2_B_17_3 + poseidon2_params_C_18_3);
+        const auto poseidon2_SUM_17 = poseidon2_A_17_0 + poseidon2_A_17_1 + poseidon2_A_17_2 + poseidon2_A_17_3;
+        const auto poseidon2_ARK_18_0 = new_term.poseidon2_B_17_0 + poseidon2_params_C_18_0;
+        const auto poseidon2_ARK_18_1 = new_term.poseidon2_B_17_1 + poseidon2_params_C_18_1;
+        const auto poseidon2_ARK_18_2 = new_term.poseidon2_B_17_2 + poseidon2_params_C_18_2;
+        const auto poseidon2_ARK_18_3 = new_term.poseidon2_B_17_3 + poseidon2_params_C_18_3;
         const auto poseidon2_A_18_0 =
-            ((((poseidon2_ARK_18_0 * poseidon2_ARK_18_0) * poseidon2_ARK_18_0) * poseidon2_ARK_18_0) *
-             poseidon2_ARK_18_0);
+            poseidon2_ARK_18_0 * poseidon2_ARK_18_0 * poseidon2_ARK_18_0 * poseidon2_ARK_18_0 * poseidon2_ARK_18_0;
         const auto poseidon2_A_18_1 = poseidon2_ARK_18_1;
         const auto poseidon2_A_18_2 = poseidon2_ARK_18_2;
         const auto poseidon2_A_18_3 = poseidon2_ARK_18_3;
-        const auto poseidon2_SUM_18 = (((poseidon2_A_18_0 + poseidon2_A_18_1) + poseidon2_A_18_2) + poseidon2_A_18_3);
-        const auto poseidon2_ARK_19_0 = (new_term.poseidon2_B_18_0 + poseidon2_params_C_19_0);
-        const auto poseidon2_ARK_19_1 = (new_term.poseidon2_B_18_1 + poseidon2_params_C_19_1);
-        const auto poseidon2_ARK_19_2 = (new_term.poseidon2_B_18_2 + poseidon2_params_C_19_2);
-        const auto poseidon2_ARK_19_3 = (new_term.poseidon2_B_18_3 + poseidon2_params_C_19_3);
+        const auto poseidon2_SUM_18 = poseidon2_A_18_0 + poseidon2_A_18_1 + poseidon2_A_18_2 + poseidon2_A_18_3;
+        const auto poseidon2_ARK_19_0 = new_term.poseidon2_B_18_0 + poseidon2_params_C_19_0;
+        const auto poseidon2_ARK_19_1 = new_term.poseidon2_B_18_1 + poseidon2_params_C_19_1;
+        const auto poseidon2_ARK_19_2 = new_term.poseidon2_B_18_2 + poseidon2_params_C_19_2;
+        const auto poseidon2_ARK_19_3 = new_term.poseidon2_B_18_3 + poseidon2_params_C_19_3;
         const auto poseidon2_A_19_0 =
-            ((((poseidon2_ARK_19_0 * poseidon2_ARK_19_0) * poseidon2_ARK_19_0) * poseidon2_ARK_19_0) *
-             poseidon2_ARK_19_0);
+            poseidon2_ARK_19_0 * poseidon2_ARK_19_0 * poseidon2_ARK_19_0 * poseidon2_ARK_19_0 * poseidon2_ARK_19_0;
         const auto poseidon2_A_19_1 = poseidon2_ARK_19_1;
         const auto poseidon2_A_19_2 = poseidon2_ARK_19_2;
         const auto poseidon2_A_19_3 = poseidon2_ARK_19_3;
-        const auto poseidon2_SUM_19 = (((poseidon2_A_19_0 + poseidon2_A_19_1) + poseidon2_A_19_2) + poseidon2_A_19_3);
-        const auto poseidon2_ARK_20_0 = (new_term.poseidon2_B_19_0 + poseidon2_params_C_20_0);
-        const auto poseidon2_ARK_20_1 = (new_term.poseidon2_B_19_1 + poseidon2_params_C_20_1);
-        const auto poseidon2_ARK_20_2 = (new_term.poseidon2_B_19_2 + poseidon2_params_C_20_2);
-        const auto poseidon2_ARK_20_3 = (new_term.poseidon2_B_19_3 + poseidon2_params_C_20_3);
+        const auto poseidon2_SUM_19 = poseidon2_A_19_0 + poseidon2_A_19_1 + poseidon2_A_19_2 + poseidon2_A_19_3;
+        const auto poseidon2_ARK_20_0 = new_term.poseidon2_B_19_0 + poseidon2_params_C_20_0;
+        const auto poseidon2_ARK_20_1 = new_term.poseidon2_B_19_1 + poseidon2_params_C_20_1;
+        const auto poseidon2_ARK_20_2 = new_term.poseidon2_B_19_2 + poseidon2_params_C_20_2;
+        const auto poseidon2_ARK_20_3 = new_term.poseidon2_B_19_3 + poseidon2_params_C_20_3;
         const auto poseidon2_A_20_0 =
-            ((((poseidon2_ARK_20_0 * poseidon2_ARK_20_0) * poseidon2_ARK_20_0) * poseidon2_ARK_20_0) *
-             poseidon2_ARK_20_0);
+            poseidon2_ARK_20_0 * poseidon2_ARK_20_0 * poseidon2_ARK_20_0 * poseidon2_ARK_20_0 * poseidon2_ARK_20_0;
         const auto poseidon2_A_20_1 = poseidon2_ARK_20_1;
         const auto poseidon2_A_20_2 = poseidon2_ARK_20_2;
         const auto poseidon2_A_20_3 = poseidon2_ARK_20_3;
-        const auto poseidon2_SUM_20 = (((poseidon2_A_20_0 + poseidon2_A_20_1) + poseidon2_A_20_2) + poseidon2_A_20_3);
-        const auto poseidon2_ARK_21_0 = (new_term.poseidon2_B_20_0 + poseidon2_params_C_21_0);
-        const auto poseidon2_ARK_21_1 = (new_term.poseidon2_B_20_1 + poseidon2_params_C_21_1);
-        const auto poseidon2_ARK_21_2 = (new_term.poseidon2_B_20_2 + poseidon2_params_C_21_2);
-        const auto poseidon2_ARK_21_3 = (new_term.poseidon2_B_20_3 + poseidon2_params_C_21_3);
+        const auto poseidon2_SUM_20 = poseidon2_A_20_0 + poseidon2_A_20_1 + poseidon2_A_20_2 + poseidon2_A_20_3;
+        const auto poseidon2_ARK_21_0 = new_term.poseidon2_B_20_0 + poseidon2_params_C_21_0;
+        const auto poseidon2_ARK_21_1 = new_term.poseidon2_B_20_1 + poseidon2_params_C_21_1;
+        const auto poseidon2_ARK_21_2 = new_term.poseidon2_B_20_2 + poseidon2_params_C_21_2;
+        const auto poseidon2_ARK_21_3 = new_term.poseidon2_B_20_3 + poseidon2_params_C_21_3;
         const auto poseidon2_A_21_0 =
-            ((((poseidon2_ARK_21_0 * poseidon2_ARK_21_0) * poseidon2_ARK_21_0) * poseidon2_ARK_21_0) *
-             poseidon2_ARK_21_0);
+            poseidon2_ARK_21_0 * poseidon2_ARK_21_0 * poseidon2_ARK_21_0 * poseidon2_ARK_21_0 * poseidon2_ARK_21_0;
         const auto poseidon2_A_21_1 = poseidon2_ARK_21_1;
         const auto poseidon2_A_21_2 = poseidon2_ARK_21_2;
         const auto poseidon2_A_21_3 = poseidon2_ARK_21_3;
-        const auto poseidon2_SUM_21 = (((poseidon2_A_21_0 + poseidon2_A_21_1) + poseidon2_A_21_2) + poseidon2_A_21_3);
-        const auto poseidon2_ARK_22_0 = (new_term.poseidon2_B_21_0 + poseidon2_params_C_22_0);
-        const auto poseidon2_ARK_22_1 = (new_term.poseidon2_B_21_1 + poseidon2_params_C_22_1);
-        const auto poseidon2_ARK_22_2 = (new_term.poseidon2_B_21_2 + poseidon2_params_C_22_2);
-        const auto poseidon2_ARK_22_3 = (new_term.poseidon2_B_21_3 + poseidon2_params_C_22_3);
+        const auto poseidon2_SUM_21 = poseidon2_A_21_0 + poseidon2_A_21_1 + poseidon2_A_21_2 + poseidon2_A_21_3;
+        const auto poseidon2_ARK_22_0 = new_term.poseidon2_B_21_0 + poseidon2_params_C_22_0;
+        const auto poseidon2_ARK_22_1 = new_term.poseidon2_B_21_1 + poseidon2_params_C_22_1;
+        const auto poseidon2_ARK_22_2 = new_term.poseidon2_B_21_2 + poseidon2_params_C_22_2;
+        const auto poseidon2_ARK_22_3 = new_term.poseidon2_B_21_3 + poseidon2_params_C_22_3;
         const auto poseidon2_A_22_0 =
-            ((((poseidon2_ARK_22_0 * poseidon2_ARK_22_0) * poseidon2_ARK_22_0) * poseidon2_ARK_22_0) *
-             poseidon2_ARK_22_0);
+            poseidon2_ARK_22_0 * poseidon2_ARK_22_0 * poseidon2_ARK_22_0 * poseidon2_ARK_22_0 * poseidon2_ARK_22_0;
         const auto poseidon2_A_22_1 = poseidon2_ARK_22_1;
         const auto poseidon2_A_22_2 = poseidon2_ARK_22_2;
         const auto poseidon2_A_22_3 = poseidon2_ARK_22_3;
-        const auto poseidon2_SUM_22 = (((poseidon2_A_22_0 + poseidon2_A_22_1) + poseidon2_A_22_2) + poseidon2_A_22_3);
-        const auto poseidon2_ARK_23_0 = (new_term.poseidon2_B_22_0 + poseidon2_params_C_23_0);
-        const auto poseidon2_ARK_23_1 = (new_term.poseidon2_B_22_1 + poseidon2_params_C_23_1);
-        const auto poseidon2_ARK_23_2 = (new_term.poseidon2_B_22_2 + poseidon2_params_C_23_2);
-        const auto poseidon2_ARK_23_3 = (new_term.poseidon2_B_22_3 + poseidon2_params_C_23_3);
+        const auto poseidon2_SUM_22 = poseidon2_A_22_0 + poseidon2_A_22_1 + poseidon2_A_22_2 + poseidon2_A_22_3;
+        const auto poseidon2_ARK_23_0 = new_term.poseidon2_B_22_0 + poseidon2_params_C_23_0;
+        const auto poseidon2_ARK_23_1 = new_term.poseidon2_B_22_1 + poseidon2_params_C_23_1;
+        const auto poseidon2_ARK_23_2 = new_term.poseidon2_B_22_2 + poseidon2_params_C_23_2;
+        const auto poseidon2_ARK_23_3 = new_term.poseidon2_B_22_3 + poseidon2_params_C_23_3;
         const auto poseidon2_A_23_0 =
-            ((((poseidon2_ARK_23_0 * poseidon2_ARK_23_0) * poseidon2_ARK_23_0) * poseidon2_ARK_23_0) *
-             poseidon2_ARK_23_0);
+            poseidon2_ARK_23_0 * poseidon2_ARK_23_0 * poseidon2_ARK_23_0 * poseidon2_ARK_23_0 * poseidon2_ARK_23_0;
         const auto poseidon2_A_23_1 = poseidon2_ARK_23_1;
         const auto poseidon2_A_23_2 = poseidon2_ARK_23_2;
         const auto poseidon2_A_23_3 = poseidon2_ARK_23_3;
-        const auto poseidon2_SUM_23 = (((poseidon2_A_23_0 + poseidon2_A_23_1) + poseidon2_A_23_2) + poseidon2_A_23_3);
-        const auto poseidon2_ARK_24_0 = (new_term.poseidon2_B_23_0 + poseidon2_params_C_24_0);
-        const auto poseidon2_ARK_24_1 = (new_term.poseidon2_B_23_1 + poseidon2_params_C_24_1);
-        const auto poseidon2_ARK_24_2 = (new_term.poseidon2_B_23_2 + poseidon2_params_C_24_2);
-        const auto poseidon2_ARK_24_3 = (new_term.poseidon2_B_23_3 + poseidon2_params_C_24_3);
+        const auto poseidon2_SUM_23 = poseidon2_A_23_0 + poseidon2_A_23_1 + poseidon2_A_23_2 + poseidon2_A_23_3;
+        const auto poseidon2_ARK_24_0 = new_term.poseidon2_B_23_0 + poseidon2_params_C_24_0;
+        const auto poseidon2_ARK_24_1 = new_term.poseidon2_B_23_1 + poseidon2_params_C_24_1;
+        const auto poseidon2_ARK_24_2 = new_term.poseidon2_B_23_2 + poseidon2_params_C_24_2;
+        const auto poseidon2_ARK_24_3 = new_term.poseidon2_B_23_3 + poseidon2_params_C_24_3;
         const auto poseidon2_A_24_0 =
-            ((((poseidon2_ARK_24_0 * poseidon2_ARK_24_0) * poseidon2_ARK_24_0) * poseidon2_ARK_24_0) *
-             poseidon2_ARK_24_0);
+            poseidon2_ARK_24_0 * poseidon2_ARK_24_0 * poseidon2_ARK_24_0 * poseidon2_ARK_24_0 * poseidon2_ARK_24_0;
         const auto poseidon2_A_24_1 = poseidon2_ARK_24_1;
         const auto poseidon2_A_24_2 = poseidon2_ARK_24_2;
         const auto poseidon2_A_24_3 = poseidon2_ARK_24_3;
-        const auto poseidon2_SUM_24 = (((poseidon2_A_24_0 + poseidon2_A_24_1) + poseidon2_A_24_2) + poseidon2_A_24_3);
-        const auto poseidon2_ARK_25_0 = (new_term.poseidon2_B_24_0 + poseidon2_params_C_25_0);
-        const auto poseidon2_ARK_25_1 = (new_term.poseidon2_B_24_1 + poseidon2_params_C_25_1);
-        const auto poseidon2_ARK_25_2 = (new_term.poseidon2_B_24_2 + poseidon2_params_C_25_2);
-        const auto poseidon2_ARK_25_3 = (new_term.poseidon2_B_24_3 + poseidon2_params_C_25_3);
+        const auto poseidon2_SUM_24 = poseidon2_A_24_0 + poseidon2_A_24_1 + poseidon2_A_24_2 + poseidon2_A_24_3;
+        const auto poseidon2_ARK_25_0 = new_term.poseidon2_B_24_0 + poseidon2_params_C_25_0;
+        const auto poseidon2_ARK_25_1 = new_term.poseidon2_B_24_1 + poseidon2_params_C_25_1;
+        const auto poseidon2_ARK_25_2 = new_term.poseidon2_B_24_2 + poseidon2_params_C_25_2;
+        const auto poseidon2_ARK_25_3 = new_term.poseidon2_B_24_3 + poseidon2_params_C_25_3;
         const auto poseidon2_A_25_0 =
-            ((((poseidon2_ARK_25_0 * poseidon2_ARK_25_0) * poseidon2_ARK_25_0) * poseidon2_ARK_25_0) *
-             poseidon2_ARK_25_0);
+            poseidon2_ARK_25_0 * poseidon2_ARK_25_0 * poseidon2_ARK_25_0 * poseidon2_ARK_25_0 * poseidon2_ARK_25_0;
         const auto poseidon2_A_25_1 = poseidon2_ARK_25_1;
         const auto poseidon2_A_25_2 = poseidon2_ARK_25_2;
         const auto poseidon2_A_25_3 = poseidon2_ARK_25_3;
-        const auto poseidon2_SUM_25 = (((poseidon2_A_25_0 + poseidon2_A_25_1) + poseidon2_A_25_2) + poseidon2_A_25_3);
-        const auto poseidon2_ARK_26_0 = (new_term.poseidon2_B_25_0 + poseidon2_params_C_26_0);
-        const auto poseidon2_ARK_26_1 = (new_term.poseidon2_B_25_1 + poseidon2_params_C_26_1);
-        const auto poseidon2_ARK_26_2 = (new_term.poseidon2_B_25_2 + poseidon2_params_C_26_2);
-        const auto poseidon2_ARK_26_3 = (new_term.poseidon2_B_25_3 + poseidon2_params_C_26_3);
+        const auto poseidon2_SUM_25 = poseidon2_A_25_0 + poseidon2_A_25_1 + poseidon2_A_25_2 + poseidon2_A_25_3;
+        const auto poseidon2_ARK_26_0 = new_term.poseidon2_B_25_0 + poseidon2_params_C_26_0;
+        const auto poseidon2_ARK_26_1 = new_term.poseidon2_B_25_1 + poseidon2_params_C_26_1;
+        const auto poseidon2_ARK_26_2 = new_term.poseidon2_B_25_2 + poseidon2_params_C_26_2;
+        const auto poseidon2_ARK_26_3 = new_term.poseidon2_B_25_3 + poseidon2_params_C_26_3;
         const auto poseidon2_A_26_0 =
-            ((((poseidon2_ARK_26_0 * poseidon2_ARK_26_0) * poseidon2_ARK_26_0) * poseidon2_ARK_26_0) *
-             poseidon2_ARK_26_0);
+            poseidon2_ARK_26_0 * poseidon2_ARK_26_0 * poseidon2_ARK_26_0 * poseidon2_ARK_26_0 * poseidon2_ARK_26_0;
         const auto poseidon2_A_26_1 = poseidon2_ARK_26_1;
         const auto poseidon2_A_26_2 = poseidon2_ARK_26_2;
         const auto poseidon2_A_26_3 = poseidon2_ARK_26_3;
-        const auto poseidon2_SUM_26 = (((poseidon2_A_26_0 + poseidon2_A_26_1) + poseidon2_A_26_2) + poseidon2_A_26_3);
-        const auto poseidon2_ARK_27_0 = (new_term.poseidon2_B_26_0 + poseidon2_params_C_27_0);
-        const auto poseidon2_ARK_27_1 = (new_term.poseidon2_B_26_1 + poseidon2_params_C_27_1);
-        const auto poseidon2_ARK_27_2 = (new_term.poseidon2_B_26_2 + poseidon2_params_C_27_2);
-        const auto poseidon2_ARK_27_3 = (new_term.poseidon2_B_26_3 + poseidon2_params_C_27_3);
+        const auto poseidon2_SUM_26 = poseidon2_A_26_0 + poseidon2_A_26_1 + poseidon2_A_26_2 + poseidon2_A_26_3;
+        const auto poseidon2_ARK_27_0 = new_term.poseidon2_B_26_0 + poseidon2_params_C_27_0;
+        const auto poseidon2_ARK_27_1 = new_term.poseidon2_B_26_1 + poseidon2_params_C_27_1;
+        const auto poseidon2_ARK_27_2 = new_term.poseidon2_B_26_2 + poseidon2_params_C_27_2;
+        const auto poseidon2_ARK_27_3 = new_term.poseidon2_B_26_3 + poseidon2_params_C_27_3;
         const auto poseidon2_A_27_0 =
-            ((((poseidon2_ARK_27_0 * poseidon2_ARK_27_0) * poseidon2_ARK_27_0) * poseidon2_ARK_27_0) *
-             poseidon2_ARK_27_0);
+            poseidon2_ARK_27_0 * poseidon2_ARK_27_0 * poseidon2_ARK_27_0 * poseidon2_ARK_27_0 * poseidon2_ARK_27_0;
         const auto poseidon2_A_27_1 = poseidon2_ARK_27_1;
         const auto poseidon2_A_27_2 = poseidon2_ARK_27_2;
         const auto poseidon2_A_27_3 = poseidon2_ARK_27_3;
-        const auto poseidon2_SUM_27 = (((poseidon2_A_27_0 + poseidon2_A_27_1) + poseidon2_A_27_2) + poseidon2_A_27_3);
-        const auto poseidon2_ARK_28_0 = (new_term.poseidon2_B_27_0 + poseidon2_params_C_28_0);
-        const auto poseidon2_ARK_28_1 = (new_term.poseidon2_B_27_1 + poseidon2_params_C_28_1);
-        const auto poseidon2_ARK_28_2 = (new_term.poseidon2_B_27_2 + poseidon2_params_C_28_2);
-        const auto poseidon2_ARK_28_3 = (new_term.poseidon2_B_27_3 + poseidon2_params_C_28_3);
+        const auto poseidon2_SUM_27 = poseidon2_A_27_0 + poseidon2_A_27_1 + poseidon2_A_27_2 + poseidon2_A_27_3;
+        const auto poseidon2_ARK_28_0 = new_term.poseidon2_B_27_0 + poseidon2_params_C_28_0;
+        const auto poseidon2_ARK_28_1 = new_term.poseidon2_B_27_1 + poseidon2_params_C_28_1;
+        const auto poseidon2_ARK_28_2 = new_term.poseidon2_B_27_2 + poseidon2_params_C_28_2;
+        const auto poseidon2_ARK_28_3 = new_term.poseidon2_B_27_3 + poseidon2_params_C_28_3;
         const auto poseidon2_A_28_0 =
-            ((((poseidon2_ARK_28_0 * poseidon2_ARK_28_0) * poseidon2_ARK_28_0) * poseidon2_ARK_28_0) *
-             poseidon2_ARK_28_0);
+            poseidon2_ARK_28_0 * poseidon2_ARK_28_0 * poseidon2_ARK_28_0 * poseidon2_ARK_28_0 * poseidon2_ARK_28_0;
         const auto poseidon2_A_28_1 = poseidon2_ARK_28_1;
         const auto poseidon2_A_28_2 = poseidon2_ARK_28_2;
         const auto poseidon2_A_28_3 = poseidon2_ARK_28_3;
-        const auto poseidon2_SUM_28 = (((poseidon2_A_28_0 + poseidon2_A_28_1) + poseidon2_A_28_2) + poseidon2_A_28_3);
-        const auto poseidon2_ARK_29_0 = (new_term.poseidon2_B_28_0 + poseidon2_params_C_29_0);
-        const auto poseidon2_ARK_29_1 = (new_term.poseidon2_B_28_1 + poseidon2_params_C_29_1);
-        const auto poseidon2_ARK_29_2 = (new_term.poseidon2_B_28_2 + poseidon2_params_C_29_2);
-        const auto poseidon2_ARK_29_3 = (new_term.poseidon2_B_28_3 + poseidon2_params_C_29_3);
+        const auto poseidon2_SUM_28 = poseidon2_A_28_0 + poseidon2_A_28_1 + poseidon2_A_28_2 + poseidon2_A_28_3;
+        const auto poseidon2_ARK_29_0 = new_term.poseidon2_B_28_0 + poseidon2_params_C_29_0;
+        const auto poseidon2_ARK_29_1 = new_term.poseidon2_B_28_1 + poseidon2_params_C_29_1;
+        const auto poseidon2_ARK_29_2 = new_term.poseidon2_B_28_2 + poseidon2_params_C_29_2;
+        const auto poseidon2_ARK_29_3 = new_term.poseidon2_B_28_3 + poseidon2_params_C_29_3;
         const auto poseidon2_A_29_0 =
-            ((((poseidon2_ARK_29_0 * poseidon2_ARK_29_0) * poseidon2_ARK_29_0) * poseidon2_ARK_29_0) *
-             poseidon2_ARK_29_0);
+            poseidon2_ARK_29_0 * poseidon2_ARK_29_0 * poseidon2_ARK_29_0 * poseidon2_ARK_29_0 * poseidon2_ARK_29_0;
         const auto poseidon2_A_29_1 = poseidon2_ARK_29_1;
         const auto poseidon2_A_29_2 = poseidon2_ARK_29_2;
         const auto poseidon2_A_29_3 = poseidon2_ARK_29_3;
-        const auto poseidon2_SUM_29 = (((poseidon2_A_29_0 + poseidon2_A_29_1) + poseidon2_A_29_2) + poseidon2_A_29_3);
-        const auto poseidon2_ARK_30_0 = (new_term.poseidon2_B_29_0 + poseidon2_params_C_30_0);
-        const auto poseidon2_ARK_30_1 = (new_term.poseidon2_B_29_1 + poseidon2_params_C_30_1);
-        const auto poseidon2_ARK_30_2 = (new_term.poseidon2_B_29_2 + poseidon2_params_C_30_2);
-        const auto poseidon2_ARK_30_3 = (new_term.poseidon2_B_29_3 + poseidon2_params_C_30_3);
+        const auto poseidon2_SUM_29 = poseidon2_A_29_0 + poseidon2_A_29_1 + poseidon2_A_29_2 + poseidon2_A_29_3;
+        const auto poseidon2_ARK_30_0 = new_term.poseidon2_B_29_0 + poseidon2_params_C_30_0;
+        const auto poseidon2_ARK_30_1 = new_term.poseidon2_B_29_1 + poseidon2_params_C_30_1;
+        const auto poseidon2_ARK_30_2 = new_term.poseidon2_B_29_2 + poseidon2_params_C_30_2;
+        const auto poseidon2_ARK_30_3 = new_term.poseidon2_B_29_3 + poseidon2_params_C_30_3;
         const auto poseidon2_A_30_0 =
-            ((((poseidon2_ARK_30_0 * poseidon2_ARK_30_0) * poseidon2_ARK_30_0) * poseidon2_ARK_30_0) *
-             poseidon2_ARK_30_0);
+            poseidon2_ARK_30_0 * poseidon2_ARK_30_0 * poseidon2_ARK_30_0 * poseidon2_ARK_30_0 * poseidon2_ARK_30_0;
         const auto poseidon2_A_30_1 = poseidon2_ARK_30_1;
         const auto poseidon2_A_30_2 = poseidon2_ARK_30_2;
         const auto poseidon2_A_30_3 = poseidon2_ARK_30_3;
-        const auto poseidon2_SUM_30 = (((poseidon2_A_30_0 + poseidon2_A_30_1) + poseidon2_A_30_2) + poseidon2_A_30_3);
-        const auto poseidon2_ARK_31_0 = (new_term.poseidon2_B_30_0 + poseidon2_params_C_31_0);
-        const auto poseidon2_ARK_31_1 = (new_term.poseidon2_B_30_1 + poseidon2_params_C_31_1);
-        const auto poseidon2_ARK_31_2 = (new_term.poseidon2_B_30_2 + poseidon2_params_C_31_2);
-        const auto poseidon2_ARK_31_3 = (new_term.poseidon2_B_30_3 + poseidon2_params_C_31_3);
+        const auto poseidon2_SUM_30 = poseidon2_A_30_0 + poseidon2_A_30_1 + poseidon2_A_30_2 + poseidon2_A_30_3;
+        const auto poseidon2_ARK_31_0 = new_term.poseidon2_B_30_0 + poseidon2_params_C_31_0;
+        const auto poseidon2_ARK_31_1 = new_term.poseidon2_B_30_1 + poseidon2_params_C_31_1;
+        const auto poseidon2_ARK_31_2 = new_term.poseidon2_B_30_2 + poseidon2_params_C_31_2;
+        const auto poseidon2_ARK_31_3 = new_term.poseidon2_B_30_3 + poseidon2_params_C_31_3;
         const auto poseidon2_A_31_0 =
-            ((((poseidon2_ARK_31_0 * poseidon2_ARK_31_0) * poseidon2_ARK_31_0) * poseidon2_ARK_31_0) *
-             poseidon2_ARK_31_0);
+            poseidon2_ARK_31_0 * poseidon2_ARK_31_0 * poseidon2_ARK_31_0 * poseidon2_ARK_31_0 * poseidon2_ARK_31_0;
         const auto poseidon2_A_31_1 = poseidon2_ARK_31_1;
         const auto poseidon2_A_31_2 = poseidon2_ARK_31_2;
         const auto poseidon2_A_31_3 = poseidon2_ARK_31_3;
-        const auto poseidon2_SUM_31 = (((poseidon2_A_31_0 + poseidon2_A_31_1) + poseidon2_A_31_2) + poseidon2_A_31_3);
-        const auto poseidon2_ARK_32_0 = (new_term.poseidon2_B_31_0 + poseidon2_params_C_32_0);
-        const auto poseidon2_ARK_32_1 = (new_term.poseidon2_B_31_1 + poseidon2_params_C_32_1);
-        const auto poseidon2_ARK_32_2 = (new_term.poseidon2_B_31_2 + poseidon2_params_C_32_2);
-        const auto poseidon2_ARK_32_3 = (new_term.poseidon2_B_31_3 + poseidon2_params_C_32_3);
+        const auto poseidon2_SUM_31 = poseidon2_A_31_0 + poseidon2_A_31_1 + poseidon2_A_31_2 + poseidon2_A_31_3;
+        const auto poseidon2_ARK_32_0 = new_term.poseidon2_B_31_0 + poseidon2_params_C_32_0;
+        const auto poseidon2_ARK_32_1 = new_term.poseidon2_B_31_1 + poseidon2_params_C_32_1;
+        const auto poseidon2_ARK_32_2 = new_term.poseidon2_B_31_2 + poseidon2_params_C_32_2;
+        const auto poseidon2_ARK_32_3 = new_term.poseidon2_B_31_3 + poseidon2_params_C_32_3;
         const auto poseidon2_A_32_0 =
-            ((((poseidon2_ARK_32_0 * poseidon2_ARK_32_0) * poseidon2_ARK_32_0) * poseidon2_ARK_32_0) *
-             poseidon2_ARK_32_0);
+            poseidon2_ARK_32_0 * poseidon2_ARK_32_0 * poseidon2_ARK_32_0 * poseidon2_ARK_32_0 * poseidon2_ARK_32_0;
         const auto poseidon2_A_32_1 = poseidon2_ARK_32_1;
         const auto poseidon2_A_32_2 = poseidon2_ARK_32_2;
         const auto poseidon2_A_32_3 = poseidon2_ARK_32_3;
-        const auto poseidon2_SUM_32 = (((poseidon2_A_32_0 + poseidon2_A_32_1) + poseidon2_A_32_2) + poseidon2_A_32_3);
-        const auto poseidon2_ARK_33_0 = (new_term.poseidon2_B_32_0 + poseidon2_params_C_33_0);
-        const auto poseidon2_ARK_33_1 = (new_term.poseidon2_B_32_1 + poseidon2_params_C_33_1);
-        const auto poseidon2_ARK_33_2 = (new_term.poseidon2_B_32_2 + poseidon2_params_C_33_2);
-        const auto poseidon2_ARK_33_3 = (new_term.poseidon2_B_32_3 + poseidon2_params_C_33_3);
+        const auto poseidon2_SUM_32 = poseidon2_A_32_0 + poseidon2_A_32_1 + poseidon2_A_32_2 + poseidon2_A_32_3;
+        const auto poseidon2_ARK_33_0 = new_term.poseidon2_B_32_0 + poseidon2_params_C_33_0;
+        const auto poseidon2_ARK_33_1 = new_term.poseidon2_B_32_1 + poseidon2_params_C_33_1;
+        const auto poseidon2_ARK_33_2 = new_term.poseidon2_B_32_2 + poseidon2_params_C_33_2;
+        const auto poseidon2_ARK_33_3 = new_term.poseidon2_B_32_3 + poseidon2_params_C_33_3;
         const auto poseidon2_A_33_0 =
-            ((((poseidon2_ARK_33_0 * poseidon2_ARK_33_0) * poseidon2_ARK_33_0) * poseidon2_ARK_33_0) *
-             poseidon2_ARK_33_0);
+            poseidon2_ARK_33_0 * poseidon2_ARK_33_0 * poseidon2_ARK_33_0 * poseidon2_ARK_33_0 * poseidon2_ARK_33_0;
         const auto poseidon2_A_33_1 = poseidon2_ARK_33_1;
         const auto poseidon2_A_33_2 = poseidon2_ARK_33_2;
         const auto poseidon2_A_33_3 = poseidon2_ARK_33_3;
-        const auto poseidon2_SUM_33 = (((poseidon2_A_33_0 + poseidon2_A_33_1) + poseidon2_A_33_2) + poseidon2_A_33_3);
-        const auto poseidon2_ARK_34_0 = (new_term.poseidon2_B_33_0 + poseidon2_params_C_34_0);
-        const auto poseidon2_ARK_34_1 = (new_term.poseidon2_B_33_1 + poseidon2_params_C_34_1);
-        const auto poseidon2_ARK_34_2 = (new_term.poseidon2_B_33_2 + poseidon2_params_C_34_2);
-        const auto poseidon2_ARK_34_3 = (new_term.poseidon2_B_33_3 + poseidon2_params_C_34_3);
+        const auto poseidon2_SUM_33 = poseidon2_A_33_0 + poseidon2_A_33_1 + poseidon2_A_33_2 + poseidon2_A_33_3;
+        const auto poseidon2_ARK_34_0 = new_term.poseidon2_B_33_0 + poseidon2_params_C_34_0;
+        const auto poseidon2_ARK_34_1 = new_term.poseidon2_B_33_1 + poseidon2_params_C_34_1;
+        const auto poseidon2_ARK_34_2 = new_term.poseidon2_B_33_2 + poseidon2_params_C_34_2;
+        const auto poseidon2_ARK_34_3 = new_term.poseidon2_B_33_3 + poseidon2_params_C_34_3;
         const auto poseidon2_A_34_0 =
-            ((((poseidon2_ARK_34_0 * poseidon2_ARK_34_0) * poseidon2_ARK_34_0) * poseidon2_ARK_34_0) *
-             poseidon2_ARK_34_0);
+            poseidon2_ARK_34_0 * poseidon2_ARK_34_0 * poseidon2_ARK_34_0 * poseidon2_ARK_34_0 * poseidon2_ARK_34_0;
         const auto poseidon2_A_34_1 = poseidon2_ARK_34_1;
         const auto poseidon2_A_34_2 = poseidon2_ARK_34_2;
         const auto poseidon2_A_34_3 = poseidon2_ARK_34_3;
-        const auto poseidon2_SUM_34 = (((poseidon2_A_34_0 + poseidon2_A_34_1) + poseidon2_A_34_2) + poseidon2_A_34_3);
-        const auto poseidon2_ARK_35_0 = (new_term.poseidon2_B_34_0 + poseidon2_params_C_35_0);
-        const auto poseidon2_ARK_35_1 = (new_term.poseidon2_B_34_1 + poseidon2_params_C_35_1);
-        const auto poseidon2_ARK_35_2 = (new_term.poseidon2_B_34_2 + poseidon2_params_C_35_2);
-        const auto poseidon2_ARK_35_3 = (new_term.poseidon2_B_34_3 + poseidon2_params_C_35_3);
+        const auto poseidon2_SUM_34 = poseidon2_A_34_0 + poseidon2_A_34_1 + poseidon2_A_34_2 + poseidon2_A_34_3;
+        const auto poseidon2_ARK_35_0 = new_term.poseidon2_B_34_0 + poseidon2_params_C_35_0;
+        const auto poseidon2_ARK_35_1 = new_term.poseidon2_B_34_1 + poseidon2_params_C_35_1;
+        const auto poseidon2_ARK_35_2 = new_term.poseidon2_B_34_2 + poseidon2_params_C_35_2;
+        const auto poseidon2_ARK_35_3 = new_term.poseidon2_B_34_3 + poseidon2_params_C_35_3;
         const auto poseidon2_A_35_0 =
-            ((((poseidon2_ARK_35_0 * poseidon2_ARK_35_0) * poseidon2_ARK_35_0) * poseidon2_ARK_35_0) *
-             poseidon2_ARK_35_0);
+            poseidon2_ARK_35_0 * poseidon2_ARK_35_0 * poseidon2_ARK_35_0 * poseidon2_ARK_35_0 * poseidon2_ARK_35_0;
         const auto poseidon2_A_35_1 = poseidon2_ARK_35_1;
         const auto poseidon2_A_35_2 = poseidon2_ARK_35_2;
         const auto poseidon2_A_35_3 = poseidon2_ARK_35_3;
-        const auto poseidon2_SUM_35 = (((poseidon2_A_35_0 + poseidon2_A_35_1) + poseidon2_A_35_2) + poseidon2_A_35_3);
-        const auto poseidon2_ARK_36_0 = (new_term.poseidon2_B_35_0 + poseidon2_params_C_36_0);
-        const auto poseidon2_ARK_36_1 = (new_term.poseidon2_B_35_1 + poseidon2_params_C_36_1);
-        const auto poseidon2_ARK_36_2 = (new_term.poseidon2_B_35_2 + poseidon2_params_C_36_2);
-        const auto poseidon2_ARK_36_3 = (new_term.poseidon2_B_35_3 + poseidon2_params_C_36_3);
+        const auto poseidon2_SUM_35 = poseidon2_A_35_0 + poseidon2_A_35_1 + poseidon2_A_35_2 + poseidon2_A_35_3;
+        const auto poseidon2_ARK_36_0 = new_term.poseidon2_B_35_0 + poseidon2_params_C_36_0;
+        const auto poseidon2_ARK_36_1 = new_term.poseidon2_B_35_1 + poseidon2_params_C_36_1;
+        const auto poseidon2_ARK_36_2 = new_term.poseidon2_B_35_2 + poseidon2_params_C_36_2;
+        const auto poseidon2_ARK_36_3 = new_term.poseidon2_B_35_3 + poseidon2_params_C_36_3;
         const auto poseidon2_A_36_0 =
-            ((((poseidon2_ARK_36_0 * poseidon2_ARK_36_0) * poseidon2_ARK_36_0) * poseidon2_ARK_36_0) *
-             poseidon2_ARK_36_0);
+            poseidon2_ARK_36_0 * poseidon2_ARK_36_0 * poseidon2_ARK_36_0 * poseidon2_ARK_36_0 * poseidon2_ARK_36_0;
         const auto poseidon2_A_36_1 = poseidon2_ARK_36_1;
         const auto poseidon2_A_36_2 = poseidon2_ARK_36_2;
         const auto poseidon2_A_36_3 = poseidon2_ARK_36_3;
-        const auto poseidon2_SUM_36 = (((poseidon2_A_36_0 + poseidon2_A_36_1) + poseidon2_A_36_2) + poseidon2_A_36_3);
-        const auto poseidon2_ARK_37_0 = (new_term.poseidon2_B_36_0 + poseidon2_params_C_37_0);
-        const auto poseidon2_ARK_37_1 = (new_term.poseidon2_B_36_1 + poseidon2_params_C_37_1);
-        const auto poseidon2_ARK_37_2 = (new_term.poseidon2_B_36_2 + poseidon2_params_C_37_2);
-        const auto poseidon2_ARK_37_3 = (new_term.poseidon2_B_36_3 + poseidon2_params_C_37_3);
+        const auto poseidon2_SUM_36 = poseidon2_A_36_0 + poseidon2_A_36_1 + poseidon2_A_36_2 + poseidon2_A_36_3;
+        const auto poseidon2_ARK_37_0 = new_term.poseidon2_B_36_0 + poseidon2_params_C_37_0;
+        const auto poseidon2_ARK_37_1 = new_term.poseidon2_B_36_1 + poseidon2_params_C_37_1;
+        const auto poseidon2_ARK_37_2 = new_term.poseidon2_B_36_2 + poseidon2_params_C_37_2;
+        const auto poseidon2_ARK_37_3 = new_term.poseidon2_B_36_3 + poseidon2_params_C_37_3;
         const auto poseidon2_A_37_0 =
-            ((((poseidon2_ARK_37_0 * poseidon2_ARK_37_0) * poseidon2_ARK_37_0) * poseidon2_ARK_37_0) *
-             poseidon2_ARK_37_0);
+            poseidon2_ARK_37_0 * poseidon2_ARK_37_0 * poseidon2_ARK_37_0 * poseidon2_ARK_37_0 * poseidon2_ARK_37_0;
         const auto poseidon2_A_37_1 = poseidon2_ARK_37_1;
         const auto poseidon2_A_37_2 = poseidon2_ARK_37_2;
         const auto poseidon2_A_37_3 = poseidon2_ARK_37_3;
-        const auto poseidon2_SUM_37 = (((poseidon2_A_37_0 + poseidon2_A_37_1) + poseidon2_A_37_2) + poseidon2_A_37_3);
-        const auto poseidon2_ARK_38_0 = (new_term.poseidon2_B_37_0 + poseidon2_params_C_38_0);
-        const auto poseidon2_ARK_38_1 = (new_term.poseidon2_B_37_1 + poseidon2_params_C_38_1);
-        const auto poseidon2_ARK_38_2 = (new_term.poseidon2_B_37_2 + poseidon2_params_C_38_2);
-        const auto poseidon2_ARK_38_3 = (new_term.poseidon2_B_37_3 + poseidon2_params_C_38_3);
+        const auto poseidon2_SUM_37 = poseidon2_A_37_0 + poseidon2_A_37_1 + poseidon2_A_37_2 + poseidon2_A_37_3;
+        const auto poseidon2_ARK_38_0 = new_term.poseidon2_B_37_0 + poseidon2_params_C_38_0;
+        const auto poseidon2_ARK_38_1 = new_term.poseidon2_B_37_1 + poseidon2_params_C_38_1;
+        const auto poseidon2_ARK_38_2 = new_term.poseidon2_B_37_2 + poseidon2_params_C_38_2;
+        const auto poseidon2_ARK_38_3 = new_term.poseidon2_B_37_3 + poseidon2_params_C_38_3;
         const auto poseidon2_A_38_0 =
-            ((((poseidon2_ARK_38_0 * poseidon2_ARK_38_0) * poseidon2_ARK_38_0) * poseidon2_ARK_38_0) *
-             poseidon2_ARK_38_0);
+            poseidon2_ARK_38_0 * poseidon2_ARK_38_0 * poseidon2_ARK_38_0 * poseidon2_ARK_38_0 * poseidon2_ARK_38_0;
         const auto poseidon2_A_38_1 = poseidon2_ARK_38_1;
         const auto poseidon2_A_38_2 = poseidon2_ARK_38_2;
         const auto poseidon2_A_38_3 = poseidon2_ARK_38_3;
-        const auto poseidon2_SUM_38 = (((poseidon2_A_38_0 + poseidon2_A_38_1) + poseidon2_A_38_2) + poseidon2_A_38_3);
-        const auto poseidon2_ARK_39_0 = (new_term.poseidon2_B_38_0 + poseidon2_params_C_39_0);
-        const auto poseidon2_ARK_39_1 = (new_term.poseidon2_B_38_1 + poseidon2_params_C_39_1);
-        const auto poseidon2_ARK_39_2 = (new_term.poseidon2_B_38_2 + poseidon2_params_C_39_2);
-        const auto poseidon2_ARK_39_3 = (new_term.poseidon2_B_38_3 + poseidon2_params_C_39_3);
+        const auto poseidon2_SUM_38 = poseidon2_A_38_0 + poseidon2_A_38_1 + poseidon2_A_38_2 + poseidon2_A_38_3;
+        const auto poseidon2_ARK_39_0 = new_term.poseidon2_B_38_0 + poseidon2_params_C_39_0;
+        const auto poseidon2_ARK_39_1 = new_term.poseidon2_B_38_1 + poseidon2_params_C_39_1;
+        const auto poseidon2_ARK_39_2 = new_term.poseidon2_B_38_2 + poseidon2_params_C_39_2;
+        const auto poseidon2_ARK_39_3 = new_term.poseidon2_B_38_3 + poseidon2_params_C_39_3;
         const auto poseidon2_A_39_0 =
-            ((((poseidon2_ARK_39_0 * poseidon2_ARK_39_0) * poseidon2_ARK_39_0) * poseidon2_ARK_39_0) *
-             poseidon2_ARK_39_0);
+            poseidon2_ARK_39_0 * poseidon2_ARK_39_0 * poseidon2_ARK_39_0 * poseidon2_ARK_39_0 * poseidon2_ARK_39_0;
         const auto poseidon2_A_39_1 = poseidon2_ARK_39_1;
         const auto poseidon2_A_39_2 = poseidon2_ARK_39_2;
         const auto poseidon2_A_39_3 = poseidon2_ARK_39_3;
-        const auto poseidon2_SUM_39 = (((poseidon2_A_39_0 + poseidon2_A_39_1) + poseidon2_A_39_2) + poseidon2_A_39_3);
-        const auto poseidon2_ARK_40_0 = (new_term.poseidon2_B_39_0 + poseidon2_params_C_40_0);
-        const auto poseidon2_ARK_40_1 = (new_term.poseidon2_B_39_1 + poseidon2_params_C_40_1);
-        const auto poseidon2_ARK_40_2 = (new_term.poseidon2_B_39_2 + poseidon2_params_C_40_2);
-        const auto poseidon2_ARK_40_3 = (new_term.poseidon2_B_39_3 + poseidon2_params_C_40_3);
+        const auto poseidon2_SUM_39 = poseidon2_A_39_0 + poseidon2_A_39_1 + poseidon2_A_39_2 + poseidon2_A_39_3;
+        const auto poseidon2_ARK_40_0 = new_term.poseidon2_B_39_0 + poseidon2_params_C_40_0;
+        const auto poseidon2_ARK_40_1 = new_term.poseidon2_B_39_1 + poseidon2_params_C_40_1;
+        const auto poseidon2_ARK_40_2 = new_term.poseidon2_B_39_2 + poseidon2_params_C_40_2;
+        const auto poseidon2_ARK_40_3 = new_term.poseidon2_B_39_3 + poseidon2_params_C_40_3;
         const auto poseidon2_A_40_0 =
-            ((((poseidon2_ARK_40_0 * poseidon2_ARK_40_0) * poseidon2_ARK_40_0) * poseidon2_ARK_40_0) *
-             poseidon2_ARK_40_0);
+            poseidon2_ARK_40_0 * poseidon2_ARK_40_0 * poseidon2_ARK_40_0 * poseidon2_ARK_40_0 * poseidon2_ARK_40_0;
         const auto poseidon2_A_40_1 = poseidon2_ARK_40_1;
         const auto poseidon2_A_40_2 = poseidon2_ARK_40_2;
         const auto poseidon2_A_40_3 = poseidon2_ARK_40_3;
-        const auto poseidon2_SUM_40 = (((poseidon2_A_40_0 + poseidon2_A_40_1) + poseidon2_A_40_2) + poseidon2_A_40_3);
-        const auto poseidon2_ARK_41_0 = (new_term.poseidon2_B_40_0 + poseidon2_params_C_41_0);
-        const auto poseidon2_ARK_41_1 = (new_term.poseidon2_B_40_1 + poseidon2_params_C_41_1);
-        const auto poseidon2_ARK_41_2 = (new_term.poseidon2_B_40_2 + poseidon2_params_C_41_2);
-        const auto poseidon2_ARK_41_3 = (new_term.poseidon2_B_40_3 + poseidon2_params_C_41_3);
+        const auto poseidon2_SUM_40 = poseidon2_A_40_0 + poseidon2_A_40_1 + poseidon2_A_40_2 + poseidon2_A_40_3;
+        const auto poseidon2_ARK_41_0 = new_term.poseidon2_B_40_0 + poseidon2_params_C_41_0;
+        const auto poseidon2_ARK_41_1 = new_term.poseidon2_B_40_1 + poseidon2_params_C_41_1;
+        const auto poseidon2_ARK_41_2 = new_term.poseidon2_B_40_2 + poseidon2_params_C_41_2;
+        const auto poseidon2_ARK_41_3 = new_term.poseidon2_B_40_3 + poseidon2_params_C_41_3;
         const auto poseidon2_A_41_0 =
-            ((((poseidon2_ARK_41_0 * poseidon2_ARK_41_0) * poseidon2_ARK_41_0) * poseidon2_ARK_41_0) *
-             poseidon2_ARK_41_0);
+            poseidon2_ARK_41_0 * poseidon2_ARK_41_0 * poseidon2_ARK_41_0 * poseidon2_ARK_41_0 * poseidon2_ARK_41_0;
         const auto poseidon2_A_41_1 = poseidon2_ARK_41_1;
         const auto poseidon2_A_41_2 = poseidon2_ARK_41_2;
         const auto poseidon2_A_41_3 = poseidon2_ARK_41_3;
-        const auto poseidon2_SUM_41 = (((poseidon2_A_41_0 + poseidon2_A_41_1) + poseidon2_A_41_2) + poseidon2_A_41_3);
-        const auto poseidon2_ARK_42_0 = (new_term.poseidon2_B_41_0 + poseidon2_params_C_42_0);
-        const auto poseidon2_ARK_42_1 = (new_term.poseidon2_B_41_1 + poseidon2_params_C_42_1);
-        const auto poseidon2_ARK_42_2 = (new_term.poseidon2_B_41_2 + poseidon2_params_C_42_2);
-        const auto poseidon2_ARK_42_3 = (new_term.poseidon2_B_41_3 + poseidon2_params_C_42_3);
+        const auto poseidon2_SUM_41 = poseidon2_A_41_0 + poseidon2_A_41_1 + poseidon2_A_41_2 + poseidon2_A_41_3;
+        const auto poseidon2_ARK_42_0 = new_term.poseidon2_B_41_0 + poseidon2_params_C_42_0;
+        const auto poseidon2_ARK_42_1 = new_term.poseidon2_B_41_1 + poseidon2_params_C_42_1;
+        const auto poseidon2_ARK_42_2 = new_term.poseidon2_B_41_2 + poseidon2_params_C_42_2;
+        const auto poseidon2_ARK_42_3 = new_term.poseidon2_B_41_3 + poseidon2_params_C_42_3;
         const auto poseidon2_A_42_0 =
-            ((((poseidon2_ARK_42_0 * poseidon2_ARK_42_0) * poseidon2_ARK_42_0) * poseidon2_ARK_42_0) *
-             poseidon2_ARK_42_0);
+            poseidon2_ARK_42_0 * poseidon2_ARK_42_0 * poseidon2_ARK_42_0 * poseidon2_ARK_42_0 * poseidon2_ARK_42_0;
         const auto poseidon2_A_42_1 = poseidon2_ARK_42_1;
         const auto poseidon2_A_42_2 = poseidon2_ARK_42_2;
         const auto poseidon2_A_42_3 = poseidon2_ARK_42_3;
-        const auto poseidon2_SUM_42 = (((poseidon2_A_42_0 + poseidon2_A_42_1) + poseidon2_A_42_2) + poseidon2_A_42_3);
-        const auto poseidon2_ARK_43_0 = (new_term.poseidon2_B_42_0 + poseidon2_params_C_43_0);
-        const auto poseidon2_ARK_43_1 = (new_term.poseidon2_B_42_1 + poseidon2_params_C_43_1);
-        const auto poseidon2_ARK_43_2 = (new_term.poseidon2_B_42_2 + poseidon2_params_C_43_2);
-        const auto poseidon2_ARK_43_3 = (new_term.poseidon2_B_42_3 + poseidon2_params_C_43_3);
+        const auto poseidon2_SUM_42 = poseidon2_A_42_0 + poseidon2_A_42_1 + poseidon2_A_42_2 + poseidon2_A_42_3;
+        const auto poseidon2_ARK_43_0 = new_term.poseidon2_B_42_0 + poseidon2_params_C_43_0;
+        const auto poseidon2_ARK_43_1 = new_term.poseidon2_B_42_1 + poseidon2_params_C_43_1;
+        const auto poseidon2_ARK_43_2 = new_term.poseidon2_B_42_2 + poseidon2_params_C_43_2;
+        const auto poseidon2_ARK_43_3 = new_term.poseidon2_B_42_3 + poseidon2_params_C_43_3;
         const auto poseidon2_A_43_0 =
-            ((((poseidon2_ARK_43_0 * poseidon2_ARK_43_0) * poseidon2_ARK_43_0) * poseidon2_ARK_43_0) *
-             poseidon2_ARK_43_0);
+            poseidon2_ARK_43_0 * poseidon2_ARK_43_0 * poseidon2_ARK_43_0 * poseidon2_ARK_43_0 * poseidon2_ARK_43_0;
         const auto poseidon2_A_43_1 = poseidon2_ARK_43_1;
         const auto poseidon2_A_43_2 = poseidon2_ARK_43_2;
         const auto poseidon2_A_43_3 = poseidon2_ARK_43_3;
-        const auto poseidon2_SUM_43 = (((poseidon2_A_43_0 + poseidon2_A_43_1) + poseidon2_A_43_2) + poseidon2_A_43_3);
-        const auto poseidon2_ARK_44_0 = (new_term.poseidon2_B_43_0 + poseidon2_params_C_44_0);
-        const auto poseidon2_ARK_44_1 = (new_term.poseidon2_B_43_1 + poseidon2_params_C_44_1);
-        const auto poseidon2_ARK_44_2 = (new_term.poseidon2_B_43_2 + poseidon2_params_C_44_2);
-        const auto poseidon2_ARK_44_3 = (new_term.poseidon2_B_43_3 + poseidon2_params_C_44_3);
+        const auto poseidon2_SUM_43 = poseidon2_A_43_0 + poseidon2_A_43_1 + poseidon2_A_43_2 + poseidon2_A_43_3;
+        const auto poseidon2_ARK_44_0 = new_term.poseidon2_B_43_0 + poseidon2_params_C_44_0;
+        const auto poseidon2_ARK_44_1 = new_term.poseidon2_B_43_1 + poseidon2_params_C_44_1;
+        const auto poseidon2_ARK_44_2 = new_term.poseidon2_B_43_2 + poseidon2_params_C_44_2;
+        const auto poseidon2_ARK_44_3 = new_term.poseidon2_B_43_3 + poseidon2_params_C_44_3;
         const auto poseidon2_A_44_0 =
-            ((((poseidon2_ARK_44_0 * poseidon2_ARK_44_0) * poseidon2_ARK_44_0) * poseidon2_ARK_44_0) *
-             poseidon2_ARK_44_0);
+            poseidon2_ARK_44_0 * poseidon2_ARK_44_0 * poseidon2_ARK_44_0 * poseidon2_ARK_44_0 * poseidon2_ARK_44_0;
         const auto poseidon2_A_44_1 = poseidon2_ARK_44_1;
         const auto poseidon2_A_44_2 = poseidon2_ARK_44_2;
         const auto poseidon2_A_44_3 = poseidon2_ARK_44_3;
-        const auto poseidon2_SUM_44 = (((poseidon2_A_44_0 + poseidon2_A_44_1) + poseidon2_A_44_2) + poseidon2_A_44_3);
-        const auto poseidon2_ARK_45_0 = (new_term.poseidon2_B_44_0 + poseidon2_params_C_45_0);
-        const auto poseidon2_ARK_45_1 = (new_term.poseidon2_B_44_1 + poseidon2_params_C_45_1);
-        const auto poseidon2_ARK_45_2 = (new_term.poseidon2_B_44_2 + poseidon2_params_C_45_2);
-        const auto poseidon2_ARK_45_3 = (new_term.poseidon2_B_44_3 + poseidon2_params_C_45_3);
+        const auto poseidon2_SUM_44 = poseidon2_A_44_0 + poseidon2_A_44_1 + poseidon2_A_44_2 + poseidon2_A_44_3;
+        const auto poseidon2_ARK_45_0 = new_term.poseidon2_B_44_0 + poseidon2_params_C_45_0;
+        const auto poseidon2_ARK_45_1 = new_term.poseidon2_B_44_1 + poseidon2_params_C_45_1;
+        const auto poseidon2_ARK_45_2 = new_term.poseidon2_B_44_2 + poseidon2_params_C_45_2;
+        const auto poseidon2_ARK_45_3 = new_term.poseidon2_B_44_3 + poseidon2_params_C_45_3;
         const auto poseidon2_A_45_0 =
-            ((((poseidon2_ARK_45_0 * poseidon2_ARK_45_0) * poseidon2_ARK_45_0) * poseidon2_ARK_45_0) *
-             poseidon2_ARK_45_0);
+            poseidon2_ARK_45_0 * poseidon2_ARK_45_0 * poseidon2_ARK_45_0 * poseidon2_ARK_45_0 * poseidon2_ARK_45_0;
         const auto poseidon2_A_45_1 = poseidon2_ARK_45_1;
         const auto poseidon2_A_45_2 = poseidon2_ARK_45_2;
         const auto poseidon2_A_45_3 = poseidon2_ARK_45_3;
-        const auto poseidon2_SUM_45 = (((poseidon2_A_45_0 + poseidon2_A_45_1) + poseidon2_A_45_2) + poseidon2_A_45_3);
-        const auto poseidon2_ARK_46_0 = (new_term.poseidon2_B_45_0 + poseidon2_params_C_46_0);
-        const auto poseidon2_ARK_46_1 = (new_term.poseidon2_B_45_1 + poseidon2_params_C_46_1);
-        const auto poseidon2_ARK_46_2 = (new_term.poseidon2_B_45_2 + poseidon2_params_C_46_2);
-        const auto poseidon2_ARK_46_3 = (new_term.poseidon2_B_45_3 + poseidon2_params_C_46_3);
+        const auto poseidon2_SUM_45 = poseidon2_A_45_0 + poseidon2_A_45_1 + poseidon2_A_45_2 + poseidon2_A_45_3;
+        const auto poseidon2_ARK_46_0 = new_term.poseidon2_B_45_0 + poseidon2_params_C_46_0;
+        const auto poseidon2_ARK_46_1 = new_term.poseidon2_B_45_1 + poseidon2_params_C_46_1;
+        const auto poseidon2_ARK_46_2 = new_term.poseidon2_B_45_2 + poseidon2_params_C_46_2;
+        const auto poseidon2_ARK_46_3 = new_term.poseidon2_B_45_3 + poseidon2_params_C_46_3;
         const auto poseidon2_A_46_0 =
-            ((((poseidon2_ARK_46_0 * poseidon2_ARK_46_0) * poseidon2_ARK_46_0) * poseidon2_ARK_46_0) *
-             poseidon2_ARK_46_0);
+            poseidon2_ARK_46_0 * poseidon2_ARK_46_0 * poseidon2_ARK_46_0 * poseidon2_ARK_46_0 * poseidon2_ARK_46_0;
         const auto poseidon2_A_46_1 = poseidon2_ARK_46_1;
         const auto poseidon2_A_46_2 = poseidon2_ARK_46_2;
         const auto poseidon2_A_46_3 = poseidon2_ARK_46_3;
-        const auto poseidon2_SUM_46 = (((poseidon2_A_46_0 + poseidon2_A_46_1) + poseidon2_A_46_2) + poseidon2_A_46_3);
-        const auto poseidon2_ARK_47_0 = (new_term.poseidon2_B_46_0 + poseidon2_params_C_47_0);
-        const auto poseidon2_ARK_47_1 = (new_term.poseidon2_B_46_1 + poseidon2_params_C_47_1);
-        const auto poseidon2_ARK_47_2 = (new_term.poseidon2_B_46_2 + poseidon2_params_C_47_2);
-        const auto poseidon2_ARK_47_3 = (new_term.poseidon2_B_46_3 + poseidon2_params_C_47_3);
+        const auto poseidon2_SUM_46 = poseidon2_A_46_0 + poseidon2_A_46_1 + poseidon2_A_46_2 + poseidon2_A_46_3;
+        const auto poseidon2_ARK_47_0 = new_term.poseidon2_B_46_0 + poseidon2_params_C_47_0;
+        const auto poseidon2_ARK_47_1 = new_term.poseidon2_B_46_1 + poseidon2_params_C_47_1;
+        const auto poseidon2_ARK_47_2 = new_term.poseidon2_B_46_2 + poseidon2_params_C_47_2;
+        const auto poseidon2_ARK_47_3 = new_term.poseidon2_B_46_3 + poseidon2_params_C_47_3;
         const auto poseidon2_A_47_0 =
-            ((((poseidon2_ARK_47_0 * poseidon2_ARK_47_0) * poseidon2_ARK_47_0) * poseidon2_ARK_47_0) *
-             poseidon2_ARK_47_0);
+            poseidon2_ARK_47_0 * poseidon2_ARK_47_0 * poseidon2_ARK_47_0 * poseidon2_ARK_47_0 * poseidon2_ARK_47_0;
         const auto poseidon2_A_47_1 = poseidon2_ARK_47_1;
         const auto poseidon2_A_47_2 = poseidon2_ARK_47_2;
         const auto poseidon2_A_47_3 = poseidon2_ARK_47_3;
-        const auto poseidon2_SUM_47 = (((poseidon2_A_47_0 + poseidon2_A_47_1) + poseidon2_A_47_2) + poseidon2_A_47_3);
-        const auto poseidon2_ARK_48_0 = (new_term.poseidon2_B_47_0 + poseidon2_params_C_48_0);
-        const auto poseidon2_ARK_48_1 = (new_term.poseidon2_B_47_1 + poseidon2_params_C_48_1);
-        const auto poseidon2_ARK_48_2 = (new_term.poseidon2_B_47_2 + poseidon2_params_C_48_2);
-        const auto poseidon2_ARK_48_3 = (new_term.poseidon2_B_47_3 + poseidon2_params_C_48_3);
+        const auto poseidon2_SUM_47 = poseidon2_A_47_0 + poseidon2_A_47_1 + poseidon2_A_47_2 + poseidon2_A_47_3;
+        const auto poseidon2_ARK_48_0 = new_term.poseidon2_B_47_0 + poseidon2_params_C_48_0;
+        const auto poseidon2_ARK_48_1 = new_term.poseidon2_B_47_1 + poseidon2_params_C_48_1;
+        const auto poseidon2_ARK_48_2 = new_term.poseidon2_B_47_2 + poseidon2_params_C_48_2;
+        const auto poseidon2_ARK_48_3 = new_term.poseidon2_B_47_3 + poseidon2_params_C_48_3;
         const auto poseidon2_A_48_0 =
-            ((((poseidon2_ARK_48_0 * poseidon2_ARK_48_0) * poseidon2_ARK_48_0) * poseidon2_ARK_48_0) *
-             poseidon2_ARK_48_0);
+            poseidon2_ARK_48_0 * poseidon2_ARK_48_0 * poseidon2_ARK_48_0 * poseidon2_ARK_48_0 * poseidon2_ARK_48_0;
         const auto poseidon2_A_48_1 = poseidon2_ARK_48_1;
         const auto poseidon2_A_48_2 = poseidon2_ARK_48_2;
         const auto poseidon2_A_48_3 = poseidon2_ARK_48_3;
-        const auto poseidon2_SUM_48 = (((poseidon2_A_48_0 + poseidon2_A_48_1) + poseidon2_A_48_2) + poseidon2_A_48_3);
-        const auto poseidon2_ARK_49_0 = (new_term.poseidon2_B_48_0 + poseidon2_params_C_49_0);
-        const auto poseidon2_ARK_49_1 = (new_term.poseidon2_B_48_1 + poseidon2_params_C_49_1);
-        const auto poseidon2_ARK_49_2 = (new_term.poseidon2_B_48_2 + poseidon2_params_C_49_2);
-        const auto poseidon2_ARK_49_3 = (new_term.poseidon2_B_48_3 + poseidon2_params_C_49_3);
+        const auto poseidon2_SUM_48 = poseidon2_A_48_0 + poseidon2_A_48_1 + poseidon2_A_48_2 + poseidon2_A_48_3;
+        const auto poseidon2_ARK_49_0 = new_term.poseidon2_B_48_0 + poseidon2_params_C_49_0;
+        const auto poseidon2_ARK_49_1 = new_term.poseidon2_B_48_1 + poseidon2_params_C_49_1;
+        const auto poseidon2_ARK_49_2 = new_term.poseidon2_B_48_2 + poseidon2_params_C_49_2;
+        const auto poseidon2_ARK_49_3 = new_term.poseidon2_B_48_3 + poseidon2_params_C_49_3;
         const auto poseidon2_A_49_0 =
-            ((((poseidon2_ARK_49_0 * poseidon2_ARK_49_0) * poseidon2_ARK_49_0) * poseidon2_ARK_49_0) *
-             poseidon2_ARK_49_0);
+            poseidon2_ARK_49_0 * poseidon2_ARK_49_0 * poseidon2_ARK_49_0 * poseidon2_ARK_49_0 * poseidon2_ARK_49_0;
         const auto poseidon2_A_49_1 = poseidon2_ARK_49_1;
         const auto poseidon2_A_49_2 = poseidon2_ARK_49_2;
         const auto poseidon2_A_49_3 = poseidon2_ARK_49_3;
-        const auto poseidon2_SUM_49 = (((poseidon2_A_49_0 + poseidon2_A_49_1) + poseidon2_A_49_2) + poseidon2_A_49_3);
-        const auto poseidon2_ARK_50_0 = (new_term.poseidon2_B_49_0 + poseidon2_params_C_50_0);
-        const auto poseidon2_ARK_50_1 = (new_term.poseidon2_B_49_1 + poseidon2_params_C_50_1);
-        const auto poseidon2_ARK_50_2 = (new_term.poseidon2_B_49_2 + poseidon2_params_C_50_2);
-        const auto poseidon2_ARK_50_3 = (new_term.poseidon2_B_49_3 + poseidon2_params_C_50_3);
+        const auto poseidon2_SUM_49 = poseidon2_A_49_0 + poseidon2_A_49_1 + poseidon2_A_49_2 + poseidon2_A_49_3;
+        const auto poseidon2_ARK_50_0 = new_term.poseidon2_B_49_0 + poseidon2_params_C_50_0;
+        const auto poseidon2_ARK_50_1 = new_term.poseidon2_B_49_1 + poseidon2_params_C_50_1;
+        const auto poseidon2_ARK_50_2 = new_term.poseidon2_B_49_2 + poseidon2_params_C_50_2;
+        const auto poseidon2_ARK_50_3 = new_term.poseidon2_B_49_3 + poseidon2_params_C_50_3;
         const auto poseidon2_A_50_0 =
-            ((((poseidon2_ARK_50_0 * poseidon2_ARK_50_0) * poseidon2_ARK_50_0) * poseidon2_ARK_50_0) *
-             poseidon2_ARK_50_0);
+            poseidon2_ARK_50_0 * poseidon2_ARK_50_0 * poseidon2_ARK_50_0 * poseidon2_ARK_50_0 * poseidon2_ARK_50_0;
         const auto poseidon2_A_50_1 = poseidon2_ARK_50_1;
         const auto poseidon2_A_50_2 = poseidon2_ARK_50_2;
         const auto poseidon2_A_50_3 = poseidon2_ARK_50_3;
-        const auto poseidon2_SUM_50 = (((poseidon2_A_50_0 + poseidon2_A_50_1) + poseidon2_A_50_2) + poseidon2_A_50_3);
-        const auto poseidon2_ARK_51_0 = (new_term.poseidon2_B_50_0 + poseidon2_params_C_51_0);
-        const auto poseidon2_ARK_51_1 = (new_term.poseidon2_B_50_1 + poseidon2_params_C_51_1);
-        const auto poseidon2_ARK_51_2 = (new_term.poseidon2_B_50_2 + poseidon2_params_C_51_2);
-        const auto poseidon2_ARK_51_3 = (new_term.poseidon2_B_50_3 + poseidon2_params_C_51_3);
+        const auto poseidon2_SUM_50 = poseidon2_A_50_0 + poseidon2_A_50_1 + poseidon2_A_50_2 + poseidon2_A_50_3;
+        const auto poseidon2_ARK_51_0 = new_term.poseidon2_B_50_0 + poseidon2_params_C_51_0;
+        const auto poseidon2_ARK_51_1 = new_term.poseidon2_B_50_1 + poseidon2_params_C_51_1;
+        const auto poseidon2_ARK_51_2 = new_term.poseidon2_B_50_2 + poseidon2_params_C_51_2;
+        const auto poseidon2_ARK_51_3 = new_term.poseidon2_B_50_3 + poseidon2_params_C_51_3;
         const auto poseidon2_A_51_0 =
-            ((((poseidon2_ARK_51_0 * poseidon2_ARK_51_0) * poseidon2_ARK_51_0) * poseidon2_ARK_51_0) *
-             poseidon2_ARK_51_0);
+            poseidon2_ARK_51_0 * poseidon2_ARK_51_0 * poseidon2_ARK_51_0 * poseidon2_ARK_51_0 * poseidon2_ARK_51_0;
         const auto poseidon2_A_51_1 = poseidon2_ARK_51_1;
         const auto poseidon2_A_51_2 = poseidon2_ARK_51_2;
         const auto poseidon2_A_51_3 = poseidon2_ARK_51_3;
-        const auto poseidon2_SUM_51 = (((poseidon2_A_51_0 + poseidon2_A_51_1) + poseidon2_A_51_2) + poseidon2_A_51_3);
-        const auto poseidon2_ARK_52_0 = (new_term.poseidon2_B_51_0 + poseidon2_params_C_52_0);
-        const auto poseidon2_ARK_52_1 = (new_term.poseidon2_B_51_1 + poseidon2_params_C_52_1);
-        const auto poseidon2_ARK_52_2 = (new_term.poseidon2_B_51_2 + poseidon2_params_C_52_2);
-        const auto poseidon2_ARK_52_3 = (new_term.poseidon2_B_51_3 + poseidon2_params_C_52_3);
+        const auto poseidon2_SUM_51 = poseidon2_A_51_0 + poseidon2_A_51_1 + poseidon2_A_51_2 + poseidon2_A_51_3;
+        const auto poseidon2_ARK_52_0 = new_term.poseidon2_B_51_0 + poseidon2_params_C_52_0;
+        const auto poseidon2_ARK_52_1 = new_term.poseidon2_B_51_1 + poseidon2_params_C_52_1;
+        const auto poseidon2_ARK_52_2 = new_term.poseidon2_B_51_2 + poseidon2_params_C_52_2;
+        const auto poseidon2_ARK_52_3 = new_term.poseidon2_B_51_3 + poseidon2_params_C_52_3;
         const auto poseidon2_A_52_0 =
-            ((((poseidon2_ARK_52_0 * poseidon2_ARK_52_0) * poseidon2_ARK_52_0) * poseidon2_ARK_52_0) *
-             poseidon2_ARK_52_0);
+            poseidon2_ARK_52_0 * poseidon2_ARK_52_0 * poseidon2_ARK_52_0 * poseidon2_ARK_52_0 * poseidon2_ARK_52_0;
         const auto poseidon2_A_52_1 = poseidon2_ARK_52_1;
         const auto poseidon2_A_52_2 = poseidon2_ARK_52_2;
         const auto poseidon2_A_52_3 = poseidon2_ARK_52_3;
-        const auto poseidon2_SUM_52 = (((poseidon2_A_52_0 + poseidon2_A_52_1) + poseidon2_A_52_2) + poseidon2_A_52_3);
-        const auto poseidon2_ARK_53_0 = (new_term.poseidon2_B_52_0 + poseidon2_params_C_53_0);
-        const auto poseidon2_ARK_53_1 = (new_term.poseidon2_B_52_1 + poseidon2_params_C_53_1);
-        const auto poseidon2_ARK_53_2 = (new_term.poseidon2_B_52_2 + poseidon2_params_C_53_2);
-        const auto poseidon2_ARK_53_3 = (new_term.poseidon2_B_52_3 + poseidon2_params_C_53_3);
+        const auto poseidon2_SUM_52 = poseidon2_A_52_0 + poseidon2_A_52_1 + poseidon2_A_52_2 + poseidon2_A_52_3;
+        const auto poseidon2_ARK_53_0 = new_term.poseidon2_B_52_0 + poseidon2_params_C_53_0;
+        const auto poseidon2_ARK_53_1 = new_term.poseidon2_B_52_1 + poseidon2_params_C_53_1;
+        const auto poseidon2_ARK_53_2 = new_term.poseidon2_B_52_2 + poseidon2_params_C_53_2;
+        const auto poseidon2_ARK_53_3 = new_term.poseidon2_B_52_3 + poseidon2_params_C_53_3;
         const auto poseidon2_A_53_0 =
-            ((((poseidon2_ARK_53_0 * poseidon2_ARK_53_0) * poseidon2_ARK_53_0) * poseidon2_ARK_53_0) *
-             poseidon2_ARK_53_0);
+            poseidon2_ARK_53_0 * poseidon2_ARK_53_0 * poseidon2_ARK_53_0 * poseidon2_ARK_53_0 * poseidon2_ARK_53_0;
         const auto poseidon2_A_53_1 = poseidon2_ARK_53_1;
         const auto poseidon2_A_53_2 = poseidon2_ARK_53_2;
         const auto poseidon2_A_53_3 = poseidon2_ARK_53_3;
-        const auto poseidon2_SUM_53 = (((poseidon2_A_53_0 + poseidon2_A_53_1) + poseidon2_A_53_2) + poseidon2_A_53_3);
-        const auto poseidon2_ARK_54_0 = (new_term.poseidon2_B_53_0 + poseidon2_params_C_54_0);
-        const auto poseidon2_ARK_54_1 = (new_term.poseidon2_B_53_1 + poseidon2_params_C_54_1);
-        const auto poseidon2_ARK_54_2 = (new_term.poseidon2_B_53_2 + poseidon2_params_C_54_2);
-        const auto poseidon2_ARK_54_3 = (new_term.poseidon2_B_53_3 + poseidon2_params_C_54_3);
+        const auto poseidon2_SUM_53 = poseidon2_A_53_0 + poseidon2_A_53_1 + poseidon2_A_53_2 + poseidon2_A_53_3;
+        const auto poseidon2_ARK_54_0 = new_term.poseidon2_B_53_0 + poseidon2_params_C_54_0;
+        const auto poseidon2_ARK_54_1 = new_term.poseidon2_B_53_1 + poseidon2_params_C_54_1;
+        const auto poseidon2_ARK_54_2 = new_term.poseidon2_B_53_2 + poseidon2_params_C_54_2;
+        const auto poseidon2_ARK_54_3 = new_term.poseidon2_B_53_3 + poseidon2_params_C_54_3;
         const auto poseidon2_A_54_0 =
-            ((((poseidon2_ARK_54_0 * poseidon2_ARK_54_0) * poseidon2_ARK_54_0) * poseidon2_ARK_54_0) *
-             poseidon2_ARK_54_0);
+            poseidon2_ARK_54_0 * poseidon2_ARK_54_0 * poseidon2_ARK_54_0 * poseidon2_ARK_54_0 * poseidon2_ARK_54_0;
         const auto poseidon2_A_54_1 = poseidon2_ARK_54_1;
         const auto poseidon2_A_54_2 = poseidon2_ARK_54_2;
         const auto poseidon2_A_54_3 = poseidon2_ARK_54_3;
-        const auto poseidon2_SUM_54 = (((poseidon2_A_54_0 + poseidon2_A_54_1) + poseidon2_A_54_2) + poseidon2_A_54_3);
-        const auto poseidon2_ARK_55_0 = (new_term.poseidon2_B_54_0 + poseidon2_params_C_55_0);
-        const auto poseidon2_ARK_55_1 = (new_term.poseidon2_B_54_1 + poseidon2_params_C_55_1);
-        const auto poseidon2_ARK_55_2 = (new_term.poseidon2_B_54_2 + poseidon2_params_C_55_2);
-        const auto poseidon2_ARK_55_3 = (new_term.poseidon2_B_54_3 + poseidon2_params_C_55_3);
+        const auto poseidon2_SUM_54 = poseidon2_A_54_0 + poseidon2_A_54_1 + poseidon2_A_54_2 + poseidon2_A_54_3;
+        const auto poseidon2_ARK_55_0 = new_term.poseidon2_B_54_0 + poseidon2_params_C_55_0;
+        const auto poseidon2_ARK_55_1 = new_term.poseidon2_B_54_1 + poseidon2_params_C_55_1;
+        const auto poseidon2_ARK_55_2 = new_term.poseidon2_B_54_2 + poseidon2_params_C_55_2;
+        const auto poseidon2_ARK_55_3 = new_term.poseidon2_B_54_3 + poseidon2_params_C_55_3;
         const auto poseidon2_A_55_0 =
-            ((((poseidon2_ARK_55_0 * poseidon2_ARK_55_0) * poseidon2_ARK_55_0) * poseidon2_ARK_55_0) *
-             poseidon2_ARK_55_0);
+            poseidon2_ARK_55_0 * poseidon2_ARK_55_0 * poseidon2_ARK_55_0 * poseidon2_ARK_55_0 * poseidon2_ARK_55_0;
         const auto poseidon2_A_55_1 = poseidon2_ARK_55_1;
         const auto poseidon2_A_55_2 = poseidon2_ARK_55_2;
         const auto poseidon2_A_55_3 = poseidon2_ARK_55_3;
-        const auto poseidon2_SUM_55 = (((poseidon2_A_55_0 + poseidon2_A_55_1) + poseidon2_A_55_2) + poseidon2_A_55_3);
-        const auto poseidon2_ARK_56_0 = (new_term.poseidon2_B_55_0 + poseidon2_params_C_56_0);
-        const auto poseidon2_ARK_56_1 = (new_term.poseidon2_B_55_1 + poseidon2_params_C_56_1);
-        const auto poseidon2_ARK_56_2 = (new_term.poseidon2_B_55_2 + poseidon2_params_C_56_2);
-        const auto poseidon2_ARK_56_3 = (new_term.poseidon2_B_55_3 + poseidon2_params_C_56_3);
+        const auto poseidon2_SUM_55 = poseidon2_A_55_0 + poseidon2_A_55_1 + poseidon2_A_55_2 + poseidon2_A_55_3;
+        const auto poseidon2_ARK_56_0 = new_term.poseidon2_B_55_0 + poseidon2_params_C_56_0;
+        const auto poseidon2_ARK_56_1 = new_term.poseidon2_B_55_1 + poseidon2_params_C_56_1;
+        const auto poseidon2_ARK_56_2 = new_term.poseidon2_B_55_2 + poseidon2_params_C_56_2;
+        const auto poseidon2_ARK_56_3 = new_term.poseidon2_B_55_3 + poseidon2_params_C_56_3;
         const auto poseidon2_A_56_0 =
-            ((((poseidon2_ARK_56_0 * poseidon2_ARK_56_0) * poseidon2_ARK_56_0) * poseidon2_ARK_56_0) *
-             poseidon2_ARK_56_0);
+            poseidon2_ARK_56_0 * poseidon2_ARK_56_0 * poseidon2_ARK_56_0 * poseidon2_ARK_56_0 * poseidon2_ARK_56_0;
         const auto poseidon2_A_56_1 = poseidon2_ARK_56_1;
         const auto poseidon2_A_56_2 = poseidon2_ARK_56_2;
         const auto poseidon2_A_56_3 = poseidon2_ARK_56_3;
-        const auto poseidon2_SUM_56 = (((poseidon2_A_56_0 + poseidon2_A_56_1) + poseidon2_A_56_2) + poseidon2_A_56_3);
-        const auto poseidon2_ARK_57_0 = (new_term.poseidon2_B_56_0 + poseidon2_params_C_57_0);
-        const auto poseidon2_ARK_57_1 = (new_term.poseidon2_B_56_1 + poseidon2_params_C_57_1);
-        const auto poseidon2_ARK_57_2 = (new_term.poseidon2_B_56_2 + poseidon2_params_C_57_2);
-        const auto poseidon2_ARK_57_3 = (new_term.poseidon2_B_56_3 + poseidon2_params_C_57_3);
+        const auto poseidon2_SUM_56 = poseidon2_A_56_0 + poseidon2_A_56_1 + poseidon2_A_56_2 + poseidon2_A_56_3;
+        const auto poseidon2_ARK_57_0 = new_term.poseidon2_B_56_0 + poseidon2_params_C_57_0;
+        const auto poseidon2_ARK_57_1 = new_term.poseidon2_B_56_1 + poseidon2_params_C_57_1;
+        const auto poseidon2_ARK_57_2 = new_term.poseidon2_B_56_2 + poseidon2_params_C_57_2;
+        const auto poseidon2_ARK_57_3 = new_term.poseidon2_B_56_3 + poseidon2_params_C_57_3;
         const auto poseidon2_A_57_0 =
-            ((((poseidon2_ARK_57_0 * poseidon2_ARK_57_0) * poseidon2_ARK_57_0) * poseidon2_ARK_57_0) *
-             poseidon2_ARK_57_0);
+            poseidon2_ARK_57_0 * poseidon2_ARK_57_0 * poseidon2_ARK_57_0 * poseidon2_ARK_57_0 * poseidon2_ARK_57_0;
         const auto poseidon2_A_57_1 = poseidon2_ARK_57_1;
         const auto poseidon2_A_57_2 = poseidon2_ARK_57_2;
         const auto poseidon2_A_57_3 = poseidon2_ARK_57_3;
-        const auto poseidon2_SUM_57 = (((poseidon2_A_57_0 + poseidon2_A_57_1) + poseidon2_A_57_2) + poseidon2_A_57_3);
-        const auto poseidon2_ARK_58_0 = (new_term.poseidon2_B_57_0 + poseidon2_params_C_58_0);
-        const auto poseidon2_ARK_58_1 = (new_term.poseidon2_B_57_1 + poseidon2_params_C_58_1);
-        const auto poseidon2_ARK_58_2 = (new_term.poseidon2_B_57_2 + poseidon2_params_C_58_2);
-        const auto poseidon2_ARK_58_3 = (new_term.poseidon2_B_57_3 + poseidon2_params_C_58_3);
+        const auto poseidon2_SUM_57 = poseidon2_A_57_0 + poseidon2_A_57_1 + poseidon2_A_57_2 + poseidon2_A_57_3;
+        const auto poseidon2_ARK_58_0 = new_term.poseidon2_B_57_0 + poseidon2_params_C_58_0;
+        const auto poseidon2_ARK_58_1 = new_term.poseidon2_B_57_1 + poseidon2_params_C_58_1;
+        const auto poseidon2_ARK_58_2 = new_term.poseidon2_B_57_2 + poseidon2_params_C_58_2;
+        const auto poseidon2_ARK_58_3 = new_term.poseidon2_B_57_3 + poseidon2_params_C_58_3;
         const auto poseidon2_A_58_0 =
-            ((((poseidon2_ARK_58_0 * poseidon2_ARK_58_0) * poseidon2_ARK_58_0) * poseidon2_ARK_58_0) *
-             poseidon2_ARK_58_0);
+            poseidon2_ARK_58_0 * poseidon2_ARK_58_0 * poseidon2_ARK_58_0 * poseidon2_ARK_58_0 * poseidon2_ARK_58_0;
         const auto poseidon2_A_58_1 = poseidon2_ARK_58_1;
         const auto poseidon2_A_58_2 = poseidon2_ARK_58_2;
         const auto poseidon2_A_58_3 = poseidon2_ARK_58_3;
-        const auto poseidon2_SUM_58 = (((poseidon2_A_58_0 + poseidon2_A_58_1) + poseidon2_A_58_2) + poseidon2_A_58_3);
-        const auto poseidon2_ARK_59_0 = (new_term.poseidon2_B_58_0 + poseidon2_params_C_59_0);
-        const auto poseidon2_ARK_59_1 = (new_term.poseidon2_B_58_1 + poseidon2_params_C_59_1);
-        const auto poseidon2_ARK_59_2 = (new_term.poseidon2_B_58_2 + poseidon2_params_C_59_2);
-        const auto poseidon2_ARK_59_3 = (new_term.poseidon2_B_58_3 + poseidon2_params_C_59_3);
+        const auto poseidon2_SUM_58 = poseidon2_A_58_0 + poseidon2_A_58_1 + poseidon2_A_58_2 + poseidon2_A_58_3;
+        const auto poseidon2_ARK_59_0 = new_term.poseidon2_B_58_0 + poseidon2_params_C_59_0;
+        const auto poseidon2_ARK_59_1 = new_term.poseidon2_B_58_1 + poseidon2_params_C_59_1;
+        const auto poseidon2_ARK_59_2 = new_term.poseidon2_B_58_2 + poseidon2_params_C_59_2;
+        const auto poseidon2_ARK_59_3 = new_term.poseidon2_B_58_3 + poseidon2_params_C_59_3;
         const auto poseidon2_A_59_0 =
-            ((((poseidon2_ARK_59_0 * poseidon2_ARK_59_0) * poseidon2_ARK_59_0) * poseidon2_ARK_59_0) *
-             poseidon2_ARK_59_0);
+            poseidon2_ARK_59_0 * poseidon2_ARK_59_0 * poseidon2_ARK_59_0 * poseidon2_ARK_59_0 * poseidon2_ARK_59_0;
         const auto poseidon2_A_59_1 = poseidon2_ARK_59_1;
         const auto poseidon2_A_59_2 = poseidon2_ARK_59_2;
         const auto poseidon2_A_59_3 = poseidon2_ARK_59_3;
-        const auto poseidon2_SUM_59 = (((poseidon2_A_59_0 + poseidon2_A_59_1) + poseidon2_A_59_2) + poseidon2_A_59_3);
-        const auto poseidon2_ARK_60_0 = (new_term.poseidon2_B_59_0 + poseidon2_params_C_60_0);
-        const auto poseidon2_ARK_60_1 = (new_term.poseidon2_B_59_1 + poseidon2_params_C_60_1);
-        const auto poseidon2_ARK_60_2 = (new_term.poseidon2_B_59_2 + poseidon2_params_C_60_2);
-        const auto poseidon2_ARK_60_3 = (new_term.poseidon2_B_59_3 + poseidon2_params_C_60_3);
+        const auto poseidon2_SUM_59 = poseidon2_A_59_0 + poseidon2_A_59_1 + poseidon2_A_59_2 + poseidon2_A_59_3;
+        const auto poseidon2_ARK_60_0 = new_term.poseidon2_B_59_0 + poseidon2_params_C_60_0;
+        const auto poseidon2_ARK_60_1 = new_term.poseidon2_B_59_1 + poseidon2_params_C_60_1;
+        const auto poseidon2_ARK_60_2 = new_term.poseidon2_B_59_2 + poseidon2_params_C_60_2;
+        const auto poseidon2_ARK_60_3 = new_term.poseidon2_B_59_3 + poseidon2_params_C_60_3;
         const auto poseidon2_A_60_0 =
-            ((((poseidon2_ARK_60_0 * poseidon2_ARK_60_0) * poseidon2_ARK_60_0) * poseidon2_ARK_60_0) *
-             poseidon2_ARK_60_0);
+            poseidon2_ARK_60_0 * poseidon2_ARK_60_0 * poseidon2_ARK_60_0 * poseidon2_ARK_60_0 * poseidon2_ARK_60_0;
         const auto poseidon2_A_60_1 =
-            ((((poseidon2_ARK_60_1 * poseidon2_ARK_60_1) * poseidon2_ARK_60_1) * poseidon2_ARK_60_1) *
-             poseidon2_ARK_60_1);
+            poseidon2_ARK_60_1 * poseidon2_ARK_60_1 * poseidon2_ARK_60_1 * poseidon2_ARK_60_1 * poseidon2_ARK_60_1;
         const auto poseidon2_A_60_2 =
-            ((((poseidon2_ARK_60_2 * poseidon2_ARK_60_2) * poseidon2_ARK_60_2) * poseidon2_ARK_60_2) *
-             poseidon2_ARK_60_2);
+            poseidon2_ARK_60_2 * poseidon2_ARK_60_2 * poseidon2_ARK_60_2 * poseidon2_ARK_60_2 * poseidon2_ARK_60_2;
         const auto poseidon2_A_60_3 =
-            ((((poseidon2_ARK_60_3 * poseidon2_ARK_60_3) * poseidon2_ARK_60_3) * poseidon2_ARK_60_3) *
-             poseidon2_ARK_60_3);
-        const auto poseidon2_T_60_0 = (poseidon2_A_60_0 + poseidon2_A_60_1);
-        const auto poseidon2_T_60_1 = (poseidon2_A_60_2 + poseidon2_A_60_3);
-        const auto poseidon2_T_60_2 = ((FF(2) * poseidon2_A_60_1) + poseidon2_T_60_1);
-        const auto poseidon2_T_60_3 = ((FF(2) * poseidon2_A_60_3) + poseidon2_T_60_0);
-        const auto poseidon2_ARK_61_0 = (new_term.poseidon2_T_60_6 + poseidon2_params_C_61_0);
-        const auto poseidon2_ARK_61_1 = (new_term.poseidon2_T_60_5 + poseidon2_params_C_61_1);
-        const auto poseidon2_ARK_61_2 = (new_term.poseidon2_T_60_7 + poseidon2_params_C_61_2);
-        const auto poseidon2_ARK_61_3 = (new_term.poseidon2_T_60_4 + poseidon2_params_C_61_3);
+            poseidon2_ARK_60_3 * poseidon2_ARK_60_3 * poseidon2_ARK_60_3 * poseidon2_ARK_60_3 * poseidon2_ARK_60_3;
+        const auto poseidon2_T_60_0 = poseidon2_A_60_0 + poseidon2_A_60_1;
+        const auto poseidon2_T_60_1 = poseidon2_A_60_2 + poseidon2_A_60_3;
+        const auto poseidon2_T_60_2 = FF(2) * poseidon2_A_60_1 + poseidon2_T_60_1;
+        const auto poseidon2_T_60_3 = FF(2) * poseidon2_A_60_3 + poseidon2_T_60_0;
+        const auto poseidon2_ARK_61_0 = new_term.poseidon2_T_60_6 + poseidon2_params_C_61_0;
+        const auto poseidon2_ARK_61_1 = new_term.poseidon2_T_60_5 + poseidon2_params_C_61_1;
+        const auto poseidon2_ARK_61_2 = new_term.poseidon2_T_60_7 + poseidon2_params_C_61_2;
+        const auto poseidon2_ARK_61_3 = new_term.poseidon2_T_60_4 + poseidon2_params_C_61_3;
         const auto poseidon2_A_61_0 =
-            ((((poseidon2_ARK_61_0 * poseidon2_ARK_61_0) * poseidon2_ARK_61_0) * poseidon2_ARK_61_0) *
-             poseidon2_ARK_61_0);
+            poseidon2_ARK_61_0 * poseidon2_ARK_61_0 * poseidon2_ARK_61_0 * poseidon2_ARK_61_0 * poseidon2_ARK_61_0;
         const auto poseidon2_A_61_1 =
-            ((((poseidon2_ARK_61_1 * poseidon2_ARK_61_1) * poseidon2_ARK_61_1) * poseidon2_ARK_61_1) *
-             poseidon2_ARK_61_1);
+            poseidon2_ARK_61_1 * poseidon2_ARK_61_1 * poseidon2_ARK_61_1 * poseidon2_ARK_61_1 * poseidon2_ARK_61_1;
         const auto poseidon2_A_61_2 =
-            ((((poseidon2_ARK_61_2 * poseidon2_ARK_61_2) * poseidon2_ARK_61_2) * poseidon2_ARK_61_2) *
-             poseidon2_ARK_61_2);
+            poseidon2_ARK_61_2 * poseidon2_ARK_61_2 * poseidon2_ARK_61_2 * poseidon2_ARK_61_2 * poseidon2_ARK_61_2;
         const auto poseidon2_A_61_3 =
-            ((((poseidon2_ARK_61_3 * poseidon2_ARK_61_3) * poseidon2_ARK_61_3) * poseidon2_ARK_61_3) *
-             poseidon2_ARK_61_3);
-        const auto poseidon2_T_61_0 = (poseidon2_A_61_0 + poseidon2_A_61_1);
-        const auto poseidon2_T_61_1 = (poseidon2_A_61_2 + poseidon2_A_61_3);
-        const auto poseidon2_T_61_2 = ((FF(2) * poseidon2_A_61_1) + poseidon2_T_61_1);
-        const auto poseidon2_T_61_3 = ((FF(2) * poseidon2_A_61_3) + poseidon2_T_61_0);
-        const auto poseidon2_ARK_62_0 = (new_term.poseidon2_T_61_6 + poseidon2_params_C_62_0);
-        const auto poseidon2_ARK_62_1 = (new_term.poseidon2_T_61_5 + poseidon2_params_C_62_1);
-        const auto poseidon2_ARK_62_2 = (new_term.poseidon2_T_61_7 + poseidon2_params_C_62_2);
-        const auto poseidon2_ARK_62_3 = (new_term.poseidon2_T_61_4 + poseidon2_params_C_62_3);
+            poseidon2_ARK_61_3 * poseidon2_ARK_61_3 * poseidon2_ARK_61_3 * poseidon2_ARK_61_3 * poseidon2_ARK_61_3;
+        const auto poseidon2_T_61_0 = poseidon2_A_61_0 + poseidon2_A_61_1;
+        const auto poseidon2_T_61_1 = poseidon2_A_61_2 + poseidon2_A_61_3;
+        const auto poseidon2_T_61_2 = FF(2) * poseidon2_A_61_1 + poseidon2_T_61_1;
+        const auto poseidon2_T_61_3 = FF(2) * poseidon2_A_61_3 + poseidon2_T_61_0;
+        const auto poseidon2_ARK_62_0 = new_term.poseidon2_T_61_6 + poseidon2_params_C_62_0;
+        const auto poseidon2_ARK_62_1 = new_term.poseidon2_T_61_5 + poseidon2_params_C_62_1;
+        const auto poseidon2_ARK_62_2 = new_term.poseidon2_T_61_7 + poseidon2_params_C_62_2;
+        const auto poseidon2_ARK_62_3 = new_term.poseidon2_T_61_4 + poseidon2_params_C_62_3;
         const auto poseidon2_A_62_0 =
-            ((((poseidon2_ARK_62_0 * poseidon2_ARK_62_0) * poseidon2_ARK_62_0) * poseidon2_ARK_62_0) *
-             poseidon2_ARK_62_0);
+            poseidon2_ARK_62_0 * poseidon2_ARK_62_0 * poseidon2_ARK_62_0 * poseidon2_ARK_62_0 * poseidon2_ARK_62_0;
         const auto poseidon2_A_62_1 =
-            ((((poseidon2_ARK_62_1 * poseidon2_ARK_62_1) * poseidon2_ARK_62_1) * poseidon2_ARK_62_1) *
-             poseidon2_ARK_62_1);
+            poseidon2_ARK_62_1 * poseidon2_ARK_62_1 * poseidon2_ARK_62_1 * poseidon2_ARK_62_1 * poseidon2_ARK_62_1;
         const auto poseidon2_A_62_2 =
-            ((((poseidon2_ARK_62_2 * poseidon2_ARK_62_2) * poseidon2_ARK_62_2) * poseidon2_ARK_62_2) *
-             poseidon2_ARK_62_2);
+            poseidon2_ARK_62_2 * poseidon2_ARK_62_2 * poseidon2_ARK_62_2 * poseidon2_ARK_62_2 * poseidon2_ARK_62_2;
         const auto poseidon2_A_62_3 =
-            ((((poseidon2_ARK_62_3 * poseidon2_ARK_62_3) * poseidon2_ARK_62_3) * poseidon2_ARK_62_3) *
-             poseidon2_ARK_62_3);
-        const auto poseidon2_T_62_0 = (poseidon2_A_62_0 + poseidon2_A_62_1);
-        const auto poseidon2_T_62_1 = (poseidon2_A_62_2 + poseidon2_A_62_3);
-        const auto poseidon2_T_62_2 = ((FF(2) * poseidon2_A_62_1) + poseidon2_T_62_1);
-        const auto poseidon2_T_62_3 = ((FF(2) * poseidon2_A_62_3) + poseidon2_T_62_0);
-        const auto poseidon2_ARK_63_0 = (new_term.poseidon2_T_62_6 + poseidon2_params_C_63_0);
-        const auto poseidon2_ARK_63_1 = (new_term.poseidon2_T_62_5 + poseidon2_params_C_63_1);
-        const auto poseidon2_ARK_63_2 = (new_term.poseidon2_T_62_7 + poseidon2_params_C_63_2);
-        const auto poseidon2_ARK_63_3 = (new_term.poseidon2_T_62_4 + poseidon2_params_C_63_3);
+            poseidon2_ARK_62_3 * poseidon2_ARK_62_3 * poseidon2_ARK_62_3 * poseidon2_ARK_62_3 * poseidon2_ARK_62_3;
+        const auto poseidon2_T_62_0 = poseidon2_A_62_0 + poseidon2_A_62_1;
+        const auto poseidon2_T_62_1 = poseidon2_A_62_2 + poseidon2_A_62_3;
+        const auto poseidon2_T_62_2 = FF(2) * poseidon2_A_62_1 + poseidon2_T_62_1;
+        const auto poseidon2_T_62_3 = FF(2) * poseidon2_A_62_3 + poseidon2_T_62_0;
+        const auto poseidon2_ARK_63_0 = new_term.poseidon2_T_62_6 + poseidon2_params_C_63_0;
+        const auto poseidon2_ARK_63_1 = new_term.poseidon2_T_62_5 + poseidon2_params_C_63_1;
+        const auto poseidon2_ARK_63_2 = new_term.poseidon2_T_62_7 + poseidon2_params_C_63_2;
+        const auto poseidon2_ARK_63_3 = new_term.poseidon2_T_62_4 + poseidon2_params_C_63_3;
         const auto poseidon2_A_63_0 =
-            ((((poseidon2_ARK_63_0 * poseidon2_ARK_63_0) * poseidon2_ARK_63_0) * poseidon2_ARK_63_0) *
-             poseidon2_ARK_63_0);
+            poseidon2_ARK_63_0 * poseidon2_ARK_63_0 * poseidon2_ARK_63_0 * poseidon2_ARK_63_0 * poseidon2_ARK_63_0;
         const auto poseidon2_A_63_1 =
-            ((((poseidon2_ARK_63_1 * poseidon2_ARK_63_1) * poseidon2_ARK_63_1) * poseidon2_ARK_63_1) *
-             poseidon2_ARK_63_1);
+            poseidon2_ARK_63_1 * poseidon2_ARK_63_1 * poseidon2_ARK_63_1 * poseidon2_ARK_63_1 * poseidon2_ARK_63_1;
         const auto poseidon2_A_63_2 =
-            ((((poseidon2_ARK_63_2 * poseidon2_ARK_63_2) * poseidon2_ARK_63_2) * poseidon2_ARK_63_2) *
-             poseidon2_ARK_63_2);
+            poseidon2_ARK_63_2 * poseidon2_ARK_63_2 * poseidon2_ARK_63_2 * poseidon2_ARK_63_2 * poseidon2_ARK_63_2;
         const auto poseidon2_A_63_3 =
-            ((((poseidon2_ARK_63_3 * poseidon2_ARK_63_3) * poseidon2_ARK_63_3) * poseidon2_ARK_63_3) *
-             poseidon2_ARK_63_3);
-        const auto poseidon2_T_63_0 = (poseidon2_A_63_0 + poseidon2_A_63_1);
-        const auto poseidon2_T_63_1 = (poseidon2_A_63_2 + poseidon2_A_63_3);
-        const auto poseidon2_T_63_2 = ((FF(2) * poseidon2_A_63_1) + poseidon2_T_63_1);
-        const auto poseidon2_T_63_3 = ((FF(2) * poseidon2_A_63_3) + poseidon2_T_63_0);
+            poseidon2_ARK_63_3 * poseidon2_ARK_63_3 * poseidon2_ARK_63_3 * poseidon2_ARK_63_3 * poseidon2_ARK_63_3;
+        const auto poseidon2_T_63_0 = poseidon2_A_63_0 + poseidon2_A_63_1;
+        const auto poseidon2_T_63_1 = poseidon2_A_63_2 + poseidon2_A_63_3;
+        const auto poseidon2_T_63_2 = FF(2) * poseidon2_A_63_1 + poseidon2_T_63_1;
+        const auto poseidon2_T_63_3 = FF(2) * poseidon2_A_63_3 + poseidon2_T_63_0;
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm * (FF(1) - new_term.poseidon2_sel_poseidon_perm));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm * (FF(1) - new_term.poseidon2_sel_poseidon_perm);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
             auto tmp =
-                (new_term.poseidon2_sel_poseidon_perm_mem_op * (FF(1) - new_term.poseidon2_sel_poseidon_perm_mem_op));
+                new_term.poseidon2_sel_poseidon_perm_mem_op * (FF(1) - new_term.poseidon2_sel_poseidon_perm_mem_op);
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_immediate *
-                        (FF(1) - new_term.poseidon2_sel_poseidon_perm_immediate));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_immediate *
+                       (FF(1) - new_term.poseidon2_sel_poseidon_perm_immediate);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
@@ -1175,1901 +1109,1901 @@ template <typename FF_> class poseidon2Impl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_read_a - new_term.poseidon2_input_addr));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_read_a - new_term.poseidon2_input_addr);
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_read_b - (new_term.poseidon2_input_addr + FF(1))));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_read_b - (new_term.poseidon2_input_addr + FF(1)));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_read_c - (new_term.poseidon2_input_addr + FF(2))));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_read_c - (new_term.poseidon2_input_addr + FF(2)));
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_read_d - (new_term.poseidon2_input_addr + FF(3))));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_read_d - (new_term.poseidon2_input_addr + FF(3)));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_write_a - new_term.poseidon2_output_addr));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_write_a - new_term.poseidon2_output_addr);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_write_b - (new_term.poseidon2_output_addr + FF(1))));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_write_b - (new_term.poseidon2_output_addr + FF(1)));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_write_c - (new_term.poseidon2_output_addr + FF(2))));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_write_c - (new_term.poseidon2_output_addr + FF(2)));
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm_mem_op *
-                        (new_term.poseidon2_mem_addr_write_d - (new_term.poseidon2_output_addr + FF(3))));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm_mem_op *
+                       (new_term.poseidon2_mem_addr_write_d - (new_term.poseidon2_output_addr + FF(3)));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_EXT_LAYER_4 - ((FF(4) * poseidon2_EXT_LAYER_1) + poseidon2_EXT_LAYER_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_EXT_LAYER_4 - (FF(4) * poseidon2_EXT_LAYER_1 + poseidon2_EXT_LAYER_3));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_EXT_LAYER_5 - ((FF(4) * poseidon2_EXT_LAYER_0) + poseidon2_EXT_LAYER_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_EXT_LAYER_5 - (FF(4) * poseidon2_EXT_LAYER_0 + poseidon2_EXT_LAYER_2));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_EXT_LAYER_6 - (poseidon2_EXT_LAYER_3 + new_term.poseidon2_EXT_LAYER_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_EXT_LAYER_6 - (poseidon2_EXT_LAYER_3 + new_term.poseidon2_EXT_LAYER_5));
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_EXT_LAYER_7 - (poseidon2_EXT_LAYER_2 + new_term.poseidon2_EXT_LAYER_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_EXT_LAYER_7 - (poseidon2_EXT_LAYER_2 + new_term.poseidon2_EXT_LAYER_4));
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_0_4 - ((FF(4) * poseidon2_T_0_1) + poseidon2_T_0_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_0_4 - (FF(4) * poseidon2_T_0_1 + poseidon2_T_0_3));
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_0_5 - ((FF(4) * poseidon2_T_0_0) + poseidon2_T_0_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_0_5 - (FF(4) * poseidon2_T_0_0 + poseidon2_T_0_2));
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_0_6 - (poseidon2_T_0_3 + new_term.poseidon2_T_0_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_0_6 - (poseidon2_T_0_3 + new_term.poseidon2_T_0_5));
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<19, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_0_7 - (poseidon2_T_0_2 + new_term.poseidon2_T_0_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_0_7 - (poseidon2_T_0_2 + new_term.poseidon2_T_0_4));
             tmp *= scaling_factor;
             std::get<19>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<20, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_1_4 - ((FF(4) * poseidon2_T_1_1) + poseidon2_T_1_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_1_4 - (FF(4) * poseidon2_T_1_1 + poseidon2_T_1_3));
             tmp *= scaling_factor;
             std::get<20>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<21, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_1_5 - ((FF(4) * poseidon2_T_1_0) + poseidon2_T_1_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_1_5 - (FF(4) * poseidon2_T_1_0 + poseidon2_T_1_2));
             tmp *= scaling_factor;
             std::get<21>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<22, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_1_6 - (poseidon2_T_1_3 + new_term.poseidon2_T_1_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_1_6 - (poseidon2_T_1_3 + new_term.poseidon2_T_1_5));
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_1_7 - (poseidon2_T_1_2 + new_term.poseidon2_T_1_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_1_7 - (poseidon2_T_1_2 + new_term.poseidon2_T_1_4));
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_2_4 - ((FF(4) * poseidon2_T_2_1) + poseidon2_T_2_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_2_4 - (FF(4) * poseidon2_T_2_1 + poseidon2_T_2_3));
             tmp *= scaling_factor;
             std::get<24>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<25, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_2_5 - ((FF(4) * poseidon2_T_2_0) + poseidon2_T_2_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_2_5 - (FF(4) * poseidon2_T_2_0 + poseidon2_T_2_2));
             tmp *= scaling_factor;
             std::get<25>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<26, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_2_6 - (poseidon2_T_2_3 + new_term.poseidon2_T_2_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_2_6 - (poseidon2_T_2_3 + new_term.poseidon2_T_2_5));
             tmp *= scaling_factor;
             std::get<26>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<27, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_2_7 - (poseidon2_T_2_2 + new_term.poseidon2_T_2_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_2_7 - (poseidon2_T_2_2 + new_term.poseidon2_T_2_4));
             tmp *= scaling_factor;
             std::get<27>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<28, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_3_4 - ((FF(4) * poseidon2_T_3_1) + poseidon2_T_3_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_3_4 - (FF(4) * poseidon2_T_3_1 + poseidon2_T_3_3));
             tmp *= scaling_factor;
             std::get<28>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<29, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_3_5 - ((FF(4) * poseidon2_T_3_0) + poseidon2_T_3_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_3_5 - (FF(4) * poseidon2_T_3_0 + poseidon2_T_3_2));
             tmp *= scaling_factor;
             std::get<29>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<30, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_3_6 - (poseidon2_T_3_3 + new_term.poseidon2_T_3_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_3_6 - (poseidon2_T_3_3 + new_term.poseidon2_T_3_5));
             tmp *= scaling_factor;
             std::get<30>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<31, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_3_7 - (poseidon2_T_3_2 + new_term.poseidon2_T_3_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_3_7 - (poseidon2_T_3_2 + new_term.poseidon2_T_3_4));
             tmp *= scaling_factor;
             std::get<31>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<32, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_4_0 - ((poseidon2_params_MU_0 * poseidon2_A_4_0) + poseidon2_SUM_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_4_0 - (poseidon2_params_MU_0 * poseidon2_A_4_0 + poseidon2_SUM_4));
             tmp *= scaling_factor;
             std::get<32>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<33, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_4_1 - ((poseidon2_params_MU_1 * poseidon2_A_4_1) + poseidon2_SUM_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_4_1 - (poseidon2_params_MU_1 * poseidon2_A_4_1 + poseidon2_SUM_4));
             tmp *= scaling_factor;
             std::get<33>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<34, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_4_2 - ((poseidon2_params_MU_2 * poseidon2_A_4_2) + poseidon2_SUM_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_4_2 - (poseidon2_params_MU_2 * poseidon2_A_4_2 + poseidon2_SUM_4));
             tmp *= scaling_factor;
             std::get<34>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<35, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_4_3 - ((poseidon2_params_MU_3 * poseidon2_A_4_3) + poseidon2_SUM_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_4_3 - (poseidon2_params_MU_3 * poseidon2_A_4_3 + poseidon2_SUM_4));
             tmp *= scaling_factor;
             std::get<35>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<36, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_5_0 - ((poseidon2_params_MU_0 * poseidon2_A_5_0) + poseidon2_SUM_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_5_0 - (poseidon2_params_MU_0 * poseidon2_A_5_0 + poseidon2_SUM_5));
             tmp *= scaling_factor;
             std::get<36>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<37, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_5_1 - ((poseidon2_params_MU_1 * poseidon2_A_5_1) + poseidon2_SUM_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_5_1 - (poseidon2_params_MU_1 * poseidon2_A_5_1 + poseidon2_SUM_5));
             tmp *= scaling_factor;
             std::get<37>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<38, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_5_2 - ((poseidon2_params_MU_2 * poseidon2_A_5_2) + poseidon2_SUM_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_5_2 - (poseidon2_params_MU_2 * poseidon2_A_5_2 + poseidon2_SUM_5));
             tmp *= scaling_factor;
             std::get<38>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<39, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_5_3 - ((poseidon2_params_MU_3 * poseidon2_A_5_3) + poseidon2_SUM_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_5_3 - (poseidon2_params_MU_3 * poseidon2_A_5_3 + poseidon2_SUM_5));
             tmp *= scaling_factor;
             std::get<39>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<40, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_6_0 - ((poseidon2_params_MU_0 * poseidon2_A_6_0) + poseidon2_SUM_6)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_6_0 - (poseidon2_params_MU_0 * poseidon2_A_6_0 + poseidon2_SUM_6));
             tmp *= scaling_factor;
             std::get<40>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<41, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_6_1 - ((poseidon2_params_MU_1 * poseidon2_A_6_1) + poseidon2_SUM_6)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_6_1 - (poseidon2_params_MU_1 * poseidon2_A_6_1 + poseidon2_SUM_6));
             tmp *= scaling_factor;
             std::get<41>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<42, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_6_2 - ((poseidon2_params_MU_2 * poseidon2_A_6_2) + poseidon2_SUM_6)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_6_2 - (poseidon2_params_MU_2 * poseidon2_A_6_2 + poseidon2_SUM_6));
             tmp *= scaling_factor;
             std::get<42>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<43, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_6_3 - ((poseidon2_params_MU_3 * poseidon2_A_6_3) + poseidon2_SUM_6)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_6_3 - (poseidon2_params_MU_3 * poseidon2_A_6_3 + poseidon2_SUM_6));
             tmp *= scaling_factor;
             std::get<43>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<44, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_7_0 - ((poseidon2_params_MU_0 * poseidon2_A_7_0) + poseidon2_SUM_7)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_7_0 - (poseidon2_params_MU_0 * poseidon2_A_7_0 + poseidon2_SUM_7));
             tmp *= scaling_factor;
             std::get<44>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<45, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_7_1 - ((poseidon2_params_MU_1 * poseidon2_A_7_1) + poseidon2_SUM_7)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_7_1 - (poseidon2_params_MU_1 * poseidon2_A_7_1 + poseidon2_SUM_7));
             tmp *= scaling_factor;
             std::get<45>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<46, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_7_2 - ((poseidon2_params_MU_2 * poseidon2_A_7_2) + poseidon2_SUM_7)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_7_2 - (poseidon2_params_MU_2 * poseidon2_A_7_2 + poseidon2_SUM_7));
             tmp *= scaling_factor;
             std::get<46>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<47, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_7_3 - ((poseidon2_params_MU_3 * poseidon2_A_7_3) + poseidon2_SUM_7)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_7_3 - (poseidon2_params_MU_3 * poseidon2_A_7_3 + poseidon2_SUM_7));
             tmp *= scaling_factor;
             std::get<47>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<48, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_8_0 - ((poseidon2_params_MU_0 * poseidon2_A_8_0) + poseidon2_SUM_8)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_8_0 - (poseidon2_params_MU_0 * poseidon2_A_8_0 + poseidon2_SUM_8));
             tmp *= scaling_factor;
             std::get<48>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<49, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_8_1 - ((poseidon2_params_MU_1 * poseidon2_A_8_1) + poseidon2_SUM_8)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_8_1 - (poseidon2_params_MU_1 * poseidon2_A_8_1 + poseidon2_SUM_8));
             tmp *= scaling_factor;
             std::get<49>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<50, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_8_2 - ((poseidon2_params_MU_2 * poseidon2_A_8_2) + poseidon2_SUM_8)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_8_2 - (poseidon2_params_MU_2 * poseidon2_A_8_2 + poseidon2_SUM_8));
             tmp *= scaling_factor;
             std::get<50>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<51, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_8_3 - ((poseidon2_params_MU_3 * poseidon2_A_8_3) + poseidon2_SUM_8)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_8_3 - (poseidon2_params_MU_3 * poseidon2_A_8_3 + poseidon2_SUM_8));
             tmp *= scaling_factor;
             std::get<51>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<52, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_9_0 - ((poseidon2_params_MU_0 * poseidon2_A_9_0) + poseidon2_SUM_9)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_9_0 - (poseidon2_params_MU_0 * poseidon2_A_9_0 + poseidon2_SUM_9));
             tmp *= scaling_factor;
             std::get<52>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<53, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_9_1 - ((poseidon2_params_MU_1 * poseidon2_A_9_1) + poseidon2_SUM_9)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_9_1 - (poseidon2_params_MU_1 * poseidon2_A_9_1 + poseidon2_SUM_9));
             tmp *= scaling_factor;
             std::get<53>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<54, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_9_2 - ((poseidon2_params_MU_2 * poseidon2_A_9_2) + poseidon2_SUM_9)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_9_2 - (poseidon2_params_MU_2 * poseidon2_A_9_2 + poseidon2_SUM_9));
             tmp *= scaling_factor;
             std::get<54>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<55, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_9_3 - ((poseidon2_params_MU_3 * poseidon2_A_9_3) + poseidon2_SUM_9)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_9_3 - (poseidon2_params_MU_3 * poseidon2_A_9_3 + poseidon2_SUM_9));
             tmp *= scaling_factor;
             std::get<55>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<56, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_10_0 - ((poseidon2_params_MU_0 * poseidon2_A_10_0) + poseidon2_SUM_10)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_10_0 - (poseidon2_params_MU_0 * poseidon2_A_10_0 + poseidon2_SUM_10));
             tmp *= scaling_factor;
             std::get<56>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<57, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_10_1 - ((poseidon2_params_MU_1 * poseidon2_A_10_1) + poseidon2_SUM_10)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_10_1 - (poseidon2_params_MU_1 * poseidon2_A_10_1 + poseidon2_SUM_10));
             tmp *= scaling_factor;
             std::get<57>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<58, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_10_2 - ((poseidon2_params_MU_2 * poseidon2_A_10_2) + poseidon2_SUM_10)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_10_2 - (poseidon2_params_MU_2 * poseidon2_A_10_2 + poseidon2_SUM_10));
             tmp *= scaling_factor;
             std::get<58>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<59, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_10_3 - ((poseidon2_params_MU_3 * poseidon2_A_10_3) + poseidon2_SUM_10)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_10_3 - (poseidon2_params_MU_3 * poseidon2_A_10_3 + poseidon2_SUM_10));
             tmp *= scaling_factor;
             std::get<59>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<60, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_11_0 - ((poseidon2_params_MU_0 * poseidon2_A_11_0) + poseidon2_SUM_11)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_11_0 - (poseidon2_params_MU_0 * poseidon2_A_11_0 + poseidon2_SUM_11));
             tmp *= scaling_factor;
             std::get<60>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<61, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_11_1 - ((poseidon2_params_MU_1 * poseidon2_A_11_1) + poseidon2_SUM_11)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_11_1 - (poseidon2_params_MU_1 * poseidon2_A_11_1 + poseidon2_SUM_11));
             tmp *= scaling_factor;
             std::get<61>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<62, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_11_2 - ((poseidon2_params_MU_2 * poseidon2_A_11_2) + poseidon2_SUM_11)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_11_2 - (poseidon2_params_MU_2 * poseidon2_A_11_2 + poseidon2_SUM_11));
             tmp *= scaling_factor;
             std::get<62>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<63, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_11_3 - ((poseidon2_params_MU_3 * poseidon2_A_11_3) + poseidon2_SUM_11)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_11_3 - (poseidon2_params_MU_3 * poseidon2_A_11_3 + poseidon2_SUM_11));
             tmp *= scaling_factor;
             std::get<63>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<64, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_12_0 - ((poseidon2_params_MU_0 * poseidon2_A_12_0) + poseidon2_SUM_12)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_12_0 - (poseidon2_params_MU_0 * poseidon2_A_12_0 + poseidon2_SUM_12));
             tmp *= scaling_factor;
             std::get<64>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<65, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_12_1 - ((poseidon2_params_MU_1 * poseidon2_A_12_1) + poseidon2_SUM_12)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_12_1 - (poseidon2_params_MU_1 * poseidon2_A_12_1 + poseidon2_SUM_12));
             tmp *= scaling_factor;
             std::get<65>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<66, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_12_2 - ((poseidon2_params_MU_2 * poseidon2_A_12_2) + poseidon2_SUM_12)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_12_2 - (poseidon2_params_MU_2 * poseidon2_A_12_2 + poseidon2_SUM_12));
             tmp *= scaling_factor;
             std::get<66>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<67, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_12_3 - ((poseidon2_params_MU_3 * poseidon2_A_12_3) + poseidon2_SUM_12)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_12_3 - (poseidon2_params_MU_3 * poseidon2_A_12_3 + poseidon2_SUM_12));
             tmp *= scaling_factor;
             std::get<67>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<68, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_13_0 - ((poseidon2_params_MU_0 * poseidon2_A_13_0) + poseidon2_SUM_13)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_13_0 - (poseidon2_params_MU_0 * poseidon2_A_13_0 + poseidon2_SUM_13));
             tmp *= scaling_factor;
             std::get<68>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<69, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_13_1 - ((poseidon2_params_MU_1 * poseidon2_A_13_1) + poseidon2_SUM_13)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_13_1 - (poseidon2_params_MU_1 * poseidon2_A_13_1 + poseidon2_SUM_13));
             tmp *= scaling_factor;
             std::get<69>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<70, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_13_2 - ((poseidon2_params_MU_2 * poseidon2_A_13_2) + poseidon2_SUM_13)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_13_2 - (poseidon2_params_MU_2 * poseidon2_A_13_2 + poseidon2_SUM_13));
             tmp *= scaling_factor;
             std::get<70>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<71, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_13_3 - ((poseidon2_params_MU_3 * poseidon2_A_13_3) + poseidon2_SUM_13)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_13_3 - (poseidon2_params_MU_3 * poseidon2_A_13_3 + poseidon2_SUM_13));
             tmp *= scaling_factor;
             std::get<71>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<72, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_14_0 - ((poseidon2_params_MU_0 * poseidon2_A_14_0) + poseidon2_SUM_14)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_14_0 - (poseidon2_params_MU_0 * poseidon2_A_14_0 + poseidon2_SUM_14));
             tmp *= scaling_factor;
             std::get<72>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<73, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_14_1 - ((poseidon2_params_MU_1 * poseidon2_A_14_1) + poseidon2_SUM_14)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_14_1 - (poseidon2_params_MU_1 * poseidon2_A_14_1 + poseidon2_SUM_14));
             tmp *= scaling_factor;
             std::get<73>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<74, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_14_2 - ((poseidon2_params_MU_2 * poseidon2_A_14_2) + poseidon2_SUM_14)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_14_2 - (poseidon2_params_MU_2 * poseidon2_A_14_2 + poseidon2_SUM_14));
             tmp *= scaling_factor;
             std::get<74>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<75, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_14_3 - ((poseidon2_params_MU_3 * poseidon2_A_14_3) + poseidon2_SUM_14)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_14_3 - (poseidon2_params_MU_3 * poseidon2_A_14_3 + poseidon2_SUM_14));
             tmp *= scaling_factor;
             std::get<75>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<76, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_15_0 - ((poseidon2_params_MU_0 * poseidon2_A_15_0) + poseidon2_SUM_15)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_15_0 - (poseidon2_params_MU_0 * poseidon2_A_15_0 + poseidon2_SUM_15));
             tmp *= scaling_factor;
             std::get<76>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<77, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_15_1 - ((poseidon2_params_MU_1 * poseidon2_A_15_1) + poseidon2_SUM_15)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_15_1 - (poseidon2_params_MU_1 * poseidon2_A_15_1 + poseidon2_SUM_15));
             tmp *= scaling_factor;
             std::get<77>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<78, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_15_2 - ((poseidon2_params_MU_2 * poseidon2_A_15_2) + poseidon2_SUM_15)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_15_2 - (poseidon2_params_MU_2 * poseidon2_A_15_2 + poseidon2_SUM_15));
             tmp *= scaling_factor;
             std::get<78>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<79, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_15_3 - ((poseidon2_params_MU_3 * poseidon2_A_15_3) + poseidon2_SUM_15)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_15_3 - (poseidon2_params_MU_3 * poseidon2_A_15_3 + poseidon2_SUM_15));
             tmp *= scaling_factor;
             std::get<79>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<80, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_16_0 - ((poseidon2_params_MU_0 * poseidon2_A_16_0) + poseidon2_SUM_16)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_16_0 - (poseidon2_params_MU_0 * poseidon2_A_16_0 + poseidon2_SUM_16));
             tmp *= scaling_factor;
             std::get<80>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<81, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_16_1 - ((poseidon2_params_MU_1 * poseidon2_A_16_1) + poseidon2_SUM_16)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_16_1 - (poseidon2_params_MU_1 * poseidon2_A_16_1 + poseidon2_SUM_16));
             tmp *= scaling_factor;
             std::get<81>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<82, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_16_2 - ((poseidon2_params_MU_2 * poseidon2_A_16_2) + poseidon2_SUM_16)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_16_2 - (poseidon2_params_MU_2 * poseidon2_A_16_2 + poseidon2_SUM_16));
             tmp *= scaling_factor;
             std::get<82>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<83, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_16_3 - ((poseidon2_params_MU_3 * poseidon2_A_16_3) + poseidon2_SUM_16)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_16_3 - (poseidon2_params_MU_3 * poseidon2_A_16_3 + poseidon2_SUM_16));
             tmp *= scaling_factor;
             std::get<83>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<84, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_17_0 - ((poseidon2_params_MU_0 * poseidon2_A_17_0) + poseidon2_SUM_17)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_17_0 - (poseidon2_params_MU_0 * poseidon2_A_17_0 + poseidon2_SUM_17));
             tmp *= scaling_factor;
             std::get<84>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<85, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_17_1 - ((poseidon2_params_MU_1 * poseidon2_A_17_1) + poseidon2_SUM_17)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_17_1 - (poseidon2_params_MU_1 * poseidon2_A_17_1 + poseidon2_SUM_17));
             tmp *= scaling_factor;
             std::get<85>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<86, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_17_2 - ((poseidon2_params_MU_2 * poseidon2_A_17_2) + poseidon2_SUM_17)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_17_2 - (poseidon2_params_MU_2 * poseidon2_A_17_2 + poseidon2_SUM_17));
             tmp *= scaling_factor;
             std::get<86>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<87, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_17_3 - ((poseidon2_params_MU_3 * poseidon2_A_17_3) + poseidon2_SUM_17)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_17_3 - (poseidon2_params_MU_3 * poseidon2_A_17_3 + poseidon2_SUM_17));
             tmp *= scaling_factor;
             std::get<87>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<88, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_18_0 - ((poseidon2_params_MU_0 * poseidon2_A_18_0) + poseidon2_SUM_18)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_18_0 - (poseidon2_params_MU_0 * poseidon2_A_18_0 + poseidon2_SUM_18));
             tmp *= scaling_factor;
             std::get<88>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<89, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_18_1 - ((poseidon2_params_MU_1 * poseidon2_A_18_1) + poseidon2_SUM_18)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_18_1 - (poseidon2_params_MU_1 * poseidon2_A_18_1 + poseidon2_SUM_18));
             tmp *= scaling_factor;
             std::get<89>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<90, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_18_2 - ((poseidon2_params_MU_2 * poseidon2_A_18_2) + poseidon2_SUM_18)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_18_2 - (poseidon2_params_MU_2 * poseidon2_A_18_2 + poseidon2_SUM_18));
             tmp *= scaling_factor;
             std::get<90>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<91, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_18_3 - ((poseidon2_params_MU_3 * poseidon2_A_18_3) + poseidon2_SUM_18)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_18_3 - (poseidon2_params_MU_3 * poseidon2_A_18_3 + poseidon2_SUM_18));
             tmp *= scaling_factor;
             std::get<91>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<92, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_19_0 - ((poseidon2_params_MU_0 * poseidon2_A_19_0) + poseidon2_SUM_19)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_19_0 - (poseidon2_params_MU_0 * poseidon2_A_19_0 + poseidon2_SUM_19));
             tmp *= scaling_factor;
             std::get<92>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<93, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_19_1 - ((poseidon2_params_MU_1 * poseidon2_A_19_1) + poseidon2_SUM_19)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_19_1 - (poseidon2_params_MU_1 * poseidon2_A_19_1 + poseidon2_SUM_19));
             tmp *= scaling_factor;
             std::get<93>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<94, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_19_2 - ((poseidon2_params_MU_2 * poseidon2_A_19_2) + poseidon2_SUM_19)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_19_2 - (poseidon2_params_MU_2 * poseidon2_A_19_2 + poseidon2_SUM_19));
             tmp *= scaling_factor;
             std::get<94>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<95, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_19_3 - ((poseidon2_params_MU_3 * poseidon2_A_19_3) + poseidon2_SUM_19)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_19_3 - (poseidon2_params_MU_3 * poseidon2_A_19_3 + poseidon2_SUM_19));
             tmp *= scaling_factor;
             std::get<95>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<96, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_20_0 - ((poseidon2_params_MU_0 * poseidon2_A_20_0) + poseidon2_SUM_20)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_20_0 - (poseidon2_params_MU_0 * poseidon2_A_20_0 + poseidon2_SUM_20));
             tmp *= scaling_factor;
             std::get<96>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<97, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_20_1 - ((poseidon2_params_MU_1 * poseidon2_A_20_1) + poseidon2_SUM_20)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_20_1 - (poseidon2_params_MU_1 * poseidon2_A_20_1 + poseidon2_SUM_20));
             tmp *= scaling_factor;
             std::get<97>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<98, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_20_2 - ((poseidon2_params_MU_2 * poseidon2_A_20_2) + poseidon2_SUM_20)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_20_2 - (poseidon2_params_MU_2 * poseidon2_A_20_2 + poseidon2_SUM_20));
             tmp *= scaling_factor;
             std::get<98>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<99, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_20_3 - ((poseidon2_params_MU_3 * poseidon2_A_20_3) + poseidon2_SUM_20)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_20_3 - (poseidon2_params_MU_3 * poseidon2_A_20_3 + poseidon2_SUM_20));
             tmp *= scaling_factor;
             std::get<99>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<100, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_21_0 - ((poseidon2_params_MU_0 * poseidon2_A_21_0) + poseidon2_SUM_21)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_21_0 - (poseidon2_params_MU_0 * poseidon2_A_21_0 + poseidon2_SUM_21));
             tmp *= scaling_factor;
             std::get<100>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<101, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_21_1 - ((poseidon2_params_MU_1 * poseidon2_A_21_1) + poseidon2_SUM_21)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_21_1 - (poseidon2_params_MU_1 * poseidon2_A_21_1 + poseidon2_SUM_21));
             tmp *= scaling_factor;
             std::get<101>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<102, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_21_2 - ((poseidon2_params_MU_2 * poseidon2_A_21_2) + poseidon2_SUM_21)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_21_2 - (poseidon2_params_MU_2 * poseidon2_A_21_2 + poseidon2_SUM_21));
             tmp *= scaling_factor;
             std::get<102>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<103, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_21_3 - ((poseidon2_params_MU_3 * poseidon2_A_21_3) + poseidon2_SUM_21)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_21_3 - (poseidon2_params_MU_3 * poseidon2_A_21_3 + poseidon2_SUM_21));
             tmp *= scaling_factor;
             std::get<103>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<104, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_22_0 - ((poseidon2_params_MU_0 * poseidon2_A_22_0) + poseidon2_SUM_22)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_22_0 - (poseidon2_params_MU_0 * poseidon2_A_22_0 + poseidon2_SUM_22));
             tmp *= scaling_factor;
             std::get<104>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<105, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_22_1 - ((poseidon2_params_MU_1 * poseidon2_A_22_1) + poseidon2_SUM_22)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_22_1 - (poseidon2_params_MU_1 * poseidon2_A_22_1 + poseidon2_SUM_22));
             tmp *= scaling_factor;
             std::get<105>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<106, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_22_2 - ((poseidon2_params_MU_2 * poseidon2_A_22_2) + poseidon2_SUM_22)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_22_2 - (poseidon2_params_MU_2 * poseidon2_A_22_2 + poseidon2_SUM_22));
             tmp *= scaling_factor;
             std::get<106>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<107, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_22_3 - ((poseidon2_params_MU_3 * poseidon2_A_22_3) + poseidon2_SUM_22)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_22_3 - (poseidon2_params_MU_3 * poseidon2_A_22_3 + poseidon2_SUM_22));
             tmp *= scaling_factor;
             std::get<107>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<108, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_23_0 - ((poseidon2_params_MU_0 * poseidon2_A_23_0) + poseidon2_SUM_23)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_23_0 - (poseidon2_params_MU_0 * poseidon2_A_23_0 + poseidon2_SUM_23));
             tmp *= scaling_factor;
             std::get<108>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<109, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_23_1 - ((poseidon2_params_MU_1 * poseidon2_A_23_1) + poseidon2_SUM_23)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_23_1 - (poseidon2_params_MU_1 * poseidon2_A_23_1 + poseidon2_SUM_23));
             tmp *= scaling_factor;
             std::get<109>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<110, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_23_2 - ((poseidon2_params_MU_2 * poseidon2_A_23_2) + poseidon2_SUM_23)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_23_2 - (poseidon2_params_MU_2 * poseidon2_A_23_2 + poseidon2_SUM_23));
             tmp *= scaling_factor;
             std::get<110>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<111, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_23_3 - ((poseidon2_params_MU_3 * poseidon2_A_23_3) + poseidon2_SUM_23)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_23_3 - (poseidon2_params_MU_3 * poseidon2_A_23_3 + poseidon2_SUM_23));
             tmp *= scaling_factor;
             std::get<111>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<112, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_24_0 - ((poseidon2_params_MU_0 * poseidon2_A_24_0) + poseidon2_SUM_24)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_24_0 - (poseidon2_params_MU_0 * poseidon2_A_24_0 + poseidon2_SUM_24));
             tmp *= scaling_factor;
             std::get<112>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<113, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_24_1 - ((poseidon2_params_MU_1 * poseidon2_A_24_1) + poseidon2_SUM_24)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_24_1 - (poseidon2_params_MU_1 * poseidon2_A_24_1 + poseidon2_SUM_24));
             tmp *= scaling_factor;
             std::get<113>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<114, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_24_2 - ((poseidon2_params_MU_2 * poseidon2_A_24_2) + poseidon2_SUM_24)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_24_2 - (poseidon2_params_MU_2 * poseidon2_A_24_2 + poseidon2_SUM_24));
             tmp *= scaling_factor;
             std::get<114>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<115, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_24_3 - ((poseidon2_params_MU_3 * poseidon2_A_24_3) + poseidon2_SUM_24)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_24_3 - (poseidon2_params_MU_3 * poseidon2_A_24_3 + poseidon2_SUM_24));
             tmp *= scaling_factor;
             std::get<115>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<116, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_25_0 - ((poseidon2_params_MU_0 * poseidon2_A_25_0) + poseidon2_SUM_25)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_25_0 - (poseidon2_params_MU_0 * poseidon2_A_25_0 + poseidon2_SUM_25));
             tmp *= scaling_factor;
             std::get<116>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<117, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_25_1 - ((poseidon2_params_MU_1 * poseidon2_A_25_1) + poseidon2_SUM_25)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_25_1 - (poseidon2_params_MU_1 * poseidon2_A_25_1 + poseidon2_SUM_25));
             tmp *= scaling_factor;
             std::get<117>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<118, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_25_2 - ((poseidon2_params_MU_2 * poseidon2_A_25_2) + poseidon2_SUM_25)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_25_2 - (poseidon2_params_MU_2 * poseidon2_A_25_2 + poseidon2_SUM_25));
             tmp *= scaling_factor;
             std::get<118>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<119, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_25_3 - ((poseidon2_params_MU_3 * poseidon2_A_25_3) + poseidon2_SUM_25)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_25_3 - (poseidon2_params_MU_3 * poseidon2_A_25_3 + poseidon2_SUM_25));
             tmp *= scaling_factor;
             std::get<119>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<120, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_26_0 - ((poseidon2_params_MU_0 * poseidon2_A_26_0) + poseidon2_SUM_26)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_26_0 - (poseidon2_params_MU_0 * poseidon2_A_26_0 + poseidon2_SUM_26));
             tmp *= scaling_factor;
             std::get<120>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<121, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_26_1 - ((poseidon2_params_MU_1 * poseidon2_A_26_1) + poseidon2_SUM_26)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_26_1 - (poseidon2_params_MU_1 * poseidon2_A_26_1 + poseidon2_SUM_26));
             tmp *= scaling_factor;
             std::get<121>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<122, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_26_2 - ((poseidon2_params_MU_2 * poseidon2_A_26_2) + poseidon2_SUM_26)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_26_2 - (poseidon2_params_MU_2 * poseidon2_A_26_2 + poseidon2_SUM_26));
             tmp *= scaling_factor;
             std::get<122>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<123, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_26_3 - ((poseidon2_params_MU_3 * poseidon2_A_26_3) + poseidon2_SUM_26)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_26_3 - (poseidon2_params_MU_3 * poseidon2_A_26_3 + poseidon2_SUM_26));
             tmp *= scaling_factor;
             std::get<123>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<124, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_27_0 - ((poseidon2_params_MU_0 * poseidon2_A_27_0) + poseidon2_SUM_27)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_27_0 - (poseidon2_params_MU_0 * poseidon2_A_27_0 + poseidon2_SUM_27));
             tmp *= scaling_factor;
             std::get<124>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<125, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_27_1 - ((poseidon2_params_MU_1 * poseidon2_A_27_1) + poseidon2_SUM_27)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_27_1 - (poseidon2_params_MU_1 * poseidon2_A_27_1 + poseidon2_SUM_27));
             tmp *= scaling_factor;
             std::get<125>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<126, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_27_2 - ((poseidon2_params_MU_2 * poseidon2_A_27_2) + poseidon2_SUM_27)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_27_2 - (poseidon2_params_MU_2 * poseidon2_A_27_2 + poseidon2_SUM_27));
             tmp *= scaling_factor;
             std::get<126>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<127, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_27_3 - ((poseidon2_params_MU_3 * poseidon2_A_27_3) + poseidon2_SUM_27)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_27_3 - (poseidon2_params_MU_3 * poseidon2_A_27_3 + poseidon2_SUM_27));
             tmp *= scaling_factor;
             std::get<127>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<128, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_28_0 - ((poseidon2_params_MU_0 * poseidon2_A_28_0) + poseidon2_SUM_28)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_28_0 - (poseidon2_params_MU_0 * poseidon2_A_28_0 + poseidon2_SUM_28));
             tmp *= scaling_factor;
             std::get<128>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<129, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_28_1 - ((poseidon2_params_MU_1 * poseidon2_A_28_1) + poseidon2_SUM_28)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_28_1 - (poseidon2_params_MU_1 * poseidon2_A_28_1 + poseidon2_SUM_28));
             tmp *= scaling_factor;
             std::get<129>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<130, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_28_2 - ((poseidon2_params_MU_2 * poseidon2_A_28_2) + poseidon2_SUM_28)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_28_2 - (poseidon2_params_MU_2 * poseidon2_A_28_2 + poseidon2_SUM_28));
             tmp *= scaling_factor;
             std::get<130>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<131, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_28_3 - ((poseidon2_params_MU_3 * poseidon2_A_28_3) + poseidon2_SUM_28)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_28_3 - (poseidon2_params_MU_3 * poseidon2_A_28_3 + poseidon2_SUM_28));
             tmp *= scaling_factor;
             std::get<131>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<132, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_29_0 - ((poseidon2_params_MU_0 * poseidon2_A_29_0) + poseidon2_SUM_29)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_29_0 - (poseidon2_params_MU_0 * poseidon2_A_29_0 + poseidon2_SUM_29));
             tmp *= scaling_factor;
             std::get<132>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<133, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_29_1 - ((poseidon2_params_MU_1 * poseidon2_A_29_1) + poseidon2_SUM_29)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_29_1 - (poseidon2_params_MU_1 * poseidon2_A_29_1 + poseidon2_SUM_29));
             tmp *= scaling_factor;
             std::get<133>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<134, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_29_2 - ((poseidon2_params_MU_2 * poseidon2_A_29_2) + poseidon2_SUM_29)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_29_2 - (poseidon2_params_MU_2 * poseidon2_A_29_2 + poseidon2_SUM_29));
             tmp *= scaling_factor;
             std::get<134>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<135, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_29_3 - ((poseidon2_params_MU_3 * poseidon2_A_29_3) + poseidon2_SUM_29)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_29_3 - (poseidon2_params_MU_3 * poseidon2_A_29_3 + poseidon2_SUM_29));
             tmp *= scaling_factor;
             std::get<135>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<136, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_30_0 - ((poseidon2_params_MU_0 * poseidon2_A_30_0) + poseidon2_SUM_30)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_30_0 - (poseidon2_params_MU_0 * poseidon2_A_30_0 + poseidon2_SUM_30));
             tmp *= scaling_factor;
             std::get<136>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<137, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_30_1 - ((poseidon2_params_MU_1 * poseidon2_A_30_1) + poseidon2_SUM_30)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_30_1 - (poseidon2_params_MU_1 * poseidon2_A_30_1 + poseidon2_SUM_30));
             tmp *= scaling_factor;
             std::get<137>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<138, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_30_2 - ((poseidon2_params_MU_2 * poseidon2_A_30_2) + poseidon2_SUM_30)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_30_2 - (poseidon2_params_MU_2 * poseidon2_A_30_2 + poseidon2_SUM_30));
             tmp *= scaling_factor;
             std::get<138>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<139, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_30_3 - ((poseidon2_params_MU_3 * poseidon2_A_30_3) + poseidon2_SUM_30)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_30_3 - (poseidon2_params_MU_3 * poseidon2_A_30_3 + poseidon2_SUM_30));
             tmp *= scaling_factor;
             std::get<139>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<140, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_31_0 - ((poseidon2_params_MU_0 * poseidon2_A_31_0) + poseidon2_SUM_31)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_31_0 - (poseidon2_params_MU_0 * poseidon2_A_31_0 + poseidon2_SUM_31));
             tmp *= scaling_factor;
             std::get<140>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<141, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_31_1 - ((poseidon2_params_MU_1 * poseidon2_A_31_1) + poseidon2_SUM_31)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_31_1 - (poseidon2_params_MU_1 * poseidon2_A_31_1 + poseidon2_SUM_31));
             tmp *= scaling_factor;
             std::get<141>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<142, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_31_2 - ((poseidon2_params_MU_2 * poseidon2_A_31_2) + poseidon2_SUM_31)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_31_2 - (poseidon2_params_MU_2 * poseidon2_A_31_2 + poseidon2_SUM_31));
             tmp *= scaling_factor;
             std::get<142>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<143, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_31_3 - ((poseidon2_params_MU_3 * poseidon2_A_31_3) + poseidon2_SUM_31)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_31_3 - (poseidon2_params_MU_3 * poseidon2_A_31_3 + poseidon2_SUM_31));
             tmp *= scaling_factor;
             std::get<143>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<144, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_32_0 - ((poseidon2_params_MU_0 * poseidon2_A_32_0) + poseidon2_SUM_32)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_32_0 - (poseidon2_params_MU_0 * poseidon2_A_32_0 + poseidon2_SUM_32));
             tmp *= scaling_factor;
             std::get<144>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<145, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_32_1 - ((poseidon2_params_MU_1 * poseidon2_A_32_1) + poseidon2_SUM_32)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_32_1 - (poseidon2_params_MU_1 * poseidon2_A_32_1 + poseidon2_SUM_32));
             tmp *= scaling_factor;
             std::get<145>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<146, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_32_2 - ((poseidon2_params_MU_2 * poseidon2_A_32_2) + poseidon2_SUM_32)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_32_2 - (poseidon2_params_MU_2 * poseidon2_A_32_2 + poseidon2_SUM_32));
             tmp *= scaling_factor;
             std::get<146>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<147, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_32_3 - ((poseidon2_params_MU_3 * poseidon2_A_32_3) + poseidon2_SUM_32)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_32_3 - (poseidon2_params_MU_3 * poseidon2_A_32_3 + poseidon2_SUM_32));
             tmp *= scaling_factor;
             std::get<147>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<148, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_33_0 - ((poseidon2_params_MU_0 * poseidon2_A_33_0) + poseidon2_SUM_33)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_33_0 - (poseidon2_params_MU_0 * poseidon2_A_33_0 + poseidon2_SUM_33));
             tmp *= scaling_factor;
             std::get<148>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<149, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_33_1 - ((poseidon2_params_MU_1 * poseidon2_A_33_1) + poseidon2_SUM_33)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_33_1 - (poseidon2_params_MU_1 * poseidon2_A_33_1 + poseidon2_SUM_33));
             tmp *= scaling_factor;
             std::get<149>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<150, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_33_2 - ((poseidon2_params_MU_2 * poseidon2_A_33_2) + poseidon2_SUM_33)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_33_2 - (poseidon2_params_MU_2 * poseidon2_A_33_2 + poseidon2_SUM_33));
             tmp *= scaling_factor;
             std::get<150>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<151, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_33_3 - ((poseidon2_params_MU_3 * poseidon2_A_33_3) + poseidon2_SUM_33)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_33_3 - (poseidon2_params_MU_3 * poseidon2_A_33_3 + poseidon2_SUM_33));
             tmp *= scaling_factor;
             std::get<151>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<152, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_34_0 - ((poseidon2_params_MU_0 * poseidon2_A_34_0) + poseidon2_SUM_34)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_34_0 - (poseidon2_params_MU_0 * poseidon2_A_34_0 + poseidon2_SUM_34));
             tmp *= scaling_factor;
             std::get<152>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<153, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_34_1 - ((poseidon2_params_MU_1 * poseidon2_A_34_1) + poseidon2_SUM_34)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_34_1 - (poseidon2_params_MU_1 * poseidon2_A_34_1 + poseidon2_SUM_34));
             tmp *= scaling_factor;
             std::get<153>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<154, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_34_2 - ((poseidon2_params_MU_2 * poseidon2_A_34_2) + poseidon2_SUM_34)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_34_2 - (poseidon2_params_MU_2 * poseidon2_A_34_2 + poseidon2_SUM_34));
             tmp *= scaling_factor;
             std::get<154>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<155, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_34_3 - ((poseidon2_params_MU_3 * poseidon2_A_34_3) + poseidon2_SUM_34)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_34_3 - (poseidon2_params_MU_3 * poseidon2_A_34_3 + poseidon2_SUM_34));
             tmp *= scaling_factor;
             std::get<155>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<156, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_35_0 - ((poseidon2_params_MU_0 * poseidon2_A_35_0) + poseidon2_SUM_35)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_35_0 - (poseidon2_params_MU_0 * poseidon2_A_35_0 + poseidon2_SUM_35));
             tmp *= scaling_factor;
             std::get<156>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<157, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_35_1 - ((poseidon2_params_MU_1 * poseidon2_A_35_1) + poseidon2_SUM_35)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_35_1 - (poseidon2_params_MU_1 * poseidon2_A_35_1 + poseidon2_SUM_35));
             tmp *= scaling_factor;
             std::get<157>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<158, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_35_2 - ((poseidon2_params_MU_2 * poseidon2_A_35_2) + poseidon2_SUM_35)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_35_2 - (poseidon2_params_MU_2 * poseidon2_A_35_2 + poseidon2_SUM_35));
             tmp *= scaling_factor;
             std::get<158>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<159, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_35_3 - ((poseidon2_params_MU_3 * poseidon2_A_35_3) + poseidon2_SUM_35)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_35_3 - (poseidon2_params_MU_3 * poseidon2_A_35_3 + poseidon2_SUM_35));
             tmp *= scaling_factor;
             std::get<159>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<160, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_36_0 - ((poseidon2_params_MU_0 * poseidon2_A_36_0) + poseidon2_SUM_36)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_36_0 - (poseidon2_params_MU_0 * poseidon2_A_36_0 + poseidon2_SUM_36));
             tmp *= scaling_factor;
             std::get<160>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<161, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_36_1 - ((poseidon2_params_MU_1 * poseidon2_A_36_1) + poseidon2_SUM_36)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_36_1 - (poseidon2_params_MU_1 * poseidon2_A_36_1 + poseidon2_SUM_36));
             tmp *= scaling_factor;
             std::get<161>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<162, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_36_2 - ((poseidon2_params_MU_2 * poseidon2_A_36_2) + poseidon2_SUM_36)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_36_2 - (poseidon2_params_MU_2 * poseidon2_A_36_2 + poseidon2_SUM_36));
             tmp *= scaling_factor;
             std::get<162>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<163, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_36_3 - ((poseidon2_params_MU_3 * poseidon2_A_36_3) + poseidon2_SUM_36)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_36_3 - (poseidon2_params_MU_3 * poseidon2_A_36_3 + poseidon2_SUM_36));
             tmp *= scaling_factor;
             std::get<163>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<164, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_37_0 - ((poseidon2_params_MU_0 * poseidon2_A_37_0) + poseidon2_SUM_37)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_37_0 - (poseidon2_params_MU_0 * poseidon2_A_37_0 + poseidon2_SUM_37));
             tmp *= scaling_factor;
             std::get<164>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<165, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_37_1 - ((poseidon2_params_MU_1 * poseidon2_A_37_1) + poseidon2_SUM_37)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_37_1 - (poseidon2_params_MU_1 * poseidon2_A_37_1 + poseidon2_SUM_37));
             tmp *= scaling_factor;
             std::get<165>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<166, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_37_2 - ((poseidon2_params_MU_2 * poseidon2_A_37_2) + poseidon2_SUM_37)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_37_2 - (poseidon2_params_MU_2 * poseidon2_A_37_2 + poseidon2_SUM_37));
             tmp *= scaling_factor;
             std::get<166>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<167, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_37_3 - ((poseidon2_params_MU_3 * poseidon2_A_37_3) + poseidon2_SUM_37)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_37_3 - (poseidon2_params_MU_3 * poseidon2_A_37_3 + poseidon2_SUM_37));
             tmp *= scaling_factor;
             std::get<167>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<168, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_38_0 - ((poseidon2_params_MU_0 * poseidon2_A_38_0) + poseidon2_SUM_38)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_38_0 - (poseidon2_params_MU_0 * poseidon2_A_38_0 + poseidon2_SUM_38));
             tmp *= scaling_factor;
             std::get<168>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<169, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_38_1 - ((poseidon2_params_MU_1 * poseidon2_A_38_1) + poseidon2_SUM_38)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_38_1 - (poseidon2_params_MU_1 * poseidon2_A_38_1 + poseidon2_SUM_38));
             tmp *= scaling_factor;
             std::get<169>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<170, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_38_2 - ((poseidon2_params_MU_2 * poseidon2_A_38_2) + poseidon2_SUM_38)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_38_2 - (poseidon2_params_MU_2 * poseidon2_A_38_2 + poseidon2_SUM_38));
             tmp *= scaling_factor;
             std::get<170>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<171, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_38_3 - ((poseidon2_params_MU_3 * poseidon2_A_38_3) + poseidon2_SUM_38)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_38_3 - (poseidon2_params_MU_3 * poseidon2_A_38_3 + poseidon2_SUM_38));
             tmp *= scaling_factor;
             std::get<171>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<172, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_39_0 - ((poseidon2_params_MU_0 * poseidon2_A_39_0) + poseidon2_SUM_39)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_39_0 - (poseidon2_params_MU_0 * poseidon2_A_39_0 + poseidon2_SUM_39));
             tmp *= scaling_factor;
             std::get<172>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<173, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_39_1 - ((poseidon2_params_MU_1 * poseidon2_A_39_1) + poseidon2_SUM_39)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_39_1 - (poseidon2_params_MU_1 * poseidon2_A_39_1 + poseidon2_SUM_39));
             tmp *= scaling_factor;
             std::get<173>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<174, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_39_2 - ((poseidon2_params_MU_2 * poseidon2_A_39_2) + poseidon2_SUM_39)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_39_2 - (poseidon2_params_MU_2 * poseidon2_A_39_2 + poseidon2_SUM_39));
             tmp *= scaling_factor;
             std::get<174>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<175, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_39_3 - ((poseidon2_params_MU_3 * poseidon2_A_39_3) + poseidon2_SUM_39)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_39_3 - (poseidon2_params_MU_3 * poseidon2_A_39_3 + poseidon2_SUM_39));
             tmp *= scaling_factor;
             std::get<175>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<176, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_40_0 - ((poseidon2_params_MU_0 * poseidon2_A_40_0) + poseidon2_SUM_40)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_40_0 - (poseidon2_params_MU_0 * poseidon2_A_40_0 + poseidon2_SUM_40));
             tmp *= scaling_factor;
             std::get<176>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<177, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_40_1 - ((poseidon2_params_MU_1 * poseidon2_A_40_1) + poseidon2_SUM_40)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_40_1 - (poseidon2_params_MU_1 * poseidon2_A_40_1 + poseidon2_SUM_40));
             tmp *= scaling_factor;
             std::get<177>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<178, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_40_2 - ((poseidon2_params_MU_2 * poseidon2_A_40_2) + poseidon2_SUM_40)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_40_2 - (poseidon2_params_MU_2 * poseidon2_A_40_2 + poseidon2_SUM_40));
             tmp *= scaling_factor;
             std::get<178>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<179, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_40_3 - ((poseidon2_params_MU_3 * poseidon2_A_40_3) + poseidon2_SUM_40)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_40_3 - (poseidon2_params_MU_3 * poseidon2_A_40_3 + poseidon2_SUM_40));
             tmp *= scaling_factor;
             std::get<179>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<180, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_41_0 - ((poseidon2_params_MU_0 * poseidon2_A_41_0) + poseidon2_SUM_41)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_41_0 - (poseidon2_params_MU_0 * poseidon2_A_41_0 + poseidon2_SUM_41));
             tmp *= scaling_factor;
             std::get<180>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<181, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_41_1 - ((poseidon2_params_MU_1 * poseidon2_A_41_1) + poseidon2_SUM_41)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_41_1 - (poseidon2_params_MU_1 * poseidon2_A_41_1 + poseidon2_SUM_41));
             tmp *= scaling_factor;
             std::get<181>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<182, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_41_2 - ((poseidon2_params_MU_2 * poseidon2_A_41_2) + poseidon2_SUM_41)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_41_2 - (poseidon2_params_MU_2 * poseidon2_A_41_2 + poseidon2_SUM_41));
             tmp *= scaling_factor;
             std::get<182>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<183, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_41_3 - ((poseidon2_params_MU_3 * poseidon2_A_41_3) + poseidon2_SUM_41)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_41_3 - (poseidon2_params_MU_3 * poseidon2_A_41_3 + poseidon2_SUM_41));
             tmp *= scaling_factor;
             std::get<183>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<184, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_42_0 - ((poseidon2_params_MU_0 * poseidon2_A_42_0) + poseidon2_SUM_42)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_42_0 - (poseidon2_params_MU_0 * poseidon2_A_42_0 + poseidon2_SUM_42));
             tmp *= scaling_factor;
             std::get<184>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<185, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_42_1 - ((poseidon2_params_MU_1 * poseidon2_A_42_1) + poseidon2_SUM_42)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_42_1 - (poseidon2_params_MU_1 * poseidon2_A_42_1 + poseidon2_SUM_42));
             tmp *= scaling_factor;
             std::get<185>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<186, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_42_2 - ((poseidon2_params_MU_2 * poseidon2_A_42_2) + poseidon2_SUM_42)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_42_2 - (poseidon2_params_MU_2 * poseidon2_A_42_2 + poseidon2_SUM_42));
             tmp *= scaling_factor;
             std::get<186>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<187, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_42_3 - ((poseidon2_params_MU_3 * poseidon2_A_42_3) + poseidon2_SUM_42)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_42_3 - (poseidon2_params_MU_3 * poseidon2_A_42_3 + poseidon2_SUM_42));
             tmp *= scaling_factor;
             std::get<187>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<188, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_43_0 - ((poseidon2_params_MU_0 * poseidon2_A_43_0) + poseidon2_SUM_43)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_43_0 - (poseidon2_params_MU_0 * poseidon2_A_43_0 + poseidon2_SUM_43));
             tmp *= scaling_factor;
             std::get<188>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<189, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_43_1 - ((poseidon2_params_MU_1 * poseidon2_A_43_1) + poseidon2_SUM_43)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_43_1 - (poseidon2_params_MU_1 * poseidon2_A_43_1 + poseidon2_SUM_43));
             tmp *= scaling_factor;
             std::get<189>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<190, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_43_2 - ((poseidon2_params_MU_2 * poseidon2_A_43_2) + poseidon2_SUM_43)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_43_2 - (poseidon2_params_MU_2 * poseidon2_A_43_2 + poseidon2_SUM_43));
             tmp *= scaling_factor;
             std::get<190>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<191, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_43_3 - ((poseidon2_params_MU_3 * poseidon2_A_43_3) + poseidon2_SUM_43)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_43_3 - (poseidon2_params_MU_3 * poseidon2_A_43_3 + poseidon2_SUM_43));
             tmp *= scaling_factor;
             std::get<191>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<192, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_44_0 - ((poseidon2_params_MU_0 * poseidon2_A_44_0) + poseidon2_SUM_44)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_44_0 - (poseidon2_params_MU_0 * poseidon2_A_44_0 + poseidon2_SUM_44));
             tmp *= scaling_factor;
             std::get<192>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<193, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_44_1 - ((poseidon2_params_MU_1 * poseidon2_A_44_1) + poseidon2_SUM_44)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_44_1 - (poseidon2_params_MU_1 * poseidon2_A_44_1 + poseidon2_SUM_44));
             tmp *= scaling_factor;
             std::get<193>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<194, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_44_2 - ((poseidon2_params_MU_2 * poseidon2_A_44_2) + poseidon2_SUM_44)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_44_2 - (poseidon2_params_MU_2 * poseidon2_A_44_2 + poseidon2_SUM_44));
             tmp *= scaling_factor;
             std::get<194>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<195, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_44_3 - ((poseidon2_params_MU_3 * poseidon2_A_44_3) + poseidon2_SUM_44)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_44_3 - (poseidon2_params_MU_3 * poseidon2_A_44_3 + poseidon2_SUM_44));
             tmp *= scaling_factor;
             std::get<195>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<196, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_45_0 - ((poseidon2_params_MU_0 * poseidon2_A_45_0) + poseidon2_SUM_45)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_45_0 - (poseidon2_params_MU_0 * poseidon2_A_45_0 + poseidon2_SUM_45));
             tmp *= scaling_factor;
             std::get<196>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<197, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_45_1 - ((poseidon2_params_MU_1 * poseidon2_A_45_1) + poseidon2_SUM_45)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_45_1 - (poseidon2_params_MU_1 * poseidon2_A_45_1 + poseidon2_SUM_45));
             tmp *= scaling_factor;
             std::get<197>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<198, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_45_2 - ((poseidon2_params_MU_2 * poseidon2_A_45_2) + poseidon2_SUM_45)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_45_2 - (poseidon2_params_MU_2 * poseidon2_A_45_2 + poseidon2_SUM_45));
             tmp *= scaling_factor;
             std::get<198>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<199, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_45_3 - ((poseidon2_params_MU_3 * poseidon2_A_45_3) + poseidon2_SUM_45)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_45_3 - (poseidon2_params_MU_3 * poseidon2_A_45_3 + poseidon2_SUM_45));
             tmp *= scaling_factor;
             std::get<199>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<200, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_46_0 - ((poseidon2_params_MU_0 * poseidon2_A_46_0) + poseidon2_SUM_46)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_46_0 - (poseidon2_params_MU_0 * poseidon2_A_46_0 + poseidon2_SUM_46));
             tmp *= scaling_factor;
             std::get<200>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<201, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_46_1 - ((poseidon2_params_MU_1 * poseidon2_A_46_1) + poseidon2_SUM_46)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_46_1 - (poseidon2_params_MU_1 * poseidon2_A_46_1 + poseidon2_SUM_46));
             tmp *= scaling_factor;
             std::get<201>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<202, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_46_2 - ((poseidon2_params_MU_2 * poseidon2_A_46_2) + poseidon2_SUM_46)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_46_2 - (poseidon2_params_MU_2 * poseidon2_A_46_2 + poseidon2_SUM_46));
             tmp *= scaling_factor;
             std::get<202>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<203, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_46_3 - ((poseidon2_params_MU_3 * poseidon2_A_46_3) + poseidon2_SUM_46)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_46_3 - (poseidon2_params_MU_3 * poseidon2_A_46_3 + poseidon2_SUM_46));
             tmp *= scaling_factor;
             std::get<203>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<204, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_47_0 - ((poseidon2_params_MU_0 * poseidon2_A_47_0) + poseidon2_SUM_47)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_47_0 - (poseidon2_params_MU_0 * poseidon2_A_47_0 + poseidon2_SUM_47));
             tmp *= scaling_factor;
             std::get<204>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<205, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_47_1 - ((poseidon2_params_MU_1 * poseidon2_A_47_1) + poseidon2_SUM_47)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_47_1 - (poseidon2_params_MU_1 * poseidon2_A_47_1 + poseidon2_SUM_47));
             tmp *= scaling_factor;
             std::get<205>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<206, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_47_2 - ((poseidon2_params_MU_2 * poseidon2_A_47_2) + poseidon2_SUM_47)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_47_2 - (poseidon2_params_MU_2 * poseidon2_A_47_2 + poseidon2_SUM_47));
             tmp *= scaling_factor;
             std::get<206>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<207, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_47_3 - ((poseidon2_params_MU_3 * poseidon2_A_47_3) + poseidon2_SUM_47)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_47_3 - (poseidon2_params_MU_3 * poseidon2_A_47_3 + poseidon2_SUM_47));
             tmp *= scaling_factor;
             std::get<207>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<208, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_48_0 - ((poseidon2_params_MU_0 * poseidon2_A_48_0) + poseidon2_SUM_48)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_48_0 - (poseidon2_params_MU_0 * poseidon2_A_48_0 + poseidon2_SUM_48));
             tmp *= scaling_factor;
             std::get<208>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<209, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_48_1 - ((poseidon2_params_MU_1 * poseidon2_A_48_1) + poseidon2_SUM_48)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_48_1 - (poseidon2_params_MU_1 * poseidon2_A_48_1 + poseidon2_SUM_48));
             tmp *= scaling_factor;
             std::get<209>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<210, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_48_2 - ((poseidon2_params_MU_2 * poseidon2_A_48_2) + poseidon2_SUM_48)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_48_2 - (poseidon2_params_MU_2 * poseidon2_A_48_2 + poseidon2_SUM_48));
             tmp *= scaling_factor;
             std::get<210>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<211, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_48_3 - ((poseidon2_params_MU_3 * poseidon2_A_48_3) + poseidon2_SUM_48)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_48_3 - (poseidon2_params_MU_3 * poseidon2_A_48_3 + poseidon2_SUM_48));
             tmp *= scaling_factor;
             std::get<211>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<212, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_49_0 - ((poseidon2_params_MU_0 * poseidon2_A_49_0) + poseidon2_SUM_49)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_49_0 - (poseidon2_params_MU_0 * poseidon2_A_49_0 + poseidon2_SUM_49));
             tmp *= scaling_factor;
             std::get<212>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<213, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_49_1 - ((poseidon2_params_MU_1 * poseidon2_A_49_1) + poseidon2_SUM_49)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_49_1 - (poseidon2_params_MU_1 * poseidon2_A_49_1 + poseidon2_SUM_49));
             tmp *= scaling_factor;
             std::get<213>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<214, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_49_2 - ((poseidon2_params_MU_2 * poseidon2_A_49_2) + poseidon2_SUM_49)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_49_2 - (poseidon2_params_MU_2 * poseidon2_A_49_2 + poseidon2_SUM_49));
             tmp *= scaling_factor;
             std::get<214>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<215, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_49_3 - ((poseidon2_params_MU_3 * poseidon2_A_49_3) + poseidon2_SUM_49)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_49_3 - (poseidon2_params_MU_3 * poseidon2_A_49_3 + poseidon2_SUM_49));
             tmp *= scaling_factor;
             std::get<215>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<216, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_50_0 - ((poseidon2_params_MU_0 * poseidon2_A_50_0) + poseidon2_SUM_50)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_50_0 - (poseidon2_params_MU_0 * poseidon2_A_50_0 + poseidon2_SUM_50));
             tmp *= scaling_factor;
             std::get<216>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<217, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_50_1 - ((poseidon2_params_MU_1 * poseidon2_A_50_1) + poseidon2_SUM_50)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_50_1 - (poseidon2_params_MU_1 * poseidon2_A_50_1 + poseidon2_SUM_50));
             tmp *= scaling_factor;
             std::get<217>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<218, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_50_2 - ((poseidon2_params_MU_2 * poseidon2_A_50_2) + poseidon2_SUM_50)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_50_2 - (poseidon2_params_MU_2 * poseidon2_A_50_2 + poseidon2_SUM_50));
             tmp *= scaling_factor;
             std::get<218>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<219, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_50_3 - ((poseidon2_params_MU_3 * poseidon2_A_50_3) + poseidon2_SUM_50)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_50_3 - (poseidon2_params_MU_3 * poseidon2_A_50_3 + poseidon2_SUM_50));
             tmp *= scaling_factor;
             std::get<219>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<220, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_51_0 - ((poseidon2_params_MU_0 * poseidon2_A_51_0) + poseidon2_SUM_51)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_51_0 - (poseidon2_params_MU_0 * poseidon2_A_51_0 + poseidon2_SUM_51));
             tmp *= scaling_factor;
             std::get<220>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<221, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_51_1 - ((poseidon2_params_MU_1 * poseidon2_A_51_1) + poseidon2_SUM_51)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_51_1 - (poseidon2_params_MU_1 * poseidon2_A_51_1 + poseidon2_SUM_51));
             tmp *= scaling_factor;
             std::get<221>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<222, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_51_2 - ((poseidon2_params_MU_2 * poseidon2_A_51_2) + poseidon2_SUM_51)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_51_2 - (poseidon2_params_MU_2 * poseidon2_A_51_2 + poseidon2_SUM_51));
             tmp *= scaling_factor;
             std::get<222>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<223, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_51_3 - ((poseidon2_params_MU_3 * poseidon2_A_51_3) + poseidon2_SUM_51)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_51_3 - (poseidon2_params_MU_3 * poseidon2_A_51_3 + poseidon2_SUM_51));
             tmp *= scaling_factor;
             std::get<223>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<224, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_52_0 - ((poseidon2_params_MU_0 * poseidon2_A_52_0) + poseidon2_SUM_52)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_52_0 - (poseidon2_params_MU_0 * poseidon2_A_52_0 + poseidon2_SUM_52));
             tmp *= scaling_factor;
             std::get<224>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<225, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_52_1 - ((poseidon2_params_MU_1 * poseidon2_A_52_1) + poseidon2_SUM_52)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_52_1 - (poseidon2_params_MU_1 * poseidon2_A_52_1 + poseidon2_SUM_52));
             tmp *= scaling_factor;
             std::get<225>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<226, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_52_2 - ((poseidon2_params_MU_2 * poseidon2_A_52_2) + poseidon2_SUM_52)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_52_2 - (poseidon2_params_MU_2 * poseidon2_A_52_2 + poseidon2_SUM_52));
             tmp *= scaling_factor;
             std::get<226>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<227, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_52_3 - ((poseidon2_params_MU_3 * poseidon2_A_52_3) + poseidon2_SUM_52)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_52_3 - (poseidon2_params_MU_3 * poseidon2_A_52_3 + poseidon2_SUM_52));
             tmp *= scaling_factor;
             std::get<227>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<228, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_53_0 - ((poseidon2_params_MU_0 * poseidon2_A_53_0) + poseidon2_SUM_53)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_53_0 - (poseidon2_params_MU_0 * poseidon2_A_53_0 + poseidon2_SUM_53));
             tmp *= scaling_factor;
             std::get<228>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<229, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_53_1 - ((poseidon2_params_MU_1 * poseidon2_A_53_1) + poseidon2_SUM_53)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_53_1 - (poseidon2_params_MU_1 * poseidon2_A_53_1 + poseidon2_SUM_53));
             tmp *= scaling_factor;
             std::get<229>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<230, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_53_2 - ((poseidon2_params_MU_2 * poseidon2_A_53_2) + poseidon2_SUM_53)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_53_2 - (poseidon2_params_MU_2 * poseidon2_A_53_2 + poseidon2_SUM_53));
             tmp *= scaling_factor;
             std::get<230>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<231, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_53_3 - ((poseidon2_params_MU_3 * poseidon2_A_53_3) + poseidon2_SUM_53)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_53_3 - (poseidon2_params_MU_3 * poseidon2_A_53_3 + poseidon2_SUM_53));
             tmp *= scaling_factor;
             std::get<231>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<232, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_54_0 - ((poseidon2_params_MU_0 * poseidon2_A_54_0) + poseidon2_SUM_54)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_54_0 - (poseidon2_params_MU_0 * poseidon2_A_54_0 + poseidon2_SUM_54));
             tmp *= scaling_factor;
             std::get<232>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<233, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_54_1 - ((poseidon2_params_MU_1 * poseidon2_A_54_1) + poseidon2_SUM_54)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_54_1 - (poseidon2_params_MU_1 * poseidon2_A_54_1 + poseidon2_SUM_54));
             tmp *= scaling_factor;
             std::get<233>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<234, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_54_2 - ((poseidon2_params_MU_2 * poseidon2_A_54_2) + poseidon2_SUM_54)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_54_2 - (poseidon2_params_MU_2 * poseidon2_A_54_2 + poseidon2_SUM_54));
             tmp *= scaling_factor;
             std::get<234>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<235, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_54_3 - ((poseidon2_params_MU_3 * poseidon2_A_54_3) + poseidon2_SUM_54)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_54_3 - (poseidon2_params_MU_3 * poseidon2_A_54_3 + poseidon2_SUM_54));
             tmp *= scaling_factor;
             std::get<235>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<236, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_55_0 - ((poseidon2_params_MU_0 * poseidon2_A_55_0) + poseidon2_SUM_55)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_55_0 - (poseidon2_params_MU_0 * poseidon2_A_55_0 + poseidon2_SUM_55));
             tmp *= scaling_factor;
             std::get<236>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<237, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_55_1 - ((poseidon2_params_MU_1 * poseidon2_A_55_1) + poseidon2_SUM_55)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_55_1 - (poseidon2_params_MU_1 * poseidon2_A_55_1 + poseidon2_SUM_55));
             tmp *= scaling_factor;
             std::get<237>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<238, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_55_2 - ((poseidon2_params_MU_2 * poseidon2_A_55_2) + poseidon2_SUM_55)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_55_2 - (poseidon2_params_MU_2 * poseidon2_A_55_2 + poseidon2_SUM_55));
             tmp *= scaling_factor;
             std::get<238>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<239, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_55_3 - ((poseidon2_params_MU_3 * poseidon2_A_55_3) + poseidon2_SUM_55)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_55_3 - (poseidon2_params_MU_3 * poseidon2_A_55_3 + poseidon2_SUM_55));
             tmp *= scaling_factor;
             std::get<239>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<240, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_56_0 - ((poseidon2_params_MU_0 * poseidon2_A_56_0) + poseidon2_SUM_56)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_56_0 - (poseidon2_params_MU_0 * poseidon2_A_56_0 + poseidon2_SUM_56));
             tmp *= scaling_factor;
             std::get<240>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<241, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_56_1 - ((poseidon2_params_MU_1 * poseidon2_A_56_1) + poseidon2_SUM_56)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_56_1 - (poseidon2_params_MU_1 * poseidon2_A_56_1 + poseidon2_SUM_56));
             tmp *= scaling_factor;
             std::get<241>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<242, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_56_2 - ((poseidon2_params_MU_2 * poseidon2_A_56_2) + poseidon2_SUM_56)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_56_2 - (poseidon2_params_MU_2 * poseidon2_A_56_2 + poseidon2_SUM_56));
             tmp *= scaling_factor;
             std::get<242>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<243, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_56_3 - ((poseidon2_params_MU_3 * poseidon2_A_56_3) + poseidon2_SUM_56)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_56_3 - (poseidon2_params_MU_3 * poseidon2_A_56_3 + poseidon2_SUM_56));
             tmp *= scaling_factor;
             std::get<243>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<244, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_57_0 - ((poseidon2_params_MU_0 * poseidon2_A_57_0) + poseidon2_SUM_57)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_57_0 - (poseidon2_params_MU_0 * poseidon2_A_57_0 + poseidon2_SUM_57));
             tmp *= scaling_factor;
             std::get<244>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<245, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_57_1 - ((poseidon2_params_MU_1 * poseidon2_A_57_1) + poseidon2_SUM_57)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_57_1 - (poseidon2_params_MU_1 * poseidon2_A_57_1 + poseidon2_SUM_57));
             tmp *= scaling_factor;
             std::get<245>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<246, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_57_2 - ((poseidon2_params_MU_2 * poseidon2_A_57_2) + poseidon2_SUM_57)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_57_2 - (poseidon2_params_MU_2 * poseidon2_A_57_2 + poseidon2_SUM_57));
             tmp *= scaling_factor;
             std::get<246>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<247, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_57_3 - ((poseidon2_params_MU_3 * poseidon2_A_57_3) + poseidon2_SUM_57)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_57_3 - (poseidon2_params_MU_3 * poseidon2_A_57_3 + poseidon2_SUM_57));
             tmp *= scaling_factor;
             std::get<247>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<248, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_58_0 - ((poseidon2_params_MU_0 * poseidon2_A_58_0) + poseidon2_SUM_58)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_58_0 - (poseidon2_params_MU_0 * poseidon2_A_58_0 + poseidon2_SUM_58));
             tmp *= scaling_factor;
             std::get<248>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<249, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_58_1 - ((poseidon2_params_MU_1 * poseidon2_A_58_1) + poseidon2_SUM_58)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_58_1 - (poseidon2_params_MU_1 * poseidon2_A_58_1 + poseidon2_SUM_58));
             tmp *= scaling_factor;
             std::get<249>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<250, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_58_2 - ((poseidon2_params_MU_2 * poseidon2_A_58_2) + poseidon2_SUM_58)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_58_2 - (poseidon2_params_MU_2 * poseidon2_A_58_2 + poseidon2_SUM_58));
             tmp *= scaling_factor;
             std::get<250>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<251, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_58_3 - ((poseidon2_params_MU_3 * poseidon2_A_58_3) + poseidon2_SUM_58)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_58_3 - (poseidon2_params_MU_3 * poseidon2_A_58_3 + poseidon2_SUM_58));
             tmp *= scaling_factor;
             std::get<251>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<252, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_59_0 - ((poseidon2_params_MU_0 * poseidon2_A_59_0) + poseidon2_SUM_59)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_59_0 - (poseidon2_params_MU_0 * poseidon2_A_59_0 + poseidon2_SUM_59));
             tmp *= scaling_factor;
             std::get<252>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<253, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_59_1 - ((poseidon2_params_MU_1 * poseidon2_A_59_1) + poseidon2_SUM_59)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_59_1 - (poseidon2_params_MU_1 * poseidon2_A_59_1 + poseidon2_SUM_59));
             tmp *= scaling_factor;
             std::get<253>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<254, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_59_2 - ((poseidon2_params_MU_2 * poseidon2_A_59_2) + poseidon2_SUM_59)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_59_2 - (poseidon2_params_MU_2 * poseidon2_A_59_2 + poseidon2_SUM_59));
             tmp *= scaling_factor;
             std::get<254>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<255, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_B_59_3 - ((poseidon2_params_MU_3 * poseidon2_A_59_3) + poseidon2_SUM_59)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_B_59_3 - (poseidon2_params_MU_3 * poseidon2_A_59_3 + poseidon2_SUM_59));
             tmp *= scaling_factor;
             std::get<255>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<256, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_60_4 - ((FF(4) * poseidon2_T_60_1) + poseidon2_T_60_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_60_4 - (FF(4) * poseidon2_T_60_1 + poseidon2_T_60_3));
             tmp *= scaling_factor;
             std::get<256>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<257, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_60_5 - ((FF(4) * poseidon2_T_60_0) + poseidon2_T_60_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_60_5 - (FF(4) * poseidon2_T_60_0 + poseidon2_T_60_2));
             tmp *= scaling_factor;
             std::get<257>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<258, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_60_6 - (poseidon2_T_60_3 + new_term.poseidon2_T_60_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_60_6 - (poseidon2_T_60_3 + new_term.poseidon2_T_60_5));
             tmp *= scaling_factor;
             std::get<258>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<259, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_60_7 - (poseidon2_T_60_2 + new_term.poseidon2_T_60_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_60_7 - (poseidon2_T_60_2 + new_term.poseidon2_T_60_4));
             tmp *= scaling_factor;
             std::get<259>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<260, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_61_4 - ((FF(4) * poseidon2_T_61_1) + poseidon2_T_61_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_61_4 - (FF(4) * poseidon2_T_61_1 + poseidon2_T_61_3));
             tmp *= scaling_factor;
             std::get<260>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<261, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_61_5 - ((FF(4) * poseidon2_T_61_0) + poseidon2_T_61_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_61_5 - (FF(4) * poseidon2_T_61_0 + poseidon2_T_61_2));
             tmp *= scaling_factor;
             std::get<261>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<262, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_61_6 - (poseidon2_T_61_3 + new_term.poseidon2_T_61_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_61_6 - (poseidon2_T_61_3 + new_term.poseidon2_T_61_5));
             tmp *= scaling_factor;
             std::get<262>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<263, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_61_7 - (poseidon2_T_61_2 + new_term.poseidon2_T_61_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_61_7 - (poseidon2_T_61_2 + new_term.poseidon2_T_61_4));
             tmp *= scaling_factor;
             std::get<263>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<264, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_62_4 - ((FF(4) * poseidon2_T_62_1) + poseidon2_T_62_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_62_4 - (FF(4) * poseidon2_T_62_1 + poseidon2_T_62_3));
             tmp *= scaling_factor;
             std::get<264>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<265, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_62_5 - ((FF(4) * poseidon2_T_62_0) + poseidon2_T_62_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_62_5 - (FF(4) * poseidon2_T_62_0 + poseidon2_T_62_2));
             tmp *= scaling_factor;
             std::get<265>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<266, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_62_6 - (poseidon2_T_62_3 + new_term.poseidon2_T_62_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_62_6 - (poseidon2_T_62_3 + new_term.poseidon2_T_62_5));
             tmp *= scaling_factor;
             std::get<266>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<267, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_62_7 - (poseidon2_T_62_2 + new_term.poseidon2_T_62_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_62_7 - (poseidon2_T_62_2 + new_term.poseidon2_T_62_4));
             tmp *= scaling_factor;
             std::get<267>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<268, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_63_4 - ((FF(4) * poseidon2_T_63_1) + poseidon2_T_63_3)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_63_4 - (FF(4) * poseidon2_T_63_1 + poseidon2_T_63_3));
             tmp *= scaling_factor;
             std::get<268>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<269, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_63_5 - ((FF(4) * poseidon2_T_63_0) + poseidon2_T_63_2)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_63_5 - (FF(4) * poseidon2_T_63_0 + poseidon2_T_63_2));
             tmp *= scaling_factor;
             std::get<269>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<270, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_63_6 - (poseidon2_T_63_3 + new_term.poseidon2_T_63_5)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_63_6 - (poseidon2_T_63_3 + new_term.poseidon2_T_63_5));
             tmp *= scaling_factor;
             std::get<270>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<271, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm *
-                        (new_term.poseidon2_T_63_7 - (poseidon2_T_63_2 + new_term.poseidon2_T_63_4)));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm *
+                       (new_term.poseidon2_T_63_7 - (poseidon2_T_63_2 + new_term.poseidon2_T_63_4));
             tmp *= scaling_factor;
             std::get<271>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<272, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_0 - new_term.poseidon2_T_63_6));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_0 - new_term.poseidon2_T_63_6);
             tmp *= scaling_factor;
             std::get<272>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<273, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_1 - new_term.poseidon2_T_63_5));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_1 - new_term.poseidon2_T_63_5);
             tmp *= scaling_factor;
             std::get<273>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<274, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_2 - new_term.poseidon2_T_63_7));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_2 - new_term.poseidon2_T_63_7);
             tmp *= scaling_factor;
             std::get<274>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<275, ContainerOverSubrelations>;
-            auto tmp = (new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_3 - new_term.poseidon2_T_63_4));
+            auto tmp = new_term.poseidon2_sel_poseidon_perm * (new_term.poseidon2_b_3 - new_term.poseidon2_T_63_4);
             tmp *= scaling_factor;
             std::get<275>(evals) += typename Accumulator::View(tmp);
         }

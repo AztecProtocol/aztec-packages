@@ -1,8 +1,19 @@
 import { format } from 'util';
 
-import { createLogger } from '../../log/pino-logger.js';
+import { type Logger, createLogger } from '../../log/pino-logger.js';
 import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
-import { defaultFetch } from './fetch.js';
+import { type JsonRpcFetch, defaultFetch } from './fetch.js';
+
+export type SafeJsonRpcClientOptions = {
+  useApiEndpoints?: boolean;
+  namespaceMethods?: string | false;
+  fetch?: JsonRpcFetch;
+  log?: Logger;
+  onResponse?: (res: {
+    response: any;
+    headers: { get: (header: string) => string | null | undefined };
+  }) => Promise<void>;
+};
 
 /**
  * Creates a Proxy object that delegates over RPC and validates outputs against a given schema.
@@ -16,11 +27,12 @@ import { defaultFetch } from './fetch.js';
 export function createSafeJsonRpcClient<T extends object>(
   host: string,
   schema: ApiSchemaFor<T>,
-  useApiEndpoints: boolean = false,
-  namespaceMethods?: string | false,
-  fetch = defaultFetch,
-  log = createLogger('json-rpc:client'),
+  config: SafeJsonRpcClientOptions = {},
 ): T {
+  const fetch = config.fetch ?? defaultFetch;
+  const log = config.log ?? createLogger('json-rpc:client');
+  const { useApiEndpoints = false, namespaceMethods = false } = config;
+
   let id = 0;
   const request = async (methodName: string, params: any[]): Promise<any> => {
     if (!schemaHasMethod(schema, methodName)) {
@@ -30,17 +42,20 @@ export function createSafeJsonRpcClient<T extends object>(
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
-    const res = await fetch(host, method, body, useApiEndpoints);
-    log.debug(format(`result`, method, res));
+    const { response, headers } = await fetch(host, method, body, useApiEndpoints);
+    log.debug(format(`result`, method, response));
 
-    if (res.error) {
-      throw res.error;
+    if (config.onResponse) {
+      await config.onResponse({ response, headers });
+    }
+    if (response.error) {
+      throw response.error;
     }
     // TODO(palla/schemas): Find a better way to handle null responses (JSON.stringify(null) is string "null").
-    if ([null, undefined, 'null', 'undefined'].includes(res.result)) {
+    if ([null, undefined, 'null', 'undefined'].includes(response.result)) {
       return;
     }
-    return (schema as ApiSchema)[methodName].returnType().parseAsync(res.result);
+    return (schema as ApiSchema)[methodName].returnType().parseAsync(response.result);
   };
 
   const proxy: any = {};

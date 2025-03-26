@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class perm_rng_alu_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_RNG_ALU";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 3;
 
@@ -59,7 +61,12 @@ class perm_rng_alu_permutation_settings {
 template <typename FF_>
 class perm_rng_alu_relation : public GenericPermutationRelation<perm_rng_alu_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_RNG_ALU";
+    static constexpr std::string_view NAME = perm_rng_alu_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.range_check_alu_rng_chk.is_zero() && in.alu_range_check_sel.is_zero();
+    }
 };
 template <typename FF_> using perm_rng_alu = GenericPermutation<perm_rng_alu_permutation_settings, FF_>;
 
@@ -67,6 +74,8 @@ template <typename FF_> using perm_rng_alu = GenericPermutation<perm_rng_alu_per
 
 class perm_cmp_alu_permutation_settings {
   public:
+    static constexpr std::string_view NAME = "PERM_CMP_ALU";
+
     // This constant defines how many columns are bundled together to form each set.
     constexpr static size_t COLUMNS_PER_SET = 7;
 
@@ -128,7 +137,12 @@ class perm_cmp_alu_permutation_settings {
 template <typename FF_>
 class perm_cmp_alu_relation : public GenericPermutationRelation<perm_cmp_alu_permutation_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "PERM_CMP_ALU";
+    static constexpr std::string_view NAME = perm_cmp_alu_permutation_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.cmp_sel_cmp.is_zero() && in.alu_cmp_gadget_sel.is_zero();
+    }
 };
 template <typename FF_> using perm_cmp_alu = GenericPermutation<perm_cmp_alu_permutation_settings, FF_>;
 

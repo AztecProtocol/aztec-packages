@@ -62,7 +62,7 @@ where
         // get an oracle to provide us the values, and instead we prove inclusion of their hash, which is both a much
         // smaller proof (a single slot), and also independent of the size of T (except in that we need to pack and hash T).
         let hint = WithHash::new(
-            /// Safety: We verify that a hash of the hint/packed data matches the stored hash.
+            // Safety: We verify that a hash of the hint/packed data matches the stored hash.
             unsafe {
                 oracle::storage::storage_read(address, storage_slot, historical_block_number)
             },
@@ -121,6 +121,7 @@ mod test {
         utils::with_hash::WithHash,
     };
     use dep::protocol_types::hash::poseidon2_hash;
+    use dep::protocol_types::traits::{Packable, ToField};
     use dep::std::{mem, test::OracleMock};
 
     global storage_slot: Field = 47;

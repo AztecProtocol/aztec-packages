@@ -1,3 +1,4 @@
+import { type BlobSinkConfig, blobSinkConfigMapping } from '@aztec/blob-sink/client';
 import {
   type L1ContractAddresses,
   type L1ContractsConfig,
@@ -6,6 +7,7 @@ import {
   l1ReaderConfigMappings,
 } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 /**
  * There are 2 polling intervals used in this configuration. The first is the archiver polling interval, archiverPollingIntervalMS.
@@ -38,10 +40,16 @@ export type ArchiverConfig = {
 
   /** The max number of logs that can be obtained in 1 "getPublicLogs" call. */
   maxLogs?: number;
+
+  /** The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB. */
+  archiverStoreMapSizeKb?: number;
 } & L1ReaderConfig &
-  L1ContractsConfig;
+  L1ContractsConfig &
+  BlobSinkConfig &
+  ChainConfig;
 
 export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
+  ...blobSinkConfigMapping,
   archiverUrl: {
     env: 'ARCHIVER_URL',
     description:
@@ -67,6 +75,12 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
     description: 'The max number of logs that can be obtained in 1 "getPublicLogs" call.',
     ...numberConfigHelper(1_000),
   },
+  archiverStoreMapSizeKb: {
+    env: 'ARCHIVER_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'The maximum possible size of the archiver DB in KB. Overwrites the general dataStoreMapSizeKB.',
+  },
+  ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   viemPollingIntervalMS: {
     env: 'ARCHIVER_VIEM_POLLING_INTERVAL_MS',

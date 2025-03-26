@@ -24,7 +24,7 @@ impl ReturnsHash {
     where
         T: Deserialize<N>,
     {
-        /// Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it.
+        // Safety: We verify that the value returned by `load` is the preimage of `hash`, fully constraining it.
         let preimage: [Field; N] = unsafe { execution_cache::load(self.hash) };
         assert_eq(self.hash, hash_args_array(preimage));
 

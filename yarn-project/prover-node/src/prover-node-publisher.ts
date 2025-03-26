@@ -1,7 +1,5 @@
-import { type L1PublishProofStats } from '@aztec/circuit-types/stats';
-import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION, type Proof } from '@aztec/circuits.js';
-import { type FeeRecipient, type RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
-import { type L1TxUtils, type RollupContract } from '@aztec/ethereum';
+import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
 import { areArraysEqual, times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -11,7 +9,10 @@ import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
-import { type PublisherConfig, type TxSenderConfig } from '@aztec/sequencer-client';
+import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
+import type { Proof } from '@aztec/stdlib/proofs';
+import type { FeeRecipient, RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { L1PublishProofStats } from '@aztec/stdlib/stats';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type Hex, type TransactionReceipt, encodeFunctionData } from 'viem';
@@ -85,10 +86,6 @@ export class ProverNodePublisher {
     return EthAddress.fromString(this.l1TxUtils.getSenderAddress());
   }
 
-  public getProofClaim() {
-    return this.rollupContract.getProofClaim();
-  }
-
   public async submitEpochProof(args: {
     epochNumber: number;
     fromBlock: number;
@@ -107,6 +104,12 @@ export class ProverNodePublisher {
       const txReceipt = await this.sendSubmitEpochProofTx(args);
       if (!txReceipt) {
         return false;
+      }
+
+      try {
+        this.metrics.recordSenderBalance(await this.l1TxUtils.getSenderBalance(), this.l1TxUtils.getSenderAddress());
+      } catch (err) {
+        this.log.warn(`Failed to record the ETH balance of the prover node: ${err}`);
       }
 
       // Tx was mined successfully
@@ -147,15 +150,17 @@ export class ProverNodePublisher {
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
-    if (proven !== BigInt(fromBlock) - 1n) {
+    // Don't publish if proven is beyond our toBlock, pointless to do so
+    if (proven > BigInt(toBlock)) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
     }
+    // toBlock can't be greater than pending
     if (toBlock > pending) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
     }
 
     // Check the block hash and archive for the immediate block before the epoch
-    const blockLog = await this.rollupContract.getBlock(proven);
+    const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
     if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,
@@ -205,11 +210,12 @@ export class ProverNodePublisher {
 
     const txArgs = [
       {
-        epochSize: argsArray[0],
-        args: argsArray[1],
-        fees: argsArray[2],
-        blobPublicInputs: argsArray[3],
-        aggregationObject: argsArray[4],
+        start: argsArray[0],
+        end: argsArray[1],
+        args: argsArray[2],
+        fees: argsArray[3],
+        blobPublicInputs: argsArray[4],
+        aggregationObject: argsArray[5],
         proof: proofHex,
       },
     ] as const;
@@ -252,16 +258,17 @@ export class ProverNodePublisher {
     proof: Proof;
   }) {
     return [
-      BigInt(args.toBlock - args.fromBlock + 1),
-      [
-        args.publicInputs.previousArchive.root.toString(),
-        args.publicInputs.endArchive.root.toString(),
-        args.publicInputs.previousBlockHash.toString(),
-        args.publicInputs.endBlockHash.toString(),
-        args.publicInputs.endTimestamp.toString(),
-        args.publicInputs.outHash.toString(),
-        args.publicInputs.proverId.toString(),
-      ],
+      BigInt(args.fromBlock),
+      BigInt(args.toBlock),
+      {
+        previousArchive: args.publicInputs.previousArchive.root.toString(),
+        endArchive: args.publicInputs.endArchive.root.toString(),
+        previousBlockHash: args.publicInputs.previousBlockHash.toString(),
+        endBlockHash: args.publicInputs.endBlockHash.toString(),
+        endTimestamp: args.publicInputs.endTimestamp.toBigInt(),
+        outHash: args.publicInputs.outHash.toString(),
+        proverId: EthAddress.fromField(args.publicInputs.proverId).toString(),
+      },
       makeTuple(AZTEC_MAX_EPOCH_DURATION * 2, i =>
         i % 2 === 0
           ? args.publicInputs.fees[i / 2].recipient.toField().toString()

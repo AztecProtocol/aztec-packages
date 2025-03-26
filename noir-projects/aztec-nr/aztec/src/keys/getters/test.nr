@@ -2,12 +2,13 @@ use crate::keys::getters::get_public_keys;
 
 use crate::test::helpers::{cheatcodes, test_environment::TestEnvironment, utils::TestAccount};
 use dep::std::test::OracleMock;
+use protocol_types::traits::Serialize;
 
 global KEY_ORACLE_RESPONSE_LENGTH: u32 = 13; // 12 fields for the keys, one field for the partial address
 
 unconstrained fn setup() -> TestAccount {
     let _ = TestEnvironment::new();
-    let account = cheatcodes::create_account();
+    let account = cheatcodes::create_account(1);
 
     account
 }

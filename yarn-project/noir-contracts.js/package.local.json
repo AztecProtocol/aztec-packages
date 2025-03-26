@@ -2,13 +2,8 @@
   "scripts": {
     "build": "yarn clean && yarn generate",
     "generate": "yarn generate:noir-contracts",
-    "generate:noir-contracts": "./scripts/generate-types.sh && run -T prettier -w ./src --loglevel warn",
+    "generate:noir-contracts": "./scripts/generate-types.sh",
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts ./src ./codegenCache.json"
   },
-  "files": [
-    "dest",
-    "src",
-    "artifacts",
-    "!*.test.*"
-  ]
+  "files": ["dest", "src", "artifacts", "!*.test.*"]
 }

@@ -15,9 +15,7 @@ describe('e2e_avm_simulator', () => {
   let teardown: () => Promise<void>;
 
   beforeAll(async () => {
-    ({ teardown, wallet } = await setup(undefined, {
-      assumeProvenThrough: Number.MAX_SAFE_INTEGER,
-    }));
+    ({ teardown, wallet } = await setup(1));
     await ensureAccountsPubliclyDeployed(wallet, [wallet]);
   });
 
@@ -102,8 +100,8 @@ describe('e2e_avm_simulator', () => {
         const address = AztecAddress.fromBigInt(9090n);
         // This will create 1 tx with 2 public calls in it.
         await new BatchCall(wallet, [
-          await avmContract.methods.set_storage_map(address, 100).request(),
-          await avmContract.methods.add_storage_map(address, 100).request(),
+          avmContract.methods.set_storage_map(address, 100),
+          avmContract.methods.add_storage_map(address, 100),
         ])
           .send()
           .wait();
@@ -118,7 +116,7 @@ describe('e2e_avm_simulator', () => {
           .test_get_contract_instance_matches(
             avmContract.address,
             avmContract.instance.deployer,
-            avmContract.instance.contractClassId,
+            avmContract.instance.currentContractClassId,
             avmContract.instance.initializationHash,
           )
           .send()
@@ -149,8 +147,8 @@ describe('e2e_avm_simulator', () => {
 
         // This will create 1 tx with 2 public calls in it.
         await new BatchCall(wallet, [
-          await avmContract.methods.new_nullifier(nullifier).request(),
-          await avmContract.methods.assert_nullifier_exists(nullifier).request(),
+          avmContract.methods.new_nullifier(nullifier),
+          avmContract.methods.assert_nullifier_exists(nullifier),
         ])
           .send()
           .wait();

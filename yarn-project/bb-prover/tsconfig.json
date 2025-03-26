@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -20,6 +17,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"
@@ -38,9 +38,6 @@
     },
     {
       "path": "../protocol-contracts"
-    },
-    {
-      "path": "../types"
     }
   ],
   "include": ["src"]

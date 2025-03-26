@@ -229,8 +229,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 
     // RecursionConstraints
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/817): disable these for MegaHonk for now since we're
-    // not yet dealing with proper recursion
     if constexpr (IsMegaBuilder<Builder>) {
         if (!constraint_system.recursion_constraints.empty()) {
             info("WARNING: this circuit contains unhandled recursion_constraints!");
@@ -487,7 +485,7 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
-    // verification queue. This ensures that the witnesses utlized in constraints generated based on acir are properly
+    // verification queue. This ensures that the witnesses utilized in constraints generated based on acir are properly
     // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {

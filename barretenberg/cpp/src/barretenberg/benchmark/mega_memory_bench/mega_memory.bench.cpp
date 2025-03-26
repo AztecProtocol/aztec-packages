@@ -295,14 +295,7 @@ void fill_trace(State& state, TraceSettings settings)
     fill_lookup_block(builder);
 
     {
-        // finalize doesn't populate public inputs block, so copy to verify that the block is being filled well.
-        // otherwise the pk construction will overflow the block
-        // alternative: add to finalize or add a flag to check whether PIs have already been populated
-        auto builder_copy = builder;
-        builder_copy.finalize_circuit(/* ensure_nonzero */ false);
-        DeciderProvingKey::Trace::populate_public_inputs_block(builder_copy);
-
-        for (const auto [label, block] : zip_view(builder_copy.blocks.get_labels(), builder_copy.blocks.get())) {
+        for (const auto [label, block] : zip_view(builder.blocks.get_labels(), builder.blocks.get())) {
             bool overfilled = block.size() >= block.get_fixed_size();
             if (overfilled) {
                 vinfo(label, " overfilled");

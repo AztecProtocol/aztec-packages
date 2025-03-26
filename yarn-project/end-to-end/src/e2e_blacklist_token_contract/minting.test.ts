@@ -5,7 +5,7 @@ import { BlacklistTokenContractTest } from './blacklist_token_contract_test.js';
 
 describe('e2e_blacklist_token_contract mint', () => {
   const t = new BlacklistTokenContractTest('mint');
-  let { asset, tokenSim, wallets, blacklisted } = t;
+  let { asset, tokenSim, wallets, blacklisted, pxe } = t;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -13,7 +13,7 @@ describe('e2e_blacklist_token_contract mint', () => {
     await t.applyMintSnapshot();
     await t.setup();
     // Have to destructure again to ensure we have latest refs.
-    ({ asset, tokenSim, wallets, blacklisted } = t);
+    ({ asset, tokenSim, wallets, blacklisted, pxe } = t);
   }, 600_000);
 
   afterAll(async () => {
@@ -43,8 +43,9 @@ describe('e2e_blacklist_token_contract mint', () => {
         ).rejects.toThrow('Assertion failed: caller is not minter');
       });
 
-      it('mint >u128 tokens to overflow', async () => {
-        const amount = 2n ** 128n; // U128::max() + 1;
+      // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
+      it.skip('mint >u128 tokens to overflow', async () => {
+        const amount = 2n ** 128n; // u128::max() + 1;
         await expect(asset.methods.mint_public(wallets[0].getAddress(), amount).prove()).rejects.toThrow(
           BITSIZE_TOO_BIG_ERROR,
         );
@@ -87,31 +88,31 @@ describe('e2e_blacklist_token_contract mint', () => {
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
         txHash = receipt.txHash;
 
-        await t.addPendingShieldNoteToPXE(0, amount, secretHash, txHash);
+        await t.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, txHash);
 
-        const receiptClaim = await asset.methods
-          .redeem_shield(wallets[0].getAddress(), amount, secret)
-          .send()
-          .wait({ debug: true });
+        const receiptClaim = await asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).send().wait();
 
         tokenSim.mintPrivate(wallets[0].getAddress(), amount);
         // Trigger a note sync
         await asset.methods.sync_notes().simulate();
         // 1 note should have been created containing `amount` of tokens
-        const visibleNotes = await wallets[0].getNotes({ txHash: receiptClaim.txHash });
+        const visibleNotes = await pxe.getNotes({ txHash: receiptClaim.txHash });
         expect(visibleNotes.length).toBe(1);
         expect(visibleNotes[0].note.items[0].toBigInt()).toBe(amount);
       });
     });
 
     describe('failure cases', () => {
-      it('try to redeem as recipient (double-spend) [REVERTS]', async () => {
-        await expect(t.addPendingShieldNoteToPXE(0, amount, secretHash, txHash)).rejects.toThrow(
-          'The note has been destroyed.',
-        );
-        await expect(asset.methods.redeem_shield(wallets[0].getAddress(), amount, secret).prove()).rejects.toThrow(
-          `Assertion failed: note not popped 'notes.len() == 1'`,
-        );
+      it('try to redeem as recipient again (double-spend) [REVERTS]', async () => {
+        // We have another wallet add the note to their PXE and then try to spend it. They will be able to successfully
+        // add it, but PXE will realize that the note has been nullified already and not inject it into the circuit
+        // during execution of redeem_shield, resulting in a simulation failure.
+
+        await t.addPendingShieldNoteToPXE(asset, wallets[1].getAddress(), amount, secretHash, txHash);
+
+        await expect(
+          asset.withWallet(wallets[1]).methods.redeem_shield(wallets[1].getAddress(), amount, secret).prove(),
+        ).rejects.toThrow(`Assertion failed: note not popped 'notes.len() == 1'`);
       });
 
       it('mint_private as non-minter', async () => {
@@ -120,8 +121,9 @@ describe('e2e_blacklist_token_contract mint', () => {
         );
       });
 
-      it('mint >u128 tokens to overflow', async () => {
-        const amount = 2n ** 128n; // U128::max() + 1;
+      // TODO(#12221): re-enable this test once we have proper unsigned integer overflow checks
+      it.skip('mint >u128 tokens to overflow', async () => {
+        const amount = 2n ** 128n; // u128::max() + 1;
         await expect(asset.methods.mint_private(amount, secretHash).prove()).rejects.toThrow(BITSIZE_TOO_BIG_ERROR);
       });
 

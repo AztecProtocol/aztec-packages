@@ -7,19 +7,16 @@
   },
   "references": [
     {
-      "path": "../aztec.js"
-    },
-    {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "src/**/*.json"]

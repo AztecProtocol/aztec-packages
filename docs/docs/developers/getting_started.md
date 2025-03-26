@@ -4,9 +4,18 @@ sidebar_position: 0
 tags: [sandbox]
 ---
 
-This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
+The Sandbox is an local development Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet (when the time comes). The sandbox makes it faster and easier to develop and test your Aztec applications.
 
-The Sandbox is an Aztec network running fully on your machine, and interacting with a development Ethereum node. You can develop and deploy on it just like on a testnet or mainnet.
+What's included in the sandbox:
+
+- Local Ethereum network (Anvil)
+- Deployed Aztec protocol contracts (for L1 and L2)
+- A set of test accounts with some test tokens to pay fees
+- Development tools to compile contracts and interact with the network (`aztec-nargo` and `aztec-wallet`)
+
+All of this comes packages in a Docker container to make it easy to install and run.
+
+This guide will teach you how to install the Aztec sandbox, run it using the Aztec CLI, and interact with contracts using the wallet CLI.
 
 ## Prerequisites
 
@@ -69,15 +78,27 @@ You'll know the sandbox is ready to go when you see something like this:
 [INFO] Aztec Server listening on port 8080
 ```
 
-## Creating an account in the sandbox
+## Using the sandbox test accounts
 
-Now you have the sandbox running, let's create an account. For the next steps, we will use the wallet CLI. Open a new terminal window and run:
+import { CLI_Add_Test_Accounts } from '/components/snippets';
+
+<CLI_Add_Test_Accounts />
+
+To add the test accounts:
 
 ```bash
-aztec-wallet create-account -a my-wallet
+aztec-wallet import-test-accounts
 ```
 
-This will create a new wallet with an account and give it the alias `my-wallet`. This will let us reference it with `accounts:my-wallet`. You will see logs telling you the address, public key, secret key, and more.
+We'll use the first test account, `test0`, throughout to pay for transactions.
+
+## Creating an account in the sandbox
+
+```bash
+aztec-wallet create-account -a my-wallet --payment method=fee_juice,feePayer=test0
+```
+
+This will create a new wallet with an account and give it the alias `my-wallet`. Accounts can be referenced with `accounts:<alias>`. You will see logs telling you the address, public key, secret key, and more.
 
 On successful depoyment of the account, you should see something like this:
 
@@ -100,7 +121,7 @@ Account stored in database with aliases last & my-wallet
 
 You can double check by running `aztec-wallet get-alias accounts:my-wallet`.
 
-With this new account, let's get some local test tokens!
+For simplicity we'll keep using the test account, let's deploy our own test token!
 
 ## Deploying a contract
 
@@ -109,14 +130,14 @@ The sandbox comes with some contracts that you can deploy and play with. One of 
 Deploy it with this:
 
 ```bash
-aztec-wallet deploy TokenContractArtifact --from accounts:my-wallet --args accounts:my-wallet TestToken TST 18 -a testtoken
+aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a testtoken
 ```
 
 This takes
 
 - the contract artifact as the argument, which is `TokenContractArtifact`
-- the deployer account, which we aliased as `my-wallet`
-- the args that the contract constructor takes, which is the `admin` (`accounts:my-wallet`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`).
+- the deployer account, which we used `test0`
+- the args that the contract constructor takes, which is the `admin` (`accounts:test0`), `name` (`TestToken`), `symbol` (`TST`), and `decimals` (`18`).
 - an alias `testtoken` (`-a`) so we can easily reference it later with `contracts:testtoken`
 
 On successful deployment, you should see something like this:
@@ -139,15 +160,15 @@ In the next step, let's mint some tokens!
 Call the public mint function like this:
 
 ```bash
-aztec-wallet send mint_to_public --from accounts:my-wallet --contract-address contracts:testtoken --args accounts:my-wallet 100
+aztec-wallet send mint_to_public --from accounts:test0 --contract-address contracts:testtoken --args accounts:test0 100
 ```
 
 This takes
 
 - the function name as the argument, which is `mint_to_public`
-- the `from` account (caller) which is `accounts:my-wallet`
+- the `from` account (caller) which is `accounts:test0`
 - the contract address, which is aliased as `contracts:testtoken` (or simply `testtoken`)
-- the args that the function takes, which is the account to mint the tokens into (`my-wallet`), and `amount` (`100`).
+- the args that the function takes, which is the account to mint the tokens into (`test0`), and `amount` (`100`).
 
 This only works because we are using the secret key of the admin who has permissions to mint.
 
@@ -171,7 +192,7 @@ Transaction hash stored in database with aliases last & mint_to_public-9044
 You can double-check by calling the function that checks your public account balance:
 
 ```bash
-aztec-wallet simulate balance_of_public --from my-wallet --contract-address testtoken --args accounts:my-wallet
+aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
 ```
 
 This should print
@@ -185,7 +206,7 @@ Simulation result:  100n
 In the following steps, we'll moving some tokens from public to private state, and check our private and public balance.
 
 ```bash
-aztec-wallet send transfer_to_private --from accounts:my-wallet --contract-address testtoken --args accounts:my-wallet 25
+aztec-wallet send transfer_to_private --from accounts:test0 --contract-address testtoken --args accounts:test0 25
 ```
 
 The arguments for `transfer_to_private` function are:
@@ -198,7 +219,7 @@ A successful call should print something similar to what you've seen before.
 Now when you call `balance_of_public` again you will see 75!
 
 ```bash
-aztec-wallet simulate balance_of_public --from my-wallet --contract-address testtoken --args accounts:my-wallet
+aztec-wallet simulate balance_of_public --from test0 --contract-address testtoken --args accounts:test0
 ```
 
 This should print
@@ -210,7 +231,7 @@ Simulation result:  75n
 And then call `balance_of_private` to check that you have your tokens!
 
 ```bash
-aztec-wallet simulate balance_of_private --from my-wallet --contract-address testtoken --args accounts:my-wallet
+aztec-wallet simulate balance_of_private --from test0 --contract-address testtoken --args accounts:test0
 ```
 
 This should print
@@ -223,17 +244,4 @@ Simulation result:  25n
 
 ## What's next?
 
-Now you have a development network running, so you're ready to start coding your first app with Aztec.nr and Aztec.js!
-
-<div className="card-container full-width">
-  <Card shadow='tl' link='./tutorials/codealong/contract_tutorials/counter_contract'>
-    <CardHeader>
-      <h3>Write your first contract</h3>
-    </CardHeader>
-    <CardBody>
-     Write and deploy a simple private counter smart contract on your local sandbox
-    </CardBody>
-  </Card>
-</div>
-
-If you'd rather clone a repo, check out the [Aztec Starter](https://github.com/AztecProtocol/aztec-starter).
+Click the Next button below to continue on your journey and write your first Aztec smart contract.

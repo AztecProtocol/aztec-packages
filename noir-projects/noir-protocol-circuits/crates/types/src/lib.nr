@@ -1,6 +1,7 @@
 pub mod utils;
 pub mod address;
 pub mod debug_log;
+pub mod debug;
 pub mod public_keys;
 pub mod point;
 pub mod scalar;
@@ -18,10 +19,11 @@ pub mod traits;
 pub mod type_serialization;
 pub mod type_packing;
 
+pub mod shared_mutable;
 pub mod content_commitment;
 pub mod block_header;
 
-mod tests;
+pub(crate) mod tests;
 
 pub mod state_reference;
 pub mod partial_state_reference;

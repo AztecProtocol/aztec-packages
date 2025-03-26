@@ -19,7 +19,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenAluTest, TraceGeneration)
+TEST(AluTraceGenTest, TraceGeneration)
 {
     TestTraceContainer trace;
     AluTraceBuilder builder;
