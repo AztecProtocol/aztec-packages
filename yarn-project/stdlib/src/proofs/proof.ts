@@ -68,6 +68,20 @@ export class Proof {
     ]);
   }
 
+  // This function assumes that the proof will contain an aggregation object
+  public extractPublicInputs(): Fr[] {
+    const reader = BufferReader.asReader(
+      this.buffer.subarray(
+        this.metadataOffset,
+        this.metadataOffset + Fr.SIZE_IN_BYTES * (this.numPublicInputs - AGGREGATION_OBJECT_LENGTH),
+      ),
+    );
+    let publicInputs = reader.readArray(this.numPublicInputs - AGGREGATION_OBJECT_LENGTH, Fr);
+    // concatenate Fr[] with aggregation object
+    publicInputs = publicInputs.concat(this.extractAggregationObject());
+    return publicInputs;
+  }
+
   public extractAggregationObject(): Fr[] {
     const reader = BufferReader.asReader(
       this.buffer.subarray(
