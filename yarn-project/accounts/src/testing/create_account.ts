@@ -52,7 +52,11 @@ export async function deployFundedSchnorrAccount(
      * Whether or not to skip registering contract class.
      */
     skipClassRegistration?: boolean;
-  } = { interval: 0.1, skipClassRegistration: false },
+    /**
+     * Whether or not to skip registering contract class.
+     */
+    skipPublicDeployment?: boolean;
+  } = { interval: 0.1, skipClassRegistration: false, skipPublicDeployment: true },
   waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager> {
   const signingKey = account.signingKey ?? deriveSigningKey(account.secret);
@@ -65,7 +69,7 @@ export async function deployFundedSchnorrAccount(
   const receipt = await accountManager
     .deploy({
       skipClassRegistration: opts.skipClassRegistration,
-      skipPublicDeployment: true,
+      skipPublicDeployment: opts.skipPublicDeployment,
       fee: { paymentMethod },
     })
     .wait(opts);
@@ -89,6 +93,10 @@ export async function deployFundedSchnorrAccounts(
      * Whether or not to skip registering contract class.
      */
     skipClassRegistration?: boolean;
+    /**
+     * Whether or not to skip public deployment.
+     */
+    skipPublicDeployment?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
   waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager[]> {

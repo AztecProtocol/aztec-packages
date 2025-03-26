@@ -170,7 +170,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
 
   if (initialAccounts.length) {
     userLog('Setting up funded test accounts...');
-    const accounts = await deployFundedSchnorrAccounts(pxe, initialAccounts);
+    const accounts = await deployFundedSchnorrAccounts(pxe, initialAccounts, { skipPublicDeployment: false });
     const accountsWithSecrets = accounts.map((account, i) => ({
       account,
       secretKey: initialAccounts[i].secret,
