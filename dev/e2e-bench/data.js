@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743000888378,
+  "lastUpdate": 1743002547603,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "096f7394297e1b0fb01237423589ef4b814b7e06",
-          "message": "feat(sol): setup epoch - sampling without replacement (#12753)\n\n## Overview\n\nSimple Sample without replacement with transient storage. Updates how\ncertain functions on the rollup is consumed to work around viem.\n\nCore update:\nsetupEpoch -  3,476,415  -> 1,372,704\n\n---------\n\nCo-authored-by: LHerskind <16536249+LHerskind@users.noreply.github.com>",
-          "timestamp": "2025-03-20T15:58:27Z",
-          "tree_id": "981188f3d8608f730e90ef82a86374bcb9f34dce",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/096f7394297e1b0fb01237423589ef4b814b7e06"
-        },
-        "date": 1742488141685,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9886,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2412333392194268,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 132237,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 132083,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1ebd04424dca674b35c4fc3d32e240046f9b27fa",
+          "message": "chore(bb): minor acir buf C++ improvements (#13042)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
+          "timestamp": "2025-03-26T14:38:21Z",
+          "tree_id": "74dd59a306f9a0cbd7c2f957d2bafac019b7e930",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1ebd04424dca674b35c4fc3d32e240046f9b27fa"
+        },
+        "date": 1743002546895,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9322,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23706676345312397,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 138484,
             "unit": "us"
           }
         ]
