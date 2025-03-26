@@ -1,3 +1,4 @@
+
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
 #include "barretenberg/ecc//batched_affine_addition/batched_affine_addition.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
