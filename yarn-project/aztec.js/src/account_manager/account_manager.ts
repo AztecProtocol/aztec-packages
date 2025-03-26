@@ -2,7 +2,6 @@ import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import { Fr } from '@aztec/foundation/fields';
 import { CompleteAddress, type ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
-import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { deriveKeys } from '@aztec/stdlib/keys';
 

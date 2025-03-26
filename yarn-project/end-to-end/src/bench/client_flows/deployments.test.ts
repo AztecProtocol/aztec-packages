@@ -11,19 +11,19 @@ import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../shared/capture_private_execution_steps.js';
-import { ClientFlowsTest } from './client_test_flows.js';
+import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
+import { ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
 describe('Client flows benchmarking', () => {
-  const t = new ClientFlowsTest('deployments');
+  const t = new ClientFlowsBenchmark('deployments');
+  // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
-  let adminPXE: PXE;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    ({ adminWallet, pxe: adminPXE } = await t.setup());
+    ({ adminWallet } = await t.setup());
   });
 
   afterAll(async () => {
@@ -32,6 +32,9 @@ describe('Client flows benchmarking', () => {
 
   describe('Deployments', () => {
     it('Deploy ECDSA R1 account contract, pay using bridged fee juice', async () => {
+      // Ensure the contract is already registered, to avoid benchmarking an extra call to the ContractClassRegisterer
+      // The typical interaction would be for a user to deploy an account contract that is already registered in the
+      // network.
       const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
       await registerContractClassInteraction.send().wait();
 
@@ -62,6 +65,7 @@ describe('Client flows benchmarking', () => {
         options,
       );
 
+      // Ensure we paid a fee
       const tx = await deploymentInteraction.send(options).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
     });
@@ -94,6 +98,7 @@ describe('Client flows benchmarking', () => {
         options,
       );
 
+      // Ensure we paid a fee
       const tx = await deploymentInteraction.send(options).wait();
       expect(tx.transactionFee!).toBeGreaterThan(0n);
     });

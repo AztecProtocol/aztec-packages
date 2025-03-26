@@ -5,17 +5,20 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
-import { capturePrivateExecutionStepsIfEnvSet } from '../shared/capture_private_execution_steps.js';
-import type { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
-import { type AccountType, ClientFlowsTest } from './client_test_flows.js';
+import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
+import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
+import { type AccountType, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
 describe('Client flows benchmarking', () => {
-  const t = new ClientFlowsTest('bridging');
-  let bananaFPC: FPCContract;
-  let bananaCoin: TokenContract;
+  const t = new ClientFlowsBenchmark('bridging');
+  // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
+  // FPC that accepts bananas
+  let bananaFPC: FPCContract;
+  // BananaCoin Token contract, which we want to use to pay for the bridging
+  let bananaCoin: TokenContract;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -33,7 +36,9 @@ describe('Client flows benchmarking', () => {
 
   function bridgingBenchmark(accountType: AccountType) {
     return describe(`Bridging benchmark for ${accountType}`, () => {
+      // Our benchmarking user
       let benchysWallet: AccountWallet;
+      // Helpers for the bridging
       let crossChainTestHarness: CrossChainTestHarness;
 
       beforeEach(async () => {
@@ -67,7 +72,7 @@ describe('Client flows benchmarking', () => {
         const options: SimulateMethodOptions = { fee: { paymentMethod } };
 
         const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
-        const claimInteraction = await crossChainTestHarness.l2Bridge.methods.claim_private(
+        const claimInteraction = crossChainTestHarness.l2Bridge.methods.claim_private(
           recipient,
           claimAmount,
           secretForL2MessageConsumption,
@@ -80,8 +85,14 @@ describe('Client flows benchmarking', () => {
           options,
         );
 
+        // Ensure we paid a fee
         const tx = await claimInteraction.send(options).wait();
         expect(tx.transactionFee!).toBeGreaterThan(0n);
+
+        // 4. Check the balance
+
+        const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
+        expect(balance).toBe(bridgeAmount);
       });
     });
   }

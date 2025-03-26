@@ -1,6 +1,5 @@
-import { EcdsaRAccountContractArtifact, getEcdsaRAccount } from '@aztec/accounts/ecdsa';
+import { getEcdsaRAccount } from '@aztec/accounts/ecdsa';
 import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
-import type { InitialAccountData } from '@aztec/accounts/testing';
 import {
   type AccountWallet,
   AztecAddress,
@@ -30,50 +29,53 @@ import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@a
 import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
-import { MNEMONIC } from '../fixtures/fixtures.js';
+import { MNEMONIC } from '../../fixtures/fixtures.js';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
   createSnapshotManager,
   deployAccounts,
-} from '../fixtures/snapshot_manager.js';
-import { mintTokensToPrivate } from '../fixtures/token_utils.js';
-import { type SetupOptions, setupCanonicalFeeJuice } from '../fixtures/utils.js';
-import { CrossChainTestHarness } from '../shared/cross_chain_test_harness.js';
-import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
+} from '../../fixtures/snapshot_manager.js';
+import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
+import { type SetupOptions, setupCanonicalFeeJuice } from '../../fixtures/utils.js';
+import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
+import {
+  FeeJuicePortalTestingHarnessFactory,
+  type GasBridgingTestHarness,
+} from '../../shared/gas_portal_test_harness.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
 
-export class ClientFlowsTest {
+export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
 
   public logger: Logger;
   public pxe!: PXE;
   public aztecNode!: AztecNode;
   public cheatCodes!: CheatCodes;
+  public context!: SubsystemsContext;
+  public chainMonitor!: ChainMonitor;
+  public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
 
+  // The admin that aids in the setup of the test
   public adminWallet!: AccountWallet;
   public adminAddress!: AztecAddress;
 
+  // Aztec Node config
   public sequencerAddress!: AztecAddress;
-
   public coinbase!: EthAddress;
 
-  public gasSettings!: GasSettings;
-
+  // Contracts
   public feeJuiceContract!: FeeJuiceContract;
+  // Asset in which fees are paid via FPC
   public bananaCoin!: BananaCoin;
-  public candyBarCoin!: TokenContract;
   public bananaFPC!: FPCContract;
-  public sponsoredFPC!: SponsoredFPCContract;
-  public counterContract!: CounterContract;
-  public feeJuiceBridgeTestHarness!: GasBridgingTestHarness;
+  // Random asset we want to trade
+  public candyBarCoin!: TokenContract;
 
-  public context!: SubsystemsContext;
-  public chainMonitor!: ChainMonitor;
-
+  // PXE used by the benchmarking user. It can be set up with client-side proving enabled
   public userPXE!: PXE;
 
   constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
@@ -149,7 +151,6 @@ export class ClientFlowsTest {
         this.pxe = pxe;
 
         this.aztecNode = aztecNode;
-        this.gasSettings = GasSettings.default({ maxFeesPerGas: (await this.aztecNode.getCurrentBaseFees()).mul(2) });
         this.cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
 
         const deployedWallets = await Promise.all(
@@ -220,14 +221,14 @@ export class ClientFlowsTest {
     await this.snapshotManager.snapshot(
       'deploy_candy_bar_token',
       async () => {
-        const candyBarCoin = await BananaCoin.deploy(this.adminWallet, this.adminAddress, 'CBC', 'CBC', 18n)
+        const candyBarCoin = await TokenContract.deploy(this.adminWallet, this.adminAddress, 'CBC', 'CBC', 18n)
           .send()
           .deployed();
         this.logger.info(`CandyBarCoin deployed at ${candyBarCoin.address}`);
         return { candyBarCoinAddress: candyBarCoin.address };
       },
       async ({ candyBarCoinAddress }) => {
-        this.candyBarCoin = await BananaCoin.at(candyBarCoinAddress, this.adminWallet);
+        this.candyBarCoin = await TokenContract.at(candyBarCoinAddress, this.adminWallet);
       },
     );
   }

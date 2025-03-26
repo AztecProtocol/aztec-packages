@@ -168,7 +168,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
-      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
 
         this.aztecNode = aztecNode;

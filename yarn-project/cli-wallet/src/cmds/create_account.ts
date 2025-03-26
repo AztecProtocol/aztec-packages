@@ -5,7 +5,6 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { type AccountType, createOrRetrieveAccount } from '../utils/accounts.js';
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
-import { deploy } from './deploy.js';
 
 export async function createAccount(
   client: PXE,
@@ -73,6 +72,13 @@ export async function createAccount(
       ...(await feeOpts.toDeployAccountOpts(wallet)),
     };
     if (feeOpts.estimateOnly) {
+      /*
+       * This is usually handled by accountManager.deploy(), but we're accessing the lower
+       * level method to get the gas estimates. That means we have to replicate some of the logic here.
+       * In case we're deploying our own account, we need to hijack the payment method for the fee,
+       * wrapping it in the one that will make use of the freshly deployed account's
+       * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
+       */
       const fee =
         !deployOpts?.deployWallet && deployOpts?.fee
           ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
