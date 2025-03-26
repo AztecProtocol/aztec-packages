@@ -60,14 +60,10 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     );
   }
 
-  public static async create(
-    globals: GlobalVariables = defaultGlobals(),
-    telemetryClient?: TelemetryClient,
-    metricsPrefix?: string,
-  ): Promise<PublicTxSimulationTester> {
+  public static async create(): Promise<PublicTxSimulationTester> {
     const contractDataSource = new SimpleContractDataSource();
     const merkleTree = await (await NativeWorldStateService.tmp()).fork();
-    return new PublicTxSimulationTester(merkleTree, contractDataSource, globals, telemetryClient, metricsPrefix);
+    return new PublicTxSimulationTester(merkleTree, contractDataSource);
   }
 
   public async createTx(
