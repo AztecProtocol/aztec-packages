@@ -45,7 +45,7 @@ export async function capturePrivateExecutionStepsIfEnvSet(
     logger.info(`Capturing client ivc execution steps for ${label}`);
     const result = await interaction.profile({ ...opts, profileMode: 'full' });
     if (expectedSteps !== undefined && result.executionSteps.length !== expectedSteps) {
-      //throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
+      throw new Error(`Expected ${expectedSteps} execution steps, got ${result.executionSteps.length}`);
     }
     const resultsDirectory = path.join(ivcFolder, label);
     logger.info(`Writing private execution steps to ${resultsDirectory}`);

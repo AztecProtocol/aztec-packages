@@ -1,8 +1,7 @@
 terraform {
-  backend "s3" {
+  backend "gcs" {
     bucket = "aztec-terraform"
-    key    = "aztec-gke-cluster/terraform.tfstate"
-    region = "eu-west-2"
+    prefix = "terraform/state/gke-cluster"
   }
   required_providers {
     google = {
