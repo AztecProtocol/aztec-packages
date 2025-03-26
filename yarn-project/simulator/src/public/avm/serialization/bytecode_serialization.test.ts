@@ -179,6 +179,22 @@ describe('Bytecode Serialization', () => {
     }
   });
 
+  it('Should throw an AvmParsingError while deserializing an incomplete instruction and a wrong tag value', () => {
+    const decodeIncomplete = (truncated: Buffer) => {
+      return () => decodeFromBytecode(truncated);
+    };
+
+    const bufSet16Truncated = Buffer.from([
+      Opcode.SET_16, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x09, //tag (invalid)
+      // We should have a 16-bit value here (truncation)
+    ]);
+
+    expect(decodeIncomplete(bufSet16Truncated)).toThrow(AvmParsingError);
+  });
+
   it('Should throw an InvalidTagValueError while deserializing a tag value out of range', () => {
     const decodeInvalidTag = (buf: Buffer) => {
       return () => decodeFromBytecode(buf);
