@@ -163,9 +163,6 @@ function generate_example_app_ivc_inputs {
     scripts/run_test.sh simple e2e_amm
     scripts/run_test.sh simple e2e_nft
     scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
-    scripts/run_test.sh simple client_flows/deployments
-    scripts/run_test.sh simple client_flows/bridging
-    scripts/run_test.sh simple client_flows/transfers
   " | parallel --line-buffer --halt now,fail=1
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
@@ -180,7 +177,7 @@ function bench {
   generate_example_app_ivc_inputs
   # A bit pattern-breaking, but we need to generate our example app inputs here, then bb folder is the best
   # place to test them.
-  ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/example-app-ivc-inputs-out $(pwd)/bench-out 4
+  ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/example-app-ivc-inputs-out $(pwd)/bench-out
   cache_upload yarn-project-bench-results-$hash.tar.gz ./bench-out/yp-bench.json ./bench-out/ivc-bench.json
 }
 

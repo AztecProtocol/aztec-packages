@@ -18,6 +18,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
+import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -71,6 +72,10 @@ export class ClientFlowsBenchmark {
   public bananaFPC!: FPCContract;
   // Random asset we want to trade
   public candyBarCoin!: TokenContract;
+  // AMM contract
+  public amm!: AMMContract;
+  // Liquidity token for AMM
+  public liquidityToken!: TokenContract;
 
   // PXE used by the benchmarking user. It can be set up with client-side proving enabled
   public userPXE!: PXE;
@@ -296,5 +301,31 @@ export class ClientFlowsBenchmark {
     });
     await this.pxe.registerAccount(benchysWallet.getSecretKey(), benchysWallet.getCompleteAddress().partialAddress);
     return benchysWallet;
+  }
+
+  public async applyDeployAmmSnapshot() {
+    await this.snapshotManager.snapshot(
+      'deploy_amm',
+      async () => {
+        const liquidityToken = await TokenContract.deploy(this.adminWallet, this.adminAddress, 'LPT', 'LPT', 18n)
+          .send()
+          .deployed();
+        const amm = await AMMContract.deploy(
+          this.adminWallet,
+          this.bananaCoin.address,
+          this.candyBarCoin.address,
+          liquidityToken.address,
+        )
+          .send()
+          .deployed();
+        this.logger.info(`AMM deployed at ${amm.address}`);
+        await liquidityToken.methods.set_minter(amm.address, true).send().wait();
+        return { ammAddress: amm.address, liquidityTokenAddress: liquidityToken.address };
+      },
+      async ({ ammAddress, liquidityTokenAddress }) => {
+        this.liquidityToken = await TokenContract.at(liquidityTokenAddress, this.adminWallet);
+        this.amm = await AMMContract.at(ammAddress, this.adminWallet);
+      },
+    );
   }
 }
