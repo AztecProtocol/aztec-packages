@@ -1,21 +1,20 @@
 /**
  * Validation logic unit tests
  */
-import { TxHash, mockTx } from '@aztec/circuit-types';
-import { makeHeader } from '@aztec/circuits.js/testing';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { Secp256k1Signer } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { type P2P } from '@aztec/p2p';
+import type { P2P } from '@aztec/p2p';
+import { makeBlockAttestation, makeBlockProposal, makeHeader, mockTx } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 import { type PrivateKeyAccount, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 
-import { makeBlockAttestation, makeBlockProposal } from '../../circuit-types/src/p2p/mocks.js';
-import { type ValidatorClientConfig } from './config.js';
+import type { ValidatorClientConfig } from './config.js';
 import {
   AttestationTimeoutError,
   BlockBuilderNotProvidedError,
@@ -182,6 +181,7 @@ describe('ValidationService', () => {
 
     // Mock the attestations to be returned
     const expectedAttestations = await Promise.all([
+      makeBlockAttestation({ signer, archive, txHashes }),
       makeBlockAttestation({ signer: attestor1, archive, txHashes }),
       makeBlockAttestation({ signer: attestor2, archive, txHashes }),
     ]);

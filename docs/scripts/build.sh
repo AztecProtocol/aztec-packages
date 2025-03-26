@@ -20,7 +20,7 @@ if [ -n "$NETLIFY" ]; then
   echo Working dir $(pwd)
 
   # Make sure the latest tag is available for loading code snippets from it
-  LAST_TAG="aztec-packages-v$(jq -r '.["."]' .release-please-manifest.json)"
+  LAST_TAG="v$(jq -r '.["."]' .release-please-manifest.json)"
   echo Fetching latest released tag $LAST_TAG...
   git fetch origin refs/tags/$LAST_TAG:refs/tags/$LAST_TAG
 

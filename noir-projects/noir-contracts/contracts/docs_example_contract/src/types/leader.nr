@@ -2,7 +2,7 @@ use dep::aztec::protocol_types::{address::AztecAddress, traits::{Deserialize, Pa
 use std::meta::derive;
 
 // Shows how to create a custom struct in Public
-#[derive(Deserialize, Packable, Serialize)]
+#[derive(Deserialize, Eq, Packable, Serialize)]
 pub struct Leader {
     account: AztecAddress,
     points: u8,

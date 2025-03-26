@@ -1,15 +1,11 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
-import { mean, stdDev, timesParallel } from '@aztec/foundation/collection';
+import { mean, stdDev, times } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
-import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe';
-import { type Metrics } from '@aztec/telemetry-client';
-import {
-  type BenchmarkDataPoint,
-  type BenchmarkMetrics,
-  type BenchmarkTelemetryClient,
-} from '@aztec/telemetry-client/bench';
+import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
+import type { MetricsType } from '@aztec/telemetry-client';
+import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { writeFileSync } from 'fs';
 import { mkdirpSync } from 'fs-extra';
@@ -23,7 +19,7 @@ import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/util
  */
 export async function benchmarkSetup(
   opts: Partial<SetupOptions> & {
-    /** What metrics to export */ metrics: (Metrics | MetricFilter)[];
+    /** What metrics to export */ metrics: (MetricsType | MetricFilter)[];
     /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
     benchOutput?: string;
   },
@@ -40,6 +36,9 @@ export async function benchmarkSetup(
     await telemetry.flush();
     const data = telemetry.getMeters();
     const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
+    if (formatted.length === 0) {
+      throw new Error(`No benchmark data generated. Please review your test setup.`);
+    }
     const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
     writeFileSync(benchOutput, JSON.stringify(formatted));
     context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
@@ -49,7 +48,7 @@ export async function benchmarkSetup(
 }
 
 type MetricFilter = {
-  source: Metrics;
+  source: MetricsType;
   transform: (value: number) => number;
   name: string;
   unit?: string;
@@ -65,15 +64,15 @@ type GithubActionBenchmarkResult = {
 };
 
 function formatMetricsForGithubBenchmarkAction(
-  data: BenchmarkMetrics,
-  filter: (Metrics | MetricFilter)[],
+  data: BenchmarkMetricsType,
+  filter: (MetricsType | MetricFilter)[],
 ): GithubActionBenchmarkResult[] {
   const allFilters: MetricFilter[] = filter.map(f =>
     typeof f === 'string' ? { name: f, source: f, transform: (x: number) => x, unit: undefined } : f,
   );
   return data.flatMap(meter => {
     return meter.metrics
-      .filter(metric => allFilters.map(f => f.source).includes(metric.name as Metrics))
+      .filter(metric => allFilters.map(f => f.source).includes(metric.name as MetricsType))
       .map(metric => [metric, allFilters.find(f => f.source === metric.name)!] as const)
       .map(([metric, filter]) => ({
         name: `${meter.name}/${filter.name}`,
@@ -127,15 +126,25 @@ export function getFolderSize(path: string): number {
  * @param index - Index of the call within a block.
  * @param context - End to end context.
  * @param contract - Benchmarking contract.
+ * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns A BatchCall instance.
  */
-export async function makeCall(index: number, context: EndToEndContext, contract: BenchmarkingContract) {
+function makeCall(
+  index: number,
+  context: EndToEndContext,
+  contract: BenchmarkingContract,
+  heavyPublicCompute: boolean,
+) {
   const owner = context.wallet.getAddress();
   const sender = owner;
-  return new BatchCall(context.wallet, [
-    await contract.methods.create_note(owner, sender, index + 1).request(),
-    await contract.methods.increment_balance(owner, index + 1).request(),
-  ]);
+  if (heavyPublicCompute) {
+    return new BatchCall(context.wallet, [contract.methods.sha256_hash_2048(randomBytesAsBigInts(2048))]);
+  } else {
+    return new BatchCall(context.wallet, [
+      contract.methods.create_note(owner, sender, index + 1),
+      contract.methods.increment_balance(owner, index + 1),
+    ]);
+  }
 }
 
 /**
@@ -144,14 +153,16 @@ export async function makeCall(index: number, context: EndToEndContext, contract
  * @param txCount - How many txs to send
  * @param context - End to end context.
  * @param contract - Target contract.
+ * @param heavyPublicCompute - Whether the transactions include heavy public compute (like a big sha256).
  * @returns Array of sent txs.
  */
 export async function sendTxs(
   txCount: number,
   context: EndToEndContext,
   contract: BenchmarkingContract,
+  heavyPublicCompute: boolean = false,
 ): Promise<SentTx[]> {
-  const calls = await timesParallel(txCount, index => makeCall(index, context, contract));
+  const calls = times(txCount, index => makeCall(index, context, contract, heavyPublicCompute));
   context.logger.info(`Creating ${txCount} txs`);
   const provenTxs = await Promise.all(calls.map(call => call.prove({ skipPublicSimulation: true })));
   context.logger.info(`Sending ${txCount} txs`);
@@ -177,14 +188,21 @@ export async function createNewPXE(
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
   const l1Contracts = await node.getL1ContractAddresses();
+  const { l1ChainId, protocolVersion } = await node.getNodeInfo();
   const pxeConfig = {
     l2StartingBlock: startingBlock,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts,
+    l1ChainId,
+    version: protocolVersion,
   } as PXEServiceConfig;
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);
   return pxe;
+}
+
+function randomBytesAsBigInts(length: number): bigint[] {
+  return [...Array(length)].map(_ => BigInt(Math.floor(Math.random() * 255)));
 }

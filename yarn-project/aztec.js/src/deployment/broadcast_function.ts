@@ -1,18 +1,23 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
   MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
+  REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
+} from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { Fr } from '@aztec/foundation/fields';
+import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/stdlib/abi';
+import {
   computeVerificationKeyHash,
   createPrivateFunctionMembershipProof,
   createUnconstrainedFunctionMembershipProof,
   getContractClassFromArtifact,
-} from '@aztec/circuits.js';
-import { type ContractArtifact, FunctionSelector, FunctionType, bufferAsFields } from '@aztec/foundation/abi';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { Fr } from '@aztec/foundation/fields';
+} from '@aztec/stdlib/contract';
+import { Capsule } from '@aztec/stdlib/tx';
 
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type Wallet } from '../wallet/index.js';
-import { getRegistererContract } from './protocol_contracts.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { getRegistererContract } from '../contract/protocol_contracts.js';
+import type { Wallet } from '../wallet/index.js';
 
 /**
  * Sets up a call to broadcast a private function's bytecode via the ClassRegisterer contract.
@@ -52,16 +57,14 @@ export async function broadcastPrivateFunction(
   } = await createPrivateFunctionMembershipProof(selector, artifact);
 
   const vkHash = await computeVerificationKeyHash(privateFunctionArtifact);
+
+  const registerer = await getRegistererContract(wallet);
   const bytecode = bufferAsFields(
     privateFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-
-  await wallet.addCapsule(bytecode);
-
-  const registerer = await getRegistererContract(wallet);
-  return Promise.resolve(
-    registerer.methods.broadcast_private_function(
+  return registerer.methods
+    .broadcast_private_function(
       contractClass.id,
       artifactMetadataHash,
       unconstrainedFunctionsArtifactTreeRoot,
@@ -71,8 +74,16 @@ export async function broadcastPrivateFunction(
       artifactTreeLeafIndex,
       // eslint-disable-next-line camelcase
       { selector, metadata_hash: functionMetadataHash, vk_hash: vkHash },
-    ),
-  );
+    )
+    .with({
+      capsules: [
+        new Capsule(
+          ProtocolContractAddress.ContractClassRegisterer,
+          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          bytecode,
+        ),
+      ],
+    });
 }
 
 /**
@@ -110,21 +121,28 @@ export async function broadcastUnconstrainedFunction(
     privateFunctionsArtifactTreeRoot,
   } = await createUnconstrainedFunctionMembershipProof(selector, artifact);
 
+  const registerer = await getRegistererContract(wallet);
   const bytecode = bufferAsFields(
     unconstrainedFunctionArtifact.bytecode,
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
-
-  await wallet.addCapsule(bytecode);
-
-  const registerer = await getRegistererContract(wallet);
-  return registerer.methods.broadcast_unconstrained_function(
-    contractClass.id,
-    artifactMetadataHash,
-    privateFunctionsArtifactTreeRoot,
-    padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
-    artifactTreeLeafIndex,
-    // eslint-disable-next-line camelcase
-    { selector, metadata_hash: functionMetadataHash },
-  );
+  return registerer.methods
+    .broadcast_unconstrained_function(
+      contractClass.id,
+      artifactMetadataHash,
+      privateFunctionsArtifactTreeRoot,
+      padArrayEnd(artifactTreeSiblingPath, Fr.ZERO, ARTIFACT_FUNCTION_TREE_MAX_HEIGHT),
+      artifactTreeLeafIndex,
+      // eslint-disable-next-line camelcase
+      { selector, metadata_hash: functionMetadataHash },
+    )
+    .with({
+      capsules: [
+        new Capsule(
+          ProtocolContractAddress.ContractClassRegisterer,
+          new Fr(REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT),
+          bytecode,
+        ),
+      ],
+    });
 }

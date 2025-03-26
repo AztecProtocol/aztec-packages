@@ -1,4 +1,4 @@
-import { type Tuple } from '../serialize/types.js';
+import type { Tuple } from '../serialize/types.js';
 
 /**
  * Pads an array to the target length by appending an element to its end. Throws if target length exceeds the input array length. Does not modify the input array.
@@ -200,4 +200,17 @@ export function stdDev(values: number[]) {
     return undefined;
   }
   return Math.sqrt(variance(values)!);
+}
+
+/** Counts how many items from the beginning of the array match the given predicate. */
+export function countWhile<T>(collection: T[], predicate: (x: T) => boolean): number {
+  let count = 0;
+  for (const item of collection) {
+    if (predicate(item)) {
+      count++;
+    } else {
+      break;
+    }
+  }
+  return count;
 }

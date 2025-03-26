@@ -67,7 +67,7 @@ void AvmProver::execute_log_derivative_inverse_round()
         using Relation = std::tuple_element_t<relation_idx, Flavor::LookupRelations>;
         tasks.push_back([&]() {
             AVM_TRACK_TIME(std::string("prove/execute_log_derivative_inverse_round/") + std::string(Relation::NAME),
-                           (compute_logderivative_inverse<Flavor, Relation>(
+                           (compute_logderivative_inverse<FF, Relation>(
                                prover_polynomials, relation_parameters, key->circuit_size)));
         });
     });

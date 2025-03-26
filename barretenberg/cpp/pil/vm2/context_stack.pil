@@ -1,0 +1,9 @@
+namespace context_stack;
+
+    pol commit context_id;
+    pol commit pc;
+    pol commit msg_sender;
+    pol commit contract_address;
+    
+    pol commit is_static;
+    is_static * (1 - is_static) = 0;

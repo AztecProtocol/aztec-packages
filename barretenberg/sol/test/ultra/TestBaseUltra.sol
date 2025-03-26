@@ -11,7 +11,7 @@ contract TestBaseUltra is TestBase {
     uint256 public PUBLIC_INPUT_COUNT;
 
     function setUp() public virtual {
-        fuzzer = new DifferentialFuzzer().with_plonk_flavour(DifferentialFuzzer.PlonkFlavour.Ultra);
+        fuzzer = new DifferentialFuzzer().with_flavor(DifferentialFuzzer.Flavor.Ultra);
     }
 
     function testValidProof() public {

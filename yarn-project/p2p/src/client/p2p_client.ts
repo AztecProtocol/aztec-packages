@@ -1,21 +1,17 @@
-import {
-  type BlockAttestation,
-  type BlockProposal,
-  type EpochProofQuote,
-  type L2Block,
-  type L2BlockId,
-  type L2BlockSource,
-  type L2BlockStreamEvent,
-  type L2Tips,
-  type P2PApi,
-  type P2PClientType,
-  type PeerInfo,
-  type Tx,
-  type TxHash,
-} from '@aztec/circuit-types';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
+import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { type AztecAsyncKVStore, type AztecAsyncMap, type AztecAsyncSingleton } from '@aztec/kv-store';
+import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
+import type {
+  L2Block,
+  L2BlockId,
+  L2BlockSource,
+  L2BlockStreamEvent,
+  L2Tips,
+  PublishedL2Block,
+} from '@aztec/stdlib/block';
+import type { P2PApi, PeerInfo, ProverCoordination } from '@aztec/stdlib/interfaces/server';
+import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
   type TelemetryClient,
@@ -25,13 +21,12 @@ import {
   trackSpan,
 } from '@aztec/telemetry-client';
 
-import { type ENR } from '@chainsafe/enr';
+import type { ENR } from '@chainsafe/enr';
 
 import { type P2PConfig, getP2PDefaultConfig } from '../config.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type EpochProofQuotePool } from '../mem_pools/epoch_proof_quote_pool/epoch_proof_quote_pool.js';
-import { type MemPools } from '../mem_pools/interface.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { ReqRespSubProtocol } from '../services/reqresp/interface.js';
 import type { P2PService } from '../services/service.js';
 
@@ -62,130 +57,116 @@ export interface P2PSyncState {
 /**
  * Interface of a P2P client.
  **/
-export type P2P<T extends P2PClientType = P2PClientType.Full> = P2PApi<T> & {
-  /**
-   * Broadcasts a block proposal to other peers.
-   *
-   * @param proposal - the block proposal
-   */
-  broadcastProposal(proposal: BlockProposal): void;
+export type P2P<T extends P2PClientType = P2PClientType.Full> = ProverCoordination &
+  P2PApi<T> & {
+    /**
+     * Broadcasts a block proposal to other peers.
+     *
+     * @param proposal - the block proposal
+     */
+    broadcastProposal(proposal: BlockProposal): void;
 
-  /**
-   * Queries the EpochProofQuote pool for quotes for the given epoch
-   *
-   * @param epoch  - the epoch to query
-   * @returns EpochProofQuotes
-   */
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]>;
+    /**
+     * Registers a callback from the validator client that determines how to behave when
+     * foreign block proposals are received
+     *
+     * @param handler - A function taking a received block proposal and producing an attestation
+     */
+    // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
+    // ^ This pattern is not my favorite (md)
+    registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
 
-  /**
-   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
-   *
-   * @param quote - the quote to broadcast
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void>;
+    /**
+     * Request a list of transactions from another peer by their tx hashes.
+     * @param txHashes - Hashes of the txs to query.
+     * @returns A list of transactions or undefined if the transactions are not found.
+     */
+    requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
 
-  /**
-   * Registers a callback from the validator client that determines how to behave when
-   * foreign block proposals are received
-   *
-   * @param handler - A function taking a received block proposal and producing an attestation
-   */
-  // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
-  // ^ This pattern is not my favorite (md)
-  registerBlockProposalHandler(handler: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
+    /**
+     * Request a transaction from another peer by its tx hash.
+     * @param txHash - Hash of the tx to query.
+     */
+    requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Request a list of transactions from another peer by their tx hashes.
-   * @param txHashes - Hashes of the txs to query.
-   * @returns A list of transactions or undefined if the transactions are not found.
-   */
-  requestTxs(txHashes: TxHash[]): Promise<(Tx | undefined)[]>;
+    /**
+     * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
+     * @param tx - The transaction.
+     **/
+    sendTx(tx: Tx): Promise<void>;
 
-  /**
-   * Request a transaction from another peer by its tx hash.
-   * @param txHash - Hash of the tx to query.
-   */
-  requestTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Deletes 'txs' from the pool, given hashes.
+     * NOT used if we use sendTx as reconcileTxPool will handle this.
+     * @param txHashes - Hashes to check.
+     **/
+    deleteTxs(txHashes: TxHash[]): Promise<void>;
 
-  /**
-   * Verifies the 'tx' and, if valid, adds it to local tx pool and forwards it to other peers.
-   * @param tx - The transaction.
-   **/
-  sendTx(tx: Tx): Promise<void>;
+    /**
+     * Returns a transaction in the transaction pool by its hash.
+     * @param txHash  - Hash of tx to return.
+     * @returns A single tx or undefined.
+     */
+    getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Deletes 'txs' from the pool, given hashes.
-   * NOT used if we use sendTx as reconcileTxPool will handle this.
-   * @param txHashes - Hashes to check.
-   **/
-  deleteTxs(txHashes: TxHash[]): Promise<void>;
+    /**
+     * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
+     * @param txHash  - Hash of tx to return.
+     * @returns A single tx or undefined.
+     */
+    getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Returns a transaction in the transaction pool by its hash.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHashFromPool(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Returns an archived transaction from the transaction pool by its hash.
+     * @param txHash  - Hash of tx to return.
+     * @returns A single tx or undefined.
+     */
+    getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
 
-  /**
-   * Returns a transaction in the transaction pool by its hash, requesting it from the network if it is not found.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+    /**
+     * Returns whether the given tx hash is flagged as pending or mined.
+     * @param txHash - Hash of the tx to query.
+     * @returns Pending or mined depending on its status, or undefined if not found.
+     */
+    getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
 
-  /**
-   * Returns an archived transaction from the transaction pool by its hash.
-   * @param txHash  - Hash of tx to return.
-   * @returns A single tx or undefined.
-   */
-  getArchivedTxByHash(txHash: TxHash): Promise<Tx | undefined>;
+    /** Returns an iterator over pending txs on the mempool. */
+    iteratePendingTxs(): AsyncIterableIterator<Tx>;
 
-  /**
-   * Returns whether the given tx hash is flagged as pending or mined.
-   * @param txHash - Hash of the tx to query.
-   * @returns Pending or mined depending on its status, or undefined if not found.
-   */
-  getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+    /** Returns the number of pending txs in the mempool. */
+    getPendingTxCount(): Promise<number>;
 
-  /** Returns an iterator over pending txs on the mempool. */
-  iteratePendingTxs(): AsyncIterableIterator<Tx>;
+    /**
+     * Starts the p2p client.
+     * @returns A promise signalling the completion of the block sync.
+     */
+    start(): Promise<void>;
 
-  /** Returns the number of pending txs in the mempool. */
-  getPendingTxCount(): Promise<number>;
+    /**
+     * Stops the p2p client.
+     * @returns A promise signalling the completion of the stop process.
+     */
+    stop(): Promise<void>;
 
-  /**
-   * Starts the p2p client.
-   * @returns A promise signalling the completion of the block sync.
-   */
-  start(): Promise<void>;
+    /**
+     * Indicates if the p2p client is ready for transaction submission.
+     * @returns A boolean flag indicating readiness.
+     */
+    isReady(): boolean;
 
-  /**
-   * Stops the p2p client.
-   * @returns A promise signalling the completion of the stop process.
-   */
-  stop(): Promise<void>;
+    /**
+     * Returns the current status of the p2p client.
+     */
+    getStatus(): Promise<P2PSyncState>;
 
-  /**
-   * Indicates if the p2p client is ready for transaction submission.
-   * @returns A boolean flag indicating readiness.
-   */
-  isReady(): boolean;
+    /**
+     * Returns the ENR of this node, if any.
+     */
+    getEnr(): ENR | undefined;
 
-  /**
-   * Returns the current status of the p2p client.
-   */
-  getStatus(): Promise<P2PSyncState>;
-
-  /**
-   * Returns the ENR of this node, if any.
-   */
-  getEnr(): ENR | undefined;
-
-  /** Identifies a p2p client. */
-  isP2PClient(): true;
-};
+    /** Identifies a p2p client. */
+    isP2PClient(): true;
+  };
 
 /**
  * The P2P client implementation.
@@ -206,10 +187,10 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private synchedBlockHashes: AztecAsyncMap<number, string>;
   private synchedLatestBlockNumber: AztecAsyncSingleton<number>;
   private synchedProvenBlockNumber: AztecAsyncSingleton<number>;
+  private synchedLatestSlot: AztecAsyncSingleton<bigint>;
 
   private txPool: TxPool;
   private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
-  private epochProofQuotePool: EpochProofQuotePool;
 
   /** How many slots to keep attestations for. */
   private keepAttestationsInPoolFor: number;
@@ -256,9 +237,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.synchedBlockHashes = store.openMap('p2p_pool_block_hashes');
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
+    this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
 
     this.txPool = mempools.txPool;
-    this.epochProofQuotePool = mempools.epochProofQuotePool;
     this.attestationPool = mempools.attestationPool!;
   }
 
@@ -336,26 +317,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   /**
-   * Adds an EpochProofQuote to the pool and broadcasts an EpochProofQuote to other peers.
-   * @param quote - the quote to broadcast
-   */
-  addEpochProofQuote(quote: EpochProofQuote): Promise<void> {
-    this.epochProofQuotePool.addQuote(quote);
-    this.broadcastEpochProofQuote(quote);
-    return Promise.resolve();
-  }
-
-  getEpochProofQuotes(epoch: bigint): Promise<EpochProofQuote[]> {
-    return Promise.resolve(this.epochProofQuotePool.getQuotes(epoch));
-  }
-
-  broadcastEpochProofQuote(quote: EpochProofQuote): void {
-    this.#assertIsReady();
-    this.log.info('Broadcasting epoch proof quote', quote.toViemArgs());
-    return this.p2pService.propagate(quote);
-  }
-
-  /**
    * Starts the P2P client.
    * @returns An empty promise signalling the synching process.
    */
@@ -411,18 +372,26 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
-    [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toNumber(),
-    [Attributes.SLOT_NUMBER]: proposal.payload.header.globalVariables.slotNumber.toNumber(),
+    [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
+    [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
     [Attributes.BLOCK_ARCHIVE]: proposal.archive.toString(),
     [Attributes.P2P_ID]: (await proposal.p2pMessageIdentifier()).toString(),
   }))
   public broadcastProposal(proposal: BlockProposal): void {
-    this.log.verbose(`Broadcasting proposal ${proposal.p2pMessageIdentifier()} to peers`);
+    this.log.verbose(`Broadcasting proposal for slot ${proposal.slotNumber.toNumber()} to peers`);
     return this.p2pService.propagate(proposal);
   }
 
-  public async getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
-    return (await this.attestationPool?.getAttestationsForSlot(slot, proposalId)) ?? [];
+  public async getAttestationsForSlot(slot: bigint, proposalId?: string): Promise<BlockAttestation[]> {
+    return (
+      (await (proposalId
+        ? this.attestationPool?.getAttestationsForSlotAndProposal(slot, proposalId)
+        : this.attestationPool?.getAttestationsForSlot(slot))) ?? []
+    );
+  }
+
+  public addAttestation(attestation: BlockAttestation): Promise<void> {
+    return this.attestationPool?.addAttestations([attestation]) ?? Promise.resolve();
   }
 
   // REVIEW: https://github.com/AztecProtocol/aztec-packages/issues/7963
@@ -465,6 +434,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
 
     return tx;
+  }
+
+  /**
+   * Uses the batched Request Response protocol to request a set of transactions from the network.
+   */
+  public async requestTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    const txs = (await this.p2pService.sendBatchRequest(ReqRespSubProtocol.TX, txHashes)) ?? [];
+    await this.txPool.addTxs(txs);
+    const txHashesStr = txHashes.map(tx => tx.toString()).join(', ');
+    this.log.debug(`Received batched txs ${txHashesStr} (${txs.length} / ${txHashes.length}}) from peers`);
+    return txs as Tx[];
   }
 
   public getPendingTxs(): Promise<Tx[]> {
@@ -527,6 +507,27 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return tx;
     }
     return this.requestTxByHash(txHash);
+  }
+
+  /**
+   * Returns transactions in the transaction pool by hash.
+   * If a transaction is not in the pool, it will be requested from the network.
+   * @param txHashes - Hashes of the transactions to look for.
+   * @returns The txs found, not necessarily on the same order as the hashes.
+   */
+  async getTxsByHash(txHashes: TxHash[]): Promise<Tx[]> {
+    const txs = await Promise.all(txHashes.map(txHash => this.txPool.getTxByHash(txHash)));
+    const missingTxHashes = txs
+      .map((tx, index) => [tx, index] as const)
+      .filter(([tx, _index]) => !tx)
+      .map(([_tx, index]) => txHashes[index]);
+
+    if (missingTxHashes.length === 0) {
+      return txs as Tx[];
+    }
+
+    const missingTxs = await this.requestTxsByHash(missingTxHashes);
+    return txs.filter((tx): tx is Tx => !!tx).concat(missingTxs);
   }
 
   /**
@@ -601,6 +602,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     return (await this.synchedProvenBlockNumber.getAsync()) ?? INITIAL_L2_BLOCK_NUM - 1;
   }
 
+  /** Returns latest L2 slot for which we have seen an L2 block. */
+  public async getSyncedLatestSlot(): Promise<bigint> {
+    return (await this.synchedLatestSlot.getAsync()) ?? BigInt(0);
+  }
+
   /**
    * Method to check the status the p2p client.
    * @returns Information about p2p client status: state & syncedToBlockNum.
@@ -633,6 +639,16 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     }
   }
 
+  private async addAttestationsToPool(blocks: PublishedL2Block[]): Promise<void> {
+    const attestations = blocks.flatMap(block => {
+      const payload = ConsensusPayload.fromBlock(block.block);
+      return block.signatures.filter(sig => !sig.isEmpty).map(signature => new BlockAttestation(payload, signature));
+    });
+    await this.attestationPool?.addAttestations(attestations);
+    const slots = blocks.map(b => b.block.header.getSlot()).sort((a, b) => Number(a - b));
+    this.log.debug(`Added ${attestations.length} attestations for slots ${slots[0]}-${slots.at(-1)} to the pool`);
+  }
+
   /**
    * Deletes txs from these blocks.
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
@@ -651,18 +667,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param blocks - A list of existing blocks with txs that the P2P client needs to ensure the tx pool is reconciled with.
    * @returns Empty promise.
    */
-  private async handleLatestL2Blocks(blocks: L2Block[]): Promise<void> {
+  private async handleLatestL2Blocks(blocks: PublishedL2Block[]): Promise<void> {
     if (!blocks.length) {
       return Promise.resolve();
     }
 
-    await this.markTxsAsMinedFromBlocks(blocks);
-    const lastBlockNum = blocks[blocks.length - 1].number;
+    await this.markTxsAsMinedFromBlocks(blocks.map(b => b.block));
+    await this.addAttestationsToPool(blocks);
+    const lastBlock = blocks.at(-1)!.block;
     await Promise.all(
-      blocks.map(async block => this.synchedBlockHashes.set(block.number, (await block.hash()).toString())),
+      blocks.map(async block => this.synchedBlockHashes.set(block.block.number, (await block.block.hash()).toString())),
     );
-    await this.synchedLatestBlockNumber.set(lastBlockNum);
-    this.log.debug(`Synched to latest block ${lastBlockNum}`);
+    await this.synchedLatestBlockNumber.set(lastBlock.number);
+    await this.synchedLatestSlot.set(lastBlock.header.getSlot());
+    this.log.verbose(`Synched to latest block ${lastBlock.number}`);
     await this.startServiceIfSynched();
   }
 
@@ -695,11 +713,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
     if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
-    }
-
-    const provenEpochNumber = await this.l2BlockSource.getProvenL2EpochNumber();
-    if (provenEpochNumber !== undefined) {
-      this.epochProofQuotePool.deleteQuotesToEpoch(BigInt(provenEpochNumber));
     }
 
     await this.synchedProvenBlockNumber.set(lastBlockNum);

@@ -1,6 +1,9 @@
 use crate::{
     context::PrivateContext,
-    note::{note_interface::{NoteInterface, NullifiableNote}, utils::compute_siloed_nullifier},
+    note::{
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_siloed_note_nullifier,
+    },
     oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness,
 };
 use dep::protocol_types::{
@@ -8,15 +11,18 @@ use dep::protocol_types::{
     utils::field::{full_field_greater_than, full_field_less_than},
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
+use protocol_types::traits::Hash;
 
-trait ProveNullifierNonInclusion {
+mod test;
+
+pub trait ProveNullifierNonInclusion {
     fn prove_nullifier_non_inclusion(header: BlockHeader, nullifier: Field);
 }
 
 impl ProveNullifierNonInclusion for BlockHeader {
     fn prove_nullifier_non_inclusion(self, nullifier: Field) {
         // 1) Get the membership witness of a low nullifier of the nullifier
-        /// Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
+        // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_low_nullifier_membership_witness(
                 self.global_variables.block_number as u32,
@@ -51,23 +57,29 @@ impl ProveNullifierNonInclusion for BlockHeader {
     }
 }
 
-trait ProveNoteNotNullified {
-    fn prove_note_not_nullified<Note, let N: u32>(
+pub trait ProveNoteNotNullified {
+    fn prove_note_not_nullified<Note>(
         header: BlockHeader,
-        note: Note,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
         context: &mut PrivateContext,
     )
     where
-        Note: NoteInterface<N> + NullifiableNote;
+        Note: NoteHash;
 }
 
 impl ProveNoteNotNullified for BlockHeader {
     // docs:start:prove_note_not_nullified
-    fn prove_note_not_nullified<Note, let N: u32>(self, note: Note, context: &mut PrivateContext)
+    fn prove_note_not_nullified<Note>(
+        self,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
+        context: &mut PrivateContext,
+    )
     where
-        Note: NoteInterface<N> + NullifiableNote,
+        Note: NoteHash,
     {
-        let nullifier = compute_siloed_nullifier(note, context);
+        let nullifier = compute_siloed_note_nullifier(retrieved_note, storage_slot, context);
 
         self.prove_nullifier_non_inclusion(nullifier);
     }

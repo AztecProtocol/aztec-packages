@@ -14,6 +14,8 @@ namespace bb::avm {
 
 class lookup_pow_2_0_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_POW_2_0";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -72,7 +74,12 @@ class lookup_pow_2_0_lookup_settings {
 template <typename FF_>
 class lookup_pow_2_0_relation : public GenericLookupRelation<lookup_pow_2_0_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_POW_2_0";
+    static constexpr std::string_view NAME = lookup_pow_2_0_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.alu_sel_shift_which.is_zero() && in.main_sel_rng_8.is_zero();
+    }
 };
 template <typename FF_> using lookup_pow_2_0 = GenericLookup<lookup_pow_2_0_lookup_settings, FF_>;
 
@@ -80,6 +87,8 @@ template <typename FF_> using lookup_pow_2_0 = GenericLookup<lookup_pow_2_0_look
 
 class lookup_pow_2_1_lookup_settings {
   public:
+    static constexpr std::string_view NAME = "LOOKUP_POW_2_1";
+
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
@@ -139,7 +148,12 @@ class lookup_pow_2_1_lookup_settings {
 template <typename FF_>
 class lookup_pow_2_1_relation : public GenericLookupRelation<lookup_pow_2_1_lookup_settings, FF_> {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_POW_2_1";
+    static constexpr std::string_view NAME = lookup_pow_2_1_lookup_settings::NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.alu_sel_shift_which.is_zero() && in.main_sel_rng_8.is_zero();
+    }
 };
 template <typename FF_> using lookup_pow_2_1 = GenericLookup<lookup_pow_2_1_lookup_settings, FF_>;
 

@@ -1,51 +1,19 @@
 /* eslint-disable require-await */
 import {
-  type ProofAndVerificationKey,
-  ProvingError,
-  type PublicInputsAndRecursiveProof,
-  type ServerCircuitProver,
-  makeProofAndVerificationKey,
-  makePublicInputsAndRecursiveProof,
-} from '@aztec/circuit-types';
-import { type CircuitProvingStats, type CircuitWitnessGenerationStats } from '@aztec/circuit-types/stats';
-import {
   AGGREGATION_OBJECT_LENGTH,
   AVM_PROOF_LENGTH_IN_FIELDS,
-  type AvmCircuitInputs,
-  type BaseParityInputs,
-  Fr,
   IPA_CLAIM_LENGTH,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
-  type ParityPublicInputs,
-  Proof,
   RECURSIVE_PROOF_LENGTH,
-  RecursiveProof,
-  type RootParityInputs,
   TUBE_PROOF_LENGTH,
-  type VerificationKeyData,
-  makeRecursiveProofFromBinary,
-} from '@aztec/circuits.js';
-import {
-  type BaseOrMergeRollupPublicInputs,
-  type BlockMergeRollupInputs,
-  type BlockRootOrBlockMergePublicInputs,
-  type BlockRootRollupInputs,
-  type EmptyBlockRootRollupInputs,
-  type MergeRollupInputs,
-  type PrivateBaseRollupInputs,
-  type PublicBaseRollupInputs,
-  type RootRollupInputs,
-  type RootRollupPublicInputs,
-  type SingleTxBlockRootRollupInputs,
-  type TubeInputs,
-} from '@aztec/circuits.js/rollup';
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import { runInDirectory } from '@aztec/foundation/fs';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -67,12 +35,40 @@ import {
   convertRootRollupOutputsFromWitnessMap,
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
+  getServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
-import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/vks';
+import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
+import type { WitnessMap } from '@aztec/noir-types';
 import { NativeACVMSimulator } from '@aztec/simulator/server';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { ProvingError } from '@aztec/stdlib/errors';
+import {
+  type ProofAndVerificationKey,
+  type PublicInputsAndRecursiveProof,
+  type ServerCircuitProver,
+  makeProofAndVerificationKey,
+  makePublicInputsAndRecursiveProof,
+} from '@aztec/stdlib/interfaces/server';
+import type { BaseParityInputs, ParityPublicInputs, RootParityInputs } from '@aztec/stdlib/parity';
+import { Proof, RecursiveProof, makeRecursiveProofFromBinary } from '@aztec/stdlib/proofs';
+import type {
+  BaseOrMergeRollupPublicInputs,
+  BlockMergeRollupInputs,
+  BlockRootOrBlockMergePublicInputs,
+  BlockRootRollupInputs,
+  EmptyBlockRootRollupInputs,
+  MergeRollupInputs,
+  PrivateBaseRollupInputs,
+  PublicBaseRollupInputs,
+  RootRollupInputs,
+  RootRollupPublicInputs,
+  SingleTxBlockRootRollupInputs,
+  TubeInputs,
+} from '@aztec/stdlib/rollup';
+import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
+import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { type WitnessMap } from '@noir-lang/types';
 import { assert } from 'console';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
@@ -90,13 +86,13 @@ import {
   generateTubeProof,
   verifyAvmProof,
   verifyProof,
-  writeProofAsFields,
 } from '../bb/execute.js';
 import type { ACVMConfig, BBConfig } from '../config.js';
 import { type UltraHonkFlavor, getUltraHonkFlavorForCircuit } from '../honk.js';
 import { ProverInstrumentation } from '../instrumentation.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 import { extractAvmVkData, extractVkData } from '../verification_key/verification_key_data.js';
+import { PRIVATE_TAIL_CIVC_VK, PUBLIC_TAIL_CIVC_VK } from '../verifier/bb_verifier.js';
 import { writeToOutputDirectory } from './client_ivc_proof_utils.js';
 
 const logger = createLogger('bb-prover');
@@ -415,13 +411,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       outputWitnessFile,
     );
 
-    const artifact = ServerCircuitArtifacts[circuitType];
+    const artifact = getServerCircuitArtifact(circuitType);
 
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
     const timer = new Timer();
-    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact);
+    const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
+    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
     const output = convertOutput(outputWitness);
 
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
@@ -525,12 +522,18 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     hasher.update(input.toBuffer());
 
     await writeToOutputDirectory(input.clientIVCData, bbWorkingDirectory);
-    const provingResult = await generateTubeProof(this.config.bbBinaryPath, bbWorkingDirectory, logger.verbose);
+    const provingResult = await generateTubeProof(
+      this.config.bbBinaryPath,
+      bbWorkingDirectory,
+      input.usePublicTailVk ? PUBLIC_TAIL_CIVC_VK : PRIVATE_TAIL_CIVC_VK,
+      logger.verbose,
+    );
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate proof for tube circuit: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
+
     return provingResult;
   }
 
@@ -561,7 +564,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           duration: provingResult.durationMs,
           proofSize: avmProof.binaryProof.buffer.length,
           eventName: 'circuit-proving',
-          inputSize: input.toBuffer().length,
+          inputSize: input.serializeWithMessagePack().length,
           circuitSize: verificationKey.circuitSize, // FIX: wrong in VK
           numPublicInputs: verificationKey.numPublicInputs, // FIX: wrong in VK
         } satisfies CircuitProvingStats,
@@ -711,69 +714,6 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   /**
-   * Will check a recursive proof argument for validity of it's 'fields' format of proof and convert if required
-   * @param proof - The input proof that may need converting
-   * @returns - The valid proof
-   */
-  public async ensureValidProof(
-    proof: RecursiveProof<typeof NESTED_RECURSIVE_PROOF_LENGTH>, // WORKTODO
-    circuit: ServerProtocolArtifact,
-    vk: VerificationKeyData,
-  ) {
-    // If the 'fields' proof is already valid then simply return
-    // This will be false for proofs coming from clients
-    if (proof.fieldsValid) {
-      return proof;
-    }
-
-    const operation = async (bbWorkingDirectory: string) => {
-      const numPublicInputs = vk.numPublicInputs - AGGREGATION_OBJECT_LENGTH - IPA_CLAIM_LENGTH;
-      const proofFullFilename = path.join(bbWorkingDirectory, PROOF_FILENAME);
-      const vkFullFilename = path.join(bbWorkingDirectory, VK_FILENAME);
-
-      logger.debug(
-        `Converting proof to fields format for circuit ${circuit}, directory ${bbWorkingDirectory}, num public inputs: ${vk.numPublicInputs}, proof length ${proof.binaryProof.buffer.length}, vk length ${vk.keyAsBytes.length}`,
-      );
-
-      await fs.writeFile(proofFullFilename, proof.binaryProof.buffer);
-      await fs.writeFile(vkFullFilename, vk.keyAsBytes);
-
-      const logFunction = (message: string) => {
-        logger.debug(`${circuit} BB out - ${message}`);
-      };
-
-      const result = await writeProofAsFields(
-        this.config.bbBinaryPath,
-        bbWorkingDirectory,
-        PROOF_FILENAME,
-        vkFullFilename,
-        logFunction,
-      );
-
-      if (result.status === BB_RESULT.FAILURE) {
-        const errorMessage = `Failed to convert ${circuit} proof to fields, ${result.reason}`;
-        throw new ProvingError(errorMessage, result, result.retry);
-      }
-
-      const proofString = await fs.readFile(path.join(bbWorkingDirectory, PROOF_FIELDS_FILENAME), {
-        encoding: 'utf-8',
-      });
-      const json = JSON.parse(proofString);
-      const fields = json
-        .slice(0, 3)
-        .map(Fr.fromHexString)
-        .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
-      return new RecursiveProof(
-        fields,
-        new Proof(proof.binaryProof.buffer, vk.numPublicInputs),
-        true,
-        NESTED_RECURSIVE_PROOF_LENGTH, // WORKTODO
-      );
-    };
-    return await this.runInDirectory(operation);
-  }
-
-  /**
    * Returns the verification key data for a circuit.
    * @param circuitType - The type of circuit for which the verification key is required
    * @returns The verification key data
@@ -808,10 +748,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     assert(json.length - numPublicInputs == proofLength, 'Proof length mismatch');
 
-    const fieldsWithoutPublicInputs = json
-      .slice(0, 3)
-      .map(Fr.fromHexString)
-      .concat(json.slice(3 + numPublicInputs).map(Fr.fromHexString));
+    const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromHexString);
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
     );
@@ -843,6 +780,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
           throw err;
         }),
       this.config.bbSkipCleanup,
+      logger,
     );
   }
 }

@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AuthWitTest {
+pub contract AuthWitTest {
     use dep::aztec::{macros::functions::{private, public}, protocol_types::address::AztecAddress};
 
     use dep::authwit::auth::{

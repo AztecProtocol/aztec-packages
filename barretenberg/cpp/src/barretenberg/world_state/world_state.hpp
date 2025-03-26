@@ -72,6 +72,22 @@ class WorldState {
                const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
                uint32_t initial_header_generator_point);
 
+    WorldState(uint64_t thread_pool_size,
+               const std::string& data_dir,
+               uint64_t map_size,
+               const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+               const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               const std::vector<PublicDataLeafValue>& prefilled_public_data,
+               uint32_t initial_header_generator_point);
+
+    WorldState(uint64_t thread_pool_size,
+               const std::string& data_dir,
+               const std::unordered_map<MerkleTreeId, uint64_t>& map_size,
+               const std::unordered_map<MerkleTreeId, uint32_t>& tree_heights,
+               const std::unordered_map<MerkleTreeId, index_t>& tree_prefill,
+               const std::vector<PublicDataLeafValue>& prefilled_public_data,
+               uint32_t initial_header_generator_point);
+
     /**
      * @brief Get tree metadata for a particular tree
      *
@@ -249,6 +265,10 @@ class WorldState {
                                     const std::vector<crypto::merkle_tree::NullifierLeafValue>& nullifiers,
                                     const std::vector<crypto::merkle_tree::PublicDataLeafValue>& public_writes);
 
+    void checkpoint(const uint64_t& forkId);
+    void commit_checkpoint(const uint64_t& forkId);
+    void revert_checkpoint(const uint64_t& forkId);
+
   private:
     std::shared_ptr<bb::ThreadPool> _workers;
     WorldStateStores::Ptr _persistentStores;
@@ -263,6 +283,7 @@ class WorldState {
     TreeStateReference get_tree_snapshot(MerkleTreeId id);
     void create_canonical_fork(const std::string& dataDir,
                                const std::unordered_map<MerkleTreeId, uint64_t>& dbSize,
+                               const std::vector<PublicDataLeafValue>& prefilled_public_data,
                                uint64_t maxReaders);
 
     Fork::SharedPtr retrieve_fork(const uint64_t& forkId) const;

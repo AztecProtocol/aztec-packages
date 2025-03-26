@@ -241,7 +241,10 @@ template <class Curve> class CommitmentKey {
         points.reserve(total_num_scalars * 2);
         for (const auto& [first, second] : active_ranges) {
             auto poly_start = &polynomial[first];
-            auto poly_end = &polynomial[second];
+            // Pointer to the first element past the active range. Accessing `&polynomial[second]` directly can trigger
+            // an assertion when `second == polynomial_size`, so we compute the pointer using `polynomial.data()`
+            // to ensure safe range handling.
+            auto poly_end = polynomial.data() + (second - polynomial.start_index);
             scalars.insert(scalars.end(), poly_start, poly_end);
 
             auto pts_start = &point_table[2 * first];
@@ -336,6 +339,26 @@ template <class Curve> class CommitmentKey {
         }
 
         return result;
+    }
+
+    enum class CommitType { Default, Structured, Sparse, StructuredNonZeroComplement };
+
+    Commitment commit_with_type(PolynomialSpan<const Fr> poly,
+                                CommitType type,
+                                const std::vector<std::pair<size_t, size_t>>& active_ranges = {},
+                                size_t final_active_wire_idx = 0)
+    {
+        switch (type) {
+        case CommitType::Structured:
+            return commit_structured(poly, active_ranges, final_active_wire_idx);
+        case CommitType::Sparse:
+            return commit_sparse(poly);
+        case CommitType::StructuredNonZeroComplement:
+            return commit_structured_with_nonzero_complement(poly, active_ranges, final_active_wire_idx);
+        case CommitType::Default:
+        default:
+            return commit(poly);
+        }
     }
 };
 

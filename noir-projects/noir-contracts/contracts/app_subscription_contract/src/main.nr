@@ -1,18 +1,19 @@
+mod config;
 mod subscription_note;
 mod dapp_payload;
 
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AppSubscription {
-    use crate::{dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
+pub contract AppSubscription {
+    use crate::{config::Config, dapp_payload::DAppPayload, subscription_note::SubscriptionNote};
 
     use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
-        protocol_types::constants::MAX_FIELD_VALUE,
+        protocol_types::{constants::MAX_FIELD_VALUE, traits::ToField},
         utils::comparison::Comparator,
     };
     use router::utils::privately_check_block_number;
@@ -20,12 +21,8 @@ contract AppSubscription {
 
     #[storage]
     struct Storage<Context> {
-        target_address: PublicImmutable<AztecAddress, Context>,
-        subscription_token_address: PublicImmutable<AztecAddress, Context>,
-        subscription_recipient_address: PublicImmutable<AztecAddress, Context>,
-        subscription_price: PublicImmutable<U128, Context>,
+        config: PublicImmutable<Config, Context>,
         subscriptions: Map<AztecAddress, PrivateMutable<SubscriptionNote, Context>, Context>,
-        fee_juice_limit_per_tx: PublicImmutable<Field, Context>,
     }
 
     global SUBSCRIPTION_DURATION_IN_BLOCKS: Field = 5;
@@ -42,7 +39,7 @@ contract AppSubscription {
 
         note.remaining_txs -= 1;
 
-        storage.subscriptions.at(user_address).replace(&mut note).emit(encode_and_encrypt_note(
+        storage.subscriptions.at(user_address).replace(note).emit(encode_and_encrypt_note(
             &mut context,
             user_address,
             user_address,
@@ -50,8 +47,10 @@ contract AppSubscription {
 
         context.set_as_fee_payer();
 
+        let config = storage.config.read();
+
         // TODO(palla/gas) Assert fee_juice_limit_per_tx is less than this tx gas_limit
-        let _gas_limit = storage.fee_juice_limit_per_tx.read();
+        let _gas_limit = config.fee_juice_limit_per_tx;
 
         context.end_setup();
 
@@ -59,7 +58,7 @@ contract AppSubscription {
         // is performing the check.
         privately_check_block_number(Comparator.LT, note.expiry_block_number, &mut context);
 
-        payload.execute_calls(&mut context, storage.target_address.read());
+        payload.execute_calls(&mut context, config.target_address);
     }
 
     #[public]
@@ -68,14 +67,18 @@ contract AppSubscription {
         target_address: AztecAddress,
         subscription_recipient_address: AztecAddress,
         subscription_token_address: AztecAddress,
-        subscription_price: U128,
+        subscription_price: u128,
         fee_juice_limit_per_tx: Field,
     ) {
-        storage.target_address.initialize(target_address);
-        storage.subscription_token_address.initialize(subscription_token_address);
-        storage.subscription_recipient_address.initialize(subscription_recipient_address);
-        storage.subscription_price.initialize(subscription_price);
-        storage.fee_juice_limit_per_tx.initialize(fee_juice_limit_per_tx);
+        storage.config.initialize(
+            Config {
+                target_address,
+                subscription_recipient_address,
+                subscription_token_address,
+                subscription_price,
+                fee_juice_limit_per_tx,
+            },
+        );
     }
 
     #[private]
@@ -87,11 +90,13 @@ contract AppSubscription {
     ) {
         assert(tx_count as u64 <= SUBSCRIPTION_TXS as u64);
 
-        Token::at(storage.subscription_token_address.read())
+        let config = storage.config.read();
+
+        Token::at(config.subscription_token_address)
             .transfer_in_private(
                 context.msg_sender(),
-                storage.subscription_recipient_address.read(),
-                storage.subscription_price.read(),
+                config.subscription_recipient_address,
+                config.subscription_price,
                 nonce,
             )
             .call(&mut context);
@@ -104,9 +109,8 @@ contract AppSubscription {
             &mut context,
         );
 
-        let mut subscription_note =
-            SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
-        storage.subscriptions.at(subscriber).initialize_or_replace(&mut subscription_note).emit(
+        let subscription_note = SubscriptionNote::new(subscriber, expiry_block_number, tx_count);
+        storage.subscriptions.at(subscriber).initialize_or_replace(subscription_note).emit(
             encode_and_encrypt_note(&mut context, subscriber, context.msg_sender()),
         );
     }

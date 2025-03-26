@@ -10,10 +10,10 @@ resource "google_container_cluster" "primary" {
 
   # Kubernetes version
   min_master_version = var.node_version
-  release_channel {
-    channel = "STABLE"
-  }
 
+  release_channel {
+    channel = "UNSPECIFIED"
+  }
 
   # Network configuration
   network    = "default"
@@ -23,6 +23,15 @@ resource "google_container_cluster" "primary" {
   master_auth {
     client_certificate_config {
       issue_client_certificate = false
+    }
+  }
+
+  resource_usage_export_config {
+    enable_network_egress_metering       = true
+    enable_resource_consumption_metering = true
+
+    bigquery_destination {
+      dataset_id = "egress_consumption"
     }
   }
 }
@@ -37,7 +46,7 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 256
+    max_node_count = 512
   }
 
   # Node configuration
@@ -59,6 +68,11 @@ resource "google_container_node_pool" "aztec_nodes_2core_ssd" {
 
     }
     tags = ["aztec-gke-node", "aztec"]
+  }
+
+  management {
+    auto_repair  = true
+    auto_upgrade = false
   }
 }
 
@@ -94,25 +108,25 @@ resource "google_container_node_pool" "aztec_nodes-2core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
-# Create small 8 core node pool for non-network deployments
-resource "google_container_node_pool" "aztec_non_network_nodes" {
-  name     = "${var.cluster_name}-infra-nodes"
+# Create 4 core node pool no ssd
+resource "google_container_node_pool" "aztec_nodes-4core" {
+  name     = "${var.cluster_name}-4core"
   location = var.zone
   cluster  = var.cluster_name
   version  = var.node_version
   # Enable autoscaling
   autoscaling {
     min_node_count = 0
-    max_node_count = 4
+    max_node_count = 16
   }
 
   # Node configuration
   node_config {
-    machine_type = "t2d-standard-8"
+    machine_type = "t2d-standard-4"
 
     service_account = var.service_account
     oauth_scopes = [
@@ -122,7 +136,7 @@ resource "google_container_node_pool" "aztec_non_network_nodes" {
     labels = {
       env       = "production"
       local-ssd = "false"
-      node-type = "infra"
+      node-type = "network"
     }
     tags = ["aztec-gke-node", "aztec"]
   }
@@ -130,7 +144,7 @@ resource "google_container_node_pool" "aztec_non_network_nodes" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -175,7 +189,7 @@ resource "google_container_node_pool" "spot_nodes_32core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -220,7 +234,7 @@ resource "google_container_node_pool" "spot_nodes_8core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
 
@@ -265,6 +279,43 @@ resource "google_container_node_pool" "spot_nodes_2core" {
   # Management configuration
   management {
     auto_repair  = true
-    auto_upgrade = true
+    auto_upgrade = false
   }
 }
+
+# Create 8 core high memory (64 GB) node pool with autoscaling, used for metrics
+resource "google_container_node_pool" "infra_nodes_8core_highmem" {
+  name     = "${var.cluster_name}-infra-8core-hi-mem"
+  location = var.zone
+  cluster  = var.cluster_name
+  version  = var.node_version
+  # Enable autoscaling
+  autoscaling {
+    min_node_count = 0
+    max_node_count = 1
+  }
+
+  # Node configuration
+  node_config {
+    machine_type = "n2-highmem-8"
+
+    service_account = var.service_account
+    oauth_scopes = [
+      "https://www.googleapis.com/auth/cloud-platform"
+    ]
+
+    labels = {
+      env       = "production"
+      local-ssd = "false"
+      node-type = "infra"
+    }
+    tags = ["aztec-gke-node"]
+  }
+
+  # Management configuration
+  management {
+    auto_repair  = true
+    auto_upgrade = false
+  }
+}
+

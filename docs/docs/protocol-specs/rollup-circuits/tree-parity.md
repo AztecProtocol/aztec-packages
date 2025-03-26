@@ -14,10 +14,7 @@ As earlier we are using a tree-like structure.
 Instead of having a `base`, `merge` and `root` circuits, we will have only `base` and `root` parity circuits.
 We only need these two, since what would have been the `merge` is doing the same as the `root` for this case.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     R((RootParity))
 
@@ -64,7 +61,6 @@ style I0 fill:#1976D2;
 style I1 fill:#1976D2;
 style I2 fill:#1976D2;
 style I3 fill:#1976D2;
-</Mermaid>
 ```
 
 The output of the "combined" circuit will be the `converted_root` which is the root of the snark-friendly message tree.
@@ -72,10 +68,7 @@ And the `sha_root` which must match the root of the sha256 message tree from the
 The circuit computes the two trees using the same inputs, and then we ensure that the elements of the trees match the inbox later in the [state transitioner](./../l1-smart-contracts/index.md#overview).
 It proves parity of the leaves in the two trees.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 classDiagram
 direction LR
 
@@ -100,7 +93,6 @@ RootParityInput *-- ParityPublicInputs: public_inputs
 class BaseParityInputs {
     msgs: List~Fr[2]~
 }
-</Mermaid>
 ```
 
 The logic of the circuits is quite simple - build both a SHA256 and a snark-friendly tree from the same inputs.

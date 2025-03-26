@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 

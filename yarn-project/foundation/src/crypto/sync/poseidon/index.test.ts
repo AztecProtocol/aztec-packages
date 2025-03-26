@@ -5,7 +5,7 @@ import { poseidon2Permutation } from './index.js';
 
 describe('poseidon2Permutation', () => {
   beforeAll(async () => {
-    await BarretenbergSync.initSingleton();
+    await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
   });
   it('test vectors from cpp should match', () => {
     const init = [0, 1, 2, 3];

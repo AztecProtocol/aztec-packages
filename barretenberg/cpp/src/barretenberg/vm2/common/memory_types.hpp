@@ -14,6 +14,7 @@ enum class MemoryTag {
     U32,
     U64,
     U128,
+    MAX = U128,
 };
 
 using MemoryAddress = uint32_t;

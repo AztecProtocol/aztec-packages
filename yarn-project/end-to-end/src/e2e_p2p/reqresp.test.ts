@@ -1,14 +1,15 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupContract } from '@aztec/ethereum';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
-import { getContract } from 'viem';
+import os from 'os';
+import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
@@ -16,7 +17,7 @@ const NUM_NODES = 6;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40800;
 
-const DATA_DIR = './data/data-reqresp';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'reqresp-'));
 
 describe('e2e_p2p_reqresp_tx', () => {
   let t: P2PNetworkTest;
@@ -29,7 +30,11 @@ describe('e2e_p2p_reqresp_tx', () => {
       basePort: BOOT_NODE_UDP_PORT,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up`
       metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG,
+      },
     });
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
@@ -39,7 +44,7 @@ describe('e2e_p2p_reqresp_tx', () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
     }
   });
 
@@ -69,6 +74,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
       shouldCollectMetrics(),
     );
@@ -82,11 +88,11 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
 
     // Replace the p2p node implementation of some of the nodes with a spy such that it does not store transactions that are gossiped to it
-    // Original implementation of `processTxFromPeer` will store received transactions in the tx pool.
+    // Original implementation of `handleGossipedTx` will store received transactions in the tx pool.
     // We chose the first 2 nodes that will be the proposers for the next few slots
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       jest
-        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'processTxFromPeer')
+        .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
         .mockImplementation((): Promise<void> => {
           return Promise.resolve();
         });
@@ -95,7 +101,12 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Submitting transactions');
 
     for (const nodeIndex of proposerIndexes.slice(0, 2)) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, nodes[nodeIndex], NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(
+        t.logger,
+        nodes[nodeIndex],
+        NUM_TXS_PER_NODE,
+        t.fundedAccount,
+      );
       contexts.push(context);
     }
 
@@ -104,7 +115,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       contexts.flatMap((context, i) =>
         context.txs.map(async (tx, j) => {
           t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
-          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT });
+          await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
           t.logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
           return await tx.getTxHash();
         }),
@@ -118,25 +129,24 @@ describe('e2e_p2p_reqresp_tx', () => {
    */
   async function getProposerIndexes() {
     // Get the nodes for the next set of slots
-    const rollupContract = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
-    });
+    const rollupContract = new RollupContract(
+      t.ctx.deployL1ContractsValues.publicClient,
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
-    const attesters = await rollupContract.read.getAttesters();
+    const attesters = await rollupContract.getAttesters();
     const mappedProposers = await Promise.all(
-      attesters.map(async attester => await rollupContract.read.getProposerForAttester([attester])),
+      attesters.map(async attester => await rollupContract.getProposerForAttester(attester)),
     );
 
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
-    const slotDuration = await rollupContract.read.SLOT_DURATION();
+    const slotDuration = await rollupContract.getSlotDuration();
 
     const proposers = [];
 
     for (let i = 0; i < 3; i++) {
       const nextSlot = BigInt(currentTime) + BigInt(i) * BigInt(slotDuration);
-      const proposer = await rollupContract.read.getProposerAt([nextSlot]);
+      const proposer = await rollupContract.getProposerAt(nextSlot);
       proposers.push(proposer);
     }
     // Get the indexes of the nodes that are responsible for the next two slots

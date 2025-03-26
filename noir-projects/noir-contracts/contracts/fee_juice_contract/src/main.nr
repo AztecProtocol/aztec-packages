@@ -3,7 +3,7 @@ mod lib;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract FeeJuice {
+pub contract FeeJuice {
     use dep::aztec::{
         macros::{functions::{internal, private, public, view}, storage::storage},
         protocol_types::address::{AztecAddress, EthAddress},
@@ -11,19 +11,20 @@ contract FeeJuice {
     };
 
     use crate::lib::get_bridge_gas_msg_hash;
+    use std::ops::Add;
 
     #[storage]
     struct Storage<Context> {
         // This map is accessed directly by protocol circuits to check balances for fee payment.
         // Do not change this storage layout unless you also update the base rollup circuits.
-        balances: Map<AztecAddress, PublicMutable<U128, Context>, Context>,
+        balances: Map<AztecAddress, PublicMutable<u128, Context>, Context>,
         portal_address: PublicImmutable<EthAddress, Context>,
     }
 
     // Not flagged as initializer to reduce cost of checking init nullifier in all functions.
     // This function should be called as entrypoint to initialize the contract by minting itself funds.
     #[private]
-    fn initialize(portal_address: EthAddress, initial_mint: U128) {
+    fn initialize(portal_address: EthAddress, initial_mint: u128) {
         // Validate contract class parameters are correct
         let self = context.this_address();
 
@@ -46,7 +47,7 @@ contract FeeJuice {
     }
 
     #[private]
-    fn claim(to: AztecAddress, amount: U128, secret: Field, message_leaf_index: Field) {
+    fn claim(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
         let content_hash = get_bridge_gas_msg_hash(to, amount);
         let portal_address = storage.portal_address.read();
         assert(!portal_address.is_zero());
@@ -63,21 +64,21 @@ contract FeeJuice {
 
     #[public]
     #[internal]
-    fn _increase_public_balance(to: AztecAddress, amount: U128) {
+    fn _increase_public_balance(to: AztecAddress, amount: u128) {
         let new_balance = storage.balances.at(to).read().add(amount);
         storage.balances.at(to).write(new_balance);
     }
 
     #[public]
     #[view]
-    fn check_balance(fee_limit: U128) {
+    fn check_balance(fee_limit: u128) {
         assert(storage.balances.at(context.msg_sender()).read() >= fee_limit, "Balance too low");
     }
 
     // utility function for testing
     #[public]
     #[view]
-    fn balance_of_public(owner: AztecAddress) -> pub U128 {
+    fn balance_of_public(owner: AztecAddress) -> pub u128 {
         storage.balances.at(owner).read()
     }
 }

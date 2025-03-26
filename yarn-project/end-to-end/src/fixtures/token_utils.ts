@@ -1,6 +1,7 @@
-// docs:start:token_utils
-import { type AztecAddress, type Logger, type Wallet } from '@aztec/aztec.js';
+import type { AztecAddress, Logger, Wallet } from '@aztec/aztec.js';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+
+// docs:start:token_utils
 
 export async function deployToken(adminWallet: Wallet, initialAdminBalance: bigint, logger: Logger) {
   logger.info(`Deploying Token contract...`);
@@ -25,7 +26,7 @@ export async function mintTokensToPrivate(
   amount: bigint,
 ) {
   const tokenAsMinter = await TokenContract.at(token.address, minterWallet);
-  const from = minterWallet.getAddress(); // we are setting from to minter here because of TODO(#9887)
+  const from = minterWallet.getAddress(); // we are setting from to minter here because we need a sender to calculate the tag
   await tokenAsMinter.methods.mint_to_private(from, recipient, amount).send().wait();
 }
 // docs:end:token_utils

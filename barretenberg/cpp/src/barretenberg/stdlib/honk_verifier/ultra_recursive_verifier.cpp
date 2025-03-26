@@ -45,14 +45,14 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
-    using ClaimBatcher = Shplemini::ClaimBatcher;
-    using ClaimBatch = Shplemini::ClaimBatch;
+    using ClaimBatcher = ClaimBatcher_<Curve>;
+    using ClaimBatch = ClaimBatcher::Batch;
 
     Output output;
     StdlibProof<Builder> honk_proof;
     if constexpr (HasIPAAccumulator<Flavor>) {
         const size_t HONK_PROOF_LENGTH = Flavor::NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<uint32_t>(proof[1].get_value());
+        const size_t num_public_inputs = static_cast<uint32_t>(key->num_public_inputs.get_value());
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
@@ -100,11 +100,12 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
-    agg_obj.aggregate(nested_agg_obj, recursion_separator);
+    agg_obj.template aggregate<Builder>(nested_agg_obj, recursion_separator);
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size));
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
+    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
@@ -117,7 +118,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
-        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:big_sum_commitment");
+        libra_commitments[1] = transcript->template receive_from_prover<Commitment>("Libra:grand_sum_commitment");
         libra_commitments[2] = transcript->template receive_from_prover<Commitment>("Libra:quotient_commitment");
     }
     // Execute Shplemini to produce a batch opening claim subsequently verified by a univariate PCS
@@ -143,15 +144,14 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     pairing_points[0] = pairing_points[0].normalize();
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate recursion separator challenge properly.
-    agg_obj.aggregate(pairing_points, recursion_separator);
+    agg_obj.template aggregate<Builder>(pairing_points, recursion_separator);
     output.agg_obj = std::move(agg_obj);
 
     // Extract the IPA claim from the public inputs
-    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and runs the native IPA verifier.
+    // Parse out the nested IPA claim using key->ipa_claim_public_input_indices and run the native IPA verifier.
     if constexpr (HasIPAAccumulator<Flavor>) {
         const auto recover_fq_from_public_inputs = [](std::array<FF, Curve::BaseField::NUM_LIMBS>& limbs) {
             for (size_t k = 0; k < Curve::BaseField::NUM_LIMBS; k++) {
-                info("limbs " + std::to_string(k) + ": ", limbs[k]);
                 limbs[k].create_range_constraint(Curve::BaseField::NUM_LIMB_BITS, "limb_" + std::to_string(k));
             }
             return Curve::BaseField::unsafe_construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], false);

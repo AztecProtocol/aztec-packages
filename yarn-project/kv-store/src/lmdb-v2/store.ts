@@ -8,11 +8,15 @@ import { rm } from 'fs/promises';
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
-import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
-import { LMDBMap, LMDBMultiMap } from './map.js';
+// eslint-disable-next-line import/no-cycle
+import { LMDBArray } from './array.js';
+// eslint-disable-next-line import/no-cycle
+import { LMDBMap } from './map.js';
 import {
   Database,
   type LMDBMessageChannel,
@@ -20,11 +24,14 @@ import {
   type LMDBRequestBody,
   type LMDBResponseBody,
 } from './message.js';
+import { LMDBMultiMap } from './multi_map.js';
 import { ReadTransaction } from './read_transaction.js';
+// eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
 import { WriteTransaction } from './write_transaction.js';
 
 export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
+  private open = false;
   private channel: MsgpackChannel<LMDBMessageType, LMDBRequestBody, LMDBResponseBody>;
   private writerCtx = new AsyncLocalStorage<WriteTransaction>();
   private writerQueue = new SerialQueue();
@@ -43,18 +50,24 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     this.availableCursors = new Semaphore(maxReaders - 1);
   }
 
+  public get dataDirectory(): string {
+    return this.dataDir;
+  }
+
   private async start() {
     this.writerQueue.start();
 
-    await this.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.DATA,
       uniqueKeys: true,
     });
 
-    await this.sendMessage(LMDBMessageType.OPEN_DATABASE, {
+    await this.channel.sendMessage(LMDBMessageType.OPEN_DATABASE, {
       db: Database.INDEX,
       uniqueKeys: false,
     });
+
+    this.open = true;
   }
 
   public static async new(
@@ -70,10 +83,16 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   }
 
   public getReadTx(): ReadTransaction {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
     return new ReadTransaction(this);
   }
 
   public getCurrentWriteTx(): WriteTransaction | undefined {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
     const currentWrite = this.writerCtx.getStore();
     return currentWrite;
   }
@@ -90,8 +109,8 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return new LMDBSingleValue(this, name);
   }
 
-  openArray<T>(_name: string): AztecAsyncArray<T> {
-    throw new Error('Not implemented');
+  openArray<T>(name: string): AztecAsyncArray<T> {
+    return new LMDBArray(this, name);
   }
 
   openSet<K extends Key>(_name: string): AztecAsyncSet<K> {
@@ -105,6 +124,10 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
   async transactionAsync<T extends Exclude<any, Promise<any>>>(
     callback: (tx: WriteTransaction) => Promise<T>,
   ): Promise<T> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
     // transactionAsync might be called recursively
     // send any writes to the parent tx, but don't close it
     // if the callback throws then the parent tx will rollback automatically
@@ -138,20 +161,29 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   async delete(): Promise<void> {
     await this.close();
-    await rm(this.dataDir, { recursive: true, force: true });
+    await rm(this.dataDir, { recursive: true, force: true, maxRetries: 3 });
     this.log.verbose(`Deleted database files at ${this.dataDir}`);
     await this.cleanup?.();
   }
 
   async close() {
+    if (!this.open) {
+      // already closed
+      return;
+    }
+    this.open = false;
     await this.writerQueue.cancel();
-    await this.sendMessage(LMDBMessageType.CLOSE, undefined);
+    await this.channel.sendMessage(LMDBMessageType.CLOSE, undefined);
   }
 
   public async sendMessage<T extends LMDBMessageType>(
     msgType: T,
     body: LMDBRequestBody[T],
   ): Promise<LMDBResponseBody[T]> {
+    if (!this.open) {
+      throw new Error('Store is closed');
+    }
+
     if (msgType === LMDBMessageType.START_CURSOR) {
       await this.availableCursors.acquire();
     }

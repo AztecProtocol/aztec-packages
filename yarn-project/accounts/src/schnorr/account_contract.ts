@@ -1,24 +1,25 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, type CompleteAddress, type GrumpkinScalar } from '@aztec/circuit-types';
-import { Schnorr } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { Schnorr } from '@aztec/foundation/crypto';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../defaults/account_contract.js';
-import { SchnorrAccountContractArtifact } from './artifact.js';
 
 /**
  * Account contract that authenticates transactions using Schnorr signatures
  * verified against a Grumpkin public key stored in an immutable encrypted note.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
-export class SchnorrAccountContract extends DefaultAccountContract {
+export abstract class SchnorrBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPrivateKey: GrumpkinScalar) {
-    super(SchnorrAccountContractArtifact as ContractArtifact);
+    super();
   }
 
-  async getDeploymentArgs() {
+  async getDeploymentFunctionAndArgs() {
     const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
-    return [signingPublicKey.x, signingPublicKey.y];
+    return { constructorName: 'constructor', constructorArgs: [signingPublicKey.x, signingPublicKey.y] };
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {
@@ -27,7 +28,7 @@ export class SchnorrAccountContract extends DefaultAccountContract {
 }
 
 /** Creates auth witnesses using Schnorr signatures. */
-class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
+export class SchnorrAuthWitnessProvider implements AuthWitnessProvider {
   constructor(private signingPrivateKey: GrumpkinScalar) {}
 
   async createAuthWit(messageHash: Fr): Promise<AuthWitness> {

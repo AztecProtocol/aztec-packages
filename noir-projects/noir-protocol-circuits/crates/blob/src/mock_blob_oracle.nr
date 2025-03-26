@@ -1,8 +1,8 @@
 use crate::blob_public_inputs::{BlobCommitment, BlockBlobPublicInputs};
-use super::blob_public_inputs::Deserialize;
 use types::{
     abis::sponge_blob::SpongeBlob,
     constants::{BLOB_PUBLIC_INPUTS, BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+    traits::Deserialize,
 };
 
 // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).

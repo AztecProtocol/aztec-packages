@@ -1,6 +1,6 @@
 mod context;
 mod deploy;
-mod generators;
+mod discovery;
 mod hash;
 mod history;
 mod keys;
@@ -9,7 +9,7 @@ mod note;
 mod event;
 mod oracle;
 mod state_vars;
-mod pxe_db;
+mod capsules;
 mod prelude;
 mod encrypted_logs;
 mod unencrypted_logs;

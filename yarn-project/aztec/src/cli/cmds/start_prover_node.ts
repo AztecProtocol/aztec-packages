@@ -1,7 +1,9 @@
-import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker, createAztecNodeClient } from '@aztec/circuit-types';
+import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
-import { type LogFn } from '@aztec/foundation/log';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
+import type { LogFn } from '@aztec/foundation/log';
 import { ProvingJobConsumerSchema, createProvingJobBrokerClient } from '@aztec/prover-client/broker';
 import {
   type ProverNodeConfig,
@@ -9,12 +11,16 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import { initTelemetryClient, telemetryClientConfigMappings } from '@aztec/telemetry-client';
+import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
+import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
+import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { extractRelevantOptions } from '../util.js';
-import { validateL1Config } from '../validation.js';
+import { getL1Config } from '../get_l1_config.js';
+import { extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
+import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
 export async function startProverNode(
@@ -22,13 +28,13 @@ export async function startProverNode(
   signalHandlers: (() => Promise<void>)[],
   services: NamespacedApiHandlers,
   userLog: LogFn,
-) {
+): Promise<{ config: ProverNodeConfig }> {
   if (options.node || options.sequencer || options.pxe || options.p2pBootstrap || options.txe) {
     userLog(`Starting a prover-node with --node, --sequencer, --pxe, --p2p-bootstrap, or --txe is not supported.`);
     process.exit(1);
   }
 
-  const proverConfig = {
+  let proverConfig = {
     ...getProverNodeConfigFromEnv(), // get default config from env
     ...extractRelevantOptions<ProverNodeConfig>(options, proverNodeConfigMappings, 'proverNode'), // override with command line options
   };
@@ -61,16 +67,28 @@ export async function startProverNode(
 
   // If we create an archiver here, validate the L1 config
   if (options.archiver) {
-    await validateL1Config(proverConfig);
+    if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
+      throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
+    }
+    const { addresses, config } = await getL1Config(
+      proverConfig.l1Contracts.registryAddress,
+      proverConfig.l1RpcUrls,
+      proverConfig.l1ChainId,
+    );
+    proverConfig.l1Contracts = addresses;
+    proverConfig = { ...proverConfig, ...config };
   }
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
 
   let broker: ProvingJobBroker;
   if (proverConfig.proverBrokerUrl) {
-    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl);
+    // at 1TPS we'd enqueue ~1k tube proofs and ~1k AVM proofs immediately
+    // set a lower connectio  limit such that we don't overload the server
+    const fetch = makeTracedFetch([1, 2, 3], false, makeUndiciFetch(new Agent({ connections: 100 })));
+    broker = createProvingJobBrokerClient(proverConfig.proverBrokerUrl, getVersions(proverConfig), fetch);
   } else if (options.proverBroker) {
-    broker = await startProverBroker(options, signalHandlers, services, userLog);
+    ({ broker } = await startProverBroker(options, signalHandlers, services, userLog));
   } else {
     userLog(`--prover-broker-url or --prover-broker is required to start a Prover Node`);
     process.exit(1);
@@ -82,7 +100,19 @@ export async function startProverNode(
     );
   }
 
-  const proverNode = await createProverNode(proverConfig, { telemetry, broker });
+  await preloadCrsDataForVerifying(proverConfig, userLog);
+
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+
+  const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   const p2p = proverNode.getP2P();
@@ -96,5 +126,6 @@ export async function startProverNode(
 
   signalHandlers.push(proverNode.stop.bind(proverNode));
 
-  await proverNode.start();
+  proverNode.start();
+  return { config: proverConfig };
 }

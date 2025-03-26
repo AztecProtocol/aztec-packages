@@ -1,6 +1,8 @@
-import type { L1PublishBlockStats, L1PublishProofStats, L1PublishStats } from '@aztec/circuit-types/stats';
+import { createLogger } from '@aztec/aztec.js';
+import type { L1PublishBlockStats, L1PublishStats } from '@aztec/stdlib/stats';
 import {
   Attributes,
+  type Gauge,
   type Histogram,
   Metrics,
   type TelemetryClient,
@@ -10,7 +12,7 @@ import {
 
 import { formatEther } from 'viem/utils';
 
-export type L1TxType = 'submitProof' | 'process' | 'claimEpochProofRight';
+export type L1TxType = 'process';
 
 export class SequencerPublisherMetrics {
   private gasPrice: Histogram;
@@ -28,7 +30,13 @@ export class SequencerPublisherMetrics {
   private readonly blobTxSuccessCounter: UpDownCounter;
   private readonly blobTxFailureCounter: UpDownCounter;
 
-  constructor(client: TelemetryClient, name = 'SequencerPublisher') {
+  private senderBalance: Gauge;
+
+  constructor(
+    client: TelemetryClient,
+    name = 'SequencerPublisher',
+    private logger = createLogger('sequencer:publisher:metrics'),
+  ) {
     const meter = client.getMeter(name);
 
     this.gasPrice = meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
@@ -96,6 +104,12 @@ export class SequencerPublisherMetrics {
     this.blobTxFailureCounter = meter.createUpDownCounter(Metrics.L1_PUBLISHER_BLOB_TX_FAILURE, {
       description: 'Number of failed L1 transactions with blobs',
     });
+
+    this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
+      unit: 'eth',
+      description: 'The balance of the sender address',
+      valueType: ValueType.DOUBLE,
+    });
   }
 
   recordFailedTx(txType: L1TxType) {
@@ -107,10 +121,6 @@ export class SequencerPublisherMetrics {
     if (txType === 'process') {
       this.blobTxFailureCounter.add(1);
     }
-  }
-
-  recordSubmitProof(durationMs: number, stats: L1PublishProofStats) {
-    this.recordTx('submitProof', durationMs, stats);
   }
 
   recordProcessBlockTx(durationMs: number, stats: L1PublishBlockStats) {
@@ -127,8 +137,11 @@ export class SequencerPublisherMetrics {
     }
   }
 
-  recordClaimEpochProofRightTx(durationMs: number, stats: L1PublishStats) {
-    this.recordTx('claimEpochProofRight', durationMs, stats);
+  recordSenderBalance(wei: bigint, senderAddress: string) {
+    const eth = parseFloat(formatEther(wei, 'wei'));
+    this.senderBalance.record(eth, {
+      [Attributes.SENDER_ADDRESS]: senderAddress,
+    });
   }
 
   private recordTx(txType: L1TxType, durationMs: number, stats: L1PublishStats) {

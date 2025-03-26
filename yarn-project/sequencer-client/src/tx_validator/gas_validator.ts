@@ -1,8 +1,11 @@
-import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, FunctionSelector, type GasFees } from '@aztec/circuits.js';
-import { U128 } from '@aztec/foundation/abi';
+import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { computeFeePayerBalanceStorageSlot, getExecutionRequestsByPhase } from '@aztec/simulator/server';
+import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
+import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { GasFees } from '@aztec/stdlib/gas';
+import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
 
 /** Provides a view into public contract state */
 export interface PublicStateSource {
@@ -13,23 +16,16 @@ export class GasTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_gas');
   #publicDataSource: PublicStateSource;
   #feeJuiceAddress: AztecAddress;
-  #enforceFees: boolean;
   #gasFees: GasFees;
 
-  constructor(
-    publicDataSource: PublicStateSource,
-    feeJuiceAddress: AztecAddress,
-    enforceFees: boolean,
-    gasFees: GasFees,
-  ) {
+  constructor(publicDataSource: PublicStateSource, feeJuiceAddress: AztecAddress, gasFees: GasFees) {
     this.#publicDataSource = publicDataSource;
     this.#feeJuiceAddress = feeJuiceAddress;
-    this.#enforceFees = enforceFees;
     this.#gasFees = gasFees;
   }
 
-  validateTx(tx: Tx): Promise<TxValidationResult> {
-    if (this.#shouldSkip(tx)) {
+  async validateTx(tx: Tx): Promise<TxValidationResult> {
+    if (await this.#shouldSkip(tx)) {
       return Promise.resolve({ result: 'skipped', reason: ['Insufficient fee per gas'] });
     }
     return this.#validateTxFee(tx);
@@ -37,11 +33,11 @@ export class GasTxValidator implements TxValidator<Tx> {
 
   /**
    * Check whether the tx's max fees are valid for the current block, and skip if not.
-   * We skip instead of invalidating since the tx may become elligible later.
+   * We skip instead of invalidating since the tx may become eligible later.
    * Note that circuits check max fees even if fee payer is unset, so we
    * keep this validation even if the tx does not pay fees.
    */
-  #shouldSkip(tx: Tx): boolean {
+  async #shouldSkip(tx: Tx): Promise<boolean> {
     const gasSettings = tx.data.constants.txContext.gasSettings;
 
     // Skip the tx if its max fees are not enough for the current block's gas fees.
@@ -51,22 +47,16 @@ export class GasTxValidator implements TxValidator<Tx> {
       maxFeesPerGas.feePerL2Gas.lt(this.#gasFees.feePerL2Gas);
 
     if (notEnoughMaxFees) {
-      this.#log.warn(`Skipping transaction ${tx.getTxHash()} due to insufficient fee per gas`);
+      this.#log.warn(`Skipping transaction ${await tx.getTxHash()} due to insufficient fee per gas`, {
+        txMaxFeesPerGas: maxFeesPerGas.toInspect(),
+        currentGasFees: this.#gasFees.toInspect(),
+      });
     }
     return notEnoughMaxFees;
   }
 
   async #validateTxFee(tx: Tx): Promise<TxValidationResult> {
     const feePayer = tx.data.feePayer;
-    // TODO(@spalladino) Eventually remove the is_zero condition as we should always charge fees to every tx
-    if (feePayer.isZero()) {
-      if (this.#enforceFees) {
-        this.#log.warn(`Rejecting transaction ${tx.getTxHash()} due to missing fee payer`);
-        return { result: 'invalid', reason: ['Missing fee payer'] };
-      } else {
-        return { result: 'valid' };
-      }
-    }
 
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
     const feeLimit = tx.data.constants.txContext.gasSettings.getFeeLimit();
@@ -78,25 +68,25 @@ export class GasTxValidator implements TxValidator<Tx> {
     );
 
     // If there is a claim in this tx that increases the fee payer balance in Fee Juice, add it to balance
-    const setupFns = getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP);
+    const setupFns = getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP);
     const increasePublicBalanceSelector = await FunctionSelector.fromSignature(
-      '_increase_public_balance((Field),(Field,Field))',
-    );
-    const claimFunctionCall = setupFns.find(
-      fn =>
-        fn.callContext.contractAddress.equals(this.#feeJuiceAddress) &&
-        fn.callContext.msgSender.equals(this.#feeJuiceAddress) &&
-        fn.args.length > 2 &&
-        // Public functions get routed through the dispatch function, whose first argument is the target function selector.
-        fn.args[0].equals(increasePublicBalanceSelector.toField()) &&
-        fn.args[1].equals(feePayer.toField()) &&
-        !fn.callContext.isStaticCall,
+      '_increase_public_balance((Field),u128)',
     );
 
-    // `amount` in the claim function call arguments occupies 2 fields as it is represented as U128.
-    const balance = claimFunctionCall
-      ? initialBalance.add(new Fr(U128.fromFields(claimFunctionCall.args.slice(2, 4)).toInteger()))
-      : initialBalance;
+    // Arguments of the claim function call:
+    // - args[0]: Amount recipient.
+    // - args[1]: Amount being claimed.
+    const claimFunctionCall = setupFns.find(
+      fn =>
+        fn.request.contractAddress.equals(this.#feeJuiceAddress) &&
+        fn.request.msgSender.equals(this.#feeJuiceAddress) &&
+        fn.calldata.length > 2 &&
+        fn.functionSelector.equals(increasePublicBalanceSelector) &&
+        fn.args[0].equals(feePayer.toField()) &&
+        !fn.request.isStaticCall,
+    );
+
+    const balance = claimFunctionCall ? initialBalance.add(claimFunctionCall.args[1]) : initialBalance;
     if (balance.lt(feeLimit)) {
       this.#log.warn(`Rejecting transaction due to not enough fee payer balance`, {
         feePayer,

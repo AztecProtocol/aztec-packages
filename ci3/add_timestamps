@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+while IFS= read -r line; do
+  printf '%(%H:%M:%S)T %s\n' -1 "$line"
+done

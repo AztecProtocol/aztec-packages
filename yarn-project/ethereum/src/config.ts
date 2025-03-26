@@ -5,6 +5,8 @@ import {
   numberConfigHelper,
 } from '@aztec/foundation/config';
 
+import { type L1TxUtilsConfig, l1TxUtilsConfigMappings } from './l1_tx_utils.js';
+
 export type L1ContractsConfig = {
   /** How many seconds an L1 slot lasts. */
   ethereumSlotDuration: number;
@@ -15,7 +17,7 @@ export type L1ContractsConfig = {
   /** The target validator committee size. */
   aztecTargetCommitteeSize: number;
   /** The number of L2 slots that we can wait for a proof of an epoch to be produced. */
-  aztecEpochProofClaimWindowInL2Slots: number;
+  aztecProofSubmissionWindow: number;
   /** The minimum stake for a validator. */
   minimumStake: bigint;
   /** The slashing quorum */
@@ -26,19 +28,25 @@ export type L1ContractsConfig = {
   governanceProposerQuorum: number;
   /** Governance proposing round size */
   governanceProposerRoundSize: number;
-};
+  /** The mana target for the rollup */
+  manaTarget: bigint;
+  /** The proving cost per mana */
+  provingCostPerMana: bigint;
+} & L1TxUtilsConfig;
 
 export const DefaultL1ContractsConfig = {
   ethereumSlotDuration: 12,
   aztecSlotDuration: 24,
   aztecEpochDuration: 16,
   aztecTargetCommitteeSize: 48,
-  aztecEpochProofClaimWindowInL2Slots: 13,
+  aztecProofSubmissionWindow: 31, // you have a full epoch to submit a proof after the epoch to prove ends
   minimumStake: BigInt(100e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,
   governanceProposerQuorum: 6,
   governanceProposerRoundSize: 10,
+  manaTarget: BigInt(100e6),
+  provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;
 
 export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = {
@@ -62,10 +70,11 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The target validator committee size.',
     ...numberConfigHelper(DefaultL1ContractsConfig.aztecTargetCommitteeSize),
   },
-  aztecEpochProofClaimWindowInL2Slots: {
-    env: 'AZTEC_EPOCH_PROOF_CLAIM_WINDOW_IN_L2_SLOTS',
-    description: 'The number of L2 slots that we can wait for a proof of an epoch to be produced.',
-    ...numberConfigHelper(DefaultL1ContractsConfig.aztecEpochProofClaimWindowInL2Slots),
+  aztecProofSubmissionWindow: {
+    env: 'AZTEC_PROOF_SUBMISSION_WINDOW',
+    description:
+      'The number of L2 slots that a proof for an epoch can be submitted in, starting from the beginning of the epoch.',
+    ...numberConfigHelper(DefaultL1ContractsConfig.aztecProofSubmissionWindow),
   },
   minimumStake: {
     env: 'AZTEC_MINIMUM_STAKE',
@@ -92,6 +101,17 @@ export const l1ContractsConfigMappings: ConfigMappingsType<L1ContractsConfig> = 
     description: 'The governance proposing round size',
     ...numberConfigHelper(DefaultL1ContractsConfig.governanceProposerRoundSize),
   },
+  manaTarget: {
+    env: 'AZTEC_MANA_TARGET',
+    description: 'The mana target for the rollup',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.manaTarget),
+  },
+  provingCostPerMana: {
+    env: 'AZTEC_PROVING_COST_PER_MANA',
+    description: 'The proving cost per mana',
+    ...bigintConfigHelper(DefaultL1ContractsConfig.provingCostPerMana),
+  },
+  ...l1TxUtilsConfigMappings,
 };
 
 export function getL1ContractsConfigEnvVars(): L1ContractsConfig {

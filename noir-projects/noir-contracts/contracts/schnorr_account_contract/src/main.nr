@@ -5,7 +5,7 @@ mod public_key_note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract SchnorrAccount {
+pub contract SchnorrAccount {
     use dep::authwit::{
         account::AccountActions,
         auth::{compute_authwit_message_hash, compute_authwit_nullifier},
@@ -25,7 +25,9 @@ contract SchnorrAccount {
 
     #[storage]
     struct Storage<Context> {
+        // docs:start:public_key
         signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
+        // docs:end:public_key
     }
 
     // Constructs the contract
@@ -33,8 +35,8 @@ contract SchnorrAccount {
     #[initializer]
     fn constructor(signing_pub_key_x: Field, signing_pub_key_y: Field) {
         let this = context.this_address();
-        let mut pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
-        storage.signing_public_key.initialize(&mut pub_key_note).emit(encode_and_encrypt_note(
+        let pub_key_note = PublicKeyNote::new(signing_pub_key_x, signing_pub_key_y, this);
+        storage.signing_public_key.initialize(pub_key_note).emit(encode_and_encrypt_note(
             &mut context,
             this,
             this,
@@ -42,6 +44,7 @@ contract SchnorrAccount {
     }
 
     // Note: If you globally change the entrypoint signature don't forget to update account_entrypoint.ts file
+    // using noinitcheck is an optimization, it reduces gates by omitting a check that the contract has been initialized
     #[private]
     #[noinitcheck]
     fn entrypoint(app_payload: AppPayload, fee_payload: FeePayload, cancellable: bool) {
@@ -65,8 +68,8 @@ contract SchnorrAccount {
         let public_key = storage.signing_public_key.get_note();
 
         // Load auth witness
-        /// Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
-        /// Hence it's safe.
+        // Safety: The witness is only used as a "magical value" that makes the signature verification below pass.
+        // Hence it's safe.
         let witness: [Field; 64] = unsafe { get_auth_witness(outer_hash) };
         let mut signature: [u8; 64] = [0; 64];
         for i in 0..64 {

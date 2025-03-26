@@ -1,6 +1,0 @@
-[package]
-name = "acir_inside_brillig_recursion"
-type = "bin"
-authors = [""]
-
-[dependencies]

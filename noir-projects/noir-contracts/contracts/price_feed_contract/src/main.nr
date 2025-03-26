@@ -3,7 +3,7 @@ mod asset;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract PriceFeed {
+pub contract PriceFeed {
     use crate::asset::Asset;
     use dep::aztec::prelude::{Map, PublicMutable};
 
@@ -16,7 +16,7 @@ contract PriceFeed {
     }
 
     #[public]
-    fn set_price(asset_id: Field, price: U128) {
+    fn set_price(asset_id: Field, price: u128) {
         let asset = storage.assets.at(asset_id);
         asset.write(Asset { price });
     }

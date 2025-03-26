@@ -66,9 +66,8 @@ contract ForwarderTest is Test {
   }
 
   function testRevertWhenCallToInvalidAddress(address _invalidAddress) public {
-    vm.assume(_invalidAddress != address(token1));
-    vm.assume(_invalidAddress != address(token2));
-    vm.assume(_invalidAddress != address(forwarder));
+    vm.assume(_invalidAddress.code.length == 0);
+    vm.assume(uint160(_invalidAddress) > uint160(0x0a));
 
     address[] memory targets = new address[](1);
     targets[0] = _invalidAddress;

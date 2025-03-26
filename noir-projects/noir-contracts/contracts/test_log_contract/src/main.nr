@@ -1,13 +1,15 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract TestLog {
+pub contract TestLog {
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::event::encode_and_encrypt_event;
     use dep::aztec::macros::{events::event, functions::{private, public}, storage::storage};
     use dep::aztec::prelude::PrivateSet;
     use dep::aztec::protocol_types::{address::AztecAddress, traits::Serialize};
     use dep::aztec::unencrypted_logs::unencrypted_event_emission::encode_event;
     use dep::value_note::value_note::ValueNote;
+    use aztec::event::event_interface::EventInterface;
+    use aztec::protocol_types::traits::FromField;
     use std::meta::derive;
 
     #[derive(Serialize)]

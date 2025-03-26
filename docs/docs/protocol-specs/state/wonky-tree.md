@@ -4,10 +4,7 @@ A 'wonky' tree is an append-only unbalanced merkle tree, filled from left to rig
 
 For example, using a balanced merkle tree to rollup 5 transactions requires padding of 3 empty transactions:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     R_c[Root]
 
@@ -62,10 +59,7 @@ Where each node marked with `*` indicates a circuit proving entirely empty infor
 
 Our wonky tree implementation instead gives the below structure for 5 transactions:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     R_c[Root]
 
@@ -106,10 +100,7 @@ graph BT
 
 Here, each circuit is proving useful transaction information with no wasted compute. We can construct a tree like this one for any number of transactions by greedy filling from left to right. Given the required 5 base circuits:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph
     B0_c[Base 0]
     B1_c[Base 1]
@@ -120,10 +111,7 @@ graph
 
 ...we theh pair these base circuits up to form merges:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     M0_c[Merge 0]
     M1_c[Merge 1]
@@ -142,10 +130,7 @@ graph BT
 
 Since we have an odd number of transactions, we cannot pair up the final base. Instead, we continue to pair the next layers until we reach a layer with an odd number of members. In this example, that's when we reach merge 2:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     M0_c[Merge 0]
     M1_c[Merge 1]
@@ -168,10 +153,7 @@ graph BT
 
 Once paired, the base layer has length 4, the next merge layer has 2, and the final merge layer has 1. After reaching a layer with odd length, the orchestrator can now pair base 4:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     R_c[Root]
 
@@ -230,10 +212,7 @@ Subtrees: [16, 8, 4, 2, 1] ->
 
 An unrolled recursive algorithm is not the easiest thing to read. This diagram represents the 31 transactions rolled up in our wonky structure, where each `Merge <num>` is a 'subroot' above:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph BT
     M2_c[Merge 2]
     M3_c[Merge D
@@ -267,7 +246,7 @@ graph BT
     M2_c --> R_c
 ```
 
-The tree is reconstructed to check the `txs_effects_hash` (= the root of a wonky tree given by leaves of each tx's `tx_effects`) on L1. We also reconstruct it to provide a membership path against the stored `out_hash` (= the root of a wonky tree given by leaves of each tx's L2 to L1 message tree root) for consuming a L2 to L1 message.
+The tree is reconstructed to provide a membership path against the stored `out_hash` (= the root of a wonky tree given by leaves of each tx's L2 to L1 message tree root) for consuming a L2 to L1 message.
 
 Currently, this tree is built via the orchestrator given the number of transactions to rollup. Each 'node' is assigned a level (0 at the root) and index in that level. The below function finds the parent level:
 
@@ -304,7 +283,7 @@ The while loop triggers and shifts up our node to `level = 2` and `index = 2`. T
 
 ### Flexible wonky trees
 
-We can also encode the structure of _any_ binary merkle tree by tracking `number_of_branches` and `number_of_leaves` for each node in the tree. This encoding was originally designed for [logs](../logs/index.md) before they were included in the `txs_effects_hash`, so the below explanation references the leaves stored in relation to logs and transactions.
+We can also encode the structure of _any_ binary merkle tree by tracking `number_of_branches` and `number_of_leaves` for each node in the tree. This encoding was originally designed for [logs](../logs/index.md), so the below explanation references the leaves stored in relation to logs and transactions.
 
 The benefit of this method as opposed to the one above is allowing for any binary structure and therefore allowing for 'skipping' leaves with no information. However, the encoding grows as the tree grows, by at least 2 bytes per node. The above implementation only requires the number of leaves to be encoded, which will likely only require a single field to store.
 
@@ -327,10 +306,7 @@ Here is a step-by-step example to construct the _`block_logs_data`_:
 
 1. A rollup, _R01_, merges two transactions: _tx0_ containing _tx_logs_data_0_, and _tx1_ containing _tx_logs_data_1_:
 
-   ```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+   ```mermaid
    flowchart BT
        tx0((tx0))
        tx1((tx1))
@@ -345,10 +321,7 @@ import { Mermaid } from '@docusaurus/theme-mermaid';
 
 2. Another rollup, _R23_, merges two transactions: _tx3_ containing _tx_logs_data_3_, and _tx2_ without any logs:
 
-   ```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+   ```mermaid
    flowchart BT
        tx2((tx2))
        tx3((tx3))
@@ -363,10 +336,7 @@ import { Mermaid } from '@docusaurus/theme-mermaid';
 
 3. A rollup, _RA_, merges the two rollups _R01_ and _R23_:
 
-   ```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+   ```mermaid
    flowchart BT
       tx0((tx0))
       tx1((tx1))
@@ -389,10 +359,7 @@ import { Mermaid } from '@docusaurus/theme-mermaid';
 
 4. A rollup, _RB_, merges the above rollup _RA_ and another rollup _R45_:
 
-   ```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+   ```mermaid
    flowchart BT
      tx0((tx0))
       tx1((tx1))

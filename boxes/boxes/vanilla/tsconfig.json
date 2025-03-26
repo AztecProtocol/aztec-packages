@@ -6,5 +6,5 @@
     "moduleResolution": "Bundler",
     "skipLibCheck": true
   },
-  "include": ["**/*.ts"]
+  "include": ["src", "artifacts"]
 }

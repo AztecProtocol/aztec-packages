@@ -2,6 +2,7 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import ResolveTypeScriptPlugin from 'resolve-typescript-plugin';
 import webpack from 'webpack';
+import TerserPlugin from 'terser-webpack-plugin';
 
 /**
  * @type {import('webpack').Configuration}
@@ -12,24 +13,17 @@ export default {
   // Useful for debugging.
   // mode: 'development',
   // devtool: 'source-map',
-  entry: './src/index.ts',
+  entry: {
+    index: './src/index.ts',
+    // Force inclusion of inlined wasm files withouth mangling await import statements.
+    barretenberg: './src/barretenberg_wasm/fetch_code/browser/barretenberg.ts',
+    "barretenberg-threads": './src/barretenberg_wasm/fetch_code/browser/barretenberg-threads.ts'
+  },
   module: {
     rules: [
       {
         test: /\.wasm\.gz$/,
-        type: 'asset/resource',
-        generator: {
-          // The wasm filenames are actually the same, but we symlink them to the correct one
-          // (threads or not) on the .ts folder. Unfortunately webpack uses the original name,
-          // so we have to manually correct it here.
-          filename: (path) => {
-            if(path.filename.includes('wasm-threads')) {
-              return 'barretenberg-threads.wasm.gz';
-            }
-            return '[base]';
-          },
-          publicPath: '/'
-        }
+        type: 'asset/inline',
       },
       {
         test: /\.worker\.ts$/,
@@ -49,7 +43,8 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), './dest/browser'),
-    filename: 'index.js',
+    filename: '[name].js',
+    chunkFilename: '[name].[chunkhash].js',
     module: true,
     globalObject: 'globalThis',
     library: {
@@ -57,7 +52,20 @@ export default {
     },
   },
   optimization: {
-    minimize: false,
+    minimizer: [
+      new TerserPlugin({
+        terserOptions: {
+          compress: false,
+          mangle: false,
+          format: {
+            beautify: true
+          }
+        },
+      }),
+    ],
+    splitChunks: {
+      chunks: 'async',
+    }
   },
   experiments: {
     outputModule: true,

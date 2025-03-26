@@ -15,10 +15,7 @@ A note for Aztec protocol developers: In this protocol spec, the order in which 
 <!-- Mike review: perhaps a more comprehensive example would be if f2 makes the calls to f4 and f5, to cover a case which isn't covered in the current example: If f2 calls f4 & f5, then which is processed by the kernel first out of f3, f4, or f5?
 -->
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 flowchart LR
     f0([f0]) --> f1([f1])
     f0 --> f2([f2])
@@ -30,15 +27,11 @@ flowchart LR
     f3 --> f4([f4])
     f3 -.-> F4
     f3 --> f5([f5])
-</Mermaid>
 ```
 
 This transaction contains 6 private functions (f0 to f5) and 5 public functions (F0 to F4), with `f0` being the entrypoint. The entire transaction is processed as follows:
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 flowchart TB
     subgraph Transaction A
         subgraph Private Functions
@@ -133,7 +126,6 @@ flowchart TB
     MR1 --> MR2
     MR2 --> ROOT
     MR3 --> ROOT
-</Mermaid>
 ```
 
 A few things to note:

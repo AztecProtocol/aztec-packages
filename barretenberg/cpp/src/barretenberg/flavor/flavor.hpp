@@ -87,17 +87,6 @@
 
 namespace bb {
 
-/**
- * @brief Base class template containing circuit-specifying data.
- *
- */
-class PrecomputedEntitiesBase {
-  public:
-    bool operator==(const PrecomputedEntitiesBase& other) const = default;
-    uint64_t circuit_size;
-    uint64_t log_circuit_size;
-    uint64_t num_public_inputs;
-};
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
@@ -164,18 +153,23 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 /**
  * @brief Base verification key class.
  *
+ * @tparam FF_, the type that we will represent our VK metadata (circuit_size, log_circuit_size, num_public_inputs,
+ * pub_inputs_offset). It will either be uint64_t or a stdlib field type.
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  * @tparam VerifierCommitmentKey The PCS verification key
  */
-template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
+template <typename FF_, typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    FF_ circuit_size;
+    FF_ log_circuit_size;
+    FF_ num_public_inputs;
+    FF_ pub_inputs_offset = 0;
     bool contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
-    uint64_t pub_inputs_offset = 0;
 
     bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
@@ -242,15 +236,11 @@ auto get_unshifted_then_shifted(const auto& all_entities)
  * @details The "partial length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are as constants, not as variables..
  */
-template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_relation_length()
+template <typename Tuple> constexpr size_t compute_max_partial_relation_length()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        if constexpr (ZK) {
-            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_RELATION_LENGTH... });
-        } else {
-            return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
-        }
+        return std::max({ std::tuple_element_t<Is, Tuple>::RELATION_LENGTH... });
     }(seq);
 }
 
@@ -259,15 +249,11 @@ template <typename Tuple, bool ZK = false> constexpr size_t compute_max_partial_
  * @details The "total length" of a relation is 1 + the degree of the relation, where any challenges used in the
  * relation are regarded as variables.
  */
-template <typename Tuple, bool ZK = false> constexpr size_t compute_max_total_relation_length()
+template <typename Tuple> constexpr size_t compute_max_total_relation_length()
 {
     constexpr auto seq = std::make_index_sequence<std::tuple_size_v<Tuple>>();
     return []<std::size_t... Is>(std::index_sequence<Is...>) {
-        if constexpr (ZK) {
-            return std::max({ std::tuple_element_t<Is, Tuple>::ZK_TOTAL_RELATION_LENGTH... });
-        } else {
-            return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
-        }
+        return std::max({ std::tuple_element_t<Is, Tuple>::TOTAL_RELATION_LENGTH... });
     }(seq);
 }
 

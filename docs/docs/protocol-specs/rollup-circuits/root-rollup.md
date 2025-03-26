@@ -4,13 +4,9 @@ title: Root Rollup
 
 The root rollup circuit is our top circuit, it applies the state changes passed through its children and the cross-chain messages. Essentially, it is the last step that allows us to prove that the state transition function $\mathcal{T}(S, B) \mapsto S'$ was applied correctly for a state $S$ and a block $B$. Note, that the root rollup circuit's public inputs do not comprise the block entirely as it would be too costly to verify. Given a `ProvenBlock` and proof a node can derive the public inputs and validate the correctness of the state progression.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 graph LR
 A[RootRollupInputs] --> C[RootRollupCircuit] --> B[RootRollupPublicInputs] --> D[ProvenBlock] --> E[Node]
-</Mermaid>
 ```
 
 For rollup purposes, the node we want to convince of the correctness is the [validating light node](../l1-smart-contracts/index.md) that we put on L1. We will cover it in more detail in the [cross-chain communication](../l1-smart-contracts/index.md) section.
@@ -19,12 +15,11 @@ For rollup purposes, the node we want to convince of the correctness is the [val
 This might practically happen through a series of "squisher" circuits that will wrap the proof in another proof that is cheaper to verify on-chain. For example, wrapping a ultra-plonk proof in a standard plonk proof.
 :::
 
+<!-- TODO: this is all very out of date -->
+
 ## Overview
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 classDiagram
 direction TB
 
@@ -170,7 +165,6 @@ class RootRollupPublicInputs {
     header: Header
 }
 RootRollupPublicInputs *--Header : header
-</Mermaid>
 ```
 
 ### Validity Conditions
@@ -192,6 +186,7 @@ def RootRollupCircuit(
     assert left.public_inputs.constants == right.public_inputs.constants
     assert left.public_inputs.end == right.public_inputs.start
     assert left.public_inputs.num_txs >= right.public_inputs.num_txs
+    assert left.public_inputs.end_sponge == right.public_inputs.start_sponge
 
     assert parent.state.partial == left.public_inputs.start
 
@@ -216,7 +211,6 @@ def RootRollupCircuit(
         last_archive = left.public_inputs.constants.last_archive,
         content_commitment: ContentCommitment(
             num_txs=left.public_inputs.num_txs + right.public_inputs.num_txs,
-            txs_effect_hash=SHA256(left.public_inputs.txs_effect_hash | right.public_inputs.txs_effect_hash),
             in_hash = l1_to_l2_roots.public_inputs.sha_root,
             out_hash = SHA256(left.public_inputs.out_hash | right.public_inputs.out_hash),
         ),

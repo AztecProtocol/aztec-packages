@@ -39,21 +39,6 @@ template <typename FF_> class AuxiliaryRelationImpl {
         6, // RAM consistency sub-relation 2
         6  // RAM consistency sub-relation 3
     };
-    /**
-     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 6> SUBRELATION_WITNESS_DEGREES{
-        2, // auxiliary sub-relation;
-        2, // ROM consistency sub-relation 1: adjacent values match if adjacent indices match and next access is a read
-           // operation
-        2, // ROM consistency sub-relation 2: index is monotonously increasing
-        3, // RAM consistency sub-relation 1: adjacent values match if adjacent indices match and next access is a read
-           // operation
-        2, // RAM consistency sub-relation 2: index is monotonously increasing
-        2  // RAM consistency sub-relation 3: next gate access type is boolean
-    };
 
     static constexpr std::array<size_t, 6> TOTAL_LENGTH_ADJUSTMENTS{
         1, // auxiliary sub-relation

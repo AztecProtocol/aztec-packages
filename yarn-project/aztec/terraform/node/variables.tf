@@ -16,7 +16,7 @@ variable "FORK_ADMIN_API_KEY" {
   default = ""
 }
 
-variable "ETHEREUM_HOST" {
+variable "ETHEREUM_HOSTS" {
   type    = string
   default = ""
 }
@@ -53,21 +53,6 @@ variable "SEQ_MAX_TX_PER_BLOCK" {
 variable "SEQ_MIN_TX_PER_BLOCK" {
   type    = string
   default = 2
-}
-
-variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
-  type    = string
-  default = 0
-}
-
-variable "SEQ_MIN_SECONDS_BETWEEN_BLOCKS" {
-  type    = string
-  default = 0
-}
-
-variable "P2P_MIN_PEERS" {
-  type    = string
-  default = 5
 }
 
 variable "P2P_MAX_PEERS" {
@@ -115,7 +100,7 @@ variable "P2P_GOSSIPSUB_MCACHE_GOSSIP" {
   default = 3
 }
 
-variable "P2P_SEVERE_PEER_PENALTY_BLOCK_LENGTH" {
+variable "P2P_DOUBLE_SPEND_SEVERE_PEER_PENALTY_WINDOW" {
   type    = number
   default = 30
 }

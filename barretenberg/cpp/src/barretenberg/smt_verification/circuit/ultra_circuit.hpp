@@ -15,11 +15,11 @@ class UltraCircuit : public CircuitBase {
   public:
     // TODO(alex): check that there's no actual pub_inputs block
     std::vector<std::vector<std::vector<bb::fr>>> selectors;    // all selectors from the circuit
-                                                                // 1st entry are arithmetic selectors
-                                                                // 2nd entry are delta_range selectors
-                                                                // 3rd entry are elliptic selectors
-                                                                // 4th entry are aux selectors
-                                                                // 5th entry are lookup selectors
+                                                                // 1st entry are lookup selectors
+                                                                // 2nd entry are arithmetic selectors
+                                                                // 3rd entry are delta_range selectors
+                                                                // 4th entry are elliptic selectors
+                                                                // 5th entry are aux selectors
     std::vector<std::vector<std::vector<uint32_t>>> wires_idxs; // values of the gates' wires idxs
 
     std::vector<std::vector<std::vector<bb::fr>>> lookup_tables;

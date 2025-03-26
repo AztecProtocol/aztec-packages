@@ -22,15 +22,6 @@ template <typename FF_> class LogDerivLookupRelationImpl {
         LENGTH, // inverse construction sub-relation
         LENGTH  // log derivative lookup argument sub-relation
     };
-    /**
-     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        2, // inverse construction sub-relation
-        3, // log derivative lookup argument sub-relation
-    };
 
     // Note: the required correction for the second sub-relation is technically +1 but the two corrections must agree
     // due to the way the relation algebra is written so both are set to +2.

@@ -102,7 +102,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
 
     // ----------------------- Create the full row files -----------------------
     bb_files.create_full_row_hpp(vm_name, &all_cols);
-    bb_files.create_full_row_cpp(vm_name, &all_cols);
 
     // ----------------------- Create the flavor files -----------------------
     bb_files.create_flavor_hpp(

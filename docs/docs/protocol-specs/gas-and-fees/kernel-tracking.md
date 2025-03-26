@@ -16,10 +16,7 @@ On the private side, the ordering of the circuits is:
 
 The structs are (irrelevant fields omitted):
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 classDiagram
 
 class PrivateContextInputs {
@@ -147,7 +144,7 @@ class PrivateKernelTailToPublicCircuitPrivateInputs {
     +PrivateKernelData previous_kernel
 }
 PrivateKernelTailToPublicCircuitPrivateInputs --> PrivateKernelData
-</Mermaid>
+
 ```
 
 ## Private Context Initialization
@@ -275,10 +272,7 @@ On the public side, the order of the circuits is:
 
 The structs are (irrelevant fields omitted):
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 classDiagram
 
 class Gas {
@@ -411,7 +405,7 @@ class GasFees {
     +Fr fee_per_da_gas
     +Fr fee_per_l2_gas
 }
-</Mermaid>
+
 ```
 
 ## Public Context Initialization

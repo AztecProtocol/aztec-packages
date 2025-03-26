@@ -182,6 +182,32 @@ TEST_F(LMDBStoreTest, can_write_duplicate_keys_to_database)
     EXPECT_NO_THROW(store->put(putDatas));
 }
 
+TEST_F(LMDBStoreTest, can_write_the_same_data_multiple_times)
+{
+    LMDBStore::Ptr store = create_store(2);
+    const std::string name = "Test Database";
+    store->open_database(name);
+    const std::string nameDups = "Test Database Dups";
+    store->open_database(nameDups, true);
+
+    // Check that writing duplicates in the same tx works
+    auto key = get_key(0);
+    auto data = get_value(0, 1);
+    KeyDupValuesVector toWrite = { { { key, { data, data } } } };
+    KeyOptionalValuesVector toDelete;
+    LMDBStore::PutData putData = { toWrite, toDelete, name };
+    std::vector<LMDBStore::PutData> putDatas = { putData };
+    EXPECT_NO_THROW(store->put(putDatas));
+
+    LMDBStore::PutData putDataDups = { toWrite, toDelete, nameDups };
+    putDatas = { putDataDups };
+    EXPECT_NO_THROW(store->put(putDatas));
+
+    // writing again, in a new tx should also work
+    EXPECT_NO_THROW(store->put(putDatas));
+    EXPECT_NO_THROW(store->put(putDatas));
+}
+
 TEST_F(LMDBStoreTest, can_read_from_database)
 {
     LMDBStore::Ptr store = create_store();

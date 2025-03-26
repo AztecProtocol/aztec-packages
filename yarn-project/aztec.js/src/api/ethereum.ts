@@ -1,2 +1,11 @@
-export { deployL1Contract, deployL1Contracts, DeployL1Contracts } from '@aztec/ethereum/deploy-l1-contracts';
-export { EthCheatCodes } from '@aztec/ethereum/eth-cheatcodes';
+export {
+  L1FeeJuicePortalManager,
+  L1ToL2TokenPortalManager,
+  L1TokenManager,
+  L1TokenPortalManager,
+  type L2AmountClaim,
+  type L2AmountClaimWithRecipient,
+  type L2Claim,
+  generateClaimSecret,
+} from '../ethereum/portal_manager.js';
+export { getL1ContractAddresses } from '../ethereum/l1_contracts.js';

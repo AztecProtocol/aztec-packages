@@ -1,4 +1,4 @@
-import { Blob, type BlobJson } from '@aztec/foundation/blob';
+import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 /** Serialized an array of blobs with their indexes to be stored at a given block id */

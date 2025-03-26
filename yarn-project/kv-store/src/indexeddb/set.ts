@@ -1,9 +1,9 @@
-import { type IDBPDatabase, type IDBPObjectStore } from 'idb';
+import type { IDBPDatabase, IDBPObjectStore } from 'idb';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncSet } from '../interfaces/set.js';
+import type { Key, Range } from '../interfaces/common.js';
+import type { AztecAsyncSet } from '../interfaces/set.js';
 import { IndexedDBAztecMap } from './map.js';
-import { type AztecIDBSchema } from './store.js';
+import type { AztecIDBSchema } from './store.js';
 
 /**
  * A set backed by IndexedDB.

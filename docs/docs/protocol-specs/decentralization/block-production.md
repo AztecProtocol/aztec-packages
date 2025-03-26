@@ -1,4 +1,8 @@
-# Aztec Block Production
+---
+title: Block Production
+draft: true
+---
+
 
 :::info
 This document aims to be the latest source of truth for the Fernet sequencer selection protocol, and reflect the decision to implement the [Sidecar](https://forum.aztec.network/t/proposal-prover-coordination-sidecar/2428) proving coordination protocol. Notably, this is written within the context of the first instance or deployment of Aztec. The definitions and protocol may evolve over time with each version.
@@ -88,12 +92,7 @@ What is Aztec's economic security needs? Please clarify.
 
 Currently, Provers don't need to register but must commit a bond during the `prover commitment phase` articulated below. This ensures economic guarantees for timely proof generation, and therefore short-term liveness. If the prover is unable or unwilling to produce a proof for which they committed to in the allotted time their bond will be slashed.
 
-Future updates may introduce a registration process for Provers, possibly leading to a smaller, more consistent group, but this is currently not suggested to be required.
-
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Anyone
@@ -101,9 +100,8 @@ participant Contract as Aztec L1 Contract
 participant Network as Aztec Network
 
 Anyone ->> Contract: register as a sequencer
-Anyone --> Anyone: Wait 7 days
+Anyone --> Anyone: Wait epoch
 Anyone ->> Network: eligible as a sequencer
-</Mermaid>
 ```
 
 ## Block production
@@ -130,10 +128,7 @@ Every staked sequencers participate in the following phases, comprising an Aztec
    - For data layers that is not on the host, the host must have learned of the publication from the **Reveal** before the **Finalization** can begin.
 6. **Backup:** Should no prover commitment be put down, or should the block not get finalized, then an additional phase is opened where anyone can submit a block with its proof, in a based-rollup mode. In the backup phase, the first rollup verified will become canonical.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Contract as Aztec L1 Contract
@@ -156,7 +151,6 @@ loop Happy Path Block Production
     Contract --> Contract: validates proofs and state transition
     Note right of Contract: "block confirmed!"
 end
-</Mermaid>
 ```
 
 ### Constraining Randao
@@ -185,10 +179,7 @@ When a sequencer move to `exiting`, they might have to await for an additional d
 **Lasse Comment**: I'm unsure what you mean by "active" here. Is active that you are able to produce blocks? Is so, active seems fine. Also, not clear to me if `exiting` means that they be unable to propose blocks? If they are voting in them, sure put a delay in there, but otherwise I don't see why they should be unable to leave (when we don't have consensus for block production).
 :::
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Anyone as Sequencer
@@ -199,8 +190,6 @@ Anyone ->> Contract: exit() from being a sequencer
 Note left of Contract: Sequencer no longer eligible for Fernet elections
 Anyone --> Anyone: Wait 7-21 days
 Anyone ->> Network: exit successful, stake unlocked
-</Mermaid>
-
 ```
 
 ## Confirmation rules
@@ -220,10 +209,7 @@ Below, we outline the stages of confirmation.
 6. In a proven block that has been verified / validated by the L1 rollup contracts
 7. In a proven block that has been finalized on the L1
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Anyone as User
@@ -243,15 +229,11 @@ Contract --> Contract: waits N more blocks
 Contract --> Contract: finalizes block
 Network --> Contract: updates state to reflect finality
 Anyone ->> Network: confirms on their own node or block explorer
-</Mermaid>
 ```
 
 <!--![image](./images/Aztec-Block-Production-2.png)-->
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 journey
     title Wallet use case, basic transfer (tx confirmation happy path)
     section User Device
@@ -264,7 +246,6 @@ journey
     section L1
       Tx in block verified on L1: 6: Sequencer
       Tx in block finalized on L1: 7: Sequencer
-</Mermaid>
 ```
 
 ## Economics
@@ -306,10 +287,7 @@ Initially it's expected that the negotiations and commitment could be facilitate
 I'm not fully understanding the different groups, is the aztec network just the node software or 👀? Maybe coloring is nice to mark what is contracts and entities or groups of entities. Otherwise seems quite nice.
 :::
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Anyone
@@ -319,7 +297,7 @@ participant Sequencers
 participant Provers
 
 Anyone ->> Contract: register()
-Anyone --> Anyone: Wait 7 days
+Anyone --> Anyone: Wait epoch
 Anyone ->> Network: eligible as a sequencer
 loop Happy Path Block Production
     Sequencers --> Sequencers: Generate random hashes and rank them
@@ -337,18 +315,14 @@ loop Happy Path Block Production
     Note right of Contract: "block confirmed!"
 end
 Sequencers ->> Contract: exit()
-Sequencers --> Sequencers: wait 7 days
-</Mermaid>
+Sequencers --> Sequencers: wait epoch
 ```
 
 ### Voting on upgrades
 
 In the initial implementation of Aztec, sequencers may vote on upgrades alongside block proposals. If they wish to vote alongside an upgrade, they signal by updating their client software or an environment configuration variable. If they wish to vote no or abstain, they do nothing. Because the "election" is randomized, the voting acts as a random sampling throughout the current sequencer set. This implies that the specific duration of the vote must be sufficiently long and RANDAO sufficiently randomized to ensure that the sampling is reasonably distributed.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Contract as Aztec L1 Contract
@@ -371,17 +345,13 @@ loop Happy Path Block Production
     Contract --> Contract: validates proofs and state transition
     Note right of Contract: "block confirmed! votes counted for upgrade!"
 end
-</Mermaid>
 ```
 
 ### Backup mode
 
 In the event that no one submits a valid block proposal, we introduce a "backup" mode which enables a first come first serve race to submit the first proof to the L1 smart contracts.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Anyone
@@ -398,7 +368,6 @@ loop Happy Path Block Production
     Contract --> Contract: validates proofs and state transition
     Note right of Contract: "block confirmed!"
 end
-</Mermaid>
 ```
 
 :::danger
@@ -407,10 +376,7 @@ There is an outstanding concern that this may result in L1 censorship. L1 builde
 
 We also introduce a similar backup mode in the event that there is a valid proposal, but no valid prover commitment (deposit) by the end of the prover commitment phase.
 
-```mdx
-import { Mermaid } from '@docusaurus/theme-mermaid';
-
-<Mermaid>
+```mermaid
 sequenceDiagram
 
 participant Anyone
@@ -431,7 +397,6 @@ loop Happy Path Block Production
     Contract --> Contract: validates proofs and state transition
     Note right of Contract: "block confirmed!"
 end
-</Mermaid>
 ```
 
 ## Glossary

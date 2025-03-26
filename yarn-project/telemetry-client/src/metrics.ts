@@ -35,11 +35,9 @@ export const DB_USED_SIZE = 'aztec.db.used_size';
 export const MEMPOOL_ATTESTATIONS_COUNT = 'aztec.mempool.attestations_count';
 export const MEMPOOL_ATTESTATIONS_SIZE = 'aztec.mempool.attestations_size';
 
-export const MEMPOOL_PROVER_QUOTE_COUNT = 'aztec.mempool.prover_quote_count';
-export const MEMPOOL_PROVER_QUOTE_SIZE = 'aztec.mempool.prover_quote_size';
-
 export const ARCHIVER_SYNC_DURATION = 'aztec.archiver.sync_duration';
 export const ARCHIVER_L1_BLOCKS_SYNCED = 'aztec.archiver.l1_blocks_synced';
+export const ARCHIVER_L1_BLOCK_HEIGHT = 'aztec.archiver.l1_block_height';
 export const ARCHIVER_BLOCK_HEIGHT = 'aztec.archiver.block_height';
 export const ARCHIVER_TX_COUNT = 'aztec.archiver.tx_count';
 export const ARCHIVER_ROLLUP_PROOF_DELAY = 'aztec.archiver.rollup_proof_delay';
@@ -71,9 +69,16 @@ export const L1_PUBLISHER_BLOB_COUNT = 'aztec.l1_publisher.blob_count';
 export const L1_PUBLISHER_BLOB_INCLUSION_BLOCKS = 'aztec.l1_publisher.blob_inclusion_blocks';
 export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'aztec.l1_publisher.blob_tx_success';
 export const L1_PUBLISHER_BLOB_TX_FAILURE = 'aztec.l1_publisher.blob_tx_failure';
+export const L1_PUBLISHER_BALANCE = 'aztec.l1_publisher.balance';
+
+export const L1_BLOCK_HEIGHT = 'aztec.l1.block_height';
+export const L1_BALANCE_ETH = 'aztec.l1.balance';
+export const L1_GAS_PRICE_WEI = 'aztec.l1.gas_price';
+export const L1_BLOB_BASE_FEE_WEI = 'aztec.l1.blob_base_fee';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
+export const PEER_MANAGER_PEER_COUNT = 'aztec.peer_manager.peer_count';
 
 export const P2P_REQ_RESP_SENT_REQUESTS = 'aztec.p2p.req_resp.sent_requests';
 export const P2P_REQ_RESP_RECEIVED_REQUESTS = 'aztec.p2p.req_resp.received_requests';
@@ -103,11 +108,13 @@ export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
 
 export const PROVING_QUEUE_JOB_SIZE = 'aztec.proving_queue.job_size';
 export const PROVING_QUEUE_SIZE = 'aztec.proving_queue.size';
-export const PROVING_QUEUE_ACTIVE_JOBS = 'aztec.proving_queue.active_jobs';
-export const PROVING_QUEUE_RESOLVED_JOBS = 'aztec.proving_queue.resolved_jobs';
-export const PROVING_QUEUE_REJECTED_JOBS = 'aztec.proving_queue.rejected_jobs';
-export const PROVING_QUEUE_RETRIED_JOBS = 'aztec.proving_queue.retried_jobs';
-export const PROVING_QUEUE_TIMED_OUT_JOBS = 'aztec.proving_queue.timed_out_jobs';
+export const PROVING_QUEUE_TOTAL_JOBS = 'aztec.proving_queue.enqueued_jobs_count';
+export const PROVING_QUEUE_CACHED_JOBS = 'aztec.proving_queue.cached_jobs_count';
+export const PROVING_QUEUE_ACTIVE_JOBS = 'aztec.proving_queue.active_jobs_count';
+export const PROVING_QUEUE_RESOLVED_JOBS = 'aztec.proving_queue.resolved_jobs_count';
+export const PROVING_QUEUE_REJECTED_JOBS = 'aztec.proving_queue.rejected_jobs_count';
+export const PROVING_QUEUE_RETRIED_JOBS = 'aztec.proving_queue.retried_jobs_count';
+export const PROVING_QUEUE_TIMED_OUT_JOBS = 'aztec.proving_queue.timed_out_jobs_count';
 export const PROVING_QUEUE_JOB_WAIT = 'aztec.proving_queue.job_wait';
 export const PROVING_QUEUE_JOB_DURATION = 'aztec.proving_queue.job_duration';
 export const PROVING_QUEUE_DB_NUM_ITEMS = 'aztec.proving_queue.db.num_items';
@@ -133,6 +140,7 @@ export const WORLD_STATE_OLDEST_BLOCK = 'aztec.world_state.oldest_block';
 export const WORLD_STATE_DB_USED_SIZE = 'aztec.world_state.db_used_size';
 export const WORLD_STATE_DB_NUM_ITEMS = 'aztec.world_state.db_num_items';
 export const WORLD_STATE_REQUEST_TIME = 'aztec.world_state.request_time';
+export const WORLD_STATE_CRITICAL_ERROR_COUNT = 'aztec.world_state.critical_error_count';
 
 export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 

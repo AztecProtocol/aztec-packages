@@ -1,9 +1,10 @@
-import { Blob, makeEncodedBlob } from '@aztec/foundation/blob';
+import { Blob, type BlobJson } from '@aztec/blob-lib';
+import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import http from 'http';
-import { type AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
@@ -43,8 +44,11 @@ describe('HttpBlobSinkClient', () => {
   describe('Mock Ethereum Clients', () => {
     let blobSinkServer: BlobSinkServer;
 
-    let testBlob: Blob;
-    let testBlobHash: Buffer;
+    let testEncodedBlob: Blob;
+    let testEncodedBlobHash: Buffer;
+
+    let testNonEncodedBlob: Blob;
+    let testNonEncodedBlobHash: Buffer;
 
     // A blob to be ignored when requesting blobs
     // - we do not include it's blobHash in our queries
@@ -56,13 +60,48 @@ describe('HttpBlobSinkClient', () => {
     let consensusHostServer: http.Server | undefined = undefined;
     let consensusHostPort: number | undefined = undefined;
 
+    let blobData: BlobJson[];
+
     const MOCK_SLOT_NUMBER = 1;
 
     beforeEach(async () => {
-      testBlob = await makeEncodedBlob(3);
-      testBlobHash = testBlob.getEthVersionedBlobHash();
+      testEncodedBlob = await makeEncodedBlob(3);
+      testEncodedBlobHash = testEncodedBlob.getEthVersionedBlobHash();
 
       testBlobIgnore = await makeEncodedBlob(3);
+
+      testNonEncodedBlob = await makeUnencodedBlob(3);
+      testNonEncodedBlobHash = testNonEncodedBlob.getEthVersionedBlobHash();
+
+      blobData = [
+        // Correctly encoded blob
+        {
+          index: 0,
+          blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testEncodedBlob.proof.toString('hex')}`,
+        },
+        // Correctly encoded blob, but we do not ask for it in the client
+        {
+          index: 1,
+          blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
+        },
+        // Incorrectly encoded blob
+        {
+          index: 2,
+          blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testNonEncodedBlob.proof.toString('hex')}`,
+        },
+      ];
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -85,29 +124,14 @@ describe('HttpBlobSinkClient', () => {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { header: { message: { slot: MOCK_SLOT_NUMBER } } } }));
         } else if (req.url?.includes('/eth/v1/beacon/blob_sidecars/')) {
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(
-            JSON.stringify({
-              data: [
-                {
-                  index: 0,
-                  blob: `0x${Buffer.from(testBlob.data).toString('hex')}`,
-                  // eslint-disable-next-line camelcase
-                  kzg_commitment: `0x${testBlob.commitment.toString('hex')}`,
-                  // eslint-disable-next-line camelcase
-                  kzg_proof: `0x${testBlob.proof.toString('hex')}`,
-                },
-                {
-                  index: 1,
-                  blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
-                  // eslint-disable-next-line camelcase
-                  kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
-                  // eslint-disable-next-line camelcase
-                  kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
-                },
-              ],
-            }),
-          );
+          if (req.url?.includes('33')) {
+            // test for L1 missed slot
+            res.writeHead(404, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ error: 'Not Found' }));
+          } else {
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ data: blobData }));
+          }
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: 'Not Found' }));
@@ -144,14 +168,14 @@ describe('HttpBlobSinkClient', () => {
 
       const client = new HttpBlobSinkClient({
         blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
       });
 
-      const success = await client.sendBlobsToBlobSink('0x1234', [testBlob]);
+      const success = await client.sendBlobsToBlobSink('0x1234', [testEncodedBlob]);
       expect(success).toBe(true);
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testBlobHash]);
-      expect(retrievedBlobs).toEqual([testBlob]);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
       // Check that the blob sink was called with the correct block hash and no index
       expect(blobSinkSpy).toHaveBeenCalledWith('0x1234', undefined);
@@ -160,25 +184,74 @@ describe('HttpBlobSinkClient', () => {
     // When the consensus host is responding, we should request blobs from the consensus host
     // based on the slot number
     it('should request based on slot where consensus host is provided', async () => {
-      blobSinkServer = new BlobSinkServer({
-        port: 0,
-      });
-      await blobSinkServer.start();
-
       await startExecutionHostServer();
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
       });
 
-      const success = await client.sendBlobsToBlobSink('0x1234', [testBlob]);
-      expect(success).toBe(true);
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+    });
 
-      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testBlobHash]);
-      expect(retrievedBlobs).toEqual([testBlob]);
+    it('even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+      });
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
+      // We should only get the correctly encoded blob
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+    });
+
+    it('should handle L1 missed slots', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+      });
+
+      // Add spy on the fetch method
+      const fetchSpy = jest.spyOn(client as any, 'fetch');
+
+      const retrievedBlobs = await client.getBlobSidecarFrom(`http://localhost:${consensusHostPort}`, 33, [
+        testEncodedBlobHash,
+      ]);
+
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+
+      // Verify we hit the 404 for slot 33 before trying slot 34
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/eth/v1/beacon/blob_sidecars/33'),
+        expect.any(Object),
+      );
+      expect(fetchSpy).toHaveBeenCalledWith(
+        expect.stringContaining('/eth/v1/beacon/blob_sidecars/34'),
+        expect.any(Object),
+      );
+    });
+
+    it('should fall back to archive client', async () => {
+      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `http://api.blobscan.com` });
+      const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
     });
   });
 });
+
+class TestHttpBlobSinkClient extends HttpBlobSinkClient {
+  public getArchiveClient() {
+    return this.archiveClient!;
+  }
+}

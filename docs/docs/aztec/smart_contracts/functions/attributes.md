@@ -6,13 +6,13 @@ tags: [functions]
 
 On this page you will learn about function attributes and macros.
 
-If you are looking for a reference of function macros, go [here](../../../reference/developer_references/smart_contract_reference/macros.md).
+If you are looking for a reference of function macros, go [here](../../../developers/reference/smart_contract_reference/macros.md).
 
 ## Private functions #[private]
 
 A private function operates on private information, and is executed by the user on their device. Annotate the function with the `#[private]` attribute to tell the compiler it's a private function. This will make the [private context](./context.md#the-private-context) available within the function's execution scope. The compiler will create a circuit to define this function.
 
-`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/circuits/kernels/private_kernel.md).
+`#[private]` is just syntactic sugar. At compile time, the Aztec.nr framework inserts code that allows the function to interact with the [kernel](../../../aztec/concepts/advanced/circuits/kernels/private_kernel.md).
 
 To help illustrate how this interacts with the internals of Aztec and its kernel circuits, we can take an example private function, and explore what it looks like after Aztec.nr's macro expansion.
 
@@ -86,11 +86,11 @@ When an unconstrained function is called, it prompts the ACIR simulator to
 1. generate the execution environment
 2. execute the function within this environment
 
-To generate the environment, the simulator gets the blockheader from the [PXE database](../../concepts/pxe/index.md#database) and passes it along with the contract address to `ViewDataOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
+To generate the environment, the simulator gets the blockheader from the [PXE database](../../concepts/pxe/index.md#database) and passes it along with the contract address to `UnconstrainedExecutionOracle`. This creates a context that simulates the state of the blockchain at a specific block, allowing the unconstrained function to access and interact with blockchain data as it would appear in that block, but without affecting the actual blockchain state.
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
-#include_code execute_unconstrained_function yarn-project/simulator/src/client/unconstrained_execution.ts typescript
+#include_code execute_unconstrained_function yarn-project/simulator/src/private/unconstrained_execution.ts typescript
 
 This:
 
@@ -141,7 +141,7 @@ let storage = Storage::init(&mut context);
 
 ## Constrained `view` Functions #[view]
 
-The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions-aztecunconstrained) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
+The `#[view]` attribute is used to define constrained view functions in Aztec contracts. These functions are similar to view functions in Solidity, in that they are read-only and do not modify the contract's state. They are similar to the [`unconstrained`](#unconstrained-functions) keyword but are executed in a constrained environment. It is not possible to update state within an `#[view]` function.
 
 This means the results of these functions are verifiable and can be trusted, as they are part of the proof generation and verification process. This is unlike unconstrained functions, where results are provided by the PXE and are not verified.
 
@@ -159,7 +159,7 @@ This is used to designate functions as initializers (or constructors) for an Azt
 Key things to keep in mind:
 
 - A contract can have multiple initializer functions defined, but only one initializer function should be called for the lifetime of a contract instance
-- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#aztecnoinitcheck)
+- Other functions in the contract will have an initialization check inserted, ie they cannot be called until the contract is initialized, unless they are marked with [`#[noinitcheck]`](#noinitcheck)
 
 ## #[noinitcheck]
 
@@ -167,7 +167,7 @@ In normal circumstances, all functions in an Aztec contract (except initializers
 
 When a function is annotated with `#[noinitcheck]`:
 
-- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-aztecinitializer) for this specific function
+- The Aztec macro processor skips the [insertion of the initialization check](#initializer-functions-initializer) for this specific function
 - The function can be called at any time, even if the contract hasn't been initialized yet
 
 ## `Internal` functions #[internal]
@@ -178,30 +178,23 @@ This macro inserts a check at the beginning of the function to ensure that the c
 assert(context.msg_sender() == context.this_address(), "Function can only be called internally");
 ```
 
-## Custom notes #[note]
+## Implementing notes
 
-The `#[note]` attribute is used to define custom note types in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
+The `#[note]` attribute is used to define notes in Aztec contracts. Learn more about notes [here](../../concepts/storage/index.md).
 
 When a struct is annotated with `#[note]`, the Aztec macro applies a series of transformations and generates implementations to turn it into a note that can be used in contracts to store private data.
 
-1. **NoteInterface Implementation**: The macro automatically implements most methods of the `NoteInterface` trait for the annotated struct. This includes:
+1. **Note Interface Implementation**: The macro automatically implements the `NoteType`, `NoteHash` and `Packable<N>` traits for the annotated struct. This includes the following methods:
 
-   - `pack_content` and `unpack_content`
-   - `get_header` and `set_header`
-   - `get_note_type_id`
-   - `compute_note_hiding_point`
-   - `to_be_bytes`
-   - A `properties` method in the note's implementation
+   - `get_id`
+   - `compute_note_hash`
+   - `compute_nullifier`
+   - `pack`
+   - `unpack`
 
-2. **Automatic Header Field**: If the struct doesn't already have a `header` field of type `NoteHeader`, one is automatically created
+2. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
 
-3. **Note Type ID Generation**: A unique `note_type_id` is automatically computed for the note type using a Keccak hash of the struct name
-
-4. **Serialization and Deserialization**: Methods for converting the note to and from a series of `Field` elements are generated, assuming each field can be converted to/from a `Field`
-
-5. **Property Metadata**: A separate struct is generated to describe the note's fields, which is used for efficient retrieval of note data
-
-6. **Export Information**: The note type and its ID are automatically exported
+3. **Export Information**: The note type and its ID are automatically exported
 
 ### Before expansion
 
@@ -218,67 +211,61 @@ struct CustomNote {
 ### After expansion
 
 ```rust
-impl CustomNote {
-    fn pack_content(self: CustomNote) -> [Field; PACKED_NOTE_CONTENT_LEN] {
-        [self.data, self.owner.to_field()]
-    }
-
-    fn unpack_content(packed_content: [Field; PACKED_NOTE_CONTENT_LEN]) -> Self {
-        CustomNote {
-            data: packed_content[0] as Field,
-            owner: Address::from_field(packed_content[1]),
-            header: NoteHeader::empty()
-        }
-    }
-
-    fn get_note_type_id() -> Field {
+impl NoteType for CustomNote {
+    fn get_id() -> Field {
         // Assigned by macros by incrementing a counter
         2
     }
+}
 
-    fn get_header(note: CustomNote) -> aztec::note::note_header::NoteHeader {
-        note.header
+impl NoteHash for CustomNote {
+    fn compute_note_hash(self, storage_slot: Field) -> Field {
+        let inputs = array_concat(self.pack(), [storage_slot]);
+        poseidon2_hash_with_separator(inputs, GENERATOR_INDEX__NOTE_HASH)
     }
 
-    fn set_header(self: &mut CustomNote, header: aztec::note::note_header::NoteHeader) {
-        self.header = header;
-    }
-
-    fn compute_note_hiding_point(self: CustomNote) -> Point {
-        aztec::hash::pedersen_commitment(
-            self.serialize_content(),
-            aztec::protocol_types::constants::GENERATOR_INDEX__NOTE_HIDING_POINT
+    fn compute_nullifier(self, context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = context.request_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
         )
     }
 
-      fn to_be_bytes(self, storage_slot: Field) -> [u8; 128] {
-            assert(128 == 2 * 32 + 64, "Note byte length must be equal to (serialized_length * 32) + 64 bytes");
-            let serialized_note = self.serialize_content();
+    unconstrained fn compute_nullifier_unconstrained(self, storage_slot: Field, contract_address: AztecAddress, note_nonce: Field) -> Field {
+        // We set the note_hash_counter to 0 as the note is not transient and the concept of transient note does
+        // not make sense in an unconstrained context.
+        let retrieved_note = RetrievedNote { note: self, contract_address, nonce: note_nonce, note_hash_counter: 0 };
+        let note_hash_for_nullify = compute_note_hash_for_nullify(retrieved_note, storage_slot);
+        let owner_npk_m_hash = get_public_keys(self.owner).npk_m.hash();
+        let secret = get_nsk_app(owner_npk_m_hash);
+        poseidon2_hash_with_separator(
+            [
+            note_hash_for_nullify,
+            secret
+        ],
+            GENERATOR_INDEX__NOTE_NULLIFIER as Field
+        )
+    }
+}
 
-            let mut buffer: [u8; 128] = [0; 128];
+impl CustomNote {
+    pub fn new(x: [u8; 32], y: [u8; 32], owner: AztecAddress) -> Self {
+        CustomNote { x, y, owner }
+    }
+}
 
-            let storage_slot_bytes = storage_slot.to_be_bytes(32);
-            let note_type_id_bytes = CustomNote::get_note_type_id().to_be_bytes(32);
+impl Packable<2> for CustomNote {
+    fn pack(self) -> [Field; 2] {
+        [self.data, self.owner.to_field()]
+    }
 
-            for i in 0..32 {
-                buffer[i] = storage_slot_bytes[i];
-                buffer[32 + i] = note_type_id_bytes[i];
-            }
-
-            for i in 0..serialized_note.len() {
-                let bytes = serialized_note[i].to_be_bytes(32);
-                for j in 0..32 {
-                    buffer[64 + i * 32 + j] = bytes[j];
-                }
-            }
-            buffer
-        }
-
-    pub fn properties() -> CustomNoteProperties {
-        CustomNoteProperties {
-            data: aztec::note::note_getter_options::PropertySelector { index: 0, offset: 0, length: 32 },
-            owner: aztec::note::note_getter_options::PropertySelector { index: 1, offset: 0, length: 32 }
-        }
+    fn unpack(packed_content: [Field; 2]) -> CustomNote {
+        CustomNote { data: packed_content[0], owner: AztecAddress { inner: packed_content[1] } }
     }
 }
 
@@ -358,7 +345,7 @@ Key things to keep in mind:
 
 ## Further reading
 
-- [Macros reference](../../../reference/developer_references/smart_contract_reference/macros.md)
+- [Macros reference](../../../developers/reference/smart_contract_reference/macros.md)
 - [How do macros work](./attributes.md)
 
 

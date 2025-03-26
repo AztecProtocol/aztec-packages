@@ -3,8 +3,9 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
-template <typename Builder> class BlakeCircuit {
+class BlakeCircuit {
   public:
+    using Builder = bb::UltraCircuitBuilder;
     using field_ct = bb::stdlib::field_t<Builder>;
     using public_witness_ct = bb::stdlib::public_witness_t<Builder>;
     using byte_array_ct = bb::stdlib::byte_array<Builder>;

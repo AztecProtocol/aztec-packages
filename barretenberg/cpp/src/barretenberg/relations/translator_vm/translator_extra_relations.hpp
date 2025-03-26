@@ -12,17 +12,7 @@ template <typename FF_> class TranslatorOpcodeConstraintRelationImpl {
     static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS{
         7 // opcode constraint relation
     };
-    /**
-     * @brief Upper bound on the degrees of subrelations considered as polynomials only in witness
-polynomials,
-     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
-     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
-     */
-    static constexpr std::array<size_t, 1> SUBRELATION_WITNESS_DEGREES{
-        6 // opcode constraint relation
-    };
-    // Max among {SUBRELATION_PARTIAL_LENGTH + SUBRELATION_WITNESS_DEGREE}
-    static constexpr size_t ZK_RELATION_LENGTH = 13;
+
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
@@ -49,7 +39,6 @@ polynomials,
 template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
   public:
     using FF = FF_;
-    static constexpr size_t ZK_RELATION_LENGTH = 5;
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree((SOME_LAGRANGE)(A-B)) = 2
@@ -68,27 +57,7 @@ template <typename FF_> class TranslatorAccumulatorTransferRelationImpl {
         3  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
 
     };
-    /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
-polynomials,
-     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
-     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
-     */
-    static constexpr std::array<size_t, 12> SUBRELATION_WITNESS_DEGREES{
-        2, // transfer accumulator limb 0 at even index subrelation
-        2, // transfer accumulator limb 1 at even index subrelation
-        2, // transfer accumulator limb 2 at even index subrelation
-        2, // transfer accumulator limb 3 at even index subrelation
-        2, // accumulator limb 0 is zero at the start of accumulation subrelation
-        2, // accumulator limb 1 is zero at the start of accumulation subrelation
-        2, // accumulator limb 2 is zero at the start of accumulation subrelation
-        2, // accumulator limb 3 is zero at the start of accumulation subrelation
-        2, // accumulator limb 0 is equal to given result at the end of accumulation subrelation
-        2, // accumulator limb 1 is equal to given result at the end of accumulation subrelation
-        2, // accumulator limb 2 is equal to given result at the end of accumulation subrelation
-        2  // accumulator limb 3 is equal to given result at the end of accumulation subrelation
 
-    };
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
@@ -129,7 +98,6 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH = 3; // degree((some lagrange)(A)) = 2
 
-    static constexpr size_t ZK_RELATION_LENGTH = 5;
     static constexpr std::array<size_t, 64> SUBRELATION_PARTIAL_LENGTHS{
         3, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
         3, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
@@ -197,79 +165,7 @@ template <typename FF_> class TranslatorZeroConstraintsRelationImpl {
         3, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
 
     };
-    /**
-     * @brief For ZK-Flavors: Upper bound on the degrees of subrelations considered as polynomials only in witness
-polynomials,
-     * i.e. all selectors and public polynomials are treated as constants. The subrelation witness degree does not
-     * exceed the subrelation partial degree given by SUBRELATION_PARTIAL_LENGTH - 1.
-     */
-    static constexpr std::array<size_t, 64> SUBRELATION_WITNESS_DEGREES{
-        2, // p_x_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // p_x_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // p_x_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // p_x_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // p_x_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // p_x_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // p_x_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // p_x_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // p_x_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // p_x_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // p_y_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // p_y_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // p_y_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // p_y_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // p_y_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // p_y_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // p_y_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // p_y_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // p_y_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // p_y_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // z_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // z_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // z_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // z_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // z_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // z_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // z_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // z_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // z_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // z_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // accumulator_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // accumulator_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // accumulator_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // accumulator_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // accumulator_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // accumulator_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // accumulator_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // accumulator_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // accumulator_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // accumulator_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // quotient_low_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // quotient_low_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // quotient_low_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // quotient_low_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // quotient_low_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // quotient_high_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // quotient_high_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // quotient_high_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // quotient_high_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // quotient_high_limbs_range_constraint_4 is zero outside of the minicircuit
-        2, // relation_wide_limbs_range_constraint_0 is zero outside of the minicircuit
-        2, // relation_wide_limbs_range_constraint_1 is zero outside of the minicircuit
-        2, // relation_wide_limbs_range_constraint_2 is zero outside of the minicircuit
-        2, // relation_wide_limbs_range_constraint_3 is zero outside of the minicircuit
-        2, // p_x_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // p_x_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // p_y_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // p_y_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // z_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // z_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // accumulator_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // accumulator_high_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // quotient_low_limbs_range_constraint_tail is zero outside of the minicircuit
-        2, // quotient_high_limbs_range_constraint_tail is zero outside of the minicircuit
 
-    };
     /**
      * @brief Might return true if the contribution from all subrelations for the provided inputs is identically zero
      *

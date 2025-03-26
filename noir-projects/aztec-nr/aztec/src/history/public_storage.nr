@@ -5,8 +5,11 @@ use dep::protocol_types::{
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::oracle::get_public_data_witness::get_public_data_witness;
+use protocol_types::traits::{Hash, ToField};
 
-trait PublicStorageHistoricalRead {
+mod test;
+
+pub trait PublicStorageHistoricalRead {
     fn public_storage_historical_read(
         header: BlockHeader,
         storage_slot: Field,
@@ -27,7 +30,7 @@ impl PublicStorageHistoricalRead for BlockHeader {
         );
 
         // 2) Get the membership witness for the tree index.
-        /// Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
+        // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_public_data_witness(
                 self.global_variables.block_number as u32,

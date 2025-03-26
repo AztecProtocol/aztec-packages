@@ -34,6 +34,7 @@ module.exports = {
     node: true,
   },
   rules: {
+    '@typescript-eslint/no-import-type-side-effects': 'error',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
@@ -42,12 +43,12 @@ module.exports = {
     '@typescript-eslint/no-floating-promises': 2,
     '@typescript-eslint/no-misused-promises': 2,
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-    '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
     'require-await': 2,
     'no-console': 'error',
     'no-constant-condition': 'off',
     curly: ['error', 'all'],
     camelcase: 2,
+    'import/no-relative-packages': 'error',
     'no-restricted-imports': [
       'error',
       {

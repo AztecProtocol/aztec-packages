@@ -78,8 +78,6 @@ class MegaFlavor {
     // length = 3
     static constexpr size_t BATCHED_RELATION_PARTIAL_LENGTH = MAX_PARTIAL_RELATION_LENGTH + 1;
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
 
     // For instances of this flavour, used in folding, we need a unique sumcheck batching challenges for each
     // subrelation. This is because using powers of alpha would increase the degree of Protogalaxy polynomial $G$ (the
@@ -105,7 +103,7 @@ class MegaFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
@@ -336,8 +334,6 @@ class MegaFlavor {
         // fully-formed constructor
         ProverPolynomials(size_t circuit_size)
         {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1072): Unexpected jump in time to allocate all
-            // of these polys (in client_ivc_bench only).
             PROFILE_THIS_NAME("ProverPolynomials(size_t)");
 
             for (auto& poly : get_to_be_shifted()) {
@@ -431,7 +427,7 @@ class MegaFlavor {
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof being recursively verified
         DatabusPropagationData databus_propagation_data;
@@ -491,8 +487,10 @@ class MegaFlavor {
             serialize_to_field_buffer(this->contains_pairing_point_accumulator, elements);
             serialize_to_field_buffer(this->pairing_point_accumulator_public_input_indices, elements);
 
-            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_public_input_idx, elements);
-            serialize_to_field_buffer(this->databus_propagation_data.kernel_return_data_public_input_idx, elements);
+            serialize_to_field_buffer(this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx,
+                                      elements);
+            serialize_to_field_buffer(
+                this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx, elements);
             serialize_to_field_buffer(this->databus_propagation_data.is_kernel, elements);
 
             for (const Commitment& commitment : this->get_all()) {
@@ -631,6 +629,14 @@ class MegaFlavor {
                 poly = Polynomial(circuit_size / 2);
             }
         }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                // After the initial sumcheck round, the new size is CEIL(size/2).
+                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+                poly = Polynomial(desired_size, circuit_size / 2);
+            }
+        }
     };
 
     /**
@@ -757,9 +763,6 @@ class MegaFlavor {
      */
     class Transcript : public NativeTranscript {
       public:
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
         std::vector<FF> public_inputs;
         Commitment w_l_comm;
         Commitment w_r_comm;
@@ -813,14 +816,10 @@ class MegaFlavor {
             return verifier_transcript;
         };
 
-        void deserialize_full_transcript()
+        void deserialize_full_transcript(size_t public_input_size)
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
-            circuit_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-
-            public_input_size = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            pub_inputs_offset = deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
                 public_inputs.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
@@ -869,11 +868,8 @@ class MegaFlavor {
         {
             size_t old_proof_length = proof_data.size();
             proof_data.clear();
-            serialize_to_buffer(circuit_size, proof_data);
-            serialize_to_buffer(public_input_size, proof_data);
-            serialize_to_buffer(pub_inputs_offset, proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                serialize_to_buffer(public_inputs[i], proof_data);
+            for (const auto& public_input : public_inputs) {
+                serialize_to_buffer(public_input, proof_data);
             }
             serialize_to_buffer(w_l_comm, proof_data);
             serialize_to_buffer(w_r_comm, proof_data);

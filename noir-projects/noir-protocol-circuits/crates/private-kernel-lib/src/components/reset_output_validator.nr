@@ -8,7 +8,7 @@ use dep::types::{
         note_hash::ScopedNoteHash,
         nullifier::ScopedNullifier,
         private_log::{PrivateLog, PrivateLogData},
-        side_effect::scoped::Scoped,
+        side_effect::{Ordered, OrderedValue, scoped::Scoped},
     },
     constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     hash::{
