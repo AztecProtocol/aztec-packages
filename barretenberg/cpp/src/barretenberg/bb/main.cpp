@@ -7,6 +7,7 @@
 #include "barretenberg/bb/cli11_formatter.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/bb/CLI11.hpp"
 
 using namespace bb;
 
@@ -238,6 +239,10 @@ int main(int argc, char* argv[])
                                     "Include gates_per_opcode in the output of the gates command.");
     };
 
+    const auto add_quiet_flag = [&](CLI::App* subcommand) {
+        return subcommand->add_flag("--quiet", flags.quiet, "Suppress success and error messages.");
+    };
+
     /***************************************************************************************************************
      * Top-level flags
      ***************************************************************************************************************/
@@ -297,6 +302,7 @@ int main(int argc, char* argv[])
     add_ipa_accumulation_flag(prove);
     add_recursive_flag(prove);
     add_honk_recursion_option(prove);
+    add_quiet_flag(prove);
 
     prove->add_flag("--verify", "Verify the proof natively, resulting in a boolean output. Useful for testing.");
 
@@ -343,6 +349,7 @@ int main(int argc, char* argv[])
     add_init_kzg_accumulator_option(verify);
     add_honk_recursion_option(verify);
     add_recursive_flag(verify);
+    add_quiet_flag(verify);
 
     /***************************************************************************************************************
      * Subcommand: write_solidity_verifier
@@ -430,6 +437,7 @@ int main(int argc, char* argv[])
     add_debug_flag(OLD_API_prove);
     add_crs_path_option(OLD_API_prove);
     add_recursive_flag(OLD_API_prove);
+    add_quiet_flag(OLD_API_prove);
     std::string plonk_prove_output_path{ "./proofs/proof" };
     add_output_path_option(OLD_API_prove, plonk_prove_output_path);
     add_bytecode_path_option(OLD_API_prove);
@@ -458,6 +466,7 @@ int main(int argc, char* argv[])
     add_proof_path_option(OLD_API_verify);
     add_vk_path_option(OLD_API_verify);
     add_recursive_flag(OLD_API_verify);
+    add_quiet_flag(OLD_API_verify);
 
     /***************************************************************************************************************
      * Subcommand: OLD_API prove_and_verify
@@ -467,6 +476,7 @@ int main(int argc, char* argv[])
     add_debug_flag(OLD_API_prove_and_verify);
     add_crs_path_option(OLD_API_prove_and_verify);
     add_recursive_flag(OLD_API_prove_and_verify);
+    add_quiet_flag(OLD_API_prove_and_verify);
     add_bytecode_path_option(OLD_API_prove_and_verify);
 
     /***************************************************************************************************************
@@ -567,6 +577,7 @@ int main(int argc, char* argv[])
     add_verbose_flag(avm2_prove_command);
     add_debug_flag(avm2_prove_command);
     add_crs_path_option(avm2_prove_command);
+    add_quiet_flag(avm2_prove_command);
     std::filesystem::path avm2_prove_output_path{ "./proofs" };
     add_output_path_option(avm2_prove_command, avm2_prove_output_path);
     add_avm_inputs_option(avm2_prove_command);
@@ -592,6 +603,7 @@ int main(int argc, char* argv[])
     add_avm_public_inputs_option(avm2_verify_command);
     add_proof_path_option(avm2_verify_command);
     add_vk_path_option(avm2_verify_command);
+    add_quiet_flag(avm2_verify_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_check_circuit
@@ -615,12 +627,7 @@ int main(int argc, char* argv[])
     add_verbose_flag(avm_prove_command);
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
-    std::filesystem::path avm_prove_output_path{ "./proofs" };
-    add_avm_hints_option(avm_prove_command);
-    add_avm_public_inputs_option(avm_prove_command);
-    add_output_path_option(avm_prove_command, avm_prove_output_path);
-    add_avm_dump_trace_option(avm_prove_command);
-    add_check_circuit_only_flag(avm_prove_command);
+    add_quiet_flag(avm_prove_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_verify
@@ -629,13 +636,10 @@ int main(int argc, char* argv[])
     avm_verify_command->group(""); // hide from list of subcommands
     add_verbose_flag(avm_verify_command);
     add_debug_flag(avm_verify_command);
-    add_crs_path_option(avm_verify_command);
-    add_avm_hints_option(avm_verify_command);
-    add_avm_public_inputs_option(avm_verify_command);
-    add_output_path_option(avm_verify_command, output_path);
-    add_check_circuit_only_flag(avm_verify_command);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
+    add_quiet_flag(avm_verify_command);
+
 #endif
 
     /***************************************************************************************************************
@@ -647,6 +651,7 @@ int main(int argc, char* argv[])
     add_debug_flag(prove_tube_command);
     add_crs_path_option(prove_tube_command);
     add_vk_path_option(prove_tube_command);
+    add_quiet_flag(prove_tube_command);
     std::string prove_tube_output_path{ "./target" };
     add_output_path_option(prove_tube_command, prove_tube_output_path);
 
@@ -658,6 +663,7 @@ int main(int argc, char* argv[])
     add_verbose_flag(verify_tube_command);
     add_debug_flag(verify_tube_command);
     add_crs_path_option(verify_tube_command);
+    verify_tube_command->add_flag("--quiet", flags.quiet, "Suppress success and error messages.");
     // doesn't make sense that this is set by -o but that's how it was
     std::string tube_proof_and_vk_path{ "./target" };
     add_output_path_option(verify_tube_command, tube_proof_and_vk_path);
@@ -687,8 +693,18 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (prove->parsed()) {
-            api.prove(flags, bytecode_path, witness_path, output_path);
-            return 0;
+            try {
+                api.prove(flags, bytecode_path, witness_path, output_path);
+                if (!flags.quiet) {
+                    std::cout << "Success: Proof generated successfully." << std::endl;
+                }
+                return 0;
+            } catch (const std::exception& e) {
+                if (!flags.quiet) {
+                    std::cerr << "Error: Proof generation failed: " << e.what() << std::endl;
+                }
+                return 1;
+            }
         }
         if (write_vk->parsed()) {
             api.write_vk(flags, bytecode_path, output_path);
@@ -697,6 +713,13 @@ int main(int argc, char* argv[])
         if (verify->parsed()) {
             const bool verified = api.verify(flags, proof_path, vk_path);
             vinfo("verified: ", verified);
+            if (!flags.quiet) {
+                if (verified) {
+                    std::cout << "Success: Proof is valid." << std::endl;
+                } else {
+                    std::cerr << "Error: Proof verification failed." << std::endl;
+                }
+            }
             return verified ? 0 : 1;
         }
         if (write_solidity_verifier->parsed()) {
@@ -714,14 +737,40 @@ int main(int argc, char* argv[])
         if (OLD_API_gates->parsed()) {
             gate_count<UltraCircuitBuilder>(bytecode_path, flags.recursive, flags.honk_recursion, true);
         } else if (OLD_API_prove->parsed()) {
-            prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
+            try {
+                prove_ultra_plonk(bytecode_path, witness_path, plonk_prove_output_path, flags.recursive);
+                if (!flags.quiet) {
+                    std::cout << "Success: Proof generated successfully." << std::endl;
+                }
+            } catch (const std::exception& e) {
+                if (!flags.quiet) {
+                    std::cerr << "Error: Proof generation failed: " << e.what() << std::endl;
+                }
+                return 1;
+            }
         } else if (OLD_API_prove_output_all->parsed()) {
             prove_output_all_ultra_plonk(
                 bytecode_path, witness_path, plonk_prove_output_all_output_path, flags.recursive);
         } else if (OLD_API_verify->parsed()) {
-            return verify_ultra_plonk(proof_path, vk_path) ? 0 : 1;
+            const bool verified = verify_ultra_plonk(proof_path, vk_path);
+            if (!flags.quiet) {
+                if (verified) {
+                    std::cout << "Success: Proof is valid." << std::endl;
+                } else {
+                    std::cerr << "Error: Proof verification failed." << std::endl;
+                }
+            }
+            return verified ? 0 : 1;
         } else if (OLD_API_prove_and_verify->parsed()) {
-            return prove_and_verify_ultra_plonk(bytecode_path, flags.recursive, witness_path) ? 0 : 1;
+            const bool success = prove_and_verify_ultra_plonk(bytecode_path, flags.recursive, witness_path);
+            if (!flags.quiet) {
+                if (success) {
+                    std::cout << "Success: Proof generated and verified." << std::endl;
+                } else {
+                    std::cerr << "Error: Proof generation or verification failed." << std::endl;
+                }
+            }
+            return success ? 0 : 1;
         } else if (OLD_API_contract->parsed()) {
             contract_ultra_plonk(plonk_contract_output_path, vk_path);
         } else if (OLD_API_write_vk->parsed()) {
@@ -737,28 +786,82 @@ int main(int argc, char* argv[])
 #ifndef DISABLE_AZTEC_VM
         else if (avm2_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            avm2_prove(avm_inputs_path, avm2_prove_output_path);
+            try {
+                avm2_prove(avm_inputs_path, avm2_prove_output_path);
+                if (!flags.quiet) {
+                    std::cout << "Success: Proof generated successfully." << std::endl;
+                }
+            } catch (const std::exception& e) {
+                if (!flags.quiet) {
+                    std::cerr << "Error: Proof generation failed: " << e.what() << std::endl;
+                }
+                return 1;
+            }
         } else if (avm2_check_circuit_command->parsed()) {
             avm2_check_circuit(avm_inputs_path);
         } else if (avm2_verify_command->parsed()) {
-            return avm2_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
+            const bool verified = avm2_verify(proof_path, avm_public_inputs_path, vk_path);
+            if (!flags.quiet) {
+                if (verified) {
+                    std::cout << "Success: Proof is valid." << std::endl;
+                } else {
+                    std::cerr << "Error: Proof verification failed." << std::endl;
+                }
+            }
+            return verified ? 0 : 1;
         } else if (avm_check_circuit_command->parsed()) {
             avm_check_circuit(avm_public_inputs_path, avm_hints_path);
         } else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            avm_prove(avm_public_inputs_path, avm_hints_path, avm_prove_output_path);
+            try {
+                avm_prove(avm_public_inputs_path, avm_hints_path, output_path);
+                if (!flags.quiet) {
+                    std::cout << "Success: Proof generated successfully." << std::endl;
+                }
+            } catch (const std::exception& e) {
+                if (!flags.quiet) {
+                    std::cerr << "Error: Proof generation failed: " << e.what() << std::endl;
+                }
+                return 1;
+            }
         } else if (avm_verify_command->parsed()) {
-            return avm_verify(proof_path, vk_path) ? 0 : 1;
+            const bool verified = avm_verify(proof_path, vk_path);
+            if (!flags.quiet) {
+                if (verified) {
+                    std::cout << "Success: Proof is valid." << std::endl;
+                } else {
+                    std::cerr << "Error: Proof verification failed." << std::endl;
+                }
+            }
+            return verified ? 0 : 1;
         }
 #endif
         // TUBE
         else if (prove_tube_command->parsed()) {
-            prove_tube(prove_tube_output_path, vk_path);
+            try {
+                prove_tube(prove_tube_output_path, vk_path);
+                if (!flags.quiet) {
+                    std::cout << "Success: Proof generated successfully." << std::endl;
+                }
+            } catch (const std::exception& e) {
+                if (!flags.quiet) {
+                    std::cerr << "Error: Proof generation failed: " << e.what() << std::endl;
+                }
+                return 1;
+            }
         } else if (verify_tube_command->parsed()) {
             auto tube_proof_path = tube_proof_and_vk_path + "/proof";
             auto tube_vk_path = tube_proof_and_vk_path + "/vk";
             UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
+            const bool verified = api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path);
+            if (!flags.quiet) {
+                if (verified) {
+                    std::cout << "Success: Proof is valid." << std::endl;
+                } else {
+                    std::cerr << "Error: Proof verification failed." << std::endl;
+                }
+            }
+            return verified ? 0 : 1;
         }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {
