@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742976830778,
+  "lastUpdate": 1742976833526,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "41bf13e9bfc87167fae10af7e5c84d05ae7d7193",
-          "message": "fix: Disallow registration of contract classes with no public bytecode (#12910)\n\nThe transpiler also injects now a revert public_dispatch function of 22\nbytes (1 field) in contracts without public functions.",
-          "timestamp": "2025-03-21T09:53:14+01:00",
-          "tree_id": "e3d6dad24c65711a9f33bdc1093411e55818d6d6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/41bf13e9bfc87167fae10af7e5c84d05ae7d7193"
-        },
-        "date": 1742549493177,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 39631,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 26659,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 11766,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14411,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 14903,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3012,6 +2958,60 @@ window.BENCHMARK_DATA = {
             "value": "2233.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "132435771+jeanmon@users.noreply.github.com",
+            "name": "Jean M",
+            "username": "jeanmon"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "56b1f0d2bc29909041c579d79221388a25d8b6d0",
+          "message": "feat: AVM parsing tag validation (#12936)\n\nBEFORE\n```\ninstr_fetching_acc                   8.56 us     8.56 us     81280\ninstr_fetching_interactions_acc      5.24 us     5.23 us    132904\n```\nAFTER this PR (version with committed column)\n```\ninstr_fetching_acc                   8.79 us     8.79 us     79677\ninstr_fetching_interactions_acc      5.74 us     5.74 us    122150\n```",
+          "timestamp": "2025-03-26T08:42:59+01:00",
+          "tree_id": "1e30faa2cbc56980c615eb6ed05a1ec503cdc203",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/56b1f0d2bc29909041c579d79221388a25d8b6d0"
+        },
+        "date": 1742976832824,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39406,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26242,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11765,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14733,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15633,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
