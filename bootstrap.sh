@@ -217,10 +217,6 @@ function bench {
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
-function release-preview {
-  denoise "docs/bootstrap.sh release-preview"
-}
-
 function release_github {
   # Add an easy link for comparing to previous release.
   local compare_link=""
@@ -326,14 +322,13 @@ case "$cmd" in
     if ! semver check $REF_NAME; then
       test
       bench
-      release-preview
       echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
     else
       echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       release
     fi
     ;;
-  test|test_cmds|bench|release|release_dryrun|release-preview)
+  test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
   *)
