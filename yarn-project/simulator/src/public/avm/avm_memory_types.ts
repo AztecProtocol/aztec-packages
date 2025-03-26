@@ -329,8 +329,10 @@ export class TaggedMemory implements TaggedMemoryInterface {
     }
   }
 
-  public static checkIsValidTag(tagNumber: number): boolean {
-    return VALID_TAGS.has(tagNumber);
+  public static checkIsValidTag(tagNumber: number) {
+    if (!VALID_TAGS.has(tagNumber)) {
+      throw new InvalidTagValueError(tagNumber);
+    }
   }
 
   /**

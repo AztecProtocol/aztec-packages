@@ -1,7 +1,6 @@
 import { strict as assert } from 'assert';
 
 import { TaggedMemory } from '../avm_memory_types.js';
-import { InvalidTagValueError } from '../errors.js';
 import { BufferCursor } from './buffer_cursor.js';
 
 /**
@@ -108,6 +107,9 @@ export enum OperandType {
   TAG,
 }
 
+// Define a type that represents the possible types of the deserialized values.
+export type DeserializedValue = number | bigint;
+
 type OperandNativeType = number | bigint;
 type OperandWriter = (value: any) => void;
 
@@ -164,32 +166,28 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  * @param operands Specification of the operand types.
  * @returns An array as big as {@code operands}, with the converted TS values.
  */
-export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
-  const argValues = [];
+export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): DeserializedValue[] {
+  const argValues: DeserializedValue[] = [];
   if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
-
-  let isTagValid: boolean = true;
-  let invalidTagValue: number = 0; // Only used when a tag value is invalid.
 
   for (const opType of operands) {
     const [sizeBytes, reader, _writer] = OPERAND_SPEC.get(opType)!;
     const value = reader.call(cursor.buffer(), cursor.position());
     argValues.push(value);
     cursor.advance(sizeBytes);
-
-    // We do not throw here as we first want to detect other parsing errors (e.g., instruction size
-    // is longer than remaining bytes) first. Order of errors need to match with circuit.
-    if (opType == OperandType.TAG) {
-      // We parsed a single byte (readUInt8()) and therefore value is of number type (not bigint)
-      isTagValid &&= TaggedMemory.checkIsValidTag(value as number);
-      invalidTagValue = value as number;
-    }
   }
 
-  if (!isTagValid) {
-    throw new InvalidTagValueError(invalidTagValue);
+  // We first want to detect other parsing errors (e.g., instruction size
+  // is longer than remaining bytes) first and therefore tag validation is done after completion
+  // of parsing above. Order of errors need to match with circuit.
+  for (let i = 0; i < operands.length; i++) {
+    if (operands[i] === OperandType.TAG) {
+      // We parsed a single byte (readUInt8()) and therefore value is of number type (not bigint)
+      // We need to cast to number because checkIsValidTag expects a number.
+      TaggedMemory.checkIsValidTag(argValues[i] as number);
+    }
   }
 
   return argValues;
