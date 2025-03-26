@@ -29,7 +29,7 @@ import { join } from 'path';
 import { assertSameState, compareChains, mockBlock, mockEmptyBlock } from '../test/utils.js';
 import { INITIAL_NULLIFIER_TREE_SIZE, INITIAL_PUBLIC_DATA_TREE_SIZE } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateStatusSummary } from './message.js';
-import { NativeWorldStateService } from './native_world_state.js';
+import { NativeWorldStateService, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from './native_world_state.js';
 
 jest.setTimeout(60_000);
 
@@ -54,6 +54,7 @@ describe('NativeWorldState', () => {
   describe('Persistence', () => {
     let block: L2Block;
     let messages: Fr[];
+    let noteHash: Fr;
 
     const findLeafIndex = async (leaf: Fr, ws: NativeWorldStateService) => {
       const indices = await ws.getCommitted().findLeafIndices(MerkleTreeId.NOTE_HASH_TREE, [leaf]);
@@ -63,10 +64,17 @@ describe('NativeWorldState', () => {
       return indices[0];
     };
 
+    const writeVersion = (baseDir: string) =>
+      DatabaseVersionManager.writeVersion(
+        new DatabaseVersion(WORLD_STATE_DB_VERSION, rollupAddress),
+        join(baseDir, WORLD_STATE_DIR),
+      );
+
     beforeAll(async () => {
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
       const fork = await ws.fork();
       ({ block, messages } = await mockBlock(1, 2, fork));
+      noteHash = block.body.txEffects[0].noteHashes[0];
       await fork.close();
 
       await ws.handleL2BlockAndMessages(block, messages);
@@ -84,11 +92,15 @@ describe('NativeWorldState', () => {
     it('copies and restores committed state', async () => {
       backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      await ws.backupTo(backupDir, true);
+      await expect(findLeafIndex(noteHash, ws)).resolves.toBeDefined();
+      await ws.backupTo(join(backupDir, WORLD_STATE_DIR), true);
       await ws.close();
 
+      await writeVersion(backupDir);
       const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, defaultDBMapSize);
-      await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws2)).resolves.toBeDefined();
+      const status2 = await ws2.getStatusSummary();
+      expect(status2.unfinalisedBlockNumber).toBe(1n);
+      await expect(findLeafIndex(noteHash, ws2)).resolves.toBeDefined();
       expect((await ws2.getStatusSummary()).unfinalisedBlockNumber).toBe(1n);
       await ws2.close();
     });
@@ -96,7 +108,7 @@ describe('NativeWorldState', () => {
     it('blocks writes while copying', async () => {
       backupDir = await mkdtemp(join(tmpdir(), 'world-state-backup-test'));
       const ws = await NativeWorldStateService.new(rollupAddress, dataDir, defaultDBMapSize);
-      const copyPromise = ws.backupTo(backupDir, true);
+      const copyPromise = ws.backupTo(join(backupDir, WORLD_STATE_DIR), true);
 
       await timesAsync(5, async i => {
         const fork = await ws.fork();
@@ -109,6 +121,7 @@ describe('NativeWorldState', () => {
       expect((await ws.getStatusSummary()).unfinalisedBlockNumber).toBe(6n);
       await ws.close();
 
+      await writeVersion(backupDir);
       const ws2 = await NativeWorldStateService.new(rollupAddress, backupDir, defaultDBMapSize);
       await expect(findLeafIndex(block.body.txEffects[0].noteHashes[0], ws2)).resolves.toBeDefined();
       expect((await ws2.getStatusSummary()).unfinalisedBlockNumber).toBe(1n);

@@ -86,6 +86,7 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
+import { tryFastSync } from '../actions/fast-sync.js';
 import { uploadSnapshot } from '../actions/upload-snapshot.js';
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -162,12 +163,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
-    //validate that the actual chain id matches that specified in configuration
+
+    // validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
         `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
       );
     }
+
+    // attempt fast sync if needed
+    await tryFastSync(config, log);
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 

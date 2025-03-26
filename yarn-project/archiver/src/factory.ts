@@ -19,6 +19,18 @@ import { createArchiverClient } from './rpc/index.js';
 
 export const ARCHIVER_STORE_NAME = 'archiver';
 
+/** Creates an archiver store. */
+export async function createArchiverStore(
+  userConfig: Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> & DataStoreConfig,
+) {
+  const config = {
+    ...userConfig,
+    dataStoreMapSizeKB: userConfig.archiverStoreMapSizeKb ?? userConfig.dataStoreMapSizeKB,
+  };
+  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
+  return new KVArchiverDataStore(store, config.maxLogs);
+}
+
 /**
  * Creates a local archiver.
  * @param config - The archiver configuration.
@@ -28,14 +40,12 @@ export const ARCHIVER_STORE_NAME = 'archiver';
  * @returns The local archiver.
  */
 export async function createArchiver(
-  _config: ArchiverConfig & DataStoreConfig,
+  config: ArchiverConfig & DataStoreConfig,
   blobSinkClient: BlobSinkClientInterface,
   opts: { blockUntilSync: boolean } = { blockUntilSync: true },
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
-  const config = { ..._config, dataStoreMapSizeKB: _config.archiverStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
-  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
-  const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
+  const archiverStore = await createArchiverStore(config);
   await registerProtocolContracts(archiverStore);
   return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);
 }

@@ -1,5 +1,5 @@
 import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { fromEntries, padArrayEnd } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
@@ -49,7 +49,6 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
   protected constructor(
     protected readonly instance: NativeWorldState,
     protected readonly worldStateInstrumentation: WorldStateInstrumentation,
-    protected readonly versionManager: DatabaseVersionManager<NativeWorldState>,
     protected readonly log: Logger = createLogger('world-state:database'),
     private readonly cleanup = () => Promise.resolve(),
   ) {}
@@ -75,7 +74,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     );
 
     const [instance] = await versionManager.open();
-    const worldState = new this(instance, instrumentation, versionManager, log, cleanup);
+    const worldState = new this(instance, instrumentation, log, cleanup);
     try {
       await worldState.init();
     } catch (e) {
@@ -328,14 +327,15 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       compact,
       canonical: true,
     });
-    await this.versionManager.writeVersionTo(dstPath);
-    // The following paths are defined in cpp-land
-    return {
-      'l1-to-l2-message-tree': join(dstPath, 'L1ToL2MessageTree', 'data.mdb'),
-      'archive-tree': join(dstPath, 'ArchiveTree', 'data.mdb'),
-      'public-data-tree': join(dstPath, 'PublicDataTree', 'data.mdb'),
-      'note-hash-tree': join(dstPath, 'NoteHashTree', 'data.mdb'),
-      'nullifier-tree': join(dstPath, 'NullifierTree', 'data.mdb'),
-    };
+    return fromEntries(NATIVE_WORLD_STATE_DBS.map(([name, dir]) => [name, join(dstPath, dir, 'data.mdb')] as const));
   }
 }
+
+// The following paths are defined in cpp-land
+export const NATIVE_WORLD_STATE_DBS = [
+  ['l1-to-l2-message-tree', 'L1ToL2MessageTree'],
+  ['archive-tree', 'ArchiveTree'],
+  ['public-data-tree', 'PublicDataTree'],
+  ['note-hash-tree', 'NoteHashTree'],
+  ['nullifier-tree', 'NullifierTree'],
+] as const;
