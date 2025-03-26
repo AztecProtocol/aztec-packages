@@ -6,6 +6,7 @@
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/lib/merkle.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 
 namespace bb::avm2::simulation {
 namespace {
@@ -99,8 +100,10 @@ TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
     FF root = root_from_path(leaf_value, leaf_index, sibling_path);
 
-    EXPECT_THROW(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root), std::runtime_error);
-    EXPECT_THROW(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root), std::runtime_error);
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root),
+                              "Merkle check's final node index must be 0 or 1");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root),
+                              "Merkle check's final node index must be 0 or 1");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
@@ -117,9 +120,10 @@ TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
     FF incorrect_root = 66;
 
-    EXPECT_THROW(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, incorrect_root),
-                 std::runtime_error);
-    EXPECT_THROW(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, incorrect_root), std::runtime_error);
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, incorrect_root),
+                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, incorrect_root),
+                              "Merkle read check failed");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
@@ -136,9 +140,10 @@ TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
     std::vector<FF> sibling_path = { 10, 2, 30, 4, 50, 6 };
     FF root = root_from_path(leaf_value, leaf_index, sibling_path);
     uint64_t incorrect_leaf_index = 31;
-    EXPECT_THROW(merkle_check.assert_membership(leaf_value, incorrect_leaf_index, sibling_path, root),
-                 std::runtime_error);
-    EXPECT_THROW(merkle_check.write(leaf_value, 334, incorrect_leaf_index, sibling_path, root), std::runtime_error);
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, incorrect_leaf_index, sibling_path, root),
+                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, incorrect_leaf_index, sibling_path, root),
+                              "Merkle read check failed");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
@@ -157,8 +162,10 @@ TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
     // corrupt the sibling path
     sibling_path[2] = 11;
 
-    EXPECT_THROW(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root), std::runtime_error);
-    EXPECT_THROW(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root), std::runtime_error);
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(leaf_value, leaf_index, sibling_path, root),
+                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root),
+                              "Merkle read check failed");
 }
 
 TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
@@ -176,9 +183,10 @@ TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
     FF root = root_from_path(leaf_value, leaf_index, sibling_path);
     FF incorrect_leaf_value = 334;
 
-    EXPECT_THROW(merkle_check.assert_membership(incorrect_leaf_value, leaf_index, sibling_path, root),
-                 std::runtime_error);
-    EXPECT_THROW(merkle_check.write(incorrect_leaf_value, 334, leaf_index, sibling_path, root), std::runtime_error);
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.assert_membership(incorrect_leaf_value, leaf_index, sibling_path, root),
+                              "Merkle read check failed");
+    EXPECT_THROW_WITH_MESSAGE(merkle_check.write(incorrect_leaf_value, 334, leaf_index, sibling_path, root),
+                              "Merkle read check failed");
 }
 
 } // namespace
