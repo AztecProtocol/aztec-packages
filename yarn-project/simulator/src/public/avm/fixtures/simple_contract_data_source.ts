@@ -97,7 +97,10 @@ export class SimpleContractDataSource implements ContractDataSource {
   async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string> {
     const contractInstance = await this.getContract(address);
     if (!contractInstance) {
-      throw new Error(`Couldn't get fn name for debugging - contract not found at address: ${address}`);
+      this.logger.warn(
+        `Couldn't get fn name for debugging. Contract not in tester's ContractDataSource. Using selector:${selector} instead...`,
+      );
+      return `selector:${selector.toString()}`;
     }
     const fnName = this.#getDebugFunctionName(contractInstance.currentContractClassId, selector);
     if (!fnName) {

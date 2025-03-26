@@ -40,7 +40,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   constructor(
     merkleTree: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
-    globals: GlobalVariables,
+    globals: GlobalVariables = defaultGlobals(),
     telemetryClient?: TelemetryClient,
     metricsPrefix?: string,
   ) {
