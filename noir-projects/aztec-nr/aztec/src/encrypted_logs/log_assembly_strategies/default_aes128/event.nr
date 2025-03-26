@@ -32,7 +32,7 @@ where
 fn compute_log<Event, let N: u32>(
     event: Event,
     recipient: AztecAddress,
-    _sender: AztecAddress,
+    sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Event: EventInterface<N>,
