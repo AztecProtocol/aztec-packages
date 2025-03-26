@@ -76,9 +76,9 @@ export class ClientFlowsBenchmark {
   public userPXE!: PXE;
 
   constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
-    this.logger = createLogger(`e2e:e2e_client_flows${testName ? `:${testName}` : ''}`);
+    this.logger = createLogger(`bench:client_flows${testName ? `:${testName}` : ''}`);
     this.snapshotManager = createSnapshotManager(
-      `e2e_client_flows${testName ? `/${testName}` : ''}`,
+      `bench_client_flows${testName ? `/${testName}` : ''}`,
       dataPath,
       { startProverNode: true, ...setupOptions },
       { ...setupOptions },

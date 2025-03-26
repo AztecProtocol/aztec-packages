@@ -1,6 +1,6 @@
 #include "barretenberg/common/wasm_export.hpp"
 #include <ecc/curves/secp256k1/secp256k1.hpp>
-#include <ecc/curves/secp256k1/secp256r1.hpp>
+#include <ecc/curves/secp256r1/secp256r1.hpp>
 
 // secp256k1 curve
 
@@ -36,10 +36,14 @@ WASM_EXPORT bool ecdsa__verify_signature(uint8_t const* message,
                                          uint8_t const* sig_s,
                                          uint8_t const* sig_v);
 
-// secp256r1 curve
+WASM_EXPORT bool ecdsa__verify_signature_(uint8_t const* message,
+                                          uint8_t const* pub_key,
+                                          uint8_t const* sig_r,
+                                          uint8_t const* sig_s,
+                                          uint8_t const* sig_v,
+                                          bool* result);
 
-WASM_EXPORT bool ecdsa_r_verify_signature_(
-    uint8_t const* message, uint8_t const* pub_key, uint8_t const* sig_r, uint8_t const* sig_s, uint8_t const* sig_v);
+// secp256r1 curve
 
 WASM_EXPORT void ecdsa_r_compute_public_key(uint8_t const* private_key, uint8_t* public_key_buf);
 
@@ -73,5 +77,9 @@ WASM_EXPORT bool ecdsa_r_verify_signature(uint8_t const* message,
                                           uint8_t const* sig_s,
                                           uint8_t const* sig_v);
 
-WASM_EXPORT bool ecdsa_r_verify_signature_(
-    uint8_t const* message, uint8_t const* pub_key, uint8_t const* sig_r, uint8_t const* sig_s, uint8_t const* sig_v);
+WASM_EXPORT void ecdsa_r_verify_signature_(uint8_t const* message,
+                                           uint8_t const* pub_key,
+                                           uint8_t const* sig_r,
+                                           uint8_t const* sig_s,
+                                           uint8_t const* sig_v,
+                                           bool* result);

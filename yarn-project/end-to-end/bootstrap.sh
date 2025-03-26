@@ -163,9 +163,9 @@ function generate_example_app_ivc_inputs {
     scripts/run_test.sh simple e2e_amm
     scripts/run_test.sh simple e2e_nft
     scripts/run_test.sh simple e2e_blacklist_token_contract/transfer_private
-    scripts/run-test.sh simple e2e_client_flows/deployments
-    scripts/run_test.sh simple e2e_client_flows/bridging
-    scripts/run_test.sh simple e2e_client_flows/transfers
+    scripts/run-test.sh simple client_flows/deployments
+    scripts/run_test.sh simple client_flows/bridging
+    scripts/run_test.sh simple client_flows/transfers
   " | parallel --line-buffer --halt now,fail=1
   cache_upload bb-client-ivc-captures-$hash.tar.gz $CAPTURE_IVC_FOLDER
 }
