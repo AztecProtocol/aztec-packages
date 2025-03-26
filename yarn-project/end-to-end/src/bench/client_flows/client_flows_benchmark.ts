@@ -293,6 +293,7 @@ export class ClientFlowsBenchmark {
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
     await benchysAccountManager.deploy({ fee: { paymentMethod } }).wait();
     // Register benchy on admin's PXE so we can check its balances
+    await this.pxe.registerContract({ instance: benchysAccountManager.getInstance() });
     await this.pxe.registerAccount(benchysWallet.getSecretKey(), benchysWallet.getCompleteAddress().partialAddress);
     return benchysWallet;
   }

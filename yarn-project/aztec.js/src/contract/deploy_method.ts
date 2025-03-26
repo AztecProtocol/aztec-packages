@@ -117,7 +117,7 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
 
   /**
    * Simulate a deployment and profile the gate count for each function in the transaction.
-   * @param options - Same options as `simulate`, plus profiling method
+   * @param options - Same options as `send`, plus extra profiling options.
    *
    * @returns An object containing the function return value and profile result.
    */

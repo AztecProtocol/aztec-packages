@@ -1,4 +1,10 @@
-import { AccountWallet, type AztecNode, PrivateFeePaymentMethod, type SimulateMethodOptions } from '@aztec/aztec.js';
+import {
+  AccountWallet,
+  type AztecNode,
+  Fr,
+  PrivateFeePaymentMethod,
+  type SimulateMethodOptions,
+} from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -81,9 +87,18 @@ describe('Client flows benchmarking', () => {
           afterEach(async () => {
             // Send back the change to restart the test without redeploying the accounts
             // We can do this because adminPXE has the private key for the user
-            await candyBarCoin.methods
-              .transfer_in_private(benchysWallet.getAddress(), adminWallet.getAddress(), expectedChange, 0)
-              .send();
+            // Since the admin's PXE never generates proofs, this upkeep is better done by them
+            const interaction = candyBarCoin.methods.transfer_in_private(
+              benchysWallet.getAddress(),
+              adminWallet.getAddress(),
+              expectedChange,
+              Fr.random(),
+            );
+            const witness = await benchysWallet.createAuthWit({
+              caller: adminWallet.getAddress(),
+              action: interaction,
+            });
+            await interaction.send({ authWitnesses: [witness] });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
