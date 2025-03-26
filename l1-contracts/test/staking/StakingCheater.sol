@@ -10,7 +10,7 @@ import {
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Slasher} from "@aztec/core/staking/Slasher.sol";
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/interfaces/IStaking.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 
 contract StakingCheater is IStaking {
   using AddressSnapshotLib for SnapshottedAddressSet;

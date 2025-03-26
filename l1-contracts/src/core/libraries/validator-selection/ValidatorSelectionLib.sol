@@ -4,14 +4,16 @@ pragma solidity >=0.8.27;
 
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {
-  EpochData, ValidatorSelectionStorage, ValidatorSetSizeSnapshot
+  EpochData,
+  ValidatorSelectionStorage,
+  ValidatorSetSizeSnapshot
 } from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/interfaces/IStaking.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
@@ -151,15 +153,19 @@ library ValidatorSelectionLib {
     return _stakingStore.info[attester].proposer;
   }
 
-  function checkpointValidatorSetSize(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
+  function checkpointValidatorSetSize(StakingStorage storage _stakingStore, Epoch _epochNumber)
+    internal
+  {
     ValidatorSelectionStorage storage store = getStorage();
     uint256 setSize = _stakingStore.attesters.length();
 
     // TODO: safe cast
-    store.epochSizeSnapshots.push(ValidatorSetSizeSnapshot({
-      size: uint128(setSize),
-      epochNumber: uint96(Epoch.unwrap(_epochNumber))
-    }));
+    store.epochSizeSnapshots.push(
+      ValidatorSetSizeSnapshot({
+        size: uint128(setSize),
+        epochNumber: uint96(Epoch.unwrap(_epochNumber))
+      })
+    );
   }
 
   /**

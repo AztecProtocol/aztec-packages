@@ -2,14 +2,12 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
-import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
 // The validator index -> the validator at that point in time
 struct SnapshottedAddressSet {
   uint256 size;
   mapping(uint256 index => AddressSnapshot[]) checkpoints;
-
   // Store up to date position for each validator
   mapping(address validator => uint256 index) validatorToIndex;
 }
@@ -18,7 +16,6 @@ struct AddressSnapshot {
   address addr;
   uint96 epochNumber;
 }
-
 
 // TODO(md): think about this in the context of the enumerable set a bit more
 // -
@@ -38,7 +35,9 @@ library AddressSnapshotLib {
 
     // TODO: check double insertion??
     _self.validatorToIndex[_validator] = index;
-    _self.checkpoints[index].push(AddressSnapshot({addr: _validator, epochNumber: uint96(_epochNumber)}));
+    _self.checkpoints[index].push(
+      AddressSnapshot({addr: _validator, epochNumber: uint96(_epochNumber)})
+    );
     _self.size += 1;
     return true;
   }
@@ -80,10 +79,14 @@ library AddressSnapshotLib {
     return getValidatorInIndexNow(_self, _index);
   }
 
-  function getValidatorInIndexNow(SnapshottedAddressSet storage _self, uint256 index) internal view returns (address) {
-    uint256 numCheckpoints = _self.checkpoints[index].length;
+  function getValidatorInIndexNow(SnapshottedAddressSet storage _self, uint256 _index)
+    internal
+    view
+    returns (address)
+  {
+    uint256 numCheckpoints = _self.checkpoints[_index].length;
 
-    if (index >= _self.size) {
+    if (_index >= _self.size) {
       return address(0);
     }
 
@@ -91,12 +94,16 @@ library AddressSnapshotLib {
       return address(0);
     }
 
-    AddressSnapshot memory lastSnapshot = _self.checkpoints[index][numCheckpoints - 1];
+    AddressSnapshot memory lastSnapshot = _self.checkpoints[_index][numCheckpoints - 1];
     return lastSnapshot.addr;
   }
 
-  function getAddresssIndexAt(SnapshottedAddressSet storage _self, uint256 index, uint256 _epoch) internal view returns (address) {
-    uint256 numCheckpoints = _self.checkpoints[index].length;
+  function getAddresssIndexAt(SnapshottedAddressSet storage _self, uint256 _index, uint256 _epoch)
+    internal
+    view
+    returns (address)
+  {
+    uint256 numCheckpoints = _self.checkpoints[_index].length;
     uint96 epoch = uint96(_epoch);
 
     if (numCheckpoints == 0) {
@@ -104,7 +111,7 @@ library AddressSnapshotLib {
     }
 
     // Check the most recent checkpoint
-    AddressSnapshot memory lastSnapshot = _self.checkpoints[index][numCheckpoints - 1];
+    AddressSnapshot memory lastSnapshot = _self.checkpoints[_index][numCheckpoints - 1];
     if (lastSnapshot.epochNumber <= epoch) {
       return lastSnapshot.addr;
     }
@@ -114,7 +121,7 @@ library AddressSnapshotLib {
     uint256 upper = numCheckpoints - 1;
     while (upper > lower) {
       uint256 center = upper - (upper - lower) / 2; // ceil, avoiding overflow
-      AddressSnapshot memory cp = _self.checkpoints[index][center];
+      AddressSnapshot memory cp = _self.checkpoints[_index][center];
       if (cp.epochNumber == epoch) {
         return cp.addr;
       } else if (cp.epochNumber < epoch) {
@@ -124,7 +131,7 @@ library AddressSnapshotLib {
       }
     }
 
-    return _self.checkpoints[index][lower].addr;
+    return _self.checkpoints[_index][lower].addr;
   }
 
   function length(SnapshottedAddressSet storage _self) internal view returns (uint256) {

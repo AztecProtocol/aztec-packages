@@ -15,19 +15,17 @@ import {
   FeeHeader,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {
-  IStaking,
-  ValidatorInfo,
-  Exit,
-  OperatorInfo
-} from "@aztec/core/interfaces/IStaking.sol";
+import {IStaking, ValidatorInfo, Exit, OperatorInfo} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {
   FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
 import {

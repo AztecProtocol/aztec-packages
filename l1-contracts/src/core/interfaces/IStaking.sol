@@ -2,10 +2,9 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
@@ -35,7 +34,6 @@ struct Exit {
   Timestamp exitableAt;
   address recipient;
 }
-
 
 struct StakingStorage {
   IERC20 stakingAsset;
