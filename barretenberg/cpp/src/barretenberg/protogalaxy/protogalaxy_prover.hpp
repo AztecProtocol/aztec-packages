@@ -46,7 +46,6 @@ template <class DeciderProvingKeys_> class ProtogalaxyProver_ {
     ProtogalaxyProver_(const std::vector<std::shared_ptr<DeciderPK>>& keys,
                        ExecutionTraceUsageTracker trace_usage_tracker = ExecutionTraceUsageTracker{})
         : keys_to_fold(DeciderProvingKeys_(keys))
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/878)
         , commitment_key(keys_to_fold[1]->proving_key.commitment_key)
         , pg_internal(trace_usage_tracker){};
 

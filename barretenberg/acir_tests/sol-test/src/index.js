@@ -6,8 +6,8 @@ import solc from "solc";
 
 // Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 443;
-const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 494;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 440;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 491;
 
 const WRONG_PROOF_LENGTH = "0xed74ac0a";
 const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
@@ -74,7 +74,11 @@ export const compilationInput = {
     // we require the optimizer
     optimizer: {
       enabled: true,
-      runs: 200,
+      runs: 1,
+    },
+    metadata: {
+      appendCBOR: false,
+      bytecodeHash: "none",
     },
     outputSelection: {
       "*": {
@@ -170,15 +174,8 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
-  let publicInputsOffset = 0;
-
-  // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not
-  if (testingHonk) {
-    publicInputsOffset = 3;
-  }
-
   for (let i = 0; i < numPublicInputs; i++) {
-    publicInputs.push(proofAsFields[publicInputsOffset + i]);
+    publicInputs.push(proofAsFields[i]);
   }
   return [numPublicInputs, publicInputs];
 };
@@ -220,26 +217,42 @@ const killAnvil = () => {
 };
 
 try {
-  const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-  const proofAsFields = readFileSync(proofAsFieldsPath);
-  const [numPublicInputs, publicInputs] = readPublicInputs(
-    JSON.parse(proofAsFields.toString())
-  );
-
   const proofPath = getEnvVar("PROOF");
-  const proof = readFileSync(proofPath);
+  let publicInputsPath;
+  try {
+    publicInputsPath = getEnvVar("PUBLIC_INPUTS");
+  } catch (e) {
+    // noop
+  }
 
-  // Cut the number of public inputs out of the proof string
-  let proofStr = proof.toString("hex");
-  if (testingHonk) {
-    // Cut off the serialised buffer size at start
-    proofStr = proofStr.substring(8);
-    // Get the part before and after the public inputs
-    const proofStart = proofStr.slice(0, 64 * 3);
-    const proofEnd = proofStr.substring(64 * 3 + 64 * numPublicInputs);
-    proofStr = proofStart + proofEnd;
+  let proofStr = '';
+  let publicInputs = [];
+
+  // If "path to public inputs" is provided, it means that the proof and public inputs are saved as separate files
+  // A bit hacky, but this can go away once BB CLI saves them as separate files - #11024
+  if (publicInputsPath) {
+    const proof = readFileSync(proofPath);
+    proofStr = proof.toString("hex");
+    publicInputs = JSON.parse(readFileSync(publicInputsPath).toString()); // assumes JSON array of PI hex strings
   } else {
-    proofStr = proofStr.substring(64 * numPublicInputs);
+    // Proof and public inputs are saved in a single file; we need to extract the PI from the proof
+    const proof = readFileSync(proofPath);
+    proofStr = proof.toString("hex");
+
+    const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
+    const proofAsFields = readFileSync(proofAsFieldsPath);
+
+    let numPublicInputs;
+    [numPublicInputs, publicInputs] = readPublicInputs(
+      JSON.parse(proofAsFields.toString())
+    );
+
+    proofStr = proofStr.substring(32 * 2 * numPublicInputs); // Remove the publicInput bytes from the proof
+
+    // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
+    if (testingHonk) {
+      proofStr = proofStr.substring(8);
+    }
   }
 
   proofStr = "0x" + proofStr;

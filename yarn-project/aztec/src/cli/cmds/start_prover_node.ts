@@ -1,4 +1,5 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -18,7 +19,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { getL1Config } from '../get_l1_config.js';
-import { extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -99,8 +100,17 @@ export async function startProverNode(
     );
   }
 
-  const initialFundedAccounts = proverConfig.testAccounts ? await getInitialTestAccounts() : [];
-  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  await preloadCrsDataForVerifying(proverConfig, userLog);
+
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];

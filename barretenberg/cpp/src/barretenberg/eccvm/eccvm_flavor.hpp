@@ -112,8 +112,9 @@ class ECCVMFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
+        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
@@ -380,22 +381,6 @@ class ECCVMFlavor {
       public:
         using Base = AllEntities<FF>;
         using Base::Base;
-    };
-
-    /**
-     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
-     */
-    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
-
-      public:
-        PartiallyEvaluatedMultivariates() = default;
-        PartiallyEvaluatedMultivariates(const size_t circuit_size)
-        {
-            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
-            for (auto& poly : this->get_all()) {
-                poly = Polynomial(circuit_size / 2);
-            }
-        }
     };
 
     /**
@@ -715,6 +700,30 @@ class ECCVMFlavor {
     };
 
     /**
+     * @brief A container for storing the partially evaluated multivariates produced by sumcheck.
+     */
+    class PartiallyEvaluatedMultivariates : public AllEntities<Polynomial> {
+
+      public:
+        PartiallyEvaluatedMultivariates() = default;
+        PartiallyEvaluatedMultivariates(const size_t circuit_size)
+        {
+            // Storage is only needed after the first partial evaluation, hence polynomials of size (n / 2)
+            for (auto& poly : this->get_all()) {
+                poly = Polynomial(circuit_size / 2);
+            }
+        }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                // After the initial sumcheck round, the new size is CEIL(size/2).
+                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+                poly = Polynomial(desired_size, circuit_size / 2);
+            }
+        }
+    };
+
+    /**
      * @brief The proving key is responsible for storing the polynomials used by the prover.
      *
      */
@@ -751,8 +760,9 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)

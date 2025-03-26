@@ -1,12 +1,14 @@
 import { Blob, type BlobJson } from '@aztec/blob-lib';
+import { type ViemPublicClient, getL2BlockProposalEvents } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { pluralize } from '@aztec/foundation/string';
+import { bufferToHex, pluralize } from '@aztec/foundation/string';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import express, { type Express, type Request, type Response, json } from 'express';
 import type { Server } from 'http';
 import type { AddressInfo } from 'net';
+import type { Hex } from 'viem';
 import { z } from 'zod';
 
 import type { BlobArchiveClient } from '../archive/index.js';
@@ -33,11 +35,13 @@ export class BlobSinkServer {
   private blobStore: BlobStore;
   private metrics: BlobSinkMetrics;
   private log: Logger = createLogger('aztec:blob-sink');
+  private l1PublicClient: ViemPublicClient | undefined;
 
   constructor(
-    config?: BlobSinkConfig,
+    private config: BlobSinkConfig = {},
     store?: AztecAsyncKVStore,
     private blobArchiveClient?: BlobArchiveClient,
+    l1PublicClient?: ViemPublicClient,
     telemetry: TelemetryClient = getTelemetryClient(),
   ) {
     this.port = config?.port ?? 5052; // 5052 is beacon chain default http port
@@ -47,6 +51,7 @@ export class BlobSinkServer {
     this.app.use(json({ limit: '1mb' })); // Increase the limit to allow for a blob to be sent
 
     this.metrics = new BlobSinkMetrics(telemetry);
+    this.l1PublicClient = l1PublicClient;
 
     this.blobStore = store === undefined ? new MemoryBlobStore() : new DiskBlobStore(store);
 
@@ -195,30 +200,35 @@ export class BlobSinkServer {
     // eslint-disable-next-line camelcase
     const { block_id, blobs } = req.body;
 
+    let parsedBlockId: Hex;
+    let blobObjects: BlobWithIndex[];
+
     try {
       // eslint-disable-next-line camelcase
-      const parsedBlockId = blockIdSchema.parse(block_id);
+      parsedBlockId = blockIdSchema.parse(block_id);
       if (!parsedBlockId) {
-        res.status(400).json({
-          error: 'Invalid block_id parameter',
-        });
+        res.status(400).json({ error: 'Invalid block_id parameter' });
         return;
       }
 
       this.log.info(`Received blob sidecar for block ${parsedBlockId}`);
+      blobObjects = this.parseBlobData(blobs);
+      await this.validateBlobs(parsedBlockId, blobObjects);
+    } catch (error: any) {
+      res.status(400).json({ error: 'Invalid blob data', details: error.message });
+      return;
+    }
 
-      const blobObjects: BlobWithIndex[] = this.parseBlobData(blobs);
-
+    try {
       await this.blobStore.addBlobSidecars(parsedBlockId.toString(), blobObjects);
       this.metrics.recordBlobReciept(blobObjects);
 
       this.log.info(`Blob sidecar stored successfully for block ${parsedBlockId}`);
 
       res.json({ message: 'Blob sidecar stored successfully' });
-    } catch (error) {
-      res.status(400).json({
-        error: 'Invalid blob data',
-      });
+    } catch (error: any) {
+      this.log.error(`Error storing blob sidecar for block ${parsedBlockId}`, error);
+      res.status(500).json({ error: 'Error storing blob sidecar', details: error.message });
     }
   }
 
@@ -239,6 +249,36 @@ export class BlobSinkServer {
           index,
         ),
     );
+  }
+
+  /**
+   * Validates the given blobs were actually emitted by a rollup contract.
+   * Skips validation if the L1 public client is not set.
+   * If the rollupAddress is set in config, it checks that the event came from that contract.
+   * Throws on validation failure.
+   */
+  private async validateBlobs(blockId: Hex, blobs: BlobWithIndex[]): Promise<void> {
+    if (!this.l1PublicClient) {
+      this.log.debug('Skipping blob validation due to no L1 public client set');
+      return;
+    }
+
+    const rollupAddress = this.config.rollupAddress?.isZero() ? undefined : this.config.rollupAddress;
+    const events = await getL2BlockProposalEvents(this.l1PublicClient, blockId, rollupAddress);
+    const eventBlobHashes = events.flatMap(event => event.versionedBlobHashes);
+    const blobHashesToValidate = blobs.map(blob => bufferToHex(blob.blob.getEthVersionedBlobHash()));
+
+    this.log.debug(
+      `Retrieved ${events.length} events with blob hashes ${
+        eventBlobHashes ? eventBlobHashes.join(', ') : 'none'
+      } for block ${blockId} to verify blobs ${blobHashesToValidate.join(', ')}`,
+    );
+
+    const notFoundBlobHashes = blobHashesToValidate.filter(blobHash => !eventBlobHashes.includes(blobHash));
+
+    if (notFoundBlobHashes.length > 0) {
+      throw new Error(`Blobs ${notFoundBlobHashes.join(', ')} not found in block proposal event at block ${blockId}`);
+    }
   }
 
   public start(): Promise<void> {

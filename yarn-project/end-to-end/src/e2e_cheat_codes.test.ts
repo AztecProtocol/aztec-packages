@@ -1,4 +1,5 @@
-import { AnvilTestWatcher, type AztecAddress, type CheatCodes, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { type AztecAddress, EthAddress, Fr, type Wallet } from '@aztec/aztec.js';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { EthCheatCodes, type ViemPublicClient, type ViemWalletClient, createL1Clients } from '@aztec/ethereum';
 import { RollupContract } from '@aztec/ethereum/contracts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
@@ -188,7 +189,11 @@ describe('e2e_cheat_codes', () => {
 
       // check if note was added to pending shield:
       const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);
-      const values = notes.map(note => note.items[0]);
+
+      // @note If you get pain for dinner, this guys is the reason.
+      // Assuming that it is still testing the token contract, you need to look at the balances,
+      // and then the type of note, currently a `UintNote` which stores fields: [owner, randomness, amount]
+      const values = notes.map(note => note.items[2]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);
       // docs:end:load_private_cheatcode

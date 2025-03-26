@@ -28,6 +28,8 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options(-Wno-vla-cxx-extension)
         # This gets in the way of a partial object initialization (i.e. MyClass my_class{ .my_member = init_value })
         add_compile_options(-Wno-missing-field-initializers)
+        # CLI11.hpp
+        add_compile_options(-Wno-deprecated-declarations)
     endif()
 endif()
 

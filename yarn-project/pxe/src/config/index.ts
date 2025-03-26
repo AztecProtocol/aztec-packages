@@ -71,7 +71,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(true),
   },
 };
 
@@ -107,6 +107,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
+    defaultValue: true,
   },
 };
 

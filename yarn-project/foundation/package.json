@@ -11,6 +11,7 @@
     "./abi": "./dest/abi/index.js",
     "./async-map": "./dest/async-map/index.js",
     "./async-pool": "./dest/async-pool/index.js",
+    "./bigint": "./dest/bigint/index.js",
     "./collection": "./dest/collection/index.js",
     "./config": "./dest/config/index.js",
     "./crypto": "./dest/crypto/index.js",
@@ -126,7 +127,7 @@
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
     "sha3": "^2.1.4",
-    "undici": "^7.3.0",
+    "undici": "^5.28.5",
     "zod": "^3.23.8"
   },
   "devDependencies": {
@@ -163,7 +164,7 @@
     "supertest": "^6.3.3",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "files": [
     "dest",

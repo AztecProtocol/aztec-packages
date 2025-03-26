@@ -13,7 +13,7 @@ class InstructionInfoDBInterface {
     virtual ~InstructionInfoDBInterface() = default;
 
     virtual const ExecInstructionSpec& get(ExecutionOpCode opcode) const = 0;
-    virtual ExecutionOpCode map_wire_opcode_to_execution_opcode(WireOpCode opcode) const = 0;
+    virtual const WireInstructionSpec& get(WireOpCode opcode) const = 0;
 };
 
 class InstructionInfoDB : public InstructionInfoDBInterface {
@@ -27,14 +27,14 @@ class InstructionInfoDB : public InstructionInfoDBInterface {
         }
         return it->second;
     }
-    ExecutionOpCode map_wire_opcode_to_execution_opcode(WireOpCode opcode) const override
+    const WireInstructionSpec& get(WireOpCode opcode) const override
     {
         auto it = WIRE_INSTRUCTION_SPEC.find(opcode);
         if (it == WIRE_INSTRUCTION_SPEC.end()) {
-            throw std::runtime_error("Cannot map wire opcode to execution opcode: " +
+            throw std::runtime_error("Cannot find wire instruction spec for opcode: " +
                                      std::to_string(static_cast<int>(opcode)));
         }
-        return it->second.exec_opcode;
+        return it->second;
     }
 };
 

@@ -71,7 +71,6 @@
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
-    "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/stdlib": "workspace:^",
@@ -81,7 +80,7 @@
     "lodash.omit": "^4.5.0",
     "tsc-watch": "^6.0.0",
     "tslib": "^2.5.0",
-    "viem": "2.22.8",
+    "viem": "2.23.7",
     "ws": "^8.13.0"
   },
   "devDependencies": {

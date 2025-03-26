@@ -1,6 +1,7 @@
 // docs:start:cross_chain_test_harness
 import {
   type AccountWallet,
+  AuthWitness,
   type AztecAddress,
   type AztecNode,
   EthAddress,
@@ -15,10 +16,14 @@ import {
   type SiblingPath,
   type TxReceipt,
   type Wallet,
-  deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import type { L1ContractAddresses, ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  deployL1Contract,
+} from '@aztec/ethereum';
 import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
@@ -200,6 +205,7 @@ export class CrossChainTestHarness {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
       this.underlyingERC20Address,
+      this.l1ContractAddresses.feeAssetHandlerAddress,
       this.l1ContractAddresses.outboxAddress,
       this.publicClient,
       this.walletClient,
@@ -210,7 +216,12 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensOnL1(amount: bigint) {
-    await this.l1TokenManager.mint(amount, this.ethAccount.toString());
+    const contract = getContract({
+      abi: TestERC20Abi,
+      address: this.l1TokenManager.tokenAddress.toString(),
+      client: this.walletClient,
+    });
+    await contract.write.mint([this.ethAccount.toString(), amount]);
     expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
   }
 
@@ -262,10 +273,14 @@ export class CrossChainTestHarness {
       .wait();
   }
 
-  async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
+  async withdrawPrivateFromAztecToL1(
+    withdrawAmount: bigint,
+    nonce: Fr = Fr.ZERO,
+    authWitness: AuthWitness,
+  ): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send()
+      .send({ authWitnesses: [authWitness] })
       .wait();
 
     return withdrawReceipt;

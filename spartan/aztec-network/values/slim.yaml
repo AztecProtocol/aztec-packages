@@ -13,10 +13,6 @@ validator:
 
 pxe:
   enabled: true
-  resources:
-    requests:
-      memory: "1Gi"
-      cpu: "1000m"
 
 bootNode:
   enabled: false

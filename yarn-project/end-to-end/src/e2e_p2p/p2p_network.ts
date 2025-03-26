@@ -2,10 +2,9 @@ import { getSchnorrWalletWithSecretKey } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
 import type { AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { ChainMonitor } from '@aztec/aztec.js/ethereum';
 import { RollupContract, getExpectedAddress, getL1ContractsConfigEnvVars } from '@aztec/ethereum';
 import { L1TxUtilsWithBlobs } from '@aztec/ethereum/l1-tx-utils-with-blobs';
-import { EthCheatCodesWithState } from '@aztec/ethereum/test';
+import { ChainMonitor, EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 import { SpamContract } from '@aztec/noir-contracts.js/Spam';
@@ -30,7 +29,7 @@ import {
   createSnapshotManager,
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -55,6 +54,7 @@ export class P2PNetworkTest {
   public attesterPublicKeys: string[] = [];
   public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
+  public validators: { attester: `0x${string}`; proposer: `0x${string}`; withdrawer: `0x${string}` }[] = [];
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
@@ -231,9 +231,10 @@ export class P2PNetworkTest {
             amount: l1ContractsConfig.minimumStake,
           } as const);
 
-          this.logger.verbose(`Adding (attester, proposer) pair: (${attester.address}, ${forwarder}) as validator`);
+          this.logger.info(`Adding attester ${attester.address} proposer ${forwarder} as validator`);
         }
 
+        this.validators = validators;
         await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
           hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
         });
@@ -320,9 +321,11 @@ export class P2PNetworkTest {
   async setup() {
     this.ctx = await this.snapshotManager.setup();
 
-    this.prefilledPublicData = (
-      await getGenesisValues(this.ctx.initialFundedAccounts.map(a => a.address))
-    ).prefilledPublicData;
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const initialFundedAccounts = [...this.ctx.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
+
+    const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+    this.prefilledPublicData = prefilledPublicData;
 
     this.startSyncMockSystemTimeInterval();
 

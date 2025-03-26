@@ -276,9 +276,6 @@ library Honk {
     }
 
 struct ZKProof {
-        uint256 circuitSize;
-        uint256 publicInputsSize;
-        uint256 publicInputsOffset;
         // Commitments to wire polynomials
         Honk.G1ProofPoint w1;
         Honk.G1ProofPoint w2;
@@ -326,14 +323,14 @@ struct ZKTranscript {
 }
 
 library ZKTranscriptLib {
-    function generateTranscript(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
+    function generateTranscript(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
         returns (ZKTranscript memory t)
     {
         Fr previousChallenge;
         (t.relationParameters, previousChallenge) =
-            generateRelationParametersChallenges(proof, publicInputs, publicInputsSize, previousChallenge);
+            generateRelationParametersChallenges(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
 
@@ -362,24 +359,26 @@ library ZKTranscriptLib {
     function generateRelationParametersChallenges(
         Honk.ZKProof memory proof,
         bytes32[] calldata publicInputs,
+        uint256 circuitSize,
         uint256 publicInputsSize,
+        uint256 pubInputsOffset,
         Fr previousChallenge
     ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
         (rp.eta, rp.etaTwo, rp.etaThree, previousChallenge) =
-            generateEtaChallenge(proof, publicInputs, publicInputsSize);
+            generateEtaChallenge(proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset);
 
         (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaAndGammaChallenges(previousChallenge, proof);
     }
 
-    function generateEtaChallenge(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 publicInputsSize)
+    function generateEtaChallenge(Honk.ZKProof memory proof, bytes32[] calldata publicInputs, uint256 circuitSize, uint256 publicInputsSize, uint256 pubInputsOffset)
         internal
         pure
         returns (Fr eta, Fr etaTwo, Fr etaThree, Fr previousChallenge)
     {
         bytes32[] memory round0 = new bytes32[](3 + publicInputsSize + 12);
-        round0[0] = bytes32(proof.circuitSize);
-        round0[1] = bytes32(proof.publicInputsSize);
-        round0[2] = bytes32(proof.publicInputsOffset);
+        round0[0] = bytes32(circuitSize);
+        round0[1] = bytes32(publicInputsSize);
+        round0[2] = bytes32(pubInputsOffset);
         for (uint256 i = 0; i < publicInputsSize; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
@@ -610,26 +609,21 @@ library ZKTranscriptLib {
     }
 
     function loadProof(bytes calldata proof) internal pure returns (Honk.ZKProof memory p) {
-        // Metadata
-        p.circuitSize = uint256(bytes32(proof[0x00:0x20]));
-        p.publicInputsSize = uint256(bytes32(proof[0x20:0x40]));
-        p.publicInputsOffset = uint256(bytes32(proof[0x40:0x60]));
-
         // Commitments
-        p.w1 = bytesToG1ProofPoint(proof[0x60:0xe0]);
+        p.w1 = bytesToG1ProofPoint(proof[0x0:0x80]);
 
-        p.w2 = bytesToG1ProofPoint(proof[0xe0:0x160]);
-        p.w3 = bytesToG1ProofPoint(proof[0x160:0x1e0]);
+        p.w2 = bytesToG1ProofPoint(proof[0x80:0x100]);
+        p.w3 = bytesToG1ProofPoint(proof[0x100:0x180]);
 
         // Lookup / Permutation Helper Commitments
-        p.lookupReadCounts = bytesToG1ProofPoint(proof[0x1e0:0x260]);
-        p.lookupReadTags = bytesToG1ProofPoint(proof[0x260:0x2e0]);
-        p.w4 = bytesToG1ProofPoint(proof[0x2e0:0x360]);
-        p.lookupInverses = bytesToG1ProofPoint(proof[0x360:0x3e0]);
-        p.zPerm = bytesToG1ProofPoint(proof[0x3e0:0x460]);
-        p.libraCommitments[0] = bytesToG1ProofPoint(proof[0x460:0x4e0]);
+        p.lookupReadCounts = bytesToG1ProofPoint(proof[0x180:0x200]);
+        p.lookupReadTags = bytesToG1ProofPoint(proof[0x200:0x280]);
+        p.w4 = bytesToG1ProofPoint(proof[0x280:0x300]);
+        p.lookupInverses = bytesToG1ProofPoint(proof[0x300:0x380]);
+        p.zPerm = bytesToG1ProofPoint(proof[0x380:0x400]);
+        p.libraCommitments[0] = bytesToG1ProofPoint(proof[0x400:0x480]);
         // TEMP the boundary of what has already been read
-        uint256 boundary = 0x4e0;
+        uint256 boundary = 0x480;
 
         p.libraSum = bytesToFr(proof[boundary:boundary + 0x20]);
         boundary += 0x20;
@@ -1420,8 +1414,14 @@ struct ShpleminiIntermediates {
     Fr batchedEvaluation;
     Fr[4] denominators;
     Fr[4] batchingScalars;
-    Fr[CONST_PROOF_SIZE_LOG_N + 1] inverse_vanishing_denominators;
-
+    // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
+    Fr posInvertedDenominator;
+    // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
+    Fr negInvertedDenominator;
+    // v^{2i} * 1/(z - r^{2^i})
+    Fr scalingFactorPos;
+    // v^{2i+1} * 1/(z + r^{2^i})
+    Fr scalingFactorNeg;
 }
 
 library CommitmentSchemeLib {
@@ -1450,29 +1450,29 @@ library CommitmentSchemeLib {
         }
     }
 
-    function computeGeminiBatchedUnivariateEvaluation(
+    // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
+    function computeFoldPosEvaluations(
         Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
         Fr batchedEvalAccumulator,
         Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
-        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers
-    ) internal view returns (Fr a_0_pos) {
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvalChallengePowers,
+        uint256 logSize
+    ) internal view returns (Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations) {
         for (uint256 i = CONST_PROOF_SIZE_LOG_N; i > 0; --i) {
             Fr challengePower = geminiEvalChallengePowers[i - 1];
             Fr u = sumcheckUChallenges[i - 1];
 
             Fr batchedEvalRoundAcc = (
                 (challengePower * batchedEvalAccumulator * Fr.wrap(2))
-                    - geminiEvaluations[i - 1] * (challengePower * (ONE - u) - u)
+                    - geminiEvaluations[i - 1] * (challengePower * (Fr.wrap(1) - u) - u)
             );
             // Divide by the denominator
-            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
-
-            if (i <= LOG_N) {
+            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (Fr.wrap(1) - u) + u).invert();
+            if (i <= logSize) {
                 batchedEvalAccumulator = batchedEvalRoundAcc;
+                foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
             }
-        }
-
-        a_0_pos = batchedEvalAccumulator;
+       }
     }
 }
 
@@ -1496,7 +1496,7 @@ interface IVerifier {
     error GeminiChallengeInSubgroup();
     error ConsistencyCheckFailed();
 
-    uint256 constant PROOF_SIZE = 494;
+    uint256 constant PROOF_SIZE = 491;
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool verified) {
       // Check the received proof is the expected size where each field element is 32 bytes
@@ -1507,16 +1507,18 @@ interface IVerifier {
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof);
 
-        if (publicInputs.length != vk.publicInputsSize) {
+        if (publicInputs.length != vk.publicInputsSize || publicInputs.length != NUMBER_OF_PUBLIC_INPUTS) {
             revert PublicInputsLengthWrong();
         }
 
         // Generate the fiat shamir challenges for the whole protocol
-        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, NUMBER_OF_PUBLIC_INPUTS);
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
+        ZKTranscript memory t = ZKTranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, NUMBER_OF_PUBLIC_INPUTS, /*pubInputsOffset=*/1);
 
         // Derive public input delta
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
-            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, p.publicInputsOffset
+            publicInputs, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/1
         );
 
         // Sumcheck
@@ -1642,13 +1644,13 @@ interface IVerifier {
         Fr[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 3 + 3] memory scalars;
         Honk.G1Point[NUMBER_OF_ENTITIES + CONST_PROOF_SIZE_LOG_N + 3 + 3] memory commitments;
 
-        mem.inverse_vanishing_denominators =
-            CommitmentSchemeLib.computeInvertedGeminiDenominators(tp.shplonkZ, powers_of_evaluation_challenge, LOG_N);
+        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
+        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
 
-        mem.unshiftedScalar =
-            mem.inverse_vanishing_denominators[0] + (tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
-        mem.shiftedScalar = tp.geminiR.invert()
-            * (mem.inverse_vanishing_denominators[0] - (tp.shplonkNu * mem.inverse_vanishing_denominators[1]));
+
+        mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
+        mem.shiftedScalar =
+            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
 
         scalars[0] = ONE;
         commitments[0] = convertProofPoint(proof.shplonkQ);
@@ -1715,40 +1717,53 @@ interface IVerifier {
         commitments[40] = convertProofPoint(proof.w4);
         commitments[41] = convertProofPoint(proof.zPerm);
 
-        mem.constantTermAccumulator = ZERO;
+
+        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
+        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., logN - 1
+        Fr[CONST_PROOF_SIZE_LOG_N] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
+            tp.sumCheckUChallenges,
+            mem.batchedEvaluation,
+            proof.geminiAEvaluations,
+            powers_of_evaluation_challenge,
+            LOG_N
+        );
+
+        mem.constantTermAccumulator = foldPosEvaluations[0] * mem.posInvertedDenominator;
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
+
         mem.batchingChallenge = tp.shplonkNu.sqr();
         uint256 boundary = NUMBER_OF_ENTITIES + 2;
 
+        // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
+        // Compute scalar multipliers for each fold commitment
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
             bool dummy_round = i >= (LOG_N - 1);
 
-            Fr scalingFactor = ZERO;
             if (!dummy_round) {
-                scalingFactor = mem.batchingChallenge * mem.inverse_vanishing_denominators[i + 2];
-                scalars[boundary + i] = scalingFactor.neg();
-            }
+                // Update inverted denominators
+                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
 
-            mem.constantTermAccumulator =
-                mem.constantTermAccumulator + (scalingFactor * proof.geminiAEvaluations[i + 1]);
-            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+                // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
+                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+                scalars[boundary + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+
+                // Accumulate the const term contribution given by
+                // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
+                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+                accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
+                mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
+            }
+            // Update the running power of v
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
 
             commitments[boundary + i] = convertProofPoint(proof.geminiFoldComms[i]);
         }
 
         boundary += CONST_PROOF_SIZE_LOG_N - 1;
 
-        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
-        // Compute evaluation A₀(r)
-        Fr a_0_pos = CommitmentSchemeLib.computeGeminiBatchedUnivariateEvaluation(
-            tp.sumCheckUChallenges,
-            mem.batchedEvaluation,
-            proof.geminiAEvaluations,
-            powers_of_evaluation_challenge
-        );
-
-        mem.constantTermAccumulator = mem.constantTermAccumulator + (a_0_pos * mem.inverse_vanishing_denominators[0]);
-        mem.constantTermAccumulator = mem.constantTermAccumulator
-            + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.inverse_vanishing_denominators[1]);
 
         // Finalise the batch opening claim
         mem.denominators[0] = ONE.div(tp.shplonkZ - tp.geminiR);
@@ -1756,7 +1771,8 @@ interface IVerifier {
         mem.denominators[2] = mem.denominators[0];
         mem.denominators[3] = mem.denominators[0];
 
-        mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+        // Artifact of interleaving, see TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
+        mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
         for (uint256 i = 0; i < 4; i++) {
             Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
             mem.batchingScalars[i] = scalingFactor.neg();

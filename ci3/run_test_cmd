@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Called by 'parallelise' to execute a given test cmd.
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
@@ -40,6 +40,34 @@ EOF
 # Remove the tmp fail on exit.
 trap "rm -f $tmp_file" EXIT
 
+function publish_log {
+  cat $tmp_file | redis_setexz $log_key $CI_REDIS_EXPIRE
+}
+
+function live_publish_log {
+  # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
+  sleep 30
+  echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
+  while [ -f $tmp_file ]; do
+    if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
+      publish_log
+    fi
+    sleep 5
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  log_key=$(uuid)
+  log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+
+  if [ "$CI" -eq 1 ]; then
+    # If we're in CI, we want to publish the log live.
+    live_publish_log &
+    publish_pid=$!
+    trap "kill $publish_pid &>/dev/null" EXIT
+  fi
+fi
+
 # Run the test. Disable exit on error. Handle timeout override in the test_cmd.
 set +e
 if [[ "$test_cmd" = timeout* ]]; then
@@ -53,19 +81,20 @@ wait $timeout_pid
 code=$?
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
-  log_key=$(uuid)
-
   # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
-  if [ $code -eq 0 ] && [ "$USE_TEST_CACHE" -eq 1 ]; then
-    redis_cli SETEX $key 604800 $log_key &>/dev/null
-  fi
-
-  # If the test failed OR it succeeded and we're running in CI, save the test log.
-  # It's not worth spamming redis for local runs of tests that succeed.
-  if [ $code -ne 0 ] || [ "${CI:-0}" -eq 1 ]; then
-    # Set the test log. This key is globally unique.
-    cat $tmp_file | redis_setexz $log_key $CI_REDIS_EXPIRE
-    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+  # If the test succeeded and we're in CI, save the test log.
+  # If the test failed, save the test log.
+  if [ $code -eq 0 ]; then
+    if [ "$USE_TEST_CACHE" -eq 1 ]; then
+      redis_cli SETEX $key 604800 $log_key &>/dev/null
+    fi
+    if [ "$CI" -eq 1 ]; then
+      publish_log
+    else
+      log_info=""
+    fi
+  else
+    publish_log
   fi
 fi
 
@@ -87,6 +116,10 @@ function fail {
 function flake {
   echo -e "${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
 
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
+    return
+  fi
+
   # Send slack message to owners.
   slack_uids=""
   for uid in $owners; do
@@ -102,8 +135,27 @@ EOF
     -H "Authorization: Bearer $SLACK_BOT_TOKEN" \
     -H "Content-type: application/json" \
     --data "$data" &>/dev/null
-
   exit
+}
+
+# Prints a list of test owners based on matching test name pattern, and optional error regex.
+function get_owners {
+  entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
+
+  # Iterate over each matching entry.
+  while IFS= read -r entry; do
+    error_regex=$(echo "$entry" | jq -r '.error_regex // empty')
+
+    # If error_regex is present, check the log content.
+    if [ -n "$error_regex" ]; then
+      # Strip color codes from the log file.
+      if sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"; then
+        echo "$entry" | jq -r '.owners[]'
+      fi
+    else
+      echo "$entry" | jq -r '.owners[]'
+    fi
+  done <<< "$entries" | sort -u
 }
 
 # Test passed.
@@ -112,8 +164,7 @@ EOF
 # We're not in CI, fail.
 [ "$CI" -eq 0 ] && fail
 
-# Get list of owners of this failed test.
-owners=$(yq e -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern)) | .owners[]' .test_patterns.yml | sort -u)
+owners=$(get_owners)
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then

@@ -202,4 +202,8 @@ export class L2Block {
       ...logsStats,
     };
   }
+
+  equals(other: L2Block) {
+    return this.archive.equals(other.archive) && this.header.equals(other.header) && this.body.equals(other.body);
+  }
 }

@@ -36,7 +36,7 @@ template <typename FF_> class {{name}}Impl {
             {{/each}}
 
             {{#each identities}}
-            {
+            { {{#if label}}// {{ label }}{{/if}}
                 using Accumulator = typename std::tuple_element_t<{{@index}}, ContainerOverSubrelations>;
                 auto tmp = {{identity}};
                 tmp *= scaling_factor;

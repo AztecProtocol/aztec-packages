@@ -1,5 +1,5 @@
 
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -ex
 
@@ -23,6 +23,9 @@ attrs_map["k8s.pod.ip"]="${POD_IP:-}"
 attrs_map["k8s.pod.name"]="${K8S_POD_NAME:-}"
 attrs_map["k8s.pod.uid"]="${K8S_POD_UID:-}"
 attrs_map["k8s.namespace.name"]="${K8S_NAMESPACE_NAME:-}"
+
+attrs_map["aztec.l2.slot_duration_seconds"]="${AZTEC_SLOT_DURATION:-}"
+attrs_map["aztec.l2.epoch_duration_slots"]="${AZTEC_EPOCH_DURATION:-}"
 
 # format the attribute map to comma-separated string
 set +x

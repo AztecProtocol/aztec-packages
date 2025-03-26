@@ -57,9 +57,6 @@ describe('e2e_escrow_contract', () => {
 
     await mintTokensToPrivate(token, wallet, escrowContract.address, 100n);
 
-    // We allow our wallet to see the escrow contract's notes.
-    wallet.setScopes([wallet.getAddress(), escrowContract.address]);
-
     logger.info(`Token contract deployed at ${token.address}`);
   });
 
@@ -93,8 +90,8 @@ describe('e2e_escrow_contract', () => {
     await expectTokenBalance(wallet, token, owner, 50n, logger);
 
     await new BatchCall(wallet, [
-      await token.methods.transfer(recipient, 10).request(),
-      await escrowContract.methods.withdraw(token.address, 20, recipient).request(),
+      token.methods.transfer(recipient, 10),
+      escrowContract.methods.withdraw(token.address, 20, recipient),
     ])
       .send()
       .wait();

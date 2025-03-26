@@ -5,7 +5,7 @@ import type { P2P } from '@aztec/p2p';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import type { GlobalVariableBuilder } from '@aztec/sequencer-client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { L2BlockSource, NullifierWithBlockSource } from '@aztec/stdlib/block';
+import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -95,8 +95,6 @@ describe('aztec node', () => {
     // all txs use the same allowed FPC class
     const contractSource = mock<ContractDataSource>();
 
-    const nullifierWithBlockSource = mock<NullifierWithBlockSource>();
-
     const aztecNodeConfig: AztecNodeConfig = getConfigEnvVars();
 
     node = new AztecNodeService(
@@ -115,8 +113,8 @@ describe('aztec node', () => {
       l2LogsSource,
       contractSource,
       l1ToL2MessageSource,
-      nullifierWithBlockSource,
       worldState,
+      undefined,
       undefined,
       12345,
       1,

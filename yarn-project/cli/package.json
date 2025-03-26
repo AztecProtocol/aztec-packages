@@ -70,6 +70,7 @@
     "@aztec/archiver": "workspace:^",
     "@aztec/aztec.js": "workspace:^",
     "@aztec/constants": "workspace:^",
+    "@aztec/entrypoints": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/l1-artifacts": "workspace:^",
     "@aztec/p2p": "workspace:^",
@@ -83,7 +84,7 @@
     "semver": "^7.5.4",
     "source-map-support": "^0.5.21",
     "tslib": "^2.4.0",
-    "viem": "2.22.8"
+    "viem": "2.23.7"
   },
   "devDependencies": {
     "@aztec/accounts": "workspace:^",

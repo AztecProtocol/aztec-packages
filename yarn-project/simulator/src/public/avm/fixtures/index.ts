@@ -1,13 +1,15 @@
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
+import { DEPLOYER_CONTRACT_ADDRESS, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
-import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadgetsTest';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import { type ContractArtifact, type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import { AvmGadgetsTestContract } from '@aztec/noir-contracts.js/AvmGadgetsTest';
+import { AvmTestContract } from '@aztec/noir-contracts.js/AvmTest';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  type FunctionArtifact,
+  FunctionSelector,
+  getAllFunctionAbis,
+} from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
   type ContractClassPublic,
@@ -17,7 +19,7 @@ import {
 import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -26,7 +28,8 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
+import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
@@ -59,23 +62,25 @@ export function initContext(overrides?: {
 
 /** Creates an empty state manager with mocked host storage. */
 export function initPersistableStateManager(overrides?: {
-  worldStateDB?: WorldStateDB;
+  treesDB?: PublicTreesDB;
+  contractsDB?: PublicContractsDB;
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
-  db?: MerkleTreeWriteOperations;
   firstNullifier?: Fr;
+  blockNumber?: number;
 }): AvmPersistableStateManager {
-  const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
+  const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
   return new AvmPersistableStateManager(
-    worldStateDB,
+    treesDB,
+    overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
-    overrides?.publicStorage || new PublicStorage(worldStateDB),
-    overrides?.nullifiers || new NullifierManager(worldStateDB),
-    overrides?.doMerkleOperations || false,
-    overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
+    overrides?.blockNumber || DEFAULT_BLOCK_NUMBER,
+    overrides?.doMerkleOperations || false,
+    overrides?.publicStorage,
+    overrides?.nullifiers,
   );
 }
 
@@ -147,7 +152,7 @@ export function getFunctionSelector(
   functionName: string,
   contractArtifact: ContractArtifact,
 ): Promise<FunctionSelector> {
-  const fnArtifact = contractArtifact.functions.find(f => f.name === functionName)!;
+  const fnArtifact = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName)!;
   assert(!!fnArtifact, `Function ${functionName} not found in ${contractArtifact.name}`);
   const params = fnArtifact.parameters;
   return FunctionSelector.fromNameAndParameters(fnArtifact.name, params);
@@ -157,11 +162,17 @@ export function getContractFunctionArtifact(
   functionName: string,
   contractArtifact: ContractArtifact,
 ): FunctionArtifact | undefined {
-  const artifact = contractArtifact.functions.find(f => f.name === functionName)!;
-  if (!artifact) {
-    return undefined;
-  }
-  return artifact;
+  return contractArtifact.functions.find(f => f.name === functionName);
+}
+
+export function getContractFunctionAbi(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): FunctionAbi | undefined {
+  return (
+    contractArtifact.functions.find(f => f.name === functionName) ??
+    contractArtifact.nonDispatchPublicFunctions.find(f => f.name === functionName)
+  );
 }
 
 export function resolveContractAssertionMessage(
@@ -174,7 +185,7 @@ export function resolveContractAssertionMessage(
     revertReason = cause as AvmRevertReason;
   });
 
-  const functionArtifact = contractArtifact.functions.find(f => f.name === functionName);
+  const functionArtifact = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName);
   if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
     return undefined;
   }
@@ -183,18 +194,18 @@ export function resolveContractAssertionMessage(
 }
 
 export function getAvmTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
-  return getFunctionSelector(functionName, AvmTestContractArtifact);
+  return getFunctionSelector(functionName, AvmTestContract.artifactForPublic);
 }
 
 export function getAvmGadgetsTestContractFunctionSelector(functionName: string): Promise<FunctionSelector> {
-  const artifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  const artifact = getAllFunctionAbis(AvmGadgetsTestContract.artifactForPublic).find(f => f.name === functionName)!;
   assert(!!artifact, `Function ${functionName} not found in AvmGadgetsTestContractArtifact`);
   const params = artifact.parameters;
   return FunctionSelector.fromNameAndParameters(artifact.name, params);
 }
 
 export function getAvmTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = getContractFunctionArtifact(functionName, AvmTestContractArtifact);
+  const artifact = getContractFunctionArtifact(functionName, AvmTestContract.artifactForPublic) as FunctionArtifact;
   assert(
     !!artifact?.bytecode,
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
@@ -203,7 +214,7 @@ export function getAvmTestContractArtifact(functionName: string): FunctionArtifa
 }
 
 export function getAvmGadgetsTestContractArtifact(functionName: string): FunctionArtifact {
-  const artifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName)!;
+  const artifact = AvmGadgetsTestContract.artifactForPublic.functions.find(f => f.name === functionName)!;
   assert(
     !!artifact?.bytecode,
     `No bytecode found for function ${functionName}. Try re-running bootstrap.sh on the repository root.`,
@@ -226,7 +237,7 @@ export function resolveAvmTestContractAssertionMessage(
   revertReason: AvmRevertReason,
   output: Fr[],
 ): string | undefined {
-  return resolveContractAssertionMessage(functionName, revertReason, output, AvmTestContractArtifact);
+  return resolveContractAssertionMessage(functionName, revertReason, output, AvmTestContract.artifactForPublic);
 }
 
 export function resolveAvmGadgetsTestContractAssertionMessage(
@@ -238,7 +249,7 @@ export function resolveAvmGadgetsTestContractAssertionMessage(
     revertReason = cause as AvmRevertReason;
   });
 
-  const functionArtifact = AvmGadgetsTestContractArtifact.functions.find(f => f.name === functionName);
+  const functionArtifact = AvmGadgetsTestContract.artifactForPublic.functions.find(f => f.name === functionName);
   if (!functionArtifact || !revertReason.noirCallStack || !isNoirCallStackUnresolved(revertReason.noirCallStack)) {
     return undefined;
   }
@@ -267,24 +278,25 @@ export async function createContractClassAndInstance(
   contractInstance: ContractInstanceWithAddress;
   contractAddressNullifier: Fr;
 }> {
-  const bytecode = getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact)!.bytecode;
-  const contractClass = await makeContractClassPublic(
-    seed,
-    /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-  );
+  const bytecode = (getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact) as FunctionArtifact)!
+    .bytecode;
+  const contractClass = await makeContractClassPublic(seed, bytecode);
 
-  const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
+  const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
+  const { publicKeys } = await deriveKeys(Fr.random());
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
   const contractInstance =
     originalContractClassId === undefined
       ? await makeContractInstanceFromClassId(contractClass.id, seed, {
           deployer,
           initializationHash,
+          publicKeys,
         })
       : await makeContractInstanceFromClassId(originalContractClassId, seed, {
           deployer,
           initializationHash,
           currentClassId: contractClass.id,
+          publicKeys,
         });
 
   const contractAddressNullifier = await siloNullifier(

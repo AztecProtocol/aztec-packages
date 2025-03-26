@@ -1,13 +1,8 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type {
-  ContractClassPublic,
-  ContractDataSource,
-  ContractInstanceWithAddress,
-  PublicFunction,
-} from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PUBLIC_DISPATCH_FN_NAME } from './index.js';
 
@@ -50,10 +45,6 @@ export class SimpleContractDataSource implements ContractDataSource {
 
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
-  getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {
-    throw new Error('Method not implemented.');
-  }
-
   getBlockNumber(): Promise<number> {
     throw new Error('Method not implemented.');
   }
@@ -85,7 +76,7 @@ export class SimpleContractDataSource implements ContractDataSource {
     return Promise.resolve(this.contractArtifacts.get(contractInstance!.currentContractClassId.toString()));
   }
 
-  getContractFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string> {
+  getDebugFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string> {
     return Promise.resolve(PUBLIC_DISPATCH_FN_NAME);
   }
 
