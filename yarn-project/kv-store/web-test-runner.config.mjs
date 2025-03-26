@@ -1,11 +1,9 @@
-import { defaultReporter } from '@web/test-runner';
-import { summaryReporter } from '@web/test-runner';
-import { fileURLToPath } from 'url';
 import { esbuildPlugin } from '@web/dev-server-esbuild';
+import { defaultReporter } from '@web/test-runner';
 import { playwrightLauncher } from '@web/test-runner-playwright';
+import { fileURLToPath } from 'url';
 
-const reporter = process.env.CI ? summaryReporter() : defaultReporter();
-
+/** @type {import('@web/test-runner').TestRunnerConfig} */
 export default {
   browsers: [
     playwrightLauncher({ product: 'chromium' }),
@@ -20,5 +18,11 @@ export default {
   files: ['./src/**/indexeddb/*.test.ts'],
   rootDir: fileURLToPath(new URL('../', import.meta.url)),
   nodeResolve: true,
-  reporters: [reporter],
+  reporters: [defaultReporter()],
+  concurrency: 1,
+  concurrentBrowsers: 1,
+  browserLogs: true,
+  // log everything to debug CI flakes
+  filterBrowserLogs: () => true,
+  logger: console,
 };

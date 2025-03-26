@@ -1,4 +1,4 @@
-import { type Key, type Range } from './common.js';
+import type { Key, Range } from './common.js';
 
 /**
  * A map backed by a persistent store.
@@ -10,13 +10,6 @@ interface AztecBaseMap<K extends Key, V> {
    * @param val - The value to set
    */
   set(key: K, val: V): Promise<void>;
-
-  /**
-   * Atomically swap the value at the given key
-   * @param key - The key to swap the value at
-   * @param fn - The function to swap the value with
-   */
-  swap(key: K, fn: (val: V | undefined) => V): Promise<void>;
 
   /**
    * Sets the value at the given key if it does not already exist.
@@ -62,24 +55,11 @@ export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
    * @param range - The range of keys to iterate over
    */
   keys(range?: Range<K>): IterableIterator<K>;
-}
-
-/**
- * A map backed by a persistent store that can have multiple values for a single key.
- */
-export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
-  /**
-   * Gets all the values at the given key.
-   * @param key - The key to get the values from
-   */
-  getValues(key: K): IterableIterator<V>;
 
   /**
-   * Deletes a specific value at the given key.
-   * @param key - The key to delete the value at
-   * @param val - The value to delete
+   * Clears the map.
    */
-  deleteValue(key: K, val: V): Promise<void>;
+  clear(): Promise<void>;
 }
 
 /**
@@ -116,22 +96,4 @@ export interface AztecAsyncMap<K extends Key, V> extends AztecBaseMap<K, V> {
    * @param range - The range of keys to iterate over
    */
   keysAsync(range?: Range<K>): AsyncIterableIterator<K>;
-}
-
-/**
- * A map backed by a persistent store that can have multiple values for a single key.
- */
-export interface AztecAsyncMultiMap<K extends Key, V> extends AztecAsyncMap<K, V> {
-  /**
-   * Gets all the values at the given key.
-   * @param key - The key to get the values from
-   */
-  getValuesAsync(key: K): AsyncIterableIterator<V>;
-
-  /**
-   * Deletes a specific value at the given key.
-   * @param key - The key to delete the value at
-   * @param val - The value to delete
-   */
-  deleteValue(key: K, val: V): Promise<void>;
 }

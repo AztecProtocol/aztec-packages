@@ -3,7 +3,7 @@ use crate::{
     constants::CONTRACT_INSTANCE_LENGTH,
     contract_class_id::ContractClassId,
     public_keys::PublicKeys,
-    traits::{Deserialize, Hash, Serialize},
+    traits::{Deserialize, FromField, Hash, Serialize, ToField},
 };
 
 pub struct ContractInstance {

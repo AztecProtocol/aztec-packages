@@ -1,1 +1,6 @@
-export { createSandbox } from './sandbox.js';
+export {
+  createSandbox,
+  getDeployedBananaCoinAddress,
+  getDeployedBananaFPCAddress,
+  getDeployedSponsoredFPCAddress,
+} from './sandbox/index.js';

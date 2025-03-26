@@ -8,11 +8,11 @@ use dep::types::{
 
 pub struct TailToPublicOutputHints {
     // L2 to l1 msgs.
-    sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
+    pub sorted_l2_to_l1_msg_hints: SplitOrderHints<MAX_L2_TO_L1_MSGS_PER_TX>,
     // Contract class log hashes.
-    sorted_contract_class_log_hash_hints: SplitOrderHints<MAX_CONTRACT_CLASS_LOGS_PER_TX>,
+    pub sorted_contract_class_log_hash_hints: SplitOrderHints<MAX_CONTRACT_CLASS_LOGS_PER_TX>,
     // Public call requests.
-    sorted_public_call_request_hints: SplitOrderHints<MAX_ENQUEUED_CALLS_PER_TX>,
+    pub sorted_public_call_request_hints: SplitOrderHints<MAX_ENQUEUED_CALLS_PER_TX>,
 }
 
 pub unconstrained fn generate_tail_to_public_output_hints(

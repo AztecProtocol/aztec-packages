@@ -2,7 +2,7 @@
 #include "composer.hpp"
 #include "barretenberg/vm/stats.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 using Flavor = AvmFlavor;
 void AvmComposer::compute_witness(CircuitConstructor& circuit)
@@ -64,4 +64,4 @@ std::shared_ptr<Flavor::VerificationKey> AvmComposer::compute_verification_key(C
     return verification_key;
 }
 
-} // namespace bb
+} // namespace bb::avm

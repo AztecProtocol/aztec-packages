@@ -13,8 +13,7 @@ From the repo root:
 ./spartan/metrics/forward.sh
 
 # build images locally
-# this takes forever but a massive speedup is coming
-./scripts/earthly-local ./yarn-project/+export-e2e-test-images
+./bootstrap.sh image-e2e
 ```
 
 

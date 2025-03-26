@@ -1,4 +1,5 @@
 #include "barretenberg/smt_verification/terms/term.hpp"
+#include "term.hpp"
 
 namespace smt_terms {
 
@@ -265,6 +266,16 @@ void STerm::operator>=(const bb::fr& other) const
     this->solver->assertFormula(ge);
 }
 
+STerm STerm::operator%(const STerm& other) const
+{
+    if (!this->operations.contains(OpType::MOD)) {
+        info("MOD is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::MOD), { this->term, other.term });
+    return { res, this->solver, this->type };
+}
+
 STerm STerm::operator^(const STerm& other) const
 {
     if (!this->operations.contains(OpType::XOR)) {
@@ -310,6 +321,38 @@ STerm STerm::operator|(const STerm& other) const
         return *this;
     }
     cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::OR), { this->term, other.term });
+    return { res, this->solver, this->type };
+}
+
+void STerm::operator<(const STerm& other) const
+{
+    STerm left = *this;
+    STerm right = other;
+    left = this->type == TermType::FFITerm && left.term.getNumChildren() > 1 ? left.mod() : left;
+    right = this->type == TermType::FFITerm && right.term.getNumChildren() > 1 ? right.mod() : right;
+
+    cvc5::Term eq = this->solver->term_manager.mkTerm(this->operations.at(OpType::LT), { left.term, right.term });
+    this->solver->assertFormula(eq);
+}
+
+void STerm::operator>(const STerm& other) const
+{
+    STerm left = *this;
+    STerm right = other;
+    left = this->type == TermType::FFITerm && left.term.getNumChildren() > 1 ? left.mod() : left;
+    right = this->type == TermType::FFITerm && right.term.getNumChildren() > 1 ? right.mod() : right;
+
+    cvc5::Term eq = this->solver->term_manager.mkTerm(this->operations.at(OpType::GT), { left.term, right.term });
+    this->solver->assertFormula(eq);
+}
+
+STerm STerm::operator~() const
+{
+    if (!this->operations.contains(OpType::NOT)) {
+        info("NOT is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Term res = solver->term_manager.mkTerm(this->operations.at(OpType::NOT), { this->term });
     return { res, this->solver, this->type };
 }
 
@@ -386,6 +429,35 @@ STerm STerm::rotl(const uint32_t& n) const
     return { res, this->solver, this->type };
 }
 
+STerm STerm::truncate(const uint32_t& to_size)
+{
+    if (!this->operations.contains(OpType::EXTRACT) || !this->operations.contains(OpType::BITVEC_PAD)) {
+        info("EXTRACT is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Op extraction = solver->term_manager.mkOp(this->operations.at(OpType::EXTRACT), { to_size, 0 });
+    cvc5::Term temp = solver->term_manager.mkTerm(extraction, { this->term });
+    cvc5::Op padding =
+        solver->term_manager.mkOp(this->operations.at(OpType::BITVEC_PAD),
+                                  { this->solver->bv_sort.getBitVectorSize() - temp.getSort().getBitVectorSize() });
+    cvc5::Term res = solver->term_manager.mkTerm(padding, { temp });
+    return { res, this->solver, this->type };
+}
+
+STerm STerm::extract_bit(const uint32_t& bit_index)
+{
+    if (!this->operations.contains(OpType::EXTRACT) || !this->operations.contains(OpType::BITVEC_PAD)) {
+        info("EXTRACT is not compatible with ", this->type);
+        return *this;
+    }
+    cvc5::Op extraction = solver->term_manager.mkOp(this->operations.at(OpType::EXTRACT), { bit_index, bit_index });
+    cvc5::Term temp = solver->term_manager.mkTerm(extraction, { this->term });
+    cvc5::Op padding =
+        solver->term_manager.mkOp(this->operations.at(OpType::BITVEC_PAD),
+                                  { this->solver->bv_sort.getBitVectorSize() - temp.getSort().getBitVectorSize() });
+    cvc5::Term res = solver->term_manager.mkTerm(padding, { temp });
+    return { res, this->solver, this->type };
+}
 /**
  * @brief Create an inclusion constraint
  *

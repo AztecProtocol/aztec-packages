@@ -1,5 +1,3 @@
-import { type AllowedElement } from '@aztec/circuit-types';
-import { AztecAddress, Fr, FunctionSelector, getContractClassFromArtifact } from '@aztec/circuits.js';
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
@@ -11,12 +9,14 @@ import {
   booleanConfigHelper,
   getConfigFromMappings,
   numberConfigHelper,
+  pickConfigMappings,
 } from '@aztec/foundation/config';
-import { pickConfigMappings } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { FPCContract } from '@aztec/noir-contracts.js/FPC';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
-import { ProtocolContractAddress } from '@aztec/protocol-contracts';
+import { Fr } from '@aztec/foundation/fields';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
 
 import {
   type PublisherConfig,
@@ -24,31 +24,26 @@ import {
   getPublisherConfigMappings,
   getTxSenderConfigMappings,
 } from './publisher/config.js';
-import { type SequencerConfig } from './sequencer/config.js';
 
-/** Chain configuration. */
-type ChainConfig = {
-  /** The chain id of the ethereum host. */
-  l1ChainId: number;
-  /** The version of the rollup. */
-  version: number;
-};
+export * from './publisher/config.js';
+export type { SequencerConfig };
 
 /**
  * Configuration settings for the SequencerClient.
  */
 export type SequencerClientConfig = PublisherConfig &
+  ValidatorClientConfig &
   TxSenderConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<L1ContractsConfig, 'ethereumSlotDuration'>;
+  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
     env: 'SEQ_TX_POLLING_INTERVAL_MS',
     description: 'The number of ms to wait between polling for pending txs.',
-    ...numberConfigHelper(1_000),
+    ...numberConfigHelper(500),
   },
   maxTxsPerBlock: {
     env: 'SEQ_MAX_TX_PER_BLOCK',
@@ -60,20 +55,19 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'The minimum number of txs to include in a block.',
     ...numberConfigHelper(1),
   },
-  minSecondsBetweenBlocks: {
-    env: 'SEQ_MIN_SECONDS_BETWEEN_BLOCKS',
-    description: 'The minimum number of seconds in-between consecutive blocks.',
-    ...numberConfigHelper(0),
+  maxL2BlockGas: {
+    env: 'SEQ_MAX_L2_BLOCK_GAS',
+    description: 'The maximum L2 block gas.',
+    ...numberConfigHelper(10e9),
   },
-  maxSecondsBetweenBlocks: {
-    env: 'SEQ_MAX_SECONDS_BETWEEN_BLOCKS',
-    description:
-      'The maximum number of seconds in-between consecutive blocks. Sequencer will produce a block with less than minTxsPerBlock once this threshold is reached.',
-    ...numberConfigHelper(0),
+  maxDABlockGas: {
+    env: 'SEQ_MAX_DA_BLOCK_GAS',
+    description: 'The maximum DA block gas.',
+    ...numberConfigHelper(10e9),
   },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => EthAddress.fromString(val),
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {
@@ -92,27 +86,14 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   allowedInSetup: {
     env: 'SEQ_ALLOWED_SETUP_FN',
     parseEnv: (val: string) => parseSequencerAllowList(val),
-    defaultValue: getDefaultAllowedSetupFunctions(),
     description: 'The list of functions calls allowed to run in setup',
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
-  },
-  allowedInTeardown: {
-    env: 'SEQ_ALLOWED_TEARDOWN_FN',
-    parseEnv: (val: string) => parseSequencerAllowList(val),
-    defaultValue: getDefaultAllowedTeardownFunctions(),
-    description: 'The list of functions calls allowed to run teardown',
-    printDefault: () => 'FPC.pay_refund',
   },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
-  },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
   },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
@@ -126,24 +107,21 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     parseEnv: (val: string) => EthAddress.fromString(val),
     defaultValue: EthAddress.ZERO,
   },
-};
-
-export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
-  l1ChainId: l1ReaderConfigMappings.l1ChainId,
-  version: {
-    env: 'VERSION',
-    description: 'The version of the rollup.',
-    ...numberConfigHelper(1),
+  maxL1TxInclusionTimeIntoSlot: {
+    env: 'SEQ_MAX_L1_TX_INCLUSION_TIME_INTO_SLOT',
+    description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
+    parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
+  ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration']),
+  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 
 /**
@@ -189,51 +167,16 @@ export function parseSequencerAllowList(value: string): AllowedElement[] {
     } else if (typeString === 'C') {
       if (selector) {
         entries.push({
-          classId: Fr.fromString(identifierString),
+          classId: Fr.fromHexString(identifierString),
           selector,
         });
       } else {
         entries.push({
-          classId: Fr.fromString(identifierString),
+          classId: Fr.fromHexString(identifierString),
         });
       }
     }
   }
 
   return entries;
-}
-
-function getDefaultAllowedSetupFunctions(): AllowedElement[] {
-  return [
-    // needed for authwit support
-    {
-      address: ProtocolContractAddress.AuthRegistry,
-    },
-    // needed for claiming on the same tx as a spend
-    {
-      address: ProtocolContractAddress.FeeJuice,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-    },
-    // needed for private transfers via FPC
-    {
-      classId: getContractClassFromArtifact(TokenContractArtifact).id,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('_increase_public_balance((Field),Field)'),
-    },
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      // We can't restrict the selector because public functions get routed via dispatch.
-      // selector: FunctionSelector.fromSignature('prepare_fee((Field),Field,(Field),Field)'),
-    },
-  ];
-}
-
-function getDefaultAllowedTeardownFunctions(): AllowedElement[] {
-  return [
-    {
-      classId: getContractClassFromArtifact(FPCContract.artifact).id,
-      selector: FunctionSelector.fromSignature('pay_refund((Field),Field,(Field))'),
-    },
-  ];
 }

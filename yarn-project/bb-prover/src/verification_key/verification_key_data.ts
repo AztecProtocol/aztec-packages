@@ -1,10 +1,7 @@
-import {
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  Fr,
-  VerificationKeyAsFields,
-  VerificationKeyData,
-} from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
+import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
+import { hashVK } from '@aztec/stdlib/hash';
+import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { strict as assert } from 'assert';
 import { promises as fs } from 'fs';
@@ -23,9 +20,9 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
     fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
   ]);
   const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromString);
+  const fields = fieldsJson.map(Fr.fromHexString);
   // The hash is not included in the BB response
-  const vkHash = hashVK(fields);
+  const vkHash = await hashVK(fields);
   const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
   return new VerificationKeyData(vkAsFields, rawBinary);
 }
@@ -37,7 +34,7 @@ export async function extractAvmVkData(vkDirectoryPath: string): Promise<Verific
     fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
   ]);
   const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromString);
+  const fields = fieldsJson.map(Fr.fromHexString);
   // The first item is the hash, this is not part of the actual VK
   // TODO: is the above actually the case?
   const vkHash = fields[0];

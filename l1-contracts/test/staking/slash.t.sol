@@ -3,8 +3,9 @@ pragma solidity >=0.8.27;
 
 import {StakingBase} from "./base.t.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Staking, IStaking, Status, ValidatorInfo, Exit} from "@aztec/core/staking/Staking.sol";
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {
+  IStakingCore, Status, ValidatorInfo, Exit, Timestamp
+} from "@aztec/core/interfaces/IStaking.sol";
 
 contract SlashTest is StakingBase {
   uint256 internal constant DEPOSIT_AMOUNT = MINIMUM_STAKE + 2;
@@ -82,7 +83,7 @@ contract SlashTest is StakingBase {
     assertTrue(info.status == Status.EXITING);
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStaking.Slashed(ATTESTER, 1);
+    emit IStakingCore.Slashed(ATTESTER, 1);
     vm.prank(SLASHER);
     staking.slash(ATTESTER, 1);
 
@@ -112,7 +113,7 @@ contract SlashTest is StakingBase {
       uint256 balance = info.stake;
 
       vm.expectEmit(true, true, true, true, address(staking));
-      emit IStaking.Slashed(ATTESTER, 1);
+      emit IStakingCore.Slashed(ATTESTER, 1);
       vm.prank(SLASHER);
       staking.slash(ATTESTER, 1);
 
@@ -162,7 +163,7 @@ contract SlashTest is StakingBase {
     uint256 balance = info.stake;
 
     vm.expectEmit(true, true, true, true, address(staking));
-    emit IStaking.Slashed(ATTESTER, slashingAmount);
+    emit IStakingCore.Slashed(ATTESTER, slashingAmount);
     vm.prank(SLASHER);
     staking.slash(ATTESTER, slashingAmount);
 

@@ -4,11 +4,10 @@ use dep::aztec::macros::aztec;
 
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 #[aztec]
-contract Spam {
+pub contract Spam {
 
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note_unconstrained,
-        keys::getters::get_public_keys,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note_unconstrained,
         macros::{functions::{internal, private, public}, storage::storage},
         prelude::{AztecAddress, Map, PublicMutable},
         protocol_types::{
@@ -25,18 +24,17 @@ contract Spam {
     #[storage]
     struct Storage<Context> {
         balances: Map<AztecAddress, BalanceSet<TokenNote, Context>, Context>,
-        public_balances: Map<Field, PublicMutable<U128, Context>, Context>,
+        public_balances: Map<Field, PublicMutable<u128, Context>, Context>,
     }
 
     #[private]
     fn spam(nullifier_seed: Field, nullifier_count: u32, call_public: bool) {
         let caller = context.msg_sender();
-        let caller_ovpk_m = get_public_keys(caller).ovpk_m;
-        let amount = U128::from_integer(1);
+        let amount = 1 as u128;
 
         for _ in 0..MAX_NOTE_HASHES_PER_CALL {
-            storage.balances.at(caller).add(caller, U128::from_integer(amount)).emit(
-                encode_and_encrypt_note_unconstrained(&mut context, caller_ovpk_m, caller, caller),
+            storage.balances.at(caller).add(caller, amount).emit(
+                encode_and_encrypt_note_unconstrained(&mut context, caller, caller),
             );
         }
 
@@ -65,7 +63,7 @@ contract Spam {
     #[public]
     #[internal]
     fn public_spam(start: u32, end: u32) {
-        let one = U128::from_integer(1);
+        let one = 1 as u128;
         for i in start..end {
             let prev = storage.public_balances.at(i as Field).read();
             storage.public_balances.at(i as Field).write(prev + one);

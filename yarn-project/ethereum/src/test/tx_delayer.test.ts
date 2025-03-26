@@ -1,12 +1,12 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
-import { type Anvil } from '@viem/anvil';
-import { type PrivateKeyAccount, createWalletClient, getContract, http, publicActions } from 'viem';
+import type { Anvil } from '@viem/anvil';
+import { type PrivateKeyAccount, createWalletClient, fallback, getContract, http, publicActions } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { type ViemClient } from '../types.js';
+import type { ExtendedViemWalletClient } from '../types.js';
 import { startAnvil } from './start_anvil.js';
 import { type Delayer, withDelayer } from './tx_delayer.js';
 
@@ -15,23 +15,24 @@ describe('tx_delayer', () => {
   let rpcUrl: string;
   let logger: Logger;
   let account: PrivateKeyAccount;
-  let client: ViemClient;
+  let client: ExtendedViemWalletClient;
   let delayer: Delayer;
 
   const ETHEREUM_SLOT_DURATION = 2;
 
   beforeAll(async () => {
-    ({ anvil, rpcUrl } = await startAnvil(ETHEREUM_SLOT_DURATION));
+    ({ anvil, rpcUrl } = await startAnvil({ l1BlockTime: ETHEREUM_SLOT_DURATION }));
     logger = createLogger('ethereum:test:tx_delayer');
   });
 
   beforeEach(() => {
-    const transport = http(rpcUrl);
     account = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80');
-    ({ client, delayer } = withDelayer(
-      createWalletClient({ transport, chain: foundry, account }).extend(publicActions),
-      { ethereumSlotDuration: ETHEREUM_SLOT_DURATION },
-    ));
+    const _client = createWalletClient({
+      transport: fallback([http(rpcUrl)]),
+      chain: foundry,
+      account,
+    }).extend(publicActions);
+    ({ client, delayer } = withDelayer(_client, { ethereumSlotDuration: ETHEREUM_SLOT_DURATION }));
   });
 
   const receiptNotFound = expect.objectContaining({ name: 'TransactionReceiptNotFoundError' });
@@ -96,6 +97,6 @@ describe('tx_delayer', () => {
   }, 20000);
 
   afterAll(async () => {
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   });
 });

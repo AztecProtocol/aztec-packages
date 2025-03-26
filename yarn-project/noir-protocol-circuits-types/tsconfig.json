@@ -8,13 +8,16 @@
   },
   "references": [
     {
-      "path": "../circuits.js"
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../kv-store"
@@ -23,5 +26,6 @@
       "path": "../merkle-tree"
     }
   ],
-  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"],
+  "exclude": ["src/scripts"]
 }

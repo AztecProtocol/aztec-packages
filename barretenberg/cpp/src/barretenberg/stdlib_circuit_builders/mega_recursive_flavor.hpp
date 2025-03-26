@@ -40,6 +40,8 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
     using NativeFlavor = MegaFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
+    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
+    static constexpr bool USE_SHORT_MONOMIALS = MegaFlavor::USE_SHORT_MONOMIALS;
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
@@ -101,18 +103,11 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
      * This differs from Mega in how we construct the commitments.
      */
     class VerificationKey
-        : public VerificationKey_<MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, MegaFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         // Data pertaining to transfer of databus return data via public inputs of the proof
         DatabusPropagationData databus_propagation_data;
 
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        };
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification
          * key
@@ -123,10 +118,11 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
-            this->circuit_size = native_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = native_key->num_public_inputs;
-            this->pub_inputs_offset = native_key->pub_inputs_offset;
+            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
+            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
+            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
             this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
             this->pairing_point_accumulator_public_input_indices =
                 native_key->pairing_point_accumulator_public_input_indices;
@@ -150,10 +146,11 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
 
             size_t num_frs_read = 0;
 
-            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
+            this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
+            this->log_circuit_size = numeric::get_msb(static_cast<uint32_t>(this->circuit_size.get_value()));
+            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
             this->contains_pairing_point_accumulator =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
@@ -161,9 +158,9 @@ template <typename BuilderType> class MegaRecursiveFlavor_ {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 
-            this->databus_propagation_data.app_return_data_public_input_idx =
+            this->databus_propagation_data.app_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->databus_propagation_data.kernel_return_data_public_input_idx =
+            this->databus_propagation_data.kernel_return_data_commitment_pub_input_key.start_idx =
                 uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             this->databus_propagation_data.is_kernel =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());

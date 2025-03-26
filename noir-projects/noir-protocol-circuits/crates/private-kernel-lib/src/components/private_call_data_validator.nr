@@ -2,11 +2,6 @@ mod find_first_revertible_item_index;
 mod validate_contract_address;
 mod validate_split_ranges;
 
-use crate::components::private_call_data_validator::{
-    find_first_revertible_item_index::find_first_revertible_item_index,
-    validate_contract_address::validate_contract_address,
-    validate_split_ranges::validate_split_ranges,
-};
 use dep::types::{
     abis::{
         kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
@@ -19,9 +14,13 @@ use dep::types::{
     },
     address::AztecAddress,
     constants::{MAX_FIELD_VALUE, REGISTERER_CONTRACT_ADDRESS},
+    traits::FromField,
     transaction::tx_request::TxRequest,
     utils::arrays::find_index_hint,
 };
+use find_first_revertible_item_index::find_first_revertible_item_index;
+use validate_contract_address::validate_contract_address;
+use validate_split_ranges::validate_split_ranges;
 
 fn validate_incrementing_counters_within_range<T, let N: u32>(
     counter_start: u32,
@@ -82,7 +81,7 @@ where
 
 pub struct PrivateCallDataValidator {
     data: PrivateCallData,
-    array_lengths: PrivateCircuitPublicInputsArrayLengths,
+    pub array_lengths: PrivateCircuitPublicInputsArrayLengths,
 }
 
 impl PrivateCallDataValidator {
@@ -259,6 +258,7 @@ impl PrivateCallDataValidator {
         // function. This check for that function guarantees that the counter won't fall into one of its nested calls.
         // In this case, we can simply use 0 and make the following check pass.
         let min_revertible_side_effect_counter = public_inputs.min_revertible_side_effect_counter;
+        // Safety: the index is constrained in validate_split_ranges below.
         let first_revertible_index = unsafe {
             find_first_revertible_item_index(
                 public_inputs.min_revertible_side_effect_counter,
@@ -377,6 +377,7 @@ impl PrivateCallDataValidator {
         for i in 0..logs.len() {
             let log = logs[i];
             if log.note_hash_counter != 0 {
+                // Safety: the index is constrained by the checks below.
                 let note_index = unsafe {
                     find_index_hint(
                         accumulated_note_hashes,

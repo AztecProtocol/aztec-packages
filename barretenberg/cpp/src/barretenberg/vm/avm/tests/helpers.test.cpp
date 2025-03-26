@@ -25,7 +25,7 @@ std::vector<ThreeOpParamRow> gen_three_op_params(std::vector<ThreeOpParam> opera
  */
 void validate_trace_check_circuit(std::vector<Row>&& trace)
 {
-    auto circuit_builder = AvmCircuitBuilder();
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 };
@@ -60,16 +60,16 @@ void validate_trace(std::vector<Row>&& trace,
     auto public_inputs_with_end_gas = public_inputs;
     avm_trace::inject_end_gas_values(public_inputs_with_end_gas, trace);
 
-    auto circuit_builder = AvmCircuitBuilder();
+    auto circuit_builder = bb::avm::AvmCircuitBuilder();
     circuit_builder.set_trace(std::move(trace));
     EXPECT_TRUE(circuit_builder.check_circuit());
 
     if (with_proof) {
-        AvmComposer composer = AvmComposer();
-        AvmProver prover = composer.create_prover(circuit_builder);
+        bb::avm::AvmComposer composer = bb::avm::AvmComposer();
+        bb::avm::AvmProver prover = composer.create_prover(circuit_builder);
         HonkProof proof = prover.construct_proof();
 
-        AvmVerifier verifier = composer.create_verifier(circuit_builder);
+        bb::avm::AvmVerifier verifier = composer.create_verifier(circuit_builder);
 
         // At the current development stage (new public inputs for whole tx), we are not handling public related inputs
         // except calldata and returndata.

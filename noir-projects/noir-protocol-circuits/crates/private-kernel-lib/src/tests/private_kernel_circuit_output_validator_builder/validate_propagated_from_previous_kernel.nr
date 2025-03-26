@@ -19,15 +19,6 @@ fn validate_propagated_from_previous_kernel_constants_mismatch_chain_id_fails() 
 }
 
 #[test(should_fail_with = "mismatch constants")]
-fn validate_propagated_from_previous_kernel_constants_mismatch_txs_effects_hash_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.historical_header.content_commitment.txs_effects_hash += 1;
-
-    builder.validate_as_inner_call();
-}
-
-#[test(should_fail_with = "mismatch constants")]
 fn validate_propagated_from_previous_kernel_constants_mismatch_protocol_contract_tree_root_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 

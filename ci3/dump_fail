@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# If the given command succeeds, only stdout is output.
+# If the given command fails, both stdout and stderr are output.
+# As stdout is output as normal, the caller can redirect to /dev/null if they want to silence that also.
+# This enables use in captures:
+#   my_var=$(dump_fail some_command)
+# Or as a denoiser where you want no output unless the command fails:
+#   dump_fail some_command > /dev/null
+set -uo pipefail
+source $(git rev-parse --show-toplevel)/ci3/source_color
+
+if [ "$#" -lt 1 ]; then
+  echo "Usage: $0 <command> [args...]"
+  exit 1
+fi
+
+# Need a temp to capture stderr.
+stdout=$(mktemp)
+stderr=$(mktemp)
+trap "rm $stdout $stderr" EXIT
+
+bash -c "$1" >$stdout 2>$stderr &
+pid=$!
+trap 'kill -SIGTERM $pid &>/dev/null || true' SIGTERM
+# We wait twice, as the first awakening might be due to this script receiving SIGTERM.
+# In that case wait will return with 143, and the trap handler is immediately called.
+# We then wait on the pid again, to get the actual status code.
+wait $pid
+wait $pid
+status=$?
+
+# 0 or SIGTERM considered a success.
+if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
+  {
+    echo -e "${red}command failed${reset}: $* (exit: $status)"
+    echo -e "${blue}--- stdout ---${reset}"
+    cat $stdout
+    echo -e "${blue}--- stderr ---${reset}"
+    cat "$stderr"
+    echo -e "${blue}--------------${reset}"
+  } >&2
+else
+  cat $stdout
+fi
+
+exit $status

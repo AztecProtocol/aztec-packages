@@ -50,10 +50,13 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         , op_queue(std::move(op_queue_in))
     {
         PROFILE_THIS();
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        op_queue->initialize_new_subtable();
 
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
+
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : MegaCircuitBuilder_(0, op_queue_in)
     {}
@@ -79,6 +82,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
         , op_queue(std::move(op_queue_in))
     {
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        op_queue->initialize_new_subtable();
+
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
@@ -237,44 +243,6 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
     const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
     const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
     const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
-    uint64_t estimate_memory() const
-    {
-        vinfo("++Estimating builder memory++");
-        uint64_t result{ 0 };
-
-        // gates:
-        for (auto [block, label] : zip_view(this->blocks.get(), this->blocks.get_labels())) {
-            uint64_t size{ 0 };
-            for (const auto& wire : block.wires) {
-                size += wire.capacity() * sizeof(uint32_t);
-            }
-            for (const auto& selector : block.selectors) {
-                size += selector.capacity() * sizeof(FF);
-            }
-            vinfo(label, " size ", size >> 10, " KiB");
-            result += size;
-        }
-
-        // variables
-        size_t to_add{ this->variables.capacity() * sizeof(FF) };
-        result += to_add;
-        vinfo("variables: ", to_add);
-
-        // public inputs
-        to_add = this->public_inputs.capacity() * sizeof(uint32_t);
-        result += to_add;
-        vinfo("public inputs: ", to_add);
-
-        // other variable indices
-        to_add = this->next_var_index.capacity() * sizeof(uint32_t);
-        to_add += this->prev_var_index.capacity() * sizeof(uint32_t);
-        to_add += this->real_variable_index.capacity() * sizeof(uint32_t);
-        to_add += this->real_variable_tags.capacity() * sizeof(uint32_t);
-        result += to_add;
-        vinfo("variable indices: ", to_add);
-
-        return result;
-    }
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

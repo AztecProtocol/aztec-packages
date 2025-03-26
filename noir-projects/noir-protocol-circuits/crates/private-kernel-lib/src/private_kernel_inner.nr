@@ -14,6 +14,7 @@ use dep::types::{
         private_kernel_data::{PrivateKernelData, PrivateKernelDataWithoutPublicInputs},
     },
     constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_INNER_INDEX, PRIVATE_KERNEL_RESET_INDEX},
+    proof::traits::Verifiable,
 };
 
 global ALLOWED_PREVIOUS_CIRCUITS: [u32; 3] =
@@ -42,12 +43,18 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             self.previous_kernel.public_inputs,
         )
             .pop_top_call_request()
-            .with_private_call(self.private_call.public_inputs)
+            .with_private_call(self.private_call)
             .finish()
     }
 
     pub fn execute(self) -> PrivateKernelCircuitPublicInputs {
+        if !std::runtime::is_unconstrained() {
+            self.previous_kernel.verify();
+            self.private_call.verify(false);
+        }
+
         // Generate output.
+        // Safety: The output is validated below by PrivateKernelCircuitOutputValidator.
         let output = unsafe { self.generate_output() };
 
         // Validate inputs.
@@ -74,7 +81,7 @@ impl PrivateKernelInnerCircuitPrivateInputs {
             PrivateKernelCircuitOutputValidator::new(output).validate_as_inner_call(
                 self.previous_kernel.public_inputs,
                 previous_kernel_array_lengths,
-                self.private_call.public_inputs,
+                self.private_call,
                 private_call_data_validator.array_lengths,
             );
         }
@@ -88,7 +95,7 @@ mod tests {
     };
     use dep::types::{
         abis::kernel_circuit_public_inputs::PrivateKernelCircuitPublicInputs,
-        constants::{EMPTY_NESTED_INDEX, PRIVATE_KERNEL_INIT_INDEX},
+        constants::{PRIVATE_KERNEL_INIT_INDEX, PRIVATE_KERNEL_TAIL_INDEX},
         tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq},
     };
 
@@ -111,8 +118,10 @@ mod tests {
         }
 
         pub fn execute(&mut self) -> PrivateKernelCircuitPublicInputs {
+            self.private_call.compute_update_tree_and_hints();
             let private_call = self.private_call.to_private_call_data();
             self.previous_kernel.add_private_call_request_for_private_call(private_call);
+            self.previous_kernel.set_historical_header_from_call_data(private_call);
             let previous_kernel = self.previous_kernel.to_private_kernel_data();
 
             let kernel = PrivateKernelInnerCircuitPrivateInputs { previous_kernel, private_call };
@@ -127,9 +136,10 @@ mod tests {
 
         // note_hash_read_requests
         builder.previous_kernel.append_note_hash_read_requests(1);
-        let prev_note_hash_read_requests = builder.previous_kernel.note_hash_read_requests.storage;
+        let prev_note_hash_read_requests =
+            builder.previous_kernel.note_hash_read_requests.storage();
         builder.private_call.append_note_hash_read_requests(2);
-        let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage;
+        let curr_note_hash_read_requests = builder.private_call.note_hash_read_requests.storage();
 
         // private_logs
         builder.previous_kernel.append_private_logs(2);
@@ -166,7 +176,7 @@ mod tests {
     #[test(should_fail_with = "Invalid vk index")]
     fn invalid_previous_kernel() {
         let mut builder = PrivateKernelInnerInputsBuilder::new();
-        builder.previous_kernel = builder.previous_kernel.in_vk_tree(EMPTY_NESTED_INDEX);
+        builder.previous_kernel = builder.previous_kernel.in_vk_tree(PRIVATE_KERNEL_TAIL_INDEX);
         let _res = builder.execute();
     }
 }

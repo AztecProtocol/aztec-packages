@@ -10,15 +10,173 @@ using namespace bb;
 using Flavor = MegaFlavor;
 using Polynomial = typename Flavor::Polynomial;
 using FF = typename Flavor::FF;
+constexpr size_t NUM_KEYS = 2;
 
+/**
+ * @brief Extend the ProtogalaxyProverInternal class to compute the combiner *without* optimistically skipping
+ * @details "optimistic skipping" is the act of not computing the flavor's relation monomials at evaluation points where
+ * an honest Prover would produce an evaluation result of `0` For example, when folding 1 instance `w0` with 1
+ * accumulator `w`, ProtoGalaxy uses a witness polynomial w(X) = w.L0(X) + w0.L1(X), where L0, L1 are Lagrange
+ * polynomials. At X=1, w(X) = w0 . The full Protogalaxy relation in this case should evaluate to `0`. so we can skip
+ * its computation at X=1. The PGInternalTest class adds methods where we do *not* perform this optimistic skipping, so
+ * we can test whether the optimistic skipping algorithm produces the correct result
+ *
+ */
+class PGInternalTest : public ProtogalaxyProverInternal<DeciderProvingKeys_<Flavor, NUM_KEYS>> {
+  public:
+    using ExtendedUnivariatesNoOptimisticSkipping =
+        typename Flavor::template ProverUnivariates<ExtendedUnivariate::LENGTH>;
+
+    using UnivariateRelationParametersNoOptimisticSkipping =
+        bb::RelationParameters<Univariate<FF, DeciderPKs::EXTENDED_LENGTH>>;
+    using ExtendedUnivariatesTypeNoOptimisticSkipping =
+        std::conditional_t<Flavor::USE_SHORT_MONOMIALS, ShortUnivariates, ExtendedUnivariatesNoOptimisticSkipping>;
+
+    /**
+     * @brief Compute combiner using univariates that do not avoid zero computation in case of valid incoming indices.
+     * @details This is only used for testing the combiner calculation.
+     */
+    ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
+        const DeciderPKs& keys,
+        const GateSeparatorPolynomial<FF>& gate_separators,
+        const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
+        const UnivariateRelationSeparator& alphas)
+    {
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping accumulators;
+        return compute_combiner_no_optimistic_skipping(
+            keys, gate_separators, relation_parameters, alphas, accumulators);
+    }
+
+    /**
+     * @brief Compute the combiner polynomial $G$ in the Protogalaxy paper
+     * @details We have implemented an optimization that (eg in the case where we fold one instance-witness pair at a
+     * time) assumes the value G(1) is 0, which is true in the case where the witness to be folded is valid.
+     * @todo (https://github.com/AztecProtocol/barretenberg/issues/968) Make combiner tests better
+     *
+     * @tparam skip_zero_computations whether to use the optimization that skips computing zero.
+     * @param
+     * @param gate_separators
+     * @return ExtendedUnivariateWithRandomization
+     */
+    ExtendedUnivariateWithRandomization compute_combiner_no_optimistic_skipping(
+        const DeciderPKs& keys,
+        const GateSeparatorPolynomial<FF>& gate_separators,
+        const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
+        const UnivariateRelationSeparator& alphas,
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators)
+    {
+        PROFILE_THIS();
+
+        // Determine the number of threads over which to distribute the work
+        // The polynomial size is given by the virtual size since the computation includes
+        // the incoming key which could have nontrivial values on the larger domain in case of overflow.
+        const size_t common_polynomial_size = keys[0]->proving_key.polynomials.w_l.virtual_size();
+        const size_t num_threads = compute_num_threads(common_polynomial_size);
+
+        // Univariates are optimised for usual PG, but we need the unoptimised version for tests (it's a version that
+        // doesn't skip computation), so we need to define types depending on the template instantiation
+        using ThreadAccumulators = TupleOfTuplesOfUnivariatesNoOptimisticSkipping;
+        // Construct univariate accumulator containers; one per thread
+        std::vector<ThreadAccumulators> thread_univariate_accumulators(num_threads);
+
+        // Distribute the execution trace rows across threads so that each handles an equal number of active rows
+        trace_usage_tracker.construct_thread_ranges(num_threads, common_polynomial_size);
+
+        // Accumulate the contribution from each sub-relation
+        parallel_for(num_threads, [&](size_t thread_idx) {
+            // Initialize the thread accumulator to 0
+            RelationUtils::zero_univariates(thread_univariate_accumulators[thread_idx]);
+            // Construct extended univariates containers; one per thread
+            ExtendedUnivariatesTypeNoOptimisticSkipping extended_univariates;
+
+            const size_t start = trace_usage_tracker.thread_ranges[thread_idx].first;
+            const size_t end = trace_usage_tracker.thread_ranges[thread_idx].second;
+            for (size_t idx = start; idx < end; idx++) {
+                if (trace_usage_tracker.check_is_active(idx)) {
+                    // Instantiate univariates, possibly with skipping toto ignore computation in those indices (they
+                    // are still available for skipping relations, but all derived univariate will ignore those
+                    // evaluations) No need to initialise extended_univariates to 0, as it's assigned to.
+                    constexpr size_t skip_count = 0;
+                    extend_univariates<skip_count>(extended_univariates, keys, idx);
+
+                    const FF pow_challenge = gate_separators[idx];
+
+                    // Accumulate the i-th row's univariate contribution. Note that the relation parameters passed to
+                    // this function have already been folded. Moreover, linear-dependent relations that act over the
+                    // entire execution trace rather than on rows, will not be multiplied by the pow challenge.
+                    accumulate_relation_univariates_no_optimistic_skipping(
+                        thread_univariate_accumulators[thread_idx],
+                        extended_univariates,
+                        relation_parameters, // these parameters have already been folded
+                        pow_challenge);
+                }
+            }
+        });
+
+        RelationUtils::zero_univariates(univariate_accumulators);
+        // Accumulate the per-thread univariate accumulators into a single set of accumulators
+        for (auto& accumulators : thread_univariate_accumulators) {
+            RelationUtils::add_nested_tuples(univariate_accumulators, accumulators);
+        }
+        // This does nothing if TupleOfTuples is TupleOfTuplesOfUnivariates
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping deoptimized_univariates =
+            deoptimise_univariates(univariate_accumulators);
+        //  Batch the univariate contributions from each sub-relation to obtain the round univariate
+        return batch_over_relations(deoptimized_univariates, alphas);
+    }
+
+    /**
+     * @brief Add the value of each relation over univariates to an appropriate accumulator
+     *
+     * @tparam TupleOfTuplesOfUnivariates_ A tuple of univariate accumulators, where the univariates may be optimized to
+     * avoid computation on some indices.
+     * @tparam ExtendedUnivariates_ T
+     * @tparam Parameters relation parameters type
+     * @tparam relation_idx The index of the relation
+     * @param univariate_accumulators
+     * @param extended_univariates
+     * @param relation_parameters
+     * @param scaling_factor
+     */
+    template <size_t relation_idx = 0>
+    BB_INLINE static void accumulate_relation_univariates_no_optimistic_skipping(
+        TupleOfTuplesOfUnivariatesNoOptimisticSkipping& univariate_accumulators,
+        const ExtendedUnivariatesTypeNoOptimisticSkipping& extended_univariates,
+        const UnivariateRelationParametersNoOptimisticSkipping& relation_parameters,
+        const FF& scaling_factor)
+    {
+        using Relation = std::tuple_element_t<relation_idx, Relations>;
+
+        //  Check if the relation is skippable to speed up accumulation
+        if constexpr (!isSkippable<Relation, decltype(extended_univariates)>) {
+            // If not, accumulate normally
+            Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                 extended_univariates,
+                                 relation_parameters,
+                                 scaling_factor);
+        } else {
+            // If so, only compute the contribution if the relation is active
+            if (!Relation::skip(extended_univariates)) {
+                Relation::accumulate(std::get<relation_idx>(univariate_accumulators),
+                                     extended_univariates,
+                                     relation_parameters,
+                                     scaling_factor);
+            }
+        }
+
+        // Repeat for the next relation.
+        if constexpr (relation_idx + 1 < Flavor::NUM_RELATIONS) {
+            accumulate_relation_univariates_no_optimistic_skipping<relation_idx + 1>(
+                univariate_accumulators, extended_univariates, relation_parameters, scaling_factor);
+        }
+    }
+};
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/780): Improve combiner tests to check more than the
 // arithmetic relation so we more than unit test folding relation parameters and alpha as well.
 TEST(Protogalaxy, CombinerOn2Keys)
 {
-    constexpr size_t NUM_KEYS = 2;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
-    using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
 
     const auto restrict_to_standard_arithmetic_relation = [](auto& polys) {
         std::fill(polys.q_arith.coeffs().begin(), polys.q_arith.coeffs().end(), 1);
@@ -34,7 +192,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
     };
 
     auto run_test = [&](bool is_random_input) {
-        PGInternal pg_internal; // instance of the PG internal prover
+        PGInternalTest pg_internal; // instance of the PG internal prover
 
         // Combiner test on prover polynomials containing random values, restricted to only the standard arithmetic
         // relation.
@@ -53,10 +211,10 @@ TEST(Protogalaxy, CombinerOn2Keys)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternal::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
-            PGInternal::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             // The expected_result values are computed by running the python script combiner_example_gen.py
@@ -88,7 +246,7 @@ TEST(Protogalaxy, CombinerOn2Keys)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternal::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -136,8 +294,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
-            PGInternal::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
-            PGInternal::UnivariateRelationParameters univariate_relation_parameters;
+            PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            PGInternalTest::UnivariateRelationParameters univariate_relation_parameters;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             auto result_with_skipping =
@@ -156,10 +314,8 @@ TEST(Protogalaxy, CombinerOn2Keys)
 // Check that the optimized combiner computation yields a result consistent with the unoptimized version
 TEST(Protogalaxy, CombinerOptimizationConsistency)
 {
-    constexpr size_t NUM_KEYS = 2;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
     using DeciderProvingKeys = DeciderProvingKeys_<Flavor, NUM_KEYS>;
-    using PGInternal = ProtogalaxyProverInternal<DeciderProvingKeys>;
     using UltraArithmeticRelation = UltraArithmeticRelation<FF>;
 
     constexpr size_t UNIVARIATE_LENGTH = 12;
@@ -175,7 +331,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
     };
 
     auto run_test = [&](bool is_random_input) {
-        PGInternal pg_internal; // instance of the PG internal prover
+        PGInternalTest pg_internal; // instance of the PG internal prover
 
         // Combiner test on prover polynomisls containing random values, restricted to only the standard arithmetic
         // relation.
@@ -195,7 +351,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternal::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, UNIVARIATE_LENGTH>(FF(0))); // focus on the arithmetic relation only
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
 
@@ -257,8 +413,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                 precomputed_result[idx] = std::get<0>(accumulator)[0];
             }
             auto expected_result = Univariate<FF, UNIVARIATE_LENGTH>(precomputed_result);
-            PGInternal::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
-            PGInternal::UnivariateRelationParameters univariate_relation_parameters;
+            PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            PGInternalTest::UnivariateRelationParameters univariate_relation_parameters;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             auto result_with_skipping =
@@ -281,7 +437,7 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
             }
 
             DeciderProvingKeys keys{ keys_data };
-            PGInternal::UnivariateRelationSeparator alphas;
+            PGInternalTest::UnivariateRelationSeparator alphas;
             alphas.fill(bb::Univariate<FF, 12>(FF(0))); // focus on the arithmetic relation only
 
             const auto create_add_gate = [](auto& polys, const size_t idx, FF w_l, FF w_r) {
@@ -329,8 +485,8 @@ TEST(Protogalaxy, CombinerOptimizationConsistency)
                       0    0    0    0    0    0    0              0    0    6   18   36   60   90      */
 
             GateSeparatorPolynomial<FF> gate_separators({ 2 }, /*log_num_monomials=*/1);
-            PGInternal::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
-            PGInternal::UnivariateRelationParameters univariate_relation_parameters;
+            PGInternalTest::UnivariateRelationParametersNoOptimisticSkipping univariate_relation_parameters_no_skpping;
+            PGInternalTest::UnivariateRelationParameters univariate_relation_parameters;
             auto result_no_skipping = pg_internal.compute_combiner_no_optimistic_skipping(
                 keys, gate_separators, univariate_relation_parameters_no_skpping, alphas);
             auto result_with_skipping =

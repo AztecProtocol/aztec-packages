@@ -2,14 +2,16 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract Parent {
+pub contract Parent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
+    use dep::aztec::protocol_types::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
+    use aztec::protocol_types::traits::ToField;
     // Private function to call another private function in the target_contract using the provided selector
     #[private]
     fn entry_point(target_contract: AztecAddress, target_selector: FunctionSelector) -> Field {
         // Call the target private function
-        context.call_private_function(target_contract, target_selector, [0]).unpack_into()
+        context.call_private_function(target_contract, target_selector, [0]).get_preimage()
     }
     // Public function to directly call another public function to the target_contract using the selector and value provided
     #[public]
@@ -54,6 +56,26 @@ contract Parent {
     ) {
         context.call_public_function(target_contract, target_selector, [target_value]);
     }
+
+    #[public]
+    fn public_call_with_max_over_n_args(
+        _args: [Field; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10],
+    ) {}
+
+    #[private]
+    fn enqueue_call_to_child_with_many_args_and_recurse(remaining_recursions: u32) {
+        let args = [0; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10];
+        // +1 for function selector brings us to max
+        Parent::at(context.this_address()).public_call_with_max_over_n_args(args).enqueue(
+            &mut context,
+        );
+        if remaining_recursions > 0 {
+            Parent::at(context.this_address())
+                .enqueue_call_to_child_with_many_args_and_recurse(remaining_recursions - 1)
+                .call(&mut context);
+        }
+    }
+
     // Private function that enqueues two calls to a child contract:
     // - one through a nested call to enqueue_call_to_child with value 10,
     // - followed by one issued directly from this function with value 20.
@@ -146,7 +168,7 @@ contract Parent {
         args: [Field; 2],
     ) -> Field {
         // Call the target private function
-        context.static_call_private_function(target_contract, target_selector, args).unpack_into()
+        context.static_call_private_function(target_contract, target_selector, args).get_preimage()
     }
     #[private]
     fn private_call(
@@ -155,7 +177,7 @@ contract Parent {
         args: [Field; 2],
     ) -> Field {
         // Call the target private function
-        context.call_private_function(target_contract, target_selector, args).unpack_into()
+        context.call_private_function(target_contract, target_selector, args).get_preimage()
     }
     // Private function to set a static context and verify correct propagation for nested private calls
     #[private]
@@ -174,7 +196,7 @@ contract Parent {
                 private_call_selector,
                 [target_contract.to_field(), target_selector.to_field(), args[0], args[1]],
             )
-            .unpack_into();
+            .get_preimage();
         // Copy the return value from the call to this function's return values
         return_value
     }
@@ -247,7 +269,7 @@ contract Parent {
     unconstrained fn test_private_call() {
         // Setup env, generate keys
         let mut env = TestEnvironment::new();
-        let owner = env.create_account();
+        let owner = env.create_account(1);
         // Deploy parent contract
         let parent_contract = env.deploy_self("Parent").without_initializer();
         let parent_contract_address = parent_contract.to_address();

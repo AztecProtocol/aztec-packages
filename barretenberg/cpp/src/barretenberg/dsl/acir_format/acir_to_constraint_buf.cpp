@@ -8,7 +8,7 @@
 #include <tuple>
 #include <utility>
 #ifndef __wasm__
-#include "barretenberg/bb/get_bytecode.hpp"
+#include "barretenberg/api/get_bytecode.hpp"
 #endif
 #include "barretenberg/common/map.hpp"
 namespace acir_format {
@@ -25,12 +25,6 @@ using namespace bb;
  */
 poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
-    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
-    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
-    // erroneously populated with this value. This does not cause failures however because the corresponding selector
-    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
-    // even if they dont break the relation. They'll still add cost in commitments, for example.
     poly_triple pt{
         .a = 0,
         .b = 0,
@@ -67,9 +61,6 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx
-        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
-        // +1 offset is removed from noir.
         if (!a_set || pt.a == witness_idx) { // q_l * w_l
             pt.a = witness_idx;
             pt.q_l = selector_value;
@@ -241,12 +232,6 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Program::Expression const& 
 
 mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
-    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
-    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
-    // erroneously populated with this value. This does not cause failures however because the corresponding selector
-    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
-    // even if they dont break the relation. They'll still add cost in commitments, for example.
     mul_quad_<fr> quad{ .a = 0,
                         .b = 0,
                         .c = 0,
@@ -280,9 +265,6 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the quad.a == witness_idx
-        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
-        // +1 offset is removed from noir.
         if (!a_set || quad.a == witness_idx) {
             quad.a = witness_idx;
             quad.a_scaling = selector_value;
@@ -465,7 +447,7 @@ WitnessOrConstant<bb::fr> parse_input(Program::FunctionInput input)
 
 void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                                AcirFormat& af,
-                               bool honk_recursion,
+                               uint32_t honk_recursion,
                                size_t opcode_index)
 {
     std::visit(
@@ -634,9 +616,13 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1074): Eventually arg.proof_type will
                 // be the only means for setting the proof type. use of honk_recursion flag in this context can go
                 // away once all noir programs (e.g. protocol circuits) are updated to use the new pattern.
-                if (honk_recursion && proof_type_in != HONK && proof_type_in != AVM && proof_type_in != ROLLUP_HONK &&
-                    proof_type_in != ROLLUP_ROOT_HONK) {
-                    proof_type_in = HONK;
+                if (proof_type_in != HONK && proof_type_in != AVM && proof_type_in != ROLLUP_HONK &&
+                    proof_type_in != ROOT_ROLLUP_HONK) {
+                    if (honk_recursion == 1) {
+                        proof_type_in = HONK;
+                    } else if (honk_recursion == 2) {
+                        proof_type_in = ROLLUP_HONK;
+                    }
                 }
 
                 auto c = RecursionConstraint{
@@ -655,7 +641,7 @@ void handle_blackbox_func_call(Program::Opcode::BlackBoxFuncCall const& arg,
                     break;
                 case HONK:
                 case ROLLUP_HONK:
-                case ROLLUP_ROOT_HONK:
+                case ROOT_ROLLUP_HONK:
                     af.honk_recursion_constraints.push_back(c);
                     af.original_opcode_indices.honk_recursion_constraints.push_back(opcode_index);
                     break;
@@ -791,7 +777,7 @@ void handle_memory_op(Program::Opcode::MemoryOp const& mem_op, BlockConstraint& 
     block.trace.push_back(acir_mem_op);
 }
 
-AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool honk_recursion)
+AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, uint32_t honk_recursion)
 {
     AcirFormat af;
     // `varnum` is the true number of variables, thus we add one to the index which starts at zero
@@ -837,7 +823,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, bool ho
     return af;
 }
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion)
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/927): Move to using just
     // `program_buf_to_acir_format` once Honk fully supports all ACIR test flows For now the backend still expects
@@ -892,7 +878,7 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     return witness_map_to_witness_vector(w);
 }
 
-std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, bool honk_recursion)
+std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
 {
     auto program = Program::Program::bincodeDeserialize(buf);
 
@@ -920,16 +906,24 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
 #ifndef __wasm__
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
-                                        bool honk_recursion)
+                                        uint32_t honk_recursion)
 {
+    vinfo("in get_acir_program_stack; witness path is ", witness_path);
     std::vector<uint8_t> bytecode = get_bytecode(bytecode_path);
     std::vector<AcirFormat> constraint_systems =
         program_buf_to_acir_format(bytecode,
                                    honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                                     // Remove honk recursion flag
-
-    std::vector<uint8_t> witness_data = get_bytecode(witness_path);
-    WitnessVectorStack witness_stack = witness_buf_to_witness_stack(witness_data);
+    const WitnessVectorStack witness_stack = [&]() {
+        if (witness_path.empty()) {
+            info("producing a stack of empties");
+            WitnessVectorStack stack_of_empties{ constraint_systems.size(),
+                                                 std::make_pair(uint32_t(), WitnessVector()) };
+            return stack_of_empties;
+        }
+        std::vector<uint8_t> witness_data = get_bytecode(witness_path);
+        return witness_buf_to_witness_stack(witness_data);
+    }();
 
     return { constraint_systems, witness_stack };
 }

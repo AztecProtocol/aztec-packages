@@ -1,27 +1,9 @@
-use dep::aztec::protocol_types::traits::{Deserialize, Serialize};
-
-pub struct Note {
-    a: Field,
-    b: Field,
-}
-
-impl Serialize<2> for Note {
-    fn serialize(self) -> [Field; 2] {
-        [self.a, self.b]
-    }
-}
-
-impl Deserialize<2> for Note {
-    fn deserialize(wire: [Field; 2]) -> Note {
-        Note { a: wire[0], b: wire[1] }
-    }
-}
-
+mod note;
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AvmTest {
-    use crate::Note;
+pub contract AvmTest {
+    use crate::note::Note;
 
     global big_field_128_bits: Field = 0x001234567890abcdef1234567890abcdef;
     global big_field_136_bits: Field = 0x991234567890abcdef1234567890abcdef;
@@ -30,7 +12,7 @@ contract AvmTest {
 
     // Libs
     use dep::aztec::context::gas::GasOpts;
-    use dep::aztec::context::public_context::call;
+    use dep::aztec::context::public_context::{call, gas_for_call, returndata_size, success_copy};
     use dep::aztec::macros::{functions::{private, public}, storage::storage};
     use dep::aztec::oracle::get_contract_instance::{
         get_contract_instance_class_id_avm, get_contract_instance_deployer_avm,
@@ -38,16 +20,23 @@ contract AvmTest {
     };
     use dep::aztec::prelude::Map;
     use dep::aztec::protocol_types::{
+        abis::function_selector::FunctionSelector,
         address::{AztecAddress, EthAddress},
         point::Point,
         scalar::Scalar,
     };
     use dep::aztec::protocol_types::{
-        contract_class_id::ContractClassId, storage::map::derive_storage_slot_in_map,
+        constants::{GRUMPKIN_ONE_X, GRUMPKIN_ONE_Y, MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS},
+        contract_class_id::ContractClassId,
+        storage::map::derive_storage_slot_in_map,
+        traits::{Empty, FromField, ToField},
     };
     use dep::aztec::state_vars::PublicMutable;
     use dep::compressed_string::CompressedString;
+    use aztec::protocol_types::traits::Serialize;
     use std::embedded_curve_ops::{EmbeddedCurvePoint, multi_scalar_mul};
+
+    use std::ops::Add;
 
     #[storage]
     struct Storage<Context> {
@@ -67,6 +56,11 @@ contract AvmTest {
     #[public]
     fn read_storage_single() -> Field {
         storage.single.read()
+    }
+
+    #[public]
+    fn read_assert_storage_single(a: Field) {
+        assert(a == storage.single.read(), "Storage value does not match input");
     }
 
     // should still be able to use ` -> pub *` for return type even though macro forces `pub`
@@ -109,7 +103,13 @@ contract AvmTest {
 
     #[public]
     fn add_args_return(arg_a: Field, arg_b: Field) -> Field {
-        arg_a + arg_b
+        add(arg_a, arg_b)
+    }
+
+    // Auxiliary method to test usage of contract library methods in public fns
+    #[contract_library_method]
+    unconstrained fn add(lhs: Field, rhs: Field) -> Field {
+        lhs + rhs
     }
 
     /************************************************************************
@@ -146,7 +146,7 @@ contract AvmTest {
     }
 
     #[public]
-    fn add_u128(a: U128, b: U128) -> U128 {
+    fn add_u128(a: u128, b: u128) -> u128 {
         a + b
     }
 
@@ -162,11 +162,7 @@ contract AvmTest {
 
     #[public]
     fn elliptic_curve_add_and_double() -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
 
         let doubled = g + g;
         let added = g + doubled;
@@ -174,15 +170,18 @@ contract AvmTest {
     }
 
     #[public]
-    fn variable_base_msm() -> Point {
-        let g = Point {
-            x: 1,
-            y: 17631683881184975370165255887551781615748388533673675138860,
-            is_infinite: false,
-        };
-        let scalar = Scalar { lo: 3, hi: 0 };
-        let scalar2 = Scalar { lo: 20, hi: 0 };
-        let triple_g = multi_scalar_mul([g, g], [scalar, scalar2]);
+    fn variable_base_msm(
+        scalar_lo: Field,
+        scalar_hi: Field,
+        scalar2_lo: Field,
+        scalar2_hi: Field,
+    ) -> Point {
+        let g = Point { x: GRUMPKIN_ONE_X, y: GRUMPKIN_ONE_Y, is_infinite: false };
+
+        let triple_g = multi_scalar_mul(
+            [g, g],
+            [Scalar { lo: scalar_lo, hi: scalar_hi }, Scalar { lo: scalar2_lo, hi: scalar2_hi }],
+        );
         triple_g
     }
 
@@ -197,16 +196,10 @@ contract AvmTest {
      ************************************************************************/
 
     #[public]
-    fn u128_addition_overflow() -> U128 {
-        let max_u128: U128 = U128::from_hex("0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
-        let one: U128 = U128::from_integer(1);
+    fn u128_addition_overflow() -> u128 {
+        let max_u128: u128 = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF;
+        let one: u128 = 1;
         max_u128 + one
-    }
-
-    #[public]
-    fn u128_from_integer_overflow() -> U128 {
-        let should_overflow: Field = 2.pow_32(128); // U128::max() + 1;
-        U128::from_integer(should_overflow)
     }
 
     #[public]
@@ -215,10 +208,13 @@ contract AvmTest {
     }
 
     // Helper functions to demonstrate an internal call stack in error messages
+    #[contract_library_method]
     fn inner_helper_with_failed_assertion() {
         let not_true = false;
         assert(not_true == true, "This assertion should fail!");
     }
+
+    #[contract_library_method]
     fn helper_with_failed_assertion() {
         inner_helper_with_failed_assertion();
     }
@@ -241,6 +237,35 @@ contract AvmTest {
     #[public]
     fn external_call_to_divide_by_zero() {
         AvmTest::at(context.this_address()).divide_by_zero().call(&mut context);
+    }
+
+    #[public]
+    fn external_call_to_divide_by_zero_recovers() {
+        // Be sure to allocate ~200k+ gas to this function~
+
+        // Get the gas remaining and allocate some smaller amount to nested call.
+        // We don't want to allocate too much to the nested call
+        // since it will all be consumed on exceptional halt.
+        let l2_gas_left = context.l2_gas_left();
+        let da_gas_left = context.da_gas_left();
+        let gas_allocation: [Field; 2] = [l2_gas_left - 200_000, da_gas_left - 200_000];
+        let selector = FunctionSelector::from_signature("divide_by_zero()");
+
+        // Call without capturing a return value since call no longer returns success
+        call(
+            gas_allocation,
+            context.this_address(),
+            &[selector.to_field()],
+        );
+
+        // Use SUCCESSCOPY to get the success status
+        let success = success_copy();
+
+        assert(!success, "Nested CALL instruction should return failure on exceptional halt");
+        assert(
+            returndata_size() == 0,
+            "Returndata should be empty when nested call exceptionally halts",
+        );
     }
 
     #[public]
@@ -282,39 +307,6 @@ contract AvmTest {
     fn revert_oracle() -> [Field; 3] {
         dep::aztec::context::public_context::avm_revert([1, 2, 3]);
         [4, 5, 6] // Should not get here.
-    }
-
-    /************************************************************************
-     * Hashing functions
-     ************************************************************************/
-    #[public]
-    fn keccak_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::keccak256(data, data.len() as u32)
-    }
-
-    #[public]
-    fn keccak_f1600(data: [u64; 25]) -> [u64; 25] {
-        std::hash::keccak::keccakf1600(data)
-    }
-
-    #[public]
-    fn poseidon2_hash(data: [Field; 10]) -> Field {
-        std::hash::poseidon2::Poseidon2::hash(data, data.len())
-    }
-
-    #[public]
-    fn sha256_hash(data: [u8; 10]) -> [u8; 32] {
-        std::hash::sha256(data)
-    }
-
-    #[public]
-    fn pedersen_hash(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash(data)
-    }
-
-    #[public]
-    fn pedersen_hash_with_index(data: [Field; 10]) -> Field {
-        std::hash::pedersen_hash_with_separator(data, /*index=*/ 20)
     }
 
     /************************************************************************
@@ -422,23 +414,17 @@ contract AvmTest {
     }
 
     #[public]
-    fn assert_timestamp(expected_timestamp: u64) {
-        let timestamp = context.timestamp();
-        assert(timestamp == expected_timestamp, "timestamp does not match");
-    }
-
-    #[public]
     fn get_args_hash(_a: u8, _fields: [Field; 3]) -> Field {
         context.get_args_hash()
     }
 
     #[public]
-    fn emit_unencrypted_log() {
-        context.emit_unencrypted_log(/*message=*/ [10, 20, 30]);
-        context.emit_unencrypted_log(/*message=*/ "Hello, world!");
+    fn emit_public_log() {
+        context.emit_public_log(/*message=*/ [10, 20, 30]);
+        context.emit_public_log(/*message=*/ "Hello, world!");
         let s: CompressedString<2, 44> =
             CompressedString::from_string("A long time ago, in a galaxy far far away...");
-        context.emit_unencrypted_log(/*message=*/ s);
+        context.emit_public_log(/*message=*/ s);
     }
 
     #[public]
@@ -487,9 +473,9 @@ contract AvmTest {
     }
 
     #[public]
-    fn n_new_unencrypted_logs(num: u32) {
+    fn n_new_public_logs(num: u32) {
         for i in 0..num {
-            context.emit_unencrypted_log(/*message=*/ [i as Field]);
+            context.emit_public_log(/*message=*/ [i as Field]);
         }
     }
 
@@ -546,7 +532,8 @@ contract AvmTest {
     fn nested_call_to_nothing_recovers() {
         let garbageAddress = AztecAddress::from_field(42);
         let gas = [1, 1];
-        let success = call(gas, garbageAddress, &[]);
+        call(gas, garbageAddress, &[]);
+        let success = success_copy();
         assert(
             !success,
             "Nested CALL instruction should return failure if target contract does not exist",
@@ -570,6 +557,18 @@ contract AvmTest {
     #[public]
     fn nested_call_to_add(arg_a: Field, arg_b: Field) -> pub Field {
         AvmTest::at(context.this_address()).add_args_return(arg_a, arg_b).call(&mut context)
+    }
+
+    #[public]
+    fn nested_call_to_add_n_times_different_addresses(
+        addrs: [AztecAddress; MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2],
+    ) {
+        for i in 0..MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS + 2 {
+            let addr = addrs[i];
+            if addr != AztecAddress::empty() {
+                let _ = AvmTest::at(addr).add_args_return(1, 2).call(&mut context);
+            }
+        }
     }
 
     // Indirectly call_static the external call opcode to initiate a nested call to the add function
@@ -617,7 +616,14 @@ contract AvmTest {
      * be optimized away.
      ************************************************************************/
     #[public]
-    fn bulk_testing(args_field: [Field; 10], args_u8: [u8; 10]) {
+    fn bulk_testing(
+        args_field: [Field; 10],
+        args_u8: [u8; 10],
+        get_instance_for_address: AztecAddress,
+        expected_deployer: AztecAddress,
+        expected_class_id: ContractClassId,
+        expected_initialization_hash: Field,
+    ) {
         dep::aztec::oracle::debug_log::debug_log("set_storage_single");
         set_storage_single(30);
         dep::aztec::oracle::debug_log::debug_log("set_storage_list");
@@ -629,17 +635,22 @@ contract AvmTest {
         dep::aztec::oracle::debug_log::debug_log("read_storage_map");
         let _ = read_storage_map(context.this_address());
         dep::aztec::oracle::debug_log::debug_log("keccak_hash");
-        let _ = keccak_hash(args_u8);
+        let _ = keccak256::keccak256(args_u8, args_u8.len());
         dep::aztec::oracle::debug_log::debug_log("sha256_hash");
-        let _ = sha256_hash(args_u8);
+        let _ = sha256::sha256_var(args_u8, args_u8.len() as u64);
         dep::aztec::oracle::debug_log::debug_log("poseidon2_hash");
-        let _ = poseidon2_hash(args_field);
+        let _ = std::hash::poseidon2::Poseidon2::hash(args_field, args_field.len());
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash");
-        let _ = pedersen_hash(args_field);
+        let _ = std::hash::pedersen_hash(args_field);
         dep::aztec::oracle::debug_log::debug_log("pedersen_hash_with_index");
-        let _ = pedersen_hash_with_index(args_field);
+        let _ = std::hash::pedersen_hash_with_separator(args_field, /*index=*/ 20);
         dep::aztec::oracle::debug_log::debug_log("test_get_contract_instance");
-        test_get_contract_instance(AztecAddress::from_field(0x4444));
+        test_get_contract_instance_matches(
+            get_instance_for_address,
+            expected_deployer,
+            expected_class_id,
+            expected_initialization_hash,
+        );
         dep::aztec::oracle::debug_log::debug_log("get_address");
         let _ = get_address();
         dep::aztec::oracle::debug_log::debug_log("get_sender");
@@ -662,8 +673,8 @@ contract AvmTest {
         let _ = get_l2_gas_left();
         dep::aztec::oracle::debug_log::debug_log("get_da_gas_left");
         let _ = get_da_gas_left();
-        dep::aztec::oracle::debug_log::debug_log("emit_unencrypted_log");
-        let _ = emit_unencrypted_log();
+        dep::aztec::oracle::debug_log::debug_log("emit_public_log");
+        let _ = emit_public_log();
         dep::aztec::oracle::debug_log::debug_log("note_hash_exists");
         let _ = note_hash_exists(1, 2);
         dep::aztec::oracle::debug_log::debug_log("new_note_hash");

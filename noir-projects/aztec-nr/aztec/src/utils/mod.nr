@@ -1,9 +1,9 @@
-pub mod bytes;
-pub mod collapse_array;
+pub mod array;
 pub mod comparison;
+pub mod conversion;
+pub mod field;
 pub mod point;
-pub mod test;
+pub mod random;
 pub mod to_bytes;
-
-pub use crate::utils::bytes::{bytes_to_fields, fields_to_bytes};
-pub use crate::utils::collapse_array::collapse_array;
+pub mod secrets;
+pub mod with_hash;

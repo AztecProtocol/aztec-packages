@@ -41,7 +41,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
-    using Flavor = AvmFlavor;
+    using Flavor = bb::avm::AvmFlavor;
 
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
     assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
@@ -157,7 +157,7 @@ PairingPointAccumulatorIndices create_avm_recursion_constraints(
 {
     using Flavor = AvmRecursiveFlavor_<Builder>;
     using RecursiveVerificationKey = Flavor::VerificationKey;
-    using RecursiveVerifier = AvmRecursiveVerifier_<Flavor>;
+    using RecursiveVerifier = bb::avm::AvmRecursiveVerifier_<Flavor>;
 
     ASSERT(input.proof_type == AVM);
 

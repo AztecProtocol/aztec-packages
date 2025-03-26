@@ -29,9 +29,10 @@ using namespace bb::avm_trace;
 
 class AcirAvmRecursionConstraint : public ::testing::Test {
   public:
-    using InnerBuilder = AvmCircuitBuilder;
-    using InnerProver = AvmProver;
-    using InnerVerifier = AvmVerifier;
+    using InnerBuilder = bb::avm::AvmCircuitBuilder;
+    using InnerProver = bb::avm::AvmProver;
+    using InnerVerifier = bb::avm::AvmVerifier;
+    using InnerComposer = bb::avm::AvmComposer;
 
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
@@ -41,7 +42,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = UltraFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     // mutate the input kernel_public_inputs_vec to add end gas values
     static InnerBuilder create_inner_circuit([[maybe_unused]] std::vector<FF>& kernel_public_inputs_vec)
@@ -77,7 +78,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
         SlabVector<fr> witness;
 
         for (auto& avm_circuit : inner_avm_circuits) {
-            AvmComposer composer = AvmComposer();
+            InnerComposer composer = InnerComposer();
             InnerProver prover = composer.create_prover(avm_circuit);
             InnerVerifier verifier = composer.create_verifier(avm_circuit);
 
@@ -121,7 +122,7 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
         mock_opcode_indices(constraint_system);
         auto outer_circuit =
-            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/true);
+            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/1);
         return outer_circuit;
     }
 };

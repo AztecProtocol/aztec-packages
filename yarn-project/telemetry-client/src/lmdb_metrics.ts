@@ -1,47 +1,45 @@
-import { type BatchObservableResult, type Meter, type Metrics, type ObservableGauge, ValueType } from './telemetry.js';
+import * as Metrics from './metrics.js';
+import {
+  type AttributesType,
+  type BatchObservableResult,
+  type Meter,
+  type ObservableGauge,
+  ValueType,
+} from './telemetry.js';
 
-export type LmdbMetricDescriptor = {
-  name: Metrics;
-  description: string;
-};
-
-export type LmdbStatsCallback = () => { mappingSize: number; numItems: number; actualSize: number };
+export type LmdbStatsCallback = () => Promise<{ mappingSize: number; numItems: number; actualSize: number }>;
 
 export class LmdbMetrics {
   private dbMapSize: ObservableGauge;
   private dbUsedSize: ObservableGauge;
   private dbNumItems: ObservableGauge;
 
-  constructor(
-    meter: Meter,
-    dbMapSizeDescriptor: LmdbMetricDescriptor,
-    dbUsedSizeDescriptor: LmdbMetricDescriptor,
-    dbNumItemsDescriptor: LmdbMetricDescriptor,
-    private getStats?: LmdbStatsCallback,
-  ) {
-    this.dbMapSize = meter.createObservableGauge(dbMapSizeDescriptor.name, {
-      description: dbMapSizeDescriptor.description,
+  constructor(meter: Meter, private attributes?: AttributesType, private getStats?: LmdbStatsCallback) {
+    this.dbMapSize = meter.createObservableGauge(Metrics.DB_MAP_SIZE, {
+      description: 'LMDB Map Size',
       valueType: ValueType.INT,
+      unit: 'By',
     });
-    this.dbUsedSize = meter.createObservableGauge(dbUsedSizeDescriptor.name, {
-      description: dbUsedSizeDescriptor.description,
+    this.dbUsedSize = meter.createObservableGauge(Metrics.DB_USED_SIZE, {
+      description: 'LMDB Used Size',
       valueType: ValueType.INT,
+      unit: 'By',
     });
-    this.dbNumItems = meter.createObservableGauge(dbNumItemsDescriptor.name, {
-      description: dbNumItemsDescriptor.description,
+    this.dbNumItems = meter.createObservableGauge(Metrics.DB_NUM_ITEMS, {
+      description: 'LMDB Num Items',
       valueType: ValueType.INT,
     });
 
     meter.addBatchObservableCallback(this.recordDBMetrics, [this.dbMapSize, this.dbUsedSize, this.dbNumItems]);
   }
 
-  private recordDBMetrics = (observable: BatchObservableResult) => {
+  private recordDBMetrics = async (observable: BatchObservableResult) => {
     if (!this.getStats) {
       return;
     }
-    const metrics = this.getStats();
-    observable.observe(this.dbMapSize, metrics.mappingSize);
-    observable.observe(this.dbNumItems, metrics.numItems);
-    observable.observe(this.dbUsedSize, metrics.actualSize);
+    const metrics = await this.getStats();
+    observable.observe(this.dbMapSize, metrics.mappingSize, this.attributes);
+    observable.observe(this.dbNumItems, metrics.numItems, this.attributes);
+    observable.observe(this.dbUsedSize, metrics.actualSize, this.attributes);
   };
 }

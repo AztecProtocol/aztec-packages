@@ -1,7 +1,7 @@
 use crate::{
     address::AztecAddress,
     tests::types::TestValue,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 

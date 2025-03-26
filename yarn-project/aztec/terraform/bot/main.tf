@@ -72,7 +72,7 @@ resource "aws_service_discovery_service" "aztec-bot" {
 # Create a fleet.
 data "template_file" "user_data" {
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-bot"}' >> /etc/ecs/ecs.config
 EOF
@@ -158,6 +158,7 @@ resource "aws_ecs_task_definition" "aztec-bot" {
         }
       ]
       environment = [
+        { name = "BOT_L1_PRIVATE_KEY", value = var.BOT_L1_PRIVATE_KEY },
         { name = "BOT_PRIVATE_KEY", value = var.BOT_PRIVATE_KEY },
         { name = "BOT_NO_START", value = var.BOT_NO_START },
         { name = "BOT_TX_INTERVAL_SECONDS", value = var.BOT_TX_INTERVAL_SECONDS },

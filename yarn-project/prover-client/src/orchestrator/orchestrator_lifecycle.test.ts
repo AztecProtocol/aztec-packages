@@ -1,12 +1,13 @@
-import { type ServerCircuitProver } from '@aztec/circuit-types';
-import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/circuits.js';
+import { NUM_BASE_PARITY_PER_ROOT_PARITY } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import type { ServerCircuitProver } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
 
+// TODO(#12613) This means of sharing test code is not ideal.
+// eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { TestContext } from '../mocks/test_context.js';
 import { ProvingOrchestrator } from './orchestrator.js';
@@ -26,8 +27,8 @@ describe('prover/orchestrator/lifecycle', () => {
 
   describe('lifecycle', () => {
     it('cancels proving requests', async () => {
-      const prover: ServerCircuitProver = new TestCircuitProver(new NoopTelemetryClient());
-      const orchestrator = new ProvingOrchestrator(context.worldState, prover, new NoopTelemetryClient());
+      const prover: ServerCircuitProver = new TestCircuitProver();
+      const orchestrator = new ProvingOrchestrator(context.worldState, prover);
 
       const spy = jest.spyOn(prover, 'getBaseParityProof');
       const deferredPromises: PromiseWithResolvers<any>[] = [];
@@ -38,7 +39,7 @@ describe('prover/orchestrator/lifecycle', () => {
       });
 
       orchestrator.startNewEpoch(1, 1, 1);
-      await orchestrator.startNewBlock(2, context.globalVariables, []);
+      await orchestrator.startNewBlock(context.globalVariables, [], context.getPreviousBlockHeader());
 
       await sleep(1);
 

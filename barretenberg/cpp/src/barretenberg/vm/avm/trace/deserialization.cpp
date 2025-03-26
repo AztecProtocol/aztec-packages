@@ -175,16 +175,14 @@ const std::unordered_map<OpCode, std::vector<OperandType>> OPCODE_WIRE_FORMAT = 
         OperandType::UINT16,     // rhs.y
         OperandType::UINT16,     // rhs.is_infinite
         OperandType::UINT16 } }, // dst_offset
-    { OpCode::MSM,
-      { OperandType::INDIRECT8, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16, OperandType::UINT16 } },
     // Gadget - Conversion
     { OpCode::TORADIXBE,
-      { OperandType::INDIRECT8,
+      { OperandType::INDIRECT16,
         OperandType::UINT16,
         OperandType::UINT16,
         OperandType::UINT16,
         OperandType::UINT16,
-        OperandType::UINT8 } },
+        OperandType::UINT16 } },
 };
 
 const std::unordered_map<OperandType, uint32_t> OPERAND_TYPE_SIZE = {

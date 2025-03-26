@@ -8,7 +8,7 @@ metadata:
   annotations:
     "helm.sh/hook": post-install
     "helm.sh/hook-weight": "0"
-    "helm.sh/hook-delete-policy": before-hook-creation
+    "helm.sh/hook-delete-policy": hook-succeeded,hook-failed,before-hook-creation
 
 spec:
   template:
@@ -18,16 +18,19 @@ spec:
         app: deploy-l1-verifier
     spec:
       restartPolicy: OnFailure
+      {{- if .Values.network.public }}
       serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
       volumes:
         - name: config
           emptyDir: {}
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
       containers:
         - name: deploy-l1-verifier
-          image: {{ .Values.images.aztec.image }}
+          {{- include "aztec-network.image" . | nindent 10 }}
           command:
             - /bin/bash
             - -c
@@ -45,9 +48,7 @@ spec:
               kubectl config set-context default --cluster=default --user=default
               kubectl config use-context default
 
-              cp /scripts/setup-service-addresses.sh /tmp/setup-service-addresses.sh
-              chmod +x /tmp/setup-service-addresses.sh
-              /tmp/setup-service-addresses.sh
+              /scripts/setup-service-addresses.sh
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
 
@@ -74,6 +75,18 @@ spec:
               done || { echo "All L1 verifier deploy attempts failed." >&2; exit 1; }
               echo "L1 verifier deployed"
           env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
             - name: NODE_NO_WARNINGS
               value: "1"
             - name: LOG_LEVEL
@@ -86,10 +99,10 @@ spec:
               value: "{{ .Values.network.public }}"
             - name: NAMESPACE
               value: {{ .Release.Namespace }}
-            - name: EXTERNAL_ETHEREUM_HOST
-              value: "{{ .Values.ethereum.externalHost }}"
+            - name: EXTERNAL_ETHEREUM_HOSTS
+              value: "{{ .Values.ethereum.execution.externalHosts }}"
             - name: ETHEREUM_PORT
-              value: "{{ .Values.ethereum.service.port }}"
+              value: "{{ .Values.ethereum.execution.service.port }}"
             - name: EXTERNAL_BOOT_NODE_HOST
               value: "{{ .Values.bootNode.externalHost }}"
             - name: BOOT_NODE_PORT
@@ -100,6 +113,8 @@ spec:
               value: "{{ .Values.proverNode.service.nodePort }}"
             - name: SERVICE_NAME
               value: {{ include "aztec-network.fullname" . }}
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
           volumeMounts:
             - name: config
               mountPath: /shared/config

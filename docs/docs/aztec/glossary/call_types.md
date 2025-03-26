@@ -112,7 +112,7 @@ Since the public call is made asynchronously, any return values or side effects 
 
 #include_code enqueue_public /noir-projects/noir-contracts/contracts/lending_contract/src/main.nr rust
 
-It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
+It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
 
 A common pattern is to enqueue public calls to check some validity condition on public state, e.g. that a deadline has not expired or that some public value is set.
 
@@ -144,7 +144,7 @@ aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#incl
 
 Even with the router contract achieving good privacy is hard.
 For example, if the value being checked against is unique and stored in the contract's public storage, it's then simple to find private transactions that are using that value in the enqueued public reads, and therefore link them to this contract.
-For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../reference/developer_references/smart_contract_reference/storage/shared_state.md) when possible.
+For this reason it is encouraged to try to avoid public function calls and instead privately read [Shared State](../../developers/reference/smart_contract_reference/storage/shared_state.md) when possible.
 
 ### Public Execution
 

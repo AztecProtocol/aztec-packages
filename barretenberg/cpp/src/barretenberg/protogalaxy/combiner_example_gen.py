@@ -23,7 +23,6 @@ class Row:
             'secondary_calldata', 'secondary_calldata_read_counts', 'secondary_calldata_read_tags',
             'secondary_calldata_inverses', 'return_data', 'return_data_read_counts',
             'return_data_read_tags', 'return_data_inverses',
-            'table_1_shift', 'table_2_shift', 'table_3_shift', 'table_4_shift',
             'w_l_shift', 'w_r_shift', 'w_o_shift', 'w_4_shift', 'z_perm_shift'
         ]
 

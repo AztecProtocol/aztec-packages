@@ -13,10 +13,7 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -37,10 +34,7 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
+      "path": "../stdlib"
     },
     {
       "path": "../world-state"

@@ -15,7 +15,7 @@
     "composite": true,
     "outDir": "dest/node",
     "rootDir": "src",
-    "tsBuildInfoFile": ".tsbuildinfo"
+    "tsBuildInfoFile": "/dev/null"
   },
   "include": ["src"]
 }

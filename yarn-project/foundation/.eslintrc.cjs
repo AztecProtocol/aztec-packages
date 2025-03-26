@@ -34,27 +34,25 @@ module.exports = {
     node: true,
   },
   rules: {
+    '@typescript-eslint/no-import-type-side-effects': 'error',
     '@typescript-eslint/explicit-module-boundary-types': 'off',
     '@typescript-eslint/no-non-null-assertion': 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-empty-function': 'off',
     '@typescript-eslint/await-thenable': 'error',
     '@typescript-eslint/no-floating-promises': 2,
+    '@typescript-eslint/no-misused-promises': 2,
     '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
-    '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
     'require-await': 2,
     'no-console': 'error',
     'no-constant-condition': 'off',
     curly: ['error', 'all'],
     camelcase: 2,
+    'import/no-relative-packages': 'error',
     'no-restricted-imports': [
       'error',
       {
         patterns: [
-          {
-            group: ['client-dest'],
-            message: "Fix this absolute garbage import. It's your duty to solve it before it spreads.",
-          },
           {
             group: ['dest'],
             message: 'You should not be importing from a build directory. Did you accidentally do a relative import?',
@@ -78,5 +76,5 @@ module.exports = {
     // this unfortunately doesn't block `fit` and `fdescribe`
     'no-only-tests/no-only-tests': ['error'],
   },
-  ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', '.eslintrc.cjs', '.eslintrc.*.cjs'],
+  ignorePatterns: ['node_modules', 'dest*', 'dist', '*.js', 'scripts*', '.eslintrc.cjs', '.eslintrc.*.cjs'],
 };

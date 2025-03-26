@@ -1,6 +1,6 @@
-import { type Database, type Key } from 'lmdb';
+import type { Database, Key } from 'lmdb';
 
-import { type AztecArray, type AztecAsyncArray } from '../interfaces/array.js';
+import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
 import { LmdbAztecSingleton } from './singleton.js';
 
 /** The shape of a key that stores a value in an array */
@@ -90,14 +90,20 @@ export class LmdbAztecArray<T> implements AztecArray<T>, AztecAsyncArray<T> {
   }
 
   *entries(): IterableIterator<[number, T]> {
-    const values = this.#db.getRange({
-      start: this.#slot(0),
-      limit: this.length,
-    });
+    const transaction = this.#db.useReadTransaction();
+    try {
+      const values = this.#db.getRange({
+        start: this.#slot(0),
+        limit: this.length,
+        transaction,
+      });
 
-    for (const { key, value } of values) {
-      const index = key[3];
-      yield [index, value];
+      for (const { key, value } of values) {
+        const index = key[3];
+        yield [index, value];
+      }
+    } finally {
+      transaction.done();
     }
   }
 

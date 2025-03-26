@@ -309,11 +309,17 @@ BasicTable create_basic_table(const BasicTableId id, const size_t index)
     case SHA256_BASE16_ROTATE2: {
         return sparse_tables::generate_sparse_table_with_rotation<16, 11, 2>(SHA256_BASE16_ROTATE2, index);
     }
-    case UINT_XOR_ROTATE0: {
-        return uint_tables::generate_xor_rotate_table<6, 0>(UINT_XOR_ROTATE0, index);
+    case UINT_XOR_SLICE_6_ROTATE_0: {
+        return uint_tables::generate_xor_rotate_table<6, 0>(UINT_XOR_SLICE_6_ROTATE_0, index);
     }
-    case UINT_AND_ROTATE0: {
-        return uint_tables::generate_and_rotate_table<6, 0>(UINT_AND_ROTATE0, index);
+    case UINT_AND_SLICE_6_ROTATE_0: {
+        return uint_tables::generate_and_rotate_table<6, 0>(UINT_AND_SLICE_6_ROTATE_0, index);
+    }
+    case UINT_XOR_SLICE_2_ROTATE_0: {
+        return uint_tables::generate_xor_rotate_table<2, 0>(UINT_XOR_SLICE_2_ROTATE_0, index);
+    }
+    case UINT_AND_SLICE_2_ROTATE_0: {
+        return uint_tables::generate_and_rotate_table<2, 0>(UINT_AND_SLICE_2_ROTATE_0, index);
     }
     case BN254_XLO_BASIC: {
         return ecc_generator_tables::ecc_generator_table<bb::g1>::generate_xlo_table(BN254_XLO_BASIC, index);

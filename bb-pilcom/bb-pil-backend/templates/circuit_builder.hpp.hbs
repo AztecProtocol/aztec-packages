@@ -6,16 +6,16 @@
 #include "full_row.hpp"
 #include "flavor.hpp"
 
-namespace bb {
+namespace bb::{{snakeCase name}} {
 
-class {{name}}CircuitBuilder {
+class AvmCircuitBuilder {
   public:
     // Do not use this constant directly, use get_circuit_subgroup_size() instead.
     constexpr static size_t CIRCUIT_SUBGROUP_SIZE = 1 << 21;
 
-    using Flavor = bb::{{name}}Flavor;
+    using Flavor = bb::{{snakeCase name}}::AvmFlavor;
     using FF = Flavor::FF;
-    using Row = {{name}}FullRow<FF>;
+    using Row = AvmFullRow<FF>;
     using Polynomial = Flavor::Polynomial;
     using ProverPolynomials = Flavor::ProverPolynomials;
 
@@ -44,4 +44,4 @@ class {{name}}CircuitBuilder {
     std::vector<Row> rows;
 };
 
-}  // namespace bb
+}  // namespace bb::{{snakeCase name}}

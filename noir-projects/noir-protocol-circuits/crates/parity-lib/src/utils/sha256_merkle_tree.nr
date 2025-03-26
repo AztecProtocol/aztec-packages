@@ -30,7 +30,7 @@ impl<let N: u32> Sha256MerkleTree<N> {
         Sha256MerkleTree { leaves, nodes }
     }
 
-    fn get_root(self) -> Field {
+    pub fn get_root(self) -> Field {
         self.nodes[N - 2]
     }
 }

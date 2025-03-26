@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/aztec.js';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { OutboxAbi } from '@aztec/l1-artifacts';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { type Hex, decodeEventLog, getContract } from 'viem';
 

@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/ref_array.hpp"
 #include <cstddef>
 #include <initializer_list>
 #include <iterator>
@@ -36,6 +37,15 @@ template <typename T> class RefVector {
     {
         storage.push_back(&ref);
         (storage.push_back(&rest), ...);
+    }
+
+    template <std::size_t N>
+    RefVector(const RefArray<T, N>& ref_array)
+        : storage(ref_array.size())
+    {
+        for (std::size_t i = 0; i < ref_array.size(); ++i) {
+            storage[i] = &ref_array[i];
+        }
     }
 
     T& operator[](std::size_t idx) const

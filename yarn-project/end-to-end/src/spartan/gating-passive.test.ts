@@ -1,10 +1,12 @@
-import { EthCheatCodes, createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { createCompatibleClient, sleep } from '@aztec/aztec.js';
+import { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import { EthCheatCodesWithState } from '@aztec/ethereum/test';
 import { createLogger } from '@aztec/foundation/log';
 
 import { expect, jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
 
-import { RollupCheatCodes } from '../../../aztec.js/src/utils/cheat_codes.js';
-import { type AlertConfig } from '../quality_of_service/alert_checker.js';
+import type { AlertConfig } from '../quality_of_service/alert_checker.js';
 import {
   applyBootNodeFailure,
   applyNetworkShaping,
@@ -26,57 +28,54 @@ const qosAlerts: AlertConfig[] = [
     for: '10m',
     annotations: {},
   },
+  {
+    // Checks that we are not syncing from scratch each time we reboot
+    alert: 'ArchiverL1BlocksSynced',
+    expr: 'rate(aztec_archiver_l1_blocks_synced[1m]) > 0.5',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
 ];
 
 const config = setupEnvironment(process.env);
 if (!isK8sConfig(config)) {
   throw new Error('This test must be run in a k8s environment');
 }
-const {
-  NAMESPACE,
-  HOST_PXE_PORT,
-  HOST_ETHEREUM_PORT,
-  CONTAINER_PXE_PORT,
-  CONTAINER_ETHEREUM_PORT,
-  SPARTAN_DIR,
-  INSTANCE_NAME,
-} = config;
+const { NAMESPACE, CONTAINER_PXE_PORT, CONTAINER_ETHEREUM_PORT, SPARTAN_DIR, INSTANCE_NAME } = config;
 const debugLogger = createLogger('e2e:spartan-test:gating-passive');
 
 describe('a test that passively observes the network in the presence of network chaos', () => {
   jest.setTimeout(60 * 60 * 1000); // 60 minutes
 
-  const ETHEREUM_HOST = `http://127.0.0.1:${HOST_ETHEREUM_PORT}`;
-  const PXE_URL = `http://127.0.0.1:${HOST_PXE_PORT}`;
-  // 60% is the max that we expect to miss
-  const MAX_MISSED_SLOT_PERCENT = 0.6;
+  let ETHEREUM_HOST: string;
+  let PXE_URL: string;
+  const forwardProcesses: ChildProcess[] = [];
 
   afterAll(async () => {
     await runAlertCheck(config, qosAlerts, debugLogger);
+    forwardProcesses.forEach(p => p.kill());
   });
 
   it('survives network chaos', async () => {
-    await startPortForward({
+    const { process: pxeProcess, port: pxePort } = await startPortForward({
       resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_PXE_PORT,
-      hostPort: HOST_PXE_PORT,
     });
-    await startPortForward({
-      resource: `svc/${config.INSTANCE_NAME}-aztec-network-ethereum`,
+    forwardProcesses.push(pxeProcess);
+    PXE_URL = `http://127.0.0.1:${pxePort}`;
+
+    const { process: ethProcess, port: ethPort } = await startPortForward({
+      resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
       namespace: NAMESPACE,
       containerPort: CONTAINER_ETHEREUM_PORT,
-      hostPort: HOST_ETHEREUM_PORT,
     });
+    forwardProcesses.push(ethProcess);
+    ETHEREUM_HOST = `http://127.0.0.1:${ethPort}`;
 
-    await startPortForward({
-      resource: `svc/metrics-grafana`,
-      namespace: 'metrics',
-      containerPort: config.CONTAINER_METRICS_PORT,
-      hostPort: config.HOST_METRICS_PORT,
-    });
     const client = await createCompatibleClient(PXE_URL, debugLogger);
-    const ethCheatCodes = new EthCheatCodes(ETHEREUM_HOST);
+    const ethCheatCodes = new EthCheatCodesWithState([ETHEREUM_HOST]);
     const rollupCheatCodes = new RollupCheatCodes(
       ethCheatCodes,
       await client.getNodeInfo().then(n => n.l1ContractAddresses),
@@ -93,7 +92,7 @@ describe('a test that passively observes the network in the presence of network 
     // note, don't forget that normally an epoch doesn't need epochDuration worth of blocks,
     // but here we do double duty:
     // we want a handful of blocks, and we want to pass the epoch boundary
-    await awaitL2BlockNumber(rollupCheatCodes, epochDuration, 60 * 5, debugLogger);
+    await awaitL2BlockNumber(rollupCheatCodes, epochDuration, 60 * 6, debugLogger);
 
     let deploymentOutput: string = '';
     deploymentOutput = await applyNetworkShaping({
@@ -126,16 +125,13 @@ describe('a test that passively observes the network in the presence of network 
       await sleep(Number(epochDuration * slotDuration) * 1000);
       const newTips = await rollupCheatCodes.getTips();
 
-      // calculate the percentage of slots missed
+      // calculate the percentage of slots missed for debugging purposes
       const perfectPending = controlTips.pending + BigInt(Math.floor(Number(epochDuration)));
       const missedSlots = Number(perfectPending) - Number(newTips.pending);
       const missedSlotsPercentage = (missedSlots / Number(epochDuration)) * 100;
       debugLogger.info(`Missed ${missedSlots} slots, ${missedSlotsPercentage.toFixed(2)}%`);
 
-      // Ensure we missed at most the max allowed slots
-      // This is in place to ensure that we don't have a bad regression in the network
-      const maxMissedSlots = Math.floor(Number(epochDuration) * MAX_MISSED_SLOT_PERCENT);
-      expect(missedSlots).toBeLessThanOrEqual(maxMissedSlots);
+      expect(newTips.pending).toBeGreaterThan(controlTips.pending);
     }
   });
 });

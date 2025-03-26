@@ -13,10 +13,10 @@ impl PrivateCallDataValidatorBuilder {
     pub fn add_private_call_request(&mut self, counter_start: u32, counter_end: u32) {
         let index = self.private_call.private_call_requests.len();
         self.private_call.append_private_call_requests(1);
-        self.private_call.private_call_requests.storage[index].start_side_effect_counter =
-            counter_start;
-        self.private_call.private_call_requests.storage[index].end_side_effect_counter =
-            counter_end;
+        let mut call_request = self.private_call.private_call_requests.get(index);
+        call_request.start_side_effect_counter = counter_start;
+        call_request.end_side_effect_counter = counter_end;
+        self.private_call.private_call_requests.set(index, call_request);
         self.private_call.counter = counter_end + 1;
     }
 }
@@ -45,8 +45,9 @@ fn validate_private_call_requests_incorrect_msg_sender_for_regular_call_fails() 
 
     builder.private_call.append_private_call_requests(1);
     // Change the msg_sender to be the caller's msg_sender.
-    builder.private_call.private_call_requests.storage[0].call_context.msg_sender =
-        builder.private_call.msg_sender;
+    let mut call_request = builder.private_call.private_call_requests.get(0);
+    call_request.call_context.msg_sender = builder.private_call.msg_sender;
+    builder.private_call.private_call_requests.set(0, call_request);
 
     builder.validate();
 }
@@ -57,7 +58,9 @@ fn validate_private_call_requests_static_call_regular_call_fails() {
 
     builder.private_call.append_private_call_requests(1);
     // Tweak the request to be making a non-static call.
-    builder.private_call.private_call_requests.storage[0].call_context.is_static_call = false;
+    let mut call_request = builder.private_call.private_call_requests.get(0);
+    call_request.call_context.is_static_call = false;
+    builder.private_call.private_call_requests.set(0, call_request);
 
     builder.validate();
 }

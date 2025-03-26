@@ -124,20 +124,12 @@ mod tests {
     }
 
     impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
-        fn get_key(self) -> Field {
-            self.value
-        }
-
         fn get_next_key(self) -> Field {
             self.next_value
         }
 
         fn points_to_infinity(self) -> bool {
             (self.next_value == 0)
-        }
-
-        fn as_leaf(self) -> Field {
-            pedersen_hash([self.value])
         }
 
         fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {

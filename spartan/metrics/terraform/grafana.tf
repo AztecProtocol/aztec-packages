@@ -7,6 +7,11 @@ terraform {
       version = "~> 3.13.2"
     }
   }
+
+  backend "gcs" {
+    bucket = "aztec-terraform"
+    prefix = "metrics-deploy/us-west1-a/aztec-gke/metrics/alerting/terraform.tfstate"
+  }
 }
 
 provider "grafana" {
@@ -29,18 +34,21 @@ resource "grafana_contact_point" "slack" {
 
 resource "grafana_notification_policy" "ignore_policy" {
   contact_point = grafana_contact_point.slack.name
-  group_by      = ["service_namespace"]
+  group_by      = ["k8s_namespace_name"]
+
 
   policy {
     contact_point = grafana_contact_point.slack.name
-
     matcher {
-      label = "service_namespace"
-      match = "="
-      value = "smoke"
+      label = "k8s_namespace_name"
+      match = "=~"
+      value = "devnet|troll-turtle"
     }
+  }
 
-    mute_timings = ["always"]
+  policy {
+    mute_timings  = ["always"]
+    contact_point = grafana_contact_point.slack.name
   }
 }
 
@@ -51,11 +59,11 @@ resource "grafana_mute_timing" "mute_timing_always" {
   }
 }
 
-resource "grafana_rule_group" "rule_group_minutely" {
+resource "grafana_rule_group" "rule_group_hourly" {
   org_id           = 1
-  name             = "minutely-evaluation-group"
+  name             = "hourly-evaluation-group"
   folder_uid       = grafana_folder.rule_folder.uid
-  interval_seconds = 60
+  interval_seconds = 3600
 
   rule {
     name      = "Proven Chain is Live"
@@ -73,7 +81,7 @@ resource "grafana_rule_group" "rule_group_minutely" {
       model = jsonencode({
         disableTextWrap     = false,
         editorMode          = "code",
-        expr                = "increase(aztec_archiver_block_height{aztec_status=\"proven\"}[30m])",
+        expr                = "avg by(k8s_namespace_name) (increase(aztec_archiver_block_height{aztec_status=\"proven\"}[60m]))",
         fullMetaSearch      = false,
         includeNullMetadata = true,
         instant             = true,
@@ -110,7 +118,7 @@ resource "grafana_rule_group" "rule_group_minutely" {
           expression    = "A",
           intervalMs    = 1000,
           maxDataPoints = 43200,
-          refId         = "C",
+          refId         = "B",
           type          = "threshold"
         }
       )
@@ -118,7 +126,7 @@ resource "grafana_rule_group" "rule_group_minutely" {
 
     no_data_state  = "NoData"
     exec_err_state = "Error"
-    for            = "1m"
+    for            = "1h"
     annotations    = {}
     labels         = {}
     is_paused      = false

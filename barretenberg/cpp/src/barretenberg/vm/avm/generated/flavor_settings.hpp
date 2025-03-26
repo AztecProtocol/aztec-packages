@@ -7,7 +7,7 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-namespace bb {
+namespace bb::avm {
 
 class AvmFlavorSettings {
   public:
@@ -26,4 +26,4 @@ class AvmFlavorSettings {
     using RelationSeparator = FF;
 };
 
-} // namespace bb
+} // namespace bb::avm

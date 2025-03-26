@@ -1,17 +1,18 @@
-import { createColors } from 'colorette';
+import { createColors, isColorSupported } from 'colorette';
 import isNode from 'detect-node';
 import { pino, symbols } from 'pino';
-import pretty from 'pino-pretty';
-import { type Writable } from 'stream';
+import type { Writable } from 'stream';
 import { inspect } from 'util';
 
 import { compactArray } from '../collection/array.js';
+import { type EnvVar, parseBooleanEnv } from '../config/index.js';
+import { GoogleCloudLoggerConfig } from './gcloud-logger-config.js';
 import { getLogLevelFromFilters, parseEnv } from './log-filters.js';
-import { type LogLevel } from './log-levels.js';
-import { type LogData, type LogFn } from './log_fn.js';
+import type { LogLevel } from './log-levels.js';
+import type { LogData, LogFn } from './log_fn.js';
 
 export function createLogger(module: string): Logger {
-  module = module.replace(/^aztec:/, '');
+  module = logNameHandlers.reduce((moduleName, handler) => handler(moduleName), module.replace(/^aztec:/, ''));
   const pinoLogger = logger.child({ module }, { level: getLogLevelFromFilters(logFilters, module) });
 
   // We check manually for isLevelEnabled to avoid calling processLogData unnecessarily.
@@ -37,7 +38,10 @@ export function createLogger(module: string): Logger {
     /** Log as trace. Use for when we want to denial-of-service any recipient of the logs. */
     trace: (msg: string, data?: unknown) => logFn('trace', msg, data),
     level: pinoLogger.level as LogLevel,
+    /** Whether the given level is enabled for this logger. */
     isLevelEnabled: (level: LogLevel) => isLevelEnabled(pinoLogger, level),
+    /** Module name for the logger. */
+    module,
   };
 }
 
@@ -54,6 +58,31 @@ function processLogData(data: LogData): LogData {
   return logDataHandlers.reduce((accum, handler) => handler(accum), data);
 }
 
+// Allow global hooks for tweaking module names.
+// Used in tests to add a uid to modules, so we can differentiate multiple nodes in the same process.
+type LogNameHandler = (module: string) => string;
+const logNameHandlers: LogNameHandler[] = [];
+
+export function addLogNameHandler(handler: LogNameHandler): void {
+  logNameHandlers.push(handler);
+}
+
+export function removeLogNameHandler(handler: LogNameHandler) {
+  const index = logNameHandlers.indexOf(handler);
+  if (index !== -1) {
+    logNameHandlers.splice(index, 1);
+  }
+}
+
+/** Creates all loggers within the given callback with the suffix appended to the module name. */
+export async function withLogNameSuffix<T>(suffix: string, callback: () => Promise<T>): Promise<T> {
+  const logNameHandler = (module: string) => `${module}:${suffix}`;
+  addLogNameHandler(logNameHandler);
+  const result = await callback();
+  removeLogNameHandler(logNameHandler);
+  return result;
+}
+
 // Patch isLevelEnabled missing from pino/browser.
 function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel): boolean {
   return typeof logger.isLevelEnabled === 'function'
@@ -63,39 +92,80 @@ function isLevelEnabled(logger: pino.Logger<'verbose', boolean>, level: LogLevel
 
 // Load log levels from environment variables.
 const defaultLogLevel = process.env.NODE_ENV === 'test' ? 'silent' : 'info';
-const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
-
-// Transport options for pretty logging to stderr via pino-pretty.
-const useColor = true;
-const { bold, reset } = createColors({ useColor });
-const pinoPrettyOpts = {
-  destination: 2,
-  sync: true,
-  colorize: useColor,
-  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags',
-  messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
-  customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
-  customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
-  minimumLevel: 'trace' as const,
-};
-const prettyTransport: pino.TransportSingleOptions = {
-  target: 'pino-pretty',
-  options: pinoPrettyOpts,
-};
-
-// Transport for vanilla stdio logging as JSON.
-const stdioTransport: pino.TransportSingleOptions = {
-  target: 'pino/file',
-  options: { destination: 2 },
-};
+export const [logLevel, logFilters] = parseEnv(process.env.LOG_LEVEL, defaultLogLevel);
 
 // Define custom logging levels for pino.
 const customLevels = { verbose: 25 };
-const pinoOpts = { customLevels, useOnlyCustomLevels: false, level: logLevel };
+
+// Global pino options, tweaked for google cloud if running there.
+const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
+
+const redactedPaths = [
+  'validatorPrivateKey',
+  // for both the validator and the prover
+  'publisherPrivateKey',
+  'peerIdPrivateKey',
+  // bot keys
+  'l1PrivateKey',
+  'senderPrivateKey',
+  // blob sink
+  'l1ConsensusHostApiKey',
+  // sensitive options used in the CLI
+  'privateKey',
+  'mnemonic',
+  'l1Mnemonic',
+  'l1PrivateKey',
+];
+
+const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
+  customLevels,
+  messageKey: 'msg',
+  useOnlyCustomLevels: false,
+  level: logLevel,
+  redact: {
+    paths: [
+      ...redactedPaths,
+      ...redactedPaths.map(p => `config.${p}`),
+      ...redactedPaths.map(p => `cfg.${p}`),
+      ...redactedPaths.map(p => `options.${p}`),
+      ...redactedPaths.map(p => `opts.${p}`),
+    ],
+  },
+  ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
+};
 
 export const levels = {
   labels: { ...pino.levels.labels, ...Object.fromEntries(Object.entries(customLevels).map(e => e.reverse())) },
   values: { ...pino.levels.values, ...customLevels },
+};
+
+// Transport options for pretty logging to stderr via pino-pretty.
+const colorEnv = process.env['FORCE_COLOR' satisfies EnvVar];
+const useColor = colorEnv === undefined ? isColorSupported : parseBooleanEnv(colorEnv);
+const { bold, reset } = createColors({ useColor });
+export const pinoPrettyOpts = {
+  destination: 2,
+  sync: true,
+  colorize: useColor,
+  ignore: 'module,pid,hostname,trace_id,span_id,trace_flags,severity',
+  messageFormat: `${bold('{module}')} ${reset('{msg}')}`,
+  customLevels: 'fatal:60,error:50,warn:40,info:30,verbose:25,debug:20,trace:10',
+  customColors: 'fatal:bgRed,error:red,warn:yellow,info:green,verbose:magenta,debug:blue,trace:gray',
+  minimumLevel: 'trace' as const,
+  singleLine: !parseBooleanEnv(process.env['LOG_MULTILINE' satisfies EnvVar]),
+};
+
+const prettyTransport: pino.TransportTargetOptions = {
+  target: 'pino-pretty',
+  options: pinoPrettyOpts,
+  level: 'trace',
+};
+
+// Transport for vanilla stdio logging as JSON.
+const stdioTransport: pino.TransportTargetOptions = {
+  target: 'pino/file',
+  options: { destination: 2 },
+  level: 'trace',
 };
 
 // Transport for OpenTelemetry logging. While defining this here is an abstraction leakage since this
@@ -104,32 +174,38 @@ export const levels = {
 // would mean that all child loggers created before the telemetry-client is initialized would not have
 // this transport configured. Note that the target is defined as the export in the telemetry-client,
 // since pino will load this transport separately on a worker thread, to minimize disruption to the main loop.
-const otlpEndpoint = process.env.OTEL_EXPORTER_OTLP_LOGS_ENDPOINT;
+const otlpEndpoint = process.env['OTEL_EXPORTER_OTLP_LOGS_ENDPOINT' satisfies EnvVar];
+const otlpEnabled = !!otlpEndpoint && !useGcloudLogging;
 const otelOpts = { levels };
-const otelTransport: pino.TransportSingleOptions = {
+const otelTransport: pino.TransportTargetOptions = {
   target: '@aztec/telemetry-client/otel-pino-stream',
   options: otelOpts,
+  level: 'trace',
 };
-
 function makeLogger() {
   if (!isNode) {
-    // We are on the browser
+    // We are on the browser.
     return pino({ ...pinoOpts, browser: { asObject: false } });
-  } else if (process.env.JEST_WORKER_ID) {
-    // We are on jest, so we need sync logging. We stream to stderr with pretty.
-    return pino(pinoOpts, pretty(pinoPrettyOpts));
+  }
+  // If running in a child process then cancel this if statement section by uncommenting below
+  // else if (false) {
+  else if (process.env.JEST_WORKER_ID) {
+    // We are on jest, so we need sync logging and stream to stderr.
+    // We expect jest/setup.mjs to kick in later and replace set up a pretty logger,
+    // but if for some reason it doesn't, at least we're covered with a default logger.
+    return pino(pinoOpts, pino.destination(2));
   } else {
     // Regular nodejs with transports on worker thread, using pino-pretty for console logging if LOG_JSON
-    // is not set, and an optional OTLP transport if the OTLP endpoint is provided.
+    // is not set, and an optional OTLP transport if the OTLP endpoint is set.
     const targets: pino.TransportSingleOptions[] = compactArray([
-      ['1', 'true', 'TRUE'].includes(process.env.LOG_JSON ?? '') ? stdioTransport : prettyTransport,
-      otlpEndpoint ? otelTransport : undefined,
+      parseBooleanEnv(process.env.LOG_JSON) ? stdioTransport : prettyTransport,
+      otlpEnabled ? otelTransport : undefined,
     ]);
-    return pino(pinoOpts, pino.transport({ targets }));
+    return pino(pinoOpts, pino.transport({ targets, levels: levels.values }));
   }
 }
 
-const logger = makeLogger();
+export const logger = makeLogger();
 
 // Log the logger configuration.
 logger.verbose(
@@ -138,9 +214,17 @@ logger.verbose(
     ...logFilters.reduce((accum, [module, level]) => ({ ...accum, [`log.${module}`]: level }), {}),
   },
   isNode
-    ? `Logger initialized with level ${logLevel}` + (otlpEndpoint ? ` with OTLP exporter to ${otlpEndpoint}` : '')
+    ? `Logger initialized with level ${logLevel}` + (otlpEnabled ? ` with OTLP exporter to ${otlpEndpoint}` : '')
     : `Browser console logger initialized with level ${logLevel}`,
 );
+
+/**
+ * Overwrites the logging stream with a different destination.
+ * Used by jest/setup.mjs to set up a pretty logger.
+ */
+export function overwriteLoggingStream(stream: Writable): void {
+  (logger as any)[symbols.streamSym] = stream;
+}
 
 /**
  * Registers an additional destination to the pino logger.
@@ -172,6 +256,7 @@ type ErrorLogFn = (msg: string, err?: Error | unknown, data?: LogData) => void;
 export type Logger = { [K in LogLevel]: LogFn } & { /** Error log function */ error: ErrorLogFn } & {
   level: LogLevel;
   isLevelEnabled: (level: LogLevel) => boolean;
+  module: string;
 };
 
 /**

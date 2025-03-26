@@ -1,17 +1,17 @@
-import {
-  type L2BlockId,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  type L2BlockStreamLocalDataProvider,
-  type L2BlockTag,
-  type L2Tips,
-} from '@aztec/circuit-types';
+import type {
+  L2BlockId,
+  L2BlockStreamEvent,
+  L2BlockStreamEventHandler,
+  L2BlockStreamLocalDataProvider,
+  L2BlockTag,
+  L2Tips,
+} from '@aztec/stdlib/block';
 
-import { type AztecAsyncMap } from '../interfaces/map.js';
-import { type AztecAsyncKVStore } from '../interfaces/store.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
-export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
+export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, number>;
   private readonly l2BlockHashesStore: AztecAsyncMap<number, string>;
 
@@ -41,17 +41,20 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
     if (!blockHash) {
       throw new Error(`Block hash not found for block number ${blockNumber}`);
     }
+
     return { number: blockNumber, hash: blockHash };
   }
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
-      case 'blocks-added':
-        await this.l2TipsStore.set('latest', event.blocks.at(-1)!.number);
-        for (const block of event.blocks) {
-          await this.l2BlockHashesStore.set(block.number, block.header.hash().toString());
+      case 'blocks-added': {
+        const blocks = event.blocks.map(b => b.block);
+        for (const block of blocks) {
+          await this.l2BlockHashesStore.set(block.number, (await block.header.hash()).toString());
         }
+        await this.l2TipsStore.set('latest', blocks.at(-1)!.number);
         break;
+      }
       case 'chain-pruned':
         await this.l2TipsStore.set('latest', event.blockNumber);
         break;

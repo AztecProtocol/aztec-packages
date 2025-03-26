@@ -404,16 +404,15 @@ template <typename Builder> class BigFieldBase {
                     e = e.to_montgomery_form();
                 }
                 if (rng.next() & 1) {
-                    value_data = e + bb::fq(rng.next() & 0xff);
+                    e += bb::fq(rng.next() & 0xff);
                 } else {
-                    value_data = e - bb::fq(rng.next() & 0xff);
+                    e -= bb::fq(rng.next() & 0xff);
                 }
                 if (convert_to_montgomery) {
                     e = e.from_montgomery_form();
                 }
             } else {
                 // Substitute field element with a special value
-                MONT_CONVERSION
                 switch (rng.next() % 9) {
                 case 0:
                     e = bb::fq::zero();
@@ -446,7 +445,9 @@ template <typename Builder> class BigFieldBase {
                     abort();
                     break;
                 }
-                INV_MONT_CONVERSION
+                if (convert_to_montgomery) {
+                    e = e.from_montgomery_form();
+                }
             }
             // Return instruction
             return e;
@@ -740,9 +741,7 @@ template <typename Builder> class BigFieldBase {
                           instruction_opcode == Instruction::OPCODE::WITNESS ||
                           instruction_opcode == Instruction::OPCODE::CONSTANT_WITNESS) {
                 *Data = instruction.id;
-                memcpy(Data + 1,
-                       &instruction.arguments.element.value.data[0],
-                       sizeof(instruction.arguments.element.value.data));
+                bb::fq::serialize_to_buffer(instruction.arguments.element.value, Data + 1);
             }
 
             if constexpr (instruction_opcode == Instruction::OPCODE::SQR ||

@@ -7,11 +7,12 @@
 #include "barretenberg/polynomials/barycentric.hpp"
 #include "barretenberg/polynomials/univariate.hpp"
 
-namespace bb {
+namespace bb::{{snakeCase name}} {
 
-class {{name}}FlavorSettings {
+class AvmFlavorSettings {
   public:
     using Curve = curve::BN254;
+    using EmbeddedCurve = curve::Grumpkin;
     using G1 = Curve::Group;
     using PCS = KZG<Curve>;
 
@@ -26,4 +27,4 @@ class {{name}}FlavorSettings {
     using RelationSeparator = FF;
 };
 
-} // namespace bb
+} // namespace bb::{{snakeCase name}}

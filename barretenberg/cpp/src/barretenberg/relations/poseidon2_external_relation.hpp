@@ -12,17 +12,6 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         7, // external poseidon2 round sub-relation for third value
         7, // external poseidon2 round sub-relation for fourth value
     };
-    /**
-     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 4> SUBRELATION_WITNESS_DEGREES{
-        5, // external poseidon2 round sub-relation for first value
-        5, // external poseidon2 round sub-relation for second value
-        5, // external poseidon2 round sub-relation for third value
-        5, // external poseidon2 round sub-relation for fourth value
-    };
 
     /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
@@ -65,26 +54,26 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
     {
         PROFILE_THIS_NAME("PoseidonExt::accumulate");
         using Accumulator = std::tuple_element_t<0, ContainerOverSubrelations>;
-        using View = typename Accumulator::View;
-        auto w_l = View(in.w_l);
-        auto w_r = View(in.w_r);
-        auto w_o = View(in.w_o);
-        auto w_4 = View(in.w_4);
-        auto w_l_shift = View(in.w_l_shift);
-        auto w_r_shift = View(in.w_r_shift);
-        auto w_o_shift = View(in.w_o_shift);
-        auto w_4_shift = View(in.w_4_shift);
-        auto q_l = View(in.q_l);
-        auto q_r = View(in.q_r);
-        auto q_o = View(in.q_o);
-        auto q_4 = View(in.q_4);
-        auto q_poseidon2_external = View(in.q_poseidon2_external);
+        using CoefficientAccumulator = typename Accumulator::CoefficientAccumulator;
+        auto w_l = CoefficientAccumulator(in.w_l);
+        auto w_r = CoefficientAccumulator(in.w_r);
+        auto w_o = CoefficientAccumulator(in.w_o);
+        auto w_4 = CoefficientAccumulator(in.w_4);
+        auto w_l_shift = CoefficientAccumulator(in.w_l_shift);
+        auto w_r_shift = CoefficientAccumulator(in.w_r_shift);
+        auto w_o_shift = CoefficientAccumulator(in.w_o_shift);
+        auto w_4_shift = CoefficientAccumulator(in.w_4_shift);
+        auto q_l = CoefficientAccumulator(in.q_l);
+        auto q_r = CoefficientAccumulator(in.q_r);
+        auto q_o = CoefficientAccumulator(in.q_o);
+        auto q_4 = CoefficientAccumulator(in.q_4);
+        auto q_poseidon2_external = CoefficientAccumulator(in.q_poseidon2_external);
 
         // add round constants which are loaded in selectors
-        auto s1 = w_l + q_l;
-        auto s2 = w_r + q_r;
-        auto s3 = w_o + q_o;
-        auto s4 = w_4 + q_4;
+        auto s1 = Accumulator(w_l + q_l);
+        auto s2 = Accumulator(w_r + q_r);
+        auto s3 = Accumulator(w_o + q_o);
+        auto s4 = Accumulator(w_4 + q_4);
 
         // apply s-box round
         auto u1 = s1.sqr();
@@ -116,17 +105,17 @@ template <typename FF_> class Poseidon2ExternalRelationImpl {
         auto v1 = t3 + v2; // 5u_1 + 7u_2 + u_3 + 3u_4
         auto v3 = t2 + v4; // u_1 + 3u_2 + 5u_3 + 7u_4
 
-        auto q_pos_by_scaling = q_poseidon2_external * scaling_factor;
-        auto tmp = q_pos_by_scaling * (v1 - w_l_shift);
+        auto q_pos_by_scaling = Accumulator(q_poseidon2_external * scaling_factor);
+        auto tmp = q_pos_by_scaling * (v1 - Accumulator(w_l_shift));
         std::get<0>(evals) += tmp;
 
-        tmp = q_pos_by_scaling * (v2 - w_r_shift);
+        tmp = q_pos_by_scaling * (v2 - Accumulator(w_r_shift));
         std::get<1>(evals) += tmp;
 
-        tmp = q_pos_by_scaling * (v3 - w_o_shift);
+        tmp = q_pos_by_scaling * (v3 - Accumulator(w_o_shift));
         std::get<2>(evals) += tmp;
 
-        tmp = q_pos_by_scaling * (v4 - w_4_shift);
+        tmp = q_pos_by_scaling * (v4 - Accumulator(w_4_shift));
         std::get<3>(evals) += tmp;
     };
 };

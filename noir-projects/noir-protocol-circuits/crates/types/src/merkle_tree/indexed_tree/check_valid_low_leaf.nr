@@ -19,6 +19,7 @@ mod tests {
         indexed_tree::check_valid_low_leaf::assert_check_valid_low_leaf,
         leaf_preimage::IndexedTreeLeafPreimage,
     };
+    use crate::merkle_tree::leaf_preimage::LeafPreimage;
     use crate::traits::Empty;
 
     struct TestLeafPreimage {
@@ -38,10 +39,17 @@ mod tests {
         }
     }
 
-    impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
+    impl LeafPreimage for TestLeafPreimage {
         fn get_key(self) -> Field {
             self.value
         }
+
+        fn as_leaf(self) -> Field {
+            self.value
+        }
+    }
+
+    impl IndexedTreeLeafPreimage<Field> for TestLeafPreimage {
 
         fn get_next_key(self) -> Field {
             self.next_value
@@ -49,10 +57,6 @@ mod tests {
 
         fn points_to_infinity(self) -> bool {
             (self.next_value == 0)
-        }
-
-        fn as_leaf(self) -> Field {
-            self.value
         }
 
         fn update_pointers(self, next_value: Field, _next_index: u32) -> Self {

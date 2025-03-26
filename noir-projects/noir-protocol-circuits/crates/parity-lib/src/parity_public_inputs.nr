@@ -1,9 +1,9 @@
 use dep::types::traits::{Deserialize, Empty, Serialize};
 
 pub struct ParityPublicInputs {
-    sha_root: Field,
-    converted_root: Field,
-    vk_tree_root: Field,
+    pub sha_root: Field,
+    pub converted_root: Field,
+    pub vk_tree_root: Field,
 }
 
 impl Empty for ParityPublicInputs {

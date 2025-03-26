@@ -136,6 +136,7 @@ template <typename Builder> class cycle_group {
         std::optional<field_t> read(size_t index);
         size_t _table_bits;
         std::vector<field_t> slices;
+        std::vector<uint64_t> slices_native;
     };
 
     /**
@@ -165,11 +166,16 @@ template <typename Builder> class cycle_group {
      */
     struct straus_lookup_table {
       public:
+        static std::vector<Element> compute_straus_lookup_table_hints(const Element& base_point,
+                                                                      const Element& offset_generator,
+                                                                      size_t table_bits);
+
         straus_lookup_table() = default;
         straus_lookup_table(Builder* context,
                             const cycle_group& base_point,
                             const cycle_group& offset_generator,
-                            size_t table_bits);
+                            size_t table_bits,
+                            std::optional<std::span<AffineElement>> hints = std::nullopt);
         cycle_group read(const field_t& index);
         size_t _table_bits;
         Builder* _context;
@@ -190,8 +196,8 @@ template <typename Builder> class cycle_group {
 
   public:
     cycle_group(Builder* _context = nullptr);
-    cycle_group(field_t _x, field_t _y, bool_t _is_infinity);
-    cycle_group(const FF& _x, const FF& _y, bool _is_infinity);
+    cycle_group(field_t _x, field_t _y, bool_t _is_infinity, bool is_standard = false);
+    cycle_group(const FF& _x, const FF& _y, bool _is_infinity, bool is_standard = false);
     cycle_group(const AffineElement& _in);
     static cycle_group one(Builder* _context);
     static cycle_group from_witness(Builder* _context, const AffineElement& _in);
@@ -201,20 +207,27 @@ template <typename Builder> class cycle_group {
     AffineElement get_value() const;
     [[nodiscard]] bool is_constant() const { return _is_constant; }
     bool_t is_point_at_infinity() const { return _is_infinity; }
-    void set_point_at_infinity(const bool_t& is_infinity) { _is_infinity = is_infinity; }
-    cycle_group get_standard_form() const;
+    void set_point_at_infinity(const bool_t& is_infinity);
+    void standardize();
+    bool is_standard() const { return this->_is_standard; };
+    cycle_group get_standard_form();
     void validate_is_on_curve() const;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group dbl() const
+    cycle_group dbl(const std::optional<AffineElement> hint = std::nullopt) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<AffineElement> hint = std::nullopt) const
         requires IsUltraArithmetic<Builder>;
-    cycle_group unconditional_add(const cycle_group& other) const
+    cycle_group unconditional_add(const cycle_group& other,
+                                  const std::optional<AffineElement> hint = std::nullopt) const
         requires IsNotUltraArithmetic<Builder>;
-    cycle_group unconditional_subtract(const cycle_group& other) const;
-    cycle_group checked_unconditional_add(const cycle_group& other) const;
-    cycle_group checked_unconditional_subtract(const cycle_group& other) const;
+    cycle_group unconditional_subtract(const cycle_group& other,
+                                       const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group checked_unconditional_add(const cycle_group& other,
+                                          const std::optional<AffineElement> hint = std::nullopt) const;
+    cycle_group checked_unconditional_subtract(const cycle_group& other,
+                                               const std::optional<AffineElement> hint = std::nullopt) const;
     cycle_group operator+(const cycle_group& other) const;
     cycle_group operator-(const cycle_group& other) const;
     cycle_group operator-() const;
@@ -237,8 +250,8 @@ template <typename Builder> class cycle_group {
     cycle_group& operator*=(const cycle_scalar& scalar);
     cycle_group operator*(const BigScalarField& scalar) const;
     cycle_group& operator*=(const BigScalarField& scalar);
-    bool_t operator==(const cycle_group& other) const;
-    void assert_equal(const cycle_group& other, std::string const& msg = "cycle_group::assert_equal") const;
+    bool_t operator==(cycle_group& other);
+    void assert_equal(cycle_group& other, std::string const& msg = "cycle_group::assert_equal");
     static cycle_group conditional_assign(const bool_t& predicate, const cycle_group& lhs, const cycle_group& rhs);
     cycle_group operator/(const cycle_group& other) const;
 
@@ -269,6 +282,14 @@ template <typename Builder> class cycle_group {
   private:
     bool_t _is_infinity;
     bool _is_constant;
+    // The point is considered to be `standard` or in `standard form` when:
+    // - It's not a point at infinity, and the coordinates belong to the curve
+    // - It's a point at infinity and both of the coordinates are set to be 0. (0, 0)
+    // Most of the time it is true, so we won't need to do extra conditional_assign
+    // during `get_standard_form`, `assert_equal` or `==` calls
+    // However sometimes it won't be the case(due to some previous design choices),
+    // so we can handle these cases using this flag
+    bool _is_standard;
     Builder* context;
 
     static batch_mul_internal_output _variable_base_batch_mul_internal(std::span<cycle_scalar> scalars,
@@ -288,6 +309,6 @@ template <typename Builder> class cycle_group {
 
 template <typename Builder> inline std::ostream& operator<<(std::ostream& os, cycle_group<Builder> const& v)
 {
-    return os << v.get_value();
+    return os << "{ " << v.x << ", " << v.y << " }";
 }
 } // namespace bb::stdlib

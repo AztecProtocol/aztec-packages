@@ -8,6 +8,7 @@
 #include "barretenberg/crypto/merkle_tree/merkle_tree.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/stdlib/encryption/ecdsa/ecdsa.hpp"
+#include "barretenberg/stdlib/hash/keccak/keccak.hpp"
 #include "barretenberg/stdlib/hash/sha256/sha256.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib/primitives/curves/secp256k1.hpp"
@@ -23,15 +24,15 @@ namespace bb {
  * they overflow
  */
 static constexpr TraceStructure SMALL_TEST_STRUCTURE_FOR_OVERFLOWS{ .ecc_op = 1 << 14,
-                                                                    .pub_inputs = 1 << 14,
                                                                     .busread = 1 << 14,
+                                                                    .lookup = 1 << 14,
+                                                                    .pub_inputs = 1 << 14,
                                                                     .arithmetic = 1 << 15,
                                                                     .delta_range = 1 << 14,
                                                                     .elliptic = 1 << 14,
                                                                     .aux = 1 << 14,
                                                                     .poseidon2_external = 1 << 14,
                                                                     .poseidon2_internal = 1 << 15,
-                                                                    .lookup = 1 << 14,
                                                                     .overflow = 0 };
 
 class GoblinMockCircuits {
@@ -137,8 +138,7 @@ class GoblinMockCircuits {
      *
      * @param op_queue
      */
-    static void perform_op_queue_interactions_for_mock_first_circuit(
-        std::shared_ptr<bb::ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+    static void perform_op_queue_interactions_for_mock_first_circuit(std::shared_ptr<bb::ECCOpQueue>& op_queue)
     {
         PROFILE_THIS();
 
@@ -146,20 +146,6 @@ class GoblinMockCircuits {
 
         // Add some goblinized ecc ops
         MockCircuits::construct_goblin_ecc_op_circuit(builder);
-
-        op_queue->set_size_data();
-
-        // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        bb::srs::init_crs_factory("../srs_db/ignition");
-        auto bn254_commitment_key =
-            commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
-        std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
-        size_t idx = 0;
-        for (auto& entry : op_queue->get_aggregate_transcript()) {
-            op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
-        }
-        // Store the commitment data for use by the prover of the next circuit
-        op_queue->set_commitment_data(op_queue_commitments);
     }
 
     /**
@@ -190,7 +176,6 @@ class GoblinMockCircuits {
     static void construct_simple_circuit(MegaBuilder& builder)
     {
         PROFILE_THIS();
-
         add_some_ecc_op_gates(builder);
         MockCircuits::construct_arithmetic_circuit(builder);
     }

@@ -4,10 +4,10 @@
 #include "./msm_builder.hpp"
 #include "./precomputed_tables_builder.hpp"
 #include "./transcript_builder.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
-#include "barretenberg/honk/proof_system/permutation_library.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
@@ -40,10 +40,7 @@ class ECCVMCircuitBuilder {
     ECCVMCircuitBuilder(std::shared_ptr<ECCOpQueue>& op_queue)
         : op_queue(op_queue){};
 
-    [[nodiscard]] uint32_t get_number_of_muls() const
-    {
-        return op_queue->cached_num_muls + op_queue->cached_active_msm_count;
-    }
+    [[nodiscard]] uint32_t get_number_of_muls() const { return op_queue->get_number_of_muls(); }
 
     std::vector<MSM> get_msms() const
     {
@@ -116,10 +113,10 @@ class ECCVMCircuitBuilder {
         std::vector<std::pair<size_t, size_t>> msm_mul_index;
         std::vector<size_t> msm_sizes;
 
-        const auto& raw_ops = op_queue->get_raw_ops();
+        const auto& eccvm_ops = op_queue->get_eccvm_ops();
         size_t op_idx = 0;
         // populate opqueue and mul indices
-        for (const auto& op : raw_ops) {
+        for (const auto& op : eccvm_ops) {
             if (op.mul) {
                 if ((op.z1 != 0 || op.z2 != 0) && !op.base_point.is_point_at_infinity()) {
                     msm_opqueue_index.push_back(op_idx);
@@ -134,7 +131,7 @@ class ECCVMCircuitBuilder {
             op_idx++;
         }
         // if last op is a mul we have not correctly computed the total number of msms
-        if (raw_ops.back().mul && active_mul_count > 0) {
+        if (eccvm_ops.back().mul && active_mul_count > 0) {
             msm_sizes.push_back(active_mul_count);
             msm_count++;
         }
@@ -146,7 +143,7 @@ class ECCVMCircuitBuilder {
 
         parallel_for_range(msm_opqueue_index.size(), [&](size_t start, size_t end) {
             for (size_t i = start; i < end; i++) {
-                const auto& op = raw_ops[msm_opqueue_index[i]];
+                const auto& op = eccvm_ops[msm_opqueue_index[i]];
                 auto [msm_index, mul_index] = msm_mul_index[i];
                 if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
                     ASSERT(result.size() > msm_index);
@@ -218,7 +215,7 @@ class ECCVMCircuitBuilder {
     [[nodiscard]] size_t get_circuit_subgroup_size(const size_t num_rows) const
     {
 
-        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows));
+        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows + MASKING_OFFSET));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
         return num_rows_pow2;
     }

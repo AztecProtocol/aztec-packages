@@ -48,7 +48,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // 2. Deposit tokens to the TokenPortal
     logger.verbose(`2. Deposit tokens to the TokenPortal`);
     const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
-    const msgHash = Fr.fromString(claim.messageHash);
+    const msgHash = Fr.fromHexString(claim.messageHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     // Wait for the message to be available for consumption
@@ -73,16 +73,14 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
     // 4. Give approval to bridge to burn owner's funds:
     const withdrawAmount = 9n;
     const nonce = Fr.random();
-    await user1Wallet
-      .setPublicAuthWit(
-        {
-          caller: l2Bridge.address,
-          action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce).request(),
-        },
-        true,
-      )
-      .send()
-      .wait();
+    const validateActionInteraction = await user1Wallet.setPublicAuthWit(
+      {
+        caller: l2Bridge.address,
+        action: l2Token.methods.burn_public(ownerAddress, withdrawAmount, nonce),
+      },
+      true,
+    );
+    await validateActionInteraction.send().wait();
 
     // 5. Withdraw owner's funds from L2 to L1
     logger.verbose('5. Withdraw owner funds from L2 to L1');
@@ -116,7 +114,7 @@ describe('e2e_cross_chain_messaging token_bridge_public', () => {
 
     await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
     const claim = await crossChainTestHarness.sendTokensToPortalPublic(bridgeAmount);
-    const msgHash = Fr.fromString(claim.messageHash);
+    const msgHash = Fr.fromHexString(claim.messageHash);
     expect(await crossChainTestHarness.getL1BalanceOf(ethAccount)).toBe(l1TokenBalance - bridgeAmount);
 
     await crossChainTestHarness.makeMessageConsumable(msgHash);

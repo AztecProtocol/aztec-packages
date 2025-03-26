@@ -1,5 +1,5 @@
-import { type CircuitName } from '@aztec/circuit-types/stats';
-import { type Timer } from '@aztec/foundation/timer';
+import type { Timer } from '@aztec/foundation/timer';
+import type { CircuitName } from '@aztec/stdlib/stats';
 import {
   Attributes,
   type Gauge,
@@ -8,7 +8,6 @@ import {
   type TelemetryClient,
   type Tracer,
   ValueType,
-  millisecondBuckets,
 } from '@aztec/telemetry-client';
 
 /**
@@ -36,27 +35,18 @@ export class ProverInstrumentation {
       description: 'Records how long it takes to simulate a circuit',
       unit: 'ms',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1), // 10ms -> ~327s
-      },
     });
 
     this.witGenDuration = meter.createHistogram(Metrics.CIRCUIT_WITNESS_GEN_DURATION, {
       description: 'Records how long it takes to generate the partial witness for a circuit',
-      unit: 'ms',
-      valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(1),
-      },
+      unit: 's',
+      valueType: ValueType.DOUBLE,
     });
 
     this.provingDuration = meter.createHistogram(Metrics.CIRCUIT_PROVING_DURATION, {
-      unit: 'ms',
+      unit: 's',
       description: 'Records how long it takes to prove a circuit',
-      valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: millisecondBuckets(2), // 100ms -> 54 minutes
-      },
+      valueType: ValueType.DOUBLE,
     });
 
     this.witGenInputSize = meter.createGauge(Metrics.CIRCUIT_WITNESS_GEN_INPUT_SIZE, {
@@ -99,8 +89,8 @@ export class ProverInstrumentation {
     circuitName: CircuitName | 'tubeCircuit',
     timerOrMS: Timer | number,
   ) {
-    const ms = typeof timerOrMS === 'number' ? timerOrMS : timerOrMS.ms();
-    this[metric].record(Math.ceil(ms), {
+    const s = typeof timerOrMS === 'number' ? timerOrMS / 1000 : timerOrMS.s();
+    this[metric].record(s, {
       [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName,
       [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
     });
@@ -113,8 +103,8 @@ export class ProverInstrumentation {
    * @param timerOrMS - The duration
    */
   recordAvmDuration(metric: 'witGenDuration' | 'provingDuration', appCircuitName: string, timerOrMS: Timer | number) {
-    const ms = typeof timerOrMS === 'number' ? timerOrMS : timerOrMS.s();
-    this[metric].record(Math.ceil(ms), {
+    const s = typeof timerOrMS === 'number' ? timerOrMS / 1000 : timerOrMS.s();
+    this[metric].record(s, {
       [Attributes.APP_CIRCUIT_NAME]: appCircuitName,
     });
   }

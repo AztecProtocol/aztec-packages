@@ -108,7 +108,7 @@ struct BlockForIndexResponse {
 };
 
 struct FindLeafIndexResponse {
-    index_t leaf_index;
+    std::vector<std::optional<index_t>> leaf_indices;
 
     FindLeafIndexResponse() = default;
     ~FindLeafIndexResponse() = default;

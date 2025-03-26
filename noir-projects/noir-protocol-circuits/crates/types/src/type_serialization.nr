@@ -72,15 +72,15 @@ impl Deserialize<U64_SERIALIZED_LEN> for u64 {
     }
 }
 
-impl Serialize<U128_SERIALIZED_LEN> for U128 {
+impl Serialize<U128_SERIALIZED_LEN> for u128 {
     fn serialize(self) -> [Field; U128_SERIALIZED_LEN] {
-        [self.to_integer()]
+        [self as Field]
     }
 }
 
-impl Deserialize<U128_SERIALIZED_LEN> for U128 {
+impl Deserialize<U128_SERIALIZED_LEN> for u128 {
     fn deserialize(fields: [Field; U128_SERIALIZED_LEN]) -> Self {
-        U128::from_integer(fields[0])
+        fields[0] as u128
     }
 }
 

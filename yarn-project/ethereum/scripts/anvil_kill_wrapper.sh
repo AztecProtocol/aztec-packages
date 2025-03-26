@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Function to get the PPID in macOS
 get_ppid_macos() {
@@ -36,7 +36,7 @@ fi
 # echo "Parent PID: $PARENT_PID"
 
 # Start anvil in the background.
-anvil $@ &
+RAYON_NUM_THREADS=1 anvil $@ &
 CHILD_PID=$!
 
 cleanup() {

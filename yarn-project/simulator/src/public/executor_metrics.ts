@@ -6,7 +6,6 @@ import {
   type Tracer,
   type UpDownCounter,
   ValueType,
-  linearBuckets,
 } from '@aztec/telemetry-client';
 
 export class ExecutorMetrics {
@@ -14,6 +13,7 @@ export class ExecutorMetrics {
   private fnCount: UpDownCounter;
   private fnDuration: Histogram;
   private manaPerSecond: Histogram;
+  private privateEffectsInsertions: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicExecutor') {
     this.tracer = client.getTracer(name);
@@ -33,9 +33,12 @@ export class ExecutorMetrics {
       description: 'Mana used per second',
       unit: 'mana/s',
       valueType: ValueType.INT,
-      advice: {
-        explicitBucketBoundaries: linearBuckets(0, 10_000_000, 10),
-      },
+    });
+
+    this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION, {
+      description: 'Private effects insertion time',
+      unit: 'us',
+      valueType: ValueType.INT,
     });
   }
 
@@ -57,6 +60,12 @@ export class ExecutorMetrics {
   recordFunctionSimulationFailure() {
     this.fnCount.add(1, {
       [Attributes.OK]: false,
+    });
+  }
+
+  recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
+    this.privateEffectsInsertions.record(Math.ceil(durationUs), {
+      [Attributes.REVERTIBILITY]: type,
     });
   }
 }

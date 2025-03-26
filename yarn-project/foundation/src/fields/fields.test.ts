@@ -33,16 +33,53 @@ describe('GrumpkinScalar Serialization', () => {
     expect(deserialized).toEqual(original);
 
     // Note odd number of digits
-    const arbitraryString = '123';
-    const arbitraryHexString = '0x123';
-    const expectedBigInt = 291n;
+    const arbitraryNumericString = '123';
+    const arbitraryNumericStringPrepended = '0x123';
+    const expectedBigIntFromHex = 291n;
 
-    expect(GrumpkinScalar.fromString(arbitraryString).toBigInt()).toEqual(expectedBigInt);
-    expect(GrumpkinScalar.fromString(arbitraryHexString).toBigInt()).toEqual(expectedBigInt);
+    const anotherString = '1000a000';
+    const anotherStringPrepended = '0x1000a000';
 
-    const incorrectlyFormattedString = '12xx34xx45';
+    const expectedValueOfAnotherHexString = 268476416n;
 
-    expect(() => GrumpkinScalar.fromString(incorrectlyFormattedString).toBigInt()).toThrow();
+    expect(GrumpkinScalar.fromString(arbitraryNumericString).toBigInt()).toEqual(BigInt(arbitraryNumericString));
+    expect(GrumpkinScalar.fromString(arbitraryNumericStringPrepended).toBigInt()).toEqual(expectedBigIntFromHex);
+
+    expect(() => GrumpkinScalar.fromString(anotherString)).toThrow('Tried to create a Fq from an invalid string');
+    expect(GrumpkinScalar.fromString(anotherStringPrepended).toBigInt()).toEqual(expectedValueOfAnotherHexString);
+
+    const nonHexEncodedString = '0x12xx34xx45';
+    expect(() => GrumpkinScalar.fromHexString(nonHexEncodedString)).toThrow('Invalid hex-encoded string');
+  });
+
+  // Test case for GrumpkinScalar.fromHexString
+  it('fromHexString should serialize and deserialize correctly', () => {
+    const original = GrumpkinScalar.random();
+    const hexString = original.toString();
+    const deserialized = GrumpkinScalar.fromHexString(hexString);
+
+    // Check if the deserialized instance is equal to the original
+    expect(deserialized).toEqual(original);
+
+    // Note odd number of digits
+    const arbitraryNumericString = '123';
+    const arbitraryNumericStringPrepended = '0x123';
+    const expectedBigIntFromHex = 291n;
+
+    const anotherString = 'deadbeef';
+    const anotherStringPrepended = '0xdeadbeef';
+
+    const expectedValueOfAnotherHexString = 3735928559n;
+
+    expect(GrumpkinScalar.fromHexString(arbitraryNumericString).toBigInt()).toEqual(expectedBigIntFromHex);
+    expect(GrumpkinScalar.fromHexString(arbitraryNumericStringPrepended).toBigInt()).toEqual(expectedBigIntFromHex);
+
+    expect(GrumpkinScalar.fromHexString(anotherString).toBigInt()).toEqual(expectedValueOfAnotherHexString);
+    expect(GrumpkinScalar.fromHexString(anotherStringPrepended).toBigInt()).toEqual(expectedValueOfAnotherHexString);
+
+    const nonHexEncodedString = '12xx34xx45';
+
+    expect(() => GrumpkinScalar.fromHexString(nonHexEncodedString).toBigInt()).toThrow();
   });
 
   // Test case for GrumpkinScalar.toBuffer
@@ -59,7 +96,7 @@ describe('GrumpkinScalar Serialization', () => {
   it('toString should serialize and deserialize correctly', () => {
     const original = GrumpkinScalar.random();
     const hexString = original.toString();
-    const deserialized = GrumpkinScalar.fromString(hexString);
+    const deserialized = GrumpkinScalar.fromHexString(hexString);
 
     // Check if the deserialized instance is equal to the original
     expect(deserialized).toEqual(original);
@@ -190,8 +227,8 @@ describe('Bn254 arithmetic', () => {
       [new Fr(4), 2n],
       [new Fr(9), 3n],
       [new Fr(16), 4n],
-    ])('Should return the correct square root for %p', (input, expected) => {
-      const actual = input.sqrt()!.toBigInt();
+    ])('Should return the correct square root for %p', async (input, expected) => {
+      const actual = (await input.sqrt())!.toBigInt();
 
       // The square root can be either the expected value or the modulus - expected value
       const isValid = actual == expected || actual == Fr.MODULUS - expected;
@@ -199,11 +236,11 @@ describe('Bn254 arithmetic', () => {
       expect(isValid).toBeTruthy();
     });
 
-    it('Should return the correct square root for random value', () => {
+    it('Should return the correct square root for random value', async () => {
       const a = Fr.random();
       const squared = a.mul(a);
 
-      const actual = squared.sqrt();
+      const actual = await squared.sqrt();
       expect(actual!.mul(actual!)).toEqual(squared);
     });
   });

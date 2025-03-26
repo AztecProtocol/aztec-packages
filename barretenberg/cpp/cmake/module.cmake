@@ -73,6 +73,12 @@ function(barretenberg_module MODULE_NAME)
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME} msgpack-c)
         add_dependencies(${MODULE_NAME}_objects msgpack-c)
+
+        # enable lmdb downloading via dependency (solves race condition)
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+            add_dependencies(${MODULE_NAME} lmdb_repo)
+            add_dependencies(${MODULE_NAME}_objects lmdb_repo)
+        endif()
         list(APPEND lib_targets ${MODULE_NAME})
 
         set(MODULE_LINK_NAME ${MODULE_NAME})
@@ -156,6 +162,12 @@ function(barretenberg_module MODULE_NAME)
         # enable msgpack downloading via dependency (solves race condition)
         add_dependencies(${MODULE_NAME}_test_objects msgpack-c)
         add_dependencies(${MODULE_NAME}_tests msgpack-c)
+
+        # enable lmdb downloading via dependency (solves race condition)
+        if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+            add_dependencies(${MODULE_NAME}_test_objects lmdb_repo)
+            add_dependencies(${MODULE_NAME}_tests lmdb_repo)
+        endif()
         if(NOT WASM)
             # If collecting coverage data, set profile
             # For some reason processor affinity doesn't work, so the developer has to set it manually anyway
@@ -277,6 +289,12 @@ function(barretenberg_module MODULE_NAME)
             # enable msgpack downloading via dependency (solves race condition)
             add_dependencies(${BENCHMARK_NAME}_bench_objects msgpack-c)
             add_dependencies(${BENCHMARK_NAME}_bench msgpack-c)
+
+            # enable lmdb downloading via dependency (solves race condition)
+            if(NOT CMAKE_SYSTEM_PROCESSOR MATCHES "wasm32")
+                add_dependencies(${BENCHMARK_NAME}_bench_objects lmdb_repo)
+                add_dependencies(${BENCHMARK_NAME}_bench lmdb_repo)
+            endif()
             add_custom_target(
                 run_${BENCHMARK_NAME}_bench
                 COMMAND ${BENCHMARK_NAME}_bench

@@ -2,29 +2,11 @@
 #include "barretenberg/flavor/plonk_flavors.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/proving_key.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 namespace bb {
-
-template <class Flavor> void TraceToPolynomials<Flavor>::populate_public_inputs_block(Builder& builder)
-{
-    PROFILE_THIS_NAME("populate_public_inputs_block");
-
-    // Update the public inputs block
-    for (const auto& idx : builder.public_inputs) {
-        for (size_t wire_idx = 0; wire_idx < NUM_WIRES; ++wire_idx) {
-            if (wire_idx < 2) { // first two wires get a copy of the public inputs
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(idx);
-            } else { // the remaining wires get zeros
-                builder.blocks.pub_inputs.wires[wire_idx].emplace_back(builder.zero_idx);
-            }
-        }
-        for (auto& selector : builder.blocks.pub_inputs.selectors) {
-            selector.emplace_back(0);
-        }
-    }
-}
 
 template <class Flavor>
 void TraceToPolynomials<Flavor>::populate(Builder& builder,
@@ -73,9 +55,11 @@ void TraceToPolynomials<Flavor>::add_memory_records_to_proving_key(TraceData& tr
     ASSERT(proving_key.memory_read_records.empty() && proving_key.memory_write_records.empty());
 
     // Update indices of RAM/ROM reads/writes based on where block containing these gates sits in the trace
+    proving_key.memory_read_records.reserve(builder.memory_read_records.size());
     for (auto& index : builder.memory_read_records) {
         proving_key.memory_read_records.emplace_back(index + trace_data.ram_rom_offset);
     }
+    proving_key.memory_write_records.reserve(builder.memory_write_records.size());
     for (auto& index : builder.memory_write_records) {
         proving_key.memory_write_records.emplace_back(index + trace_data.ram_rom_offset);
     }
@@ -88,11 +72,6 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
     PROFILE_THIS_NAME("construct_trace_data");
 
-    if constexpr (IsPlonkFlavor<Flavor>) {
-        // Complete the public inputs execution trace block from builder.public_inputs
-        populate_public_inputs_block(builder);
-    }
-
     TraceData trace_data{ builder, proving_key };
 
     uint32_t offset = Flavor::has_zero_row ? 1 : 0; // Offset at which to place each block in the trace polynomials
@@ -103,8 +82,9 @@ typename TraceToPolynomials<Flavor>::TraceData TraceToPolynomials<Flavor>::const
 
         // Save ranges over which the blocks are "active" for use in structured commitments
         if constexpr (IsUltraFlavor<Flavor>) { // Mega and Ultra
+            PROFILE_THIS_NAME("construct_active_indices");
             if (block.size() > 0) {
-                proving_key.active_block_ranges.emplace_back(offset, offset + block.size());
+                proving_key.active_region_data.add_range(offset, offset + block.size());
             }
         }
 
@@ -160,22 +140,24 @@ void TraceToPolynomials<Flavor>::add_ecc_op_wires_to_proving_key(Builder& builde
     requires IsMegaFlavor<Flavor>
 {
     auto& ecc_op_selector = proving_key.polynomials.lagrange_ecc_op;
-    const size_t op_wire_offset = Flavor::has_zero_row ? 1 : 0;
+    const size_t wire_idx_offset = Flavor::has_zero_row ? 1 : 0;
 
-    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates
+    // Copy the ecc op data from the conventional wires into the op wires over the range of ecc op gates. The data is
+    // stored in the ecc op wires starting from index 0, whereas the wires contain the data offset by a zero row.
     const size_t num_ecc_ops = builder.blocks.ecc_op.size();
     for (auto [ecc_op_wire, wire] :
          zip_view(proving_key.polynomials.get_ecc_op_wires(), proving_key.polynomials.get_wires())) {
         for (size_t i = 0; i < num_ecc_ops; ++i) {
-            size_t idx = i + op_wire_offset;
-            ecc_op_wire.at(idx) = wire[idx];
-            ecc_op_selector.at(idx) = 1; // construct selector as the indicator on the ecc op block
+            ecc_op_wire.at(i) = wire[i + wire_idx_offset];
+            ecc_op_selector.at(i) = 1; // construct selector as the indicator on the ecc op block
         }
     }
 }
 
 template class TraceToPolynomials<UltraFlavor>;
+template class TraceToPolynomials<UltraZKFlavor>;
 template class TraceToPolynomials<UltraKeccakFlavor>;
+template class TraceToPolynomials<UltraKeccakZKFlavor>;
 template class TraceToPolynomials<UltraRollupFlavor>;
 template class TraceToPolynomials<MegaFlavor>;
 template class TraceToPolynomials<MegaZKFlavor>;

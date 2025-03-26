@@ -6,10 +6,10 @@ use crate::{
 };
 
 pub struct PublicDataHint {
-    leaf_slot: Field,
-    value: Field,
-    membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
-    leaf_preimage: PublicDataTreeLeafPreimage,
+    pub leaf_slot: Field,
+    pub value: Field,
+    pub membership_witness: MembershipWitness<PUBLIC_DATA_TREE_HEIGHT>,
+    pub leaf_preimage: PublicDataTreeLeafPreimage,
 }
 
 impl PublicDataHint {

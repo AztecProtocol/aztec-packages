@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{NULLIFIER_LENGTH, SCOPED_NULLIFIER_LENGTH},
     hash::compute_siloed_nullifier,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 
@@ -22,9 +22,6 @@ impl Ordered for Nullifier {
 impl OrderedValue<Field> for Nullifier {
     fn value(self) -> Field {
         self.value
-    }
-    fn counter(self) -> u32 {
-        self.counter
     }
 }
 
@@ -101,9 +98,6 @@ impl Ordered for ScopedNullifier {
 impl OrderedValue<Field> for ScopedNullifier {
     fn value(self) -> Field {
         self.nullifier.value
-    }
-    fn counter(self) -> u32 {
-        self.nullifier.counter
     }
 }
 

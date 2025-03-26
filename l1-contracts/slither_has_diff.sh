@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 FILE="slither_output.md"
 
@@ -8,5 +8,5 @@ if [ -z "$DIFF_OUTPUT" ]; then
     echo "No difference found."
 else
     echo "Difference found!"
-    exit 1 
+    exit 1
 fi

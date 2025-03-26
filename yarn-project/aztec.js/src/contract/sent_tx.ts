@@ -1,6 +1,9 @@
-import { type GetUnencryptedLogsResponse, type PXE, type TxHash, type TxReceipt, TxStatus } from '@aztec/circuit-types';
 import { retryUntil } from '@aztec/foundation/retry';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import { type TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
+
+import type { Wallet } from '../wallet/wallet.js';
 
 /** Options related to waiting for a tx. */
 export type WaitOpts = {
@@ -8,19 +11,8 @@ export type WaitOpts = {
   ignoreDroppedReceiptsFor?: number;
   /** The maximum time (in seconds) to wait for the transaction to be mined. Defaults to 60. */
   timeout?: number;
-  /** The maximum time (in seconds) to wait for the transaction to be proven. Defaults to 600. */
-  provenTimeout?: number;
   /** The time interval (in seconds) between retries to fetch the transaction receipt. Defaults to 1. */
   interval?: number;
-  /** Whether to wait for the tx to be proven. */
-  proven?: boolean;
-  /**
-   * Whether to wait for the node to notify that the block in which this tx was mined is available to fetch notes from.
-   * If false, then any queries that depend on state set by this transaction may return stale data. Defaults to true.
-   **/
-  waitForNotesAvailable?: boolean;
-  /** Whether to include information useful for debugging/testing in the receipt. */
-  debug?: boolean;
   /** Whether to accept a revert as a status code for the tx when waiting for it. If false, will throw if the tx reverts. */
   dontThrowOnRevert?: boolean;
 };
@@ -28,18 +20,15 @@ export type WaitOpts = {
 export const DefaultWaitOpts: WaitOpts = {
   ignoreDroppedReceiptsFor: 5,
   timeout: 60,
-  provenTimeout: 600,
   interval: 1,
-  debug: false,
-  waitForNotesAvailable: true,
 };
 
 /**
- * The SentTx class represents a sent transaction through the PXE, providing methods to fetch
+ * The SentTx class represents a sent transaction through the PXE (or directly to a node) providing methods to fetch
  * its hash, receipt, and mining status.
  */
 export class SentTx {
-  constructor(protected pxe: PXE, protected txHashPromise: Promise<TxHash>) {}
+  constructor(protected pxeWalletOrNode: Wallet | AztecNode | PXE, protected txHashPromise: Promise<TxHash>) {}
 
   /**
    * Retrieves the transaction hash of the SentTx instance.
@@ -61,7 +50,7 @@ export class SentTx {
    */
   public async getReceipt(): Promise<TxReceipt> {
     const txHash = await this.getTxHash();
-    return await this.pxe.getTxReceipt(txHash);
+    return await this.pxeWalletOrNode.getTxReceipt(txHash);
   }
 
   /**
@@ -76,30 +65,7 @@ export class SentTx {
         `Transaction ${await this.getTxHash()} was ${receipt.status}. Reason: ${receipt.error ?? 'unknown'}`,
       );
     }
-    if (opts?.proven && receipt.blockNumber !== undefined) {
-      await this.waitForProven(receipt.blockNumber, opts);
-    }
-    if (opts?.debug) {
-      const txHash = await this.getTxHash();
-      const { data: tx } = (await this.pxe.getTxEffect(txHash))!;
-      receipt.debugInfo = {
-        noteHashes: tx.noteHashes,
-        nullifiers: tx.nullifiers,
-        publicDataWrites: tx.publicDataWrites,
-        l2ToL1Msgs: tx.l2ToL1Msgs,
-      };
-    }
     return receipt;
-  }
-
-  /**
-   * Gets unencrypted logs emitted by this tx.
-   * @remarks This function will wait for the tx to be mined if it hasn't been already.
-   * @returns The requested logs.
-   */
-  public async getUnencryptedLogs(): Promise<GetUnencryptedLogsResponse> {
-    await this.wait();
-    return this.pxe.getUnencryptedLogs({ txHash: await this.getTxHash() });
   }
 
   protected async waitForReceipt(opts?: WaitOpts): Promise<TxReceipt> {
@@ -109,7 +75,7 @@ export class SentTx {
 
     return await retryUntil(
       async () => {
-        const txReceipt = await this.pxe.getTxReceipt(txHash);
+        const txReceipt = await this.pxeWalletOrNode.getTxReceipt(txHash);
         // If receipt is not yet available, try again
         if (txReceipt.status === TxStatus.PENDING) {
           return undefined;
@@ -124,31 +90,10 @@ export class SentTx {
           }
           return undefined;
         }
-        // If we don't care about waiting for notes to be synced, return the receipt
-        const waitForNotesAvailable = opts?.waitForNotesAvailable ?? DefaultWaitOpts.waitForNotesAvailable;
-        if (!waitForNotesAvailable) {
-          return txReceipt;
-        }
-        // Check if all sync blocks on the PXE Service are greater or equal than the block in which the tx was mined
-        const { blocks } = await this.pxe.getSyncStatus();
-        const targetBlock = txReceipt.blockNumber!;
-        const areNotesAvailable = blocks >= targetBlock;
-        return areNotesAvailable ? txReceipt : undefined;
+        return txReceipt;
       },
       'isMined',
       opts?.timeout ?? DefaultWaitOpts.timeout,
-      opts?.interval ?? DefaultWaitOpts.interval,
-    );
-  }
-
-  protected async waitForProven(minedBlock: number, opts?: WaitOpts) {
-    return await retryUntil(
-      async () => {
-        const provenBlock = await this.pxe.getProvenBlockNumber();
-        return provenBlock >= minedBlock ? provenBlock : undefined;
-      },
-      'isProven',
-      opts?.provenTimeout ?? DefaultWaitOpts.provenTimeout,
       opts?.interval ?? DefaultWaitOpts.interval,
     );
   }

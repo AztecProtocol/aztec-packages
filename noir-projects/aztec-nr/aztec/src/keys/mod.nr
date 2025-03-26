@@ -1,3 +1,4 @@
 pub mod constants;
+pub mod ephemeral;
 pub mod getters;
-pub mod point_to_symmetric_key;
+pub mod ecdh_shared_secret;

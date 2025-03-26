@@ -1,4 +1,4 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
   type AztecAddress,
@@ -6,9 +6,10 @@ import {
   type FeePaymentMethod,
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
-import { GasSettings } from '@aztec/circuits.js';
-import { type Logger } from '@aztec/foundation/log';
-import { TokenContract as BananaCoin, type FPCContract } from '@aztec/noir-contracts.js';
+import type { Logger } from '@aztec/foundation/log';
+import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import { GasSettings } from '@aztec/stdlib/gas';
 
 import { inspect } from 'util';
 
@@ -29,11 +30,7 @@ describe('e2e_fees gas_estimation', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    await t.applyFundAliceWithFeeJuice();
     ({ aliceWallet, aliceAddress, bobAddress, bananaCoin, bananaFPC, gasSettings, logger } = await t.setup());
-
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   beforeEach(async () => {
@@ -74,7 +71,9 @@ describe('e2e_fees gas_estimation', () => {
     });
     logGasEstimate(estimatedGas);
 
-    (t.aztecNode as AztecNodeService).getSequencer()!.updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
+    await (t.aztecNode as AztecNodeService)
+      .getSequencer()!
+      .updateSequencerConfig({ minTxsPerBlock: 2, maxTxsPerBlock: 2 });
 
     const [withEstimate, withoutEstimate] = await sendTransfers(paymentMethod);
 
@@ -95,7 +94,7 @@ describe('e2e_fees gas_estimation', () => {
 
   it('estimates gas with public payment method', async () => {
     const teardownFixedFee = gasSettings.teardownGasLimits.computeFee(gasSettings.maxFeesPerGas).toBigInt();
-    const paymentMethod = new PublicFeePaymentMethod(bananaCoin.address, bananaFPC.address, aliceWallet);
+    const paymentMethod = new PublicFeePaymentMethod(bananaFPC.address, aliceWallet);
     const estimatedGas = await makeTransferRequest().estimateGas({
       fee: { gasSettings, paymentMethod, estimatedGasPadding: 0 },
     });

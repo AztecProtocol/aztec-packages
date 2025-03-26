@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IOutbox} from "@aztec/core//interfaces/messagebridge/IOutbox.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -47,7 +47,6 @@ contract Outbox is IOutbox {
     override(IOutbox)
   {
     require(msg.sender == address(ROLLUP), Errors.Outbox__Unauthorized());
-    require(_root != bytes32(0), Errors.Outbox__InsertingInvalidRoot());
 
     roots[_l2BlockNumber].root = _root;
     roots[_l2BlockNumber].minHeight = _minHeight;

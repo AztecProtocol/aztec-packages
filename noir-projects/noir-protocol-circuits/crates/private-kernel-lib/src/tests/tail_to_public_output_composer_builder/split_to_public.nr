@@ -1,4 +1,4 @@
-use crate::components::tail_to_public_output_composer::split_to_public::split_to_public;
+use crate::components::tail_to_public_output_composer::split_to_public;
 use dep::types::tests::{fixture_builder::FixtureBuilder, utils::assert_array_eq};
 
 #[test]
@@ -21,6 +21,7 @@ fn split_to_public_succeeds() {
     builder.append_public_call_requests(2);
 
     let combined_data = builder.to_private_to_public_accumulated_data();
+    // Safety: This is a test.
     let (non_revertible, revertible) = unsafe {
         split_to_public(
             builder.to_private_accumulated_data_builder(),

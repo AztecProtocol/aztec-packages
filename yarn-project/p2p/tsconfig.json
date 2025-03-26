@@ -7,16 +7,25 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
+      "path": "../constants"
     },
     {
-      "path": "../circuits.js"
+      "path": "../epoch-cache"
     },
     {
       "path": "../foundation"
     },
     {
       "path": "../kv-store"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"

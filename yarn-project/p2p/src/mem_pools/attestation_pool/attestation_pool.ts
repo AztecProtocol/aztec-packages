@@ -1,4 +1,4 @@
-import { type BlockAttestation } from '@aztec/circuit-types';
+import type { BlockAttestation } from '@aztec/stdlib/p2p';
 
 /**
  * An Attestation Pool contains attestations collected by a validator
@@ -40,7 +40,27 @@ export interface AttestationPool {
   deleteAttestationsForSlot(slot: bigint): Promise<void>;
 
   /**
-   * Get Attestations for slot
+   * Delete Attestations for slot and proposal
+   *
+   * Removes all attestations associated with a slot and proposal
+   *
+   * @param slot - The slot to delete.
+   * @param proposalId - The proposal to delete.
+   */
+  deleteAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<void>;
+
+  /**
+   * Get all Attestations for all proposals for a given slot
+   *
+   * Retrieve all of the attestations observed pertaining to a given slot
+   *
+   * @param slot - The slot to query
+   * @return BlockAttestations
+   */
+  getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]>;
+
+  /**
+   * Get Attestations for slot and given proposal
    *
    * Retrieve all of the attestations observed pertaining to a given slot
    *
@@ -48,5 +68,5 @@ export interface AttestationPool {
    * @param proposalId - The proposal to query
    * @return BlockAttestations
    */
-  getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
+  getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]>;
 }

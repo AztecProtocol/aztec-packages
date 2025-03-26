@@ -1,8 +1,9 @@
-import { PublicKeys } from '@aztec/circuits.js';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { PublicKeys } from '@aztec/stdlib/keys';
 
-import { type Wallet } from '../account/index.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { ContractBase } from './contract_base.js';
 import { DeployMethod } from './deploy_method.js';
 
@@ -22,9 +23,15 @@ export class Contract extends ContractBase {
    * @returns A promise that resolves to a new Contract instance.
    */
   public static async at(address: AztecAddress, artifact: ContractArtifact, wallet: Wallet): Promise<Contract> {
-    const instance = await wallet.getContractInstance(address);
+    const instance = (await wallet.getContractMetadata(address)).contractInstance;
     if (instance === undefined) {
       throw new Error(`Contract instance at ${address.toString()} has not been registered in the wallet's PXE`);
+    }
+    const thisContractClass = await getContractClassFromArtifact(artifact);
+    if (!thisContractClass.id.equals(instance.currentContractClassId)) {
+      // wallet holds an outdated version of this contract
+      await wallet.updateContract(address, artifact);
+      instance.currentContractClassId = thisContractClass.id;
     }
     return new Contract(instance, artifact, wallet);
   }

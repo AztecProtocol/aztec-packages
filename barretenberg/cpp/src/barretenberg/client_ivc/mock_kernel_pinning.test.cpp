@@ -18,7 +18,7 @@ class MockKernelTest : public ::testing::Test {
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
 
   protected:
-    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 TEST_F(MockKernelTest, PinFoldingKernelSizes)
@@ -33,6 +33,7 @@ TEST_F(MockKernelTest, PinFoldingKernelSizes)
         Builder circuit = circuit_producer.create_next_circuit(ivc);
 
         ivc.accumulate(circuit);
+        EXPECT_FALSE(circuit.blocks.has_overflow); // trace oveflow mechanism should not be triggered
     }
 
     EXPECT_EQ(ivc.fold_output.accumulator->proving_key.log_circuit_size, 19);
