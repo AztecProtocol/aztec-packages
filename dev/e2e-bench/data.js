@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742987004958,
+  "lastUpdate": 1742990260290,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "16536249+LHerskind@users.noreply.github.com",
-            "name": "Lasse Herskind",
-            "username": "LHerskind"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fd7adb1b39540b98d72b17fff5f2ec6bf81de143",
-          "message": "chore: fix archiver.test.ts (#12907)\n\nSomehow CI passed on #12863 even though this test is failing because of the changes 😅 This pr should fix it by putting in the proper layers.",
-          "timestamp": "2025-03-20T14:33:31Z",
-          "tree_id": "3c80380eb061572b7f5001f0697fc7fd8eeda8a2",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fd7adb1b39540b98d72b17fff5f2ec6bf81de143"
-        },
-        "date": 1742483216775,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9653,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23554728941601233,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 130105,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 147870,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "9820846+rw0x0@users.noreply.github.com",
+            "name": "Roman Walch",
+            "username": "rw0x0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "76ef873f0721843bb2f44e2428d352edf595d1c3",
+          "message": "fix: make circuit parsing deterministic (#11772)",
+          "timestamp": "2025-03-26T11:36:28Z",
+          "tree_id": "99813f93acb4c2bca53cf02b059d89b9e26d43ba",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76ef873f0721843bb2f44e2428d352edf595d1c3"
+        },
+        "date": 1742990259661,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9670,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2459136528309088,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 155514,
             "unit": "us"
           }
         ]
