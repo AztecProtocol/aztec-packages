@@ -1,5 +1,5 @@
-import { getEcdsaRAccount } from '@aztec/accounts/ecdsa';
-import { getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
+import { EcdsaRAccountContractArtifact, getEcdsaRAccount } from '@aztec/accounts/ecdsa';
+import { SchnorrAccountContractArtifact, getSchnorrAccount, getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
   AztecAddress,
@@ -18,15 +18,12 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { TestERC20Abi } from '@aztec/l1-artifacts/TestERC20Abi';
 import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
 import { type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
-import { GasSettings } from '@aztec/stdlib/gas';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { MNEMONIC } from '../../fixtures/fixtures.js';
@@ -293,7 +290,10 @@ export class ClientFlowsBenchmark {
     const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
     await benchysAccountManager.deploy({ fee: { paymentMethod } }).wait();
     // Register benchy on admin's PXE so we can check its balances
-    await this.pxe.registerContract({ instance: benchysAccountManager.getInstance() });
+    await this.pxe.registerContract({
+      instance: benchysAccountManager.getInstance(),
+      artifact: accountType === 'ecdsar1' ? EcdsaRAccountContractArtifact : SchnorrAccountContractArtifact,
+    });
     await this.pxe.registerAccount(benchysWallet.getSecretKey(), benchysWallet.getCompleteAddress().partialAddress);
     return benchysWallet;
   }

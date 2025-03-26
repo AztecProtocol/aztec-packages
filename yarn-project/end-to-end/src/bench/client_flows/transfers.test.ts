@@ -46,7 +46,7 @@ describe('Client flows benchmarking', () => {
     await t.teardown();
   });
 
-  //transferBenchmark('ecdsar1');
+  transferBenchmark('ecdsar1');
   transferBenchmark('schnorr');
 
   function transferBenchmark(accountType: AccountType) {
@@ -98,7 +98,7 @@ describe('Client flows benchmarking', () => {
               caller: adminWallet.getAddress(),
               action: interaction,
             });
-            await interaction.send({ authWitnesses: [witness] });
+            await interaction.send({ authWitnesses: [witness] }).wait();
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount

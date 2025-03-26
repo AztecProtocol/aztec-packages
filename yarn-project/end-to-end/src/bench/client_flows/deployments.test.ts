@@ -4,7 +4,6 @@ import {
   type DeployOptions,
   FeeJuicePaymentMethodWithClaim,
   Fr,
-  type PXE,
   registerContractClass,
 } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
@@ -96,6 +95,15 @@ describe('Client flows benchmarking', () => {
         'deploy_schnorr+claim_fee_juice+pay_fee_juice',
         deploymentInteraction,
         options,
+        1 + // Multicall entrypoint
+          1 + // Kernel init
+          2 + // ContractInstanceDeployer deploy + kernel inner
+          2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
+          2 + // Account constructor + kernel inner
+          2 + // Account entrypoint (wrapped fee payload) + kernel inner
+          2 + // FeeJuice claim + kernel inner
+          1 + // Kernel reset
+          1, // Kernel tail
       );
 
       // Ensure we paid a fee

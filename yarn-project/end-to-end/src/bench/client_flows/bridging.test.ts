@@ -83,6 +83,17 @@ describe('Client flows benchmarking', () => {
           `${accountType}+token_bridge_claim_private+pay_private_fpc`,
           claimInteraction,
           options,
+          1 + // Account entrypoint
+            1 + // Kernel init
+            2 + // FPC entrypoint + kernel inner
+            2 + // BananaCoin transfer_to_public + kernel inner
+            2 + // Account verify_private_authwit + kernel inner
+            2 + // BananaCoin prepare_private_balance_increase + kernel inner
+            2 + // CandyBarCoin transfer + kernel inner
+            2 + // TokenBridge claim_private + kernel inner
+            2 + // BridgedAsset mint_to_private + kernel inner
+            1 + // Kernel reset
+            1, // Kernel tail
         );
 
         // Ensure we paid a fee
