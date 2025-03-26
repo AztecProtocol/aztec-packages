@@ -1,5 +1,7 @@
 import { strict as assert } from 'assert';
 
+import { TaggedMemory } from '../avm_memory_types.js';
+import { InvalidTagValueError } from '../errors.js';
 import { BufferCursor } from './buffer_cursor.js';
 
 /**
@@ -103,6 +105,7 @@ export enum OperandType {
   UINT64,
   UINT128,
   FF,
+  TAG,
 }
 
 type OperandNativeType = number | bigint;
@@ -116,6 +119,7 @@ const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNa
   [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
   [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
   [OperandType.FF, [32, readBigInt254BE, writeBigInt254BE]],
+  [OperandType.TAG, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
 ]);
 
 function readBigInt254BE(this: Buffer, offset: number): bigint {
@@ -166,11 +170,26 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType
     cursor = new BufferCursor(cursor);
   }
 
-  for (const op of operands) {
-    const opType = op;
+  let isTagValid: boolean = true;
+  let invalidTagValue: number = 0; // Only used when a tag value is invalid.
+
+  for (const opType of operands) {
     const [sizeBytes, reader, _writer] = OPERAND_SPEC.get(opType)!;
-    argValues.push(reader.call(cursor.buffer(), cursor.position()));
+    const value = reader.call(cursor.buffer(), cursor.position());
+    argValues.push(value);
     cursor.advance(sizeBytes);
+
+    // We do not throw here as we first want to detect other parsing errors (e.g., instruction size
+    // is longer than remaining bytes) first. Order of errors need to match with circuit.
+    if (opType == OperandType.TAG) {
+      // We parsed a single byte (readUInt8()) and therefore value is of number type (not bigint)
+      isTagValid &&= TaggedMemory.checkIsValidTag(value as number);
+      invalidTagValue = value as number;
+    }
+  }
+
+  if (!isTagValid) {
+    throw new InvalidTagValueError(invalidTagValue);
   }
 
   return argValues;
