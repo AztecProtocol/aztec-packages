@@ -9,13 +9,11 @@ describe('e2e_bot', () => {
   let teardown: () => Promise<void>;
 
   let config: BotConfig;
-  const l1ManaTarget = 21e18;
 
   beforeAll(async () => {
     const initialFundedAccounts = await getInitialTestAccounts();
     ({ teardown, pxe } = await setup(1, {
       initialFundedAccounts,
-      manaTarget: BigInt(l1ManaTarget),
     }));
   });
 
