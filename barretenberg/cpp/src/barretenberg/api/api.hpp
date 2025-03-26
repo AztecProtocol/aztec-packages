@@ -24,6 +24,7 @@ class API {
                                    // recursive verifier) or is it for an ivc verifier?
         bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
+        bool quiet{ false };       // suppress success and error messages
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
         {
@@ -43,6 +44,7 @@ class API {
                << "  verifier_type: " << flags.verifier_type << "\n"
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
+               << "  quiet " << flags.quiet << "\n"
                << "]" << std::endl;
             return os;
         }
