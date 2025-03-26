@@ -9,19 +9,17 @@ import { Metrics } from '@aztec/telemetry-client';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { benchmarkSetup } from '../../../test/bench.js';
-import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
+import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 import { ammTest } from './amm_test.js';
 import { tokenTest } from './token_test.js';
 
 describe('Public TX simulator apps tests: benchmarks', () => {
   const logger = createLogger('public-tx-apps-tests-bench');
 
-  let tester: PublicTxSimulationTester;
-
   let telemetryClient: TelemetryClient;
   let teardown: () => Promise<void>;
 
-  beforeAll(async () => {
+  beforeAll(() => {
     ({ telemetryClient, teardown } = benchmarkSetup(
       ///*telemetryConfig=*/ {},
       /*metrics=*/ [
@@ -31,7 +29,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
         Metrics.PUBLIC_EXECUTOR_SIMULATION_DURATION,
       ],
     ));
-    tester = await PublicTxSimulationTester.create(telemetryClient);
   });
 
   afterAll(async () => {
@@ -39,16 +36,19 @@ describe('Public TX simulator apps tests: benchmarks', () => {
   });
 
   it('TokenContract', async () => {
+    const tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'Token');
     await tokenTest(tester, logger);
   });
 
   it('AMM Contract', async () => {
+    const tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'AMM');
     await ammTest(tester, logger);
   });
 
   it('AVM simulator bulk test', async () => {
     const deployer = AztecAddress.fromNumber(42);
 
+    const tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'AvmTest');
     const avmTestContract = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       deployer,
@@ -79,20 +79,18 @@ describe('Public TX simulator apps tests: benchmarks', () => {
           args,
         },
       ],
-      /*teardownCall=*/ undefined, // use default
-      /*feePayer=*/ undefined, // use default
-      /*firstNullifier=*/ undefined, // use default
-      /*globals=*/ undefined, // use default
-      /*metricsTag=*/ 'AvmTestContract.bulk_testing',
     );
     expect(bulkResult.revertCode.isOK()).toBe(true);
   });
 
   describe('AVM gadgets', () => {
     const deployer = AztecAddress.fromNumber(42);
+
+    let tester: PublicTxSimulationTester;
     let avmGadgetsTestContract: ContractInstanceWithAddress;
 
     beforeAll(async () => {
+      tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'AvmGadgetsTest');
       avmGadgetsTestContract = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         deployer,
@@ -115,11 +113,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
               args: [/*input=*/ Array.from({ length: length }, () => randomInt(2 ** 8))],
             },
           ],
-          /*teardownCall=*/ undefined, // use default
-          /*feePayer=*/ undefined, // use default
-          /*firstNullifier=*/ undefined, // use default
-          /*globals=*/ undefined, // use default
-          /*metricsTag=*/ `AvmGadgetsTestContract.sha256_hash_${length}`,
         );
         expect(result.revertCode.isOK()).toBe(true);
       });
@@ -136,11 +129,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
             args: [/*input=*/ Array.from({ length: 10 }, () => randomInt(2 ** 8))],
           },
         ],
-        /*teardownCall=*/ undefined, // use default
-        /*feePayer=*/ undefined, // use default
-        /*firstNullifier=*/ undefined, // use default
-        /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.keccak_hash',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
@@ -156,11 +144,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
             args: [/*input=*/ Array.from({ length: 25 }, () => randomInt(2 ** 32))],
           },
         ],
-        /*teardownCall=*/ undefined, // use default
-        /*feePayer=*/ undefined, // use default
-        /*firstNullifier=*/ undefined, // use default
-        /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.keccak_f1600',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
@@ -176,11 +159,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
             args: [/*input=*/ Array.from({ length: 10 }, () => Fr.random())],
           },
         ],
-        /*teardownCall=*/ undefined, // use default
-        /*feePayer=*/ undefined, // use default
-        /*firstNullifier=*/ undefined, // use default
-        /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.poseidon2_hash',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
@@ -196,11 +174,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
             args: [/*input=*/ Array.from({ length: 10 }, () => Fr.random())],
           },
         ],
-        /*teardownCall=*/ undefined, // use default
-        /*feePayer=*/ undefined, // use default
-        /*firstNullifier=*/ undefined, // use default
-        /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.pedersen_hash',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });
@@ -216,11 +189,6 @@ describe('Public TX simulator apps tests: benchmarks', () => {
             args: [/*input=*/ Array.from({ length: 10 }, () => Fr.random())],
           },
         ],
-        /*teardownCall=*/ undefined, // use default
-        /*feePayer=*/ undefined, // use default
-        /*firstNullifier=*/ undefined, // use default
-        /*globals=*/ undefined, // use default
-        /*metricsTag=*/ 'AvmGadgetsTestContract.pedersen_hash_with_index',
       );
       expect(result.revertCode.isOK()).toBe(true);
     });

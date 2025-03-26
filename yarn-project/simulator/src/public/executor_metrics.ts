@@ -1,4 +1,3 @@
-import { createLogger } from '@aztec/foundation/log';
 import {
   Attributes,
   type Histogram,
@@ -70,7 +69,9 @@ export class ExecutorMetrics {
     this.totalInstructions.add(totalInstructions, {
       [Attributes.APP_CIRCUIT_NAME]: fnName,
     });
-    this.fnDuration.record(Math.ceil(durationMs));
+    this.fnDuration.record(Math.ceil(durationMs), {
+      [Attributes.APP_CIRCUIT_NAME]: fnName,
+    });
     if (durationMs > 0 && manaUsed > 0) {
       const manaPerSecond = Math.round((manaUsed * 1000) / durationMs);
       this.manaPerSecond.record(manaPerSecond, {

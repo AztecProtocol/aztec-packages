@@ -27,11 +27,6 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
         args: constructorArgs,
       },
     ],
-    /*teardownCall=*/ undefined, // use default
-    /*feePayer=*/ undefined, // use default
-    /*firstNullifier=*/ undefined, // use default
-    /*globals=*/ undefined, // use default
-    /*metricsTag=*/ 'TokenContract.constructor',
   );
   expect(constructorResult.revertCode.isOK()).toBe(true);
 
@@ -46,11 +41,6 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
         args: [/*to=*/ sender, mintAmount],
       },
     ],
-    /*teardownCall=*/ undefined, // use default
-    /*feePayer=*/ undefined, // use default
-    /*firstNullifier=*/ undefined, // use default
-    /*globals=*/ undefined, // use default
-    /*metricsTag=*/ 'TokenContract.mint_to_public',
   );
   expect(mintResult.revertCode.isOK()).toBe(true);
   await checkBalance(tester, token, sender, sender, mintAmount);
@@ -67,11 +57,6 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
         args: [/*from=*/ sender, /*to=*/ receiver, transferAmount, nonce],
       },
     ],
-    /*teardownCall=*/ undefined, // use default
-    /*feePayer=*/ undefined, // use default
-    /*firstNullifier=*/ undefined, // use default
-    /*globals=*/ undefined, // use default
-    /*metricsTag=*/ 'TokenContract.transfer_in_public',
   );
   expect(transferResult.revertCode.isOK()).toBe(true);
   await checkBalance(tester, token, sender, receiver, mintAmount - transferAmount);
@@ -88,11 +73,6 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
         isStaticCall: true,
       },
     ],
-    /*teardownCall=*/ undefined, // use default
-    /*feePayer=*/ undefined, // use default
-    /*firstNullifier=*/ undefined, // use default
-    /*globals=*/ undefined, // use default
-    /*metricsTag=*/ 'TokenContract.balance_of_public',
   );
   expect(balResult.revertCode.isOK()).toBe(true);
 
@@ -106,11 +86,6 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
         args: [/*from=*/ receiver, transferAmount, nonce],
       },
     ],
-    /*teardownCall=*/ undefined, // use default
-    /*feePayer=*/ undefined, // use default
-    /*firstNullifier=*/ undefined, // use default
-    /*globals=*/ undefined, // use default
-    /*metricsTag=*/ 'TokenContract.burn_public',
   );
   expect(burnResult.revertCode.isOK()).toBe(true);
   await checkBalance(tester, token, sender, receiver, 0n);
@@ -138,11 +113,6 @@ async function checkBalance(
         isStaticCall: true,
       },
     ],
-    /*teardownCall=*/ undefined, // use default
-    /*feePayer=*/ undefined, // use default
-    /*firstNullifier=*/ undefined, // use default
-    /*globals=*/ undefined, // use default
-    /*metricsTag=*/ 'TokenContract.balance_of_public',
   );
   expect(balResult.revertCode.isOK()).toBe(true);
   expectAppCall0Output(balResult, [new Fr(expectedBalance)]);

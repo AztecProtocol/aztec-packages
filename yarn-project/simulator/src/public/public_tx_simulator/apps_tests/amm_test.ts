@@ -38,11 +38,6 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
         address: amm.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM.constructor',
   );
   expect(ammConstructorResult.revertCode.isOK()).toBe(true);
 
@@ -57,11 +52,6 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
         address: liquidityToken.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM.set_minter',
   );
   expect(setMinterResult.revertCode.isOK()).toBe(true);
 
@@ -122,11 +112,6 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
         address: amm.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM._add_liquidity',
   );
   expect(addLiquidityResult.revertCode.isOK()).toBe(true);
 
@@ -145,11 +130,6 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
         address: amm.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM._swap_exact_tokens_for_tokens',
   );
   expect(swapResult.revertCode.isOK()).toBe(true);
 
@@ -189,11 +169,6 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
         address: amm.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'AMM._remove_liquidity',
   );
   expect(removeLiquidityResult.revertCode.isOK()).toBe(true);
 
@@ -222,11 +197,6 @@ async function deployToken(tester: PublicTxSimulationTester, admin: AztecAddress
         address: token.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'Token.constructor',
   );
   expect(result.revertCode.isOK()).toBe(true);
   return token;
@@ -249,11 +219,6 @@ async function mint(
         address: token.address,
       },
     ],
-    /*teardownCall=*/ undefined,
-    /*feePayer=*/ undefined,
-    /*firstNullifier=*/ undefined,
-    /*globals=*/ undefined,
-    /*metricsTag=*/ 'Token.mint_to_public',
   );
   expect(result.revertCode.isOK()).toBe(true);
   return token;

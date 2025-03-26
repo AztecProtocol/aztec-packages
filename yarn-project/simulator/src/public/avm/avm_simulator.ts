@@ -44,7 +44,11 @@ export class AvmSimulator {
 
   // Test Purposes only: Logger will not have the proper function name. Use this constructor for testing purposes
   // only. Otherwise, use build() below.
-  constructor(private context: AvmContext, private instructionSet: InstructionSet = INSTRUCTION_SET) {
+  constructor(
+    private context: AvmContext,
+    private instructionSet: InstructionSet = INSTRUCTION_SET,
+    enableTallying: boolean = false,
+  ) {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
     context.provideSimulator = AvmSimulator.build;
@@ -54,7 +58,7 @@ export class AvmSimulator {
     );
     this.log = createLogger(`simulator:avm(calldata[0]: ${context.environment.calldata[0]})`);
     // Turn on tallying if explicitly enabled or if trace logging
-    if (this.context.enableTallying || this.log.isLevelEnabled('trace')) {
+    if (enableTallying || this.log.isLevelEnabled('trace')) {
       this.tallyPrintFunction = this.printOpcodeTallies;
       this.tallyInstructionFunction = this.tallyInstruction;
     }
@@ -79,7 +83,6 @@ export class AvmSimulator {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
-    enableTallying: boolean = true,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -92,7 +95,7 @@ export class AvmSimulator {
     );
 
     const avmMachineState = new AvmMachineState(allocatedGas);
-    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState, enableTallying);
+    const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
     return await AvmSimulator.build(avmContext);
   }
 

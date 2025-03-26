@@ -17,14 +17,12 @@ export class AvmContext {
    * @param persistableState - Manages world state and accrued substate during execution - (caching, fetching, tracing)
    * @param environment - Contains constant variables provided by the kernel
    * @param machineState - VM state that is modified on an instruction-by-instruction basis
-   * @param enableTallying - Whether to enable tallying of opcodes
    * @returns new AvmContext instance
    */
   constructor(
     public persistableState: AvmPersistableStateManager,
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
-    public enableTallying: boolean = false,
   ) {}
 
   // This is needed to break a dependency cycle created by the CALL opcode,
@@ -50,7 +48,6 @@ export class AvmContext {
     calldata: Fr[],
     allocatedGas: Gas,
     callType: 'CALL' | 'STATICCALL',
-    enableTallying: boolean = false,
   ): Promise<AvmContext> {
     const deriveFn =
       callType === 'CALL'
@@ -59,6 +56,6 @@ export class AvmContext {
     const newExecutionEnvironment = deriveFn.call(this.environment, address, calldata);
     const forkedWorldState = await this.persistableState.fork();
     const machineState = AvmMachineState.fromState(gasToGasLeft(allocatedGas));
-    return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState, enableTallying);
+    return new AvmContext(forkedWorldState, newExecutionEnvironment, machineState);
   }
 }

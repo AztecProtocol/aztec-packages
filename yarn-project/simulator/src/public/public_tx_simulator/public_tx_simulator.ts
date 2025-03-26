@@ -65,9 +65,10 @@ export class PublicTxSimulator {
     private skipFeeEnforcement: boolean = false,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
     private enableCoreSimulationMetrics: boolean = false,
+    private metricsPrefix: string = 'PublicTxSimulator',
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
+    this.metrics = new ExecutorMetrics(telemetryClient, this.metricsPrefix);
   }
 
   get tracer(): Tracer {
@@ -82,7 +83,7 @@ export class PublicTxSimulator {
   public async simulate(tx: Tx, overrideMetrics?: string): Promise<PublicTxResult> {
     try {
       if (overrideMetrics) {
-        this.metrics = new ExecutorMetrics(this.telemetryClient, `PublicTxSimulator.${overrideMetrics}`);
+        this.metrics = new ExecutorMetrics(this.telemetryClient, `${this.metricsPrefix}.${overrideMetrics}`);
       }
       const startTime = process.hrtime.bigint();
 

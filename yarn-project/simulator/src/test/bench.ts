@@ -7,11 +7,8 @@ import { type BenchmarkDataPoint, BenchmarkTelemetryClient } from '@aztec/teleme
 import { writeFileSync } from 'fs';
 
 let telemetry: BenchmarkTelemetryClient | undefined = undefined;
-//function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}): BenchmarkTelemetryClient {
 function getTelemetryClient(): BenchmarkTelemetryClient {
   if (!telemetry) {
-    //const config = { ...getTelemetryConfig(), ...partialConfig };
-    //telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
     telemetry = new BenchmarkTelemetryClient();
   }
   return telemetry as BenchmarkTelemetryClient;
@@ -21,7 +18,6 @@ function getTelemetryClient(): BenchmarkTelemetryClient {
  * Setup for benchmarking.
  */
 export function benchmarkSetup(
-  //telemetryConfig: Partial<TelemetryClientConfig>,
   /** What metrics to export */
   metrics: (MetricsType | MetricFilter)[],
   /** Where to output the benchmark data (defaults to BENCH_OUTPUT or bench.json) */
@@ -38,11 +34,14 @@ export function benchmarkSetup(
   const teardown = async () => {
     await telemetryClient.flush();
     const data = telemetryClient.getMeters();
-    const formatted = formatMetricsForGithubBenchmarkAction(data, metrics);
+    // pretty-print the metrics
     printMetrics(data, metrics, logger);
+    // format the metrics for the github action benchmark
+    const formatted = formatMetricsForGithubBenchmarkAction(data, metrics);
     if (formatted.length === 0) {
       throw new Error(`No benchmark data generated. Please review your test setup.`);
     }
+    // write to file for github action benchmark
     writeFileSync(benchOutput, JSON.stringify(formatted));
     logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);
     await origTeardown();

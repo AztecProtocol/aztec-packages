@@ -4,7 +4,7 @@ import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { PUBLIC_DISPATCH_FN_NAME } from './index.js';
+import { getFunctionSelector } from './index.js';
 
 /**
  * This class is used during public/avm testing to function as a database of
@@ -22,7 +22,7 @@ export class SimpleContractDataSource implements ContractDataSource {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
   // maps contract instance address to address
   private contractArtifacts: Map<string, ContractArtifact> = new Map();
-  // maps contract instance address to function selector to name
+  // maps contract class ID & function selector to name
   private debugFunctionName: Map<string, Map<string, string>> = new Map();
 
   /////////////////////////////////////////////////////////////
@@ -36,17 +36,29 @@ export class SimpleContractDataSource implements ContractDataSource {
     contractClass: ContractClassPublic,
     contractInstance: ContractInstanceWithAddress,
   ) {
-    this.addContractArtifact(contractClass.id, contractArtifact);
+    await this.addContractArtifact(contractClass.id, contractArtifact);
     await this.addContractClass(contractClass);
     await this.addContractInstance(contractInstance);
   }
 
-  addContractArtifact(classId: Fr, artifact: ContractArtifact): void {
+  async addContractArtifact(classId: Fr, artifact: ContractArtifact) {
     this.contractArtifacts.set(classId.toString(), artifact);
+    const classIdStr = classId.toString();
+    const publicFns = artifact.nonDispatchPublicFunctions;
+    if (publicFns.length !== 0) {
+      const fnSelectorsToNames = new Map<string, string>();
+      for (const fn of publicFns) {
+        const actualFnName = `${fn.name}`;
+        const fnSelector = await getFunctionSelector(actualFnName, artifact);
+        const longFnName = `${artifact.name}.${actualFnName}`;
+        fnSelectorsToNames.set(fnSelector.toString(), longFnName);
+      }
+      this.debugFunctionName.set(classIdStr, fnSelectorsToNames);
+    }
   }
 
-  setDebugFunctionName(_address: AztecAddress, _selector: FunctionSelector, _name: string): void {
-    this.debugFunctionName.set(_address.toString(), _selector.toString(), _name);
+  #getDebugFunctionName(classId: Fr, selector: FunctionSelector): string | undefined {
+    return this.debugFunctionName.get(classId.toString())?.get(selector.toString());
   }
 
   /////////////////////////////////////////////////////////////
@@ -79,11 +91,21 @@ export class SimpleContractDataSource implements ContractDataSource {
     }
     this.logger.debug(`Retrieved contract artifact for address: ${address}`);
     this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
-    return Promise.resolve(this.contractArtifacts.get(contractInstance!.currentContractClassId.toString()));
+    return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
   }
 
-  getDebugFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string> {
-    return Promise.resolve(PUBLIC_DISPATCH_FN_NAME);
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string> {
+    const contractInstance = await this.getContract(address);
+    if (!contractInstance) {
+      throw new Error(`Couldn't get fn name for debugging - contract not found at address: ${address}`);
+    }
+    const fnName = this.#getDebugFunctionName(contractInstance.currentContractClassId, selector);
+    if (!fnName) {
+      this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
+      return selector.toString();
+    }
+    this.logger.info(`Retrieved debug function name: ${fnName} for address: ${address} and selector: ${selector}`);
+    return fnName;
   }
 
   registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
