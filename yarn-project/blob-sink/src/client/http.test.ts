@@ -341,7 +341,7 @@ describe('HttpBlobSinkClient', () => {
 
       // Verify that the third consensus host works when the first and second hosts fail
       consensusServer2?.close();
-      const clientWithFallbackHost = new HttpBlobSinkClient({
+      client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [
           `http://localhost:${consensusPort1}`,
@@ -352,7 +352,7 @@ describe('HttpBlobSinkClient', () => {
         l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
       });
 
-      retrievedBlobs = await clientWithFallbackHost.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
       expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
