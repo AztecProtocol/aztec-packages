@@ -55,6 +55,7 @@ template <class Curve> class CommitmentKey {
     scalar_multiplication::pippenger_runtime_state<Curve> pippenger_runtime_state;
     std::shared_ptr<srs::factories::CrsFactory<Curve>> crs_factory;
     std::shared_ptr<srs::factories::ProverCrs<Curve>> srs;
+    size_t dyadic_size; 
 
     CommitmentKey() = delete;
 
