@@ -12,8 +12,11 @@ import { createConsoleLogger, createLogger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
+import { NETWORK_FLAG, aztecStartOptions } from '../cli/aztec_start_options.js';
+import { enrichEnvironmentWithChainConfig } from '../cli/chain_l2_config.js';
 import { injectAztecCommands } from '../cli/index.js';
 import { getCliVersion } from '../cli/release_version.js';
+import { addOptions } from '../cli/util.js';
 
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('cli');
@@ -25,6 +28,17 @@ async function main() {
   };
   process.once('SIGINT', shutdown);
   process.once('SIGTERM', shutdown);
+
+  // We create a temp command object to detect the presence of the network option
+  // If it has been given then we enrich the environment with the chain config
+  const tempCmd = new Command('aztec').allowUnknownOption();
+  addOptions(tempCmd, aztecStartOptions['NETWORK']);
+  tempCmd.parse(process.argv);
+  const networkValue = tempCmd.getOptionValue(NETWORK_FLAG);
+
+  if (networkValue !== undefined) {
+    await enrichEnvironmentWithChainConfig(networkValue);
+  }
 
   const cliVersion = getCliVersion();
   let program = new Command('aztec');

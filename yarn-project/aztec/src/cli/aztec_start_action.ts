@@ -51,10 +51,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       userLog(`Not exposing PXE API through JSON-RPC server`);
     }
   } else {
-    // If a network is specified, enrich the environment with the chain config
-    if (options.network) {
-      await enrichEnvironmentWithChainConfig(options.network);
-    }
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));

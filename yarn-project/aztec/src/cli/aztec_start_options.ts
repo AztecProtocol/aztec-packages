@@ -65,11 +65,13 @@ export const universalOptions = [
   'dataStoreMapSizeKb',
 ];
 
+export const NETWORK_FLAG = 'network';
+
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   NETWORK: [
     {
-      flag: '--network <value>',
+      flag: `--${NETWORK_FLAG} <value>`,
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
