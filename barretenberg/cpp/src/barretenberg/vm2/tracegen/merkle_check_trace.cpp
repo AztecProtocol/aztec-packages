@@ -24,10 +24,10 @@ void MerkleCheckTraceBuilder::process(
         // For the current level, gather info about the current pair of nodes
         // being hashed along with the path-length remaining after this level
         // to complete the merkle check.
-        bool write = event.new_leaf.has_value();
+        bool write = event.new_leaf_value.has_value();
 
         FF read_node = event.leaf_value;
-        FF write_node = event.new_leaf.value_or(FF(0));
+        FF write_node = event.new_leaf_value.value_or(FF(0));
 
         FF root = event.root;
         FF new_root = write ? event.new_root.value() : FF(0);

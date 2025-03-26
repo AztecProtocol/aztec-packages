@@ -71,7 +71,7 @@ TEST(MerkleCheckSimulationTest, Write)
 
     MerkleCheckEvent expect_event = {
         .leaf_value = current_value,
-        .new_leaf = new_value,
+        .new_leaf_value = new_value,
         .leaf_index = leaf_index,
         .sibling_path = sibling_path,
         .root = current_root,

@@ -121,7 +121,7 @@ TEST(MerkleCheckTraceGenTest, MerkleWrite)
     FF write_root = write_output_hash_2;
 
     MerkleCheckEvent event = { .leaf_value = leaf_value,
-                               .new_leaf = new_leaf_value,
+                               .new_leaf_value = new_leaf_value,
                                .leaf_index = leaf_index,
                                .sibling_path = sibling_path,
                                .root = read_root,
@@ -202,7 +202,7 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
     FF write_output_hash_2 = Poseidon2::hash({ sibling_value_2, new_leaf_value_2 });
 
     MerkleCheckEvent event2 = { .leaf_value = leaf_value_2,
-                                .new_leaf = new_leaf_value_2,
+                                .new_leaf_value = new_leaf_value_2,
                                 .leaf_index = leaf_index_2,
                                 .sibling_path = { sibling_value_2 },
                                 .root = read_output_hash_2,

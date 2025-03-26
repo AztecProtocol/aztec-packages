@@ -81,7 +81,7 @@ FF MerkleCheck::write(const FF& current_value,
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
     events.emit({ .leaf_value = current_value,
-                  .new_leaf = new_value,
+                  .new_leaf_value = new_value,
                   .leaf_index = leaf_index,
                   .sibling_path = std::move(sibling_vec),
                   .root = current_root,

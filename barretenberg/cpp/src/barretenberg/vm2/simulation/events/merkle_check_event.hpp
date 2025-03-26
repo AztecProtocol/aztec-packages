@@ -9,7 +9,7 @@ namespace bb::avm2::simulation {
 
 struct MerkleCheckEvent {
     FF leaf_value;
-    std::optional<FF> new_leaf;
+    std::optional<FF> new_leaf_value;
     uint64_t leaf_index;
     std::vector<FF> sibling_path;
     FF root;

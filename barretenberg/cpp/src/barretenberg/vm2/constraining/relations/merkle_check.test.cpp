@@ -521,7 +521,7 @@ TEST(MerkleCheckConstrainingTest, WriteWithTracegen)
     FF new_root = root_from_path(new_leaf_value, leaf_index, sibling_path);
 
     MerkleCheckEvent event = { .leaf_value = leaf_value,
-                               .new_leaf = new_leaf_value,
+                               .new_leaf_value = new_leaf_value,
                                .leaf_index = leaf_index,
                                .sibling_path = sibling_path,
                                .root = root,
@@ -644,7 +644,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     FF root2 = root_from_path(leaf_value2, leaf_index2, sibling_path2);
     FF new_root2 = root_from_path(new_leaf_value2, leaf_index2, sibling_path2);
     MerkleCheckEvent event2 = { .leaf_value = leaf_value2,
-                                .new_leaf = new_leaf_value2,
+                                .new_leaf_value = new_leaf_value2,
                                 .leaf_index = leaf_index2,
                                 .sibling_path = sibling_path2,
                                 .root = root2,
