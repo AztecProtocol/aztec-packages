@@ -68,7 +68,7 @@ export class LightweightBlockBuilder implements BlockBuilder {
     this.logger.debug(`Built block ${block.number}`, {
       globalVariables: this.globalVariables?.toInspect(),
       archiveRoot: newArchive.root.toString(),
-      blockHash: block.hash.toString(),
+      blockHash: (await block.hash()).toString(),
     });
 
     return block;
