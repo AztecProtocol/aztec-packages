@@ -82,11 +82,13 @@ tests:
     owners:
       - *charlie
 
-  # e2e
-  # e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
-  - regex: "simple e2e_p2p/"
+  - regex: "simple e2e_p2p/slashing"
     owners:
       - *sean
+
+  - regex: "simple e2e_p2p/upgrade_governance_proposer"
+    owners:
+      - *lasse
 
   - regex: "simple e2e_fees/private_payments"
     owners:
