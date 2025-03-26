@@ -247,46 +247,6 @@ template <typename Curve> void bench_commit_mock_z_perm_preprocessed(::benchmark
     }
 }
 
-// Benchmark the commit_with_type method with different CommitType values
-template <typename Curve> void bench_commit_with_type(::benchmark::State& state)
-{
-    using Fr = typename Curve::ScalarField;
-    auto key = create_commitment_key<Curve>(MAX_NUM_POINTS);
-
-    // Different polynomial types for different CommitType values
-    auto polynomial_dense = Polynomial<Fr>::random(1 << state.range(0));
-    auto polynomial_sparse = sparse_random_poly<Fr>(1 << state.range(0), SPARSE_NUM_NONZERO);
-    auto [polynomial_structured, active_range_endpoints] = structured_random_poly<Fr>();
-    auto [polynomial_structured_nonzero, active_range_endpoints_nonzero] = structured_random_poly<Fr>(/*non_zero_complement=*/true);
-
-    // Perform benchmarks based on the selected commitment type
-    typename CommitmentKey<Curve>::CommitType commit_type =
-        static_cast<typename CommitmentKey<Curve>::CommitType>(state.range(1));
-
-    switch (commit_type) {
-        case CommitmentKey<Curve>::CommitType::Default:
-            for (auto _ : state) {
-                key->commit_with_type(polynomial_dense, commit_type);
-            }
-            break;
-        case CommitmentKey<Curve>::CommitType::Sparse:
-            for (auto _ : state) {
-                key->commit_with_type(polynomial_sparse, commit_type);
-            }
-            break;
-        case CommitmentKey<Curve>::CommitType::Structured:
-            for (auto _ : state) {
-                key->commit_with_type(polynomial_structured, commit_type, active_range_endpoints);
-            }
-            break;
-        case CommitmentKey<Curve>::CommitType::StructuredNonZeroComplement:
-            for (auto _ : state) {
-                key->commit_with_type(polynomial_structured_nonzero, commit_type, active_range_endpoints_nonzero);
-            }
-            break;
-    }
-}
-
 BENCHMARK(bench_commit_zero<curve::BN254>)
     ->DenseRange(MIN_LOG_NUM_POINTS, MAX_LOG_NUM_POINTS)
     ->Unit(benchmark::kMillisecond);
@@ -312,13 +272,6 @@ BENCHMARK(bench_commit_structured_random_poly<curve::BN254>)->Unit(benchmark::kM
 BENCHMARK(bench_commit_structured_random_poly_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_mock_z_perm<curve::BN254>)->Unit(benchmark::kMillisecond);
 BENCHMARK(bench_commit_mock_z_perm_preprocessed<curve::BN254>)->Unit(benchmark::kMillisecond);
-
-BENCHMARK(bench_commit_with_type<curve::BN254>)
-    ->Args({18, static_cast<int>(CommitmentKey<curve::BN254>::CommitType::Default)})
-    ->Args({18, static_cast<int>(CommitmentKey<curve::BN254>::CommitType::Sparse)})
-    ->Args({18, static_cast<int>(CommitmentKey<curve::BN254>::CommitType::Structured)})
-    ->Args({18, static_cast<int>(CommitmentKey<curve::BN254>::CommitType::StructuredNonZeroComplement)})
-    ->Unit(benchmark::kMillisecond);
 
 } // namespace bb
 
