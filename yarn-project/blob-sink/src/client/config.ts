@@ -45,7 +45,7 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
   l1ConsensusHostUrls: {
     env: 'L1_CONSENSUS_HOST_URLS',
     description: 'List of URLS for L1 consensus clients',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
   },
   l1ConsensusHostApiKeys: {
     env: 'L1_CONSENSUS_HOST_API_KEYS',

@@ -58,7 +58,7 @@ export const archiverConfigMappings: ConfigMappingsType<ArchiverConfig> = {
   l1ConsensusHostUrls: {
     env: 'L1_CONSENSUS_HOST_URLS',
     description: 'List of URLS for L1 consensus clients.',
-    parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    parseEnv: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
   },
   archiverPollingIntervalMS: {
     env: 'ARCHIVER_POLLING_INTERVAL_MS',
