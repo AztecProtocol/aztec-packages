@@ -8,7 +8,6 @@ import {
   createSecretKeyOption,
   l1ChainIdOption,
   logJson,
-  parseBigint,
   parseFieldFromHexString,
   parsePublicKey,
   pxeOption,
@@ -391,7 +390,6 @@ export function injectCommands(
   program
     .command('bridge-fee-juice')
     .description('Mints L1 Fee Juice and pushes them to L2.')
-    .argument('<amount>', 'The amount of Fee Juice to mint and bridge.', parseBigint)
     .argument('<recipient>', 'Aztec address of the recipient.', address =>
       aliasedAddressParser('accounts', address, db),
     )
@@ -406,7 +404,6 @@ export function injectCommands(
       'The mnemonic to use for deriving the Ethereum address that will mint and bridge',
       'test test test test test test test test test test test junk',
     )
-    .option('--mint', 'Mint the tokens on L1', false)
     .option('--l1-private-key <string>', 'The private key to the eth account bridging', PRIVATE_KEY)
     .addOption(pxeOption)
     .addOption(l1ChainIdOption)
@@ -419,21 +416,18 @@ export function injectCommands(
         .default('60')
         .conflicts('wait'),
     )
-    .action(async (amount, recipient, options) => {
+    .action(async (recipient, options) => {
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
-      const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
+      const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      log(`Minting ${amount} fee juice on L1 and pushing to L2`);
 
-      const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
-        amount,
+      const [secret, messageLeafIndex, claimAmount] = await bridgeL1FeeJuice(
         recipient,
         client,
         l1RpcUrls,
         l1ChainId,
         l1PrivateKey,
         mnemonic,
-        mint,
         json,
         wait,
         intervalS * 1000,
@@ -441,7 +435,7 @@ export function injectCommands(
         debugLogger,
       );
       if (db) {
-        await db.pushBridgedFeeJuice(recipient, secret, amount, messageLeafIndex, log);
+        await db.pushBridgedFeeJuice(recipient, secret, messageLeafIndex, claimAmount, log);
       }
     });
 

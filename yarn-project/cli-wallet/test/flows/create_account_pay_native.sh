@@ -7,7 +7,7 @@ test_title "Create an account and deploy using native fee payment with bridging"
 
 # docs:start:bridge-fee-juice
 aztec-wallet create-account -a main --register-only
-aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
+aztec-wallet bridge-fee-juice main --no-wait
 # docs:end:bridge-fee-juice
 
 

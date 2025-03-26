@@ -218,10 +218,10 @@ Using the sandbox, there's already a Fee Juice contract that manages this enshri
 
 #### Example
 
-This example mints and bridges 1000 units of fee juice and bridges it to the `master_yoda` recipient on L2.
+This example mints and bridges fee juice to the `master_yoda` recipient on L2.
 
 ```bash
-aztec-wallet bridge-fee-juice --mint 1000 master_yoda
+aztec-wallet bridge-fee-juice master_yoda
 ```
 
 ## Proving
