@@ -64,26 +64,27 @@ export class PublicTxSimulator {
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
-    private metricsPrefix: string = 'PublicTxSimulator',
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(telemetryClient, this.metricsPrefix);
+    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
   get tracer(): Tracer {
     return this.metrics.tracer;
   }
+
+  setMetricsLabel(label: string) {
+    this.metrics = new ExecutorMetrics(this.telemetryClient, label);
+  }
+
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
    * @param overrideMetrics - A metrics tag to use for benchmarking a single TX.
    * @returns The result of the transaction's public execution.
    */
-  public async simulate(tx: Tx, overrideMetrics?: string): Promise<PublicTxResult> {
+  public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
-      if (overrideMetrics) {
-        this.metrics = new ExecutorMetrics(this.telemetryClient, `${this.metricsPrefix}.${overrideMetrics}`);
-      }
       const startTime = process.hrtime.bigint();
 
       const txHash = await tx.getTxHash();

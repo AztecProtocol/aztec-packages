@@ -42,7 +42,7 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     contractDataSource: SimpleContractDataSource,
     globals: GlobalVariables = defaultGlobals(),
     telemetryClient?: TelemetryClient,
-    metricsPrefix?: string,
+    private metricsPrefix?: string,
   ) {
     super(contractDataSource, merkleTree);
 
@@ -55,7 +55,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       /*doMerkleOperations=*/ true,
       /*skipFeeEnforcement=*/ false,
       telemetryClient,
-      /*metricsPrefix=*/ metricsPrefix,
     );
   }
 
@@ -95,14 +94,17 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     feePayer: AztecAddress = sender,
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
-    metricsTag: string = firstFnCalled(setupCalls, appCalls, teardownCall),
+    metricsLabel: string = firstFnCalled(setupCalls, appCalls, teardownCall),
   ): Promise<PublicTxResult> {
     const tx = await this.createTx(sender, setupCalls, appCalls, teardownCall, feePayer, firstNullifier);
 
     await this.setFeePayerBalance(feePayer);
 
+    const fullMetricsLabel = this.metricsPrefix ? `${this.metricsPrefix}.${metricsLabel}` : metricsLabel;
+    this.simulator.setMetricsLabel(fullMetricsLabel);
+
     const startTime = performance.now();
-    const avmResult = await this.simulator.simulate(tx, metricsTag);
+    const avmResult = await this.simulator.simulate(tx);
     const endTime = performance.now();
     this.logger.debug(`Public transaction simulation took ${endTime - startTime}ms`);
 
