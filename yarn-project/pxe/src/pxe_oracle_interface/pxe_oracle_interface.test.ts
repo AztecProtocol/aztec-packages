@@ -324,8 +324,9 @@ describe('PXEOracleInterface', () => {
 
       // We set the indexes to WINDOW_HALF_SIZE + 1 so that it's outside the window and for this reason no updates
       // should be triggered.
+      const index = WINDOW_HALF_SIZE + 1;
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
-        secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 1)),
+        secrets.map(secret => new IndexedTaggingSecret(secret, index)),
       );
 
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -337,7 +338,7 @@ describe('PXEOracleInterface', () => {
       const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([11, 11, 11, 11, 11, 11, 11, 11, 11, 11]);
+      expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
 
       // We should have called the node once and that is only for the first window
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
