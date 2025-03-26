@@ -5,8 +5,6 @@
 using namespace bb;
 using namespace bb::crypto;
 
-// secp256k1 curve
-
 template <typename fr, typename g1> void ecdsa__compute_public_key(uint8_t const* private_key, uint8_t* public_key_buf)
 {
     auto priv_key = from_buffer<fr>(private_key);
