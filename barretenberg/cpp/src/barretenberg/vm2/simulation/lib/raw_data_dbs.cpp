@@ -21,20 +21,17 @@ HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
           hints.bytecodeCommitments.size());
 
     for (const auto& contract_instance_hint : hints.contractInstances) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!contract_instances.contains(contract_instance_hint.address));
+        assert(!contract_instances.contains(contract_instance_hint.address));
         contract_instances[contract_instance_hint.address] = contract_instance_hint;
     }
 
     for (const auto& contract_class_hint : hints.contractClasses) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!contract_classes.contains(contract_class_hint.classId));
+        assert(!contract_classes.contains(contract_class_hint.classId));
         contract_classes[contract_class_hint.classId] = contract_class_hint;
     }
 
     for (const auto& bytecode_commitment_hint : hints.bytecodeCommitments) {
-        // TODO(fcarreiro): We are currently generating duplicates in TS.
-        // assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
+        assert(!bytecode_commitments.contains(bytecode_commitment_hint.classId));
         bytecode_commitments[bytecode_commitment_hint.classId] = bytecode_commitment_hint.commitment;
     }
 }
@@ -128,6 +125,7 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
         GetSiblingPathKey key = { get_sibling_path_hint.hintKey,
                                   get_sibling_path_hint.treeId,
                                   get_sibling_path_hint.index };
+        assert(!get_sibling_path_hints.contains(key));
         get_sibling_path_hints[key] = get_sibling_path_hint.path;
     }
 
@@ -135,6 +133,7 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
         GetPreviousValueIndexKey key = { get_previous_value_index_hint.hintKey,
                                          get_previous_value_index_hint.treeId,
                                          get_previous_value_index_hint.value };
+        assert(!get_previous_value_index_hints.contains(key));
         get_previous_value_index_hints[key] = {
             get_previous_value_index_hint.alreadyPresent,
             get_previous_value_index_hint.index,
@@ -143,6 +142,7 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
 
     for (const auto& get_leaf_preimage_hint : hints.getLeafPreimageHintsPublicDataTree) {
         GetLeafPreimageKey key = { get_leaf_preimage_hint.hintKey, get_leaf_preimage_hint.index };
+        assert(!get_leaf_preimage_hints_public_data_tree.contains(key));
         get_leaf_preimage_hints_public_data_tree[key] = {
             /*val=*/get_leaf_preimage_hint.leaf,
             /*nextIdx=*/get_leaf_preimage_hint.nextIndex,

@@ -1351,18 +1351,22 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.chunk": "npm:^4.2.9"
+    "@types/lodash.clonedeep": "npm:^4.5.7"
     "@types/lodash.isequal": "npm:^4.5.8"
     "@types/lodash.omit": "npm:^4.5.7"
     "@types/lodash.times": "npm:^4.3.9"
+    "@types/lodash.uniqwith": "npm:^4"
     "@types/node": "npm:^18.7.23"
     "@types/pako": "npm:^2.0.3"
     eslint: "npm:^8.35.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^4.0.0-beta1"
     lodash.chunk: "npm:^4.2.0"
+    lodash.clonedeep: "npm:^4.5.0"
     lodash.isequal: "npm:^4.5.0"
     lodash.omit: "npm:^4.5.0"
     lodash.times: "npm:^4.3.2"
+    lodash.uniqwith: "npm:^4.5.0"
     msgpackr: "npm:^1.11.2"
     pako: "npm:^2.1.0"
     prettier: "npm:^2.8.4"
@@ -6119,6 +6123,15 @@ __metadata:
   dependencies:
     "@types/lodash": "npm:*"
   checksum: 10/452374b3db98bb805e77b3a53955aa76c1e78a7d48c400b08d48b6424ed9328ad826d98364b82506ea2756089320503d3a5797a1456bcdac11451763be536e62
+  languageName: node
+  linkType: hard
+
+"@types/lodash.uniqwith@npm:^4":
+  version: 4.5.9
+  resolution: "@types/lodash.uniqwith@npm:4.5.9"
+  dependencies:
+    "@types/lodash": "npm:*"
+  checksum: 10/cc43d72c031e404fcd78d1436f9fb8017d925bed662a781be1ce928c44a1ff69f81be1f329e38ada2ed111787e7489e0c45c7b2d94165a8fa28180858be871bc
   languageName: node
   linkType: hard
 
@@ -15906,6 +15919,13 @@ __metadata:
   version: 4.3.2
   resolution: "lodash.times@npm:4.3.2"
   checksum: 10/b2eb8ceddb7f3e46f1f1e29dd3e004b84cfcb9d3b3a7e4dc9409512856f9dfa4de9f8e8ba812c1672572ad5e4093299022da85b4f6b0cd2b07a58d8b8e188802
+  languageName: node
+  linkType: hard
+
+"lodash.uniqwith@npm:^4.5.0":
+  version: 4.5.0
+  resolution: "lodash.uniqwith@npm:4.5.0"
+  checksum: 10/b71e2320d7ef2e8d95b5b042a757417e197710cd3fd6c70e2ec3a9583b03496487d915158bc34928cfc56a9d8c3cad6c78d6d7ce6a8bef9218afafac6a963ed6
   languageName: node
   linkType: hard
 
