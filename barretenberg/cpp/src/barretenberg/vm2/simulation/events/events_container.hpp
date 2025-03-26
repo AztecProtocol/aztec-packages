@@ -1,6 +1,5 @@
 #pragma once
 
-#include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/addressing_event.hpp"
 #include "barretenberg/vm2/simulation/events/alu_event.hpp"
