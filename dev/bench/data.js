@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743011422748,
+  "lastUpdate": 1743011485928,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fdf1da45cb25b756eaa6af15e5dc7761d15cbcc3",
-          "message": "chore: fee cleanup (#12941)\n\n- `SponsoredFeePaymentMethod` gets into `aztec.js` , but that's it\n(meaning the method can be used from aztec.js, but there's no concept of\nwhere's deployed/how to get the address/bytecode, etc). It's under\n`@aztec/aztec.js/fee/testing` to make abundantly clear that this is not\na \"production acceptable\" approach.\n- Similarly to `setupCanonicalL2FeeJuice` there's a utility method that\ncan be used from the CLI/during sandbox setup to deploy a\n`SponsoredFeePaymentContract`. It spits out the address where the\ncontract is located, just like the test accounts.\n- You CAN programatically obtain the address of the \"canonical\"\n`SponsoredFeePaymentContract` via `@aztec/sandbox`, but you CANNOT via\n`@aztec/aztec.js`. This is because getting the address implies loading\nthe contract bytecode and it's not a protocol contract, making imports\nmessy and tripping the user into making poor decisions in their app\ndesign. If you want to use it in your app, obtain it from the sandbox\noutput or from an announcement (just like a faucet address, for example)\n- This address is only canonical in the sense it's salt is hardcoded to\n0 (this lives in `@aztec/constants` under `SPONSORED_FPC_SALT`. For\ntestnet it should be prefunded! @PhilWindle @alexghr\n\nThis PR also builds upon the work done in `aztec.js`, allowing us to\nfinally get rid of the special handling of account contract deployments\n`deploy_account_method.ts` by creating a new `FeePaymentMethod` (that's\nnot exposed externally!) that allows an account to pay for its own\ndeployment 😁\n\n---------\n\nCo-authored-by: Jan Beneš <janbenes1234@gmail.com>",
-          "timestamp": "2025-03-21T21:37:07+01:00",
-          "tree_id": "eaa4338861daa992bb53836b61dd28190a07ca6e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fdf1da45cb25b756eaa6af15e5dc7761d15cbcc3"
-        },
-        "date": 1742590942374,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 33837,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 21846,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 10773,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 12861,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 13268,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3034,6 +2980,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15093,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "985e83bec2b4da9791f47768953cba3d9af57f66",
+          "message": "fix: Bump tsc target (#13052)\n\nWe were using different targets for tsc and swc (es2020 vs es2022). This\nPR updates tsc target so it matches the swc one, to minimize\nincompatibilities between code built with either tool.",
+          "timestamp": "2025-03-26T17:12:53Z",
+          "tree_id": "84d80ddbc27939afcb9d1d859f9465b5791deef0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/985e83bec2b4da9791f47768953cba3d9af57f66"
+        },
+        "date": 1743011478815,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39167,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26573,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11651,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14641,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15194,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
