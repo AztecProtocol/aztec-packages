@@ -55,7 +55,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
       /*doMerkleOperations=*/ true,
       /*skipFeeEnforcement=*/ false,
       telemetryClient,
-      /*enableCoreSimulationMetrics=*/ true,
       /*metricsPrefix=*/ metricsPrefix,
     );
   }

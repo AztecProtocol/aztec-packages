@@ -64,7 +64,6 @@ export class PublicTxSimulator {
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
     private telemetryClient: TelemetryClient = getTelemetryClient(),
-    private enableCoreSimulationMetrics: boolean = false,
     private metricsPrefix: string = 'PublicTxSimulator',
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
@@ -377,7 +376,6 @@ export class PublicTxSimulator {
       request.isStaticCall,
       calldata,
       allocatedGas,
-      this.enableCoreSimulationMetrics,
     );
     const avmCallResult = await simulator.execute();
     const result = avmCallResult.finalize();

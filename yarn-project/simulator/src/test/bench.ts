@@ -27,7 +27,6 @@ export function benchmarkSetup(
   telemetryClient: TelemetryClient;
   teardown: () => Promise<void>;
 } {
-  //const telemetryClient = getTelemetryClient(telemetryConfig);
   const telemetryClient = getTelemetryClient();
   telemetryClient.clear();
   const origTeardown = async () => {};
@@ -36,7 +35,7 @@ export function benchmarkSetup(
     const data = telemetryClient.getMeters();
     // pretty-print the metrics
     printMetrics(data, metrics, logger);
-    // format the metrics for the github action benchmark
+    // format the metrics for the github action  benchmark
     const formatted = formatMetricsForGithubBenchmarkAction(data, metrics);
     if (formatted.length === 0) {
       throw new Error(`No benchmark data generated. Please review your test setup.`);

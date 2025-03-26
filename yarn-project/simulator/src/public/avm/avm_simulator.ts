@@ -46,8 +46,8 @@ export class AvmSimulator {
   // only. Otherwise, use build() below.
   constructor(
     private context: AvmContext,
-    enableTallying: boolean = false,
     private instructionSet: InstructionSet = INSTRUCTION_SET,
+    enableTallying = false,
   ) {
     // This will be used by the CALL opcode to create a new simulator. It is required to
     // avoid a dependency cycle.
@@ -66,8 +66,8 @@ export class AvmSimulator {
 
   // Factory to have a proper function name in the logger. Retrieving the name is asynchronous and
   // cannot be done as part of the constructor.
-  public static async build(context: AvmContext, enableTallying: boolean = false): Promise<AvmSimulator> {
-    const simulator = new AvmSimulator(context, enableTallying);
+  public static async build(context: AvmContext): Promise<AvmSimulator> {
+    const simulator = new AvmSimulator(context);
     const fnName = await context.persistableState.getPublicFunctionDebugName(context.environment);
     simulator.log = createLogger(`simulator:avm(f:${fnName})`);
 
@@ -83,7 +83,6 @@ export class AvmSimulator {
     isStaticCall: boolean,
     calldata: Fr[],
     allocatedGas: Gas,
-    enableTallying: boolean = false,
   ) {
     const avmExecutionEnv = new AvmExecutionEnvironment(
       address,
@@ -97,7 +96,7 @@ export class AvmSimulator {
 
     const avmMachineState = new AvmMachineState(allocatedGas);
     const avmContext = new AvmContext(stateManager, avmExecutionEnv, avmMachineState);
-    return await AvmSimulator.build(avmContext, enableTallying);
+    return await AvmSimulator.build(avmContext);
   }
 
   /**

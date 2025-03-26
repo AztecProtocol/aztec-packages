@@ -107,7 +107,6 @@ export class SimpleContractDataSource implements ContractDataSource {
       this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
       return selector.toString();
     }
-    this.logger.info(`Retrieved debug function name: ${fnName} for address: ${address} and selector: ${selector}`);
     return fnName;
   }
 

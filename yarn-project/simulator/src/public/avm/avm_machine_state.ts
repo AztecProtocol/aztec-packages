@@ -38,8 +38,6 @@ export class AvmMachineState {
   public pc: number = 0;
   /** program counter of the next instruction, byte based */
   public nextPc: number = 0;
-  /** instruction counter, including nested calls */
-  public instrCounter: number = 0;
   /** return/revertdata of the last nested call. */
   public nestedReturndata: Fr[] = [];
   /** Tracks whether the last external call was successful */
@@ -69,6 +67,11 @@ export class AvmMachineState {
   private reverted: boolean = false;
   /** Output data must NOT be modified once it is set */
   private output: Fr[] = [];
+
+  // Metrics only - not needed for execution
+  /** instruction counter, including nested calls */
+  public instrCounter: number = 0;
+  // End metrics only
 
   constructor(gasLeft: Gas);
   constructor(l2GasLeft: number, daGasLeft: number);
