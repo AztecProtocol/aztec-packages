@@ -705,7 +705,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     {
 
         std::vector<Fr> denominators = {};
-
+        const size_t virtual_log_n = multilinear_challenge.size();
         // Denominators for the opening claims at 0 and 1. Need to be computed only once as opposed to the claims at the
         // sumcheck round challenges.
         std::array<Fr, 2> const_denominators;
@@ -734,7 +734,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         size_t round_idx = 0;
         // Compute the power of `shplonk_batching_challenge` to add sumcheck univariate commitments and evaluations to
         // the batch.
-        size_t power = 2 * log_circuit_size + NUM_INTERLEAVING_CLAIMS + NUM_SMALL_IPA_EVALUATIONS;
+        size_t power = 2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS + NUM_SMALL_IPA_EVALUATIONS;
         for (const auto& [eval_array, denominator] : zip_view(sumcheck_round_evaluations, denominators)) {
             // Initialize batched_scalar corresponding to 3 evaluations claims
             Fr batched_scalar = Fr(0);
