@@ -63,8 +63,9 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     }
 
     // The ordered range constraints are of full circuit size.
-    for (const auto& [ordered_range_constraint, label] : zip_view(
-             key->proving_key->polynomials.get_ordered_constraints(), commitment_labels.get_ordered_constraints())) {
+    for (const auto& [ordered_range_constraint, label] :
+         zip_view(key->proving_key->polynomials.get_ordered_range_constraints(),
+                  commitment_labels.get_ordered_range_constraints())) {
         commit_to_witness_polynomial(ordered_range_constraint, label);
     }
 }

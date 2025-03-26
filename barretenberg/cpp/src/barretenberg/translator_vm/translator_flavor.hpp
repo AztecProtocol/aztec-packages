@@ -297,14 +297,19 @@ class TranslatorFlavor {
                                 DerivedWitnessEntities<DataType>,
                                 InterleavedRangeConstraints<DataType>)
 
-        // Used when populating wire polynomials directly from circuit data
+        /**
+         * @brief Entities constructed from circuit data.
+         *
+         */
         auto get_wires()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        // Used when computing commitments to wires + ordered range constraints during proof construction
+        /**
+         * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
+         */
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -312,8 +317,9 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but InterleavedRangeConstraints (used for Shplemini input since interleaved handled separately)
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+        /**
+         * @brief Witness Entities on which Shplemini operates in the default manner.
+         */
         auto get_unshifted_without_interleaved()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -330,6 +336,7 @@ class TranslatorFlavor {
                                DerivedWitnessEntities<DataType>::get_all(),
                                InterleavedRangeConstraints<DataType>::get_all());
         }
+
         auto get_to_be_shifted()
         {
             return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
@@ -338,16 +345,13 @@ class TranslatorFlavor {
         };
 
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by interleaving
-         *
-         * @return auto
+         * @brief Get the entities constructed by interleaving.
          */
         auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); }
 
         /**
-         * @brief Get the entities interleaved for the permutation relation
+         * @brief Get the entities interleaved for the permutation relation.
          *
-         * @return std::vector<auto>
          */
         std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
         {
@@ -522,10 +526,9 @@ class TranslatorFlavor {
                               z_perm_shift)                                       // column 85
     };
 
-  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
-     * sumcheck) in this Honk variant along with particular subsets of interest
+     * sumcheck) in this Honk variant along with particular subsets of interest.
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
      *
@@ -541,47 +544,28 @@ class TranslatorFlavor {
         auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
-         * @brief Get entities interleaved for the permutation relation
-         *
-         */
-        std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
-        {
-            return WitnessEntities<DataType>::get_groups_to_be_interleaved();
-        }
-        /**
          * @brief Getter for entities constructed by interleaving
          */
         auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); };
+
         /**
-         * @brief Get the polynomials from the grand product denominator
-         *
-         * @return auto
+         * @brief Getter for the ordered entities used in computing the denominator of the grand product in the
+         * permutation relation.
          */
-        auto get_ordered_constraints()
-        {
-            return RefArray{ this->ordered_range_constraints_0,
-                             this->ordered_range_constraints_1,
-                             this->ordered_range_constraints_2,
-                             this->ordered_range_constraints_3,
-                             this->ordered_range_constraints_4 };
-        };
+        auto get_ordered_range_constraints() { return OrderedRangeConstraints<DataType>::get_all(); };
 
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+
         auto get_unshifted_without_interleaved()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted_without_interleaved());
         }
-        // get_to_be_shifted is inherited
+
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        auto get_wires_and_ordered_range_constraints()
-        {
-            return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
-        };
 
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
@@ -618,7 +602,7 @@ class TranslatorFlavor {
         ProverPolynomials(size_t mini_circuit_size)
         {
             size_t circuit_size = mini_circuit_size * INTERLEAVING_GROUP_SIZE;
-            for (auto& ordered_range_constraint : get_ordered_constraints()) {
+            for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
                                                        /*largest possible index*/ circuit_size,
                                                        1 };
