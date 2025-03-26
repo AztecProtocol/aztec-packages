@@ -80,7 +80,6 @@ export class PublicTxSimulator {
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
-   * @param overrideMetrics - A metrics tag to use for benchmarking a single TX.
    * @returns The result of the transaction's public execution.
    */
   public async simulate(tx: Tx): Promise<PublicTxResult> {
