@@ -133,6 +133,7 @@ This function is `unconstrained` which allows us to fetch data from storage with
 
 Now we've written a simple Aztec.nr smart contract, we can compile it with `aztec-nargo`.
 
+
 ### Compile the smart contract
 
 In `./contracts/counter/` directory, run this:
@@ -140,6 +141,9 @@ In `./contracts/counter/` directory, run this:
 ```bash
 aztec-nargo compile
 ```
+expected terminal final output
+<img width="1136" alt="Screenshot 2025-03-26 at 12 40 00 PM" src="https://github.com/user-attachments/assets/f5ac4aae-2cea-4c69-b2a8-9be351e52500" />
+
 
 This will compile the smart contract and create a `target` folder with a `.json` artifact inside. Do not worry if you see some warnings - Aztec is in fast development and it is likely you will see some irrelevant warning messages.
 
@@ -162,6 +166,8 @@ Run it for the `increment` function:
 ```bash
 SERVE=1 aztec flamegraph target/counter-Counter.json increment
 ```
+expected teminal output to know your runing the server
+<img width="865" alt="Screenshot 2025-03-26 at 12 57 48 PM" src="https://github.com/user-attachments/assets/2b412007-c89d-4bc3-a40e-594050a7f1ac" />
 
 `SERVE=1` will start a local server to view the flamegraph in the browser. You can also run it without this flag and open the generated SVG file in your browser manually.
 
