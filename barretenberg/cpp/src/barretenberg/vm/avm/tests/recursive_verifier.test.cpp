@@ -106,6 +106,13 @@ class AvmRecursiveTests : public ::testing::Test {
     }
 };
 
+/**
+ * @brief A test of the Goblinized AVM recursive verifier.
+ * @details Constructs a simple AVM circuit for which a proof is verified using the Goblinized AVM recursive verifier. A
+ * proof is constructed and verified for the outer (Ultra) circuit produced by this algorithm. See the documentation in
+ * AvmGoblinRecursiveVerifier for details of the recursive verification algorithm.
+ *
+ */
 TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
     using AvmRecursiveVerifier = avm::AvmGoblinRecursiveVerifier;
@@ -167,6 +174,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     EXPECT_TRUE(final_verifier.verify_proof(outer_proof, outer_proving_key->proving_key.ipa_proof));
 }
 
+/**
+ * @brief A test of the "vanilla" Ultra-arithmetized AVM recursive verifier.
+ *
+ */
 TEST_F(AvmRecursiveTests, recursion)
 {
     if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {

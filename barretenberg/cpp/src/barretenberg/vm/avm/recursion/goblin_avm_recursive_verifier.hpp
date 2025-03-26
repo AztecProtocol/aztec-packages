@@ -62,6 +62,8 @@ class AvmGoblinRecursiveVerifier {
     using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
     using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
 
+    // The structure of the final output of the goblinized AVM recursive verifier. The IPA data comes from recursive
+    // verification of the ECCVM proof as part of Goblin recursive verification.
     struct RecursiveAvmGoblinOutput {
         std::vector<UltraFF> ipa_proof;
         OpeningClaim<stdlib::grumpkin<UltraBuilder>> ipa_claim;
@@ -189,7 +191,7 @@ class AvmGoblinRecursiveVerifier {
         auto ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(*ultra_builder, ultra_hash_buffer);
         ultra_proof[mega_hash_public_input_index].assert_equal(ultra_hash);
 
-        // Return the ipa proof, ipa claim and output aggregation object produced from verifying the Mega proof + Goblin
+        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
         RecursiveAvmGoblinOutput result{ .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
                                          .ipa_claim = goblin_verifier_output.opening_claim,
                                          .aggregation_object = outer_verifier_output.agg_obj };

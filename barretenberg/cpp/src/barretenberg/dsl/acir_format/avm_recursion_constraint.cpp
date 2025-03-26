@@ -203,7 +203,15 @@ PairingPointAccumulatorIndices create_avm_recursion_constraints(
     return output_agg_object.get_witness_indices();
 }
 
-// NEW VERSION THAT USES GOBLIN PLONK IN VERIFICATION ALGO
+/**
+ * @brief Add constraints associated with recursive verification an AVM proof using Goblin
+ *
+ * @param builder
+ * @param input
+ * @param input_aggregation_object_indices
+ * @param has_valid_witness_assignments
+ * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
+ */
 HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
@@ -223,7 +231,7 @@ HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
         return result;
     };
 
-    // Construct in-circuit representation of the verification key, proof and public inputs
+    // Construct in-circuit representations of the verification key, proof and public inputs
     const auto key_fields = fields_from_witnesses(input.key);
     const auto proof_fields = fields_from_witnesses(input.proof);
     const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
@@ -243,7 +251,7 @@ HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
         create_dummy_vkey_and_proof(builder, input.proof.size(), input.public_inputs.size(), key_fields, proof_fields);
     }
 
-    // Recursively verify the proof
+    // Execute the Goblin AVM recursive verifier
     RecursiveVerifier verifier(&builder, key_fields);
     aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
         builder, input_aggregation_object_indices);
