@@ -217,6 +217,10 @@ function bench {
   # denoise "yarn-project/p2p/bootstrap.sh bench"
 }
 
+function release-preview {
+  denoise "docs/bootstrap.sh release-preview"
+}
+
 function release_github {
   # Add an easy link for comparing to previous release.
   local compare_link=""
@@ -329,7 +333,7 @@ case "$cmd" in
       release
     fi
     ;;
-  test|test_cmds|bench|release|release_dryrun)
+  test|test_cmds|bench|release|release_dryrun|release-preview)
     $cmd "$@"
     ;;
   *)
