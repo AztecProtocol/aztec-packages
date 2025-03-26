@@ -49,6 +49,9 @@ fi
 echo Cleaning...
 yarn clean
 
+echo "Getting the versions to build..."
+yarn version::stables
+
 # Now build the docsite
 echo Building docsite...
 echo "Processing..."
@@ -56,8 +59,6 @@ yarn preprocess
 yarn typedoc
 sh scripts/move_processed.sh
 
-echo "Getting the versions to build..."
-yarn version::stables
 
 echo "Building..."
 yarn docusaurus build
