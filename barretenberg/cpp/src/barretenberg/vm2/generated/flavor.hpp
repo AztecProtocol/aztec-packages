@@ -25,6 +25,8 @@
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
 #include "relations/class_id_derivation.hpp"
+#include "relations/context.hpp"
+#include "relations/context_stack.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
@@ -93,13 +95,13 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 914;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 47;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 929;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 134;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1092;
+    static constexpr size_t NUM_ALL_ENTITIES = 1110;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -122,6 +124,8 @@ class AvmFlavor {
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
         avm2::class_id_derivation<FF_>,
+        avm2::context<FF_>,
+        avm2::context_stack<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
@@ -169,6 +173,7 @@ class AvmFlavor {
         lookup_instr_fetching_bytes_from_bc_dec_relation<FF_>,
         lookup_instr_fetching_instr_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
+        lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
@@ -455,7 +460,9 @@ class AvmFlavor {
             this->precomputed_p_decomposition_radix = verification_key->precomputed_p_decomposition_radix;
             this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
             this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
+            this->precomputed_sel_has_tag = verification_key->precomputed_sel_has_tag;
             this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
+            this->precomputed_sel_mem_tag_out_of_range = verification_key->precomputed_sel_mem_tag_out_of_range;
             this->precomputed_sel_op_dc_0 = verification_key->precomputed_sel_op_dc_0;
             this->precomputed_sel_op_dc_1 = verification_key->precomputed_sel_op_dc_1;
             this->precomputed_sel_op_dc_10 = verification_key->precomputed_sel_op_dc_10;
@@ -478,6 +485,7 @@ class AvmFlavor {
             this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
             this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
             this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
+            this->precomputed_sel_tag_is_op2 = verification_key->precomputed_sel_tag_is_op2;
             this->precomputed_sel_to_radix_safe_limbs = verification_key->precomputed_sel_to_radix_safe_limbs;
             this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
             this->precomputed_sha256_compression_round_constant =

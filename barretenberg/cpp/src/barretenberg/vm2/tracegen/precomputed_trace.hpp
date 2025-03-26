@@ -21,6 +21,7 @@ class PrecomputedTraceBuilder final {
     void process_wire_instruction_spec(TraceContainer& trace);
     void process_to_radix_safe_limbs(TraceContainer& trace);
     void process_to_radix_p_decompositions(TraceContainer& trace);
+    void process_memory_tag_range(TraceContainer& trace);
 };
 
 } // namespace bb::avm2::tracegen

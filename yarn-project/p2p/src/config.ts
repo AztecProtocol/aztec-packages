@@ -383,6 +383,7 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'p2pIp',
   'p2pPort',
+  'listenAddress',
   'peerIdPrivateKey',
   'dataDirectory',
   'dataStoreMapSizeKB',

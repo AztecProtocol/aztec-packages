@@ -9,6 +9,7 @@ import type { PublishedL2Block } from '../published_l2_block.js';
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
   private isSyncing = false;
+  private hasStarted = false;
 
   constructor(
     private l2BlockSource: Pick<L2BlockSource, 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'>,
@@ -76,7 +77,12 @@ export class L2BlockStream {
       // If we are just starting, use the starting block number from the options.
       if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
         latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+      }
+
+      // Only log this entry once (for sanity)
+      if (!this.hasStarted) {
         this.log.verbose(`Starting sync from block number ${latestBlockNumber}`);
+        this.hasStarted = true;
       }
 
       // Request new blocks from the source.
