@@ -1,6 +1,6 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import type { L2TipsStore } from '@aztec/kv-store/stores';
+import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
@@ -26,7 +26,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private syncDataProvider: SyncDataProvider,
     private noteDataProvider: NoteDataProvider,
     private taggingDataProvider: TaggingDataProvider,
-    private l2TipsStore: L2TipsStore,
+    private l2TipsStore: L2TipsKVStore,
     config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
     loggerOrSuffix?: string | Logger,
   ) {
