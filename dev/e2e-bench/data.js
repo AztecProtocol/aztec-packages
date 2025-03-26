@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1742976836010,
+  "lastUpdate": 1742987004958,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d69901f2953ee6f2aecb4fbdcc1776393d9002f8",
-          "message": "chore(avm): Constrain pc_size_in_bits column and rename (#12899)",
-          "timestamp": "2025-03-20T12:57:38+01:00",
-          "tree_id": "c1e526128a96fb24a11fb5036801ceff543a23ee",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d69901f2953ee6f2aecb4fbdcc1776393d9002f8"
-        },
-        "date": 1742474437948,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9872,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.24090232374381484,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 139053,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 135832,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "koenmtb1@users.noreply.github.com",
+            "name": "Koen",
+            "username": "koenmtb1"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "67018067b9871218cc303d7f9685a7f6fead18c9",
+          "message": "fix: parse away trailing slash from consensus host (#12577)\n\nfixes: https://github.com/AztecProtocol/aztec-packages/issues/12576",
+          "timestamp": "2025-03-26T10:33:11Z",
+          "tree_id": "b1313a2e65984eb542451b6fc274caf823faa98d",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/67018067b9871218cc303d7f9685a7f6fead18c9"
+        },
+        "date": 1742987004290,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9222,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2345206409824351,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 147870,
             "unit": "us"
           }
         ]
