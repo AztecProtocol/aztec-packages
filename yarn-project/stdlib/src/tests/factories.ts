@@ -56,6 +56,7 @@ import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_req
 import {
   AvmAccumulatedData,
   AvmAppendTreeHint,
+  AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmContractClassHint,
@@ -77,7 +78,6 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
-  type PublicFunction,
   SerializableContractInstance,
   type UnconstrainedFunctionWithMembershipProof,
   computeContractClassId,
@@ -522,13 +522,7 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
 }
 
 export function makePublicCallRequest(seed = 1) {
-  return new PublicCallRequest(
-    makeAztecAddress(seed),
-    makeAztecAddress(seed + 1),
-    makeSelector(seed + 2),
-    false,
-    fr(seed + 0x3),
-  );
+  return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
 }
 
 function makeCountedPublicCallRequest(seed = 1) {
@@ -1170,16 +1164,10 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export async function makeContractClassPublic(
-  seed = 0,
-  publicDispatchFunction?: PublicFunction,
-): Promise<ContractClassPublic> {
+export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
-  const publicFunctions = publicDispatchFunction
-    ? [publicDispatchFunction]
-    : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = publicDispatchFunction?.bytecode ?? makeBytes(100, seed + 4);
+  const packedBytecode = publicBytecode ?? makeBytes(100, seed + 4);
   const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
   const id = await computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
@@ -1187,17 +1175,9 @@ export async function makeContractClassPublic(
     artifactHash,
     packedBytecode,
     privateFunctionsRoot,
-    publicFunctions,
     privateFunctions: [],
     unconstrainedFunctions: [],
     version: 1,
-  };
-}
-
-function makeContractClassPublicFunction(seed = 0): PublicFunction {
-  return {
-    selector: FunctionSelector.fromField(fr(seed + 1)),
-    bytecode: makeBytes(100, seed + 2),
   };
 }
 
@@ -1337,7 +1317,6 @@ export function makeAvmStorageUpdateTreeHints(seed = 0): AvmPublicDataWriteTreeH
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
     new AztecAddress(new Fr(seed)),
-    true /* exists */,
     new Fr(seed + 0x2),
     new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
@@ -1349,8 +1328,6 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
       new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
     ),
-    makeAvmPublicDataReadTreeHints(seed + 0x2000),
-    makeArray(4, i => new Fr(i), seed + 0x3000),
   );
 }
 
@@ -1358,22 +1335,23 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
  * @param seed - The seed to use for generating the state reference.
  * @returns AvmContractClassHint.
  */
-export async function makeAvmContractClassHint(seed = 0): Promise<AvmContractClassHint> {
+export function makeAvmContractClassHint(seed = 0): AvmContractClassHint {
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmContractClassHint(
-    new Fr(seed),
-    true /* exists */,
-    new Fr(seed + 0x2),
-    new Fr(seed + 0x3),
-    await computePublicBytecodeCommitment(bytecode),
-    bytecode,
-  );
+  return new AvmContractClassHint(new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
+}
+
+export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmBytecodeCommitmentHint> {
+  const classId = new Fr(seed + 2);
+  const bytecode = makeBytes(32, seed + 0x5);
+  return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
 }
 
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return new AvmEnqueuedCallHint(
     new AztecAddress(new Fr(seed)),
+    new AztecAddress(new Fr(seed + 2)),
     makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+    /*isStaticCall=*/ false,
   );
 }
 
@@ -1392,8 +1370,9 @@ export async function makeAvmExecutionHints(
 
   const fields = {
     enqueuedCalls: makeArray(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
-    contractInstances: makeArray(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractClasses: await makeArrayAsync(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
+    contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
+    contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
+    bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     publicDataReads: makeArray(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
     publicDataWrites: makeArray(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
     nullifierReads: makeArray(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
@@ -1408,6 +1387,7 @@ export async function makeAvmExecutionHints(
     fields.enqueuedCalls,
     fields.contractInstances,
     fields.contractClasses,
+    fields.bytecodeCommitments,
     fields.publicDataReads,
     fields.publicDataWrites,
     fields.nullifierReads,

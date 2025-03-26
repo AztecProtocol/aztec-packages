@@ -15,7 +15,15 @@ export class InMemoryAttestationPool implements AttestationPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
-  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    return Promise.resolve(
+      Array.from(this.attestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>
+        Array.from(proposalAttestationMap.values()),
+      ),
+    );
+  }
+
+  public getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
     const slotAttestationMap = this.attestations.get(slot);
     if (slotAttestationMap) {
       const proposalAttestationMap = slotAttestationMap.get(proposalId);
@@ -38,7 +46,12 @@ export class InMemoryAttestationPool implements AttestationPool {
       const proposalAttestationMap = getProposalOrDefault(slotAttestationMap, proposalId);
       proposalAttestationMap.set(address.toString(), attestation);
 
-      this.log.verbose(`Added attestation for slot ${slotNumber} from ${address}`);
+      this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
+        signature: attestation.signature.toString(),
+        slotNumber,
+        address,
+        proposalId,
+      });
     }
 
     // TODO: set these to pending or something ????

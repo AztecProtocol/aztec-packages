@@ -338,8 +338,8 @@ static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
                                                          .delta_range = 25000,
                                                          .elliptic = 80000,
                                                          .aux = 100000,
-                                                         .poseidon2_external = 30128,
-                                                         .poseidon2_internal = 172000,
+                                                         .poseidon2_external = 45192,
+                                                         .poseidon2_internal = 258000,
                                                          .overflow = 0 };
 
 template <typename T>

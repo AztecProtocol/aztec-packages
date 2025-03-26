@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 awk '
 /execve/ && /aztec-packages/ {
@@ -31,4 +31,3 @@ awk '
     }
 }
 ' $1
-

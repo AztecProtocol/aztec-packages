@@ -59,7 +59,9 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
         // Create a recursive merge verification circuit for the merge proof
         RecursiveBuilder outer_circuit;
         RecursiveMergeVerifier verifier{ &outer_circuit };
-        auto pairing_points = verifier.verify_proof(merge_proof);
+        const StdlibProof<RecursiveBuilder> stdlib_merge_proof =
+            bb::convert_native_proof_to_stdlib(&outer_circuit, merge_proof);
+        auto pairing_points = verifier.verify_proof(stdlib_merge_proof);
 
         // Check for a failure flag in the recursive verifier circuit
         EXPECT_EQ(outer_circuit.failed(), false) << outer_circuit.err();
@@ -87,9 +89,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     }
 };
 
-// Run the recursive verifier tests with Ultra and Mega builders
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1024): Ultra fails, possibly due to repeated points in
-// batch mul?
 using Builders = testing::Types<MegaCircuitBuilder, UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(RecursiveMergeVerifierTest, Builders);

@@ -5,11 +5,18 @@ cmd=${1:-}
 
 # We search the docs/*.md files to find included code, and use those as our rebuild dependencies.
 # We prefix the results with ^ to make them "not a file", otherwise they'd be interpreted as pattern files.
-hash=$(cache_content_hash \
-  .rebuild_patterns \
-  $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
-    awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
+hash=$(
+  cache_content_hash \
+    .rebuild_patterns \
+    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
+      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
 )
+
+if semver check $REF_NAME; then
+  # Ensure that released versions don't use cache from non-released versions (they will have incorrect links to master)
+  hash+=$REF_NAME
+  export COMMIT_TAG=$REF_NAME
+fi
 
 function build_and_preview {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
@@ -25,7 +32,8 @@ function build_and_preview {
     processed-docs-cache \
     docs/reference/developer_references/aztecjs \
     docs/reference/developer_references/smart_contract_reference/aztec-nr
-  denoise "yarn install && yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
+  npm_install_deps
+  denoise "yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
   cache_upload docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
@@ -81,10 +89,6 @@ function release {
   else
     do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
   fi
-}
-
-function release_commit {
-  yarn netlify deploy --site aztec-docs-dev
 }
 
 case "$cmd" in

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_refname
 source $ci3/source_redis
@@ -12,6 +12,11 @@ if [ -z "$key" ]; then
   author="$(git log -1 --pretty=format:"%an")"
   name=$REF_NAME
   [ "$(aws_get_meta_data instance-life-cycle)" == "spot" ] && spot=true || spot=false
+
+  # If this is github merge queue, just keep the queue name.
+  if [[ "$name" =~ ^gh-readonly-queue/([^/]+)/ ]]; then
+    name=${BASH_REMATCH[1]}
+  fi
 
   json=$(jq -c -j -n \
       --argjson timestamp "$key" \

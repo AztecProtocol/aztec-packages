@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
 arch=${ARCH:-$(arch)}
@@ -47,9 +47,6 @@ ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip '
   sudo usermod -aG docker ${USER}
   mkdir .aws
 '
-
-# Copy aws credentials onto machine.
-scp -F build_instance_ssh_config $HOME/.aws/build_instance_credentials ubuntu@$ip:.aws/credentials
 
 # Download crs onto machine.
 ssh $ssh_args -F build_instance_ssh_config ubuntu@$ip < ../../barretenberg/scripts/download_bb_crs.sh

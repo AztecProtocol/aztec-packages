@@ -92,6 +92,9 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   // Request and response sub service
   public reqresp: ReqResp;
 
+  // Trusted peers ids
+  private trustedPeersIds: PeerId[] = [];
+
   /**
    * Callback for when a block is received from a peer.
    * @param block - The block received from the peer.
@@ -165,19 +168,22 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     telemetry: TelemetryClient,
     logger = createLogger('p2p:libp2p_service'),
   ) {
-    const { tcpListenAddress, tcpAnnounceAddress, maxPeerCount } = config;
-    const bindAddrTcp = convertToMultiaddr(tcpListenAddress, 'tcp');
-    // We know tcpAnnounceAddress cannot be null here because we set it or throw when setting up the service.
-    const announceAddrTcp = convertToMultiaddr(tcpAnnounceAddress!, 'tcp');
+    const { p2pPort, maxPeerCount, listenAddress } = config;
+    const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
 
     const datastore = new AztecDatastore(store);
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodes;
+
+    // If trusted peers are provided, also provide them to the p2p service
+    bootstrapNodes.push(...config.trustedPeers);
+
     // If bootstrap nodes are provided, also provide them to the p2p service
     const peerDiscovery = [];
-    if (peerDiscoveryService.bootstrapNodes.length > 0) {
-      peerDiscovery.push(bootstrap({ list: peerDiscoveryService.bootstrapNodes }));
+    if (bootstrapNodes.length > 0) {
+      peerDiscovery.push(bootstrap({ list: bootstrapNodes }));
     }
 
     const node = await createLibp2p({
@@ -185,7 +191,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
       peerId,
       addresses: {
         listen: [bindAddrTcp],
-        announce: [announceAddrTcp],
+        announce: [], // announce is handled by the peer discovery service
       },
       transports: [
         tcp({
@@ -291,14 +297,16 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     }
 
     // Get listen & announce addresses for logging
-    const { tcpListenAddress, tcpAnnounceAddress } = this.config;
-    if (!tcpAnnounceAddress) {
+    const { p2pIp, p2pPort } = this.config;
+    if (!p2pIp) {
       throw new Error('Announce address not provided.');
     }
-    const announceTcpMultiaddr = convertToMultiaddr(tcpAnnounceAddress, 'tcp');
+    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();
+
+    await this.peerManager.initializeTrustedPeers();
     await this.peerDiscoveryService.start();
     await this.node.start();
 
@@ -339,7 +347,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     };
     await this.reqresp.start(requestResponseHandlers, reqrespSubProtocolValidators);
     this.logger.info(`Started P2P service`, {
-      listen: tcpListenAddress,
+      listen: this.config.listenAddress,
+      port: this.config.p2pPort,
       announce: announceTcpMultiaddr,
       peerId: this.node.peerId.toString(),
     });
@@ -512,7 +521,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     await this.mempools.txPool.addTxs([tx]);
   }
 
-  /**Process Attestation From Peer
+  /**
+   * Process Attestation From Peer
    * When a proposal is received from a peer, we add it to the attestation pool, so it can be accessed by other services.
    *
    * @param attestation - The attestation to process.

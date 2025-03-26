@@ -13,7 +13,8 @@
 # Such stuff belongs in higher level e.g. `aztec` or `aztec-wallet` scripts.
 set -euo pipefail
 
-CONTAINER_NAME=$1
+# Can be overriden by env var CONTAINER_NAME, e.g. to start two sandboxes.
+CONTAINER_NAME=${CONTAINER_NAME:-$1}
 shift
 
 VERSION=${VERSION:-"latest"}
@@ -113,18 +114,10 @@ done
 arg_port_assignment=""
 
 # Dynamic port assignment.
-if [ -n "${AZTEC_PORT:-}" ]; then
-  arg_port_assignment+=" -p $AZTEC_PORT:$AZTEC_PORT "
-fi
-
-if [ -n "${P2P_TCP_LISTEN_ADDR:-}" ]; then
-  P2P_TCP_PORT=${P2P_TCP_LISTEN_ADDR#*:}
-  arg_port_assignment+=" -p $P2P_TCP_PORT:$P2P_TCP_PORT "
-fi
-
-if [ -n "${P2P_UDP_LISTEN_ADDR:-}" ]; then
-  P2P_UDP_PORT=${P2P_UDP_LISTEN_ADDR#*:}
-  arg_port_assignment+=" -p $P2P_UDP_PORT:$P2P_UDP_PORT/udp "
+if [ -n "${PORTS_TO_EXPOSE:-}" ]; then
+  for port in ${PORTS_TO_EXPOSE}; do
+    arg_port_assignment+=" -p $port "
+  done
 fi
 
 # For debugging the aztec-up scripts, can be useful to mount local code into container.

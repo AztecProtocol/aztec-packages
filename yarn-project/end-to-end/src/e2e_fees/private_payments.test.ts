@@ -1,4 +1,11 @@
-import { type AccountWallet, type AztecAddress, BatchCall, PrivateFeePaymentMethod } from '@aztec/aztec.js';
+import {
+  type AccountWallet,
+  type AztecAddress,
+  BatchCall,
+  type PXE,
+  PrivateFeePaymentMethod,
+  waitForProven,
+} from '@aztec/aztec.js';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
@@ -14,6 +21,7 @@ describe('e2e_fees private_payment', () => {
   let bananaCoin: BananaCoin;
   let bananaFPC: FPCContract;
   let gasSettings: GasSettings;
+  let pxe: PXE;
 
   const t = new FeesTest('private_payment');
 
@@ -21,7 +29,8 @@ describe('e2e_fees private_payment', () => {
     await t.applyBaseSnapshots();
     await t.applyFPCSetupSnapshot();
     await t.applyFundAliceWithBananas();
-    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings } = await t.setup());
+    ({ aliceWallet, aliceAddress, bobAddress, sequencerAddress, bananaCoin, bananaFPC, gasSettings, pxe } =
+      await t.setup());
 
     // Prove up until the current state by just marking it as proven.
     // Then turn off the watcher to prevent it from keep proving
@@ -62,9 +71,6 @@ describe('e2e_fees private_payment', () => {
       t.getBananaPublicBalanceFn(aliceAddress, bobAddress, bananaFPC.address),
       t.getGasBalanceFn(aliceAddress, bananaFPC.address, sequencerAddress),
     ]);
-
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   it('pays fees for tx that dont run public app logic', async () => {
@@ -104,10 +110,11 @@ describe('e2e_fees private_payment', () => {
     const sequencerRewardsBefore = await t.getCoinbaseSequencerRewards();
 
     const tx = localTx.send();
-    await tx.wait({ timeout: 300, interval: 10, proven: false });
+    await tx.wait({ timeout: 300, interval: 10 });
     await t.cheatCodes.rollup.advanceToNextEpoch();
 
-    const receipt = await tx.wait({ timeout: 300, interval: 10, proven: true, provenTimeout: 300 });
+    const receipt = await tx.wait({ timeout: 300, interval: 10 });
+    await waitForProven(pxe, receipt, { provenTimeout: 300 });
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).
@@ -254,8 +261,8 @@ describe('e2e_fees private_payment', () => {
      * increase Alice's private banana balance by feeAmount by finalizing partial note
      */
     const tx = await new BatchCall(aliceWallet, [
-      await bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate).request(),
-      await bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate).request(),
+      bananaCoin.methods.transfer(bobAddress, amountTransferredInPrivate),
+      bananaCoin.methods.transfer_to_private(aliceAddress, amountTransferredToPrivate),
     ])
       .send({
         fee: {

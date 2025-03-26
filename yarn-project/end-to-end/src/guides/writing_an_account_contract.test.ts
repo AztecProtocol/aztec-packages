@@ -27,7 +27,7 @@ class SchnorrHardcodedKeyAccountContract extends DefaultAccountContract {
     return Promise.resolve(SchnorrHardcodedAccountContractArtifact);
   }
 
-  getDeploymentArgs() {
+  getDeploymentFunctionAndArgs() {
     // This contract has no constructor
     return Promise.resolve(undefined);
   }

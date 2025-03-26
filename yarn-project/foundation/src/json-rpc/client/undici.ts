@@ -19,9 +19,9 @@ export function makeUndiciFetch(client = new Agent()): JsonRpcFetch {
     noRetry = false,
   ) => {
     log.trace(`JsonRpcClient.fetch: ${host} ${rpcMethod}`, { host, rpcMethod, body });
-    let resp: Dispatcher.ResponseData<string>;
+    let resp: Dispatcher.ResponseData;
     try {
-      resp = await client.request<string>({
+      resp = await client.request({
         method: 'POST',
         origin: new URL(host),
         path: useApiEndpoints ? rpcMethod : '/',

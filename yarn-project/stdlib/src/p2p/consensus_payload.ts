@@ -7,6 +7,7 @@ import type { FieldsOf } from '@aztec/foundation/types';
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 import { z } from 'zod';
 
+import type { L2Block } from '../block/l2_block.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { TxHash } from '../tx/tx_hash.js';
 import type { Signable, SignatureDomainSeparator } from './signature_utils.js';
@@ -71,6 +72,14 @@ export class ConsensusPayload implements Signable {
 
   static fromFields(fields: FieldsOf<ConsensusPayload>): ConsensusPayload {
     return new ConsensusPayload(fields.header, fields.archive, fields.txHashes);
+  }
+
+  static fromBlock(block: L2Block): ConsensusPayload {
+    return new ConsensusPayload(
+      block.header,
+      block.archive.root,
+      block.body.txEffects.map(tx => tx.txHash),
+    );
   }
 
   static empty(): ConsensusPayload {

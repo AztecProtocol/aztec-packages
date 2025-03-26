@@ -7,14 +7,11 @@ import {IVerifier} from "@aztec/core/interfaces/IVerifier.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
-import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {
   FeeHeader, L1FeeData, ManaBaseFeeComponents
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-import {
-  FeeAssetPerEthE9, EthValue, FeeAssetValue
-} from "@aztec/core/libraries/RollupLibs/FeeMath.sol";
-import {ProposeArgs} from "@aztec/core/libraries/RollupLibs/ProposeLib.sol";
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {FeeAssetPerEthE9, EthValue, FeeAssetValue} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {ProposeArgs} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
@@ -40,7 +37,6 @@ struct SubmitEpochRootProofArgs {
 }
 
 struct BlockLog {
-  FeeHeader feeHeader;
   bytes32 archive;
   bytes32 blockHash;
   Slot slotNumber;
@@ -49,12 +45,6 @@ struct BlockLog {
 struct ChainTips {
   uint256 pendingBlockNumber;
   uint256 provenBlockNumber;
-}
-
-struct L1GasOracleValues {
-  L1FeeData pre;
-  L1FeeData post;
-  Slot slotOfChange;
 }
 
 struct SubEpochRewards {
@@ -68,8 +58,35 @@ struct EpochRewards {
   mapping(uint256 length => SubEpochRewards) subEpoch;
 }
 
-// @todo Ideally we should pull these from the code for immutable values
-// to save gas. Consider using constants or more fancy deployments.
+/**
+ * @notice Struct for storing flags for block header validation
+ * @param ignoreDA - True will ignore DA check, otherwise checks
+ * @param ignoreSignature - True will ignore the signatures, otherwise checks
+ */
+struct BlockHeaderValidationFlags {
+  bool ignoreDA;
+  bool ignoreSignatures;
+}
+
+struct GenesisState {
+  bytes32 vkTreeRoot;
+  bytes32 protocolContractTreeRoot;
+  bytes32 genesisArchiveRoot;
+  bytes32 genesisBlockHash;
+}
+
+struct RollupConfigInput {
+  uint256 aztecSlotDuration;
+  uint256 aztecEpochDuration;
+  uint256 targetCommitteeSize;
+  uint256 aztecProofSubmissionWindow;
+  uint256 minimumStake;
+  uint256 slashingQuorum;
+  uint256 slashingRoundSize;
+  uint256 manaTarget;
+  EthValue provingCostPerMana;
+}
+
 struct RollupConfig {
   uint256 proofSubmissionWindow;
   IERC20 feeAsset;
@@ -89,8 +106,6 @@ struct RollupStore {
   ChainTips tips; // put first such that the struct slot structure is easy to follow for cheatcodes
   mapping(uint256 blockNumber => BlockLog log) blocks;
   mapping(uint256 blockNumber => bytes32) blobPublicInputsHashes;
-  L1GasOracleValues l1GasOracleValues;
-  EthValue provingCostPerMana;
   mapping(address => uint256) sequencerRewards;
   mapping(Epoch => EpochRewards) epochRewards;
   // @todo Below can be optimised with a bitmap as we can benefit from provers likely proving for epochs close
@@ -107,14 +122,13 @@ struct CheatDepositArgs {
 }
 
 interface ITestRollup {
+  event ManaTargetUpdated(uint256 indexed manaTarget);
+
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
-    external
-    view
-    returns (ManaBaseFeeComponents memory);
+  function updateManaTarget(uint256 _manaTarget) external;
 }
 
 interface IRollupCore {
@@ -144,17 +158,20 @@ interface IRollupCore {
 
   // solhint-disable-next-line func-name-mixedcase
   function L1_BLOCK_AT_GENESIS() external view returns (uint256);
-
-  function getFeeAssetPerEth() external view returns (FeeAssetPerEthE9);
-  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
-
-  function canPrune() external view returns (bool);
-  function canPruneAtTime(Timestamp _ts) external view returns (bool);
-
-  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
 }
 
 interface IRollup is IRollupCore {
+  function validateHeader(
+    bytes calldata _header,
+    Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _blobsHash,
+    BlockHeaderValidationFlags memory _flags
+  ) external;
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
+
   function getTips() external view returns (ChainTips memory);
 
   function status(uint256 _myHeaderBlockNumber)
@@ -178,29 +195,28 @@ interface IRollup is IRollupCore {
     bytes calldata _aggregationObject
   ) external view returns (bytes32[] memory);
 
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    DataStructures.ExecutionFlags memory _flags
-  ) external view;
-
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
-
   function validateBlobs(bytes calldata _blobsInputs)
     external
     view
     returns (bytes32[] memory, bytes32, bytes32);
 
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+    external
+    view
+    returns (ManaBaseFeeComponents memory);
   function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset) external view returns (uint256);
+  function getL1FeesAt(Timestamp _timestamp) external view returns (L1FeeData memory);
+  function getFeeAssetPerEth() external view returns (FeeAssetPerEthE9);
+
+  function getEpochForBlock(uint256 _blockNumber) external view returns (Epoch);
+  function canPruneAtTime(Timestamp _ts) external view returns (bool);
 
   function archive() external view returns (bytes32);
   function archiveAt(uint256 _blockNumber) external view returns (bytes32);
   function getProvenBlockNumber() external view returns (uint256);
   function getPendingBlockNumber() external view returns (uint256);
   function getBlock(uint256 _blockNumber) external view returns (BlockLog memory);
+  function getFeeHeader(uint256 _blockNumber) external view returns (FeeHeader memory);
   function getBlobPublicInputsHash(uint256 _blockNumber) external view returns (bytes32);
 
   function getSequencerRewards(address _sequencer) external view returns (uint256);
@@ -215,7 +231,8 @@ interface IRollup is IRollupCore {
     returns (bool);
 
   function getProofSubmissionWindow() external view returns (uint256);
-
+  function getManaTarget() external view returns (uint256);
+  function getManaLimit() external view returns (uint256);
   function getProvingCostPerManaInEth() external view returns (EthValue);
 
   function getProvingCostPerManaInFeeAsset() external view returns (FeeAssetValue);
@@ -223,7 +240,7 @@ interface IRollup is IRollupCore {
   function getFeeAsset() external view returns (IERC20);
   function getFeeAssetPortal() external view returns (IFeeJuicePortal);
   function getRewardDistributor() external view returns (IRewardDistributor);
-  function getCuauhxicalli() external view returns (address);
+  function getBurnAddress() external view returns (address);
 
   function getInbox() external view returns (IInbox);
   function getOutbox() external view returns (IOutbox);

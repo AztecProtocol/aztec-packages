@@ -41,6 +41,7 @@ spec:
       {{- end }}
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
 
       containers:
@@ -153,14 +154,16 @@ spec:
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
           ports:
             - containerPort: {{ .Values.fullNode.service.nodePort }}
-            - containerPort: {{ .Values.fullNode.service.p2pTcpPort }}
-            - containerPort: {{ .Values.fullNode.service.p2pUdpPort }}
+            - containerPort: {{ .Values.fullNode.service.p2pPort }}
+            - containerPort: {{ .Values.fullNode.service.p2pPort }}
               protocol: UDP
           resources:
             {{- toYaml .Values.fullNode.resources | nindent 12 }}
@@ -211,9 +214,9 @@ spec:
   ports:
     # External load balancers cannot handle mixed TCP/UDP ports, so we only expose the node port
     {{- if not .Values.network.public }}
-    - port: {{ .Values.fullNode.service.p2pTcpPort }}
+    - port: {{ .Values.fullNode.service.p2pPort }}
       name: p2p-tpc
-    - port: {{ .Values.fullNode.service.p2pUdpPort }}
+    - port: {{ .Values.fullNode.service.p2pPort }}
       name: p2p-udp
       protocol: UDP
     {{- end }}

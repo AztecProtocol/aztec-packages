@@ -297,7 +297,7 @@ All projects have at least a "build hash". This is computed using `cache_content
 
 Some projects will also have a "test hash". The test hash is part of the input to deciding if a test should be re-run. So this might also include files that don't make up the build hash, but are used as part of testing.
 
-To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`./../noir/.rebuild_patterns`), and the test programs themselves (`../../noir/.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
+To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`../../noir/.rebuild_patterns` and `../noir/.noir-repo.rebuild_patterns`, but do make use of `../../noir/bootstrap.sh hash` to compute it correctly), and the test programs themselves (`../../noir/.noir-repo.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
 
 If a test successfully runs in CI, it won't be run again unless its redis key changes. This key consists of the "test hash" and the "test command". Here's an example:
 
@@ -341,15 +341,11 @@ The release image is created from a bootstrap, by the `release-image/Dockerfile`
 
 ## Releases
 
-Releases can be performed directly from the terminal if necessary. However at present this will require `NPM_TOKEN` which is a secret restricted to a few people. In future we may provide a "staging organistion" for less secure unofficial releases.
+Release please is used and will automatically tag the commit e.g. `v1.2.3`. The project will subsequently be released under that version.
 
-One example might be to do an arbitrary commit release:
+You can also trigger pre and post releases using extended semver notation such as `v1.2.3-nightly.20250101` or `v1.2.3-devnet.0`. This are made simply by tagging the appropriate master commit.
 
-```
-./bootstrap.sh release_commit
-```
-
-Which will take the current working tree build, and release it under the current HEAD commit hash. Do this with caution as it's releasing your working tree, but it won't upgrade the official release. For example the npm packages will be published under the `next` distribution tag.
+Releases can be performed directly from the terminal if necessary. However at present this will require `NPM_TOKEN` which is a secret restricted to a few people. In future we may provide a "staging organization" for less secure unofficial releases.
 
 One can also side-step Release Please automation by updating the version number in the root `.release-please-manifest.json`, committing, tagging the repository with e.g. `v1.2.3`, checking out the tag, and running:
 
@@ -386,6 +382,7 @@ CI_FULL=1 ci ec2-test
 This will create a new instance, bootstrap, and run all tests that would run on master.
 
 ### How does swc compare to tsc (typescript compiler?)
+
 1. swc is stricter than tsc when it comes to hoisting ESM imports. This means that circular dependencies that were not causing issues previously may now do. madge seems like a good tool for spotting them (npx madge --circular path-to-file), since eslint no-circular-imports not always spots them. When dealing with circular deps, keep in mind type imports are removed, so you don't need to worry about those.
 2. swc is a lot faster than tsc, but it does not type check. When running bootstrap eg after a rebase, a successful run does not mean the project types are correct. You need to run bootstrap with TYPECHECK=1 for that. If you want to keep a running process that alerts you of type errors, do yarn tsc -b -w --emitDeclarationOnly at the root of yarn project.
 3. There is some combination of swc+tsc+jest that breaks things. If you happen to build your project with `tsc -b`, some test suites (such as prover-client or e2e) will fail to run with a parse error. Workaround is to re-build with swc before running tests by running `./bootstrap.sh compile` on yarn-project, and make sure you are not running `tsc -b -w` (or if you do, you set `--emitDeclarationOnly` as described above).

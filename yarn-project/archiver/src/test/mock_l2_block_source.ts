@@ -1,4 +1,5 @@
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
@@ -90,6 +91,19 @@ export class MockL2BlockSource implements L2BlockSource {
     );
   }
 
+  public async getPublishedBlocks(from: number, limit: number, proven?: boolean) {
+    const blocks = await this.getBlocks(from, limit, proven);
+    return blocks.map(block => ({
+      block,
+      l1: {
+        blockNumber: BigInt(block.number),
+        blockHash: Buffer32.random().toString(),
+        timestamp: BigInt(block.number),
+      },
+      signatures: [],
+    }));
+  }
+
   getBlockHeader(number: number | 'latest'): Promise<BlockHeader | undefined> {
     return Promise.resolve(this.l2Blocks.at(typeof number === 'number' ? number - 1 : -1)?.header);
   }
@@ -102,6 +116,10 @@ export class MockL2BlockSource implements L2BlockSource {
       return slot >= start && slot <= end;
     });
     return Promise.resolve(blocks);
+  }
+
+  getBlockHeadersForEpoch(epochNumber: bigint): Promise<BlockHeader[]> {
+    return this.getBlocksForEpoch(epochNumber).then(blocks => blocks.map(b => b.header));
   }
 
   /**

@@ -23,18 +23,15 @@ impl<Note, Context> BalanceSet<Note, Context> {
     }
 }
 
-impl<Note> BalanceSet<Note, UnconstrainedContext> {
-    pub unconstrained fn balance_of<let N: u32>(self: Self) -> u128
-    where
-        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
-    {
+impl<Note> BalanceSet<Note, UnconstrainedContext>
+where
+    Note: NoteType + NoteHash + OwnedNote + Packable<N> + Eq,
+{
+    pub unconstrained fn balance_of<let N: u32>(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }
 
-    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> u128
-    where
-        Note: NoteType + NoteHash + OwnedNote + Packable<N>,
-    {
+    pub unconstrained fn balance_of_with_offset<let N: u32>(self: Self, offset: u32) -> u128 {
         let mut balance = 0 as u128;
         // docs:start:view_notes
         let mut options = NoteViewerOptions::new();

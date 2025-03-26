@@ -91,8 +91,8 @@ library BlakeHonkVerificationKey {
                 y: uint256(0x290a615d73d77f18f3a7483bd4f7d9ba22ad1c1e28980012e5bb3c9660b96086)
             }),
             t3: Honk.G1Point({
-                x: uint256(0x09d24c7501264da486f4ddbe6fee4a104edbfbcc8b3b7ea185db69c5e1a6c38b),
-                y: uint256(0x132e749bb80fdc19494cec612ce529b810d672d471253ffb5ab0ada355163fd3)
+                x: uint256(0x1d6ddd11ccf9a3338c0b999ef26445e1f8508276a634cbe5c1db13d070c9aef0),
+                y: uint256(0x210a0c26acb40f33947e274cc69ce9ec2340be90293e88337226d1aad3d49efd)
             }),
             t4: Honk.G1Point({
                 x: uint256(0x044ff357ea1fbf33738fc570145106a3f6acc496c748b0b58f4615e1b0626e10),

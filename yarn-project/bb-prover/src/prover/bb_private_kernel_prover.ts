@@ -11,13 +11,16 @@ import {
   convertPrivateKernelTailInputsToWitnessMapWithAbi,
   convertPrivateKernelTailOutputsFromWitnessMapWithAbi,
   convertPrivateKernelTailToPublicInputsToWitnessMapWithAbi,
+  foreignCallHandler,
   getPrivateKernelResetArtifactName,
   updateResetCircuitSampleInputs,
 } from '@aztec/noir-protocol-circuits-types/client';
 import type { ArtifactProvider, ClientProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { Abi, WitnessMap } from '@aztec/noir-types';
 import type { SimulationProvider } from '@aztec/simulator/client';
 import type { PrivateKernelProver } from '@aztec/stdlib/interfaces/client';
 import type {
+  PrivateExecutionStep,
   PrivateKernelCircuitPublicInputs,
   PrivateKernelInitCircuitPrivateInputs,
   PrivateKernelInnerCircuitPrivateInputs,
@@ -26,11 +29,9 @@ import type {
   PrivateKernelTailCircuitPrivateInputs,
   PrivateKernelTailCircuitPublicInputs,
 } from '@aztec/stdlib/kernel';
-import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+import type { NoirCompiledCircuitWithName } from '@aztec/stdlib/noir';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 import type { CircuitSimulationStats, CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
-
-import type { Abi, WitnessMap } from '@noir-lang/types';
 
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
@@ -159,15 +160,14 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     convertInputs: (inputs: I, abi: Abi) => WitnessMap,
     convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
-    const compiledCircuit: NoirCompiledCircuit = await this.artifactProvider.getSimulatedClientCircuitArtifactByName(
-      circuitType,
-    );
+    const compiledCircuit: NoirCompiledCircuitWithName =
+      await this.artifactProvider.getSimulatedClientCircuitArtifactByName(circuitType);
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
 
     const timer = new Timer();
     const outputWitness = await this.simulationProvider
-      .executeProtocolCircuit(witnessMap, compiledCircuit)
+      .executeProtocolCircuit(witnessMap, compiledCircuit, foreignCallHandler)
       .catch((err: Error) => {
         this.log.debug(`Failed to simulate ${circuitType}`, {
           circuitName: mapProtocolArtifactNameToCircuitName(circuitType),
@@ -198,13 +198,17 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     convertOutputs: (outputs: WitnessMap, abi: Abi) => O,
   ): Promise<PrivateKernelSimulateOutput<O>> {
     this.log.debug(`Generating witness for ${circuitType}`);
-    const compiledCircuit: NoirCompiledCircuit = await this.artifactProvider.getClientCircuitArtifactByName(
+    const compiledCircuit: NoirCompiledCircuitWithName = await this.artifactProvider.getClientCircuitArtifactByName(
       circuitType,
     );
 
     const witnessMap = convertInputs(inputs, compiledCircuit.abi);
     const timer = new Timer();
-    const outputWitness = await this.simulationProvider.executeProtocolCircuit(witnessMap, compiledCircuit);
+    const outputWitness = await this.simulationProvider.executeProtocolCircuit(
+      witnessMap,
+      compiledCircuit,
+      foreignCallHandler,
+    );
     const output = convertOutputs(outputWitness, compiledCircuit.abi);
 
     this.log.debug(`Generated witness for ${circuitType}`, {
@@ -239,7 +243,7 @@ export abstract class BBPrivateKernelProver implements PrivateKernelProver {
     return kernelProofOutput;
   }
 
-  public createClientIvcProof(_acirs: Buffer[], _witnessStack: WitnessMap[]): Promise<ClientIvcProof> {
+  public createClientIvcProof(_executionSteps: PrivateExecutionStep[]): Promise<ClientIvcProof> {
     throw new Error('Not implemented');
   }
 

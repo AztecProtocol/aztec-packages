@@ -13,6 +13,11 @@ while [ "$#" -gt 0 ]; do
       AZTEC_PORT="$2"
       shift 2
       ;;
+    -a | --anvil-port)
+      # Override default port exposed on container.
+      ANVIL_PORT="$2"
+      shift 2
+      ;;
     --pxe.network)
       # Set version to user-specified network (e.g. 'devnet')
       VERSION="$2"
@@ -49,16 +54,17 @@ case ${1:-} in
     ;;
   start)
     export ENV_VARS_TO_INJECT="$(get_env_vars)"
-    # Opens the requested port on the container.
-    export AZTEC_PORT=${AZTEC_PORT:-8080}
+
+    # Dynamic port assignments, .aztec-run will expose the array PORTS_TO_EXPOSE as a space-separated string.
+    AZTEC_PORT=${AZTEC_PORT:-8080}
+    export PORTS_TO_EXPOSE="$AZTEC_PORT:$AZTEC_PORT"
+
     if [ "${2:-}" == "--sandbox" ]; then
       # TODO: This entire special case should go away.
       # Sandbox mode should start it's own anvil.
       # We should not have to provide a binary path and working dir.
       # Why is this not just determined and chosen at runtime?
       # In fact almost none of these should not have to be set if we have sensible defaults.
-      export BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb
-      export BB_WORKING_DIRECTORY=/tmp/bb
       export L1_CHAIN_ID=31337
       export ARCHIVER_POLLING_INTERVAL_MS=500
       export P2P_BLOCK_CHECK_INTERVAL_MS=500
@@ -67,11 +73,26 @@ case ${1:-} in
       export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
       export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
       export LOG_LEVEL=${LOG_LEVEL:-info}
+      export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}
+
+
+      ANVIL_PORT=${ANVIL_PORT:-8545}
+      anvil_port_assignment="$ANVIL_PORT:8545"
+
+      PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
+
       exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
         anvil --host 0.0.0.0 --silent &
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
       "
     else
+      # Export p2p port forwarding only if set in env vars
+      if [ -n "${P2P_PORT:-}" ]; then
+        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
+
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING"
+      fi
+
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
     fi

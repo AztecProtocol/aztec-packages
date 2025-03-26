@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -e
 # spit out the token for the dashboard
 kubectl -n kubernetes-dashboard create token admin-user --duration 300000m

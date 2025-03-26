@@ -1,5 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
@@ -65,14 +67,13 @@ describe('e2e_p2p_slashing', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
-    const rollup = getContract({
-      address: t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues!.walletClient,
-    });
+    const rollup = new RollupContract(
+      t.ctx.deployL1ContractsValues!.publicClient,
+      t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
 
     const slasherContract = getContract({
-      address: getAddress(await rollup.read.getSlasher()),
+      address: getAddress(await rollup.getSlasher()),
       abi: SlasherAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
@@ -91,7 +92,7 @@ describe('e2e_p2p_slashing', () => {
 
     const slashingInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
-      const slotNumber = await rollup.read.getCurrentSlot();
+      const slotNumber = await rollup.getSlotNumber();
       const roundNumber = await slashingProposer.read.computeRound([slotNumber]);
       const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
       const info = await slashingProposer.read.rounds([instanceAddress, roundNumber]);
@@ -99,15 +100,14 @@ describe('e2e_p2p_slashing', () => {
       return { bn, slotNumber, roundNumber, info, leaderVotes };
     };
 
-    const jumpToNextRound = async () => {
-      t.logger.info(`Jumping to next round`);
+    const waitUntilNextRound = async () => {
+      t.logger.info(`Waiting for next round`);
       const roundSize = await slashingProposer.read.M();
-      const nextRoundTimestamp = await rollup.read.getTimestampForSlot([
-        ((await rollup.read.getCurrentSlot()) / roundSize) * roundSize + roundSize,
-      ]);
-      await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
-
-      await t.syncMockSystemTime();
+      const currentRound = (await rollup.getSlotNumber()) / roundSize;
+      const nextRoundSlot = currentRound * roundSize + roundSize;
+      while ((await rollup.getSlotNumber()) < nextRoundSlot) {
+        await sleep(1000);
+      }
     };
 
     t.ctx.aztecNodeConfig.validatorReexecute = false;
@@ -148,9 +148,6 @@ describe('e2e_p2p_slashing', () => {
 
     const votesNeeded = await slashingProposer.read.N();
 
-    // We should push us to land exactly at the next round
-    await jumpToNextRound();
-
     // Produce blocks until we hit an issue with pruning.
     // Then we should jump in time to the next round so we are sure that we have the votes
     // Then we just sit on our hands and wait.
@@ -179,6 +176,7 @@ describe('e2e_p2p_slashing', () => {
       // The validator client can remove elements from the original array
       slashEvents = [...slasher.slashEvents];
       t.logger.info(`Slash events: ${slashEvents.length}`);
+      t.logger.info(`Slash events: ${jsonStringify(slashEvents)}`);
       if (slashEvents.length > 0) {
         t.logger.info(`We have a slash event ${i}`);
         break;
@@ -186,16 +184,15 @@ describe('e2e_p2p_slashing', () => {
     }
 
     expect(slashEvents.length).toBeGreaterThan(0);
-    // We should push us to land exactly at the next round
-    await jumpToNextRound();
+    await waitUntilNextRound();
 
     // For the next round we will try to cast votes.
     // Stop early if we have enough votes.
     t.logger.info(`Waiting for votes to be cast`);
     for (let i = 0; i < slashingRoundSize; i++) {
       t.logger.info(`Waiting for block number to change`);
-      const slotNumber = await rollup.read.getCurrentSlot();
-      while (slotNumber === (await rollup.read.getCurrentSlot())) {
+      const slotNumber = await rollup.getSlotNumber();
+      while (slotNumber === (await rollup.getSlotNumber())) {
         await sleep(1000);
       }
 
@@ -216,11 +213,11 @@ describe('e2e_p2p_slashing', () => {
     });
 
     t.logger.info(`We jump in time to the next round to execute`);
-    await jumpToNextRound();
-    const attestersPre = await rollup.read.getAttesters();
+    await waitUntilNextRound();
+    const attestersPre = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.read.getInfo([attester]);
+      const attesterInfo = await rollup.getInfo(attester);
       // Check that status isValidating
       expect(attesterInfo.status).toEqual(1);
     }
@@ -251,19 +248,18 @@ describe('e2e_p2p_slashing', () => {
     const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
     const infoPost = await slashingProposer.read.rounds([instanceAddress, sInfo.roundNumber]);
 
-    expect(sInfo.info[0]).toEqual(infoPost[0]);
     expect(sInfo.info[1]).toEqual(infoPost[1]);
     expect(sInfo.info[2]).toEqual(false);
     expect(infoPost[2]).toEqual(true);
 
-    const attestersPost = await rollup.read.getAttesters();
+    const attestersPost = await rollup.getAttesters();
 
     for (const attester of attestersPre) {
-      const attesterInfo = await rollup.read.getInfo([attester]);
+      const attesterInfo = await rollup.getInfo(attester);
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }
-    const committee = await rollup.read.getEpochCommittee([slashEvent.epoch]);
+    const committee = await rollup.getEpochCommittee(slashEvent.epoch);
     expect(attestersPre.length).toBe(committee.length);
     expect(attestersPost.length).toBe(0);
   }, 1_000_000);

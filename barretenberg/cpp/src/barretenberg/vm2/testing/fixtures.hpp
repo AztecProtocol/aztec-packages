@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -32,5 +33,6 @@ simulation::Operand random_operand(simulation::OperandType operand_type);
 // address resolution.
 simulation::Instruction random_instruction(WireOpCode w_opcode);
 tracegen::TestTraceContainer empty_trace();
+ContractInstance random_contract_instance();
 
 } // namespace bb::avm2::testing

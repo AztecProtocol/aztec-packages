@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
@@ -9,15 +9,16 @@ export NARGO=$PWD/../noir/noir-repo/target/release/nargo
 export AZTEC_NARGO=$PWD/../aztec-nargo/compile_then_postprocess.sh
 export AZTEC_BUILDER=$PWD/../yarn-project/builder/aztec-builder-dest
 
-hash=$(cache_content_hash \
-  .rebuild_patterns \
-  ../noir/.rebuild_patterns \
-  ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
-  ../barretenberg/*/.rebuild_patterns)
+hash=$(hash_str \
+  $(../noir/bootstrap.sh hash) \
+  $(cache_content_hash \
+    .rebuild_patterns \
+    ../{avm-transpiler,noir-projects,l1-contracts,yarn-project}/.rebuild_patterns \
+    ../barretenberg/*/.rebuild_patterns))
 
 function build {
   echo_header "boxes build"
-  denoise yarn
+  npm_install_deps
 
   if ! cache_download boxes-$hash.tar.gz; then
     denoise 'yarn build'
@@ -102,11 +103,6 @@ function release {
   release_git_push $branch $REF_NAME ${REF_NAME#v}
 }
 
-function release_commit {
-  echo_header "boxes release commit"
-  release_git_push "$CURRENT_VERSION" "commit-$COMMIT_HASH" "$CURRENT_VERSION-commit.$COMMIT_HASH"
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -118,7 +114,7 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  test|test_cmds|release|release_commit)
+  test|test_cmds|release)
     $cmd
     ;;
   "hash")
