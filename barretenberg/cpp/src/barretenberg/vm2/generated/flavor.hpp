@@ -25,6 +25,8 @@
 #include "relations/bc_retrieval.hpp"
 #include "relations/bitwise.hpp"
 #include "relations/class_id_derivation.hpp"
+#include "relations/context.hpp"
+#include "relations/context_stack.hpp"
 #include "relations/ecc.hpp"
 #include "relations/execution.hpp"
 #include "relations/ff_gt.hpp"
@@ -94,12 +96,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 44;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 914;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 923;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 134;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1092;
+    static constexpr size_t NUM_ALL_ENTITIES = 1101;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -122,6 +124,8 @@ class AvmFlavor {
         avm2::bc_retrieval<FF_>,
         avm2::bitwise<FF_>,
         avm2::class_id_derivation<FF_>,
+        avm2::context<FF_>,
+        avm2::context_stack<FF_>,
         avm2::ecc<FF_>,
         avm2::execution<FF_>,
         avm2::ff_gt<FF_>,
