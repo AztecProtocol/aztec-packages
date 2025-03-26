@@ -131,7 +131,7 @@ unconstrained fn decode_log_plaintext(
 
     // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
-    let (log_type_id, log_metadata) = unpack_two_u64s(expanded_log_metadata);
+    let (log_metadata, log_type_id) = unpack_two_u64s(expanded_log_metadata);
     let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
 
     (log_type_id, log_metadata, log_content)
