@@ -891,6 +891,7 @@ class ArchiverStoreHelper
       | 'deleteContractInstanceUpdates'
       | 'addFunctions'
       | 'backupTo'
+      | 'close'
     >
 {
   #log = createLogger('archiver:block-helper');

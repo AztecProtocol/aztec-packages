@@ -17,6 +17,8 @@ import type { ArchiverConfig } from './archiver/config.js';
 import { ARCHIVER_DB_VERSION, KVArchiverDataStore } from './archiver/kv_archiver_store/kv_archiver_store.js';
 import { createArchiverClient } from './rpc/index.js';
 
+export const ARCHIVER_STORE_NAME = 'archiver';
+
 /**
  * Creates a local archiver.
  * @param config - The archiver configuration.
@@ -32,7 +34,7 @@ export async function createArchiver(
   telemetry: TelemetryClient = getTelemetryClient(),
 ): Promise<ArchiverApi & Service & L2BlockSourceEventEmitter> {
   const config = { ..._config, dataStoreMapSizeKB: _config.archiverStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
-  const store = await createStore('archiver', ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
+  const store = await createStore(ARCHIVER_STORE_NAME, ARCHIVER_DB_VERSION, config, createLogger('archiver:lmdb'));
   const archiverStore = new KVArchiverDataStore(store, config.maxLogs);
   await registerProtocolContracts(archiverStore);
   return Archiver.createAndSync(config, archiverStore, { telemetry, blobSinkClient }, opts.blockUntilSync);

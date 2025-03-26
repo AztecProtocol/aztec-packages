@@ -79,13 +79,15 @@ export class DatabaseVersion {
 
 export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'writeFile' | 'rm' | 'mkdir'>;
 
+export const DATABASE_VERSION_FILE_NAME = 'db_version';
+
 /**
  * A manager for handling database versioning and migrations.
  * This class will check the version of data in a directory and either
  * reset or upgrade based on version compatibility.
  */
 export class DatabaseVersionManager<T> {
-  public static readonly VERSION_FILE = 'db_version';
+  public static readonly VERSION_FILE = DATABASE_VERSION_FILE_NAME;
 
   private readonly versionFile: string;
   private readonly currentVersion: DatabaseVersion;

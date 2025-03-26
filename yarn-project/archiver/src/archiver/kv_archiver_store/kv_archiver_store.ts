@@ -58,6 +58,10 @@ export class KVArchiverDataStore implements ArchiverDataStore {
     return join(path, 'data.mdb');
   }
 
+  public close() {
+    return this.db.close();
+  }
+
   // TODO:  These function names are in memory only as they are for development/debugging. They require the full contract
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.

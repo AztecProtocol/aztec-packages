@@ -1,11 +1,17 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudFileStore } from './gcs.js';
+import type { FileStore } from './interface.js';
 import { LocalFileStore } from './local.js';
 
 const supportedExamples = [`gs://bucket-name/path/to/store`, `file:///absolute/local/path/to/store`];
 
-export function createFileStore(config: string | undefined, logger = createLogger('stdlib:file-store')) {
+export function createFileStore(config: string, logger?: Logger): FileStore;
+export function createFileStore(config: undefined, logger?: Logger): undefined;
+export function createFileStore(
+  config: string | undefined,
+  logger = createLogger('stdlib:file-store'),
+): FileStore | undefined {
   if (config === undefined) {
     return undefined;
   } else if (config.startsWith('file://')) {

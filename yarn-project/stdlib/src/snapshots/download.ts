@@ -1,9 +1,12 @@
-import { getEntries } from '@aztec/foundation/collection';
+import { fromEntries, getEntries } from '@aztec/foundation/collection';
 import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
 import type { FileStore } from '@aztec/stdlib/file-store';
 
+import { join } from 'path';
+
 import {
   SnapshotDataKeys,
+  type SnapshotDataUrls,
   type SnapshotMetadata,
   type SnapshotsIndex,
   type SnapshotsIndexMetadata,
@@ -42,6 +45,10 @@ export function getBasePath(metadata: SnapshotsIndexMetadata): string {
 
 export function getSnapshotIndexPath(metadata: SnapshotsIndexMetadata): string {
   return `${getBasePath(metadata)}/index.json`;
+}
+
+export function makeSnapshotLocalPaths(baseDir: string): SnapshotDataUrls {
+  return fromEntries(SnapshotDataKeys.map(key => [key, join(baseDir, `${key}.db`)]));
 }
 
 export async function downloadSnapshot(

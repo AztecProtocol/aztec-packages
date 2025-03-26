@@ -39,7 +39,7 @@ import { NativeWorldState } from './native_world_state_instance.js';
 // Increment this when making incompatible changes to the database schema
 export const WORLD_STATE_DB_VERSION = 1; // The initial version
 
-const WORLD_STATE_DIR = 'world_state';
+export const WORLD_STATE_DIR = 'world_state';
 
 export class NativeWorldStateService implements MerkleTreeDatabase {
   protected initialHeader: BlockHeader | undefined;
