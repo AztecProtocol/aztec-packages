@@ -268,9 +268,9 @@ comptime fn generate_process_log() -> Quoted {
     if notes.len() > 0 {
         quote {
             unconstrained fn process_log(
-                log_ciphertext: BoundedVec<Field, aztec::encrypted_logs::log_encryption::PRIVATE_LOG_CIPHERTEXT_LEN>,
+                log_ciphertext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
                 tx_hash: Field,
-                unique_note_hashes_in_tx: BoundedVec<Field, aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+                unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
                 first_nullifier_in_tx: Field,
                 recipient: aztec::protocol_types::address::AztecAddress,
             ) {
@@ -298,9 +298,9 @@ comptime fn generate_process_log() -> Quoted {
         // simply throws immediately.
         quote {
             unconstrained fn process_log(
-                _log_ciphertext: BoundedVec<Field, aztec::encrypted_logs::log_encryption::PRIVATE_LOG_CIPHERTEXT_LEN>,
+                _log_ciphertext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
                 _tx_hash: Field,
-                _unique_note_hashes_in_tx: BoundedVec<Field, aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
+                _unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
                 _first_nullifier_in_tx: Field,
                 _recipient: aztec::protocol_types::address::AztecAddress,
             ) {

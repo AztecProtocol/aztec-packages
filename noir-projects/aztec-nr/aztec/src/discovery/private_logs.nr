@@ -13,15 +13,12 @@ use crate::{
 
 use protocol_types::{
     address::AztecAddress,
-    constants::MAX_NOTE_HASHES_PER_TX,
+    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
-    traits::ToField,
 };
 
 // TODO(#12750): don't make these values assume we're using AES.
-use crate::encrypted_logs::log_encryption::{
-    PRIVATE_LOG_CIPHERTEXT_LEN, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
-};
+use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
@@ -48,19 +45,19 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
 /// search for the note's completion public log.
 pub unconstrained fn do_process_log<Env>(
     contract_address: AztecAddress,
-    log: BoundedVec<Field, PRIVATE_LOG_CIPHERTEXT_LEN>,
+    log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    debug_log_format(
-        "Processing log for contract {0}, recipient {1}, emitted in tx {2}",
-        [contract_address.to_field(), recipient.to_field(), tx_hash],
-    );
+    debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
-    let log_plaintext = AES128::decrypt_log(log, recipient);
+    // The tag is ignored for now.
+    let ciphertext = array::subbvec(log, 1);
+
+    let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
     // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
