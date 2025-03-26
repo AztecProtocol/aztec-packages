@@ -57,7 +57,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.mnemonicIndex,
         options.salt,
         options.testAccounts,
-        options.sponsoredFPC,
+        options.sponsoredFpc,
         options.acceleratedTestDeployments,
         options.json,
         initialValidators,
