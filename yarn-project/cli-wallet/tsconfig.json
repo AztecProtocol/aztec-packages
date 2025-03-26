@@ -16,6 +16,9 @@
       "path": "../cli"
     },
     {
+      "path": "../entrypoints"
+    },
+    {
       "path": "../ethereum"
     },
     {

@@ -36,6 +36,9 @@ export async function benchmarkSetup(
     await telemetry.flush();
     const data = telemetry.getMeters();
     const formatted = formatMetricsForGithubBenchmarkAction(data, opts.metrics);
+    if (formatted.length === 0) {
+      throw new Error(`No benchmark data generated. Please review your test setup.`);
+    }
     const benchOutput = opts.benchOutput ?? process.env.BENCH_OUTPUT ?? 'bench.json';
     writeFileSync(benchOutput, JSON.stringify(formatted));
     context.logger.info(`Wrote ${data.length} metrics to ${benchOutput}`);

@@ -174,7 +174,7 @@ describe('e2e_p2p_reex', () => {
     // Have the public tx processor take an extra long time to process the tx, so the validator times out
     const interceptTxProcessorWithTimeout = (node: AztecNodeService) => {
       interceptTxProcessorSimulate(node, async (tx: Tx, originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
-        t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: tx.getTxHash() });
+        t.logger.warn('Public tx simulator sleeping for 40s to simulate timeout', { txHash: await tx.getTxHash() });
         await sleep(40_000);
         return originalSimulate(tx);
       });
@@ -184,7 +184,7 @@ describe('e2e_p2p_reex', () => {
     const interceptTxProcessorWithFailure = (node: AztecNodeService) => {
       interceptTxProcessorSimulate(node, async (tx: Tx, _originalSimulate: (tx: Tx) => Promise<PublicTxResult>) => {
         await sleep(1);
-        t.logger.warn('Public tx simulator failing', { txHash: tx.getTxHash() });
+        t.logger.warn('Public tx simulator failing', { txHash: await tx.getTxHash() });
         throw new Error(`Fake tx failure`);
       });
     };

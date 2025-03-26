@@ -4,7 +4,7 @@ pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
-pub global MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
+pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
  *  - FUNCTION CALL
@@ -271,9 +271,8 @@ pub global PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH: u32 =
 pub global PRIVATE_CALL_REQUEST_LENGTH: u32 = CALL_CONTEXT_LENGTH + 4;
 pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender */
     + AZTEC_ADDRESS_LENGTH /* contract_address */
-    + 1 /* function_selector */
     + 1 /* is_static_call */
-    + 1 /* args_hash */;
+    + 1 /* calldata_hash */;
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
 pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
     PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
@@ -474,7 +473,7 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-pub global RECURSIVE_PROOF_LENGTH: u32 = 459;
+pub global RECURSIVE_PROOF_LENGTH: u32 = 456;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
 pub global IPA_PROOF_LENGTH: u32 = 69;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
@@ -546,8 +545,7 @@ pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
 pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
 pub global GENERATOR_INDEX__VK: u32 = 41;
-pub global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS: u32 = 42;
-pub global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS: u32 = 43;
+pub global GENERATOR_INDEX__PUBLIC_CALLDATA: u32 = 43;
 pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
 pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
 pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;
@@ -776,6 +774,8 @@ pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 
+// AVM - misc constants
+pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
 
 // 24 hours with a slot duration of 24 seconds
@@ -786,6 +786,9 @@ pub global MINIMUM_UPDATE_DELAY: u32 = 25;
 // Updates hold contract class id, which fit in 1 field.
 pub global UPDATES_VALUE_SIZE: u32 = 1;
 pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
+
+pub global GRUMPKIN_ONE_X: Field = 1;
+pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
 
 mod test {
     use crate::constants::{

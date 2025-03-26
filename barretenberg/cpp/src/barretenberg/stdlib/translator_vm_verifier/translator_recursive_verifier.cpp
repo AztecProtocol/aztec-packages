@@ -77,7 +77,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     CommitmentLabels commitment_labels;
 
     const FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != key->circuit_size) {
+    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
         throw_or_abort(
             "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
     }
@@ -93,17 +93,17 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
     }
 
     // Get permutation challenges
+    FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
 
-    relation_parameters.beta = 0;
+    relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = 0;
-    relation_parameters.lookup_grand_product_delta = 0;
 
     // Get commitment to permutation and lookup grand products
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
     auto sumcheck = Sumcheck(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");

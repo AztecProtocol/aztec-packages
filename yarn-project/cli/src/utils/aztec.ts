@@ -1,11 +1,16 @@
 import type { EthAddress, PXE } from '@aztec/aztec.js';
-import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  FunctionType,
+  getAllFunctionAbis,
+  loadContractArtifact,
+} from '@aztec/aztec.js/abi';
 import type { DeployL1ContractsReturnType, L1ContractsConfig, RollupContract } from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { FunctionType } from '@aztec/stdlib/abi';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -19,8 +24,8 @@ import { encodeArgs } from './encoding.js';
  * @param fnName - Function name to be found.
  * @returns The function's ABI.
  */
-export function getFunctionArtifact(artifact: ContractArtifact, fnName: string): FunctionArtifact {
-  const fn = artifact.functions.find(({ name }) => name === fnName);
+export function getFunctionAbi(artifact: ContractArtifact, fnName: string): FunctionAbi {
+  const fn = getAllFunctionAbis(artifact).find(({ name }) => name === fnName);
   if (!fn) {
     throw Error(`Function ${fnName} not found in contract ABI.`);
   }
@@ -178,7 +183,7 @@ export async function getContractArtifact(fileDir: string, log: LogFn) {
  */
 export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
   const contractArtifact = await getContractArtifact(contractFile, log);
-  const functionArtifact = getFunctionArtifact(contractArtifact, functionName);
+  const functionArtifact = getFunctionAbi(contractArtifact, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionArtifact.parameters);
   const isPrivate = functionArtifact.functionType === FunctionType.PRIVATE;
 

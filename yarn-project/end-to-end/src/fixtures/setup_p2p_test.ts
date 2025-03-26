@@ -115,10 +115,8 @@ export async function createValidatorConfig(
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
-    udpListenAddress: `0.0.0.0:${port}`,
-    tcpListenAddress: `0.0.0.0:${port}`,
-    tcpAnnounceAddress: `127.0.0.1:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     p2pEnabled: true,
     peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
     blockCheckIntervalMS: 1000,

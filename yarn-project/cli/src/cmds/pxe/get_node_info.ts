@@ -35,6 +35,7 @@ export async function getNodeInfo(
         governanceProposer: info.l1ContractAddresses.governanceProposerAddress.toString(),
         governance: info.l1ContractAddresses.governanceAddress.toString(),
         slashFactory: info.l1ContractAddresses.slashFactoryAddress?.toString(),
+        feeAssetHandler: info.l1ContractAddresses.feeAssetHandlerAddress?.toString(),
       },
       protocolContractAddresses: {
         classRegisterer: info.protocolContractAddresses.classRegisterer.toString(),
@@ -61,7 +62,7 @@ export async function getNodeInfo(
     log(` GovernanceProposer Address: ${info.l1ContractAddresses.governanceProposerAddress.toString()}`);
     log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
     log(` SlashFactory Address: ${info.l1ContractAddresses.slashFactoryAddress?.toString()}`);
-
+    log(` FeeAssetHandler Address: ${info.l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
     log(`L2 Contract Addresses:`);
     log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);
     log(` Fee Juice: ${info.protocolContractAddresses.feeJuice.toString()}`);

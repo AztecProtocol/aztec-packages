@@ -1,4 +1,5 @@
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
+import { Signature } from '@aztec/foundation/eth-signature';
 import { toArray } from '@aztec/foundation/iterable';
 import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton, Range } from '@aztec/kv-store';
@@ -7,9 +8,9 @@ import { Body, type InBlock, L2Block, L2BlockHash } from '@aztec/stdlib/block';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import { BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import type { L1Published, L1PublishedData } from '../structs/published.js';
+import type { L1PublishedData, PublishedL2Block } from '../structs/published.js';
 
-export { type TxEffect, type TxHash, TxReceipt } from '@aztec/stdlib/tx';
+export { TxReceipt, type TxEffect, type TxHash } from '@aztec/stdlib/tx';
 
 type BlockIndexValue = [blockNumber: number, index: number];
 
@@ -17,6 +18,7 @@ type BlockStorage = {
   header: Buffer;
   archive: Buffer;
   l1: L1PublishedData;
+  signatures: Buffer[];
 };
 
 /**
@@ -61,25 +63,26 @@ export class BlockStore {
    * @param blocks - The L2 blocks to be added to the store.
    * @returns True if the operation is successful.
    */
-  async addBlocks(blocks: L1Published<L2Block>[]): Promise<boolean> {
+  async addBlocks(blocks: PublishedL2Block[]): Promise<boolean> {
     if (blocks.length === 0) {
       return true;
     }
 
     return await this.db.transactionAsync(async () => {
       for (const block of blocks) {
-        await this.#blocks.set(block.data.number, {
-          header: block.data.header.toBuffer(),
-          archive: block.data.archive.toBuffer(),
+        await this.#blocks.set(block.block.number, {
+          header: block.block.header.toBuffer(),
+          archive: block.block.archive.toBuffer(),
           l1: block.l1,
+          signatures: block.signatures.map(sig => sig.toBuffer()),
         });
 
-        for (let i = 0; i < block.data.body.txEffects.length; i++) {
-          const txEffect = block.data.body.txEffects[i];
-          await this.#txIndex.set(txEffect.txHash.toString(), [block.data.number, i]);
+        for (let i = 0; i < block.block.body.txEffects.length; i++) {
+          const txEffect = block.block.body.txEffects[i];
+          await this.#txIndex.set(txEffect.txHash.toString(), [block.block.number, i]);
         }
 
-        await this.#blockBodies.set((await block.data.hash()).toString(), block.data.body.toBuffer());
+        await this.#blockBodies.set((await block.block.hash()).toString(), block.block.body.toBuffer());
       }
 
       await this.#lastSynchedL1Block.set(blocks[blocks.length - 1].l1.blockNumber);
@@ -109,9 +112,9 @@ export class BlockStore {
           this.#log.warn(`Cannot remove block ${blockNumber} from the store since we don't have it`);
           continue;
         }
-        await this.#blocks.delete(block.data.number);
-        await Promise.all(block.data.body.txEffects.map(tx => this.#txIndex.delete(tx.txHash.toString())));
-        const blockHash = (await block.data.hash()).toString();
+        await this.#blocks.delete(block.block.number);
+        await Promise.all(block.block.body.txEffects.map(tx => this.#txIndex.delete(tx.txHash.toString())));
+        const blockHash = (await block.block.hash()).toString();
         await this.#blockBodies.delete(blockHash);
         this.#log.debug(`Unwound block ${blockNumber} ${blockHash}`);
       }
@@ -126,10 +129,9 @@ export class BlockStore {
    * @param limit - The number of blocks to return.
    * @returns The requested L2 blocks
    */
-  async *getBlocks(start: number, limit: number): AsyncIterableIterator<L1Published<L2Block>> {
+  async *getBlocks(start: number, limit: number): AsyncIterableIterator<PublishedL2Block> {
     for await (const blockStorage of this.#blocks.valuesAsync(this.#computeBlockRange(start, limit))) {
-      const block = await this.getBlockFromBlockStorage(blockStorage);
-      yield block;
+      yield await this.getBlockFromBlockStorage(blockStorage);
     }
   }
 
@@ -138,12 +140,11 @@ export class BlockStore {
    * @param blockNumber - The number of the block to return.
    * @returns The requested L2 block.
    */
-  async getBlock(blockNumber: number): Promise<L1Published<L2Block> | undefined> {
+  async getBlock(blockNumber: number): Promise<PublishedL2Block | undefined> {
     const blockStorage = await this.#blocks.getAsync(blockNumber);
     if (!blockStorage || !blockStorage.header) {
       return Promise.resolve(undefined);
     }
-
     return this.getBlockFromBlockStorage(blockStorage);
   }
 
@@ -170,9 +171,9 @@ export class BlockStore {
       );
     }
     const body = Body.fromBuffer(blockBodyBuffer);
-
-    const l2Block = new L2Block(archive, header, body);
-    return { data: l2Block, l1: blockStorage.l1 };
+    const block = new L2Block(archive, header, body);
+    const signatures = blockStorage.signatures.map(Signature.fromBuffer);
+    return { block, l1: blockStorage.l1, signatures };
   }
 
   /**
@@ -192,9 +193,9 @@ export class BlockStore {
     }
 
     return {
-      data: block.data.body.txEffects[txIndex],
-      l2BlockNumber: block.data.number,
-      l2BlockHash: (await block.data.hash()).toString(),
+      data: block.block.body.txEffects[txIndex],
+      l2BlockNumber: block.block.number,
+      l2BlockHash: (await block.block.hash()).toString(),
     };
   }
 
@@ -210,15 +211,15 @@ export class BlockStore {
     }
 
     const block = (await this.getBlock(blockNumber))!;
-    const tx = block.data.body.txEffects[txIndex];
+    const tx = block.block.body.txEffects[txIndex];
 
     return new TxReceipt(
       txHash,
       TxReceipt.statusFromRevertCode(tx.revertCode),
       '',
       tx.transactionFee.toBigInt(),
-      L2BlockHash.fromField(await block.data.hash()),
-      block.data.number,
+      L2BlockHash.fromField(await block.block.hash()),
+      block.block.number,
     );
   }
 

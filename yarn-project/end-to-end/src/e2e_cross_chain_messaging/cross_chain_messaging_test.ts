@@ -12,7 +12,7 @@ import {
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import { type ViemPublicClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
-import { InboxAbi, OutboxAbi, RollupAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
+import { InboxAbi, OutboxAbi, TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
@@ -49,7 +49,6 @@ export class CrossChainMessagingTest {
   l2Token!: TokenContract;
   l2Bridge!: TokenBridgeContract;
 
-  rollup!: any; // GetContractReturnType<typeof RollupAbi> | undefined;
   inbox!: any; // GetContractReturnType<typeof InboxAbi> | undefined;
   outbox!: any; // GetContractReturnType<typeof OutboxAbi> | undefined;
   cheatcodes!: CheatCodes;
@@ -60,7 +59,7 @@ export class CrossChainMessagingTest {
   }
 
   async assumeProven() {
-    await this.cheatcodes.rollup.markAsProven(await this.rollup.read.getPendingBlockNumber());
+    await this.cheatcodes.rollup.markAsProven();
   }
 
   async setup() {
@@ -88,16 +87,10 @@ export class CrossChainMessagingTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode, deployL1ContractsValues }) => {
+      async ({ deployedAccounts }, { pxe, aztecNodeConfig, aztecNode }) => {
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.accounts = this.wallets.map(w => w.getCompleteAddress());
         this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-
-        this.rollup = getContract({
-          address: deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-          abi: RollupAbi,
-          client: deployL1ContractsValues.walletClient,
-        });
 
         this.user1Wallet = this.wallets[0];
         this.user2Wallet = this.wallets[1];
@@ -125,15 +118,6 @@ export class CrossChainMessagingTest {
           TestERC20Bytecode,
           ['Underlying', 'UND', walletClient.account.address],
         ).then(({ address }) => address);
-
-        const underlyingERC20 = getContract({
-          address: underlyingERC20Address!.toString(),
-          abi: TestERC20Abi,
-          client: walletClient,
-        });
-
-        // allow anyone to mint
-        await underlyingERC20.write.setFreeForAll([true], {} as any);
 
         this.logger.verbose(`Setting up cross chain harness...`);
         this.crossChainTestHarness = await CrossChainTestHarness.new(

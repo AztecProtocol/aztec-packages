@@ -4,7 +4,6 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 project_name=$(basename "$PWD")
-test_flag=$project_name-tests-$(cache_content_hash ../../noir/.rebuild_patterns "^noir-projects/$project_name")
 
 export RAYON_NUM_THREADS=${RAYON_NUM_THREADS:-16}
 export HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
@@ -13,15 +12,16 @@ export PLATFORM_TAG=any
 export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
-export NARGO_HASH=$(cache_content_hash ../../noir/.rebuild_patterns)
+export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
+test_flag=$project_name-tests-$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name"))
 key_dir=./target/keys
 mkdir -p $key_dir
 
 # Hash of the entire protocol circuits.
 # Needed for test hash, as we presently don't have a program hash for each individual test.
 # Means if anything within the dir changes, the tests will rerun.
-circuits_hash=$(cache_content_hash "^noir-projects/$project_name/crates/" ../../noir/.rebuild_patterns)
+circuits_hash=$(hash_str "$NOIR_HASH" $(cache_content_hash "^noir-projects/$project_name/crates/"))
 
 # Circuits matching these patterns we have client-ivc keys computed, rather than ultra-honk.
 ivc_patterns=(
@@ -48,7 +48,7 @@ rollup_honk_regex=$(IFS="|"; echo "${rollup_honk_patterns[*]}")
 keccak_honk_regex=rollup_root
 verifier_generate_regex=rollup_root
 
-function on_exit() {
+function on_exit {
   rm -f joblog.txt
 }
 trap on_exit EXIT
@@ -68,8 +68,8 @@ function compile {
   local program_hash_cmd="$NARGO check --package $name --silence-warnings --show-program-hash | cut -d' ' -f2"
   # echo_stderr $program_hash_cmd
   program_hash=$(dump_fail "$program_hash_cmd")
-  echo_stderr "Hash preimage: $NARGO_HASH-$program_hash"
-  hash=$(hash_str "$NARGO_HASH-$program_hash")
+  echo_stderr "Hash preimage: $NOIR_HASH-$program_hash"
+  hash=$(hash_str "$NOIR_HASH-$program_hash")
 
   if ! cache_download circuit-$hash.tar.gz 1>&2; then
     SECONDS=0
@@ -90,7 +90,7 @@ function compile {
 
   if echo "$name" | grep -qE "${ivc_regex}"; then
     local proto="client_ivc"
-    local write_vk_cmd="write_vk --scheme client_ivc"
+    local write_vk_cmd="write_vk --scheme client_ivc --verifier_type standalone"
   elif echo "$name" | grep -qE "${rollup_honk_regex}"; then
     local proto="ultra_rollup_honk"
     # --honk_recursion 2 injects a fake ipa claim

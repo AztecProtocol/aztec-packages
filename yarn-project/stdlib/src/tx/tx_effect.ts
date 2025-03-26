@@ -158,6 +158,28 @@ export class TxEffect {
     ]);
   }
 
+  equals(other: TxEffect): boolean {
+    return (
+      this.revertCode.equals(other.revertCode) &&
+      this.txHash.equals(other.txHash) &&
+      this.transactionFee.equals(other.transactionFee) &&
+      this.noteHashes.length === other.noteHashes.length &&
+      this.noteHashes.every((h, i) => h.equals(other.noteHashes[i])) &&
+      this.nullifiers.length === other.nullifiers.length &&
+      this.nullifiers.every((h, i) => h.equals(other.nullifiers[i])) &&
+      this.l2ToL1Msgs.length === other.l2ToL1Msgs.length &&
+      this.l2ToL1Msgs.every((h, i) => h.equals(other.l2ToL1Msgs[i])) &&
+      this.publicDataWrites.length === other.publicDataWrites.length &&
+      this.publicDataWrites.every((h, i) => h.equals(other.publicDataWrites[i])) &&
+      this.privateLogs.length === other.privateLogs.length &&
+      this.privateLogs.every((h, i) => h.equals(other.privateLogs[i])) &&
+      this.publicLogs.length === other.publicLogs.length &&
+      this.publicLogs.every((h, i) => h.equals(other.publicLogs[i])) &&
+      this.contractClassLogs.length === other.contractClassLogs.length &&
+      this.contractClassLogs.every((h, i) => h.equals(other.contractClassLogs[i]))
+    );
+  }
+
   /** Returns the size of this tx effect in bytes as serialized onto DA. */
   getDASize() {
     return this.toBlobFields().length * Fr.SIZE_IN_BYTES;
@@ -223,7 +245,7 @@ export class TxEffect {
       makeTuple(MAX_L2_TO_L1_MSGS_PER_TX, Fr.random),
       makeTuple(MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX, () => new PublicDataWrite(Fr.random(), Fr.random())),
       makeTuple(MAX_PRIVATE_LOGS_PER_TX, () => new PrivateLog(makeTuple(PRIVATE_LOG_SIZE_IN_FIELDS, Fr.random))),
-      await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, PublicLog.random),
+      await makeTupleAsync(numPublicCallsPerTx * numPublicLogsPerCall, async () => await PublicLog.random()),
       await makeTupleAsync(MAX_CONTRACT_CLASS_LOGS_PER_TX, ContractClassLog.random),
     );
   }

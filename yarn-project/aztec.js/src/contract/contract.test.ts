@@ -13,7 +13,7 @@ import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimu
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { Wallet } from '../account/wallet.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -121,6 +121,7 @@ describe('Contract Class', () => {
         errorTypes: {},
       },
     ],
+    nonDispatchPublicFunctions: [],
     outputs: {
       structs: {},
       globals: {},
@@ -167,7 +168,6 @@ describe('Contract Class', () => {
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
-    wallet.getRegisteredAccounts.mockResolvedValue([account]);
     wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
@@ -192,7 +192,7 @@ describe('Contract Class', () => {
       from: account.address,
     });
     expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
+    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
     expect(result).toBe(mockUnconstrainedResultValue);
   });
 

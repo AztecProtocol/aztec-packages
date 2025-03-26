@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Test Production Deployment Script
 # ================================
@@ -125,8 +125,3 @@ export OVERRIDES="bootNode.externalHost=$boot_node_host,ethereum.execution.exter
 echo "OVERRIDES: $OVERRIDES"
 
 FRESH_INSTALL=false INSTALL_METRICS=false HELM_INSTANCE=$offshoot ./test_kind.sh src/spartan/smoke.test.ts $offshoot_values_file $NAMESPACE
-
-
-
-
-

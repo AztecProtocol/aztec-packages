@@ -231,6 +231,11 @@ export interface FunctionArtifact extends FunctionAbi {
   debug?: FunctionDebugMetadata;
 }
 
+export interface FunctionArtifactWithContractName extends FunctionArtifact {
+  /** The name of the contract. */
+  contractName: string;
+}
+
 export const FunctionArtifactSchema = FunctionAbiSchema.and(
   z.object({
     bytecode: schemas.Buffer,
@@ -334,11 +339,11 @@ export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
 
-  /** The version of compiler used to create this artifact */
-  aztecNrVersion?: string;
-
-  /** The functions of the contract. */
+  /** The functions of the contract. Includes private and unconstrained functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
+
+  /** The public functions of the contract, excluding dispatch. */
+  nonDispatchPublicFunctions: FunctionAbi[];
 
   /** The outputs of the contract. */
   outputs: {
@@ -358,8 +363,8 @@ export interface ContractArtifact {
 
 export const ContractArtifactSchema: ZodFor<ContractArtifact> = z.object({
   name: z.string(),
-  aztecNrVersion: z.string().optional(),
   functions: z.array(FunctionArtifactSchema),
+  nonDispatchPublicFunctions: z.array(FunctionAbiSchema),
   outputs: z.object({
     structs: z.record(z.array(AbiTypeSchema)).transform(structs => {
       for (const [key, value] of Object.entries(structs)) {
@@ -395,7 +400,7 @@ export function getFunctionArtifactByName(artifact: ContractArtifact, functionNa
 export async function getFunctionArtifact(
   artifact: ContractArtifact,
   functionNameOrSelector: string | FunctionSelector,
-): Promise<FunctionArtifact> {
+): Promise<FunctionArtifactWithContractName> {
   let functionArtifact;
   if (typeof functionNameOrSelector === 'string') {
     functionArtifact = artifact.functions.find(f => f.name === functionNameOrSelector);
@@ -416,7 +421,12 @@ export async function getFunctionArtifact(
 
   const debugMetadata = getFunctionDebugMetadata(artifact, functionArtifact);
 
-  return { ...functionArtifact, debug: debugMetadata };
+  return { ...functionArtifact, debug: debugMetadata, contractName: artifact.name };
+}
+
+/** Gets all function abis */
+export function getAllFunctionAbis(artifact: ContractArtifact): FunctionAbi[] {
+  return artifact.functions.map(f => f as FunctionAbi).concat(artifact.nonDispatchPublicFunctions || []);
 }
 
 export function parseDebugSymbols(debugSymbols: string): DebugInfo[] {
@@ -467,8 +477,9 @@ export function getFunctionDebugMetadata(
  * @param contractArtifact - The contract artifact.
  * @returns An initializer function, or none if there are no functions flagged as initializers in the contract.
  */
-export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionArtifact | undefined {
-  const initializers = contractArtifact.functions.filter(f => f.isInitializer);
+export function getDefaultInitializer(contractArtifact: ContractArtifact): FunctionAbi | undefined {
+  const functionAbis = getAllFunctionAbis(contractArtifact);
+  const initializers = functionAbis.filter(f => f.isInitializer);
   return initializers.length > 1
     ? initializers.find(f => f.name === 'constructor') ??
         initializers.find(f => f.name === 'initializer') ??
@@ -486,9 +497,10 @@ export function getDefaultInitializer(contractArtifact: ContractArtifact): Funct
 export function getInitializer(
   contract: ContractArtifact,
   initializerNameOrArtifact: string | undefined | FunctionArtifact,
-): FunctionArtifact | undefined {
+): FunctionAbi | undefined {
   if (typeof initializerNameOrArtifact === 'string') {
-    const found = contract.functions.find(f => f.name === initializerNameOrArtifact);
+    const functionAbis = getAllFunctionAbis(contract);
+    const found = functionAbis.find(f => f.name === initializerNameOrArtifact);
     if (!found) {
       throw new Error(`Constructor method ${initializerNameOrArtifact} not found in contract artifact`);
     } else if (!found.isInitializer) {

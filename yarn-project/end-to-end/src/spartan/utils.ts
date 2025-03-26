@@ -1,7 +1,9 @@
-import { createAztecNodeClient, createLogger, sleep } from '@aztec/aztec.js';
+import { createLogger, sleep } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
 import type { Logger } from '@aztec/foundation/log';
+import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';
+import { createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
 import path from 'path';
@@ -35,6 +37,7 @@ const k8sLocalConfigSchema = z.object({
   INSTANCE_NAME: z.string().min(1, 'INSTANCE_NAME env variable must be set'),
   NAMESPACE: z.string().min(1, 'NAMESPACE env variable must be set'),
   CONTAINER_NODE_PORT: z.coerce.number().default(8080),
+  CONTAINER_NODE_ADMIN_PORT: z.coerce.number().default(8880),
   CONTAINER_SEQUENCER_PORT: z.coerce.number().default(8080),
   CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
@@ -58,6 +61,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
 const directConfigSchema = z.object({
   PXE_URL: z.string().url('PXE_URL must be a valid URL'),
   NODE_URL: z.string().url('NODE_URL must be a valid URL'),
+  NODE_ADMIN_URL: z.string().url('NODE_ADMIN_URL must be a valid URL'),
   ETHEREUM_HOSTS: ethereumHostsSchema,
   K8S: z.literal('false'),
 });
@@ -84,6 +88,49 @@ export function setupEnvironment(env: unknown): EnvConfig {
     execSync(command);
   }
   return config;
+}
+
+/**
+ * @param path - The path to the script, relative to the project root
+ * @param args - The arguments to pass to the script
+ * @param logger - The logger to use
+ * @returns The exit code of the script
+ */
+function runScript(path: string, args: string[], logger: Logger, env?: Record<string, string>) {
+  const childProcess = spawn(path, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: env ? { ...process.env, ...env } : process.env,
+  });
+  return new Promise<number>((resolve, reject) => {
+    childProcess.on('close', (code: number | null) => resolve(code ?? 0));
+    childProcess.on('error', reject);
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      logger.info(data.toString());
+    });
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      logger.error(data.toString());
+    });
+  });
+}
+
+export function getAztecBin() {
+  return path.join(getGitProjectRoot(), 'yarn-project/aztec/dest/bin/index.js');
+}
+
+/**
+ * Runs the Aztec binary
+ * @param args - The arguments to pass to the Aztec binary
+ * @param logger - The logger to use
+ * @param env - Optional environment variables to set for the process
+ * @returns The exit code of the Aztec binary
+ */
+export function runAztecBin(args: string[], logger: Logger, env?: Record<string, string>) {
+  return runScript('node', [getAztecBin(), ...args], logger, env);
+}
+
+export function runProjectScript(script: string, args: string[], logger: Logger, env?: Record<string, string>) {
+  const scriptPath = script.startsWith('/') ? script : path.join(getGitProjectRoot(), script);
+  return runScript(scriptPath, args, logger, env);
 }
 
 export async function startPortForward({
@@ -127,7 +174,6 @@ export async function startPortForward({
           throw new Error('Port not found in port forward output');
         }
         const portNumber = parseInt(str.slice(port + 1));
-        logger.info(`Port forward connected: ${portNumber}`);
         logger.info(`Port forward connected: ${portNumber}`);
         resolve(portNumber);
       } else {
@@ -516,8 +562,9 @@ export async function runAlertCheck(config: EnvConfig, alerts: AlertConfig[], lo
 }
 
 export async function updateSequencerConfig(url: string, config: Partial<SequencerConfig>) {
-  const node = createAztecNodeClient(url);
-  await node.setConfig(config);
+  const node = createAztecNodeAdminClient(url);
+  // Retry incase the port forward is not ready yet
+  await retry(() => node.setConfig(config), 'Update sequencer config', makeBackoff([1, 3, 6]), logger);
 }
 
 export async function getSequencers(namespace: string) {
@@ -526,7 +573,7 @@ export async function getSequencers(namespace: string) {
   return stdout.split(' ');
 }
 
-export async function updateK8sSequencersConfig(args: {
+async function updateK8sSequencersConfig(args: {
   containerPort: number;
   namespace: string;
   config: Partial<SequencerConfig>;
@@ -549,12 +596,12 @@ export async function updateK8sSequencersConfig(args: {
 export async function updateSequencersConfig(env: EnvConfig, config: Partial<SequencerConfig>) {
   if (isK8sConfig(env)) {
     await updateK8sSequencersConfig({
-      containerPort: env.CONTAINER_NODE_PORT,
+      containerPort: env.CONTAINER_NODE_ADMIN_PORT,
       namespace: env.NAMESPACE,
       config,
     });
   } else {
-    await updateSequencerConfig(env.NODE_URL, config);
+    await updateSequencerConfig(env.NODE_ADMIN_URL, config);
   }
 }
 
@@ -579,4 +626,20 @@ export async function rollAztecPods(namespace: string) {
   await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=prover-agent' });
   await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=validator' });
   await waitForResourceByLabel({ resource: 'pods', namespace: namespace, label: 'app=pxe' });
+}
+
+/**
+ * Returns the absolute path to the git repository root
+ */
+export function getGitProjectRoot(): string {
+  try {
+    const rootDir = execSync('git rev-parse --show-toplevel', {
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+
+    return rootDir;
+  } catch (error) {
+    throw new Error(`Failed to determine git project root: ${error}`);
+  }
 }

@@ -36,6 +36,7 @@ if [ -z "${CI_FULL:-}" ]; then
     export CI_FULL=1
   fi
 fi
+export CI_NIGHTLY="${CI_NIGHTLY:-0}"
 
 if [ -z "${COMMIT_HASH:-}" ]; then
   export COMMIT_HASH=$(git rev-parse HEAD)

@@ -9,7 +9,7 @@ use protocol_types::traits::{Hash, ToField};
 
 mod test;
 
-trait PublicStorageHistoricalRead {
+pub trait PublicStorageHistoricalRead {
     fn public_storage_historical_read(
         header: BlockHeader,
         storage_slot: Field,

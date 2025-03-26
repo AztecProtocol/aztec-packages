@@ -1,5 +1,5 @@
 import { Aes128 } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -23,7 +23,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */
     protected readonly authWitnesses: AuthWitness[],
-    protected readonly capsules: Capsule[],
+    protected readonly capsules: Capsule[], // TODO(#12425): Rename to transientCapsules
     protected readonly executionDataProvider: ExecutionDataProvider,
     protected log = createLogger('simulator:client_view_context'),
     protected readonly scopes?: AztecAddress[],
@@ -103,11 +103,11 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    * @param leafSlot - The slot of the public data tree to get the witness for.
    * @returns - The witness
    */
-  public override async getPublicDataTreeWitness(
+  public override async getPublicDataWitness(
     blockNumber: number,
     leafSlot: Fr,
   ): Promise<PublicDataWitness | undefined> {
-    return await this.executionDataProvider.getPublicDataTreeWitness(blockNumber, leafSlot);
+    return await this.executionDataProvider.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   /**
@@ -149,10 +149,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
    * @returns Authentication witness for the requested message hash.
    */
   public override getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    return Promise.resolve(
-      this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness ??
-        this.executionDataProvider.getAuthWitness(messageHash),
-    );
+    return Promise.resolve(this.authWitnesses.find(w => w.requestHash.equals(messageHash))?.witness);
   }
 
   /**
@@ -288,7 +285,11 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     );
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.executionDataProvider.processTaggedLogs(taggedLogs, AztecAddress.fromString(recipient));
+      await this.executionDataProvider.processTaggedLogs(
+        this.contractAddress,
+        taggedLogs,
+        AztecAddress.fromString(recipient),
+      );
     }
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
@@ -339,6 +340,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
       throw new Error(`Contract ${contractAddress} is not allowed to access ${this.contractAddress}'s PXE DB`);
     }
     return (
+      // TODO(#12425): On the following line, the pertinent capsule gets overshadowed by the transient one. Tackle this.
       this.capsules.find(c => c.contractAddress.equals(contractAddress) && c.storageSlot.equals(slot))?.data ??
       (await this.executionDataProvider.loadCapsule(this.contractAddress, slot))
     );
@@ -369,5 +371,9 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
   public override aes128Decrypt(ciphertext: Buffer, iv: Buffer, symKey: Buffer): Promise<Buffer> {
     const aes128 = new Aes128();
     return aes128.decryptBufferCBC(ciphertext, iv, symKey);
+  }
+
+  public override getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+    return this.executionDataProvider.getSharedSecret(address, ephPk);
   }
 }

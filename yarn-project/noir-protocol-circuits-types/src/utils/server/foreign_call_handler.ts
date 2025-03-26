@@ -5,14 +5,6 @@ import type { ForeignCallInput, ForeignCallOutput } from '@aztec/noir-acvm_js';
 
 import { strict as assert } from 'assert';
 
-function fromACVMField(field: string): Fr {
-  return Fr.fromBuffer(Buffer.from(field.slice(2), 'hex'));
-}
-
-function toACVMField(field: Fr): string {
-  return `0x${field.toBuffer().toString('hex')}`;
-}
-
 export async function foreignCallHandler(name: string, args: ForeignCallInput[]): Promise<ForeignCallOutput[]> {
   // ForeignCallInput is actually a string[], so the args are string[][].
   const log = createLogger('noir-protocol-circuits:oracle');
@@ -20,25 +12,25 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
   if (name === 'debugLog') {
     assert(args.length === 3, 'expected 3 arguments for debugLog: msg, fields_length, fields');
     const [msgRaw, _ignoredFieldsSize, fields] = args;
-    const msg: string = msgRaw.map(acvmField => String.fromCharCode(fromACVMField(acvmField).toNumber())).join('');
-    const fieldsFr: Fr[] = fields.map((field: string) => fromACVMField(field));
+    const msg: string = msgRaw.map(acvmField => String.fromCharCode(Fr.fromString(acvmField).toNumber())).join('');
+    const fieldsFr: Fr[] = fields.map((field: string) => Fr.fromString(field));
     log.verbose('debug_log ' + applyStringFormatting(msg, fieldsFr));
   } else if (name === 'evaluateBlobs') {
     // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
     // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
     // If/when simulation times of unconstrained are improved, remove this.
-    // Create and evaulate our blobs:
-    const paddedBlobsAsFr: Fr[] = args[0].map((field: string) => fromACVMField(field));
-    const kzgCommitments = args[1].map((field: string) => fromACVMField(field));
+    // Create and evaluate our blobs:
+    const paddedBlobsAsFr: Fr[] = args[0].map((field: string) => Fr.fromString(field));
+    const kzgCommitments = args[1].map((field: string) => Fr.fromString(field));
     const spongeBlob = SpongeBlob.fromFields(
       args
         .slice(2)
         .flat()
-        .map((field: string) => fromACVMField(field)),
+        .map((field: string) => Fr.fromString(field)),
     );
     const blobsAsFr = paddedBlobsAsFr.slice(0, spongeBlob.expectedFields);
     // NB: the above used to be:
-    // const blobsAsFr: Fr[] = args[0].map((field: string) => fromACVMField(field)).filter(field => !field.isZero());
+    // const blobsAsFr: Fr[] = args[0].map((field: string) => Fr.fromString(field)).filter(field => !field.isZero());
     // ...but we now have private logs which have a fixed number of fields and may have 0 values.
     // TODO(Miranda): trim 0 fields from private logs
     const blobs = await Blob.getBlobs(blobsAsFr);
@@ -57,7 +49,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
         );
       }
     });
-    return Promise.resolve([blobPublicInputs.toFields().map(toACVMField)]);
+    return Promise.resolve([blobPublicInputs.toFields().map(field => field.toString())]);
   } else if (name === 'noOp') {
     // Workaround for compiler issues where data is deleted because it's "unused"
   } else {
