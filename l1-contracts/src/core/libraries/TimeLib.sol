@@ -6,9 +6,9 @@ pragma solidity >=0.8.27;
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 
 struct TimeStorage {
-  uint256 genesisTime;
-  uint256 slotDuration; // Number of seconds in a slot
-  uint256 epochDuration; // Number of slots in an epoch
+  uint128 genesisTime;
+  uint32 slotDuration; // Number of seconds in a slot
+  uint32 epochDuration; // Number of slots in an epoch
 }
 
 library TimeLib {
@@ -16,9 +16,9 @@ library TimeLib {
 
   function initialize(uint256 _genesisTime, uint256 _slotDuration, uint256 _epochDuration) internal {
     TimeStorage storage store = getStorage();
-    store.genesisTime = _genesisTime;
-    store.slotDuration = _slotDuration;
-    store.epochDuration = _epochDuration;
+    store.genesisTime = uint128(_genesisTime);
+    store.slotDuration = uint32(_slotDuration);
+    store.epochDuration = uint32(_epochDuration);
   }
 
   function toTimestamp(Slot _a) internal view returns (Timestamp) {

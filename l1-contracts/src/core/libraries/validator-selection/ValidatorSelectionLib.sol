@@ -5,12 +5,13 @@ pragma solidity >=0.8.27;
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
-  EpochData, ValidatorSelectionStorage
+  EpochData, ValidatorSelectionStorage, ValidatorSetSizeSnapshot
 } from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/interfaces/IStaking.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
@@ -19,6 +20,7 @@ library ValidatorSelectionLib {
   using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
@@ -44,6 +46,9 @@ library ValidatorSelectionLib {
     EpochData storage epoch = store.epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
+      // TODO: can be combined into the current epoch store
+      checkpointValidatorSetSize(_stakingStore, epochNumber);
+
       epoch.sampleSeed = getSampleSeed(epochNumber);
       epoch.nextSeed = store.lastSeed = computeNextSeed(epochNumber);
       epoch.committee = sampleValidators(_stakingStore, epoch.sampleSeed);
@@ -144,6 +149,17 @@ library ValidatorSelectionLib {
     )];
 
     return _stakingStore.info[attester].proposer;
+  }
+
+  function checkpointValidatorSetSize(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
+    ValidatorSelectionStorage storage store = getStorage();
+    uint256 setSize = _stakingStore.attesters.length();
+
+    // TODO: safe cast
+    store.epochSizeSnapshots.push(ValidatorSetSizeSnapshot({
+      size: uint128(setSize),
+      epochNumber: uint96(Epoch.unwrap(_epochNumber))
+    }));
   }
 
   /**

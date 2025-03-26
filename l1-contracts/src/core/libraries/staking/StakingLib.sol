@@ -13,11 +13,11 @@ import {
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/interfaces/IStaking.sol";
 
 library StakingLib {
   using SafeERC20 for IERC20;
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   bytes32 private constant STAKING_SLOT = keccak256("aztec.core.staking.storage");
 
@@ -126,6 +126,7 @@ library StakingLib {
       Errors.Staking__NothingToExit(_attester)
     );
     if (validator.status == Status.VALIDATING) {
+      // Need to remove them based on the index, not the address!!!!!
       require(store.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
     }
 

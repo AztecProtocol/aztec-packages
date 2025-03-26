@@ -4,7 +4,8 @@ pragma solidity >=0.8.27;
 
 import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+
 
 // None -> Does not exist in our setup
 // Validating -> Participating as validator
@@ -35,12 +36,13 @@ struct Exit {
   address recipient;
 }
 
+
 struct StakingStorage {
   IERC20 stakingAsset;
   address slasher;
   uint256 minimumStake;
   Timestamp exitDelay;
-  EnumerableSet.AddressSet attesters;
+  SnapshottedAddressSet attesters;
   mapping(address attester => ValidatorInfo) info;
   mapping(address attester => Exit) exits;
 }

@@ -19,8 +19,7 @@ import {
   IStaking,
   ValidatorInfo,
   Exit,
-  OperatorInfo,
-  EnumerableSet
+  OperatorInfo
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {
@@ -28,6 +27,7 @@ import {
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
 import {
@@ -59,7 +59,7 @@ import {
  *         about the state of the rollup and test it.
  */
 contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   using TimeLib for Timestamp;
   using TimeLib for Slot;

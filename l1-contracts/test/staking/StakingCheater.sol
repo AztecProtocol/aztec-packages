@@ -3,7 +3,6 @@
 pragma solidity >=0.8.27;
 
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
-import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 import {
   IStaking, ValidatorInfo, Exit, OperatorInfo, Status
 } from "@aztec/core/interfaces/IStaking.sol";
@@ -11,9 +10,10 @@ import {
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Slasher} from "@aztec/core/staking/Slasher.sol";
+import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/interfaces/IStaking.sol";
 
 contract StakingCheater is IStaking {
-  using EnumerableSet for EnumerableSet.AddressSet;
+  using AddressSnapshotLib for SnapshottedAddressSet;
 
   constructor(
     IERC20 _stakingAsset,

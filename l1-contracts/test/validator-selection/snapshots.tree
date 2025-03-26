@@ -1,0 +1,4 @@
+ValidatorSnapshotTest
+└── When the snapshots are empty
+    ├── It should allow additions and removals
+    └── It should not allow removals of non-existent validators
