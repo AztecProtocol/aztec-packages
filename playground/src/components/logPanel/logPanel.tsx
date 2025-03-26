@@ -9,7 +9,12 @@ import ArticleIcon from '@mui/icons-material/Article';
 import { styled } from '@mui/material/styles';
 
 const Root = styled('div')(({ theme }) => ({
-  height: '100%',
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  height: 0,
+  zIndex: 1001,
   ...theme.applyStyles('dark', {
     backgroundColor: theme.palette.background.default,
   }),
@@ -24,12 +29,12 @@ const StyledBox = styled('div')(({ theme }) => ({
 
 const Puller = styled('div')(({ theme }) => ({
   width: 30,
-  height: 6,
+  height: 3,
   backgroundColor: 'var(--mui-palette-primary-light)',
   borderRadius: 3,
   position: 'absolute',
-  top: 8,
-  left: 'calc(50% - 20px)',
+  top: 4,
+  left: 'calc(50% - 15px)',
   ...theme.applyStyles('dark', {
     backgroundColor: 'var(--mui-palette-primary-dark)',
   }),
@@ -67,7 +72,7 @@ const logTimestamp = css({});
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const safeStringify = (obj: any) => JSON.stringify(obj, (_, v) => (typeof v === 'bigint' ? v.toString() : v));
 
-const drawerBleeding = 56;
+const drawerBleeding = 20;
 
 export function LogPanel() {
   const { logs, logsOpen, setLogsOpen } = useContext(AztecContext);
@@ -82,7 +87,7 @@ export function LogPanel() {
         <Global
           styles={{
             '.MuiDrawer-root > .MuiPaper-root': {
-              height: `calc(50% - ${drawerBleeding}px)`,
+              height: `calc(30% - ${drawerBleeding}px)`,
               overflow: 'visible',
             },
           }}
@@ -110,10 +115,13 @@ export function LogPanel() {
               right: 0,
               left: 0,
               alignItems: 'center',
+              height: drawerBleeding,
+              maxHeight: drawerBleeding,
+              overflow: 'hidden'
             }}
           >
             <Puller />
-            <Typography sx={{ p: 2, color: 'text.secondary' }}>{logs.length}&nbsp;logs</Typography>
+            <Typography sx={{ p: 1, color: 'text.secondary', fontSize: '0.75rem' }}>{logs.length}&nbsp;logs</Typography>
           </StyledBox>
           <StyledBox sx={{ px: 0.5, height: '100%', overflow: 'auto' }}>
             {logs.map((log, index) => (
@@ -140,9 +148,10 @@ export function LogPanel() {
       </Root>
       <Fab
         sx={{
-          position: 'absolute',
-          bottom: '5rem',
+          position: 'fixed',
+          bottom: '1rem',
           right: '1rem',
+          zIndex: 1000,
           '@media (width <= 800px)': {
             visibility: 'hidden',
           },

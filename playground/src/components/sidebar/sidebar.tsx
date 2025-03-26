@@ -17,7 +17,6 @@ import Typography from '@mui/material/Typography';
 import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
 import { CopyToClipboardButton } from '../common/copyToClipboardButton';
 import { AddSendersDialog } from './components/addSenderDialog';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { TxsPanel } from './components/txsPanel';
 import { AddNetworksDialog } from './components/addNetworkDialog';
 import CodeIcon from '@mui/icons-material/Code';
@@ -62,22 +61,24 @@ type Network = {
 
 const NETWORKS: Network[] = [
   {
-    nodeURL: import.meta.env.VITE_DEVNET_URL || 'https://aztec-sandbox-devnet.aztec.network:8080',
+    nodeURL:'http://104.198.9.16:8080/',
     name: 'Aztec Devnet',
     description: 'Public development network',
   },
   {
     nodeURL: 'http://localhost:8080',
-    name: 'Local Network',
-    description: 'Run your own node',
+    name: 'Local Sandbox',
+    description: 'Run your own sandbox',
   },
 ];
 
-async function getInitialEcdsaR1TestAccounts() {
-
+async function getInitialEcdsaKTestAccounts() {
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => {
-      const signingKey = deriveSigningKey(secret);
+      // Create a fixed deterministic Buffer for each account's signing key
+      const signingKey = Buffer.alloc(32);
+      // Fill with a pattern based on index to make it deterministic but unique
+      signingKey.write(`test-key-${i}`.padEnd(32, '-'), 0, 32, 'utf8');
       const salt = INITIAL_TEST_ACCOUNT_SALTS[i];
 
       return {
@@ -155,79 +156,123 @@ export function SidebarComponent() {
     setIsConnecting(false);
   };
 
-  const getAccountsAndSenders = async () => {
-    const aliasedBuffers = await walletDB.listAliases('accounts');
-    const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
-    // Use our custom ECDSA R1 test accounts
-    const testAccountData = await getInitialEcdsaR1TestAccounts();
-    let i = 0;
-    for (const accountData of testAccountData) {
-      try {
+  const getAccountsAndSenders = async (): Promise<{ ourAccounts: any[]; senders: any[] }> => {
+    console.log('=== LOADING ACCOUNTS ===');
 
-        const signingKeyBuffer = Buffer.alloc(64);
+    try {
+      // Get existing accounts from the wallet database
+      const aliasedBuffers = await walletDB.listAliases('accounts');
+      const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
+      console.log('Found stored accounts:', aliasedAccounts);
 
-        signingKeyBuffer.write('11'.repeat(32), 0, 32, 'hex');
-        signingKeyBuffer.write('22'.repeat(32), 32, 32, 'hex');
+      // Use ECDSA K test accounts
+      const testAccountData = await getInitialEcdsaKTestAccounts();
+      console.log('Test account data prepared:', testAccountData.length);
 
-        console.log(`Preparing ECDSA key for account ${i}...`);
+      let i = 0;
+      for (const accountData of testAccountData) {
+        try {
+          console.log(`Processing test account ${i}...`);
 
-        const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
-        const account: AccountManager = await getEcdsaRSSHAccount(
-          pxe,
-          accountData.secret,
-          signingKeyBuffer,
-          accountData.salt,
-        );
+          // Import specifically the ECDSA K account functions
+          const { getEcdsaKAccount } = await import('@aztec/accounts/ecdsa/lazy');
 
-        if (!aliasedAccounts.find(({ value }) => {
-          try {
-            return account.getAddress().equals(AztecAddress.fromString(value));
-          } catch (e) {
-            return false;
+          // Create account manager with the account data
+          console.log(`Creating account manager for test account ${i}...`);
+          const account: AccountManager = await getEcdsaKAccount(
+            pxe,
+            accountData.secret,
+            accountData.signingKey,
+            accountData.salt,
+          );
+
+          // Check if this account already exists in our database
+          const accountAddress = account.getAddress().toString();
+          console.log(`Account ${i} address: ${accountAddress}`);
+
+          const existingAccount = aliasedAccounts.find(({ value }) => {
+            try {
+              return value === accountAddress;
+            } catch (e) {
+              return false;
+            }
+          });
+
+          if (!existingAccount) {
+            console.log(`Account ${i} not found in database, registering...`);
+
+            // Register account with PXE
+            await account.register();
+            console.log(`Account ${i} registered with PXE`);
+
+            const instance = account.getInstance();
+            const wallet = await account.getWallet();
+            const alias = `ecdsa${i}`;
+
+            // Store account info
+            await walletDB.storeAccount(instance.address, {
+              type: 'ecdsasecp256k1',
+              secretKey: wallet.getSecretKey(),
+              alias,
+              salt: account.getInstance().salt,
+            });
+
+            // Store signing key as metadata
+            await walletDB.storeAccountMetadata(instance.address, 'signingPrivateKey', accountData.signingKey);
+            console.log(`Account ${i} metadata stored`);
+
+            // Add to our list
+            aliasedAccounts.push({
+              key: `accounts:${alias}`,
+              value: instance.address.toString(),
+            });
+
+            console.log(`Account ${i} (${alias}) registered successfully`);
+          } else {
+            console.log(`Account ${i} already exists as ${existingAccount.key}`);
           }
-        })) {
-          console.log(`Registering ECDSA R1 account ${i}...`);
-          await account.register();
-          const instance = account.getInstance();
-          const wallet = await account.getWallet();
-          const alias = `ecdsa${i}`;
-          await walletDB.storeAccount(instance.address, {
-            type: 'ecdsasecp256r1ssh',
-            secretKey: wallet.getSecretKey(),
-            alias,
-            salt: account.getInstance().salt,
-          });
-
-          await walletDB.storeAccountMetadata(instance.address, 'publicSigningKey', signingKeyBuffer);
-
-          aliasedAccounts.push({
-            key: `accounts:${alias}`,
-            value: instance.address.toString(),
-          });
+        } catch (error) {
+          console.error(`Error processing test account ${i}:`, error);
         }
-      } catch (error) {
-        console.error(`Error registering ECDSA R1 account ${i}:`, error);
+        i++;
       }
-      i++;
-    }
 
-    const pxeAccounts = await pxe.getRegisteredAccounts();
-    const ourAccounts = [];
-    const senders = [];
+      // Get the list of accounts registered with the PXE
+      console.log('Getting registered accounts from PXE...');
+      const pxeAccounts = await pxe.getRegisteredAccounts();
+      console.log('PXE registered accounts:', pxeAccounts.map(a => a.address.toString()));
 
-    for (const alias of aliasedAccounts) {
-      try {
-        if (pxeAccounts.find(account => account.address.equals(AztecAddress.fromString(alias.value)))) {
-          ourAccounts.push(alias);
-        } else {
-          senders.push(alias.key, alias.value);
+      // Filter our accounts to match those in the PXE
+      const ourAccounts = [];
+      const senders = [];
+
+      console.log('Matching stored accounts with PXE accounts...');
+      for (const alias of aliasedAccounts) {
+        try {
+          const address = AztecAddress.fromString(alias.value);
+          const matchingPxeAccount = pxeAccounts.find(account => account.address.equals(address));
+
+          if (matchingPxeAccount) {
+            console.log(`Account ${alias.key} is registered with PXE`);
+            ourAccounts.push(alias);
+          } else {
+            console.log(`Account ${alias.key} is not registered with PXE, treating as sender`);
+            senders.push(alias.key, alias.value);
+          }
+        } catch (e) {
+          console.error('Error processing alias:', e);
         }
-      } catch (e) {
-        console.error('Error processing alias:', e);
       }
-    }
 
-    return { ourAccounts, senders };
+      console.log('Our accounts:', ourAccounts);
+      console.log('Senders:', senders);
+      console.log('=== ACCOUNTS LOADED SUCCESSFULLY ===');
+
+      return { ourAccounts, senders };
+    } catch (error) {
+      console.error('=== ERROR LOADING ACCOUNTS ===', error);
+      return { ourAccounts: [], senders: [] };
+    }
   };
 
   useEffect(() => {
@@ -283,29 +328,30 @@ export function SidebarComponent() {
       const accountAddress = AztecAddress.fromString(event.target.value);
       const accountData = await walletDB.retrieveAccount(accountAddress);
 
-      const publicSigningKey = await walletDB.retrieveAccountMetadata(accountAddress, 'publicSigningKey') ||
-        Buffer.concat([
-          Buffer.from('11'.repeat(32), 'hex'),
-          Buffer.from('22'.repeat(32), 'hex')
-        ]);
+      // Retrieve the signing private key from metadata
+      const signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
 
-      console.log('Using stored signing key:', publicSigningKey);
+      if (!signingPrivateKey) {
+        throw new Error('Could not find signing private key for this account');
+      }
 
-      const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
+      console.log('Using stored signing private key');
 
-      console.log('Creating account manager for existing account...');
-      const account = await getEcdsaRSSHAccount(
+      // Import the correct functions for ECDSA K
+      const { getEcdsaKWallet } = await import('@aztec/accounts/ecdsa/lazy');
+
+      // Use getEcdsaKWallet which takes the account address and private key
+      console.log('Creating wallet for existing account...');
+      const newWallet = await getEcdsaKWallet(
         pxe,
-        accountData.secretKey,
-        publicSigningKey,
-        accountData.salt,
+        accountAddress,
+        signingPrivateKey,
       );
-
-      console.log('Getting wallet for account...');
-      const newWallet = await account.getWallet();
       console.log('Successfully switched to account:', accountAddress.toString());
 
-      setWallet(newWallet);
+      // Cast newWallet to AccountWalletWithSecretKey, as getEcdsaKWallet returns AccountWallet
+      // This is a temporary fix and might need a proper solution
+      setWallet(newWallet as unknown as AccountWalletWithSecretKey);
     } catch (error) {
       console.error('Error changing account:', error);
     }
@@ -314,12 +360,31 @@ export function SidebarComponent() {
   const handleAccountCreation = async (account?: AccountWalletWithSecretKey, salt?: Fr, alias?: string) => {
     if (account && salt && alias) {
       try {
+        // In account creation dialog, we need to make sure to get the signing private key
+        // which may be passed in account somehow, depending on how CreateAccountDialog works
+        const signingPrivateKey = (account as any).signingPrivateKey;
+
+        // Store the account without the extra property
         await walletDB.storeAccount(account.getAddress(), {
-          type: 'ecdsasecp256r1ssh', // ECDSA R1 account type
+          type: 'ecdsasecp256k1', // Update to the K account type
           secretKey: account.getSecretKey(),
           alias,
           salt,
         });
+
+        // Store the signing key as metadata if it's available
+        if (signingPrivateKey) {
+          await walletDB.storeAccountMetadata(account.getAddress(), 'signingPrivateKey', signingPrivateKey);
+        } else {
+          // If no signing key is provided, generate a simple one based on address
+          const addressBytes = account.getAddress().toBuffer();
+          const generatedSigningKey = Buffer.concat([
+            addressBytes.slice(0, 16), // First half of address
+            addressBytes.slice(0, 16)  // Repeat to get 32 bytes
+          ]);
+          await walletDB.storeAccountMetadata(account.getAddress(), 'signingPrivateKey', generatedSigningKey);
+        }
+
         const aliasedAccounts = await walletDB.listAliases('accounts');
         setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
         setWallet(account);

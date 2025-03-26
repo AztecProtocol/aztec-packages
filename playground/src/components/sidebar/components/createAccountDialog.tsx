@@ -7,7 +7,6 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { css } from '@mui/styled-engine';
 import { useContext, useState } from 'react';
-import { deriveSigningKey } from '@aztec/stdlib/keys';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress } from '@aztec/aztec.js';
 
@@ -50,74 +49,77 @@ export function CreateAccountDialog({
     const salt = Fr.random();
 
     try {
-      // Create a valid buffer for ECDSA R1 SSH accounts
-      const signingKeyBuffer = Buffer.alloc(64);
-      signingKeyBuffer.write('11'.repeat(32), 0, 32, 'hex'); // x coordinate
-      signingKeyBuffer.write('22'.repeat(32), 32, 32, 'hex'); // y coordinate
+      console.log('=== CREATING NEW ECDSA K ACCOUNT ===');
+      console.log('Alias:', alias);
 
-      console.log('Creating ECDSA R1 account with formatted key...');
+      // Create a deterministic private key for signing
+      // In production, you'd want a more secure random generation or user-provided key
+      const signingPrivateKey = Buffer.alloc(32);
+      // Use the alias to generate a deterministic value
+      const keyContent = `${alias}-${Date.now()}`;
+      signingPrivateKey.write(keyContent.padEnd(32, '-'), 0, 32, 'utf8');
 
-      // Lazy load the ECDSA module and use ECDSA R1 SSH account
-      const { getEcdsaRSSHAccount } = await import('@aztec/accounts/ecdsa/lazy');
-      const account = await getEcdsaRSSHAccount(
+      console.log('ECDSA K signing key created');
+
+      // Lazy load the ECDSA module and use ECDSA K account
+      console.log('Importing ECDSA K functions...');
+      const { getEcdsaKAccount } = await import('@aztec/accounts/ecdsa/lazy');
+
+      console.log('Creating account manager...');
+      const account = await getEcdsaKAccount(
         pxe,
         secretKey,
-        signingKeyBuffer,
+        signingPrivateKey,
         salt
       );
+      console.log('Account manager created');
 
-      console.log('Registering ECDSA R1 account...');
+      console.log('Registering account with PXE...');
       await account.register();
-
-      // Determine which SponsoredFPC address to use based on the nodeURL
-      let sponsoredFPCAddress;
-      if (nodeURL.includes('localhost') || nodeURL.includes('127.0.0.1')) {
-        sponsoredFPCAddress = SPONSORED_FPC_ADDRESSES.local;
-        console.log('Using local SponsoredFPC address');
-      } else if (nodeURL.includes('sandbox')) {
-        sponsoredFPCAddress = SPONSORED_FPC_ADDRESSES.sandbox;
-        console.log('Using sandbox SponsoredFPC address');
-      } else {
-        sponsoredFPCAddress = SPONSORED_FPC_ADDRESSES.devnet;
-        console.log('Using devnet SponsoredFPC address');
-      }
+      console.log('Account registered with PXE');
 
       try {
-        console.log('Attempting to deploy account with fee payment...');
-
-        // We'll try to deploy using a custom fee configuration
-        // This is a simplified approach - in a real app, we would implement a proper SponsoredFeePaymentMethod
+        console.log('Attempting to deploy account...');
         const deployTx = await account.deploy();
-
-        console.log('Waiting for deployment to complete...');
+        console.log('Deployment transaction created, waiting for confirmation...');
         await deployTx.wait();
-        console.log('ECDSA R1 account deployed successfully!');
+        console.log('Account deployed successfully!');
       } catch (err) {
         console.error('Error with deployment:', err);
         console.log('Falling back to standard registration without deployment...');
       }
 
       // Get the wallet regardless of whether deployment succeeded
+      console.log('Getting wallet instance...');
       const ecdsaWallet = await account.getWallet();
+      console.log('Wallet obtained:', ecdsaWallet.getAddress().toString());
 
       // Store the signing key metadata to retrieve it later
       if (walletDB) {
-        console.log('Storing account metadata...');
+        console.log('Storing account data...');
         await walletDB.storeAccount(account.getAddress(), {
-          type: 'ecdsasecp256r1ssh',
+          type: 'ecdsasecp256k1',
           secretKey: secretKey,
           alias,
           salt,
         });
-        await walletDB.storeAccountMetadata(account.getAddress(), 'publicSigningKey', signingKeyBuffer);
+
+        console.log('Storing signing key metadata...');
+        await walletDB.storeAccountMetadata(account.getAddress(), 'signingPrivateKey', signingPrivateKey);
+
+        console.log('Account data stored successfully');
       }
 
-      console.log('ECDSA R1 account created successfully!');
+      console.log('=== ECDSA K ACCOUNT CREATED SUCCESSFULLY ===');
+      console.log('Address:', account.getAddress().toString());
+
       setCreatingAccount(false);
       onClose(ecdsaWallet, salt, alias);
     } catch (error) {
-      console.error('Error creating ECDSA R1 account:', error);
+      console.error('=== ERROR CREATING ECDSA K ACCOUNT ===', error);
+      alert(`Error creating account: ${error.message}`);
       setCreatingAccount(false);
+      onClose(); // Close dialog on error
     }
   };
 
@@ -127,11 +129,11 @@ export function CreateAccountDialog({
 
   return (
     <Dialog onClose={handleClose} open={open}>
-      <DialogTitle>Create ECDSA R1 Account</DialogTitle>
+      <DialogTitle>Create ECDSA K Account</DialogTitle>
       <div css={creationForm}>
         {creatingAccount ? (
           <>
-            <Typography>Creating ECDSA R1 Account...</Typography>
+            <Typography>Creating ECDSA K Account...</Typography>
             <CircularProgress />
           </>
         ) : (

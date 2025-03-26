@@ -78,10 +78,10 @@ const headerContainer = css({
   flexDirection: 'column',
   width: '100%',
   margin: '0 0.5rem',
-  padding: '0.5rem',
+  padding: '0.25rem',
   overflow: 'hidden',
   flexShrink: 0,
-  maxHeight: '120px',
+  maxHeight: '90px',
 });
 
 const functionListContainer = css({
@@ -241,11 +241,35 @@ export function ContractComponent() {
     setSelectedPredefinedContract,
   } = useContext(AztecContext);
 
+  const logContractState = (message: string = 'Contract State', contract = currentContract) => {
+    console.log(`=== ${message} ===`);
+    console.log('Current Contract Address:', currentContractAddress ? currentContractAddress.toString() : 'None');
+    console.log('Contract Artifact:', contractArtifact ? {
+      name: contractArtifact.name,
+      functions: functionAbis.length
+    } : 'None');
+    console.log('Selected Predefined Contract:', selectedPredefinedContract || 'None');
+    console.log('Wallet Connected:', wallet ? `Yes (${wallet.getAddress().toString()})` : 'No');
+    console.log('Functions:', functionAbis.map(fn => fn.name));
+
+    if (contract) {
+      console.log('Contract Methods:', Object.keys(contract.methods));
+      console.log('Contract Address:', contract.address.toString());
+    }
+
+    console.log('Is Working:', isWorking);
+    console.log('Contract Interface Loaded:', contractArtifact ? 'Yes' : 'No');
+    console.log('====================');
+  };
+
   useEffect(() => {
     if (selectedPredefinedContract === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
       setShowUploadArea(true);
     } else {
       setShowUploadArea(false);
+    }
+    if (selectedPredefinedContract) {
+      logContractState('Predefined Contract Selected');
     }
   }, [selectedPredefinedContract]);
 
@@ -253,6 +277,9 @@ export function ContractComponent() {
     console.log('Wallet:', wallet);
     console.log('Current Contract:', currentContract);
     console.log('Is Working:', isWorking);
+    if (currentContract) {
+      logContractState('Contract Updated');
+    }
   }, [wallet, currentContract, isWorking]);
 
   const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
@@ -291,6 +318,22 @@ export function ContractComponent() {
         }
         return fn;
       });
+  };
+
+  const registerContractClassWithPXE = async (artifact: ContractArtifact) => {
+    if (!wallet) {
+      console.warn('Cannot register contract class: wallet not connected');
+      return;
+    }
+
+    try {
+      console.log('Pre-registering contract class with PXE...');
+      await wallet.registerContractClass(artifact);
+      console.log('Contract class pre-registered successfully');
+    } catch (error) {
+      console.error('Error pre-registering contract class:', error);
+      // Don't throw - we want to continue even if this fails
+    }
   };
 
   useEffect(() => {
@@ -354,6 +397,11 @@ export function ContractComponent() {
         });
 
         console.log('Setting up contract artifact:', contractArtifact.name);
+
+        // Register the contract class with PXE when a predefined contract is loaded
+        if (wallet) {
+          await registerContractClassWithPXE(contractArtifact);
+        }
       }
 
       setIsLoadingArtifact(false);
@@ -362,13 +410,31 @@ export function ContractComponent() {
     if (selectedPredefinedContract) {
       loadPredefinedContract();
     }
-  }, [selectedPredefinedContract]);
+  }, [selectedPredefinedContract, wallet]);
+
+  // Also register contract artifact when uploaded
+  useEffect(() => {
+    if (contractArtifact && wallet) {
+      registerContractClassWithPXE(contractArtifact);
+    }
+  }, [contractArtifact, wallet]);
 
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
       const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
       const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+
+      // Register the contract class with PXE before creating Contract instance
+      try {
+        console.log('Pre-registering contract class before loading contract...');
+        await wallet.registerContractClass(contractArtifact);
+        console.log('Contract class pre-registered successfully');
+      } catch (error) {
+        console.error('Error pre-registering contract class:', error);
+        // Continue even if registration fails - Contract.at will try to handle it
+      }
+
       const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
       setCurrentContract(contract);
       setContractArtifact(contract.artifact);
@@ -471,18 +537,71 @@ export function ContractComponent() {
   };
 
   const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
+    console.log('=== POST-DEPLOYMENT SETUP STARTED ===');
+    console.log('Contract instance received:', contract ? 'Yes' : 'No');
+    console.log('Alias:', alias);
+
     if (contract) {
+      console.log('Contract address:', contract.address.toString());
+      console.log('Contract class ID:', contract.currentContractClassId.toString());
+      console.log('Wallet available:', wallet ? 'Yes' : 'No');
+      console.log('Contract artifact available:', contractArtifact ? 'Yes' : 'No');
+
       try {
+        console.log('Initializing Contract instance at the deployed address...');
         const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
+        console.log('Contract initialized successfully');
+
+        console.log('Setting current contract address...');
         setCurrentContractAddress(deployedContract.address);
+        console.log('Setting current contract instance...');
         setCurrentContract(deployedContract);
+
+        console.log('Storing contract in walletDB...');
         await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
+        console.log('Contract stored successfully');
+
+        // List available methods
+        console.log('Contract methods available:');
+        const methods = Object.keys(deployedContract.methods);
+        methods.forEach(method => console.log(`- ${method}`));
+
+        console.log('=== POST-DEPLOYMENT SETUP COMPLETED SUCCESSFULLY ===');
         console.log('Successfully deployed contract at address:', deployedContract.address.toString());
+
+        // Create a visible success message that stands out in the console
+        const successMsg = `
+█▀▀ █▀█ █▄░█ ▀█▀ █▀█ ▄▀█ █▀▀ ▀█▀   █▀ █░█ █▀▀ █▀▀ █▀▀ █▀ █▀
+█▄▄ █▄█ █░▀█ ░█░ █▀▄ █▀█ █▄▄ ░█░   ▄█ █▄█ █▄▄ █▄▄ ██▄ ▄█ ▄█
+
+► Contract Name: ${contractArtifact.name}
+► Contract Address: ${deployedContract.address.toString()}
+► Available Methods: ${methods.join(', ')}
+
+You can now interact with your contract functions below!
+        `;
+        console.log(successMsg);
+
+        // Also log the current state of the contract
+        logContractState('Deployed Contract State', deployedContract);
       } catch (error) {
-        console.error('Error setting up deployed contract:', error);
-        alert('Error setting up the deployed contract. Please try again.');
+        console.error('=== POST-DEPLOYMENT SETUP FAILED ===');
+        console.error('Error type:', error.constructor.name);
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+
+        // Try to extract more information about the error
+        if (error.cause) {
+          console.error('Error cause:', error.cause);
+        }
+
+        alert(`Error setting up deployed contract: ${error.message}`);
       }
+    } else {
+      console.log('No contract instance provided, skipping setup');
     }
+
+    console.log('Closing deployment dialog');
     setOpenDeployContractDialog(false);
   };
 
@@ -503,29 +622,67 @@ export function ContractComponent() {
   };
 
   const simulate = async (fnName: string) => {
+    console.log(`=== SIMULATING FUNCTION: ${fnName} ===`);
+
     if (!currentContract) {
+      console.error('Simulation failed: No contract instance available');
       alert('You need to deploy this contract before you can simulate functions.');
+      return;
+    }
+
+    console.log('Contract address:', currentContract.address.toString());
+    console.log('Contract methods available:', Object.keys(currentContract.methods));
+
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+
+    if (!matchingFn) {
+      console.error(`Function ${fnName} not found in contract ABI`);
+      alert(`Function ${fnName} not found in contract ABI`);
+      return;
+    }
+
+    const realFnName = selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    console.log('Function to call:', realFnName);
+
+    if (!currentContract.methods[realFnName]) {
+      console.error(`Method ${realFnName} not found in contract instance`);
+      console.log('Available methods:', Object.keys(currentContract.methods));
+      alert(`Method ${realFnName} not found in contract instance`);
       return;
     }
 
     setIsWorking(true);
     let result;
     try {
-      const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-      const realFnName =
-        selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
-        matchingFn?.originalName || fnName;
-
+      console.log('Getting function parameters...');
       const fnParameters = parameters[realFnName] ?? [];
-      const call = currentContract.methods[realFnName](...fnParameters);
+      console.log('Parameters:', fnParameters);
 
+      console.log('Creating function call...');
+      const call = currentContract.methods[realFnName](...fnParameters);
+      console.log('Function call created successfully');
+
+      console.log('Simulating function call...');
       result = await call.simulate();
+      console.log('Simulation result:', result);
+
       setSimulationResults({
         ...simulationResults,
         ...{ [fnName]: { success: true, data: result } },
       });
+      console.log('=== SIMULATION COMPLETED SUCCESSFULLY ===');
     } catch (e) {
-      console.error('Simulation error:', e);
+      console.error('=== SIMULATION FAILED ===');
+      console.error('Error type:', e.constructor.name);
+      console.error('Error message:', e.message);
+      console.error('Error stack:', e.stack);
+
+      if (e.cause) {
+        console.error('Error cause:', e.cause);
+      }
+
       setSimulationResults({
         ...simulationResults,
         ...{ [fnName]: { success: false, error: e.message } },
@@ -536,19 +693,42 @@ export function ContractComponent() {
   };
 
   const send = async (fnName: string) => {
+    console.log(`=== SENDING TRANSACTION: ${fnName} ===`);
+
     if (!currentContract) {
+      console.error('Transaction failed: No contract instance available');
       alert('You need to deploy this contract before you can send transactions.');
       return;
     }
+
+    console.log('Contract address:', currentContract.address.toString());
+    console.log('Contract methods available:', Object.keys(currentContract.methods));
 
     setIsWorking(true);
     let receipt;
     let txHash;
 
     const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-    const realFnName =
-      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+
+    if (!matchingFn) {
+      console.error(`Function ${fnName} not found in contract ABI`);
+      alert(`Function ${fnName} not found in contract ABI`);
+      setIsWorking(false);
+      return;
+    }
+
+    const realFnName = selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
       matchingFn?.originalName || fnName;
+
+    console.log('Function to call:', realFnName);
+
+    if (!currentContract.methods[realFnName]) {
+      console.error(`Method ${realFnName} not found in contract instance`);
+      console.log('Available methods:', Object.keys(currentContract.methods));
+      alert(`Method ${realFnName} not found in contract instance`);
+      setIsWorking(false);
+      return;
+    }
 
     const currentTx = {
       status: 'proving' as const,
@@ -556,23 +736,49 @@ export function ContractComponent() {
       contractAddress: currentContract.address,
     };
     setCurrentTx(currentTx);
+    console.log('Transaction status set to proving');
 
     try {
-      const call = currentContract.methods[realFnName](...(parameters[realFnName] || []));
+      console.log('Getting function parameters...');
+      const fnParameters = parameters[realFnName] || [];
+      console.log('Parameters:', fnParameters);
 
+      console.log('Creating function call...');
+      const call = currentContract.methods[realFnName](...fnParameters);
+      console.log('Function call created successfully');
+
+      console.log('Creating proof for function call...');
       const provenCall = await call.prove();
+      console.log('Proof created successfully');
+
+      console.log('Getting transaction hash...');
       txHash = await provenCall.getTxHash();
+      console.log('Transaction hash:', txHash);
+
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: 'sending' },
       });
+      console.log('Transaction status set to sending');
+
+      console.log('Submitting transaction to the network...');
       receipt = await provenCall.send().wait({ dontThrowOnRevert: true });
+      console.log('Transaction receipt received:', receipt);
+
+      console.log('Transaction status:', receipt.status);
+      if (receipt.error) {
+        console.error('Transaction error in receipt:', receipt.error);
+      }
+
+      console.log('Storing transaction in wallet DB...');
       await walletDB.storeTx({
         contractAddress: currentContract.address,
         txHash,
         fnName,
         receipt,
       });
+      console.log('Transaction stored successfully');
+
       setCurrentTx({
         ...currentTx,
         ...{
@@ -582,8 +788,17 @@ export function ContractComponent() {
           error: receipt.error,
         },
       });
+      console.log('=== TRANSACTION COMPLETED ===');
     } catch (e) {
-      console.error('Transaction error:', e);
+      console.error('=== TRANSACTION FAILED ===');
+      console.error('Error type:', e.constructor.name);
+      console.error('Error message:', e.message);
+      console.error('Error stack:', e.stack);
+
+      if (e.cause) {
+        console.error('Error cause:', e.cause);
+      }
+
       setCurrentTx({
         ...currentTx,
         ...{
@@ -618,6 +833,51 @@ export function ContractComponent() {
     }
     setAuthwitFnData({ name: '', parameters: [], isPrivate: false });
     setOpenCreateAuthwitDialog(false);
+  };
+
+  const resetPXEDatabase = async () => {
+    try {
+      console.log('=== RESETTING PXE DATABASE ===');
+
+      // Clear IndexedDB database that's causing issues
+      const dbs = await window.indexedDB.databases();
+      console.log('Found databases:', dbs);
+
+      // Look for any PXE-related or wallet-related databases
+      const pxeDbs = dbs.filter(db =>
+        db.name && (
+          db.name.includes('pxe') ||
+          db.name.includes('wallet') ||
+          db.name.includes('aztec')
+        )
+      );
+
+      console.log('PXE databases to reset:', pxeDbs);
+
+      // Delete them one by one
+      for (const db of pxeDbs) {
+        if (db.name) {
+          console.log(`Deleting database: ${db.name}`);
+          await new Promise((resolve, reject) => {
+            const request = window.indexedDB.deleteDatabase(db.name!);
+            request.onsuccess = () => {
+              console.log(`Successfully deleted database: ${db.name}`);
+              resolve(undefined);
+            };
+            request.onerror = () => {
+              console.error(`Error deleting database: ${db.name}`);
+              reject(new Error(`Failed to delete database: ${db.name}`));
+            };
+          });
+        }
+      }
+
+      console.log('Database reset complete. Reload the page to reconnect.');
+      alert('Database reset successful. Please reload the page to reconnect to the network with a fresh database.');
+    } catch (error) {
+      console.error('Error resetting PXE database:', error);
+      alert('Error resetting PXE database: ' + error.message);
+    }
   };
 
   return (
@@ -664,7 +924,7 @@ export function ContractComponent() {
         <div css={contractFnContainer}>
           <div css={headerContainer}>
             <div css={header}>
-              <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
+              <Typography variant="h4" css={{ marginRight: '0.5rem', fontSize: '1.5rem' }}>
                 {contractArtifact.name}
               </Typography>
               <div css={contractActions}>
@@ -678,6 +938,24 @@ export function ContractComponent() {
                 </Button>
                 <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
                   Register
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="warning"
+                  onClick={() => logContractState('Manual Debug')}
+                  sx={{ marginLeft: '0.5rem' }}
+                >
+                  Debug
+                </Button>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  color="error"
+                  onClick={resetPXEDatabase}
+                  sx={{ marginLeft: '0.5rem' }}
+                >
+                  Reset DB
                 </Button>
                 <DeployContractDialog
                   contractArtifact={contractArtifact}

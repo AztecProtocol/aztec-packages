@@ -27,9 +27,13 @@ const logo = css({
 
 const collapsedDrawer = css({
   height: '100%',
-  width: '4rem',
+  width: '3rem',
+  minWidth: '3rem',
+  maxWidth: '3rem',
   backgroundColor: 'var(--mui-palette-primary-light)',
   overflow: 'hidden',
+  flexShrink: 0,
+  flexGrow: 0,
 });
 
 const landingPage = css({
@@ -55,6 +59,7 @@ const mainContent = css({
   flexDirection: 'column',
   flex: 1,
   height: '100%',
+  width: 'calc(100% - 3rem)',
   overflow: 'hidden',
 });
 
@@ -205,9 +210,9 @@ export default function Home() {
           {isNetworkStoreInitialized ? <SidebarComponent /> : <LinearProgress />}
         </Drawer>
         <div css={mainContent}>
-          <LogPanel />
           {showContractInterface ? <ContractComponent /> : renderLandingPage()}
         </div>
+        <LogPanel />
       </AztecContext.Provider>
     </div>
   );
