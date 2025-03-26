@@ -85,7 +85,7 @@ TEST(MerkleCheckSimulationTest, Write)
     EXPECT_EQ(hash_emitter.dump_events().size(), sibling_path.size() * 2);
 }
 
-TEST(MerkleCheckSimulationDeathTest, NegativeBadFinalIndex)
+TEST(MerkleCheckSimulationTest, NegativeBadFinalIndex)
 {
     NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
@@ -103,7 +103,7 @@ TEST(MerkleCheckSimulationDeathTest, NegativeBadFinalIndex)
     EXPECT_THROW(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root), std::runtime_error);
 }
 
-TEST(MerkleCheckSimulationDeathTest, NegativeWrongRoot)
+TEST(MerkleCheckSimulationTest, NegativeWrongRoot)
 {
     NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
@@ -122,7 +122,7 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongRoot)
     EXPECT_THROW(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, incorrect_root), std::runtime_error);
 }
 
-TEST(MerkleCheckSimulationDeathTest, NegativeWrongLeafIndex)
+TEST(MerkleCheckSimulationTest, NegativeWrongLeafIndex)
 {
     NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
@@ -141,7 +141,7 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongLeafIndex)
     EXPECT_THROW(merkle_check.write(leaf_value, 334, incorrect_leaf_index, sibling_path, root), std::runtime_error);
 }
 
-TEST(MerkleCheckSimulationDeathTest, NegativeWrongSiblingPath)
+TEST(MerkleCheckSimulationTest, NegativeWrongSiblingPath)
 {
     NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;
@@ -161,7 +161,7 @@ TEST(MerkleCheckSimulationDeathTest, NegativeWrongSiblingPath)
     EXPECT_THROW(merkle_check.write(leaf_value, 334, leaf_index, sibling_path, root), std::runtime_error);
 }
 
-TEST(MerkleCheckSimulationDeathTest, NegativeWrongLeafValue)
+TEST(MerkleCheckSimulationTest, NegativeWrongLeafValue)
 {
     NoopEventEmitter<Poseidon2HashEvent> hash_emitter;
     NoopEventEmitter<Poseidon2PermutationEvent> perm_emitter;

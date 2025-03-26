@@ -390,7 +390,7 @@ TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRightWrite)
     TestTraceContainer trace({
         { { C::merkle_check_write, 1 },
           { C::merkle_check_index_is_even, 1 },
-          { C::merkle_check_read_node, 123 },
+          { C::merkle_check_write_node, 123 },
           { C::merkle_check_sibling, 456 },
           { C::merkle_check_write_left_node, 123 },
           { C::merkle_check_write_right_node, 456 } },
@@ -402,7 +402,7 @@ TEST(MerkleCheckConstrainingTest, AssignSiblingLeftOrRightWrite)
     TestTraceContainer trace2({
         { { C::merkle_check_write, 1 },
           { C::merkle_check_index_is_even, 0 },
-          { C::merkle_check_read_node, 123 },
+          { C::merkle_check_write_node, 123 },
           { C::merkle_check_sibling, 456 },
           { C::merkle_check_write_left_node, 456 },
           { C::merkle_check_write_right_node, 123 } },
