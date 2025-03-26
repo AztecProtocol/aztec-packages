@@ -161,4 +161,13 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
   static empty(): PublicDataTreeLeaf {
     return new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO);
   }
+
+  static get schema() {
+    return z
+      .object({
+        slot: schemas.Fr,
+        value: schemas.Fr,
+      })
+      .transform(({ slot, value }) => new PublicDataTreeLeaf(slot, value));
+  }
 }
