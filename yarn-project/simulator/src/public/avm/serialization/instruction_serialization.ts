@@ -108,7 +108,7 @@ export enum OperandType {
 }
 
 // Define a type that represents the possible types of the deserialized values.
-export type DeserializedValue = number | bigint;
+type DeserializedValue = number | bigint;
 
 type OperandNativeType = number | bigint;
 type OperandWriter = (value: any) => void;
@@ -186,7 +186,7 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType
     if (operands[i] === OperandType.TAG) {
       // We parsed a single byte (readUInt8()) and therefore value is of number type (not bigint)
       // We need to cast to number because checkIsValidTag expects a number.
-      TaggedMemory.checkIsValidTag(argValues[i] as number);
+      TaggedMemory.checkIsValidTag(Number(argValues[i]) ?? 0);
     }
   }
 
