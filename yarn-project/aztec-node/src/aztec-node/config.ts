@@ -69,7 +69,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     env: 'SPONSORED_FPC',
     description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
     ...booleanConfigHelper(false),
-  }
+  },
   syncMode: {
     env: 'SYNC_MODE',
     description:
