@@ -137,17 +137,17 @@ TEST(MerkleCheckConstrainingTest, PropagateRoot)
     // Root should stay the same in the next row unless it's an end row
     // When end=1, the next root can be different
     TestTraceContainer trace({
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_root, 123 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_read_root, 123 } },
         // Same leaf value is correct when NOT_END=1
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_root, 123 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_read_root, 123 } },
         // Different leaf value is allowed after end row
-        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_root, 456 } },
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_read_root, 456 } },
     });
 
     check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_ROOT);
 
     // Negative test - now modify to an incorrect value
-    trace.set(C::merkle_check_root, 1, 456); // This should fail - root should stay the same when NOT_END=1
+    trace.set(C::merkle_check_read_root, 1, 456); // This should fail - root should stay the same when NOT_END=1
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_ROOT), "PROPAGATE_ROOT");
 }
@@ -446,7 +446,7 @@ TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
     trace.set(Column::merkle_check_index, after_last_row_index, 0);
     trace.set(Column::merkle_check_path_len, after_last_row_index, 0);
     trace.set(Column::merkle_check_remaining_path_len_inv, after_last_row_index, 0);
-    trace.set(Column::merkle_check_root, after_last_row_index, 0);
+    trace.set(Column::merkle_check_read_root, after_last_row_index, 0);
     trace.set(Column::merkle_check_sibling, after_last_row_index, 0);
     trace.set(Column::merkle_check_start, after_last_row_index, 0);
     trace.set(Column::merkle_check_end, after_last_row_index, 0);

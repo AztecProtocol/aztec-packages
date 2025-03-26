@@ -54,7 +54,7 @@ TEST(MerkleCheckTraceGenTest, SingleLevelMerkleTree)
                           Field(&R::merkle_check_index, leaf_index),
                           Field(&R::merkle_check_path_len, 1), // only one layer, so remaining path is 0 immediately
                           Field(&R::merkle_check_remaining_path_len_inv, 0),
-                          Field(&R::merkle_check_root, root),
+                          Field(&R::merkle_check_read_root, root),
                           Field(&R::merkle_check_sibling, sibling_value),
                           Field(&R::merkle_check_start, 1),
                           Field(&R::merkle_check_end, 1), // done after only one layer
@@ -108,7 +108,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                           Field(&R::merkle_check_index, leaf_index),
                           Field(&R::merkle_check_path_len, 2), // path length starts at 2
                           Field(&R::merkle_check_remaining_path_len_inv, FF(2 - 1).invert()),
-                          Field(&R::merkle_check_root, root),
+                          Field(&R::merkle_check_read_root, root),
                           Field(&R::merkle_check_sibling, sibling_value_1),
                           Field(&R::merkle_check_start, 1),
                           Field(&R::merkle_check_end, 0),           // Not done yet
@@ -123,7 +123,7 @@ TEST(MerkleCheckTraceGenTest, TwoLevelMerkleTree)
                           Field(&R::merkle_check_index, 0),                 // Index should be 0 at level 2
                           Field(&R::merkle_check_path_len, 1),              // Remaining path length is 0
                           Field(&R::merkle_check_remaining_path_len_inv, 0),
-                          Field(&R::merkle_check_root, root),
+                          Field(&R::merkle_check_read_root, root),
                           Field(&R::merkle_check_sibling, sibling_value_2),
                           Field(&R::merkle_check_start, 0),
                           Field(&R::merkle_check_end, 1), // Done after two layers
@@ -173,7 +173,7 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                           Field(&R::merkle_check_index, leaf_index_1),
                           Field(&R::merkle_check_path_len, 1),
                           Field(&R::merkle_check_remaining_path_len_inv, 0),
-                          Field(&R::merkle_check_root, output_hash_1),
+                          Field(&R::merkle_check_read_root, output_hash_1),
                           Field(&R::merkle_check_sibling, sibling_value_1),
                           Field(&R::merkle_check_start, 1),
                           Field(&R::merkle_check_end, 1),
@@ -188,7 +188,7 @@ TEST(MerkleCheckTraceGenTest, MultipleEvents)
                           Field(&R::merkle_check_index, leaf_index_2),
                           Field(&R::merkle_check_path_len, 1),
                           Field(&R::merkle_check_remaining_path_len_inv, 0),
-                          Field(&R::merkle_check_root, output_hash_2),
+                          Field(&R::merkle_check_read_root, output_hash_2),
                           Field(&R::merkle_check_sibling, sibling_value_2),
                           Field(&R::merkle_check_start, 1),
                           Field(&R::merkle_check_end, 1),

@@ -84,7 +84,7 @@ template <typename FF_> class merkle_checkImpl {
         }
         { // PROPAGATE_ROOT
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp = merkle_check_NOT_END * (new_term.merkle_check_root_shift - new_term.merkle_check_root);
+            auto tmp = merkle_check_NOT_END * (new_term.merkle_check_read_root_shift - new_term.merkle_check_read_root);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
@@ -198,14 +198,14 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<22>(evals) += typename Accumulator::View(tmp);
         }
-        { // READ_OUTPUT_HASH_IS_ROOT
+        { // READ_OUTPUT_HASH_IS_READ_ROOT
             using Accumulator = typename std::tuple_element_t<23, ContainerOverSubrelations>;
             auto tmp =
-                new_term.merkle_check_end * (new_term.merkle_check_read_output_hash - new_term.merkle_check_root);
+                new_term.merkle_check_end * (new_term.merkle_check_read_output_hash - new_term.merkle_check_read_root);
             tmp *= scaling_factor;
             std::get<23>(evals) += typename Accumulator::View(tmp);
         }
-        { // WRITE_OUTPUT_HASH_IS_ROOT
+        { // WRITE_OUTPUT_HASH_IS_WRITE_ROOT
             using Accumulator = typename std::tuple_element_t<24, ContainerOverSubrelations>;
             auto tmp = new_term.merkle_check_end *
                        (new_term.merkle_check_write_output_hash - new_term.merkle_check_write_root);
@@ -255,9 +255,9 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
         case 22:
             return "OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE";
         case 23:
-            return "READ_OUTPUT_HASH_IS_ROOT";
+            return "READ_OUTPUT_HASH_IS_READ_ROOT";
         case 24:
-            return "WRITE_OUTPUT_HASH_IS_ROOT";
+            return "WRITE_OUTPUT_HASH_IS_WRITE_ROOT";
         }
         return std::to_string(index);
     }
@@ -279,8 +279,8 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_ASSIGN_SIBLING_LEFT_OR_RIGHT_WRITE = 19;
     static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_READ_NODE = 21;
     static constexpr size_t SR_OUTPUT_HASH_IS_NEXT_ROWS_WRITE_NODE = 22;
-    static constexpr size_t SR_READ_OUTPUT_HASH_IS_ROOT = 23;
-    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_ROOT = 24;
+    static constexpr size_t SR_READ_OUTPUT_HASH_IS_READ_ROOT = 23;
+    static constexpr size_t SR_WRITE_OUTPUT_HASH_IS_WRITE_ROOT = 24;
 };
 
 } // namespace bb::avm2

@@ -61,7 +61,7 @@ void MerkleCheckTraceBuilder::process(
                           { C::merkle_check_index, current_index_in_layer },
                           { C::merkle_check_path_len, path_len },
                           { C::merkle_check_remaining_path_len_inv, remaining_path_len_inv },
-                          { C::merkle_check_root, root },
+                          { C::merkle_check_read_root, root },
                           { C::merkle_check_write_root, new_root },
                           { C::merkle_check_sibling, sibling },
                           { C::merkle_check_start, start },
