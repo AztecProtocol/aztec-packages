@@ -228,8 +228,6 @@ HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
     const auto proof_fields = fields_from_witnesses(input.proof);
     const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
-    // WORKTODO: unacceptable level of 'auto' usage in this method
-
     auto it = public_inputs_flattened.begin();
     VmPublicInputs vm_public_inputs =
         avm_trace::convert_public_inputs(std::vector(it, it + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH));
