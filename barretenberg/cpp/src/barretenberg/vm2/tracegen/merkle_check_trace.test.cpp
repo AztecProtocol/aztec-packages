@@ -61,6 +61,7 @@ TEST(MerkleCheckTraceGenTest, MerkleRead)
                     AllOf(Field(&R::merkle_check_sel, 0)),
                     // First real row
                     AllOf(Field(&R::merkle_check_sel, 1),
+                          Field(&R::merkle_check_write, 0),
                           Field(&R::merkle_check_read_node, leaf_value),
                           Field(&R::merkle_check_index, leaf_index),
                           Field(&R::merkle_check_path_len, 2), // path length starts at 2
@@ -76,6 +77,7 @@ TEST(MerkleCheckTraceGenTest, MerkleRead)
                           Field(&R::merkle_check_read_output_hash, output_hash_1)),
                     // Second real row
                     AllOf(Field(&R::merkle_check_sel, 1),
+                          Field(&R::merkle_check_write, 0),
                           Field(&R::merkle_check_read_node, output_hash_1), // Previous output becomes new leaf
                           Field(&R::merkle_check_index, 0),                 // Index should be 0 at level 2
                           Field(&R::merkle_check_path_len, 1),              // Remaining path length is 0
@@ -216,6 +218,7 @@ TEST(MerkleCheckTraceGenTest, MixedEvents)
                     AllOf(Field(&R::merkle_check_sel, 0)),
                     // First real row (read)
                     AllOf(Field(&R::merkle_check_sel, 1),
+                          Field(&R::merkle_check_write, 0),
                           Field(&R::merkle_check_read_node, leaf_value_1),
                           Field(&R::merkle_check_index, leaf_index_1),
                           Field(&R::merkle_check_path_len, 1),
