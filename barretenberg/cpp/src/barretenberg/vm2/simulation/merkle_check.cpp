@@ -31,8 +31,12 @@ void MerkleCheck::assert_membership(const FF& leaf_value,
         }
     }
 
-    assert(curr_index == 0 || curr_index == 1 && "Merkle check's final node index must be 0 or 1");
-    assert(curr_value == root && "Merkle membership or non-membership check failed");
+    if (curr_index != 0 && curr_index != 1) {
+        throw std::runtime_error("Merkle check's final node index must be 0 or 1");
+    }
+    if (curr_value != root) {
+        throw std::runtime_error("Merkle read check failed");
+    }
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
     events.emit(
@@ -68,8 +72,12 @@ FF MerkleCheck::write(const FF& current_value,
         }
     }
 
-    assert(curr_index == 0 || curr_index == 1 && "Merkle check's final node index must be 0 or 1");
-    assert(read_value == current_root && "Merkle read check failed");
+    if (curr_index != 0 && curr_index != 1) {
+        throw std::runtime_error("Merkle check's final node index must be 0 or 1");
+    }
+    if (read_value != current_root) {
+        throw std::runtime_error("Merkle read check failed");
+    }
 
     std::vector<FF> sibling_vec(sibling_path.begin(), sibling_path.end());
     events.emit({ .leaf_value = current_value,
