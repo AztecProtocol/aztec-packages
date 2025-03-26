@@ -43,7 +43,7 @@ FF MerkleDB::storage_read(const FF& leaf_slot) const
     auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
     auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
 
-    return present? preimage.value.value : 0;
+    return present ? preimage.value.value : 0;
 }
 
 } // namespace bb::avm2::simulation
