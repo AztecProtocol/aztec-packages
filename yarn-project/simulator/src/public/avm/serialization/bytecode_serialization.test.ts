@@ -179,6 +179,22 @@ describe('Bytecode Serialization', () => {
     }
   });
 
+  it('Should throw an AvmParsingError while deserializing an incomplete instruction and a wrong tag value', () => {
+    const decodeIncomplete = (truncated: Buffer) => {
+      return () => decodeFromBytecode(truncated);
+    };
+
+    const bufSet16Truncated = Buffer.from([
+      Opcode.SET_16, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x09, //tag (invalid)
+      // We should have a 16-bit value here (truncation)
+    ]);
+
+    expect(decodeIncomplete(bufSet16Truncated)).toThrow(AvmParsingError);
+  });
+
   it('Should throw an InvalidTagValueError while deserializing a tag value out of range', () => {
     const decodeInvalidTag = (buf: Buffer) => {
       return () => decodeFromBytecode(buf);
@@ -200,15 +216,55 @@ describe('Bytecode Serialization', () => {
       0x65, // dstTag (invalid tag)
     ]);
 
+    const bufSet8 = Buffer.from([
+      Opcode.SET_8, //opcode
+      0x02, // indirect
+      ...Buffer.from('34', 'hex'), // dstOffset
+      0x21, //tag (invalid)
+      ...Buffer.from('23', 'hex'), // value
+    ]);
+
     const bufSet16 = Buffer.from([
       Opcode.SET_16, //opcode
       0x02, // indirect
       ...Buffer.from('3456', 'hex'), // dstOffset
-      0x21, //tag (invalid)
+      0x09, //tag (invalid)
       ...Buffer.from('2397', 'hex'), // value
     ]);
 
-    for (const buf of [bufCast8, bufCast16, bufSet16]) {
+    const bufSet32 = Buffer.from([
+      Opcode.SET_32, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x0a, //tag (invalid)
+      ...Buffer.from('12345678', 'hex'), // value
+    ]);
+
+    const bufSet64 = Buffer.from([
+      Opcode.SET_64, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x0b, //tag (invalid)
+      ...Buffer.from('1234567890abcdef', 'hex'), // value
+    ]);
+
+    const bufSet128 = Buffer.from([
+      Opcode.SET_128, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x0c, //tag (invalid)
+      ...Buffer.from('1234567890abcdef1234567890abcdef', 'hex'), // value
+    ]);
+
+    const bufSetff = Buffer.from([
+      Opcode.SET_FF, //opcode
+      0x02, // indirect
+      ...Buffer.from('3456', 'hex'), // dstOffset
+      0x0d, //tag (invalid)
+      ...Buffer.from('1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef', 'hex'), // value
+    ]);
+
+    for (const buf of [bufCast8, bufCast16, bufSet8, bufSet16, bufSet32, bufSet64, bufSet128, bufSetff]) {
       expect(decodeInvalidTag(buf)).toThrow(InvalidTagValueError);
     }
   });

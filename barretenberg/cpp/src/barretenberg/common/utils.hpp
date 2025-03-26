@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string>
+#include <tuple>
 #include <vector>
 
 namespace bb::utils {
@@ -14,4 +15,33 @@ namespace bb::utils {
  */
 std::vector<uint8_t> hex_to_bytes(const std::string& hex);
 
+/**
+ * Hashes a tuple of hasheable types.
+ * Intended to be used with C++ maps/sets, not for cryptographic purposes.
+ */
+template <typename... Ts> size_t hash_as_tuple(const Ts&... ts)
+{
+    // See https://stackoverflow.com/questions/7110301/generic-hash-for-tuples-in-unordered-map-unordered-set.
+    size_t seed = 0;
+    ((seed ^= std::hash<Ts>()(ts) + 0x9e3779b9 + (seed << 6) + (seed >> 2)), ...);
+    return seed;
+}
+
+// Like std::tuple, but you can hash it and therefore use in maps/sets.
+template <typename... Ts> struct HashableTuple : public std::tuple<Ts...> {
+    using std::tuple<Ts...>::tuple;
+    std::size_t hash() const noexcept { return std::apply(utils::hash_as_tuple<Ts...>, *this); }
+};
+
 } // namespace bb::utils
+
+// Define hash function so that they can be used as keys in maps.
+// See https://en.cppreference.com/w/cpp/utility/hash.
+template <typename... Ts> struct std::hash<bb::utils::HashableTuple<Ts...>> {
+    std::size_t operator()(const bb::utils::HashableTuple<Ts...>& st) const noexcept { return st.hash(); }
+};
+
+// Needed for HashableTuple to work as a tuple.
+template <typename... Ts> struct std::tuple_size<bb::utils::HashableTuple<Ts...>> {
+    static constexpr size_t value = sizeof...(Ts);
+};
