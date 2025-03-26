@@ -33,7 +33,7 @@ function build_and_preview {
     docs/reference/developer_references/aztecjs \
     docs/reference/developer_references/smart_contract_reference/aztec-nr
   npm_install_deps
-  denoise "yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn version::stables && yarn docusaurus build"
+  denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
