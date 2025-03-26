@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstdint>
+#include <optional>
 #include <unordered_map>
 
 #include "barretenberg/vm2/common/opcodes.hpp"
@@ -30,6 +31,8 @@ struct WireInstructionSpec {
     ExecutionOpCode exec_opcode;
     uint32_t size_in_bytes;
     std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors;
+    std::optional<uint8_t>
+        tag_operand_idx; // Index of relevant operand in vector of operands as defined in WireOpCode_WIRE_FORMAT
 
     bool operator==(const WireInstructionSpec& other) const = default;
 };
