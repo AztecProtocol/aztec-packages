@@ -15,6 +15,8 @@ L1_CHAIN_ID="${L1_CHAIN_ID}"
 NETWORK_NAME="${NETWORK_NAME}"
 TAG="${TAG}"
 
+DATA_DIRECTORY="/home/$SSH_USER/data"
+
 # Update system packages
 echo "Updating system packages..."
 sudo apt update -y && sudo apt upgrade -y
@@ -133,9 +135,6 @@ docker run \
  $REPO/$IMAGE:$TAG node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --p2p-bootstrap
 EOF
 chmod +x /home/$SSH_USER/start.sh
-
-
-DATA_DIRECTORY=/home/$SSH_USER/data
 
 P2P_IP="$PUBLIC_IP"
 
