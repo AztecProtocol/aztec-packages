@@ -63,9 +63,8 @@ class GoblinProver {
 
   public:
     GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
-    {
-        commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
-    }
+        : commitment_key(bn254_commitment_key)
+    {}
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
