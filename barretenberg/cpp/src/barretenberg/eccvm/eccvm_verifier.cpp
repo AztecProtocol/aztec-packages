@@ -117,9 +117,6 @@ bool ECCVMVerifier::verify_proof(const ECCVMProof& proof)
 
     const bool batched_opening_verified =
         PCS::reduce_verify(key->pcs_verification_key, batch_opening_claim, ipa_transcript);
-    info("consistency checked? ", consistency_checked);
-    info("eccvm sumcheck verified?: ", sumcheck_output.verified);
-    info("batch opening verified?: ", batched_opening_verified);
     return sumcheck_output.verified && batched_opening_verified && consistency_checked &&
            translation_masking_consistency_checked;
 }
@@ -153,7 +150,6 @@ void ECCVMVerifier::compute_translation_opening_claims(
 
     // Get a challenge to evaluate `translation_polynomials` as univariates
     evaluation_challenge_x = transcript->template get_challenge<FF>("Translation:evaluation_challenge_x");
-    info(" verifier eval challenge ", evaluation_challenge_x);
 
     // Populate the translation evaluations  {`op(x)`, `Px(x)`, `Py(x)`, `z1(x)`, `z2(x)`} to be batched
     for (auto [eval, label] : zip_view(translation_evaluations.get_all(), translation_evaluations.labels)) {
@@ -195,7 +191,6 @@ void ECCVMVerifier::compute_translation_opening_claims(
                                                       evaluation_challenge_x,
                                                       batching_challenge_v,
                                                       translation_masking_term_eval);
-    info("translation consistency checked ", translation_masking_consistency_checked);
 
     // Compute the batched commitment and batched evaluation for the univariate opening claim
     Commitment batched_commitment = translation_commitments[0];

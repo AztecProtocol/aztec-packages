@@ -173,14 +173,12 @@ bool TranslatorRecursiveVerifier_<Flavor>::verify_translation(
 
         const BF eccvm_opening = (op + (v1 * Px) + (v2 * Py) + (v3 * z1) + (v4 * z2)) - translation_masking_term_eval;
         // multiply by x here to deal with shift
-        auto is_reconstructed = (eccvm_opening.get_value() == (x * accumulated_result).get_value());
         eccvm_opening.assert_equal(x * accumulated_result);
-        return is_reconstructed;
+        return (eccvm_opening.get_value() == (x * accumulated_result).get_value());
     };
+
     bool is_value_reconstructed =
         reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
-    info("is val reconstructed ", is_value_reconstructed);
-
     return is_value_reconstructed;
 }
 template class TranslatorRecursiveVerifier_<bb::TranslatorRecursiveFlavor_<UltraCircuitBuilder>>;
