@@ -18,8 +18,6 @@ template <typename Params> class Poseidon {
     static FF hash(const std::vector<FF>& input);
 
     static FF hash(const std::vector<FF>& input, FF iv);
-
-    static FF hash_buffer(const std::vector<uint8_t>& input);
 };
 
 extern template class Poseidon<PoseidonStark252BaseFieldParams>;

@@ -14,41 +14,6 @@ typename Poseidon<Params>::FF Poseidon<Params>::hash(const std::vector<typename 
     return Sponge::hash_internal(input, iv);
 }
 
-template <typename Params>
-typename Poseidon<Params>::FF Poseidon<Params>::hash_buffer(const std::vector<uint8_t>& input)
-{
-    const size_t num_bytes = input.size();
-    const size_t bytes_per_element = 16;
-    size_t num_elements = static_cast<size_t>(num_bytes % bytes_per_element != 0) + (num_bytes / bytes_per_element);
-
-    const auto slice = [](const std::vector<uint8_t>& data, const size_t start, const size_t slice_size) {
-        uint256_t result(0);
-        for (size_t i = 0; i < slice_size; ++i) {
-            result = (result << uint256_t(8));
-            result += uint256_t(data[i + start]);
-        }
-        return FF(result);
-    };
-
-    std::vector<FF> converted;
-    for (size_t i = 0; i < num_elements - 1; ++i) {
-        size_t bytes_to_slice = bytes_per_element;
-        FF element = slice(input, i * bytes_per_element, bytes_to_slice);
-        converted.emplace_back(element);
-    }
-    size_t bytes_to_slice = num_bytes - ((num_elements - 1) * bytes_per_element);
-    FF element = slice(input, (num_elements - 1) * bytes_per_element, bytes_to_slice);
-    converted.emplace_back(element);
-
-    for (size_t i = 0; i < num_elements / 2; i += 2) {
-        auto t = converted[i + 1];
-        converted[i + 1] = converted[i];
-        converted[i] = t;
-    }
-
-    return hash(converted);
-}
-
 template class Poseidon<PoseidonStark252BaseFieldParams>;
 
 PoseidonHash poseidon_stark252(const std::vector<uint8_t>& input)

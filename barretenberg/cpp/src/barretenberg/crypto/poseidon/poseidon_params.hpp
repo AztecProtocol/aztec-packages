@@ -493,5 +493,16 @@ struct PoseidonStark252BaseFieldParams {
             FF(std::string("0x061fc552b8eb75e17ad0fb7aaa4ca528f415e14f0d9cdbed861a8db0bfff0c5b")),
         },
     };
+
+    static constexpr std::array<FF, t> TEST_VECTOR_INPUT{
+        FF(std::string("0x0000000000000000000000000000000000000000537461726b6e6574486f6e6b")),
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000000")),
+        FF(std::string("0x0000000000000000000000000000000000000000000000000000000000000001")),
+    };
+    static constexpr std::array<FF, t> TEST_VECTOR_OUTPUT{
+        FF(std::string("0x05b65cb3dd09edcddac6731b71ec2eaa6c2974d97a1d5978a1c97fa1b00c80ff")),
+        FF(std::string("0x0257539df2ca7f054b6206fa85d6fb92c692ed7f51b34534fcbab8e9cf821071")),
+        FF(std::string("0x05c6798b795dabcf3dee9ae895a0a48b98458b78c7f7885959261ddd251606f5")),
+    };
 };
 } // namespace bb::crypto

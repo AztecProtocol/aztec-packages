@@ -11,6 +11,8 @@ auto& engine = numeric::get_debug_randomness();
 
 TEST(Poseidon, HashBasicTests)
 {
+    using fq = stark252::fq;
+
     fq a = fq::random_element(&engine);
     fq b = fq::random_element(&engine);
     fq c = fq::random_element(&engine);
@@ -27,38 +29,19 @@ TEST(Poseidon, HashBasicTests)
     EXPECT_NE(r0, r2);
 }
 
-/*
 TEST(Poseidon, HashConsistencyCheck)
 {
-    fr a(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
-    fr b(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
-    fr c(std::string("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
-    fr d(std::string("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+    using fq = stark252::fq;
 
-    std::vector<fr> input{ a, b, c, d };
+    fq a(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+    fq b(std::string("9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+    fq c(std::string("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+    fq d(std::string("0x9a807b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
+
+    std::vector<fq> input{ a, b, c, d };
     auto result = crypto::Poseidon<crypto::PoseidonStark252BaseFieldParams>::hash(input);
 
-    fr expected(std::string("0x2f43a0f83b51a6f5fc839dea0ecec74947637802a579fa9841930a25a0bcec11"));
+    fq expected(std::string("0x0494e3a5a8047943395f79e41f11ba73285be9aa930953fbad060c0649a7c79d"));
 
     EXPECT_EQ(result, expected);
 }
-
-TEST(Poseidon, HashBufferConsistencyCheck)
-{
-    // 31 byte inputs because hash_buffer slicing is only injective with 31 bytes, as it slices 31 bytes for each field
-    // element
-    fr a(std::string("00000b615c4d3e2fa0b1c2d3e4f56789fedcba9876543210abcdef0123456789"));
-
-    // takes field element and converts it to 32 bytes
-    auto input_vec = to_buffer(a);
-    bb::fr result1 = crypto::Poseidon<crypto::PoseidonStark252BaseFieldParams>::hash_buffer(input_vec);
-    input_vec.erase(input_vec.begin()); // erase first byte since we want 31 bytes
-    fr result2 = crypto::Poseidon<crypto::PoseidonStark252BaseFieldParams>::hash_buffer(input_vec);
-
-    std::vector<fr> input{ a };
-    auto expected = crypto::Poseidon<crypto::PoseidonStark252BaseFieldParams>::hash(input);
-
-    EXPECT_NE(result1, expected);
-    EXPECT_EQ(result2, expected);
-}
-*/
