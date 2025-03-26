@@ -1,10 +1,4 @@
-import {
-  AccountWallet,
-  type AztecNode,
-  Fr,
-  PrivateFeePaymentMethod,
-  type SimulateMethodOptions,
-} from '@aztec/aztec.js';
+import { AccountWallet, Fr, PrivateFeePaymentMethod, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
