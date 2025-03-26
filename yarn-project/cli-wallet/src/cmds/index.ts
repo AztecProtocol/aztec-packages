@@ -435,7 +435,7 @@ export function injectCommands(
         debugLogger,
       );
       if (db) {
-        await db.pushBridgedFeeJuice(recipient, secret, messageLeafIndex, claimAmount, log);
+        await db.pushBridgedFeeJuice(recipient, secret, claimAmount, messageLeafIndex, log);
       }
     });
 
