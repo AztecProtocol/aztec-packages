@@ -1,6 +1,7 @@
 // docs:start:cross_chain_test_harness
 import {
   type AccountWallet,
+  AuthWitness,
   type AztecAddress,
   type AztecNode,
   EthAddress,
@@ -15,23 +16,19 @@ import {
   type SiblingPath,
   type TxReceipt,
   type Wallet,
-  deployL1Contract,
   retryUntil,
 } from '@aztec/aztec.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { TestERC20Abi, TestERC20Bytecode, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
+import {
+  type L1ContractAddresses,
+  type ViemPublicClient,
+  type ViemWalletClient,
+  deployL1Contract,
+} from '@aztec/ethereum';
+import { TestERC20Abi, TokenPortalAbi, TokenPortalBytecode } from '@aztec/l1-artifacts';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBridgeContract } from '@aztec/noir-contracts.js/TokenBridge';
 
-import {
-  type Account,
-  type Chain,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { type Hex, getContract } from 'viem';
 
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
@@ -48,11 +45,11 @@ import { mintTokensToPrivate } from '../fixtures/token_utils.js';
  */
 export async function deployAndInitializeTokenAndBridgeContracts(
   wallet: Wallet,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
+  walletClient: ViemWalletClient,
+  publicClient: ViemPublicClient,
   rollupRegistryAddress: EthAddress,
   owner: AztecAddress,
-  underlyingERC20Address?: EthAddress,
+  underlyingERC20Address: EthAddress,
 ): Promise<{
   /**
    * The L2 token contract instance.
@@ -75,22 +72,6 @@ export async function deployAndInitializeTokenAndBridgeContracts(
    */
   underlyingERC20: any;
 }> {
-  if (!underlyingERC20Address) {
-    underlyingERC20Address = await deployL1Contract(walletClient, publicClient, TestERC20Abi, TestERC20Bytecode, [
-      'Underlying',
-      'UND',
-      walletClient.account.address,
-    ]).then(({ address }) => address);
-  }
-  const underlyingERC20 = getContract({
-    address: underlyingERC20Address!.toString(),
-    abi: TestERC20Abi,
-    client: walletClient,
-  });
-
-  // allow anyone to mint
-  await underlyingERC20.write.setFreeForAll([true], {} as any);
-
   // deploy the token portal
   const { address: tokenPortalAddress } = await deployL1Contract(
     walletClient,
@@ -114,7 +95,7 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     throw new Error(`Token admin is not ${owner}`);
   }
 
-  if (!(await bridge.methods.get_token().simulate()).equals(token.address)) {
+  if (!(await bridge.methods.get_config().simulate()).token.equals(token.address)) {
     throw new Error(`Bridge token is not ${token.address}`);
   }
 
@@ -130,6 +111,12 @@ export async function deployAndInitializeTokenAndBridgeContracts(
     {} as any,
   );
 
+  const underlyingERC20 = getContract({
+    address: underlyingERC20Address.toString(),
+    abi: TestERC20Abi,
+    client: walletClient,
+  });
+
   return { token, bridge, tokenPortalAddress, tokenPortal, underlyingERC20 };
 }
 // docs:end:deployAndInitializeTokenAndBridgeContracts
@@ -142,11 +129,11 @@ export class CrossChainTestHarness {
   static async new(
     aztecNode: AztecNode,
     pxeService: PXE,
-    publicClient: PublicClient<HttpTransport, Chain>,
-    walletClient: WalletClient<HttpTransport, Chain, Account>,
+    publicClient: ViemPublicClient,
+    walletClient: ViemWalletClient,
     wallet: AccountWallet,
     logger: Logger,
-    underlyingERC20Address?: EthAddress,
+    underlyingERC20Address: EthAddress,
   ): Promise<CrossChainTestHarness> {
     const ethAccount = EthAddress.fromString((await walletClient.getAddresses())[0]);
     const l1ContractAddresses = (await pxeService.getNodeInfo()).l1ContractAddresses;
@@ -205,9 +192,9 @@ export class CrossChainTestHarness {
     /** Underlying token for portal tests. */
     public underlyingERC20Address: EthAddress,
     /** Viem Public client instance. */
-    public publicClient: PublicClient<HttpTransport, Chain>,
+    public publicClient: ViemPublicClient,
     /** Viem Wallet Client instance. */
-    public walletClient: WalletClient<HttpTransport, Chain, Account>,
+    public walletClient: ViemWalletClient,
 
     /** Deployment addresses for all L1 contracts */
     public readonly l1ContractAddresses: L1ContractAddresses,
@@ -218,6 +205,7 @@ export class CrossChainTestHarness {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
       this.underlyingERC20Address,
+      this.l1ContractAddresses.feeAssetHandlerAddress,
       this.l1ContractAddresses.outboxAddress,
       this.publicClient,
       this.walletClient,
@@ -228,7 +216,12 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensOnL1(amount: bigint) {
-    await this.l1TokenManager.mint(amount, this.ethAccount.toString());
+    const contract = getContract({
+      abi: TestERC20Abi,
+      address: this.l1TokenManager.tokenAddress.toString(),
+      client: this.walletClient,
+    });
+    await contract.write.mint([this.ethAccount.toString(), amount]);
     expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
   }
 
@@ -280,10 +273,14 @@ export class CrossChainTestHarness {
       .wait();
   }
 
-  async withdrawPrivateFromAztecToL1(withdrawAmount: bigint, nonce: Fr = Fr.ZERO): Promise<FieldsOf<TxReceipt>> {
+  async withdrawPrivateFromAztecToL1(
+    withdrawAmount: bigint,
+    nonce: Fr = Fr.ZERO,
+    authWitness: AuthWitness,
+  ): Promise<FieldsOf<TxReceipt>> {
     const withdrawReceipt = await this.l2Bridge.methods
       .exit_to_l1_private(this.l2Token.address, this.ethAccount, withdrawAmount, EthAddress.ZERO, nonce)
-      .send()
+      .send({ authWitnesses: [authWitness] })
       .wait();
 
     return withdrawReceipt;

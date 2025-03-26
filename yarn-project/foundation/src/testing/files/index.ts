@@ -6,12 +6,12 @@ import { fileURLToPath } from '../../url/index.js';
 import { isGenerateTestDataEnabled } from '../test_data.js';
 
 /** Writes the contents specified to the target file if test data generation is enabled. */
-export function writeTestData(targetFileFromRepoRoot: string, contents: string | Buffer) {
+export function writeTestData(targetFileFromRepoRoot: string, contents: string | Buffer, raw: boolean = false) {
   if (!isGenerateTestDataEnabled()) {
     return;
   }
   const targetFile = getPathToFile(targetFileFromRepoRoot);
-  const toWrite = typeof contents === 'string' ? contents : contents.toString('hex');
+  const toWrite = raw ? contents : typeof contents === 'string' ? contents : contents.toString('hex');
   writeFileSync(targetFile, toWrite);
   const logger = createConsoleLogger('aztec:testing:test_data');
   logger(`Wrote test data to ${targetFile}`);
@@ -48,7 +48,8 @@ export function updateInlineTestData(targetFileFromRepoRoot: string, itemName: s
 /**
  * Updates the sample Prover.toml files in noir-projects/noir-protocol-circuits/crates/.
  * @remarks Requires AZTEC_GENERATE_TEST_DATA=1 to be set
- * To re-gen, run 'AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e full.test '
+ * To re-gen, run 'AZTEC_GENERATE_TEST_DATA=1 FAKE_PROOFS=1 yarn test:e2e full.test'
+ * To re-gen public base only, run 'AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_public_functions'
  */
 export function updateProtocolCircuitSampleInputs(circuitName: string, value: string) {
   const logger = createConsoleLogger('aztec:testing:test_data');

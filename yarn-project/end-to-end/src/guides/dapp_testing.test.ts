@@ -1,6 +1,7 @@
 // docs:start:imports
-import { createAccount, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
-import { type AccountWallet, CheatCodes, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { type AccountWallet, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
 // docs:end:imports
 // docs:start:import_contract
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -10,7 +11,7 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
 
-const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOST = 'http://localhost:8545' } = process.env;
+const { PXE_URL = 'http://localhost:8080', ETHEREUM_HOSTS = 'http://localhost:8545' } = process.env;
 
 describe('guides/dapp/testing', () => {
   describe('on local sandbox', () => {
@@ -19,32 +20,6 @@ describe('guides/dapp/testing', () => {
       const pxe = createPXEClient(PXE_URL);
       await waitForPXE(pxe);
       // docs:end:create_pxe_client
-    });
-
-    describe('token contract', () => {
-      let pxe: PXE;
-      let owner: AccountWallet;
-      let recipient: AccountWallet;
-      let token: TokenContract;
-
-      beforeEach(async () => {
-        pxe = createPXEClient(PXE_URL);
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
-        token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
-          .send()
-          .deployed();
-      });
-
-      it('increases recipient funds on mint', async () => {
-        const recipientAddress = recipient.getAddress();
-        expect(await token.methods.balance_of_private(recipientAddress).simulate()).toEqual(0n);
-
-        const mintAmount = 20n;
-        await mintTokensToPrivate(token, owner, recipientAddress, mintAmount);
-
-        expect(await token.withWallet(recipient).methods.balance_of_private(recipientAddress).simulate()).toEqual(20n);
-      });
     });
 
     describe('token contract with initial accounts', () => {
@@ -85,8 +60,7 @@ describe('guides/dapp/testing', () => {
 
       beforeAll(async () => {
         pxe = createPXEClient(PXE_URL);
-        owner = await createAccount(pxe);
-        recipient = await createAccount(pxe);
+        [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
         testContract = await TestContract.deploy(owner).send().deployed();
         token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
           .send()
@@ -98,9 +72,9 @@ describe('guides/dapp/testing', () => {
         await mintTokensToPrivate(token, owner, ownerAddress, mintAmount);
 
         // docs:start:calc-slot
-        cheats = await CheatCodes.create(ETHEREUM_HOST, pxe);
+        cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), pxe);
         // The balances mapping is indexed by user address
-        ownerSlot = cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
+        ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
         // docs:end:calc-slot
       });
 
@@ -108,12 +82,13 @@ describe('guides/dapp/testing', () => {
         // docs:start:private-storage
         await token.methods.sync_notes().simulate();
         const notes = await pxe.getNotes({
-          owner: owner.getAddress(),
+          recipient: owner.getAddress(),
           contractAddress: token.address,
           storageSlot: ownerSlot,
           scopes: [owner.getAddress()],
         });
-        const values = notes.map(note => note.note.items[0]);
+        // TODO(#12694): Do not rely on the ordering of members in a struct / check notes manually
+        const values = notes.map(note => note.note.items[2]);
         const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
         expect(balance).toEqual(100n);
         // docs:end:private-storage
@@ -122,7 +97,7 @@ describe('guides/dapp/testing', () => {
       it('checks public storage', async () => {
         // docs:start:public-storage
         await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+        const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );
@@ -131,17 +106,17 @@ describe('guides/dapp/testing', () => {
         // docs:end:public-storage
       });
 
-      it('checks unencrypted logs, [Kinda broken with current implementation]', async () => {
-        // docs:start:unencrypted-logs
+      it('checks public logs, [Kinda broken with current implementation]', async () => {
+        // docs:start:public-logs
         const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
-        const tx = await testContract.methods.emit_unencrypted(value).send().wait();
+        const tx = await testContract.methods.emit_public(value).send().wait();
         const filter = {
           fromBlock: tx.blockNumber!,
           limit: 1, // 1 log expected
         };
-        const logs = (await pxe.getUnencryptedLogs(filter)).logs;
-        expect(Fr.fromBuffer(logs[0].log.data)).toEqual(value);
-        // docs:end:unencrypted-logs
+        const logs = (await pxe.getPublicLogs(filter)).logs;
+        expect(logs[0].log.log[0]).toEqual(value);
+        // docs:end:public-logs
       });
 
       it('asserts a local transaction simulation fails by calling simulate', async () => {
@@ -183,7 +158,7 @@ describe('guides/dapp/testing', () => {
         const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
         const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
         expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
-        const ownerPublicBalanceSlot = cheats.aztec.computeSlotInMap(
+        const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );

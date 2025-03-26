@@ -1,5 +1,6 @@
 use crate::block_merge::BlockMergeRollupInputs;
 use crate::tests::previous_rollup_block_data::default_previous_rollup_block_data;
+use dep::types::traits::Empty;
 
 pub fn default_block_merge_rollup_inputs() -> BlockMergeRollupInputs {
     let mut inputs = BlockMergeRollupInputs::empty();

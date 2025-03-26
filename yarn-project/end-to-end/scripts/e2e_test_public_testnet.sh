@@ -1,10 +1,11 @@
-#!/bin/bash
+#!/usr/bin/env bash
+# TODO needs porting to ci3
 
 # Usage: ./e2e_test_public_testnet.sh <test>
 # Optional environment variables:
 #   SEQ_PUBLISHER_PRIVATE_KEY
 #   PROVER_PUBLISHER_PRIVATE_KEY
-#   ETHEREUM_HOST
+#   ETHEREUM_HOSTS
 #   HARDWARE_CONCURRENCY (default: "")
 #   ALLOW_FAIL (default: false)
 #   L1_CHAIN_ID (default: "31337")
@@ -30,7 +31,8 @@ fi
 # Run the test
 docker run \
   -e L1_CHAIN_ID="$L1_CHAIN_ID" \
-  -e ETHEREUM_HOST="${ETHEREUM_HOST:-}" \
+  -e ETHEREUM_HOSTS="${ETHEREUM_HOSTS:-}" \
+  -e FORCE_COLOR="${FORCE_COLOR:-1}" \
   -e SEQ_PUBLISHER_PRIVATE_KEY="${SEQ_PUBLISHER_PRIVATE_KEY:-}" \
   -e PROVER_PUBLISHER_PRIVATE_KEY="${PROVER_PUBLISHER_PRIVATE_KEY:-}" \
   -e HARDWARE_CONCURRENCY="$HARDWARE_CONCURRENCY" \

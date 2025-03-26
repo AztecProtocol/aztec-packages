@@ -1,8 +1,8 @@
-import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/circuits.js';
-import { fr } from '@aztec/circuits.js/testing';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { range } from '@aztec/foundation/array';
-import { times } from '@aztec/foundation/collection';
+import { timesParallel } from '@aztec/foundation/collection';
 import { createLogger } from '@aztec/foundation/log';
+import { fr } from '@aztec/stdlib/testing';
 
 import { TestContext } from '../mocks/test_context.js';
 
@@ -12,13 +12,13 @@ describe('prover/orchestrator/mixed-blocks', () => {
   let context: TestContext;
 
   const runTest = async (numTxs: number) => {
-    const txs = times(numTxs, i => context.makeProcessedTx(i + 1));
-    await context.setEndTreeRoots(txs);
+    const txs = await timesParallel(numTxs, i => context.makeProcessedTx(i + 1));
+    await context.setTreeRoots(txs);
 
     const l1ToL2Messages = range(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP, 1 + 0x400).map(fr);
 
     context.orchestrator.startNewEpoch(1, 1, 1);
-    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages);
+    await context.orchestrator.startNewBlock(context.globalVariables, l1ToL2Messages, context.getPreviousBlockHeader());
 
     await context.orchestrator.addTxs(txs);
 

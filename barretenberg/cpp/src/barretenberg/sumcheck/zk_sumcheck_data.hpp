@@ -21,8 +21,8 @@ template <typename Flavor> struct ZKSumcheckData {
 
     static constexpr FF subgroup_generator = Curve::subgroup_generator;
 
-    // The size of the LibraUnivariates. We ensure that they do not take extra space when Flavor runs non-ZK Sumcheck.
-    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = (std::is_same_v<Curve, curve::BN254>) ? 9 : 3;
+    // The size of the LibraUnivariates.
+    static constexpr size_t LIBRA_UNIVARIATES_LENGTH = Curve::LIBRA_UNIVARIATES_LENGTH;
 
     static constexpr FF one_half = FF(1) / FF(2);
 
@@ -45,17 +45,19 @@ template <typename Flavor> struct ZKSumcheckData {
     FF libra_running_sum;
     ClaimedLibraEvaluations libra_evaluations;
 
+    size_t univariate_length;
     // Default constructor
     ZKSumcheckData() = default;
 
     // Main constructor
     ZKSumcheckData(const size_t multivariate_d,
-                   std::shared_ptr<typename Flavor::Transcript> transcript,
+                   std::shared_ptr<typename Flavor::Transcript> transcript = nullptr,
                    std::shared_ptr<typename Flavor::CommitmentKey> commitment_key = nullptr)
         : constant_term(FF::random_element())
-        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2)           // includes masking
-        , libra_univariates(generate_libra_univariates(multivariate_d)) // random univariates of degree 2
+        , libra_concatenated_monomial_form(SUBGROUP_SIZE + 2) // includes masking
+        , libra_univariates(generate_libra_univariates(multivariate_d, LIBRA_UNIVARIATES_LENGTH))
         , log_circuit_size(multivariate_d)
+        , univariate_length(LIBRA_UNIVARIATES_LENGTH)
 
     {
         create_interpolation_domain();
@@ -80,22 +82,46 @@ template <typename Flavor> struct ZKSumcheckData {
         // Initialize the Libra running sum
         libra_running_sum = libra_total_sum * libra_challenge;
 
-        // Setup the Libra data
+        // Prepare the Libra data for the first round of sumcheck
+
         setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
     }
 
+    /**
+     * @brief For test purposes: Constructs a sumcheck instance from the polynomial \f$ g + \sum_{i=0}^d g_i(X_i)\f$,
+     * where \f$ g_i \f$ is a random univariate of a given length and \f$ g\f$ is a random constant term.
+     *
+     * @details To test Shplemini with commitments to Sumcheck Round Univariates, we need to create valid Sumcheck Round
+     * Univariates. Fortunately, the functionality of ZKSumcheckData could be re-used for this purpose.
+     * @param multivariate_d
+     * @param univariate_length
+     */
+    ZKSumcheckData(const size_t multivariate_d, const size_t univariate_length)
+        : constant_term(FF::random_element())
+        , libra_univariates(generate_libra_univariates(multivariate_d, univariate_length))
+        , log_circuit_size(multivariate_d)
+        , libra_scaling_factor(FF(1))
+        , libra_challenge(FF::random_element())
+        , libra_total_sum(compute_libra_total_sum(libra_univariates, libra_scaling_factor, constant_term))
+        , libra_running_sum(libra_total_sum * libra_challenge)
+        , univariate_length(univariate_length)
+
+    {
+        setup_auxiliary_data(libra_univariates, libra_scaling_factor, libra_challenge, libra_running_sum);
+    }
     /**
      * @brief Given number of univariate polynomials and the number of their evaluations meant to be hidden, this method
      * produces a vector of univariate polynomials of length Flavor::BATCHED_RELATION_PARTIAL_LENGTH with
      * independent uniformly random coefficients.
      *
      */
-    static std::vector<Polynomial<FF>> generate_libra_univariates(const size_t number_of_polynomials)
+    static std::vector<Polynomial<FF>> generate_libra_univariates(const size_t number_of_polynomials,
+                                                                  const size_t univariate_length)
     {
         std::vector<Polynomial<FF>> libra_full_polynomials(number_of_polynomials);
 
         for (auto& libra_polynomial : libra_full_polynomials) {
-            libra_polynomial = Polynomial<FF>::random(LIBRA_UNIVARIATES_LENGTH);
+            libra_polynomial = Polynomial<FF>::random(univariate_length);
         };
         return libra_full_polynomials;
     };
@@ -116,7 +142,7 @@ template <typename Flavor> struct ZKSumcheckData {
         scaling_factor *= one_half;
 
         for (auto& univariate : libra_univariates) {
-            total_sum += univariate.evaluate(FF(0)) + univariate.evaluate(FF(1));
+            total_sum += univariate.at(0) + univariate.evaluate(FF(1));
             scaling_factor *= 2;
         }
         total_sum *= scaling_factor;
@@ -146,7 +172,7 @@ template <typename Flavor> struct ZKSumcheckData {
             univariate *= libra_scaling_factor;
         };
         // subtract the contribution of the first libra univariate from libra total sum
-        libra_running_sum += -libra_univariates[0].evaluate(FF(0)) - libra_univariates[0].evaluate(FF(1));
+        libra_running_sum += -libra_univariates[0].at(0) - libra_univariates[0].evaluate(FF(1));
         libra_running_sum *= one_half;
     }
 
@@ -213,6 +239,62 @@ template <typename Flavor> struct ZKSumcheckData {
             libra_concatenated_monomial_form.at(idx) -= masking_scalars.value_at(idx);
             libra_concatenated_monomial_form.at(SUBGROUP_SIZE + idx) += masking_scalars.value_at(idx);
         }
+    }
+
+    /**
+     * @brief Upon receiving the challenge \f$u_i\f$, the prover updates Libra data. If \f$ i < d-1\f$
+
+        -  update the table of Libra univariates by multiplying every term by \f$1/2\f$.
+        -  computes the value \f$2^{d-i - 2} \cdot \texttt{libra_challenge} \cdot g_0(u_0)\f$ applying \ref
+        bb::Univariate::evaluate "evaluate" method to the first univariate in the table \f$\texttt{libra_univariates}\f$
+        -  places the value \f$ g_0(u_0)\f$ to the vector \f$ \texttt{libra_evaluations}\f$
+        -  update the running sum
+        \f{align}{
+                \texttt{libra_running_sum} \gets  2^{d-i-2} \cdot \texttt{libra_challenge} \cdot g_0(u_0) +  2^{-1}
+     \cdot \left( \texttt{libra_running_sum} - (\texttt{libra_univariates}_{i+1}(0) +
+     \texttt{libra_univariates}_{i+1}(1)) \right) \f} If \f$ i = d-1\f$
+        -  compute the value \f$ g_{d-1}(u_{d-1})\f$ applying \ref bb::Univariate::evaluate "evaluate" method to the
+     last univariate in the table \f$\texttt{libra_univariates}\f$ and dividing the result by \f$
+     \texttt{libra_challenge} \f$.
+        -  update the table of Libra univariates by multiplying every term by \f$\texttt{libra_challenge}^{-1}\f$.
+     @todo Refactor once the Libra univariates are extracted from the Proving Key. Then the prover does not need to
+        update the first round_idx - 1 univariates and could release the memory. Also, use batch_invert / reduce
+        the number of divisions by 2.
+     * @param libra_univariates
+     * @param round_challenge
+     * @param round_idx
+     * @param libra_running_sum
+     * @param libra_evaluations
+     */
+    void update_zk_sumcheck_data(const FF round_challenge, const size_t round_idx)
+    {
+        static constexpr FF two_inv = FF(1) / FF(2);
+        // when round_idx = d - 1, the update is not needed
+        if (round_idx < this->log_circuit_size - 1) {
+            for (auto& univariate : this->libra_univariates) {
+                univariate *= two_inv;
+            };
+            // compute the evaluation \f$ \rho \cdot 2^{d-2-i} \çdot g_i(u_i) \f$
+            const FF libra_evaluation = this->libra_univariates[round_idx].evaluate(round_challenge);
+            const auto& next_libra_univariate = this->libra_univariates[round_idx + 1];
+            // update the running sum by adding g_i(u_i) and subtracting (g_i(0) + g_i(1))
+            this->libra_running_sum += -next_libra_univariate.at(0) - next_libra_univariate.evaluate(FF(1));
+            this->libra_running_sum *= two_inv;
+
+            this->libra_running_sum += libra_evaluation;
+            this->libra_scaling_factor *= two_inv;
+
+            this->libra_evaluations.emplace_back(libra_evaluation / this->libra_scaling_factor);
+        } else {
+            // compute the evaluation of the last Libra univariate at the challenge u_{d-1}
+            const FF libra_evaluation =
+                this->libra_univariates[round_idx].evaluate(round_challenge) / this->libra_scaling_factor;
+            // place the evalution into the vector of Libra evaluations
+            this->libra_evaluations.emplace_back(libra_evaluation);
+            for (auto univariate : this->libra_univariates) {
+                univariate *= FF(1) / this->libra_challenge;
+            }
+        };
     }
 };
 

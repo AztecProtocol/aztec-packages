@@ -2,12 +2,14 @@
  * Test fixtures and utilities to set up and run a test using multiple validators
  */
 import { type AztecNodeConfig, AztecNodeService } from '@aztec/aztec-node';
-import { type SentTx, createLogger } from '@aztec/aztec.js';
-import { type AztecAddress } from '@aztec/circuits.js';
-import { type DateProvider } from '@aztec/foundation/timer';
-import { type PXEService } from '@aztec/pxe';
+import type { SentTx } from '@aztec/aztec.js';
+import { addLogNameHandler, removeLogNameHandler } from '@aztec/foundation/log';
+import type { DateProvider } from '@aztec/foundation/timer';
+import type { PXEService } from '@aztec/pxe/server';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 
 import getPort from 'get-port';
+import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getPrivateKeyFromIndex } from './utils.js';
@@ -22,7 +24,6 @@ export interface NodeContext {
   node: AztecNodeService;
   pxeService: PXEService;
   txs: SentTx[];
-  account: AztecAddress;
 }
 
 export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `0x${string}`[] {
@@ -34,25 +35,43 @@ export function generatePrivateKeys(startIndex: number, numberOfKeys: number): `
   return privateKeys;
 }
 
-export function createNodes(
+export async function createNodes(
   config: AztecNodeConfig,
   dateProvider: DateProvider,
   bootstrapNodeEnr: string,
   numNodes: number,
   bootNodePort: number,
+  prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
 ): Promise<AztecNodeService[]> {
-  const nodePromises = [];
+  const nodePromises: Promise<AztecNodeService>[] = [];
+  const loggerIdStorage = new AsyncLocalStorage<string>();
+  const logNameHandler = (module: string) =>
+    loggerIdStorage.getStore() ? `${module}:${loggerIdStorage.getStore()}` : module;
+  addLogNameHandler(logNameHandler);
+
   for (let i = 0; i < numNodes; i++) {
     // We run on ports from the bootnode upwards
     const port = bootNodePort + i + 1;
 
     const dataDir = dataDirectory ? `${dataDirectory}-${i}` : undefined;
-    const nodePromise = createNode(config, dateProvider, port, bootstrapNodeEnr, i, dataDir, metricsPort);
+    const nodePromise = createNode(
+      config,
+      dateProvider,
+      port,
+      bootstrapNodeEnr,
+      i,
+      prefilledPublicData,
+      dataDir,
+      metricsPort,
+      loggerIdStorage,
+    );
     nodePromises.push(nodePromise);
   }
-  return Promise.all(nodePromises);
+  const nodes = await Promise.all(nodePromises);
+  removeLogNameHandler(logNameHandler);
+  return nodes;
 }
 
 // creates a P2P enabled instance of Aztec Node Service
@@ -62,18 +81,17 @@ export async function createNode(
   tcpPort: number,
   bootstrapNode: string | undefined,
   accountIndex: number,
+  prefilledPublicData?: PublicDataTreeLeaf[],
   dataDirectory?: string,
   metricsPort?: number,
+  loggerIdStorage?: AsyncLocalStorage<string>,
 ) {
-  const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
-
-  const telemetryClient = await getEndToEndTestTelemetryClient(metricsPort);
-
-  return await AztecNodeService.createAndSync(validatorConfig, {
-    telemetry: telemetryClient,
-    logger: createLogger(`node:${tcpPort}`),
-    dateProvider,
-  });
+  const createNode = async () => {
+    const validatorConfig = await createValidatorConfig(config, bootstrapNode, tcpPort, accountIndex, dataDirectory);
+    const telemetry = getEndToEndTestTelemetryClient(metricsPort);
+    return await AztecNodeService.createAndSync(validatorConfig, { telemetry, dateProvider }, { prefilledPublicData });
+  };
+  return loggerIdStorage ? await loggerIdStorage.run(tcpPort.toString(), createNode) : createNode();
 }
 
 export async function createValidatorConfig(
@@ -97,14 +115,11 @@ export async function createValidatorConfig(
 
   const nodeConfig: AztecNodeConfig = {
     ...config,
-    udpListenAddress: `0.0.0.0:${port}`,
-    tcpListenAddress: `0.0.0.0:${port}`,
-    tcpAnnounceAddress: `127.0.0.1:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     p2pEnabled: true,
     peerCheckIntervalMS: TEST_PEER_CHECK_INTERVAL_MS,
     blockCheckIntervalMS: 1000,
-    transactionProtocol: '',
     dataDirectory,
     bootstrapNodes: bootstrapNodeEnr ? [bootstrapNodeEnr] : [],
   };

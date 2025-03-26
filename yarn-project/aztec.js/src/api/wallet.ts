@@ -1,7 +1,7 @@
 export {
   AccountWallet,
-  AccountWalletWithSecretKey as AccountWalletWithSecretKey,
+  AccountWalletWithSecretKey,
   SignerlessWallet,
-  Wallet,
   getWallet,
+  type Wallet,
 } from '../wallet/index.js';

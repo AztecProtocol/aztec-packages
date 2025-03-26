@@ -36,16 +36,6 @@ template <typename FF_> class UltraPermutationRelationImpl {
     };
 
     /**
-     * @brief For ZK-Flavors: The degrees of subrelations considered as polynomials only in witness polynomials,
-     * i.e. all selectors and public polynomials are treated as constants.
-     *
-     */
-    static constexpr std::array<size_t, 2> SUBRELATION_WITNESS_DEGREES{
-        5, // grand product construction sub-relation
-        1  // left-shiftable polynomial sub-relation
-    };
-
-    /**
      * @brief Returns true if the contribution from all subrelations for the provided inputs is identically zero
      *
      */

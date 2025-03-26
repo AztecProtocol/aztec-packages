@@ -5,11 +5,12 @@
 # run nargo and then postprocess any created artifacts.
 #
 # Usage: compile_then_postprocess.sh [nargo args]
-set -eu
+set -euo pipefail
 
-NARGO=${NARGO:-nargo}
-TRANSPILER=${TRANSPILER:-avm-transpiler}
-BB=${BB:-bb}
+dir=$(dirname $0)
+NARGO=${NARGO:-"$dir/../noir/noir-repo/target/release/nargo"}
+TRANSPILER=${TRANSPILER:-"$dir/../avm-transpiler/target/release/avm-transpiler"}
+BB=${BB:-"$dir/../barretenberg/cpp/build/bin/bb"}
 
 if [ "${1:-}" != "compile" ]; then
   # if not compiling, just pass through to nargo verbatim
@@ -39,7 +40,7 @@ for artifact in $artifacts_to_process; do
 
     echo "Generating verification key for function $fn_name"
     # BB outputs the verification key to stdout as raw bytes, however, we need to base64 encode it before storing it in the artifact
-    verification_key=$($BB write_vk_for_ivc -b ${fn_artifact_path} -o - | base64)
+    verification_key=$($BB write_vk --scheme client_ivc --verifier_type standalone -b ${fn_artifact_path} -o - | base64)
     rm $fn_artifact_path
     jq ".functions[$fn_index].verification_key = \"$verification_key\"" $artifact > $artifact.tmp
     mv $artifact.tmp $artifact

@@ -1,7 +1,7 @@
 use dep::aztec::macros::aztec;
 
 #[aztec]
-contract AuthRegistry {
+pub contract AuthRegistry {
     use dep::authwit::auth::{
         assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
     };

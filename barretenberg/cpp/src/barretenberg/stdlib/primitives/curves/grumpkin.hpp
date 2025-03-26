@@ -42,6 +42,10 @@ template <typename CircuitBuilder> struct grumpkin {
         bb::fq("0x147c647c09fb639514909e9f0513f31ec1a523bf8a0880bc7c24fbc962a9586b");
     static constexpr bb::fq subgroup_generator_inverse =
         bb::fq("0x0c68e27477b5e78cfab790bd3b59806fa871771f71ec7452cde5384f6e3a1988");
+    // The length of the polynomials used to mask the Sumcheck Round Univariates. In the ECCVM Sumcheck, the prover only
+    // sends 3 elements in every round - a commitment to the round univariate and its evaluations at 0 and 1. Therefore,
+    // length 3 is sufficient.
+    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 3;
 };
 
 } // namespace bb::stdlib

@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {DataStructures} from "@aztec/governance/libraries/DataStructures.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 
@@ -16,7 +16,7 @@ library ConfigurationLib {
 
   uint256 internal constant VOTES_LOWER = 1;
 
-  Timestamp internal constant TIME_LOWER = Timestamp.wrap(3600);
+  Timestamp internal constant TIME_LOWER = Timestamp.wrap(60);
   Timestamp internal constant TIME_UPPER = Timestamp.wrap(30 * 24 * 3600);
 
   function withdrawalDelay(DataStructures.Configuration storage _self)

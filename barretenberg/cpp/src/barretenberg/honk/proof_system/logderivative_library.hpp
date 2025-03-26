@@ -1,4 +1,7 @@
 #pragma once
+
+#include "barretenberg/common/constexpr_utils.hpp"
+
 #include <typeinfo>
 
 namespace bb {
@@ -22,10 +25,9 @@ namespace bb {
  * The specific algebraic relations that define read terms and write terms are defined in Flavor::LookupRelation
  *
  */
-template <typename Flavor, typename Relation, typename Polynomials>
+template <typename FF, typename Relation, typename Polynomials>
 void compute_logderivative_inverse(Polynomials& polynomials, auto& relation_parameters, const size_t circuit_size)
 {
-    using FF = typename Flavor::FF;
     using Accumulator = typename Relation::ValueAccumulator0;
     constexpr size_t READ_TERMS = Relation::READ_TERMS;
     constexpr size_t WRITE_TERMS = Relation::WRITE_TERMS;

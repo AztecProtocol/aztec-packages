@@ -14,6 +14,8 @@ class TestTraceContainer : public TraceContainer {
     using Row = AvmFullRow<FF>;
     using RowTraceContainer = std::vector<Row>;
 
+    static TestTraceContainer from_rows(const RowTraceContainer& rows);
+
     TestTraceContainer() = default;
     TestTraceContainer(const std::vector<std::vector<std::pair<Column, FF>>>& values)
     {
@@ -21,6 +23,8 @@ class TestTraceContainer : public TraceContainer {
             set(row, values[row]);
         }
     }
+    // Copy constructor. We allow copying for testing purposes.
+    TestTraceContainer(const TestTraceContainer&);
 
     // Returns a trace in dense format with properly filled in shifted columns.
     RowTraceContainer as_rows() const;

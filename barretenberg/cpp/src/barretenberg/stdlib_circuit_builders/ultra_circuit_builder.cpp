@@ -52,6 +52,7 @@ void UltraCircuitBuilder_<ExecutionTrace>::finalize_circuit(const bool ensure_no
         process_RAM_arrays();
         process_range_lists();
 #endif
+        populate_public_inputs_block();
         circuit_finalized = true;
     } else {
         // Gates added after first call to finalize will not be processed since finalization is only performed once
@@ -644,6 +645,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
      * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
      * can also chain double gates together
      **/
+    this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
+
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
     if (can_fuse_into_previous_gate) {
@@ -1792,6 +1795,24 @@ std::array<uint32_t, 2> UltraCircuitBuilder_<ExecutionTrace>::evaluate_non_nativ
     });
 
     return std::array<uint32_t, 2>{ lo_1_idx, hi_3_idx };
+}
+
+/**
+ * @brief Copy the public input idx data into the public inputs trace block
+ * @note
+ */
+template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::populate_public_inputs_block()
+{
+    PROFILE_THIS_NAME("populate_public_inputs_block");
+
+    // Update the public inputs block
+    for (const auto& idx : this->public_inputs) {
+        // first two wires get a copy of the public inputs
+        blocks.pub_inputs.populate_wires(idx, idx, this->zero_idx, this->zero_idx);
+        for (auto& selector : this->blocks.pub_inputs.selectors) {
+            selector.emplace_back(0);
+        }
+    }
 }
 
 /**

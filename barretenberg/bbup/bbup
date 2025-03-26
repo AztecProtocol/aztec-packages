@@ -6,9 +6,13 @@ set -e
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
 NC='\033[0m'
+BOLD="\033[1m"
 SUCCESS="✓"
 ERROR="✗"
+
+BB_PATH=${BB_PATH:-"$HOME/.bb"}
 
 # Utility functions
 print_spinner() {
@@ -25,10 +29,13 @@ print_spinner() {
     printf "    \b\b\b\b"
 }
 
+warn() {
+    echo -e "${BOLD}${YELLOW}WARN: ${1}${NC}"
+}
+
 get_bb_version_for_noir() {
     local noir_version=$1
-    local url=""
-    local resolved_version=""
+    local resolved_version=$noir_version
 
     if [ "$noir_version" = "stable" ] || [ "$noir_version" = "nightly" ]; then
         # Get releases from GitHub API
@@ -39,16 +46,17 @@ get_bb_version_for_noir() {
         else
             resolved_version=$(echo "$releases" | grep -o '"tag_name": "nightly[^"]*"' | head -1 | cut -d'"' -f4)
         fi
-
-        url="https://raw.githubusercontent.com/noir-lang/noir/${resolved_version}/scripts/install_bb.sh"
-    else
-        url="https://raw.githubusercontent.com/noir-lang/noir/v${noir_version}/scripts/install_bb.sh"
     fi
 
+    local lookup_url="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/master/barretenberg/bbup/bb-versions.json"
+
     # Extract BB version from install script
-    local install_script=$(curl -s "$url")
-    local bb_version=$(echo "$install_script" | grep 'VERSION=' | cut -d'"' -f2)
+    local bb_version=$(curl -s "$lookup_url" | jq -r --arg version "$resolved_version" '.[$version]')
     echo "$bb_version"
+}
+
+version_gte() {
+    [ "$(printf '%s\n' "$1" "$2" | sort -V | head -n1)" = "$2" ]
 }
 
 install_bb() {
@@ -56,11 +64,26 @@ install_bb() {
     local architecture=$(uname -m)
     local platform=""
 
+    if ! version_gte "$version" "0.82.0"; then
+        # Unknown when this vulnerability was introduced so we warn on all versions prior to fix.
+        # See: https://github.com/AztecProtocol/aztec-packages/pull/12602
+        warn "There is a critical soundness issue in Ultrahonk in this version of Barretenberg. It is recommended to update to v0.82.2 or greater."
+        warn "Any solidity verifier contracts must be regenerated using a patched version of Barretenberg."
+    fi
+
     # Convert architecture names
-    if [ "$architecture" = "arm64" ]; then
-        architecture="aarch64"
+    if [ "$architecture" = "arm64" ] || [ "$architecture" = "aarch64" ]; then
+        if version_gte "$version" "0.77.0"; then
+            architecture="arm64"
+        else
+            architecture="aarch64"
+        fi
     elif [ "$architecture" = "x86_64" ]; then
-        architecture="x86_64"
+        if version_gte "$version" "0.77.0"; then
+            architecture="amd64"
+        else
+            architecture="x86_64"
+        fi
     else
         printf "${RED}${ERROR} Unsupported architecture: ${architecture}${NC}\n"
         exit 1
@@ -68,36 +91,46 @@ install_bb() {
 
     # Determine platform
     if [ "$(uname)" = "Darwin" ]; then
-        platform="apple-darwin"
+        if version_gte "$version" "0.77.0"; then
+            platform="darwin"
+        else
+            platform="apple-darwin"
+        fi
     elif [ "$(uname)" = "Linux" ]; then
-        platform="linux-gnu"
+        if version_gte "$version" "0.77.0"; then
+            platform="linux"
+        else
+            platform="linux-gnu"
+        fi
+
     else
         printf "${RED}${ERROR} Unsupported platform: $(uname)${NC}\n"
         exit 1
     fi
 
-    local home_dir=$HOME
-    local bb_path="${home_dir}/.bb"
-
-    printf "${BLUE}Installing to ${bb_path}${NC}\n"
+    printf "${BLUE}Installing to ${BB_PATH}${NC}\n"
 
     # Create temporary directory
     local temp_dir=$(mktemp -d)
     local temp_tar="${temp_dir}/temp.tar.gz"
 
     # Download and extract
-    local release_url="https://github.com/AztecProtocol/aztec-packages/releases/download/aztec-packages-v${version}"
-    local binary_url="${release_url}/barretenberg-${architecture}-${platform}.tar.gz"
+    local release_url_base="https://github.com/AztecProtocol/aztec-packages/releases/download"
+    local release_tag="v${version}"
+    if ! version_gte "$version" "0.77.0"; then
+        release_tag="aztec-packages-v${version}"
+    fi
+    local binary_url="${release_url_base}/${release_tag}/barretenberg-${architecture}-${platform}.tar.gz"
 
     curl -L "$binary_url" -o "$temp_tar"
-    mkdir -p "$bb_path"
-    tar xzf "$temp_tar" -C "$bb_path"
+    mkdir -p "$BB_PATH"
+    tar xzf "$temp_tar" -C "$BB_PATH"
     rm -rf "$temp_dir"
 
     # Update shell configuration
-    update_shell_config "$bb_path"
+    update_shell_config "$BB_PATH"
 
-    printf "${GREEN}${SUCCESS} Installed barretenberg to ${bb_path}${NC}\n"
+    printf "${GREEN}${SUCCESS} Installed barretenberg to ${BB_PATH}${NC}\n"
 }
 
 update_shell_config() {
@@ -174,6 +207,11 @@ main() {
             printf "${GREEN}${SUCCESS} Resolved noir version ${noir_version} to ${resolved_version}${NC}\n"
         fi
         version=$(get_bb_version_for_noir "$noir_version")
+
+        if [ ! -n "$version" ]; then
+            printf "${RED}${ERROR} No version specified and couldn't determine version from noir${NC}\n"
+            exit 1
+        fi
         printf "${GREEN}${SUCCESS} Resolved to barretenberg version ${version}${NC}\n"
     fi
 

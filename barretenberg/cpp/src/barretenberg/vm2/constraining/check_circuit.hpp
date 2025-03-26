@@ -7,7 +7,7 @@
 namespace bb::avm2::constraining {
 
 // This is a version of check circuit that runs on the prover polynomials.
-// Better versions could be done, but since this is for debugging only, it is enough for now.
+// It is the closest to "real proving" that we can get without actually running the prover.
 void run_check_circuit(AvmFlavor::ProverPolynomials& polys, size_t num_rows);
 
 } // namespace bb::avm2::constraining

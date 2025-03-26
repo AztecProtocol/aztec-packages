@@ -1,8 +1,10 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"
 cd "$SCRIPT_DIR"
+
+echo "Installing metrics (KIND)"
 
 # check if metrics is already installed
 if helm ls --namespace metrics | grep -q metrics; then
@@ -10,9 +12,7 @@ if helm ls --namespace metrics | grep -q metrics; then
   exit 0
 fi
 
-# Inject the Aztec Networks dashboard into values.yaml
-DASHBOARD_JSON=$(jq -c '.' grafana_dashboards/aztec-dashboard-all-in-one.json)
-DASHBOARD_JSON=$DASHBOARD_JSON yq e '.grafana.dashboards.default."aztec-networks".json = strenv(DASHBOARD_JSON)' values.tmp.yaml > values.yaml
+./copy-dashboard.sh
 
 helm repo add open-telemetry https://open-telemetry.github.io/opentelemetry-helm-charts
 helm repo add grafana https://grafana.github.io/helm-charts

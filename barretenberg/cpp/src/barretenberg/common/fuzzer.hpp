@@ -21,7 +21,7 @@
         ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, ASSERT_EQUAL, ASSERT_NOT_EQUAL, SQR_ADD, SUBTRACT_WITH_CONSTRAINT,    \
         DIVIDE_WITH_CONSTRAINTS, SLICE, ASSERT_ZERO, ASSERT_NOT_ZERO, COND_NEGATE, ADD_MULTI, ASSERT_VALID,            \
         COND_SELECT, DOUBLE, RANDOMSEED, SELECT_IF_ZERO, SELECT_IF_EQ, REVERSE, GET_BIT, SET_BIT, SET, INVERT, AND,    \
-        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT
+        OR, XOR, MODULO, SHL, SHR, ROL, ROR, NOT, BATCH_MUL, COND_ASSIGN
 
 struct HavocSettings {
     size_t GEN_LLVM_POST_MUTATION_PROB; // Controls frequency of additional mutation after structural ones
@@ -234,9 +234,9 @@ inline static FF mutateFieldElement(FF e, T& rng)
             e = e.to_montgomery_form();
         }
         if (rng.next() & 1) {
-            value_data = e + FF(rng.next() & 0xff);
+            e += FF(rng.next() & 0xff);
         } else {
-            value_data = e - FF(rng.next() & 0xff);
+            e -= FF(rng.next() & 0xff);
         }
         if (convert_to_montgomery) {
             e = e.from_montgomery_form();
@@ -244,7 +244,6 @@ inline static FF mutateFieldElement(FF e, T& rng)
     } else { // 25% to use special values
 
         // Substitute field element with a special value
-        MONT_CONVERSION_LOCAL
         switch (rng.next() % 8) {
         case 0:
             e = FF::zero();
@@ -274,7 +273,9 @@ inline static FF mutateFieldElement(FF e, T& rng)
             abort();
             break;
         }
-        INV_MONT_CONVERSION_LOCAL
+        if (convert_to_montgomery) {
+            e = e.from_montgomery_form();
+        }
     }
     // Return instruction
     return e;

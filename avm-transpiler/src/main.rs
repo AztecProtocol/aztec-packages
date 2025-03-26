@@ -9,6 +9,7 @@ use std::path::Path;
 mod bit_traits;
 mod instructions;
 mod opcodes;
+mod procedures;
 mod transpile;
 mod transpile_contract;
 mod utils;

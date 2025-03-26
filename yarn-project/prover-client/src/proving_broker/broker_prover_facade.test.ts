@@ -1,28 +1,32 @@
-import { makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
-import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import { makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { makeRecursiveProof } from '@aztec/stdlib/proofs';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 
 import { MockProver, TestBroker } from '../test/mock_prover.js';
 import { BrokerCircuitProverFacade } from './broker_prover_facade.js';
-import { InlineProofStore } from './proof_store.js';
+import { InlineProofStore } from './proof_store/index.js';
 
 describe('BrokerCircuitProverFacade', () => {
   let facade: BrokerCircuitProverFacade;
   let proofStore: InlineProofStore;
+  let errorProofStore: InlineProofStore;
   let broker: TestBroker;
   let prover: MockProver;
   let agentPollInterval: number;
 
   beforeEach(async () => {
     proofStore = new InlineProofStore();
+    errorProofStore = new InlineProofStore();
     prover = new MockProver();
     agentPollInterval = 100;
     broker = new TestBroker(2, prover, proofStore, agentPollInterval);
-    facade = new BrokerCircuitProverFacade(broker, proofStore);
+    facade = new BrokerCircuitProverFacade(broker, proofStore, errorProofStore);
 
     await broker.start();
     facade.start();
@@ -31,6 +35,7 @@ describe('BrokerCircuitProverFacade', () => {
   afterEach(async () => {
     await broker.stop();
     await facade.stop();
+    jest.restoreAllMocks();
   });
 
   it('sends jobs to the broker', async () => {
@@ -39,11 +44,13 @@ describe('BrokerCircuitProverFacade', () => {
 
     jest.spyOn(broker, 'enqueueProvingJob');
     jest.spyOn(prover, 'getBaseParityProof');
+    jest.spyOn(errorProofStore, 'saveProofInput');
 
     await expect(facade.getBaseParityProof(inputs, controller.signal, 42)).resolves.toBeDefined();
 
     expect(broker.enqueueProvingJob).toHaveBeenCalled();
     expect(prover.getBaseParityProof).toHaveBeenCalledWith(inputs, expect.anything(), 42);
+    expect(errorProofStore.saveProofInput).not.toHaveBeenCalled();
   });
 
   it('handles multiple calls for the same job', async () => {
@@ -103,6 +110,7 @@ describe('BrokerCircuitProverFacade', () => {
     const resultPromise = promiseWithResolvers<any>();
     jest.spyOn(broker, 'enqueueProvingJob');
     jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
+    jest.spyOn(errorProofStore, 'saveProofInput');
 
     // send N identical proof requests
     const CALLS = 50;
@@ -136,6 +144,8 @@ describe('BrokerCircuitProverFacade', () => {
     expect(broker.enqueueProvingJob).toHaveBeenCalledTimes(2);
     // but no new jobs where created
     expect(prover.getBaseParityProof).toHaveBeenCalledTimes(1);
+    // and the proof input will have been backed up
+    expect(errorProofStore.saveProofInput).toHaveBeenCalled();
   });
 
   it('handles aborts', async () => {
@@ -145,6 +155,7 @@ describe('BrokerCircuitProverFacade', () => {
     const resultPromise = promiseWithResolvers<any>();
     jest.spyOn(broker, 'enqueueProvingJob');
     jest.spyOn(prover, 'getBaseParityProof').mockReturnValue(resultPromise.promise);
+    jest.spyOn(errorProofStore, 'saveProofInput');
 
     const promise = facade.getBaseParityProof(inputs, controller.signal, 42).catch(err => ({ err }));
 
@@ -154,6 +165,7 @@ describe('BrokerCircuitProverFacade', () => {
     controller.abort();
 
     await expect(promise).resolves.toEqual({ err: new Error('Aborted') });
+    expect(errorProofStore.saveProofInput).not.toHaveBeenCalled();
   });
 
   it('rejects jobs when the facade is stopped', async () => {

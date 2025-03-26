@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use dep::aztec::{
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
+        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable},
     };
@@ -20,7 +20,7 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(
+        numbers.at(owner).initialize(new_number).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             context.msg_sender(),
@@ -32,7 +32,7 @@ contract BoxReact {
         let numbers = storage.numbers;
         let mut new_number = ValueNote::new(number, owner);
 
-        numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(
+        numbers.at(owner).replace(new_number).emit(encode_and_encrypt_note(
             &mut context,
             owner,
             context.msg_sender(),

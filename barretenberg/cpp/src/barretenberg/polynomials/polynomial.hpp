@@ -2,6 +2,7 @@
 #include "barretenberg/common/mem.hpp"
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
@@ -36,13 +37,15 @@ template <typename Fr> struct PolynomialSpan {
         ASSERT(index >= start_index && index < end_index());
         return span[index - start_index];
     }
-    PolynomialSpan subspan(size_t offset)
+    PolynomialSpan subspan(size_t offset, size_t length)
     {
         if (offset > span.size()) { // Return a null span
             return { 0, span.subspan(span.size()) };
         }
-        return { start_index + offset, span.subspan(offset) };
+        size_t new_length = std::min(length, span.size() - offset);
+        return { start_index + offset, span.subspan(offset, new_length) };
     }
+    operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
 
 /**
@@ -163,6 +166,12 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
+     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
+     * @note Resulting Polynomial shares the memory of that used to generate it
+     */
+    Polynomial right_shifted(const size_t magnitude) const;
+
+    /**
      * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
      * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
      * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then
@@ -247,6 +256,21 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
+    /**
+     * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
+     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
+     * knowledge.
+     */
+    void mask()
+    {
+        // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
+        ASSERT(virtual_size() >= MASKING_OFFSET);
+        ASSERT(virtual_size() == end_index());
+        for (size_t i = virtual_size() - 1; i <= virtual_size() - MASKING_OFFSET; i--) {
+            at(i) = FF::random_element();
+        }
+    }
+
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
     void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
@@ -300,6 +324,13 @@ template <typename Fr> class Polynomial {
      * @return a polynomial with a larger size() but same virtual_size()
      */
     Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
+
+    /**
+     * @brief The end_index of the polynomial is decreased without any memory de-allocation.
+     *        This is a very fast way to zeroize the polynomial tail from new_end_index to the
+     *        end. It also means that the new end_index might be smaller than the backed memory.
+     */
+    void shrink_end_index(const size_t new_end_index);
 
     /**
      * @brief Copys the polynomial, but with the whole address space usable.
@@ -356,14 +387,20 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
+     * @details There is an underlying assumption that the relevant start index in the vector
+     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
+     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
+     *
+     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     *
      * @tparam T a convertible type
      * @param vec the vector
      */
     template <typename T> void copy_vector(const std::vector<T>& vec)
     {
         ASSERT(vec.size() <= end_index());
-        for (size_t i : indices()) {
-            ASSERT(i < vec.size());
+        ASSERT(vec.size() - start_index() <= size());
+        for (size_t i = start_index(); i < vec.size(); i++) {
             at(i) = vec[i];
         }
     }
@@ -388,15 +425,10 @@ template <typename Fr> class Polynomial {
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
 
-    // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
-    // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
-    const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
-
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {

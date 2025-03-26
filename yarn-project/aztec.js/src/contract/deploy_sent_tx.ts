@@ -1,11 +1,13 @@
-import { type PXE, type TxHash, type TxReceipt } from '@aztec/circuit-types';
-import { type AztecAddress, type ContractInstanceWithAddress } from '@aztec/circuits.js';
 import { createLogger } from '@aztec/foundation/log';
-import { type FieldsOf } from '@aztec/foundation/types';
+import type { FieldsOf } from '@aztec/foundation/types';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { TxHash, TxReceipt } from '@aztec/stdlib/tx';
 
-import { type Wallet } from '../account/index.js';
-import { type Contract } from './contract.js';
-import { type ContractBase } from './contract_base.js';
+import type { Wallet } from '../wallet/wallet.js';
+import type { Contract } from './contract.js';
+import type { ContractBase } from './contract_base.js';
 import { SentTx, type WaitOpts } from './sent_tx.js';
 
 /** Options related to waiting for a deployment tx. */
@@ -27,11 +29,11 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
   private log = createLogger('aztecjs:deploy_sent_tx');
 
   constructor(
-    wallet: PXE | Wallet,
+    wallet: Wallet,
     txHashPromise: Promise<TxHash>,
     private postDeployCtor: (address: AztecAddress, wallet: Wallet) => Promise<TContract>,
-    /** The deployed contract instance */
-    public instance: ContractInstanceWithAddress,
+    /** A getter for the deployed contract instance */
+    public instanceGetter: () => Promise<ContractInstanceWithAddress>,
   ) {
     super(wallet, txHashPromise);
   }
@@ -43,7 +45,8 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
    */
   public async deployed(opts?: DeployedWaitOpts): Promise<TContract> {
     const receipt = await this.wait(opts);
-    this.log.info(`Contract ${this.instance.address.toString()} successfully deployed.`);
+    const instance = await this.instanceGetter();
+    this.log.info(`Contract ${instance.address.toString()} successfully deployed.`);
     return receipt.contract;
   }
 
@@ -58,12 +61,14 @@ export class DeploySentTx<TContract extends Contract = Contract> extends SentTx 
     return { ...receipt, contract };
   }
 
-  protected getContractObject(wallet?: Wallet): Promise<TContract> {
-    const isWallet = (pxe: PXE | Wallet): pxe is Wallet => !!(pxe as Wallet).createTxExecutionRequest;
-    const contractWallet = wallet ?? (isWallet(this.pxe) && this.pxe);
+  protected async getContractObject(wallet?: Wallet): Promise<TContract> {
+    const isWallet = (pxeWalletOrNode: Wallet | AztecNode | PXE): pxeWalletOrNode is Wallet =>
+      !!(pxeWalletOrNode as Wallet).createTxExecutionRequest;
+    const contractWallet = wallet ?? (isWallet(this.pxeWalletOrNode) && this.pxeWalletOrNode);
     if (!contractWallet) {
       throw new Error(`A wallet is required for creating a contract instance`);
     }
-    return this.postDeployCtor(this.instance.address, contractWallet) as Promise<TContract>;
+    const instance = await this.instanceGetter();
+    return this.postDeployCtor(instance.address, contractWallet) as Promise<TContract>;
   }
 }

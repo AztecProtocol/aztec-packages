@@ -42,7 +42,11 @@ describe('e2e_blacklist_token_contract burn', () => {
 
       // We need to compute the message we want to sign and add it to the wallet as approved
       const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
-      await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
+      const validateActionInteraction = await wallets[0].setPublicAuthWit(
+        { caller: wallets[1].getAddress(), action },
+        true,
+      );
+      await validateActionInteraction.send().wait();
 
       await action.send().wait();
 
@@ -90,7 +94,11 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
-        await wallets[0].setPublicAuthWit({ caller: wallets[1].getAddress(), action }, true).send().wait();
+        const validateActionInteraction = await wallets[0].setPublicAuthWit(
+          { caller: wallets[1].getAddress(), action },
+          true,
+        );
+        await validateActionInteraction.send().wait();
 
         await expect(action.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
       });
@@ -103,7 +111,11 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce);
-        await wallets[0].setPublicAuthWit({ caller: wallets[0].getAddress(), action }, true).send().wait();
+        const validateActionInteraction = await wallets[0].setPublicAuthWit(
+          { caller: wallets[0].getAddress(), action },
+          true,
+        );
+        await validateActionInteraction.send().wait();
 
         await expect(
           asset.withWallet(wallets[1]).methods.burn_public(wallets[0].getAddress(), amount, nonce).simulate(),
@@ -139,16 +151,19 @@ describe('e2e_blacklist_token_contract burn', () => {
       // Both wallets are connected to same node and PXE so we could just insert directly
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-      await wallets[1].addAuthWitness(witness);
 
-      // We give wallets[1] access to wallets[0]'s notes to be able to burn the notes.
-      wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
-
-      await asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send().wait();
+      await asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce)
+        .send({ authWitnesses: [witness] })
+        .wait();
       tokenSim.burnPrivate(wallets[0].getAddress(), amount);
 
       // Perform the transfer again, should fail
-      const txReplay = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce).send();
+      const txReplay = asset
+        .withWallet(wallets[1])
+        .methods.burn(wallets[0].getAddress(), amount, nonce)
+        .send({ authWitnesses: [witness] });
       await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
     });
 
@@ -183,9 +198,8 @@ describe('e2e_blacklist_token_contract burn', () => {
         // Both wallets are connected to same node and PXE so we could just insert directly
         // But doing it in two actions to show the flow.
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-        await wallets[1].addAuthWitness(witness);
 
-        await expect(action.prove()).rejects.toThrow('Assertion failed: Balance too low');
+        await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       });
 
       it('burn on behalf of other without approval', async () => {
@@ -196,13 +210,10 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
-        const messageHash = computeAuthWitMessageHash(
-          { caller: wallets[1].getAddress(), action: action.request() },
+        const messageHash = await computeAuthWitMessageHash(
+          { caller: wallets[1].getAddress(), action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
-
-        // We give wallets[1] access to wallets[0]'s notes to test the authwit.
-        wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
 
         await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
       });
@@ -215,18 +226,14 @@ describe('e2e_blacklist_token_contract burn', () => {
 
         // We need to compute the message we want to sign and add it to the wallet as approved
         const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
-        const expectedMessageHash = computeAuthWitMessageHash(
-          { caller: wallets[2].getAddress(), action: action.request() },
+        const expectedMessageHash = await computeAuthWitMessageHash(
+          { caller: wallets[2].getAddress(), action },
           { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
         );
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });
-        await wallets[2].addAuthWitness(witness);
 
-        // We give wallets[2] access to wallets[0]'s notes to test the authwit.
-        wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
-
-        await expect(action.prove()).rejects.toThrow(
+        await expect(action.prove({ authWitnesses: [witness] })).rejects.toThrow(
           `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
         );
       });

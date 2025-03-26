@@ -1,7 +1,8 @@
-import { Fr, VerificationKeyData } from '@aztec/circuits.js';
-import { hashVK } from '@aztec/circuits.js/hash';
+import { Fr } from '@aztec/foundation/fields';
 import { createConsoleLogger } from '@aztec/foundation/log';
 import { fileURLToPath } from '@aztec/foundation/url';
+import { hashVK } from '@aztec/stdlib/hash';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
 import { join } from 'path';
@@ -33,7 +34,7 @@ const main = async () => {
       if (!content.vkHash) {
         const { keyAsFields } = content;
 
-        content.vkHash = hashVK(keyAsFields.map((str: string) => Fr.fromHexString(str))).toString();
+        content.vkHash = (await hashVK(keyAsFields.map((str: string) => Fr.fromHexString(str)))).toString();
         await fs.writeFile(keyPath, JSON.stringify(content, null, 2));
       }
     }

@@ -151,17 +151,13 @@ struct PublicCallRequest {
      */
     FF contract_address{};
     /**
-     * Function selector of the function being called.
-     */
-    uint32_t function_selector = 0;
-    /**
      * Determines whether the call is modifying state.
      */
     bool is_static_call = false;
-    FF args_hash{};
+    FF calldata_hash{};
     inline bool is_empty() const
     {
-        return msg_sender == 0 && contract_address == 0 && function_selector == 0 && !is_static_call && args_hash == 0;
+        return msg_sender == 0 && contract_address == 0 && !is_static_call && calldata_hash == 0;
     }
 };
 
@@ -170,9 +166,8 @@ inline void read(uint8_t const*& it, PublicCallRequest& public_call_request)
     using serialize::read;
     read(it, public_call_request.msg_sender);
     read(it, public_call_request.contract_address);
-    read(it, public_call_request.function_selector);
     read(it, public_call_request.is_static_call);
-    read(it, public_call_request.args_hash);
+    read(it, public_call_request.calldata_hash);
 }
 
 struct PrivateToAvmAccumulatedDataArrayLengths {
@@ -230,30 +225,16 @@ inline void read(uint8_t const*& it, PrivateToAvmAccumulatedData& accumulated_da
     read(it, accumulated_data.l2_to_l1_msgs);
 }
 
-struct LogHash {
-    FF value{};
-    uint32_t counter = 0;
-    FF length{};
-};
-
-inline void read(uint8_t const*& it, LogHash& log_hash)
-{
-    using serialize::read;
-    read(it, log_hash.value);
-    read(it, log_hash.counter);
-    read(it, log_hash.length);
-}
-
-struct ScopedLogHash {
-    LogHash log_hash;
+struct PublicLog {
     FF contract_address{};
+    std::array<FF, PUBLIC_LOG_DATA_SIZE_IN_FIELDS> log{};
 };
 
-inline void read(uint8_t const*& it, ScopedLogHash& scoped_log_hash)
+inline void read(uint8_t const*& it, PublicLog& public_log)
 {
     using serialize::read;
-    read(it, scoped_log_hash.log_hash);
-    read(it, scoped_log_hash.contract_address);
+    read(it, public_log.contract_address);
+    read(it, public_log.log);
 }
 
 struct PublicDataWrite {
@@ -282,9 +263,9 @@ struct AvmAccumulatedData {
      */
     std::array<ScopedL2ToL1Message, MAX_L2_TO_L1_MSGS_PER_TX> l2_to_l1_msgs{};
     /**
-     * The unencrypted logs emitted from the AVM execution.
+     * The public logs emitted from the AVM execution.
      */
-    std::array<ScopedLogHash, MAX_UNENCRYPTED_LOGS_PER_TX> unencrypted_logs_hashes{};
+    std::array<PublicLog, MAX_PUBLIC_LOGS_PER_TX> public_logs{};
     /**
      * The public data writes made in the AVM execution.
      */
@@ -298,7 +279,7 @@ inline void read(uint8_t const*& it, AvmAccumulatedData& accumulated_data)
     read(it, accumulated_data.note_hashes);
     read(it, accumulated_data.nullifiers);
     read(it, accumulated_data.l2_to_l1_msgs);
-    read(it, accumulated_data.unencrypted_logs_hashes);
+    read(it, accumulated_data.public_logs);
     read(it, accumulated_data.public_data_writes);
 };
 

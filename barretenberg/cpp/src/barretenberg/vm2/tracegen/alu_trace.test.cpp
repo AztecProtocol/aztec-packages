@@ -5,6 +5,7 @@
 
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/full_row.hpp"
+#include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
@@ -18,7 +19,7 @@ using testing::Field;
 using R = TestTraceContainer::Row;
 using FF = R::FF;
 
-TEST(AvmTraceGenAluTest, TraceGeneration)
+TEST(AluTraceGenTest, TraceGeneration)
 {
     TestTraceContainer trace;
     AluTraceBuilder builder;
@@ -32,14 +33,14 @@ TEST(AvmTraceGenAluTest, TraceGeneration)
     EXPECT_THAT(trace.as_rows(),
                 ElementsAre(
                     // Only one row.
-                    AllOf(Field(&R::alu_op, static_cast<uint8_t>(AluOperation::ADD)),
-                          Field(&R::alu_sel_op_add, 1),
-                          Field(&R::alu_ia_addr, 0),
-                          Field(&R::alu_ib_addr, 1),
-                          Field(&R::alu_dst_addr, 2),
-                          Field(&R::alu_ia, 1),
-                          Field(&R::alu_ib, 2),
-                          Field(&R::alu_ic, 3))));
+                    AllOf(ROW_FIELD_EQ(R, alu_op, static_cast<uint8_t>(AluOperation::ADD)),
+                          ROW_FIELD_EQ(R, alu_sel_op_add, 1),
+                          ROW_FIELD_EQ(R, alu_ia_addr, 0),
+                          ROW_FIELD_EQ(R, alu_ib_addr, 1),
+                          ROW_FIELD_EQ(R, alu_dst_addr, 2),
+                          ROW_FIELD_EQ(R, alu_ia, 1),
+                          ROW_FIELD_EQ(R, alu_ib, 2),
+                          ROW_FIELD_EQ(R, alu_ic, 3))));
 }
 
 } // namespace

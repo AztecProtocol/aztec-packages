@@ -4,11 +4,11 @@ exports[`Data generation for noir tests Computes contract info for defaultContra
 "{
   contract_address_salt: 0x000000000000000000000000000000000000000000000000000000000000ddd5,
   artifact_hash: 0x0000000000000000000000000000000000000000000000000000000000003039,
-  public_bytecode_commitment: 0x11fb08be2c55e530172e671f647b16dddf9b66acf42489d0236785d8f7bc8b48,
-  private_functions_root: 0x25d76df45434ec75a83321daf941cfc667ff3a9027942e17105da4f50d1d13f9,
-  address: AztecAddress { inner: 0x29bc2e90ff6ec5f4a7c7f502e368af01eb74131a2eec6320e0e45419cddc7b6d },
-  partial_address: PartialAddress { inner: 0x1a68423cf4f04eaede2b0e93131916b8b7330dae6e8ee202679d12a4eb49cc0b },
-  contract_class_id: ContractClassId { inner: 0x1195b865ef122d75c8c4d6102d536193b69bbb712c85bafcbf7694f52e2d8c36 },
+  public_bytecode_commitment: 0x2e018d154e7faf1ddf8400a4b3605574e69afc04425f3e662e054dc094fb0428,
+  private_functions_root: 0x168e5e38b7ad3da147014b180e32c133ebce0e11d6f021ab988404f5af466eac,
+  address: AztecAddress { inner: 0x238cc30e81019daff2f0c67463c2c237afb6835cd0c365fdb6777a16bbe0a321 },
+  partial_address: PartialAddress { inner: 0x27d6fb74b2267a1a380da93091fceeb7724ecdd36a6770756b63002e577d9071 },
+  contract_class_id: ContractClassId { inner: 0x2788df97c3c49128ebd4bd4cc4819cca7877dc1a4f069e9b415d51c4b329e3b1 },
   public_keys: PublicKeys { inner: 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e34400c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1511b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f },
   salted_initialization_hash: SaltedInitializationHash { inner: 0x13a939daa511233e5446905ed2cadbee14948fa75df183b53b5c14b612bffe88 },
   deployer: AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }
@@ -19,11 +19,11 @@ exports[`Data generation for noir tests Computes contract info for parentContrac
 "{
   contract_address_salt: 0x0000000000000000000000000000000000000000000000000000000000001618,
   artifact_hash: 0x00000000000000000000000000000000000000000000000000000000000004bc,
-  public_bytecode_commitment: 0x1c5009dd5e8baedc8dfb2e801c9f97361b1ae152ff52f82104119c476b369bef,
-  private_functions_root: 0x1228b39ba6702af03e595300e8484c6373f00790d0148cc3d4ff0fd1c778a83a,
-  address: AztecAddress { inner: 0x2749b685f752f6dfe1d4e532fc036839004926b7c18abf1a4f69ddf97d62f40e },
-  partial_address: PartialAddress { inner: 0x1c30ee02dcd41bcdfc5191dc36ccaae15cdc7e1fc6bd8a0cbe1baeaf1335a771 },
-  contract_class_id: ContractClassId { inner: 0x24f1b8df215c10ee7edd213b439c8f8e99198a802a3e1e41597b6554b17049a3 },
+  public_bytecode_commitment: 0x258ed5ce21c3a9c15a1c6108ef0e759bb0617f2b505b8d64e927027d30e71791,
+  private_functions_root: 0x21ac15d1c4c74eb5ceb674a971451a6a314f00ee17571605d88555ebf6dc61c6,
+  address: AztecAddress { inner: 0x0652e43af6645a9e5d9f370c30e0679e9933ca6db61e8e8892a2c8caf1742b22 },
+  partial_address: PartialAddress { inner: 0x0af7fac4aad94b9f6142b45730616d34bf28d0b310376d2d144d0828df56e585 },
+  contract_class_id: ContractClassId { inner: 0x03112baad91c865ba6d7d431703935f852934379a80932b8713ee5e5f17bb594 },
   public_keys: PublicKeys { inner: 0x01498945581e0eb9f8427ad6021184c700ef091d570892c437d12c7d90364bbd170ae506787c5c43d6ca9255d571c10fa9ffa9d141666e290c347c5c9ab7e34400c044b05b6ca83b9c2dbae79cc1135155956a64e136819136e9947fe5e5866c1c1f0ca244c7cd46b682552bff8ae77dea40b966a71de076ec3b7678f2bdb1511b00316144359e9a3ec8e49c1cdb7eeb0cedd190dfd9dc90eea5115aa779e287080ffc74d7a8b0bccb88ac11f45874172f3847eb8b92654aaa58a3d2b8dc7833019c111f36ad3fc1d9b7a7a14344314d2864b94f030594cd67f753ef774a1efb2039907fe37f08d10739255141bb066c506a12f7d1e8dfec21abc58494705b6f },
   salted_initialization_hash: SaltedInitializationHash { inner: 0x24bd6ac7a182e2cf25e437c72f53544ef81dfd97d9afee23abb07a638e7be749 },
   deployer: AztecAddress { inner: 0x0000000000000000000000000000000000000000000000000000000000000000 }
@@ -34,9 +34,9 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
 [
   {
     "index": 0,
-    "leaf": "0be91a61ae34b803eda7f42a012617acabe2d5442311a009db68ac12db3f4edb",
+    "leaf": "0c65b955d4a0c9caa0d2232bab14da9b752d7b6ac0258c81ad810d9b036382f6",
     "siblingPath": [
-      "1eca11cd2abe68905eab86bc4f207cde29eb7c2b4c2c9b27e3d8c2f8b8234c87",
+      "1bf05aedcca6b9682341475d1edb718df1485e4071c6c2f3c4576eeb3f9988a6",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
@@ -45,9 +45,9 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
   },
   {
     "index": 1,
-    "leaf": "1eca11cd2abe68905eab86bc4f207cde29eb7c2b4c2c9b27e3d8c2f8b8234c87",
+    "leaf": "1bf05aedcca6b9682341475d1edb718df1485e4071c6c2f3c4576eeb3f9988a6",
     "siblingPath": [
-      "0be91a61ae34b803eda7f42a012617acabe2d5442311a009db68ac12db3f4edb",
+      "0c65b955d4a0c9caa0d2232bab14da9b752d7b6ac0258c81ad810d9b036382f6",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
@@ -59,7 +59,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
     "leaf": "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
-      "1204fec45a58f11be9981f153319860aea2ece9152efab01885006e53dd70a79",
+      "086c9f6f241df20a9ef00d5c4a61a0f2bc2843aaac7b1c37789a48326daf4c49",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
@@ -70,7 +70,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
     "leaf": "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
-      "1204fec45a58f11be9981f153319860aea2ece9152efab01885006e53dd70a79",
+      "086c9f6f241df20a9ef00d5c4a61a0f2bc2843aaac7b1c37789a48326daf4c49",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
@@ -82,7 +82,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "0983f08659e1fa22c506ff1a3a9e0f1e878926e31148240e95713ba24ad07317",
+      "26095b3876bbbe1ca9f5f9d260b29f9bd202db90cfb79549ff05ddc476fa7cf3",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -93,7 +93,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "0983f08659e1fa22c506ff1a3a9e0f1e878926e31148240e95713ba24ad07317",
+      "26095b3876bbbe1ca9f5f9d260b29f9bd202db90cfb79549ff05ddc476fa7cf3",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -104,7 +104,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "0983f08659e1fa22c506ff1a3a9e0f1e878926e31148240e95713ba24ad07317",
+      "26095b3876bbbe1ca9f5f9d260b29f9bd202db90cfb79549ff05ddc476fa7cf3",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -115,7 +115,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "0983f08659e1fa22c506ff1a3a9e0f1e878926e31148240e95713ba24ad07317",
+      "26095b3876bbbe1ca9f5f9d260b29f9bd202db90cfb79549ff05ddc476fa7cf3",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -127,7 +127,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -138,7 +138,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -149,7 +149,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -160,7 +160,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -171,7 +171,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -182,7 +182,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -193,7 +193,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -204,7 +204,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "297ba9c74be6e902b5c01e3cd8571c5b4c55ec4604ba69d3f4ea3918ed2f774d",
+      "1c86ac98f9504836704e7be2209742eb174c8b0f92d2302a5fd070e71d53d84d",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -216,7 +216,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -227,7 +227,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -238,7 +238,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -249,7 +249,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -260,7 +260,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -271,7 +271,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -282,7 +282,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -293,7 +293,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -304,7 +304,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -315,7 +315,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -326,7 +326,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -337,7 +337,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -348,7 +348,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -359,7 +359,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -370,7 +370,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
   {
@@ -381,7 +381,7 @@ exports[`Data generation for noir tests Computes function tree for defaultContra
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "2efc9b3a3a683ffc3ad9c789bae66e43272ffa3663bc9d9580f0207c4192fada",
+      "14afcd7fd98280b59b9e12a3d89294012e9960af0e4e6553539b5ba1d09b7681",
     ],
   },
 ]
@@ -391,7 +391,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
 [
   {
     "index": 0,
-    "leaf": "1ee8cc7be382b517559b55384a8a19eb75801364df37f14ef21c29f49ee2f018",
+    "leaf": "28f221b985c113ae9da3887e64bd78fb5d96967d5cefe83d396f762e0e404a10",
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
@@ -404,7 +404,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "index": 1,
     "leaf": "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
     "siblingPath": [
-      "1ee8cc7be382b517559b55384a8a19eb75801364df37f14ef21c29f49ee2f018",
+      "28f221b985c113ae9da3887e64bd78fb5d96967d5cefe83d396f762e0e404a10",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
@@ -416,7 +416,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "leaf": "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
-      "033e01e76f5aadb4344103cc8a554c8455a12d34b36337a77f15e6a48d41095f",
+      "0f6fe0f4f6eaf2113729d07508eee0d65fdabd07d925691907b642491f1e6acb",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
@@ -427,7 +427,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "leaf": "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
-      "033e01e76f5aadb4344103cc8a554c8455a12d34b36337a77f15e6a48d41095f",
+      "0f6fe0f4f6eaf2113729d07508eee0d65fdabd07d925691907b642491f1e6acb",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
@@ -439,7 +439,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "04da68bbc138397c8d1790778ff4bd4c26a71135f4c195cd774cc48790583825",
+      "16e48653a314369b9d240e38e9bf46d40f89dcb952a48060c427034fb1c14340",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -450,7 +450,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "04da68bbc138397c8d1790778ff4bd4c26a71135f4c195cd774cc48790583825",
+      "16e48653a314369b9d240e38e9bf46d40f89dcb952a48060c427034fb1c14340",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -461,7 +461,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "04da68bbc138397c8d1790778ff4bd4c26a71135f4c195cd774cc48790583825",
+      "16e48653a314369b9d240e38e9bf46d40f89dcb952a48060c427034fb1c14340",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -472,7 +472,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
     "siblingPath": [
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
-      "04da68bbc138397c8d1790778ff4bd4c26a71135f4c195cd774cc48790583825",
+      "16e48653a314369b9d240e38e9bf46d40f89dcb952a48060c427034fb1c14340",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
@@ -484,7 +484,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -495,7 +495,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -506,7 +506,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -517,7 +517,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -528,7 +528,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -539,7 +539,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -550,7 +550,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -561,7 +561,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "27b1d0839a5b23baf12a8d195b18ac288fcf401afb2f70b8a4b529ede5fa9fed",
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
-      "17b636794aa372b6e21da48898c075d66d6cff677d455788343325d7360c3a23",
+      "1c9b9933cc611962a7a55d4a71a6dc57f530186ffd410841c954a84fe99b7cb7",
       "2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854",
     ],
   },
@@ -573,7 +573,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -584,7 +584,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -595,7 +595,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -606,7 +606,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -617,7 +617,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -628,7 +628,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -639,7 +639,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -650,7 +650,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -661,7 +661,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -672,7 +672,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -683,7 +683,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -694,7 +694,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -705,7 +705,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -716,7 +716,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -727,7 +727,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
   {
@@ -738,7 +738,7 @@ exports[`Data generation for noir tests Computes function tree for parentContrac
       "233d10e0c959338e062b1c76fb81e17fcf61643da568eac372bb7feac8bfa357",
       "0e1ce4f11f4d51a7d3136abbd625315fff3876d322e46ad8401da96f8e43a614",
       "1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937",
-      "07a0377a94c889eeb1fdffabe543f3f32f741bb143abecd6cdbe2661558e5a60",
+      "2221ace56cc7c37c8f80b973d0e65f7fd52067acd7dd5d79632ff6d4036f0d34",
     ],
   },
 ]

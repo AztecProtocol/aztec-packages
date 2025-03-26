@@ -1,9 +1,10 @@
-use crate::address::AztecAddress;
+use crate::{address::AztecAddress, traits::FromField};
 
 pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
 pub global ARGS_LENGTH: u32 = 16;
-
+// WARNING: do not change without consulting AVM which this constant affects
+pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
  *  - FUNCTION CALL
@@ -39,7 +40,7 @@ pub global MAX_NULLIFIER_NON_EXISTENT_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_CALL: u32 = 16;
 pub global MAX_PRIVATE_LOGS_PER_CALL: u32 = 16;
-pub global MAX_UNENCRYPTED_LOGS_PER_CALL: u32 = 4;
+pub global MAX_PUBLIC_LOGS_PER_CALL: u32 = 4;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_CALL: u32 = 1;
 
 // TREES RELATED CONSTANTS
@@ -91,7 +92,7 @@ pub global MAX_L1_TO_L2_MSG_READ_REQUESTS_PER_TX: u32 = 64;
 // databus will hopefully make the issue go away.
 pub global MAX_KEY_VALIDATION_REQUESTS_PER_TX: u32 = 64;
 pub global MAX_PRIVATE_LOGS_PER_TX: u32 = 32;
-pub global MAX_UNENCRYPTED_LOGS_PER_TX: u32 = 8;
+pub global MAX_PUBLIC_LOGS_PER_TX: u32 = 8;
 pub global MAX_CONTRACT_CLASS_LOGS_PER_TX: u32 = 1;
 // docs:end:constants
 
@@ -128,15 +129,18 @@ pub global INITIALIZATION_SLOT_SEPARATOR: Field = 1000_000_000;
 pub global INITIAL_L2_BLOCK_NUM: Field = 1;
 pub global FIELDS_PER_BLOB: u32 = 4096;
 pub global BLOBS_PER_BLOCK: u32 = 3;
+pub global PUBLIC_LOG_DATA_SIZE_IN_FIELDS: u32 = 13;
+pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1; // This includes the contract address, since it is always emitted with a public log
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/encrypted_logs/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The following is taken from building a block and looking at the `lastArchive` value in it.
-// You can run the `integration_l1_publisher.test.ts` and look at the first blocks in the fixtures.
+// The following genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
+pub global GENESIS_BLOCK_HASH: Field =
+    0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75;
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
 // we are running into circular dependency issues. #3342
-pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000;
+pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -168,6 +172,10 @@ pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
 pub global DEPLOYER_CONTRACT_INSTANCE_DEPLOYED_MAGIC_VALUE: Field =
     0x85864497636cf755ae7bde03f267ce01a520981c21c3682aaf82a631;
 
+// sha224sum 'struct ContractInstanceUpdated'
+pub global DEPLOYER_CONTRACT_INSTANCE_UPDATED_MAGIC_VALUE: Field =
+    0x0e92f9f8a534e858fcf777da206e08b0c620ecf9deb21d13479813f6;
+
 // CANONICAL CONTRACT ADDRESSES
 pub global MAX_PROTOCOL_CONTRACTS: u32 = (1 << PROTOCOL_CONTRACT_TREE_HEIGHT as u8) - 1; // Index 0 can't be used.
 pub global CANONICAL_AUTH_REGISTRY_ADDRESS: AztecAddress = AztecAddress::from_field(1);
@@ -177,8 +185,14 @@ pub global MULTI_CALL_ENTRYPOINT_ADDRESS: AztecAddress = AztecAddress::from_fiel
 pub global FEE_JUICE_ADDRESS: AztecAddress = AztecAddress::from_field(5);
 pub global ROUTER_ADDRESS: AztecAddress = AztecAddress::from_field(6);
 
+// Randomly chosen slot for the bytecode capsule.
+pub global REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT: Field = 79025834455612;
+
 // Slot of the balances map to be hashed with an AztecAddress (map key) to get an actual storage slot.
 pub global FEE_JUICE_BALANCES_SLOT: u32 = 1;
+
+// Slot of the updated_class_ids map to be hashed with an AztecAddress (map key) to get an actual storage slot.
+pub global UPDATED_CLASS_IDS_SLOT: u32 = 1;
 
 // CANONICAL DEFAULT KEYS
 // This below are:
@@ -241,6 +255,10 @@ pub global PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_SIZE_IN_FIELDS
     + 1 /* note_hash_counter */
     + 1 /* counter */;
 pub global SCOPED_PRIVATE_LOG_DATA_LENGTH: u32 = PRIVATE_LOG_DATA_LENGTH + 1;
+// TODO(MW): add new constant for this - the below is just the largest combination atm
+pub global CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS: u32 = MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS
+    + REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS;
+pub global CONTRACT_CLASS_LOG_SIZE_IN_FIELDS: u32 = CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS + 1; // This includes the contract address, since it is always emitted with a contract class log
 pub global LOG_HASH_LENGTH: u32 = 3;
 pub global SCOPED_LOG_HASH_LENGTH: u32 = LOG_HASH_LENGTH + 1;
 pub global NOTE_HASH_LENGTH: u32 = 2;
@@ -253,9 +271,8 @@ pub global PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH: u32 =
 pub global PRIVATE_CALL_REQUEST_LENGTH: u32 = CALL_CONTEXT_LENGTH + 4;
 pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender */
     + AZTEC_ADDRESS_LENGTH /* contract_address */
-    + 1 /* function_selector */
     + 1 /* is_static_call */
-    + 1 /* args_hash */;
+    + 1 /* calldata_hash */;
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
 pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
     PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
@@ -311,7 +328,7 @@ pub global PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = CALL_CONTEXT_LENGTH
     + (NULLIFIER_LENGTH * MAX_NULLIFIERS_PER_CALL)
     + (L2_TO_L1_MESSAGE_LENGTH * MAX_L2_TO_L1_MSGS_PER_CALL)
     + 2
-    + (LOG_HASH_LENGTH * MAX_UNENCRYPTED_LOGS_PER_CALL)
+    + (PUBLIC_LOG_SIZE_IN_FIELDS * MAX_PUBLIC_LOGS_PER_CALL)
     + BLOCK_HEADER_LENGTH
     + GLOBAL_VARIABLES_LENGTH
     + AZTEC_ADDRESS_LENGTH
@@ -337,8 +354,7 @@ pub global PRIVATE_TO_ROLLUP_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
     + (PRIVATE_LOG_SIZE_IN_FIELDS * MAX_PRIVATE_LOGS_PER_TX)
-    + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX)
-    + 1 /* contract_class_log_preimages_length */;
+    + (SCOPED_LOG_HASH_LENGTH * MAX_CONTRACT_CLASS_LOGS_PER_TX);
 
 pub global TX_CONSTANT_DATA_LENGTH: u32 = BLOCK_HEADER_LENGTH
     + TX_CONTEXT_LENGTH
@@ -359,7 +375,8 @@ pub global PRIVATE_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_L
     + PRIVATE_ACCUMULATED_DATA_LENGTH
     + PUBLIC_CALL_REQUEST_LENGTH
     + AZTEC_ADDRESS_LENGTH
-    + 1 /* is private only */;
+    + 1 /* is private only */
+    + 1 /* claimed_first_nullifier */;
 
 pub global PRIVATE_TO_PUBLIC_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
@@ -376,7 +393,7 @@ pub global NUM_PRIVATE_TO_AVM_ACCUMULATED_DATA_ARRAYS: u32 = 3;
 pub global AVM_ACCUMULATED_DATA_LENGTH: u32 = MAX_NOTE_HASHES_PER_TX
     + MAX_NULLIFIERS_PER_TX
     + (MAX_L2_TO_L1_MSGS_PER_TX * SCOPED_L2_TO_L1_MESSAGE_LENGTH)
-    + (MAX_UNENCRYPTED_LOGS_PER_TX * SCOPED_LOG_HASH_LENGTH)
+    + (MAX_PUBLIC_LOGS_PER_TX * PUBLIC_LOG_SIZE_IN_FIELDS)
     + (MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX * PUBLIC_DATA_WRITE_LENGTH);
 
 pub global PRIVATE_TO_PUBLIC_KERNEL_CIRCUIT_PUBLIC_INPUTS_LENGTH: u32 = TX_CONSTANT_DATA_LENGTH
@@ -456,9 +473,9 @@ pub global NUM_MSGS_PER_BASE_PARITY: u32 = 4;
 pub global NUM_BASE_PARITY_PER_ROOT_PARITY: u32 = 4;
 
 // Lengths of the different types of proofs in fields
-pub global RECURSIVE_PROOF_LENGTH: u32 = 459;
+pub global RECURSIVE_PROOF_LENGTH: u32 = 456;
 pub global NESTED_RECURSIVE_PROOF_LENGTH: u32 = RECURSIVE_PROOF_LENGTH;
-pub global IPA_PROOF_LENGTH: u32 = 65;
+pub global IPA_PROOF_LENGTH: u32 = 69;
 pub global RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 =
     RECURSIVE_PROOF_LENGTH + IPA_CLAIM_LENGTH + IPA_PROOF_LENGTH;
 pub global NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH: u32 = RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
@@ -485,11 +502,14 @@ pub global MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS: u32 = 21;
 // `AVM_PROOF_LENGTH_IN_FIELDS` must be updated when AVM circuit changes.
 // To determine latest value, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS`
 // in barretenberg/cpp/src/barretenberg/vm/avm/generated/flavor.hpp
-pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4155;
+// This also changes the length of inputs for the public base rollup circuit, so its Prover.toml must be updated.
+// To do so: run: 'AZTEC_GENERATE_TEST_DATA=1 yarn workspace @aztec/prover-client test orchestrator_public_functions' from yarn-project.
+pub global AVM_PROOF_LENGTH_IN_FIELDS: u32 = 4154;
 pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
+// Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
 pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
@@ -525,8 +545,7 @@ pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
 pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
 pub global GENERATOR_INDEX__VK: u32 = 41;
-pub global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS: u32 = 42;
-pub global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS: u32 = 43;
+pub global GENERATOR_INDEX__PUBLIC_CALLDATA: u32 = 43;
 pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
 pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
 pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;
@@ -538,9 +557,8 @@ pub global GENERATOR_INDEX__OVSK_M: u32 = 50;
 pub global GENERATOR_INDEX__TSK_M: u32 = 51;
 pub global GENERATOR_INDEX__PUBLIC_KEYS_HASH: u32 = 52;
 pub global GENERATOR_INDEX__NOTE_NULLIFIER: u32 = 53;
-pub global GENERATOR_INDEX__NOTE_HIDING_POINT: u32 = 54;
-pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 55;
-
+pub global GENERATOR_INDEX__SYMMETRIC_KEY: u8 = 54;
+pub global GENERATOR_INDEX__SYMMETRIC_KEY_2: u8 = 55;
 pub global GENERATOR_INDEX__PUBLIC_TX_HASH: u32 = 56;
 pub global GENERATOR_INDEX__PRIVATE_TX_HASH: u32 = 57;
 
@@ -647,6 +665,7 @@ pub global L2_GAS_PER_L1_TO_L2_MSG_READ_REQUEST: u32 =
 pub global L2_GAS_PER_LOG_BYTE: u32 = 4;
 // Zero gas because we don't have to hash and validate the private logs
 pub global L2_GAS_PER_PRIVATE_LOG: u32 = 0;
+pub global L2_GAS_PER_CONTRACT_CLASS_LOG: u32 = 0;
 
 // Gas for writing message to L1 portal
 pub global L2_GAS_PER_L2_TO_L1_MSG: u32 = 200;
@@ -677,6 +696,7 @@ pub global AVM_SHR_BASE_L2_GAS: u32 = 27;
 pub global AVM_CAST_BASE_L2_GAS: u32 = 18;
 pub global AVM_GETENVVAR_BASE_L2_GAS: u16 = 9;
 pub global AVM_CALLDATACOPY_BASE_L2_GAS: u32 = 24;
+pub global AVM_SUCCESSCOPY_BASE_L2_GAS: u32 = 24;
 pub global AVM_RETURNDATASIZE_BASE_L2_GAS: u32 = 9;
 pub global AVM_RETURNDATACOPY_BASE_L2_GAS: u32 = 24;
 pub global AVM_JUMP_BASE_L2_GAS: u32 = 3;
@@ -741,7 +761,7 @@ pub global NULLIFIERS_PREFIX: u8 = 4;
 pub global L2_L1_MSGS_PREFIX: u8 = 5;
 pub global PUBLIC_DATA_UPDATE_REQUESTS_PREFIX: u8 = 6;
 pub global PRIVATE_LOGS_PREFIX: u8 = 7;
-pub global UNENCRYPTED_LOGS_PREFIX: u8 = 8;
+pub global PUBLIC_LOGS_PREFIX: u8 = 8;
 pub global CONTRACT_CLASS_LOGS_PREFIX: u8 = 9;
 
 // Constants related to proof type of a recursive proof verification.
@@ -753,6 +773,22 @@ pub global PROOF_TYPE_PG: u32 = 3;
 pub global PROOF_TYPE_AVM: u32 = 4;
 pub global PROOF_TYPE_ROLLUP_HONK: u32 = 5;
 pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
+
+// AVM - misc constants
+pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
+pub global TWO_POW_64: Field = 18446744073709551616;
+
+// 24 hours with a slot duration of 24 seconds
+pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
+// 10 minutes with a slot duration of 24 seconds
+pub global MINIMUM_UPDATE_DELAY: u32 = 25;
+
+// Updates hold contract class id, which fit in 1 field.
+pub global UPDATES_VALUE_SIZE: u32 = 1;
+pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
+
+pub global GRUMPKIN_ONE_X: Field = 1;
+pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;
 
 mod test {
     use crate::constants::{

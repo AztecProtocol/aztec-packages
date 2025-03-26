@@ -1,4 +1,4 @@
-namespace alu(256);
+namespace alu;
 
 pol commit sel_op_add;
 pol commit ia;

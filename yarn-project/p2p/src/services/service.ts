@@ -1,10 +1,11 @@
-import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
 
 import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import type EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 
 export enum PeerDiscoveryState {
   RUNNING = 'running',
@@ -44,6 +45,18 @@ export interface P2PService {
     protocol: Protocol,
     request: InstanceType<SubProtocolMap[Protocol]['request']>,
   ): Promise<InstanceType<SubProtocolMap[Protocol]['response']> | undefined>;
+
+  /**
+   * Send a batch of requests to peers, and return the responses
+   *
+   * @param protocol - The request response protocol to use
+   * @param requests - The requests to send to the peers
+   * @returns The responses to the requests
+   */
+  sendBatchRequest<Protocol extends ReqRespSubProtocol>(
+    protocol: Protocol,
+    requests: InstanceType<SubProtocolMap[Protocol]['request']>[],
+  ): Promise<InstanceType<SubProtocolMap[Protocol]['response']>[] | undefined>;
 
   // Leaky abstraction: fix https://github.com/AztecProtocol/aztec-packages/issues/7963
   registerBlockReceivedCallback(callback: (block: BlockProposal) => Promise<BlockAttestation | undefined>): void;
@@ -94,4 +107,6 @@ export interface PeerDiscoveryService extends EventEmitter {
   getStatus(): PeerDiscoveryState;
 
   getEnr(): ENR | undefined;
+
+  bootstrapNodes: string[];
 }

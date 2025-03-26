@@ -19,7 +19,7 @@ pub unconstrained fn get_balance_with_offset(
     // docs:end:view_notes
     for i in 0..options.limit {
         if i < notes.len() {
-            balance += notes.get_unchecked(i).value;
+            balance += notes.get_unchecked(i).value();
         }
     }
 

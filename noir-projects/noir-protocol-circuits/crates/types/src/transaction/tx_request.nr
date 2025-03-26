@@ -3,7 +3,7 @@ use crate::{
     address::AztecAddress,
     constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH},
     hash::poseidon2_hash_with_separator,
-    traits::{Deserialize, Empty, Hash, Serialize},
+    traits::{Deserialize, Empty, Hash, Serialize, ToField},
     transaction::tx_context::TxContext,
     utils::reader::Reader,
 };
@@ -80,6 +80,7 @@ mod tests {
             gas_fees::GasFees, gas_settings::GasSettings,
         },
         address::AztecAddress,
+        traits::{Deserialize, Empty, FromField, Hash, Serialize},
         transaction::{tx_context::TxContext, tx_request::TxRequest},
     };
 

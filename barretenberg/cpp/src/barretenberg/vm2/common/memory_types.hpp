@@ -14,10 +14,13 @@ enum class MemoryTag {
     U32,
     U64,
     U128,
+    MAX = U128,
 };
 
 using MemoryAddress = uint32_t;
 using MemoryValue = FF;
 constexpr auto MemoryAddressTag = MemoryTag::U32;
+
+uint8_t integral_tag_length(MemoryTag tag);
 
 } // namespace bb::avm2

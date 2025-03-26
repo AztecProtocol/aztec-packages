@@ -14,6 +14,7 @@ use dep::types::{
         side_effect::scoped::Scoped,
     },
     messaging::l2_to_l1_message::ScopedL2ToL1Message,
+    traits::Empty,
 };
 pub use meter_gas_used::meter_gas_used;
 
@@ -54,10 +55,6 @@ impl TailOutputComposer {
             source.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log);
         data.contract_class_logs_hashes = source.contract_class_logs_hashes.storage().map(
             |l: ScopedLogHash| l.expose_to_public(),
-        );
-        data.contract_class_log_preimages_length = source.contract_class_logs_hashes.storage().fold(
-            0,
-            |len, l: ScopedLogHash| len + l.log_hash.length,
         );
         data
     }

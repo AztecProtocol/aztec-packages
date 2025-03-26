@@ -17,7 +17,8 @@
     "composite": true,
     "skipLibCheck": true,
     "noImplicitOverride": true,
-    "allowArbitraryExtensions": true
+    "allowArbitraryExtensions": true,
+    "verbatimModuleSyntax": true
   },
   "references": [
     { "path": "accounts/tsconfig.json" },
@@ -29,15 +30,16 @@
     { "path": "validator-client/tsconfig.json" },
     { "path": "bb-prover/tsconfig.json" },
     { "path": "bot/tsconfig.json" },
+    { "path": "constants/tsconfig.json" },
     { "path": "pxe/tsconfig.json" },
     { "path": "aztec/tsconfig.json" },
-    { "path": "circuits.js/tsconfig.json" },
-    { "path": "circuit-types/tsconfig.json" },
+    { "path": "stdlib/tsconfig.json" },
     { "path": "end-to-end/tsconfig.json" },
     { "path": "foundation/tsconfig.json" },
     { "path": "key-store/tsconfig.json" },
     { "path": "l1-artifacts/tsconfig.json" },
     { "path": "merkle-tree/tsconfig.json" },
+    { "path": "native/tsconfig.json" },
     { "path": "noir-contracts.js/tsconfig.json" },
     { "path": "builder/tsconfig.json" },
     { "path": "noir-protocol-circuits-types/tsconfig.json" },
@@ -48,13 +50,11 @@
     { "path": "prover-client/tsconfig.json" },
     { "path": "prover-node/tsconfig.json" },
     { "path": "sequencer-client/tsconfig.json" },
-    { "path": "types/tsconfig.json" },
     { "path": "world-state/tsconfig.json" },
     { "path": "scripts/tsconfig.json" },
     { "path": "entrypoints/tsconfig.json" },
     { "path": "cli/tsconfig.json" },
-    { "path": "cli-wallet/tsconfig.json" },
-    { "path": "proof-verifier/tsconfig.json" }
+    { "path": "cli-wallet/tsconfig.json" }
   ],
   "files": ["./@types/jest/index.d.ts"],
   "exclude": ["node_modules", "**/node_modules", "**/.*/"]

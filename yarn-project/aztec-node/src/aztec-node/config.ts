@@ -1,4 +1,5 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
@@ -11,7 +12,9 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
-export { sequencerClientConfigMappings, SequencerClientConfig };
+import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
+
+export { sequencerClientConfigMappings, type SequencerClientConfig };
 
 /**
  * The configuration the aztec node.
@@ -22,23 +25,46 @@ export type AztecNodeConfig = ArchiverConfig &
   ProverClientConfig &
   WorldStateConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
-  P2PConfig & {
+  P2PConfig &
+  DataStoreConfig &
+  SentinelConfig & {
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
-  } & DataStoreConfig;
+    /** Whether to populate the genesis state with initial fee juice for the test accounts */
+    testAccounts: boolean;
+    /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
+    sponsoredFPC: boolean;
+  } & {
+    l1Contracts: L1ContractAddresses;
+  };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
+  ...dataConfigMappings,
   ...archiverConfigMappings,
   ...sequencerClientConfigMappings,
   ...validatorClientConfigMappings,
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
-  ...dataConfigMappings,
+  ...sentinelConfigMappings,
+  l1Contracts: {
+    description: 'The deployed L1 contract addresses',
+    nested: l1ContractAddressesMapping,
+  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
     ...booleanConfigHelper(),
+  },
+  testAccounts: {
+    env: 'TEST_ACCOUNTS',
+    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
+    ...booleanConfigHelper(),
+  },
+  sponsoredFPC: {
+    env: 'SPONSORED_FPC',
+    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
+    ...booleanConfigHelper(false),
   },
 };
 
@@ -51,10 +77,13 @@ export function getConfigEnvVars(): AztecNodeConfig {
 }
 
 /**
- * Returns package name and version.
+ * Returns package version.
  */
-export function getPackageInfo() {
-  const packageJsonPath = resolve(dirname(fileURLToPath(import.meta.url)), '../../package.json');
-  const { version, name } = JSON.parse(readFileSync(packageJsonPath).toString());
-  return { version, name };
+export function getPackageVersion() {
+  const releasePleaseManifestPath = resolve(
+    dirname(fileURLToPath(import.meta.url)),
+    '../../../../.release-please-manifest.json',
+  );
+  const version = JSON.parse(readFileSync(releasePleaseManifestPath).toString());
+  return version['.'];
 }

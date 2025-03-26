@@ -10,7 +10,6 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using BF = typename Flavor::BF;
     using Curve = typename Flavor::Curve;
     using Commitment = typename Flavor::Commitment;
-    using CommitmentLabels = typename Flavor::CommitmentLabels;
     using RelationSeparator = typename Flavor::RelationSeparator;
     using VerificationKey = typename Flavor::VerificationKey;
     using NativeVerificationKey = typename Flavor::NativeVerificationKey;

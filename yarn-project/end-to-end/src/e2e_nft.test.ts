@@ -4,6 +4,7 @@ import { NFTContract } from '@aztec/noir-contracts.js/NFT';
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import { capturePrivateExecutionStepsIfEnvSet } from './shared/capture_private_execution_steps.js';
 
 const TIMEOUT = 120_000;
 
@@ -49,7 +50,9 @@ describe('NFT', () => {
   it('minter mints to a user', async () => {
     const nftContractAsMinter = await NFTContract.at(nftContractAddress, minterWallet);
 
-    await nftContractAsMinter.methods.mint(user1Wallet.getAddress(), TOKEN_ID).send().wait();
+    const nftMintInteraction = nftContractAsMinter.methods.mint(user1Wallet.getAddress(), TOKEN_ID);
+    await capturePrivateExecutionStepsIfEnvSet('nft-mint', nftMintInteraction);
+    await nftMintInteraction.send().wait();
 
     const ownerAfterMint = await nftContractAsMinter.methods.owner_of(TOKEN_ID).simulate();
     expect(ownerAfterMint).toEqual(user1Wallet.getAddress());
@@ -66,45 +69,19 @@ describe('NFT', () => {
 
     const publicOwnerAfter = await nftContractAsUser1.methods.owner_of(TOKEN_ID).simulate();
     expect(publicOwnerAfter).toEqual(AztecAddress.ZERO);
-
-    // We should get 20 data writes setting values to 0 - 3 for note hiding point, 16 for partial log and 1 for public
-    // owner (we transfer to private so public owner is set to 0). Ideally we would have here only 1 data write as the
-    // 4 values change from zero to non-zero to zero in the tx and hence no write could be committed. This makes public
-    // writes squashing too expensive for transient storage. This however probably does not matter as I assume we will
-    // want to implement a real transient storage anyway. (Informed Leila about the potential optimization.)
-    // TODO(#9376): Re-enable the following check.
-    // const publicDataWritesValues = debugInfo!.publicDataWrites!.map(write => write.newValue.toBigInt());
-    // expect(publicDataWritesValues).toEqual([
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    //   0n,
-    // ]);
   });
 
   it('transfers in private', async () => {
     const nftContractAsUser2 = await NFTContract.at(nftContractAddress, user2Wallet);
 
-    await nftContractAsUser2.methods
-      .transfer_in_private(user2Wallet.getAddress(), user1Wallet.getAddress(), TOKEN_ID, 0)
-      .send()
-      .wait();
+    const nftTransferInteraction = nftContractAsUser2.methods.transfer_in_private(
+      user2Wallet.getAddress(),
+      user1Wallet.getAddress(),
+      TOKEN_ID,
+      0,
+    );
+    await capturePrivateExecutionStepsIfEnvSet('nft-transfer-in-private', nftTransferInteraction);
+    await nftTransferInteraction.send().wait();
 
     const user1Nfts = await getPrivateNfts(user1Wallet.getAddress());
     expect(user1Nfts).toEqual([TOKEN_ID]);

@@ -2,8 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {ILeonidas} from "@aztec/core/interfaces/ILeonidas.sol";
-import {Slot, SlotLib} from "@aztec/core/libraries/TimeMath.sol";
+import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
+import {Slot, SlotLib} from "@aztec/core/libraries/TimeLib.sol";
 import {IGovernanceProposer} from "@aztec/governance/interfaces/IGovernanceProposer.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
@@ -61,7 +61,7 @@ abstract contract EmpireBase is IGovernanceProposer {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    ILeonidas selection = ILeonidas(instance);
+    IValidatorSelection selection = IValidatorSelection(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 roundNumber = computeRound(currentSlot);
@@ -106,7 +106,7 @@ abstract contract EmpireBase is IGovernanceProposer {
     address instance = getInstance();
     require(instance.code.length > 0, Errors.GovernanceProposer__InstanceHaveNoCode(instance));
 
-    ILeonidas selection = ILeonidas(instance);
+    IValidatorSelection selection = IValidatorSelection(instance);
     Slot currentSlot = selection.getCurrentSlot();
 
     uint256 currentRound = computeRound(currentSlot);

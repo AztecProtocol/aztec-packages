@@ -29,6 +29,23 @@ provider "helm" {
   }
 }
 
+
+data "terraform_remote_state" "metrics" {
+  backend = "gcs"
+  config = {
+    bucket = "aztec-terraform"
+    prefix = "metrics-deploy/us-west1-a/aztec-gke-private/metrics/terraform.tfstate"
+  }
+}
+
+resource "google_compute_address" "bootnode_ip" {
+  for_each     = var.EXPOSE_HTTPS_BOOTNODE == true ? toset(["${var.RELEASE_NAME}-bootnode-ip"]) : toset([])
+  provider     = google
+  name         = each.key
+  address_type = "EXTERNAL"
+  region       = var.BOOTNODE_IP_REGION
+}
+
 # Aztec Helm release for gke-cluster
 resource "helm_release" "aztec-gke-cluster" {
   provider         = helm.gke-cluster
@@ -39,8 +56,11 @@ resource "helm_release" "aztec-gke-cluster" {
   create_namespace = true
   upgrade_install  = true
 
-  # base values file
-  values = [file("../../aztec-network/values/${var.VALUES_FILE}")]
+  # base values and resources file - defaults to gcloud.yaml
+  values = [
+    file("../../aztec-network/values/${var.VALUES_FILE}"),
+    file("../../aztec-network/resources/${var.RESOURCES_FILE}")
+  ]
 
   set {
     name  = "images.aztec.image"
@@ -64,40 +84,59 @@ resource "helm_release" "aztec-gke-cluster" {
   }
 
   dynamic "set" {
-    for_each = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    for_each = var.EXTERNAL_ETHEREUM_HOSTS != "" ? toset(["iterate"]) : toset([])
     content {
-      name  = "bootNode.seqPublisherPrivateKey"
-      value = var.BOOT_NODE_SEQ_PUBLISHER_PRIVATE_KEY
+      name  = "ethereum.execution.externalHosts"
+      value = replace(var.EXTERNAL_ETHEREUM_HOSTS, ",", "\\,")
+      type  = "string"
     }
   }
 
   dynamic "set" {
-    for_each = var.PROVER_PUBLISHER_PRIVATE_KEY != "" ? toset(["iterate"]) : toset([])
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST != "" ? toset(["iterate"]) : toset([])
     content {
-      name  = "proverNode.proverPublisherPrivateKey"
-      value = var.PROVER_PUBLISHER_PRIVATE_KEY
-    }
-  }
-
-  dynamic "set_list" {
-    for_each = length(try(var.VALIDATOR_KEYS, [])) > 0 ? toset(["iterate"]) : toset([])
-    content {
-      name  = "validator.validatorKeys"
-      value = var.VALIDATOR_KEYS
+      name  = "ethereum.beacon.externalHost"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST
     }
   }
 
   dynamic "set" {
-    for_each = var.ETHEREUM_EXTERNAL_HOST != "" ? toset(["iterate"]) : toset([])
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY != "" ? toset(["iterate"]) : toset([])
     content {
-      name  = "ethereum.externalHost"
-      value = var.ETHEREUM_EXTERNAL_HOST
+      name  = "ethereum.beacon.apiKey"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER != "" ? toset(["iterate"]) : toset([])
+    content {
+      name  = "ethereum.beacon.apiKeyHeader"
+      value = var.EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER
+    }
+  }
+
+  dynamic "set" {
+    for_each = var.EXPOSE_HTTPS_BOOTNODE == true ? toset(["iterate"]) : toset([])
+    content {
+      name  = "bootNode.fixedExternalIP"
+      value = google_compute_address.bootnode_ip["${var.RELEASE_NAME}-bootnode-ip"].address
     }
   }
 
   set {
     name  = "aztec.l1Salt"
     value = var.L1_DEPLOYMENT_SALT
+  }
+
+  set {
+    name  = "telemetry.otelCollectorEndpoint"
+    value = "http://${data.terraform_remote_state.metrics.outputs.otel_collector_ip}:4318"
+  }
+
+  set {
+    name  = "network.gke"
+    value = true
   }
 
   # Setting timeout and wait conditions

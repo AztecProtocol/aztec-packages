@@ -5,7 +5,7 @@ use crate::{
     },
     address::AztecAddress,
     constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-    traits::{Deserialize, Empty, Serialize},
+    traits::{Deserialize, Empty, Serialize, ToField},
     utils::{arrays::array_concat, reader::Reader},
 };
 

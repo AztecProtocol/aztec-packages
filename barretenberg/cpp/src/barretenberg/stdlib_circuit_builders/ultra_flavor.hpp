@@ -60,9 +60,6 @@ class UltraFlavor {
     static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = RepeatedCommitmentsData(
         NUM_PRECOMPUTED_ENTITIES, NUM_PRECOMPUTED_ENTITIES + NUM_WITNESS_ENTITIES, NUM_SHIFTED_WITNESSES);
 
-    // The total number of witnesses including shifts and derived entities.
-    static constexpr size_t NUM_ALL_WITNESS_ENTITIES = NUM_WITNESS_ENTITIES + NUM_SHIFTED_WITNESSES;
-
     // define the tuple of Relations that comprise the Sumcheck relation
     // Note: made generic for use in MegaRecursive.
     template <typename FF>
@@ -98,20 +95,19 @@ class UltraFlavor {
     static constexpr size_t NUM_RELATIONS = std::tuple_size_v<Relations>;
 
     // Proof length formula:
-    // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
-    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
-    // 3. NUM_WITNESS_ENTITIES commitments
-    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
-    // 5. NUM_ALL_ENTITIES sumcheck evaluations
-    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
-    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
-    // 8. KZG W commitment
+    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 2. NUM_WITNESS_ENTITIES commitments
+    // 3. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 4. NUM_ALL_ENTITIES sumcheck evaluations
+    // 5. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 6. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 7. KZG W commitment
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
-        HONK_PROOF_PUBLIC_INPUT_OFFSET + NUM_WITNESS_ENTITIES * num_frs_comm +
-        CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr + NUM_ALL_ENTITIES * num_frs_fr +
-        CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr + num_frs_comm;
+        NUM_WITNESS_ENTITIES * num_frs_comm + CONST_PROOF_SIZE_LOG_N * BATCHED_RELATION_PARTIAL_LENGTH * num_frs_fr +
+        NUM_ALL_ENTITIES * num_frs_fr + CONST_PROOF_SIZE_LOG_N * num_frs_comm + CONST_PROOF_SIZE_LOG_N * num_frs_fr +
+        num_frs_comm;
 
     template <size_t NUM_KEYS>
     using ProtogalaxyTupleOfTuplesOfUnivariatesNoOptimisticSkipping =
@@ -133,7 +129,7 @@ class UltraFlavor {
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
         bool operator==(const PrecomputedEntities&) const = default;
         using DataType = DataType_;
@@ -249,14 +245,6 @@ class UltraFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
         auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
-
-        // getter for all witnesses including shifted ones
-        auto get_all_witnesses()
-        {
-            return concatenate(WitnessEntities<DataType>::get_all(), ShiftedEntities<DataType>::get_shifted());
-        };
-        // getter for the complement of all witnesses inside all entities
-        auto get_non_witnesses() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
     /**
@@ -358,71 +346,6 @@ class UltraFlavor {
         std::vector<uint32_t> memory_read_records;
         std::vector<uint32_t> memory_write_records;
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
-
-        /**
-         * @brief Add RAM/ROM memory records to the fourth wire polynomial
-         *
-         * @details This operation must be performed after the first three wires have been
-         * committed to, hence the dependence on the `eta` challenge.
-         *
-         * @tparam Flavor
-         * @param eta challenge produced after commitment to first three wire polynomials
-         */
-        void add_ram_rom_memory_records_to_wire_4(const FF& eta, const FF& eta_two, const FF& eta_three)
-        {
-            // The memory record values are computed at the indicated indices as
-            // w4 = w3 * eta^3 + w2 * eta^2 + w1 * eta + read_write_flag;
-            // (See the Auxiliary relation for details)
-            auto wires = polynomials.get_wires();
-
-            // Compute read record values
-            for (const auto& gate_idx : memory_read_records) {
-                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
-                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-            }
-
-            // Compute write record values
-            for (const auto& gate_idx : memory_write_records) {
-                wires[3].at(gate_idx) += wires[2][gate_idx] * eta_three;
-                wires[3].at(gate_idx) += wires[1][gate_idx] * eta_two;
-                wires[3].at(gate_idx) += wires[0][gate_idx] * eta;
-                wires[3].at(gate_idx) += 1;
-            }
-        }
-
-        /**
-         * @brief Compute the inverse polynomial used in the log derivative lookup argument
-         *
-         * @tparam Flavor
-         * @param beta
-         * @param gamma
-         */
-        void compute_logderivative_inverses(const RelationParameters<FF>& relation_parameters)
-        {
-            // Compute inverses for conventional lookups
-            compute_logderivative_inverse<UltraFlavor, LogDerivLookupRelation<FF>>(
-                this->polynomials, relation_parameters, this->circuit_size);
-        }
-
-        /**
-         * @brief Computes public_input_delta and the permutation grand product polynomial
-         *
-         * @param relation_parameters
-         * @param size_override override the size of the domain over which to compute the grand product
-         */
-        void compute_grand_product_polynomial(RelationParameters<FF>& relation_parameters, size_t size_override = 0)
-        {
-            relation_parameters.public_input_delta = compute_public_input_delta<UltraFlavor>(this->public_inputs,
-                                                                                             relation_parameters.beta,
-                                                                                             relation_parameters.gamma,
-                                                                                             this->circuit_size,
-                                                                                             this->pub_inputs_offset);
-
-            // Compute permutation grand product polynomial
-            compute_grand_product<UltraFlavor, UltraPermutationRelation<FF>>(
-                this->polynomials, relation_parameters, size_override);
-        }
     };
 
     /**
@@ -433,7 +356,7 @@ class UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
@@ -572,13 +495,21 @@ class UltraFlavor {
         PartiallyEvaluatedMultivariates() = default;
         PartiallyEvaluatedMultivariates(const size_t circuit_size)
         {
-
             PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
 
             // Storage is only needed after the first partial evaluation, hence polynomials of
             // size (n / 2)
             for (auto& poly : this->get_all()) {
                 poly = Polynomial(circuit_size / 2);
+            }
+        }
+        PartiallyEvaluatedMultivariates(const ProverPolynomials& full_polynomials, size_t circuit_size)
+        {
+            PROFILE_THIS_NAME("PartiallyEvaluatedMultivariates constructor");
+            for (auto [poly, full_poly] : zip_view(get_all(), full_polynomials.get_all())) {
+                // After the initial sumcheck round, the new size is CEIL(size/2).
+                size_t desired_size = full_poly.end_index() / 2 + full_poly.end_index() % 2;
+                poly = Polynomial(desired_size, circuit_size / 2);
             }
         }
     };
@@ -718,9 +649,6 @@ class UltraFlavor {
         using Base = BaseTranscript<Params>;
 
         // Transcript objects defined as public member variables for easy access and modification
-        uint32_t circuit_size;
-        uint32_t public_input_size;
-        uint32_t pub_inputs_offset;
         std::vector<FF> public_inputs;
         Commitment w_l_comm;
         Commitment w_r_comm;
@@ -764,15 +692,11 @@ class UltraFlavor {
          * proof.
          *
          */
-        void deserialize_full_transcript()
+        void deserialize_full_transcript(size_t public_input_size)
         {
             // take current proof and put them into the struct
             auto& proof_data = this->proof_data;
             size_t num_frs_read = 0;
-            circuit_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-
-            public_input_size = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
-            pub_inputs_offset = Base::template deserialize_from_buffer<uint32_t>(proof_data, num_frs_read);
             for (size_t i = 0; i < public_input_size; ++i) {
                 public_inputs.push_back(Base::template deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
@@ -814,11 +738,8 @@ class UltraFlavor {
             auto& proof_data = this->proof_data;
             size_t old_proof_length = proof_data.size();
             proof_data.clear(); // clear proof_data so the rest of the function can replace it
-            Base::template serialize_to_buffer(circuit_size, proof_data);
-            Base::template serialize_to_buffer(public_input_size, proof_data);
-            Base::template serialize_to_buffer(pub_inputs_offset, proof_data);
-            for (size_t i = 0; i < public_input_size; ++i) {
-                Base::template serialize_to_buffer(public_inputs[i], proof_data);
+            for (const auto& public_input : public_inputs) {
+                Base::template serialize_to_buffer(public_input, proof_data);
             }
             Base::template serialize_to_buffer(w_l_comm, proof_data);
             Base::template serialize_to_buffer(w_r_comm, proof_data);

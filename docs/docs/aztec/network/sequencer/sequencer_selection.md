@@ -1,6 +1,7 @@
 ---
 title: Sequencer Selection
-tags: [protocol]
+tags: [protocol, sequencer]
+draft: true
 ---
 
 ## Fernet

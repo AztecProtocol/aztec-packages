@@ -41,6 +41,13 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
+    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(proving_key->proving_key.commitment_key)
+{}
+
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
@@ -64,14 +71,12 @@ template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challen
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof()
 {
     OinkProver<Flavor> oink_prover(proving_key, transcript);
-    vinfo("created oink prover");
     oink_prover.prove();
     vinfo("created oink proof");
 
     generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
-    vinfo("created decider prover");
     decider_prover.construct_proof();
     return export_proof();
 }

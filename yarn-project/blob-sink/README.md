@@ -19,3 +19,14 @@ Blobs are only held in the L1 consensus layer for a period of ~3 weeks, the blob
 ### How?
 
 The blob sink is a simple HTTP server that can be run alongside the e2e tests. It will store the blobs in a local file system and provide an API to query for them.
+
+### Configurations
+
+If no blob sink url or consensus host url is provided:
+A local version of the blob sink will be used. This stores blobs in a local file system.
+
+Blob sink url is provided:
+If requesting from the blob sink, we send the blobkHash
+
+Consensus host url is provided:
+If requesting from the beacon node, we send the slot number

@@ -1,4 +1,4 @@
-{{- if not .Values.ethereum.externalHost }}
+{{- if and (not .Values.ethereum.execution.externalHosts) .Values.pxe.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,8 +17,12 @@ spec:
         {{- include "aztec-network.selectorLabels" . | nindent 8 }}
         app: faucet
     spec:
-      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- if .Values.network.gke }}
+      nodeSelector:
+        node-type: network
+      {{- end }}
       {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       {{- end }}
@@ -28,8 +32,10 @@ spec:
         - name: scripts
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
+      terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
         - name: wait-for-dependencies
@@ -40,15 +46,7 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-
-              echo "Awaiting ethereum node at ${ETHEREUM_HOST}"
-              until curl -s -X POST -H 'Content-Type: application/json' \
-                -d '{"jsonrpc":"2.0","method":"web3_clientVersion","params":[],"id":67}' \
-                ${ETHEREUM_HOST} | grep -q reth; do
-                echo "Waiting for Ethereum node ${ETHEREUM_HOST}..."
-                sleep 5
-              done
-              echo "Ethereum node is ready!"
+              {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
           volumeMounts:
             - name: config
               mountPath: /shared/config
@@ -82,6 +80,14 @@ spec:
               value: "1"
             - name: LOG_LEVEL
               value: "{{ .Values.faucet.logLevel }}"
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
           ports:
             - name: http
               containerPort: {{ .Values.faucet.service.nodePort }}
@@ -95,6 +101,7 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-faucet
   labels:
     {{- include "aztec-network.labels" . | nindent 4 }}
+    app: faucet
 spec:
   type: ClusterIP
   selector:

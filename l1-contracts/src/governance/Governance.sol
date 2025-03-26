@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp} from "@aztec/core/libraries/TimeMath.sol";
+import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {IGovernance} from "@aztec/governance/interfaces/IGovernance.sol";
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {ConfigurationLib} from "@aztec/governance/libraries/ConfigurationLib.sol";
@@ -48,13 +48,13 @@ contract Governance is IGovernance {
 
     configuration = DataStructures.Configuration({
       proposeConfig: DataStructures.ProposeConfiguration({
-        lockDelay: Timestamp.wrap(3600),
+        lockDelay: Timestamp.wrap(60),
         lockAmount: 1000e18
       }),
-      votingDelay: Timestamp.wrap(3600),
-      votingDuration: Timestamp.wrap(3600),
-      executionDelay: Timestamp.wrap(3600),
-      gracePeriod: Timestamp.wrap(3600),
+      votingDelay: Timestamp.wrap(60),
+      votingDuration: Timestamp.wrap(60),
+      executionDelay: Timestamp.wrap(60),
+      gracePeriod: Timestamp.wrap(60),
       quorum: 0.1e18,
       voteDifferential: 0.04e18,
       minimumVotes: 1000e18

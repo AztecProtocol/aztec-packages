@@ -20,21 +20,21 @@ constexpr size_t operand_columns = 4;
 } // namespace
 
 void ExecutionTraceBuilder::process(
-    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& ex_events,
-    const simulation::EventEmitterInterface<simulation::AddressingEvent>::Container& addr_events,
-    TraceContainer& trace)
+    const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& orig_events, TraceContainer& trace)
 {
     using C = Column;
-    if (ex_events.size() != addr_events.size()) {
-        throw std::runtime_error(format(
-            "Execution and addressing events must have the same size: ", ex_events.size(), " != ", addr_events.size()));
-    }
     uint32_t row = 1; // We start from row 1 because this trace contains shifted columns.
 
-    // We process the execution events and other virtual gadgets in parallel.
-    // Note that there is duplicated information in the events, for self-containment.
-    // TODO: Think the best approach for that.
-    for (const auto& [ex_event, addr_event] : zip_view(ex_events, addr_events)) {
+    // We need to sort the events by their order/sort id.
+    // We allocate a vector of pointers so that the sorting doesn't move the whole events around.
+    std::vector<const simulation::ExecutionEvent*> ex_events(orig_events.size());
+    std::transform(orig_events.begin(), orig_events.end(), ex_events.begin(), [](const auto& event) { return &event; });
+    std::ranges::sort(ex_events, [](const auto& lhs, const auto& rhs) { return lhs->order < rhs->order; });
+
+    for (const auto& ex_event_ptr : ex_events) {
+        const auto& ex_event = *ex_event_ptr;
+        const auto& addr_event = ex_event.addressing_event;
+
         auto operands = ex_event.wire_instruction.operands;
         assert(operands.size() <= operand_columns);
         operands.resize(operand_columns, simulation::Operand::ff(0));
@@ -51,7 +51,7 @@ void ExecutionTraceBuilder::process(
                       { C::execution_op2, static_cast<FF>(operands.at(1)) },
                       { C::execution_op3, static_cast<FF>(operands.at(2)) },
                       { C::execution_op4, static_cast<FF>(operands.at(3)) },
-                      { C::execution_pc, ex_event.pc },
+                      { C::execution_bytecode_id, ex_event.bytecode_id },
                       { C::execution_rop1, static_cast<FF>(resolved_operands.at(0)) },
                       { C::execution_rop2, static_cast<FF>(resolved_operands.at(1)) },
                       { C::execution_rop3, static_cast<FF>(resolved_operands.at(2)) },
@@ -65,8 +65,8 @@ void ExecutionTraceBuilder::process(
         trace.set(
             row,
             { {
-                { C::execution_stack_pointer_val, addr_event.stack_pointer_val },
-                { C::execution_stack_pointer_tag, static_cast<size_t>(addr_event.stack_pointer_tag) },
+                { C::execution_base_address_val, addr_event.base_address_val },
+                { C::execution_base_address_tag, static_cast<size_t>(addr_event.base_address_tag) },
                 { C::execution_sel_addressing_error, addr_event.error.has_value() ? 1 : 0 },
                 { C::execution_addressing_error_idx, addr_event.error.has_value() ? addr_event.error->operand_idx : 0 },
                 { C::execution_addressing_error_kind,
@@ -80,6 +80,17 @@ void ExecutionTraceBuilder::process(
                 { C::execution_op3_after_relative, static_cast<FF>(operands_after_relative.at(2)) },
                 { C::execution_op4_after_relative, static_cast<FF>(operands_after_relative.at(3)) },
             } });
+
+        // Context
+        trace.set(row,
+                  { {
+                      { C::execution_context_id, ex_event.context_event.id },
+                      { C::execution_pc, ex_event.context_event.pc },
+                      { C::execution_is_static, ex_event.context_event.is_static },
+                      { C::execution_msg_sender, ex_event.context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.context_event.contract_addr },
+
+                  } });
 
         row++;
     }

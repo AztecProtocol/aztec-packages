@@ -151,7 +151,9 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 2];
     }
     // For EMITUNENCRYPTEDLOG
-    for (size_t i = 0; i < MAX_UNENCRYPTED_LOGS_PER_CALL; i++) {
+    for (size_t i = 0; i < MAX_PUBLIC_LOGS_PER_CALL; i++) {
+        // TODO(#11124): logs are now arrays of fields, we should append PUBLIC_LOG_SIZE_IN_FIELDS
+        // for each MAX_PUBLIC_LOGS_PER_CALL
         size_t dest_offset = START_EMIT_UNENCRYPTED_LOG_WRITE_OFFSET + i;
         size_t pcpi_offset =
             NEW_UNENCRYPTED_LOGS_PCPI_OFFSET + (i * 3); // 3 because we have metadata, this is the window size
@@ -159,6 +161,15 @@ template <typename FF_> VmPublicInputs_<FF_> convert_public_inputs(std::vector<F
         ko_values[dest_offset] = public_inputs_vec[pcpi_offset];
         ko_side_effect[dest_offset] = public_inputs_vec[pcpi_offset + 1];
         ko_metadata[dest_offset] = public_inputs_vec[pcpi_offset + 2];
+    }
+    // TODO(#11426): Fix public input columns.
+    if constexpr (!std::same_as<FF_, field<Bn254FrParams>>) {
+        auto ctx = public_inputs_vec[0].get_context();
+        for (size_t i = 0; i < KERNEL_OUTPUTS_LENGTH; i++) {
+            ko_values[i] = FF_::from_witness(ctx, 0);
+            ko_side_effect[i] = FF_::from_witness(ctx, 0);
+            ko_metadata[i] = FF_::from_witness(ctx, 0);
+        }
     }
 
     return public_inputs;

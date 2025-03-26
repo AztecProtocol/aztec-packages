@@ -1,32 +1,55 @@
-import { Blob } from '@aztec/foundation/blob';
-import { Fr } from '@aztec/foundation/fields';
+import { Blob } from '@aztec/blob-lib';
+import { makeEncodedBlob } from '@aztec/blob-lib/testing';
+import type { L2BlockProposedEvent, ViemPublicClient } from '@aztec/ethereum';
+import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
+import { fileURLToPath } from '@aztec/foundation/url';
 
+import { readFile } from 'fs/promises';
+import { type MockProxy, mock } from 'jest-mock-extended';
+import { join } from 'path';
 import request from 'supertest';
 
+import { BlobscanBlockResponseSchema } from '../archive/blobscan_archive_client.js';
+import type { BlobArchiveClient } from '../archive/interface.js';
+import { outboundTransform } from '../encoding/index.js';
+import { BlobWithIndex } from '../types/blob_with_index.js';
+import type { BlobSinkConfig } from './config.js';
 import { BlobSinkServer } from './server.js';
 
 describe('BlobSinkService', () => {
   let service: BlobSinkServer;
 
-  beforeEach(async () => {
-    service = new BlobSinkServer({
-      port: 0, // Using port 0 lets the OS assign a random available port
-    });
+  const startServer = async (
+    config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient; l1Client: ViemPublicClient }> = {},
+  ) => {
+    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.blobArchiveClient, config.l1Client);
     await service.start();
-  });
+  };
 
   afterEach(async () => {
     await service.stop();
   });
 
-  describe('should store and retrieve a blob sidecar', () => {
-    const testFields = [Fr.random(), Fr.random(), Fr.random()];
-    const testFields2 = [Fr.random(), Fr.random(), Fr.random()];
-    const blob = Blob.fromFields(testFields);
-    const blob2 = Blob.fromFields(testFields2);
+  describe('status', () => {
+    beforeEach(() => startServer());
+
+    it('should return 200', async () => {
+      const response = await request(service.getApp()).get('/status');
+      expect(response.status).toBe(200);
+    });
+  });
+
+  describe('store', () => {
     const blockId = '0x1234';
 
+    let blob: Blob;
+    let blob2: Blob;
+
     beforeEach(async () => {
+      await startServer();
+
+      blob = await makeEncodedBlob(3);
+      blob2 = await makeEncodedBlob(3);
       // Post the blob
       const postResponse = await request(service.getApp())
         .post('/blob_sidecar')
@@ -36,11 +59,11 @@ describe('BlobSinkService', () => {
           blobs: [
             {
               index: 0,
-              blob: blob.toBuffer(),
+              blob: outboundTransform(blob.toBuffer()),
             },
             {
               index: 1,
-              blob: blob2.toBuffer(),
+              blob: outboundTransform(blob2.toBuffer()),
             },
           ],
         });
@@ -56,13 +79,16 @@ describe('BlobSinkService', () => {
 
       // Convert the response blob back to a Blob object and verify it matches
       const retrievedBlobs = getResponse.body.data;
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
 
-      const retrievedBlob = Blob.fromBuffer(Buffer.from(retrievedBlobs[0].blob, 'hex'));
-      const retrievedBlob2 = Blob.fromBuffer(Buffer.from(retrievedBlobs[1].blob, 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
+      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
 
     it('should retrieve specific indicies', async () => {
@@ -75,60 +101,161 @@ describe('BlobSinkService', () => {
       expect(getWithIndicies.body.data.length).toBe(2);
 
       const retrievedBlobs = getWithIndicies.body.data;
-      const retrievedBlob = Blob.fromBuffer(Buffer.from(retrievedBlobs[0].blob, 'hex'));
-      const retrievedBlob2 = Blob.fromBuffer(Buffer.from(retrievedBlobs[1].blob, 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
+      const retrievedBlob2 = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[1].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob.commitment.toString('hex'));
+      expect(retrievedBlob.proof.toString('hex')).toBe(blob.proof.toString('hex'));
+
       expect(retrievedBlob2.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob2.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
+      expect(retrievedBlob2.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
 
-    it('should retreive a single index', async () => {
+    it('should retrieve a single index', async () => {
       const getWithIndicies = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}?indices=1`);
 
       expect(getWithIndicies.status).toBe(200);
       expect(getWithIndicies.body.data.length).toBe(1);
 
       const retrievedBlobs = getWithIndicies.body.data;
-      const retrievedBlob = Blob.fromBuffer(Buffer.from(retrievedBlobs[0].blob, 'hex'));
+      const retrievedBlob = await Blob.fromEncodedBlobBuffer(Buffer.from(retrievedBlobs[0].blob.slice(2), 'hex'));
       expect(retrievedBlob.fieldsHash.toString()).toBe(blob2.fieldsHash.toString());
       expect(retrievedBlob.commitment.toString('hex')).toBe(blob2.commitment.toString('hex'));
+      expect(retrievedBlob.proof.toString('hex')).toBe(blob2.proof.toString('hex'));
     });
   });
 
-  it('should return an error if invalid indicies are provided', async () => {
+  describe('errors', () => {
+    beforeEach(() => startServer());
+
+    it('should return an error if invalid indicies are provided', async () => {
+      const blockId = '0x1234';
+
+      const response = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}?indices=word`);
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid indices parameter');
+    });
+
+    it('should return an error if the block ID is invalid (POST)', async () => {
+      const response = await request(service.getApp()).post('/blob_sidecar').send({
+        // eslint-disable-next-line camelcase
+        block_id: undefined,
+      });
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should return an error if the block ID is invalid (GET)', async () => {
+      const response = await request(service.getApp()).get('/eth/v1/beacon/blob_sidecars/invalid-id');
+
+      expect(response.status).toBe(400);
+    });
+
+    it('should return 404 for non-existent blob', async () => {
+      const response = await request(service.getApp()).get('/eth/v1/beacon/blob_sidecars/0x999999');
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should reject negative block IDs', async () => {
+      const response = await request(service.getApp()).get('/eth/v1/beacon/blob_sidecars/-123');
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBe('Invalid block_id parameter');
+    });
+  });
+
+  describe('with l1 client', () => {
+    let l1Client: MockProxy<ViemPublicClient>;
+    let blob: Blob;
+    let blob2: Blob;
+
     const blockId = '0x1234';
 
-    const response = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}?indices=word`);
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Invalid indices parameter');
-  });
+    beforeEach(async () => {
+      blob = await makeEncodedBlob(3);
+      blob2 = await makeEncodedBlob(3);
+      l1Client = mock<ViemPublicClient>();
+      l1Client.getContractEvents.mockResolvedValue([
+        {
+          args: {
+            versionedBlobHashes: [bufferToHex(blob.getEthVersionedBlobHash())],
+            archive: '0x5678',
+            blockNumber: 1234n,
+          } satisfies L2BlockProposedEvent,
+        } as any,
+      ]);
 
-  it('should return an error if the block ID is invalid (POST)', async () => {
-    const response = await request(service.getApp()).post('/blob_sidecar').send({
-      // eslint-disable-next-line camelcase
-      block_id: undefined,
+      await startServer({ l1Client });
     });
 
-    expect(response.status).toBe(400);
+    afterEach(() => {
+      expect(l1Client.getContractEvents).toHaveBeenCalledTimes(1);
+      expect(l1Client.getContractEvents).toHaveBeenCalledWith(expect.objectContaining({ blockHash: blockId }));
+    });
+
+    it('should accept blobs emitted by rollup contract', async () => {
+      const postResponse = await request(service.getApp())
+        .post('/blob_sidecar')
+        .send({
+          // eslint-disable-next-line camelcase
+          block_id: blockId,
+          blobs: [{ index: 0, blob: outboundTransform(blob.toBuffer()) }],
+        });
+
+      expect(postResponse.status).toBe(200);
+    });
+
+    it('should reject blobs not emitted by rollup contract', async () => {
+      const postResponse = await request(service.getApp())
+        .post('/blob_sidecar')
+        .send({
+          // eslint-disable-next-line camelcase
+          block_id: blockId,
+          blobs: [
+            { index: 0, blob: outboundTransform(blob.toBuffer()) },
+            { index: 1, blob: outboundTransform(blob2.toBuffer()) },
+          ],
+        });
+
+      expect(postResponse.status).toBe(400);
+    });
   });
 
-  it('should return an error if the block ID is invalid (GET)', async () => {
-    const response = await request(service.getApp()).get('/eth/v1/beacon/blob_sidecars/invalid-id');
+  describe('with archive', () => {
+    let archiveClient: MockProxy<BlobArchiveClient>;
 
-    expect(response.status).toBe(400);
-  });
+    beforeEach(async () => {
+      archiveClient = mock<BlobArchiveClient>();
+      await startServer({ blobArchiveClient: archiveClient });
+    });
 
-  it('should return 404 for non-existent blob', async () => {
-    const response = await request(service.getApp()).get('/eth/v1/beacon/blob_sidecars/0x999999');
+    it('should retrieve the blob from archive and store locally', async () => {
+      // Actual blockId from Sepolia with an Aztec tx, corresponds to blobscan_get_block.json fixture
+      const blockId = '0x7d81980a40426c40544f0f729ada953be406730b877b5865d6cdc35cc8f9c84e';
+      const dataPath = join(fileURLToPath(import.meta.url), '../..', 'archive/fixtures', 'blobscan_get_block.json');
+      const expectedBlobJsons = BlobscanBlockResponseSchema.parse(JSON.parse(await readFile(dataPath, 'utf-8')));
+      archiveClient.getBlobsFromBlock.mockResolvedValue(expectedBlobJsons);
 
-    expect(response.status).toBe(404);
-  });
+      const getResponse = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}`);
+      expect(getResponse.status).toBe(200);
 
-  it('should reject negative block IDs', async () => {
-    const response = await request(service.getApp()).get('/eth/v1/beacon/blob_sidecars/-123');
+      // Even though the block has two blobs, only one is of interest to us
+      expect(getResponse.body.data.length).toBe(1);
+      const expectedBlobWithIndex = new BlobWithIndex(await Blob.fromJson(expectedBlobJsons[0]), 0);
+      const retrievedBlobWithIndex = new BlobWithIndex(
+        await Blob.fromEncodedBlobBuffer(hexToBuffer(getResponse.body.data[0].blob)),
+        getResponse.body.data[0].index,
+      );
+      expect(expectedBlobWithIndex).toEqual(retrievedBlobWithIndex);
 
-    expect(response.status).toBe(400);
-    expect(response.body.error).toBe('Invalid block_id parameter');
+      // Re-fetching should not hit the archive client again
+      const getResponse2 = await request(service.getApp()).get(`/eth/v1/beacon/blob_sidecars/${blockId}`);
+      expect(getResponse2.status).toBe(200);
+      expect(getResponse2.body.data.length).toBe(1);
+
+      expect(archiveClient.getBlobsFromBlock).toHaveBeenCalledTimes(1);
+    });
   });
 });

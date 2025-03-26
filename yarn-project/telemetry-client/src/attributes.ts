@@ -19,7 +19,7 @@ export const NETWORK_NAME = 'aztec.network_name';
 
 /**
  * The name of the protocol circuit being run (e.g. public-kernel-setup or base-rollup)
- * @see {@link @aztec/circuit-types/stats:CircuitName}
+ * @see {@link @aztec/stdlib/stats:CircuitName}
  */
 export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
 
@@ -64,12 +64,16 @@ export const TX_HASH = 'aztec.tx.hash';
 export const OK = 'aztec.ok';
 /** Generic status attribute */
 export const STATUS = 'aztec.status';
+/** Generic error type attribute */
+export const ERROR_TYPE = 'aztec.error_type';
 /** The type of the transaction */
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */
 export const L1_SENDER = 'aztec.l1.sender';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
+/** The reason for disconnecting a peer */
+export const P2P_GOODBYE_REASON = 'aztec.p2p.goodbye.reason';
 /** The proving job type */
 export const PROVING_JOB_TYPE = 'aztec.proving.job_type';
 /** The proving job id */
@@ -82,6 +86,8 @@ export const ROLLUP_PROVER_ID = 'aztec.rollup.prover_id';
 export const PROOF_TIMED_OUT = 'aztec.proof.timed_out';
 
 export const P2P_ID = 'aztec.p2p.id';
+export const P2P_REQ_RESP_PROTOCOL = 'aztec.p2p.req_resp.protocol';
+export const P2P_REQ_RESP_BATCH_REQUESTS_COUNT = 'aztec.p2p.req_resp.batch_requests_count';
 export const POOL_NAME = 'aztec.pool.name';
 
 export const SEQUENCER_STATE = 'aztec.sequencer.state';
@@ -105,3 +111,5 @@ export const REVERTIBILITY = 'aztec.revertibility';
 export const GAS_DIMENSION = 'aztec.gas_dimension';
 
 export const WORLD_STATE_REQUEST_TYPE = 'aztec.world_state_request';
+
+export const NODEJS_EVENT_LOOP_STATE = 'nodejs.eventloop.state';

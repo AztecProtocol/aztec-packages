@@ -311,6 +311,12 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
     return result;
 }
 
+template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
+{
+    ASSERT(new_end_index <= end_index());
+    coefficients_.end_ = new_end_index;
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
     Polynomial result = *this;
@@ -342,6 +348,17 @@ template <typename Fr> Polynomial<Fr> Polynomial<Fr>::shifted() const
     result.coefficients_ = coefficients_;
     result.coefficients_.start_ -= 1;
     result.coefficients_.end_ -= 1;
+    return result;
+}
+
+template <typename Fr> Polynomial<Fr> Polynomial<Fr>::right_shifted(const size_t magnitude) const
+{
+    // ensure that at least the last magnitude-many coefficients are virtual 0's
+    ASSERT((coefficients_.end_ + magnitude) <= virtual_size());
+    Polynomial result;
+    result.coefficients_ = coefficients_;
+    result.coefficients_.start_ += magnitude;
+    result.coefficients_.end_ += magnitude;
     return result;
 }
 

@@ -49,6 +49,9 @@ template <typename CircuitBuilder> struct bn254 {
         bb::fr(uint256_t("0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76"));
     static constexpr bb::fr subgroup_generator_inverse =
         bb::fr(uint256_t("0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6"));
+    // The length of the polynomials used to mask the Sumcheck Round Univariates. Computed as
+    // max(BATCHED_PARTIAL_RELATION_LENGTH) for BN254 Flavors with ZK
+    static constexpr uint32_t LIBRA_UNIVARIATES_LENGTH = 9;
 
 }; // namespace bn254
 

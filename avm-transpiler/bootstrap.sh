@@ -4,36 +4,33 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
-hash=$(cache_content_hash ../noir/.rebuild_patterns .rebuild_patterns)
+hash=$(hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns))
+
+export GIT_COMMIT="0000000000000000000000000000000000000000"
+export SOURCE_DATE_EPOCH=0
+export GIT_DIRTY=false
+export RUSTFLAGS="-Dwarnings"
 
 function build {
-  github_group "avm-transpiler build"
+  echo_header "avm-transpiler build"
   artifact=avm-transpiler-$hash.tar.gz
   if ! cache_download $artifact; then
-    denoise ./scripts/bootstrap_native.sh
-    cache_upload $artifact target/release
+    denoise "cargo build --release --locked"
+    denoise "cargo fmt --check"
+    denoise "cargo clippy"
+    cache_upload $artifact target/release/avm-transpiler
   fi
-  github_endgroup
-}
-
-function test {
-  denoise cargo fmt --check
-  denoise cargo clippy
 }
 
 case "$cmd" in
   "clean")
     git clean -fdx
     ;;
-  ""|"fast"|"full")
+  ""|"fast"|"full"|"ci")
     build
     ;;
   "test")
-    test
-    ;;
-  "ci")
-    build
-    test
+    echo "No tests."
     ;;
   "hash")
     echo $hash

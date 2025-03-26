@@ -22,12 +22,12 @@ namespace slice(256);
     // a memory operation. The following relations ensure that exactly one operation
     // selector sel_cd_cpy/sel_return is activated per row with a non-zero counter and
     // that within a given operation the pertaining selector is enabled. (One prevents
-    // to activate sel_return during a callatacopy operation and vice-versa.)
+    // to activate sel_return during a calldatacopy operation and vice-versa.)
 
     sel_mem_active = sel_cd_cpy + sel_return;
 
     // Instruction decomposition guarantees that sel_cd_cpy and sel_return are mutually exclusive on
-    // the first row of the calldatcopy/return operation.
+    // the first row of the calldatacopy/return operation.
 
     // Show that cnt != 0 <==> sel_mem_active == 1
     // one_min_inv == 1 - cnt^(-1) if cnt != 0 else == 0
@@ -40,8 +40,10 @@ namespace slice(256);
     sel_mem_active * (cnt - 1 - cnt') = 0;
     #[ADDR_INCREMENT]
     sel_mem_active * (addr + 1 - addr') = 0;
-    #[COL_OFFSET_INCREMENT]
-    sel_mem_active * (col_offset + 1 - col_offset') = 0;
+
+    // #[COL_OFFSET_INCREMENT]
+    // sel_mem_active * (col_offset + 1 - col_offset') = 0;
+
     #[SAME_CLK]
     sel_mem_active * (clk - clk') = 0;
     #[SAME_SPACE_ID]

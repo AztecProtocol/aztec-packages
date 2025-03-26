@@ -1,5 +1,5 @@
 use crate::tests::private_kernel_circuit_output_validator_builder::PrivateKernelCircuitOutputValidatorBuilder;
-use dep::types::address::AztecAddress;
+use dep::types::{address::AztecAddress, traits::FromField};
 
 #[test]
 fn validate_initial_values_empty_data_succeeds() {
@@ -40,22 +40,14 @@ fn validate_initial_values_constants_mismatch_out_hash_fails() {
 /**
  * First nullifier.
  */
-#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
-fn validate_initial_values_constants_incorrect_first_nullifier_fails() {
+#[test(should_fail_with = "protocol nullifier must be the tx request nullifier")]
+fn validate_initial_values_constants_incorrect_protocol_nullifier_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
+    builder.with_protocol_nullifier();
 
     let mut nullifier = builder.output.nullifiers.get(0);
     nullifier.nullifier.value += 1;
     builder.output.nullifiers.set(0, nullifier);
-
-    builder.validate_as_first_call(false);
-}
-
-#[test(should_fail_with = "first nullifier must be the tx request nullifier")]
-fn validate_initial_values_constants_empty_first_nullifier_fails() {
-    let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
-
-    builder.output.nullifiers = BoundedVec::new();
 
     builder.validate_as_first_call(false);
 }
@@ -108,8 +100,8 @@ fn validate_initial_values_min_revertible_side_effect_counter_random_output_fail
 fn validate_initial_values_max_block_number_succeeds() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(123);
-    builder.output.set_max_block_number(123);
+    builder.private_call.set_max_block_number(3);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_first_call(false);
 }
@@ -118,8 +110,8 @@ fn validate_initial_values_max_block_number_succeeds() {
 fn validate_initial_values_max_block_number_mismatch_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(4567);
-    builder.output.set_max_block_number(123);
+    builder.private_call.set_max_block_number(4);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_first_call(false);
 }
@@ -128,7 +120,7 @@ fn validate_initial_values_max_block_number_mismatch_fails() {
 fn validate_initial_values_max_block_number_empty_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.private_call.set_max_block_number(4567);
+    builder.private_call.set_max_block_number(4);
 
     builder.validate_as_first_call(false);
 }
@@ -137,7 +129,7 @@ fn validate_initial_values_max_block_number_empty_output_fails() {
 fn validate_initial_values_max_block_number_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_max_block_number(123);
+    builder.output.set_max_block_number(3);
 
     builder.validate_as_first_call(false);
 }
@@ -162,7 +154,7 @@ fn validate_initial_values_public_teardown_call_request_mismatch_fails() {
     builder.private_call.set_public_teardown_call_request();
     builder.output.set_public_teardown_call_request();
     // Tweak the output.
-    builder.output.public_teardown_call_request.args_hash += 1;
+    builder.output.public_teardown_call_request.calldata_hash += 1;
 
     builder.validate_as_first_call(false);
 }
@@ -223,7 +215,7 @@ fn validate_initial_values_fee_payer_empty_output_fails() {
 fn validate_initial_values_fee_payer_random_output_fails() {
     let mut builder = PrivateKernelCircuitOutputValidatorBuilder::new();
 
-    builder.output.set_fee_payer(AztecAddress::from_field(123));
+    builder.output.set_fee_payer(AztecAddress::from_field(3));
 
     builder.validate_as_first_call(false);
 }

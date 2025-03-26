@@ -1,7 +1,9 @@
 mod previous_kernel_validator_hints;
 
 use dep::types::{
-    abis::private_kernel_data::PrivateKernelData, address::AztecAddress, traits::is_empty,
+    abis::{private_kernel_data::PrivateKernelData, side_effect::{Ordered, OrderedValue}},
+    address::AztecAddress,
+    traits::is_empty,
     utils::arrays::array_length,
 };
 use previous_kernel_validator_hints::{
@@ -15,6 +17,7 @@ pub struct PreviousKernelValidator {
 
 impl PreviousKernelValidator {
     pub fn new(previous_kernel: PrivateKernelData) -> Self {
+        // Safety: the below hints are constrained by the following methods. See private_kernel_inner for use.
         let hints =
             unsafe { generate_previous_kernel_validator_hints(previous_kernel.public_inputs) };
         PreviousKernelValidator { previous_kernel, hints }
@@ -33,6 +36,7 @@ impl PreviousKernelValidator {
         );
         self.validate_common();
         self.validate_empty_data();
+        self.validate_first_nullifier(false);
     }
 
     pub fn validate_for_private_tail_to_public(self) {
@@ -42,13 +46,35 @@ impl PreviousKernelValidator {
         );
         self.validate_common();
         self.validate_non_empty_data();
+        self.validate_first_nullifier(true);
+    }
+
+    fn validate_first_nullifier(self, tx_can_revert: bool) {
+        let first_nullifier = self.previous_kernel.public_inputs.end.nullifiers[0];
+        assert_eq(
+            first_nullifier.value(),
+            self.previous_kernel.public_inputs.claimed_first_nullifier,
+            "First nullifier claim was not satisfied",
+        );
+        if tx_can_revert {
+            assert(
+                first_nullifier.nullifier.counter()
+                    < self.previous_kernel.public_inputs.min_revertible_side_effect_counter,
+                "First nullifier must be non revertible",
+            );
+        }
     }
 
     fn validate_common(self) {
+        self.validate_fee_payer();
         self.validate_empty_private_call_stack();
         self.verify_empty_validation_requests();
         self.verify_siloed_values();
         self.verify_no_transient_data();
+    }
+
+    fn validate_fee_payer(self) {
+        assert(!is_empty(self.previous_kernel.public_inputs.fee_payer), "Fee payer can't be empty");
     }
 
     fn validate_empty_private_call_stack(self) {

@@ -1,6 +1,5 @@
 #include "shplonk.hpp"
 #include "../commitment_key.test.hpp"
-#include "../gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include <algorithm>
 #include <gtest/internal/gtest-internal.h>

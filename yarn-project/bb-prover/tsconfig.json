@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -20,6 +17,9 @@
     },
     {
       "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
     },
     {
       "path": "../telemetry-client"
@@ -34,7 +34,10 @@
       "path": "../kv-store"
     },
     {
-      "path": "../types"
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../protocol-contracts"
     }
   ],
   "include": ["src"]

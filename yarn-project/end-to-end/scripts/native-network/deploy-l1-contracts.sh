@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Get the name of the script without the path and extension
 SCRIPT_NAME=$(basename "$0" .sh)
@@ -21,25 +21,37 @@ else
   INIT_VALIDATORS="false"
 fi
 
-export ETHEREUM_HOST=${ETHEREUM_HOST:-"http://127.0.0.1:8545"}
-export L1_CHAIN_ID=${L1_CHAIN_ID:-"31337"}
+export ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-"http://127.0.0.1:8545"}
+# Remove hardcoded L1_CHAIN_ID and fetch it from the node
 export PRIVATE_KEY=${PRIVATE_KEY:-""}
 export SALT=${SALT:-"1337"}
 
 echo "Waiting for Ethereum node to be up..."
-until curl -s -X POST -H 'Content-Type: application/json' \
-  --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
-  $ETHEREUM_HOST 2>/dev/null | grep -q 'result'; do
-  sleep 1
+while true; do
+  for HOST in $(echo "${ETHEREUM_HOSTS}" | tr ',' '\n'); do
+    if curl -s -X POST -H 'Content-Type: application/json' \
+      --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+      "$HOST" 2>/dev/null | grep -q 'result'; then
+      echo "Node $HOST is ready"
+      break 2
+    fi
+    echo "Waiting for Ethereum node ${HOST}..."
+  done
+  sleep 5
 done
 echo "Done waiting."
+
+echo "Fetching chain ID from the Ethereum node"
+# Fetch chain ID from the Ethereum node
+source "$REPO"/yarn-project/end-to-end/scripts/native-network/utils/get-chain-id.sh
 
 # Construct base command
 COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/dest/bin/index.js \
   deploy-l1-contracts \
-  --rpc-url $ETHEREUM_HOST \
+  --l1-rpc-urls $ETHEREUM_HOSTS \
   --l1-chain-id $L1_CHAIN_ID \
-  --salt $SALT"
+  --salt $SALT \
+  --test-accounts"
 
 # Add validators if specified
 [ "$INIT_VALIDATORS" = "true" ] && COMMAND="$COMMAND --validators $VALIDATOR_ADDRESSES"
@@ -47,7 +59,17 @@ COMMAND="node --no-warnings $(git rev-parse --show-toplevel)/yarn-project/aztec/
 # Add private key if provided
 [ -n "$PRIVATE_KEY" ] && COMMAND="$COMMAND --private-key $PRIVATE_KEY"
 
-output=$($COMMAND)
+MAX_RETRIES=5
+RETRY_DELAY=24
+
+for attempt in $(seq 1 $MAX_RETRIES); do
+  output=$(eval $COMMAND) && break
+  echo "Attempt $attempt failed. Retrying in $RETRY_DELAY seconds..."
+  sleep "$RETRY_DELAY"
+done || {
+  echo "All l1 contract deploy attempts failed."
+  exit 1
+}
 
 echo "$output"
 

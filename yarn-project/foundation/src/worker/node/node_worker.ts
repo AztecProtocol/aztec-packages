@@ -2,7 +2,7 @@ import { Worker } from 'worker_threads';
 
 import { type DispatchMsg, NodeConnector, TransportClient, createDispatchProxy } from '../../transport/index.js';
 import { WasmModule } from '../../wasm/wasm_module.js';
-import { type WasmWorker } from '../wasm_worker.js';
+import type { WasmWorker } from '../wasm_worker.js';
 
 /**
  * Creates a node worker.
@@ -13,6 +13,7 @@ export async function createNodeWorker(filepath: string, initialMem?: number, ma
   const transportClient = new TransportClient<DispatchMsg>(transportConnect);
   await transportClient.open();
   const remoteModule = createDispatchProxy(WasmModule, transportClient) as WasmWorker;
+  // eslint-disable-next-line @typescript-eslint/no-misused-promises
   remoteModule.destroyWorker = async () => {
     await transportClient.request({ fn: '__destroyWorker__', args: [] });
     transportClient.close();

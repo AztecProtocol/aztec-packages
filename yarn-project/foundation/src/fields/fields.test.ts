@@ -227,8 +227,8 @@ describe('Bn254 arithmetic', () => {
       [new Fr(4), 2n],
       [new Fr(9), 3n],
       [new Fr(16), 4n],
-    ])('Should return the correct square root for %p', (input, expected) => {
-      const actual = input.sqrt()!.toBigInt();
+    ])('Should return the correct square root for %p', async (input, expected) => {
+      const actual = (await input.sqrt())!.toBigInt();
 
       // The square root can be either the expected value or the modulus - expected value
       const isValid = actual == expected || actual == Fr.MODULUS - expected;
@@ -236,11 +236,11 @@ describe('Bn254 arithmetic', () => {
       expect(isValid).toBeTruthy();
     });
 
-    it('Should return the correct square root for random value', () => {
+    it('Should return the correct square root for random value', async () => {
       const a = Fr.random();
       const squared = a.mul(a);
 
-      const actual = squared.sqrt();
+      const actual = await squared.sqrt();
       expect(actual!.mul(actual!)).toEqual(squared);
     });
   });

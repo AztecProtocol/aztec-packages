@@ -1,12 +1,13 @@
-import { type Tx } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr, type FunctionSelector } from '@aztec/circuits.js';
-import { computeVarArgsHash } from '@aztec/circuits.js/hash';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { HashedValues, type Tx } from '@aztec/stdlib/tx';
 
 export function patchNonRevertibleFn(
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
-): { address: AztecAddress; selector: FunctionSelector } {
+): Promise<AztecAddress> {
   return patchFn('nonRevertibleAccumulatedData', tx, index, overrides);
 }
 
@@ -14,33 +15,29 @@ export function patchRevertibleFn(
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
-): { address: AztecAddress; selector: FunctionSelector } {
+): Promise<AztecAddress> {
   return patchFn('revertibleAccumulatedData', tx, index, overrides);
 }
 
-function patchFn(
+async function patchFn(
   where: 'revertibleAccumulatedData' | 'nonRevertibleAccumulatedData',
   tx: Tx,
   index: number,
   overrides: { address?: AztecAddress; selector: FunctionSelector; args?: Fr[]; msgSender?: AztecAddress },
-): { address: AztecAddress; selector: FunctionSelector } {
-  const fn = tx.enqueuedPublicFunctionCalls.at(-1 * index - 1)!;
-  fn.callContext.contractAddress = overrides.address ?? fn.callContext.contractAddress;
-  fn.callContext.functionSelector = overrides.selector;
-  fn.args = overrides.args ?? fn.args;
-  fn.callContext.msgSender = overrides.msgSender ?? fn.callContext.msgSender;
-  tx.enqueuedPublicFunctionCalls[index] = fn;
+): Promise<AztecAddress> {
+  const calldataIndex =
+    where === 'nonRevertibleAccumulatedData'
+      ? index
+      : index + tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests.length;
+  const calldata = [overrides.selector.toField(), ...(overrides.args ?? [])];
+  const hashedCalldata = await HashedValues.fromCalldata(calldata);
+  tx.publicFunctionCalldata[calldataIndex] = hashedCalldata;
 
   const request = tx.data.forPublic![where].publicCallRequests[index];
-  request.contractAddress = fn.callContext.contractAddress;
-  request.msgSender = fn.callContext.msgSender;
-  request.functionSelector = fn.callContext.functionSelector;
-  request.isStaticCall = fn.callContext.isStaticCall;
-  request.argsHash = computeVarArgsHash(fn.args);
+  request.contractAddress = overrides.address ?? request.contractAddress;
+  request.msgSender = overrides.msgSender ?? request.msgSender;
+  request.calldataHash = hashedCalldata.hash;
   tx.data.forPublic![where].publicCallRequests[index] = request;
 
-  return {
-    address: fn.callContext.contractAddress,
-    selector: fn.callContext.functionSelector,
-  };
+  return request.contractAddress;
 }

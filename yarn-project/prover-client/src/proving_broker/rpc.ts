@@ -1,3 +1,5 @@
+import { createSafeJsonRpcClient } from '@aztec/foundation/json-rpc/client';
+import type { SafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
 import {
   type GetProvingJobResponse,
   ProofUri,
@@ -7,11 +9,11 @@ import {
   ProvingJobId,
   type ProvingJobProducer,
   ProvingJobStatus,
-  ProvingRequestType,
-} from '@aztec/circuit-types';
-import { createSafeJsonRpcClient, makeFetch } from '@aztec/foundation/json-rpc/client';
-import { type SafeJsonRpcServer, createSafeJsonRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type ApiSchemaFor, optional } from '@aztec/foundation/schemas';
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
+import { type ApiSchemaFor, optional } from '@aztec/stdlib/schemas';
+import { type ComponentsVersions, getVersioningResponseHandler } from '@aztec/stdlib/versioning';
+import { createTracedJsonRpcServer, makeTracedFetch } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
@@ -33,12 +35,18 @@ export const ProvingJobProducerSchema: ApiSchemaFor<ProvingJobProducer> = {
 
 export const ProvingJobConsumerSchema: ApiSchemaFor<ProvingJobConsumer> = {
   getProvingJob: z.function().args(optional(ProvingJobFilterSchema)).returns(GetProvingJobResponse.optional()),
-  reportProvingJobError: z.function().args(ProvingJobId, z.string(), optional(z.boolean())).returns(z.void()),
+  reportProvingJobError: z
+    .function()
+    .args(ProvingJobId, z.string(), optional(z.boolean()), optional(ProvingJobFilterSchema))
+    .returns(GetProvingJobResponse.optional()),
   reportProvingJobProgress: z
     .function()
     .args(ProvingJobId, z.number(), optional(ProvingJobFilterSchema))
     .returns(GetProvingJobResponse.optional()),
-  reportProvingJobSuccess: z.function().args(ProvingJobId, ProofUri).returns(z.void()),
+  reportProvingJobSuccess: z
+    .function()
+    .args(ProvingJobId, ProofUri, optional(ProvingJobFilterSchema))
+    .returns(GetProvingJobResponse.optional()),
 };
 
 export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
@@ -47,17 +55,41 @@ export const ProvingJobBrokerSchema: ApiSchemaFor<ProvingJobBroker> = {
 };
 
 export function createProvingBrokerServer(broker: ProvingJobBroker): SafeJsonRpcServer {
-  return createSafeJsonRpcServer(broker, ProvingJobBrokerSchema);
+  return createTracedJsonRpcServer(broker, ProvingJobBrokerSchema);
 }
 
-export function createProvingJobBrokerClient(url: string, fetch = makeFetch([1, 2, 3], false)): ProvingJobBroker {
-  return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, false, 'proverBroker', fetch);
+export function createProvingJobBrokerClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobBroker {
+  return createSafeJsonRpcClient(url, ProvingJobBrokerSchema, {
+    namespaceMethods: 'proverBroker',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
-export function createProvingJobProducerClient(url: string, fetch = makeFetch([1, 2, 3], false)): ProvingJobProducer {
-  return createSafeJsonRpcClient(url, ProvingJobProducerSchema, false, 'provingJobProducer', fetch);
+export function createProvingJobProducerClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobProducer {
+  return createSafeJsonRpcClient(url, ProvingJobProducerSchema, {
+    namespaceMethods: 'provingJobProducer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
 
-export function createProvingJobConsumerClient(url: string, fetch = makeFetch([1, 2, 3], false)): ProvingJobConsumer {
-  return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, false, 'provingJobConsumer', fetch);
+export function createProvingJobConsumerClient(
+  url: string,
+  versions: Partial<ComponentsVersions>,
+  fetch = makeTracedFetch([1, 2, 3], false),
+): ProvingJobConsumer {
+  return createSafeJsonRpcClient(url, ProvingJobConsumerSchema, {
+    namespaceMethods: 'provingJobConsumer',
+    fetch,
+    onResponse: getVersioningResponseHandler(versions),
+  });
 }
