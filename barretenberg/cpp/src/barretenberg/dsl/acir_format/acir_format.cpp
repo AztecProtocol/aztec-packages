@@ -520,15 +520,9 @@ PairingPointAccumulatorIndices process_avm_recursion_constraints(
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.avm_recursion_constraints) {
-        // HonkRecursionConstraintOutput output = create_avm_recursion_constraints_new(
-        //     builder, constraint, current_aggregation_object, has_valid_witness_assignments);
-
-        // // WORKTODO: Decide what to do here. Eventually we want to return the full output not just the pairing
-        // points. current_aggregation_object = output.agg_obj_indices;
-
-        // WORKTODO: disable this in favor of the above. Need to figure out the right way to init the grump CRS in
-        // ultra honk write_vk
-        current_aggregation_object = create_avm_recursion_constraints_legacy(
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1303): Utilize method that employs Goblin in the
+        // AVM recursive verifier.
+        current_aggregation_object = create_avm_recursion_constraints(
             builder, constraint, current_aggregation_object, has_valid_witness_assignments);
 
         gate_counter.track_diff(constraint_system.gates_per_opcode,

@@ -8,13 +8,12 @@ using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 
-PairingPointAccumulatorIndices create_avm_recursion_constraints_legacy(
-    Builder& builder,
-    const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object,
-    bool has_valid_witness_assignments);
+PairingPointAccumulatorIndices create_avm_recursion_constraints(Builder& builder,
+                                                                const RecursionConstraint& input,
+                                                                PairingPointAccumulatorIndices input_aggregation_object,
+                                                                bool has_valid_witness_assignments);
 
-HonkRecursionConstraintOutput create_avm_recursion_constraints_new(
+HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     PairingPointAccumulatorIndices input_aggregation_object,
