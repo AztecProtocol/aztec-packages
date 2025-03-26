@@ -17,7 +17,6 @@ struct ExecutionEvent {
     // For sorting in tracegen.
     uint32_t order;
 
-    uint32_t pc;
     BytecodeId bytecode_id;
     Instruction wire_instruction;
     ExecutionOpCode opcode;

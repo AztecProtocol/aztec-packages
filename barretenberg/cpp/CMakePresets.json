@@ -44,8 +44,8 @@
       "description": "Build with Clang installed via Homebrew",
       "inherits": "default",
       "environment": {
-        "CC": "$env{BREW_PREFIX}/opt/llvm/bin/clang",
-        "CXX": "$env{BREW_PREFIX}/opt/llvm/bin/clang++"
+        "CC": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang",
+        "CXX": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang++"
       }
     },
     {
@@ -77,6 +77,16 @@
       "environment": {
         "CXXFLAGS": "-Wno-deprecated-declarations",
         "OSXCROSS_HOST": "x86_64-apple-darwin23"
+      }
+    },
+    {
+      "name": "clang18",
+      "displayName": "Build with Clang-18",
+      "description": "Build with globally installed Clang-18",
+      "inherits": "default",
+      "environment": {
+        "CC": "clang-18",
+        "CXX": "clang++-18"
       }
     },
     {
@@ -195,6 +205,16 @@
       "binaryDir": "build-debug-fast-circuit-check-traces",
       "cacheVariables": {
         "CHECK_CIRCUIT_STACKTRACES": "ON"
+      }
+    },
+    {
+      "name": "clang18-assert",
+      "binaryDir": "build",
+      "displayName": "Build with Clang-18 using RelWithAssert",
+      "description": "Build with globally installed Clang-18 in release with ASSERTs mode",
+      "inherits": "clang18",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -504,6 +524,11 @@
       "configurePreset": "homebrew"
     },
     {
+      "name": "clang18",
+      "inherits": "default",
+      "configurePreset": "clang18"
+    },
+    {
       "name": "clang16",
       "inherits": "default",
       "configurePreset": "clang16"
@@ -572,6 +597,11 @@
       "name": "clang16-dbg-fast-circuit-check-traces",
       "inherits": "clang16-dbg-fast",
       "configurePreset": "clang16-dbg-fast-circuit-check-traces"
+    },
+    {
+      "name": "clang18-assert",
+      "inherits": "default",
+      "configurePreset": "clang18-assert"
     },
     {
       "name": "clang16-assert",

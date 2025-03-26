@@ -1,0 +1,8 @@
+SetRollupTest
+├── when caller is not owner
+│   └── it reverts
+├── when caller is owner
+│   ├── it sets the rollup
+│   └── it emits a {RollupUpdated} event
+└── when validator is added after setting the rollup
+    └── it deposits into the new rollup

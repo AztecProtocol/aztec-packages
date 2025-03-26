@@ -25,6 +25,26 @@ eth_amount=${2:-"1"}
 output_file=${3:-"mnemonic.tmp"}
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 
+# Install bc if needed
+if ! command -v bc &>/dev/null; then
+  echo "Installing bc..."
+  apt-get update && apt-get install -y bc
+fi
+
+# Install cast if needed
+if ! command -v cast &>/dev/null; then
+  echo "Installing cast..."
+  curl -L https://foundry.paradigm.xyz | bash
+  $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
+fi
+
+# Install yq if needed
+if ! command -v yq &>/dev/null; then
+  echo "Installing yq..."
+  wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
+  chmod +x /usr/local/bin/yq
+fi
+
 # Convert ETH to wei
 wei_amount=$(cast to-wei "$eth_amount" ether)
 
@@ -59,25 +79,7 @@ max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 # Total number of accounts needed
 total_accounts=$((num_validators + num_provers + num_bots))
 
-# Install bc if needed
-if ! command -v bc &>/dev/null; then
-  echo "Installing bc..."
-  apt-get update && apt-get install -y bc
-fi
 
-# Install cast if needed
-if ! command -v cast &>/dev/null; then
-  echo "Installing cast..."
-  curl -L https://foundry.paradigm.xyz | bash
-  $HOME/.foundry/bin/foundryup && export PATH="$PATH:$HOME/.foundry/bin" || $XDG_CONFIG_HOME/.foundry/bin/foundryup && export PATH="$PATH:$XDG_CONFIG_HOME/.foundry/bin"
-fi
-
-# Install yq if needed
-if ! command -v yq &>/dev/null; then
-  echo "Installing yq..."
-  wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq
-  chmod +x /usr/local/bin/yq
-fi
 
 # Create a new mnemonic
 echo "Creating mnemonic..."

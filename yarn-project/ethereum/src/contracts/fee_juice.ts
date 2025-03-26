@@ -32,12 +32,22 @@ export class FeeJuiceContract {
   public async mint(to: Hex, amount: bigint) {
     const walletFeeJuice = this.assertWalletFeeJuice();
     const tx = await walletFeeJuice.write.mint([to, amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash: tx });
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: tx });
+
+    if (receipt.status === 'success') {
+      return;
+    }
+    throw new Error('Mint failed');
   }
 
   public async approve(spender: Hex, amount: bigint) {
     const walletFeeJuice = this.assertWalletFeeJuice();
     const tx = await walletFeeJuice.write.approve([spender, amount]);
-    await this.publicClient.waitForTransactionReceipt({ hash: tx });
+    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: tx });
+
+    if (receipt.status === 'success') {
+      return;
+    }
+    throw new Error('Approve failed');
   }
 }

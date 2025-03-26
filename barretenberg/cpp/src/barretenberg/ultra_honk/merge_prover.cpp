@@ -12,7 +12,6 @@ template <class Flavor>
 MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
                                    std::shared_ptr<CommitmentKey> commitment_key)
     : op_queue(op_queue)
-    // Update internal size data in the op queue that allows for extraction of e.g. previous aggregate transcript
     , pcs_commitment_key(commitment_key ? commitment_key
                                         : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
 {}

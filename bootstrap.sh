@@ -156,6 +156,7 @@ export -f start_txes
 
 function test {
   echo_header "test all"
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   start_txes
 

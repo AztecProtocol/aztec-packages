@@ -215,7 +215,6 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/aztec3-packages@workspace:."
   dependencies:
-    "@aztec/entrypoints": "workspace:^"
     "@monorepo-utils/workspaces-to-typescript-project-references": "npm:^2.9.0"
     "@swc-node/register": "npm:^1.10.9"
     "@swc/cli": "npm:^0.6.0"
