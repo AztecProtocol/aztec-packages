@@ -24,22 +24,17 @@ To do this, let's first initialize a new `Contract` instance using `aztec.js` th
 
 ```js
 // src/contracts.mjs
-import { AztecAddress } from '@aztec/aztec.js';
-import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { AztecAddress, Contract, loadContractArtifact } from "@aztec/aztec.js";
+import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
 
-import { readFileSync } from 'fs';
-```
+import { readFileSync } from "fs";
+const TokenContractArtifact = loadContractArtifact(TokenContractJson);
 
-You may have noticed that we are importing the `TokenContract` class from `@aztec/noir-contracts.js`. This is an alternative way to get the contract interface for interacting with the contract. With this, we can add the following code for initializing the `TokenContract` instance:
-
-```javascript title="get-tokens" showLineNumbers 
 export async function getToken(wallet) {
   const addresses = JSON.parse(readFileSync('addresses.json'));
-  return TokenContract.at(AztecAddress.fromString(addresses.token), wallet);
+  return Contract.at(AztecAddress.fromString(addresses.token), TokenContractArtifact, wallet);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/sample-dapp/contracts.mjs#L9-L14" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/sample-dapp/contracts.mjs#L9-L14</a></sub></sup>
-
 
 We can now get the token instance in our main code in `src/index.mjs`, by importing the function from `src/contracts.mjs`. Update the imports in `src/index.mjs` to look like this:
 

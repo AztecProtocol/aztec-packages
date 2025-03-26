@@ -41,11 +41,104 @@ You can create arbitrary aliases with the `alias` command. For example `aztec-wa
 
 :::
 
+## Paying Fees
+
+import { Why_Fees, CLI_Fees } from '/components/snippets';
+
+<Why_Fees />
+
+Below are all the payment methods available to pay transaction fees on Aztec, starting with the simplest.
+
+### Fee Paying Contract
+
+Fee paying contracts specify their own criteria of payment in exchange for paying the fee juice of a transaction, e.g. an FPC
+be written to accept some banana tokens to pay for another's transaction fee.
+With an alias corresponding to the FPC's address this would be:
+
+```bash
+aztec-wallet <your transaction> --payment method=fpc,fpc-contract=contracts:bananaFPC
+```
+
+### Sponsored Fee Paying Contract
+
+This is a special type of FPC that can be used to pay for account deployment and regular txs.
+Eg: to create an account paid for by the sponsoredFPC:
+
+```bash
+aztec-wallet create-account -a main --payment method=fpc-sponsored,fpc=<fpc-address>
+```
+
+:::Note
+In the sandbox, the sponsored FPC address is printed at the end of its initial logs.
+:::
+
+### Fee Juice from Sandbox Test accounts
+
+In the sandbox pre-loaded test accounts can be used to cover fee juice when deploying contracts.
+
+First import them:
+
+```bash title="import-test-accounts" showLineNumbers 
+aztec-wallet import-test-accounts
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/cli-wallet/test/flows/basic.sh#L9-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/basic.sh#L9-L11</a></sub></sup>
+
+
+Then use the alias (test0, test1...) when paying in fee juice. Eg to create accounts:
+
+```bash title="declare-accounts" showLineNumbers 
+aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
+aztec-wallet create-account -a bob --payment method=fee_juice,feePayer=test0
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/guides/up_quick_start.sh#L20-L23" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/up_quick_start.sh#L20-L23</a></sub></sup>
+
+
+### Mint and Bridge Fee Juice
+
+#### On Sandbox
+
+First register an account, mint the fee asset on L1 and bridge it to fee juice:
+
+```bash title="bridge-fee-juice" showLineNumbers 
+aztec-wallet create-account -a main --register-only
+aztec-wallet bridge-fee-juice 1000000000000000000 main --mint --no-wait
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L8-L11</a></sub></sup>
+
+
+You'll have to wait for two blocks to pass for bridged fee juice to be ready on Aztec.
+For the sandbox you do this by putting through two arbitrary transactions. Eg:
+
+```bash title="force-two-blocks" showLineNumbers 
+aztec-wallet deploy counter_contract@Counter --init initialize --args 0 accounts:test0 -f test0 -a counter
+aztec-wallet send increment -ca counter --args accounts:test0 accounts:test0 -f test0
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L17-L20" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L17-L20</a></sub></sup>
+
+
+Now the funded account can deploy itself with the bridged fees, claiming the bridged fee juice and deploying the contract in one transaction:
+
+```bash title="claim-deploy-account" showLineNumbers 
+aztec-wallet deploy-account -f main --payment method=fee_juice,claim
+```
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27" target="_blank" rel="noopener noreferrer">Source code: yarn-project/cli-wallet/test/flows/create_account_pay_native.sh#L25-L27</a></sub></sup>
+
+
+#### Minting on Testnet
+
+To mint the fee asset on L1, call the fee asset ERC20 token contract on the appropriate network.
+
+```bash
+cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
+```
+
+With the fee asset on L1, call `bridge-fee-juice` to bridge it to Aztec, omitting the `--mint` flag, as described [here](../../reference/environment_reference/cli_reference.md#bridge-fee-juice).
+
 ## Account Management
 
 The wallet comes with some options for account deployment and management. You can register and deploy accounts, or only register them, and pass different options to serve your workflow.
 
-### create-account
+### Create Account
 
 Generates a secret key and deploys an account contract.
 
@@ -157,4 +250,5 @@ aztec-wallet bridge-fee-juice --mint 1000 master_yoda
 ```
 
 ## Proving
+
 You can prove a transaction using the aztec-wallet with a running sandbox. Follow the guide [here](../../guides/local_env/sandbox_proving.md#proving-with-aztec-wallet)
