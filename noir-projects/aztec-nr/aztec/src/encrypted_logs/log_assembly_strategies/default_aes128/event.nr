@@ -6,7 +6,6 @@ use crate::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
     utils::{
         conversion::{bytes_to_fields::bytes_to_fields, fields_to_bytes::fields_to_bytes},
         point::get_sign_of_point,
@@ -213,15 +212,12 @@ where
 
     // In this strategy, we prepend [tag, eph_pk.x]
 
-    // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
-    // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
-    // note automatically.
-    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
-    increment_app_tagging_secret_index_as_sender(sender, recipient);
-
     let mut final_log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
 
-    final_log[0] = tag;
+    // At this point we feed in an incorrect tag because we don't want the event logs to be processed when invoking
+    // `sync_notes`. This currently fine as the events are solely to be obtain via the getPrivateEvents function
+    // that doesn't work with the tag.
+    final_log[0] = 1234;
     final_log[1] = eph_pk.x;
 
     let mut offset = 2;
