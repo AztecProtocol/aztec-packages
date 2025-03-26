@@ -34,7 +34,8 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     super(merkleTree, contractDataSource);
   }
 
-  static override async create(checkCircuitOnly: boolean = false) {
+  // overriding parent class' create is a pain, so we use a different nam
+  static async new(checkCircuitOnly: boolean = false) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
