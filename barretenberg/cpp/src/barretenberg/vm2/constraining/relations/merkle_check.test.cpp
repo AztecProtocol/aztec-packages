@@ -131,7 +131,7 @@ TEST(MerkleCheckConstrainingTest, SelectorOnEnd)
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_SELECTOR_ON_END), "SELECTOR_ON_END");
 }
 
-TEST(MerkleCheckConstrainingTest, PropagateRoot)
+TEST(MerkleCheckConstrainingTest, PropagateReadRoot)
 {
     // Test constraint: NOT_END * (root' - root) = 0
     // Root should stay the same in the next row unless it's an end row
@@ -144,12 +144,13 @@ TEST(MerkleCheckConstrainingTest, PropagateRoot)
         { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_read_root, 456 } },
     });
 
-    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_ROOT);
+    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_READ_ROOT);
 
     // Negative test - now modify to an incorrect value
     trace.set(C::merkle_check_read_root, 1, 456); // This should fail - root should stay the same when NOT_END=1
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_ROOT), "PROPAGATE_ROOT");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_READ_ROOT),
+                              "PROPAGATE_READ_ROOT");
 }
 
 TEST(MerkleCheckConstrainingTest, PropagateWriteRoot)
@@ -172,6 +173,27 @@ TEST(MerkleCheckConstrainingTest, PropagateWriteRoot)
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_WRITE_ROOT),
                               "PROPAGATE_WRITE_ROOT");
+}
+
+TEST(MerkleCheckConstrainingTest, PropagateWrite)
+{
+    // Test constraint: NOT_END * (write' - write) = 0
+    // write should stay the same in the next row unless it's an end row
+    // When end=1, the next write flag can be different
+    TestTraceContainer trace({
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 0 }, { C::merkle_check_write, 1 } },
+        // Same leaf value is correct when NOT_END=1
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_write, 1 } },
+        // Different leaf value is allowed after end row
+        { { C::merkle_check_sel, 1 }, { C::merkle_check_end, 1 }, { C::merkle_check_write, 0 } },
+    });
+
+    check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_WRITE);
+
+    // Negative test - now modify to an incorrect value
+    trace.set(C::merkle_check_write, 1, 0); // This should fail - write should stay the same when NOT_END=1
+
+    EXPECT_THROW_WITH_MESSAGE(check_relation<merkle_check>(trace, merkle_check::SR_PROPAGATE_WRITE), "PROPAGATE_WRITE");
 }
 
 TEST(MerkleCheckConstrainingTest, PathLenDecrements)

@@ -3,7 +3,8 @@ include "./precomputed.pil";
 
 /**
  * A gadget that checks a merkle read or a write.
- * One sibling node is processed per row.
+ * One sibling node is processed per row, performing 1 hash if it's a merkle read
+ * or 2 hashes if it's a merkle write.
  *
  * WARNING: This gadget will break if used with `tree_height >= 254`
  *
@@ -96,7 +97,7 @@ namespace merkle_check;
     #[SELECTOR_ON_END]
     end * (1 - sel) = 0;
 
-    #[PROPAGATE_ROOT]
+    #[PROPAGATE_READ_ROOT]
     NOT_END * (read_root' - read_root) = 0;
     #[PROPAGATE_WRITE]
     NOT_END * (write' - write) = 0;
@@ -153,7 +154,7 @@ namespace merkle_check;
     write * (index_is_even * (write_right_node - write_left_node) + write_left_node - sibling) = 0;
     // NOTE: don't think these can be safely combined
 
-    // read_output_hash = hash(left_node, right_node)
+    // output_hash = hash(left_node, right_node)
     //     if index_is_even: output_hash = hash(node, sibling)
     //     if !index_is_even: output_hash = hash(sibling, node)
     // On end, output_hash is the root

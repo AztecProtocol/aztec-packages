@@ -82,7 +82,7 @@ template <typename FF_> class merkle_checkImpl {
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
-        { // PROPAGATE_ROOT
+        { // PROPAGATE_READ_ROOT
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
             auto tmp = merkle_check_NOT_END * (new_term.merkle_check_read_root_shift - new_term.merkle_check_read_root);
             tmp *= scaling_factor;
@@ -229,7 +229,7 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
         case 7:
             return "SELECTOR_ON_END";
         case 8:
-            return "PROPAGATE_ROOT";
+            return "PROPAGATE_READ_ROOT";
         case 9:
             return "PROPAGATE_WRITE";
         case 10:
@@ -266,7 +266,7 @@ template <typename FF> class merkle_check : public Relation<merkle_checkImpl<FF>
     static constexpr size_t SR_TRACE_CONTINUITY = 1;
     static constexpr size_t SR_START_AFTER_LATCH = 6;
     static constexpr size_t SR_SELECTOR_ON_END = 7;
-    static constexpr size_t SR_PROPAGATE_ROOT = 8;
+    static constexpr size_t SR_PROPAGATE_READ_ROOT = 8;
     static constexpr size_t SR_PROPAGATE_WRITE = 9;
     static constexpr size_t SR_PROPAGATE_WRITE_ROOT = 10;
     static constexpr size_t SR_PATH_LEN_DECREMENTS = 11;
