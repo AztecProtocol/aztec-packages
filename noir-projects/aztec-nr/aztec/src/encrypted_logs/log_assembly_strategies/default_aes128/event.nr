@@ -20,6 +20,8 @@ where
     let mut fields = [0; N + 2];
 
     // First field has to be the log type id as it's expected by the process_log(...) function.
+    // Note: If you pack more info to the first file use the pack_two_u64s function to not diverge from the expected
+    // log format.
     fields[0] = PRIVATE_EVENT_LOG_TYPE_ID as Field;
     fields[1] = Event::get_event_type_id().to_field();
     for i in 0..serialized_event.len() {
