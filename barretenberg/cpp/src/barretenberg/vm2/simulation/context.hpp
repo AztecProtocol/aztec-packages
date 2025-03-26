@@ -118,7 +118,8 @@ class BaseContext : public ContextInterface {
         uint32_t returndata_size = static_cast<uint32_t>(get_returndata_size.value);
         uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
 
-        std::vector<FF> retrieved_returndata = child_memory.get_slice(get_last_rd_offset() + rd_offset, write_size);
+        std::vector<FF> retrieved_returndata =
+            child_memory.get_slice(get_last_rd_offset() + rd_offset, write_size).first;
         retrieved_returndata.resize(rd_size);
 
         return retrieved_returndata;
