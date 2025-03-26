@@ -62,6 +62,7 @@ type BBExecResult = {
  * @param command - The command to execute
  * @param args - The arguments to pass
  * @param logger - A log function
+ * @param timeout - An optional timeout before killing the BB process
  * @param resultParser - An optional handler for detecting success or failure
  * @returns The completed partial witness outputted from the circuit
  */
@@ -70,6 +71,7 @@ export function executeBB(
   command: string,
   args: string[],
   logger: LogFn,
+  timeout?: number,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
@@ -80,6 +82,18 @@ export function executeBB(
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
     });
+
+    let timeoutId: NodeJS.Timeout | undefined;
+    if (timeout !== undefined) {
+      timeoutId = setTimeout(() => {
+        logger(`BB execution timed out after ${timeout}ms, killing process`);
+        if (bb.pid) {
+          bb.kill('SIGKILL');
+        }
+        resolve({ status: BB_RESULT.FAILURE, exitCode: -1, signal: 'TIMEOUT' });
+      }, timeout);
+    }
+
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
       logger(message);
@@ -89,6 +103,9 @@ export function executeBB(
       logger(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (resultParser(exitCode)) {
         resolve({ status: BB_RESULT.SUCCESS, exitCode, signal });
       } else {

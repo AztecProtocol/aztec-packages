@@ -1,11 +1,10 @@
 #pragma once
 
-#include <gmock/gmock.h>
+#include "barretenberg/vm2/simulation/range_check.hpp"
 
 #include <cstddef>
+#include <gmock/gmock.h>
 #include <vector>
-
-#include "barretenberg/vm2/simulation/range_check.hpp"
 
 namespace bb::avm2::simulation {
 

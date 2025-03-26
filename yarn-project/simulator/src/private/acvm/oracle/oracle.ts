@@ -21,9 +21,9 @@ export class Oracle {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
-    const hash = await this.typedOracle.storeInExecutionCache(values.map(Fr.fromString));
-    return [toACVMField(hash)];
+  storeInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+    this.typedOracle.storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
+    return Promise.resolve([]);
   }
 
   async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
@@ -320,38 +320,34 @@ export class Oracle {
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
 
-  async enqueuePublicFunctionCall(
+  async notifyEnqueuedPublicFunctionCall(
     [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
+    [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
+    await this.typedOracle.notifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(Fr.fromString(functionSelector)),
-      Fr.fromString(argsHash),
+      Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
       Fr.fromString(isStaticCall).toBool(),
     );
-    return [toACVMField(newArgsHash)];
+    return [];
   }
 
-  async setPublicTeardownFunctionCall(
+  async notifySetPublicTeardownFunctionCall(
     [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
+    [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
+    await this.typedOracle.notifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(Fr.fromString(functionSelector)),
-      Fr.fromString(argsHash),
+      Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
       Fr.fromString(isStaticCall).toBool(),
     );
-    return [toACVMField(newArgsHash)];
+    return [];
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {

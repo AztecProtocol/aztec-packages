@@ -51,7 +51,6 @@ void ExecutionTraceBuilder::process(
                       { C::execution_op2, static_cast<FF>(operands.at(1)) },
                       { C::execution_op3, static_cast<FF>(operands.at(2)) },
                       { C::execution_op4, static_cast<FF>(operands.at(3)) },
-                      { C::execution_pc, ex_event.pc },
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                       { C::execution_rop1, static_cast<FF>(resolved_operands.at(0)) },
                       { C::execution_rop2, static_cast<FF>(resolved_operands.at(1)) },
@@ -81,6 +80,17 @@ void ExecutionTraceBuilder::process(
                 { C::execution_op3_after_relative, static_cast<FF>(operands_after_relative.at(2)) },
                 { C::execution_op4_after_relative, static_cast<FF>(operands_after_relative.at(3)) },
             } });
+
+        // Context
+        trace.set(row,
+                  { {
+                      { C::execution_context_id, ex_event.context_event.id },
+                      { C::execution_pc, ex_event.context_event.pc },
+                      { C::execution_is_static, ex_event.context_event.is_static },
+                      { C::execution_msg_sender, ex_event.context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.context_event.contract_addr },
+
+                  } });
 
         row++;
     }

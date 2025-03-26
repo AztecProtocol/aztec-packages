@@ -14,7 +14,6 @@ import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
 import { Timer } from '@aztec/foundation/timer';
 import {
-  ServerCircuitArtifacts,
   type ServerProtocolArtifact,
   convertBaseParityInputsToWitnessMap,
   convertBaseParityOutputsFromWitnessMap,
@@ -36,6 +35,7 @@ import {
   convertRootRollupOutputsFromWitnessMap,
   convertSingleTxBlockRootRollupInputsToWitnessMap,
   convertSingleTxBlockRootRollupOutputsFromWitnessMap,
+  getServerCircuitArtifact,
 } from '@aztec/noir-protocol-circuits-types/server';
 import { ServerCircuitVks } from '@aztec/noir-protocol-circuits-types/server/vks';
 import type { WitnessMap } from '@aztec/noir-types';
@@ -411,13 +411,14 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       outputWitnessFile,
     );
 
-    const artifact = ServerCircuitArtifacts[circuitType];
+    const artifact = getServerCircuitArtifact(circuitType);
 
     logger.debug(`Generating witness data for ${circuitType}`);
 
     const inputWitness = convertInput(input);
     const timer = new Timer();
-    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact);
+    const foreignCallHandler = undefined; // We don't handle foreign calls in the native ACVM simulator
+    const outputWitness = await simulator.executeProtocolCircuit(inputWitness, artifact, foreignCallHandler);
     const output = convertOutput(outputWitness);
 
     const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);

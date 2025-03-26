@@ -18,7 +18,7 @@ import omit from 'lodash.omit';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, randomInBlock } from '../block/in_block.js';
+import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -48,6 +48,7 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
+import type { ValidatorsStats } from '../validators/types.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -91,20 +92,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([1n, undefined]);
-  });
-
-  it('findBlockNumbersForIndexes', async () => {
-    const response = await context.client.findBlockNumbersForIndexes(1, MerkleTreeId.ARCHIVE, [5n, 58n]);
-    expect(response).toEqual([3n, 9n]);
-  });
-
-  it('findNullifiersIndexesWithBlock', async () => {
-    const response = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([
-      { data: 1n, l2BlockNumber: expect.any(Number), l2BlockHash: expect.any(String) },
-      undefined,
-    ]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -302,6 +290,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
+  it('getValidatorsStats', async () => {
+    const response = await context.client.getValidatorsStats();
+    expect(response).toBeDefined();
+  });
+
   it('simulatePublicCalls', async () => {
     const response = await context.client.simulatePublicCalls(await Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
@@ -376,29 +369,11 @@ class MockAztecNode implements AztecNode {
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(InBlock<bigint> | undefined)[]> {
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([1n, undefined]);
-  }
-
-  findBlockNumbersForIndexes(
-    _blockNumber: number | 'latest',
-    _treeId: MerkleTreeId,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    expect(leafIndices).toEqual([5n, 58n]);
-    return Promise.resolve([3n, 9n]);
-  }
-  findNullifiersIndexesWithBlock(
-    blockNumber: number | 'latest',
-    nullifiers: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
-    expect(nullifiers).toHaveLength(2);
-    expect(nullifiers[0]).toBeInstanceOf(Fr);
-    expect(nullifiers[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([randomInBlock(1n), undefined]);
+    return Promise.resolve([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',
@@ -586,6 +561,14 @@ class MockAztecNode implements AztecNode {
   }
   getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
+  }
+  getValidatorsStats(): Promise<ValidatorsStats> {
+    return Promise.resolve({
+      stats: {},
+      lastProcessedSlot: 20n,
+      initialSlot: 1n,
+      slotWindow: 10,
+    } satisfies ValidatorsStats);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);

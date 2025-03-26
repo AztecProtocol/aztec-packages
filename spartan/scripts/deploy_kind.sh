@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Helper script for deploying local KIND scenarios.
 # Overrides refers to overriding values in the values yaml file
@@ -63,7 +63,7 @@ function show_status_until_pxe_ready {
     echo "--- Pod logs ---"
     for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
       echo "Logs from $pod:"
-      kubectl logs --tail=10 -n "$namespace" $pod 2>/dev/null || echo "Cannot get logs yet"
+      kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
       echo "-------------------"
     done
 
@@ -157,7 +157,7 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   --wait-for-jobs=true \
   --timeout="$install_timeout"
 
-kubectl wait pod -l app==pxe -l app.kubernetes.io/instance="$helm_instance" --for=condition=Ready -n "$namespace" --timeout=10m
+kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
 
 if [ -n "$chaos_values" ]; then
   ../bootstrap.sh chaos-mesh

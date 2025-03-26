@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 source $ci3/source_redis
 
@@ -60,6 +60,7 @@ function live_publish_log {
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   live_publish_log &
+  publish_pid=$!
   log_info="(${yellow}${url}${reset})"
 fi
 
@@ -80,6 +81,7 @@ done;
 status=${PIPESTATUS[0]}
 
 time="${SECONDS}s"
+[ -n "$publish_pid" ] && kill $publish_pid &>/dev/null || true
 publish_log
 
 # Handle non-zero exit status

@@ -250,9 +250,9 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using simulation::BytecodeId;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::NO_ERROR;
     using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
     using simulation::InstrDeserializationError::PC_OUT_OF_RANGE;
+    using simulation::InstrDeserializationError::TAG_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -273,12 +273,29 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint32_t size_in_bytes = 0;
         ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
         std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors{};
+        uint8_t has_tag = 0;
+        uint8_t tag_is_op2 = 0;
+        uint8_t tag_value = 0;
 
         if (wire_opcode_in_range) {
             const auto& wire_instr_spec = WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode));
             size_in_bytes = wire_instr_spec.size_in_bytes;
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;
+
+            if (wire_instr_spec.tag_operand_idx.has_value()) {
+                const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
+                assert((tag_value_idx == 2 || tag_value_idx == 3) &&
+                       "Current constraints support only tag for operand index equal to 2 or 3");
+                has_tag = 1;
+
+                if (tag_value_idx == 2) {
+                    tag_is_op2 = 1;
+                    tag_value = static_cast<uint8_t>(get_operand(1)); // in instruction.operands, op2 has index 1
+                } else {
+                    tag_value = static_cast<uint8_t>(get_operand(2));
+                }
+            }
         }
 
         const uint32_t bytes_remaining =
@@ -296,99 +313,103 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint32_t pc_abs_diff =
             bytecode_size_u32 > event.pc ? bytecode_size_u32 - event.pc - 1 : event.pc - bytecode_size_u32;
 
-        trace.set(
-            row,
-            { {
-                { C::instr_fetching_sel, 1 },
-                { C::instr_fetching_bytecode_id, bytecode_id },
-                { C::instr_fetching_pc, event.pc },
-                // indirect + operands.
-                { C::instr_fetching_indirect, event.instruction.indirect },
-                { C::instr_fetching_op1, get_operand(0) },
-                { C::instr_fetching_op2, get_operand(1) },
-                { C::instr_fetching_op3, get_operand(2) },
-                { C::instr_fetching_op4, get_operand(3) },
-                { C::instr_fetching_op5, get_operand(4) },
-                { C::instr_fetching_op6, get_operand(5) },
-                { C::instr_fetching_op7, get_operand(6) },
-                // Single bytes.
-                { C::instr_fetching_bd0, wire_opcode },
-                { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
-                { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
-                { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
-                { C::instr_fetching_bd4, bytecode_at(event.pc + 4) },
-                { C::instr_fetching_bd5, bytecode_at(event.pc + 5) },
-                { C::instr_fetching_bd6, bytecode_at(event.pc + 6) },
-                { C::instr_fetching_bd7, bytecode_at(event.pc + 7) },
-                { C::instr_fetching_bd8, bytecode_at(event.pc + 8) },
-                { C::instr_fetching_bd9, bytecode_at(event.pc + 9) },
-                { C::instr_fetching_bd10, bytecode_at(event.pc + 10) },
-                { C::instr_fetching_bd11, bytecode_at(event.pc + 11) },
-                { C::instr_fetching_bd12, bytecode_at(event.pc + 12) },
-                { C::instr_fetching_bd13, bytecode_at(event.pc + 13) },
-                { C::instr_fetching_bd14, bytecode_at(event.pc + 14) },
-                { C::instr_fetching_bd15, bytecode_at(event.pc + 15) },
-                { C::instr_fetching_bd16, bytecode_at(event.pc + 16) },
-                { C::instr_fetching_bd17, bytecode_at(event.pc + 17) },
-                { C::instr_fetching_bd18, bytecode_at(event.pc + 18) },
-                { C::instr_fetching_bd19, bytecode_at(event.pc + 19) },
-                { C::instr_fetching_bd20, bytecode_at(event.pc + 20) },
-                { C::instr_fetching_bd21, bytecode_at(event.pc + 21) },
-                { C::instr_fetching_bd22, bytecode_at(event.pc + 22) },
-                { C::instr_fetching_bd23, bytecode_at(event.pc + 23) },
-                { C::instr_fetching_bd24, bytecode_at(event.pc + 24) },
-                { C::instr_fetching_bd25, bytecode_at(event.pc + 25) },
-                { C::instr_fetching_bd26, bytecode_at(event.pc + 26) },
-                { C::instr_fetching_bd27, bytecode_at(event.pc + 27) },
-                { C::instr_fetching_bd28, bytecode_at(event.pc + 28) },
-                { C::instr_fetching_bd29, bytecode_at(event.pc + 29) },
-                { C::instr_fetching_bd30, bytecode_at(event.pc + 30) },
-                { C::instr_fetching_bd31, bytecode_at(event.pc + 31) },
-                { C::instr_fetching_bd32, bytecode_at(event.pc + 32) },
-                { C::instr_fetching_bd33, bytecode_at(event.pc + 33) },
-                { C::instr_fetching_bd34, bytecode_at(event.pc + 34) },
-                { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
-                { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
+        trace.set(row,
+                  { {
+                      { C::instr_fetching_sel, 1 },
+                      { C::instr_fetching_bytecode_id, bytecode_id },
+                      { C::instr_fetching_pc, event.pc },
+                      // indirect + operands.
+                      { C::instr_fetching_indirect, event.instruction.indirect },
+                      { C::instr_fetching_op1, get_operand(0) },
+                      { C::instr_fetching_op2, get_operand(1) },
+                      { C::instr_fetching_op3, get_operand(2) },
+                      { C::instr_fetching_op4, get_operand(3) },
+                      { C::instr_fetching_op5, get_operand(4) },
+                      { C::instr_fetching_op6, get_operand(5) },
+                      { C::instr_fetching_op7, get_operand(6) },
+                      // Single bytes.
+                      { C::instr_fetching_bd0, wire_opcode },
+                      { C::instr_fetching_bd1, bytecode_at(event.pc + 1) },
+                      { C::instr_fetching_bd2, bytecode_at(event.pc + 2) },
+                      { C::instr_fetching_bd3, bytecode_at(event.pc + 3) },
+                      { C::instr_fetching_bd4, bytecode_at(event.pc + 4) },
+                      { C::instr_fetching_bd5, bytecode_at(event.pc + 5) },
+                      { C::instr_fetching_bd6, bytecode_at(event.pc + 6) },
+                      { C::instr_fetching_bd7, bytecode_at(event.pc + 7) },
+                      { C::instr_fetching_bd8, bytecode_at(event.pc + 8) },
+                      { C::instr_fetching_bd9, bytecode_at(event.pc + 9) },
+                      { C::instr_fetching_bd10, bytecode_at(event.pc + 10) },
+                      { C::instr_fetching_bd11, bytecode_at(event.pc + 11) },
+                      { C::instr_fetching_bd12, bytecode_at(event.pc + 12) },
+                      { C::instr_fetching_bd13, bytecode_at(event.pc + 13) },
+                      { C::instr_fetching_bd14, bytecode_at(event.pc + 14) },
+                      { C::instr_fetching_bd15, bytecode_at(event.pc + 15) },
+                      { C::instr_fetching_bd16, bytecode_at(event.pc + 16) },
+                      { C::instr_fetching_bd17, bytecode_at(event.pc + 17) },
+                      { C::instr_fetching_bd18, bytecode_at(event.pc + 18) },
+                      { C::instr_fetching_bd19, bytecode_at(event.pc + 19) },
+                      { C::instr_fetching_bd20, bytecode_at(event.pc + 20) },
+                      { C::instr_fetching_bd21, bytecode_at(event.pc + 21) },
+                      { C::instr_fetching_bd22, bytecode_at(event.pc + 22) },
+                      { C::instr_fetching_bd23, bytecode_at(event.pc + 23) },
+                      { C::instr_fetching_bd24, bytecode_at(event.pc + 24) },
+                      { C::instr_fetching_bd25, bytecode_at(event.pc + 25) },
+                      { C::instr_fetching_bd26, bytecode_at(event.pc + 26) },
+                      { C::instr_fetching_bd27, bytecode_at(event.pc + 27) },
+                      { C::instr_fetching_bd28, bytecode_at(event.pc + 28) },
+                      { C::instr_fetching_bd29, bytecode_at(event.pc + 29) },
+                      { C::instr_fetching_bd30, bytecode_at(event.pc + 30) },
+                      { C::instr_fetching_bd31, bytecode_at(event.pc + 31) },
+                      { C::instr_fetching_bd32, bytecode_at(event.pc + 32) },
+                      { C::instr_fetching_bd33, bytecode_at(event.pc + 33) },
+                      { C::instr_fetching_bd34, bytecode_at(event.pc + 34) },
+                      { C::instr_fetching_bd35, bytecode_at(event.pc + 35) },
+                      { C::instr_fetching_bd36, bytecode_at(event.pc + 36) },
 
-                // From instruction table.
-                { C::instr_fetching_exec_opcode, static_cast<uint32_t>(exec_opcode) },
-                { C::instr_fetching_instr_size, size_in_bytes },
+                      // From instruction table.
+                      { C::instr_fetching_exec_opcode, static_cast<uint32_t>(exec_opcode) },
+                      { C::instr_fetching_instr_size, size_in_bytes },
+                      { C::instr_fetching_sel_has_tag, has_tag },
+                      { C::instr_fetching_sel_tag_is_op2, tag_is_op2 },
 
-                // Fill operand decomposition selectors
-                { C::instr_fetching_sel_op_dc_0, op_dc_selectors.at(0) },
-                { C::instr_fetching_sel_op_dc_1, op_dc_selectors.at(1) },
-                { C::instr_fetching_sel_op_dc_2, op_dc_selectors.at(2) },
-                { C::instr_fetching_sel_op_dc_3, op_dc_selectors.at(3) },
-                { C::instr_fetching_sel_op_dc_4, op_dc_selectors.at(4) },
-                { C::instr_fetching_sel_op_dc_5, op_dc_selectors.at(5) },
-                { C::instr_fetching_sel_op_dc_6, op_dc_selectors.at(6) },
-                { C::instr_fetching_sel_op_dc_7, op_dc_selectors.at(7) },
-                { C::instr_fetching_sel_op_dc_8, op_dc_selectors.at(8) },
-                { C::instr_fetching_sel_op_dc_9, op_dc_selectors.at(9) },
-                { C::instr_fetching_sel_op_dc_10, op_dc_selectors.at(10) },
-                { C::instr_fetching_sel_op_dc_11, op_dc_selectors.at(11) },
-                { C::instr_fetching_sel_op_dc_12, op_dc_selectors.at(12) },
-                { C::instr_fetching_sel_op_dc_13, op_dc_selectors.at(13) },
-                { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
-                { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
-                { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
-                { C::instr_fetching_sel_op_dc_17, op_dc_selectors.at(17) },
+                      // Fill operand decomposition selectors
+                      { C::instr_fetching_sel_op_dc_0, op_dc_selectors.at(0) },
+                      { C::instr_fetching_sel_op_dc_1, op_dc_selectors.at(1) },
+                      { C::instr_fetching_sel_op_dc_2, op_dc_selectors.at(2) },
+                      { C::instr_fetching_sel_op_dc_3, op_dc_selectors.at(3) },
+                      { C::instr_fetching_sel_op_dc_4, op_dc_selectors.at(4) },
+                      { C::instr_fetching_sel_op_dc_5, op_dc_selectors.at(5) },
+                      { C::instr_fetching_sel_op_dc_6, op_dc_selectors.at(6) },
+                      { C::instr_fetching_sel_op_dc_7, op_dc_selectors.at(7) },
+                      { C::instr_fetching_sel_op_dc_8, op_dc_selectors.at(8) },
+                      { C::instr_fetching_sel_op_dc_9, op_dc_selectors.at(9) },
+                      { C::instr_fetching_sel_op_dc_10, op_dc_selectors.at(10) },
+                      { C::instr_fetching_sel_op_dc_11, op_dc_selectors.at(11) },
+                      { C::instr_fetching_sel_op_dc_12, op_dc_selectors.at(12) },
+                      { C::instr_fetching_sel_op_dc_13, op_dc_selectors.at(13) },
+                      { C::instr_fetching_sel_op_dc_14, op_dc_selectors.at(14) },
+                      { C::instr_fetching_sel_op_dc_15, op_dc_selectors.at(15) },
+                      { C::instr_fetching_sel_op_dc_16, op_dc_selectors.at(16) },
+                      { C::instr_fetching_sel_op_dc_17, op_dc_selectors.at(17) },
 
-                // Parsing errors
-                { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
-                { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
-                { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
-                { C::instr_fetching_parsing_err, event.error != NO_ERROR ? 1 : 0 },
+                      // Parsing errors
+                      { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_parsing_err, event.error.has_value() ? 1 : 0 },
 
-                // selector for lookups
-                { C::instr_fetching_sel_opcode_defined, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
+                      // selector for lookups
+                      { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
 
-                { C::instr_fetching_bytecode_size, bytecode_size },
-                { C::instr_fetching_bytes_to_read, bytes_to_read },
-                { C::instr_fetching_instr_abs_diff, instr_abs_diff },
-                { C::instr_fetching_pc_abs_diff, pc_abs_diff },
-                { C::instr_fetching_thirty_two, AVM_PC_SIZE_IN_BITS }, // Remove when we support constants in lookups
-            } });
+                      { C::instr_fetching_bytecode_size, bytecode_size },
+                      { C::instr_fetching_bytes_to_read, bytes_to_read },
+                      { C::instr_fetching_instr_abs_diff, instr_abs_diff },
+                      { C::instr_fetching_pc_abs_diff, pc_abs_diff },
+                      { C::instr_fetching_pc_size_in_bits,
+                        AVM_PC_SIZE_IN_BITS }, // Remove when we support constants in lookups
+                      { C::instr_fetching_tag_value, tag_value },
+                  } });
         row++;
     }
 }
