@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.82.2](https://github.com/AztecProtocol/aztec-packages/compare/v0.82.1...v0.82.2) (2025-03-24)
+
+
+### Features
+
+* optimize unconstrained `embedded_curve_add` (https://github.com/noir-lang/noir/pull/7751) ([1e796e2](https://github.com/AztecProtocol/aztec-packages/commit/1e796e2d1cc293010942b85165aa04c8b3ab31b3))
+* translator zk relation adjustments testing ([#12718](https://github.com/AztecProtocol/aztec-packages/issues/12718)) ([33e528f](https://github.com/AztecProtocol/aztec-packages/commit/33e528f15947eef5697f2b70d7f510b5ba6b60fa))
+
+
+### Bug Fixes
+
+* increased poseidon gates ([#12973](https://github.com/AztecProtocol/aztec-packages/issues/12973)) ([49d6bfa](https://github.com/AztecProtocol/aztec-packages/commit/49d6bfadb0584e7d5238a319540e2b28255fb688))
+
+
+### Miscellaneous
+
+* bump bb to 0.82.0 (https://github.com/noir-lang/noir/pull/7777) ([1e796e2](https://github.com/AztecProtocol/aztec-packages/commit/1e796e2d1cc293010942b85165aa04c8b3ab31b3))
+* Fix for e2e gossip network test ([#12954](https://github.com/AztecProtocol/aztec-packages/issues/12954)) ([5a256c8](https://github.com/AztecProtocol/aztec-packages/commit/5a256c8abaeb65a1fdc47eb674ae19819a795d48))
+* get logs from init containers ([#12974](https://github.com/AztecProtocol/aztec-packages/issues/12974)) ([28d1f3e](https://github.com/AztecProtocol/aztec-packages/commit/28d1f3e0907bf0c151cc8211bf826dee19d1c72f))
+* remove duplication on library list files (https://github.com/noir-lang/noir/pull/7774) ([1e796e2](https://github.com/AztecProtocol/aztec-packages/commit/1e796e2d1cc293010942b85165aa04c8b3ab31b3))
+
 ## [0.82.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.82.0...v0.82.1) (2025-03-24)
 
 
