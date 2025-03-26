@@ -131,14 +131,13 @@ class AvmGoblinRecursiveVerifier {
         }
         std::vector<FF> key_fields = convert_stdlib_ultra_to_stdlib_mega(outer_key_fields);
 
-        // Compute the hash of the buffer in the Mega circuit
+        // Compute the hash of the buffer in the Mega circuit and save its index within the public inputs
         auto mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
-        // WORKTODO: address this or make an issue: NOTE: there doesn't seem to be an easy way to know *which* public
-        // input index will map to mega_input_hash which is troublesome
         const size_t mega_hash_public_input_index = mega_builder.public_inputs.size();
         mega_input_hash.set_public(); // Add the hash result to the public inputs to propagate it to the outer circuit
 
-        // Step 2: Construct a Mega-arithmetized AVM recursive verifier circuit
+        // STEP 2: Construct a Mega-arithmetized AVM recursive verifier circuit
+
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ &mega_builder, stdlib_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1304): Do proper pairing point aggregation.
