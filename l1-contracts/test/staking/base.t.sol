@@ -4,10 +4,13 @@ pragma solidity >=0.8.27;
 import {TestBase} from "@test/base/Base.sol";
 
 import {StakingCheater} from "./StakingCheater.sol";
+import {TimeCheater} from "./TimeCheater.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 contract StakingBase is TestBase {
   StakingCheater internal staking;
+  TimeCheater internal timeCheater;
   TestERC20 internal stakingAsset;
 
   uint256 internal constant MINIMUM_STAKE = 100e18;
@@ -22,6 +25,13 @@ contract StakingBase is TestBase {
   function setUp() public virtual {
     stakingAsset = new TestERC20("test", "TEST", address(this));
     staking = new StakingCheater(stakingAsset, MINIMUM_STAKE, 1, 1);
+
+    timeCheater = new TimeCheater(
+      address(staking),
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION
+    );
 
     SLASHER = staking.getSlasher();
   }

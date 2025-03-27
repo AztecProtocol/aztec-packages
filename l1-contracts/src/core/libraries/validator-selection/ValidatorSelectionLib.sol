@@ -4,7 +4,10 @@ pragma solidity >=0.8.27;
 
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {
   EpochData,
   ValidatorSelectionStorage,

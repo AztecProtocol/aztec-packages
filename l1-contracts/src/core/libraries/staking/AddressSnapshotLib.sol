@@ -4,6 +4,8 @@ pragma solidity >=0.8.27;
 
 import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
+import "forge-std/console.sol";
+
 // The validator index -> the validator at that point in time
 struct SnapshottedAddressSet {
   uint256 size;
@@ -34,7 +36,14 @@ library AddressSnapshotLib {
     uint256 _epochNumber = Epoch.unwrap(TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)));
 
     // TODO: check double insertion??
-    _self.validatorToIndex[_validator] = index;
+
+    // Include max bit to indicate that the validator is in the set - means 0 index is not 0
+    uint256 indexWithBit = index | (1 << 255);
+    console.log(" inserting validator", _validator);
+    console.log(" at index");
+    console.logBytes32(bytes32(indexWithBit));
+
+    _self.validatorToIndex[_validator] = indexWithBit;
     _self.checkpoints[index].push(
       AddressSnapshot({addr: _validator, epochNumber: uint96(_epochNumber)})
     );
@@ -53,7 +62,8 @@ library AddressSnapshotLib {
     AddressSnapshot memory lastSnapshot = _self.checkpoints[lastIndex][lastSnapshotLength - 1];
 
     address lastValidator = lastSnapshot.addr;
-    _self.validatorToIndex[lastValidator] = 0; // Remove the last validator from the index
+    uint256 newLocationWithMask = _index | (1 << 255);
+    _self.validatorToIndex[lastValidator] = newLocationWithMask; // Remove the last validator from the index
 
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this epoch
@@ -72,14 +82,17 @@ library AddressSnapshotLib {
   function remove(SnapshottedAddressSet storage _self, address _validator) internal returns (bool) {
     uint256 index = _self.validatorToIndex[_validator];
     require(index != 0, "Validator not found");
+
+    // Remove top most bit
+    index = index & ~uint256(1 << 255);
     return remove(_self, index);
   }
 
   function at(SnapshottedAddressSet storage _self, uint256 _index) internal view returns (address) {
-    return getValidatorInIndexNow(_self, _index);
+    return getAddressFromIndexNow(_self, _index);
   }
 
-  function getValidatorInIndexNow(SnapshottedAddressSet storage _self, uint256 _index)
+  function getAddressFromIndexNow(SnapshottedAddressSet storage _self, uint256 _index)
     internal
     view
     returns (address)
@@ -98,11 +111,11 @@ library AddressSnapshotLib {
     return lastSnapshot.addr;
   }
 
-  function getAddresssIndexAt(SnapshottedAddressSet storage _self, uint256 _index, uint256 _epoch)
-    internal
-    view
-    returns (address)
-  {
+  function getAddressFromIndexAtEpoch(
+    SnapshottedAddressSet storage _self,
+    uint256 _index,
+    uint256 _epoch
+  ) internal view returns (address) {
     uint256 numCheckpoints = _self.checkpoints[_index].length;
     uint96 epoch = uint96(_epoch);
 
@@ -142,7 +155,7 @@ library AddressSnapshotLib {
   function values(SnapshottedAddressSet storage _self) internal view returns (address[] memory) {
     address[] memory vals = new address[](_self.size);
     for (uint256 i = 0; i < _self.size; i++) {
-      vals[i] = getValidatorInIndexNow(_self, i);
+      vals[i] = getAddressFromIndexNow(_self, i);
     }
     return vals;
   }
