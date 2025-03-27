@@ -6,11 +6,12 @@ import {
   createArchiverStore,
 } from '@aztec/archiver';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
-import { type EthereumClientConfig, type L1ContractAddresses, getPublicClient } from '@aztec/ethereum';
+import { type EthereumClientConfig, getPublicClient } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
 import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
 import {
@@ -25,19 +26,16 @@ import { NATIVE_WORLD_STATE_DBS, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from 
 import { mkdir, mkdtemp, rename } from 'fs/promises';
 import { join } from 'path';
 
-import type { AztecNodeConfig } from '../aztec-node/config.js';
+import type { SharedNodeConfig } from '../config/index.js';
 
 // Half day worth of L1 blocks
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
-type SnapshotSyncConfig = Pick<
-  AztecNodeConfig,
-  'syncMode' | 'snapshotsUrl' | 'l1ChainId' | 'version' | 'dataDirectory'
-> &
+type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'snapshotsUrl'> &
+  Pick<ChainConfig, 'l1ChainId' | 'version'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
-  DataStoreConfig &
+  Required<DataStoreConfig> &
   EthereumClientConfig & {
-    l1Contracts: Pick<L1ContractAddresses, 'rollupAddress'>;
     minL1BlocksToTriggerReplace?: number;
   };
 

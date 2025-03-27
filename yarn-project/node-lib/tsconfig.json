@@ -31,13 +31,7 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
-      "path": "../node-lib"
-    },
-    {
-      "path": "../noir-protocol-circuits-types"
+      "path": "../merkle-tree"
     },
     {
       "path": "../p2p"
@@ -59,6 +53,9 @@
     },
     {
       "path": "../telemetry-client"
+    },
+    {
+      "path": "../validator-client"
     },
     {
       "path": "../world-state"

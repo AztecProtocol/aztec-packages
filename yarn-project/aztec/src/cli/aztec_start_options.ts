@@ -282,7 +282,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--node.snapshotsUrl <value>',
-      description: 'Base URL for downloading snapshots for fast sync.',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
       defaultValue: undefined,
       envVar: 'SYNC_SNAPSHOTS_URL',
     },

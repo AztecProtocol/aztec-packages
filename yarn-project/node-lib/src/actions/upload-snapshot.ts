@@ -1,6 +1,8 @@
 import { ARCHIVER_DB_VERSION, type Archiver } from '@aztec/archiver';
 import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import { createFileStore } from '@aztec/stdlib/file-store';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { SnapshotDataUrls, UploadSnapshotMetadata } from '@aztec/stdlib/snapshots';
@@ -12,7 +14,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import type { AztecNodeConfig } from '../aztec-node/config.js';
+type UploadSnapshotConfig = Pick<ChainConfig, 'l1ChainId' | 'version'> & Pick<DataStoreConfig, 'dataDirectory'>;
 
 /**
  * Pauses the archiver and world state sync, creates backups of the archiver and world state lmdb environments,
@@ -22,7 +24,7 @@ export async function uploadSnapshot(
   location: string,
   archiver: Archiver,
   worldState: WorldStateSynchronizer,
-  config: Pick<AztecNodeConfig, 'dataDirectory' | 'l1ChainId' | 'version'>,
+  config: UploadSnapshotConfig,
   log: Logger,
 ) {
   const store = await createFileStore(location);
@@ -47,7 +49,7 @@ export async function uploadSnapshot(
 
 async function buildSnapshotMetadata(
   archiver: Archiver,
-  config: Pick<AztecNodeConfig, 'dataDirectory' | 'l1ChainId' | 'version'>,
+  config: UploadSnapshotConfig,
 ): Promise<UploadSnapshotMetadata> {
   const [rollupAddress, l1BlockNumber, { latest }] = await Promise.all([
     archiver.getRollupAddress(),
