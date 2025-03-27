@@ -25,11 +25,14 @@ const logger = createLogger('e2e:capture-private-execution-steps');
 async function _createClientIvcProofFiles(directory: string, executionSteps: PrivateExecutionStep[]) {
   const acirPath = path.join(directory, 'acir.msgpack');
   const witnessPath = path.join(directory, 'witnesses.msgpack');
+  const witnessRawPath = path.join(directory, 'witnesses.json');
   await fs.writeFile(acirPath, encode(executionSteps.map(map => map.bytecode)));
   await fs.writeFile(witnessPath, encode(executionSteps.map(map => serializeWitness(map.witness))));
+  await fs.writeFile(witnessRawPath, JSON.stringify(executionSteps.map(step => Object.fromEntries(step.witness))));
   return {
     acirPath,
     witnessPath,
+    witnessRawPath,
   };
 }
 

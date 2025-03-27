@@ -37,7 +37,7 @@ describe('Client flows benchmarking', () => {
       const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
       await registerContractClassInteraction.send().wait();
 
-      const benchysAccountManager = await t.createBenchmarkingAccountManager('schnorr');
+      const benchysAccountManager = await t.createBenchmarkingAccountManager('ecdsar1');
       const benchysWallet = await benchysAccountManager.getWallet();
       const benchysAddress = benchysWallet.getAddress();
 
