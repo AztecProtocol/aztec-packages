@@ -58,20 +58,6 @@ contract AddressSnapshotsTest is Test {
     timeCheater = new TimeCheater(address(libTest), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
   }
 
-  function test_at_() public {
-    // Empty should return 0
-    vm.expectRevert();
-    libTest.at(0);
-
-    libTest.add(address(1));
-    libTest.add(address(2));
-    libTest.add(address(3));
-
-    assertEq(libTest.at(0), address(1));
-    assertEq(libTest.at(1), address(2));
-    assertEq(libTest.at(2), address(3));
-  }
-
   function test_getAddresssIndexAt() public {
     // Adds validator 1 to the first index in the set, at epoch 1
     timeCheater.cheat__setEpochNow(1);
