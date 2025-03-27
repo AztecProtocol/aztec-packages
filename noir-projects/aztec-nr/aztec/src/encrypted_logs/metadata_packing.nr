@@ -77,9 +77,7 @@ mod tests {
     }
 
     #[test]
-    fn roundtrip_metadata() {
-        let original_metadata = 67890;
-        let original_type = 12345;
+    fn roundtrip_metadata(original_metadata: u64, original_type: u64) {
         let packed = to_expanded_metadata(original_metadata, original_type);
         let (unpacked_metadata, unpacked_type) = from_expanded_metadata(packed);
         assert(original_type == unpacked_type, "Log type bits should match after roundtrip");
