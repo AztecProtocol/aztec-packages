@@ -61,7 +61,7 @@ pub unconstrained fn do_process_log<Env>(
 ) {
     debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
-    // AES128::decrypt_log(...) expects to receive the log without the tag.
+    // The first field of the log is the tag, which we don't need right now, and the rest is all ciphertext.
     let ciphertext = array::subbvec(log, 1);
     let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
