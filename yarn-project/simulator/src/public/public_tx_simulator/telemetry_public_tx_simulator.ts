@@ -10,6 +10,9 @@ import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
 
+/**
+ * A public tx simulator that tracks runtime metrics in production.
+ */
 export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   constructor(
     treesDB: PublicTreesDB,
@@ -24,7 +27,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   }
 
   public get tracer(): Tracer | undefined {
-    return this.metrics.tracer;
+    return (this.metrics as ExecutorMetrics).tracer;
   }
 
   @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, callRequest) => ({

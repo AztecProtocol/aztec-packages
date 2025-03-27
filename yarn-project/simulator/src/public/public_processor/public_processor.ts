@@ -34,8 +34,7 @@ import {
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { TelemetryPublicTxSimulator } from '../public_tx_simulator/TelemetryPublicTxSimulator.js';
-import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
 /**

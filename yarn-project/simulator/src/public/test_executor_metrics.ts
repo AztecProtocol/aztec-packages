@@ -32,10 +32,6 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     this.log = createLogger(`simulator:test_executor_metrics`);
   }
 
-  get tracer(): undefined {
-    return undefined;
-  }
-
   startRecordingTxSimulation(txLabel: string) {
     assert(!this.currentTxLabel, 'Cannot start recording tx simulation when another is live');
     assert(!this.txMetrics.has(txLabel), 'Cannot start recording metrics for tx with duplicate label');

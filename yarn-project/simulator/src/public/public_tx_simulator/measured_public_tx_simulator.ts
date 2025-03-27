@@ -11,6 +11,9 @@ import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 import { type ProcessedPhase, type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
+/**
+ * A public tx simulator that tracks miscellaneous simulation metrics during testing.
+ */
 export class MeasuredPublicTxSimulator extends PublicTxSimulator {
   constructor(
     treesDB: PublicTreesDB,
@@ -18,7 +21,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean = false,
     skipFeeEnforcement: boolean = false,
-    protected metrics: ExecutorMetricsInterface,
+    protected readonly metrics: ExecutorMetricsInterface,
   ) {
     super(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
   }

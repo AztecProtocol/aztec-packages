@@ -1,7 +1,4 @@
-import type { Tracer } from '@aztec/telemetry-client';
-
 export interface ExecutorMetricsInterface {
-  tracer: Tracer | undefined;
   startRecordingTxSimulation(txLabel: string): void;
   stopRecordingTxSimulation(txLabel: string, durationMs: number): void;
   recordEnqueuedCallSimulation(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number): void;
