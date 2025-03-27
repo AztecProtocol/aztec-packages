@@ -317,7 +317,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
