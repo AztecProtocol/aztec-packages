@@ -1,15 +1,11 @@
-use crate::circuit_builder::CircuitBuilder;
-use crate::composer_builder::ComposerBuilder;
 use crate::file_writer::BBFiles;
 use crate::flavor_builder::FlavorBuilder;
 use crate::lookup_builder::{
     get_counts_from_lookups, get_inverses_from_lookups, Lookup, LookupBuilder,
 };
 use crate::permutation_builder::{get_inverses_from_permutations, Permutation, PermutationBuilder};
-use crate::prover_builder::ProverBuilder;
 use crate::relation_builder::{get_shifted_polys, RelationBuilder};
 use crate::utils::{flatten, sanitize_name, snake_case, sort_cols};
-use crate::verifier_builder::VerifierBuilder;
 
 use dialoguer::Confirm;
 use itertools::Itertools;
@@ -100,9 +96,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         .sorted()
         .collect_vec();
 
-    // ----------------------- Create the full row files -----------------------
-    bb_files.create_full_row_hpp(vm_name, &all_cols);
-
     // ----------------------- Create the flavor files -----------------------
     bb_files.create_flavor_hpp(
         vm_name,
@@ -145,30 +138,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &shifted,
         &all_cols_with_shifts,
     );
-
-    // ----------------------- Create the Verifier files -----------------------
-    bb_files.create_verifier_cpp(vm_name, &public_inputs);
-    bb_files.create_verifier_hpp(vm_name);
-
-    // ----------------------- Create the Prover files -----------------------
-    bb_files.create_prover_cpp(vm_name);
-    bb_files.create_prover_hpp(vm_name);
-
-    if vm_name == "Avm2" {
-        println!("Skipping the creation of the composer, circuit builder and recursive verifier for Avm2.");
-        return;
-    }
-
-    // ----------------------- Create the circuit builder files -----------------------
-    bb_files.create_circuit_builder_hpp(vm_name);
-    bb_files.create_circuit_builder_cpp(vm_name, &all_cols_without_inverses);
-
-    // ----------------------- Create the composer files -----------------------
-    bb_files.create_composer_cpp(vm_name);
-    bb_files.create_composer_hpp(vm_name);
-
-    // ----------------------- Create the recursive verifier -----------------------
-    bb_files.create_recursive_verifier_cpp(vm_name, &public_inputs);
 
     println!("Done with generation.");
 }

@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/alu_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"

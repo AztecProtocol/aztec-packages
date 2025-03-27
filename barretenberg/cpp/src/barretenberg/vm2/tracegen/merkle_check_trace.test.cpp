@@ -5,8 +5,8 @@
 #include <vector>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
