@@ -3,7 +3,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import { File, Storage, type UploadOptions } from '@google-cloud/storage';
 import { join } from 'path';
 
-import type { FileStore } from './interface.js';
+import type { FileStore, FileStoreSaveOptions } from './interface.js';
 
 export class GoogleCloudFileStore implements FileStore {
   private readonly storage: Storage;
@@ -20,12 +20,16 @@ export class GoogleCloudFileStore implements FileStore {
     await this.storage.getServiceAccount();
   }
 
-  public async save(path: string, data: Buffer, opts: { public?: boolean } = { public: false }): Promise<string> {
+  public async save(
+    path: string,
+    data: Buffer,
+    opts: FileStoreSaveOptions = { public: false, metadata: {}, compress: false },
+  ): Promise<string> {
     const fullPath = this.getFullPath(path);
     try {
       const bucket = this.storage.bucket(this.bucketName);
       const file = bucket.file(fullPath);
-      await file.save(data);
+      await file.save(data, { metadata: opts.metadata, gzip: opts.compress });
       return this.handleUploadedFile(file, opts);
     } catch (err: any) {
       throw new Error(`Error saving file to google cloud storage at ${fullPath}: ${err.message ?? err}`);
@@ -35,7 +39,7 @@ export class GoogleCloudFileStore implements FileStore {
   public async upload(
     destPath: string,
     srcPath: string,
-    opts: { compress?: boolean; public?: boolean } = { compress: true, public: false },
+    opts: FileStoreSaveOptions = { compress: true, public: false, metadata: {} },
   ): Promise<string> {
     const fullPath = this.getFullPath(destPath);
     try {
@@ -44,6 +48,7 @@ export class GoogleCloudFileStore implements FileStore {
       const uploadOpts: UploadOptions = {
         destination: file,
         gzip: opts.compress,
+        metadata: opts.metadata,
       };
       await bucket.upload(srcPath, uploadOpts);
       return this.handleUploadedFile(file, opts);
@@ -55,7 +60,9 @@ export class GoogleCloudFileStore implements FileStore {
   private async handleUploadedFile(file: File, opts: { public?: boolean }): Promise<string> {
     if (opts.public) {
       try {
-        await file.makePublic();
+        if (!(await file.isPublic())) {
+          await file.makePublic();
+        }
       } catch (err: any) {
         this.log.warn(
           `Error making file ${file.name} public: ${

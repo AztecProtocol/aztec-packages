@@ -15,7 +15,7 @@ import { type EndToEndContext, setup } from './fixtures/utils.js';
 const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
 const L2_TARGET_BLOCK_NUM = 3;
 
-describe('e2e_fast_sync', () => {
+describe('e2e_snapshot_sync', () => {
   let context: EndToEndContext;
   let monitor: ChainMonitor;
   let log: Logger;
@@ -73,7 +73,7 @@ describe('e2e_fast_sync', () => {
   });
 
   it('downloads snapshot from new node', async () => {
-    log.warn(`Syncing brand new node with fast sync`);
+    log.warn(`Syncing brand new node with snapshot sync`);
     const node = await createNonValidatorNode('1', {
       blobSinkUrl: undefined, // set no blob sink so it cannot sync on its own
       snapshotsUrl: snapshotLocation,

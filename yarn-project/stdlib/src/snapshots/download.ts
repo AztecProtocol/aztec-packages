@@ -1,4 +1,4 @@
-import { fromEntries, getEntries } from '@aztec/foundation/collection';
+import { fromEntries, getEntries, maxBy } from '@aztec/foundation/collection';
 import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
 import type { ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
@@ -36,7 +36,7 @@ export async function getLatestSnapshotMetadata(
   store: ReadOnlyFileStore,
 ): Promise<SnapshotMetadata | undefined> {
   const snapshotsIndex = await getSnapshotIndex(metadata, store);
-  return snapshotsIndex?.snapshots.sort((a, b) => b.l1BlockNumber - a.l1BlockNumber)[0];
+  return snapshotsIndex?.snapshots && maxBy(snapshotsIndex?.snapshots, s => s.l1BlockNumber);
 }
 
 export function getBasePath(metadata: SnapshotsIndexMetadata): string {

@@ -38,7 +38,10 @@ export async function uploadSnapshot(
   };
   snapshotsIndex.snapshots.unshift(newSnapshotMetadata);
 
-  await store.save(getSnapshotIndexPath(metadata), Buffer.from(jsonStringify(snapshotsIndex, true)), { public: true });
+  await store.save(getSnapshotIndexPath(metadata), Buffer.from(jsonStringify(snapshotsIndex, true)), {
+    public: true, // Make the index publicly accessible
+    metadata: { ['Cache-control']: 'no-store' }, // Do not cache object versions
+  });
   return newSnapshotMetadata;
 }
 

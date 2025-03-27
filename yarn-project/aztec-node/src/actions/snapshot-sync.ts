@@ -22,7 +22,7 @@ import {
 } from '@aztec/stdlib/snapshots';
 import { NATIVE_WORLD_STATE_DBS, WORLD_STATE_DB_VERSION, WORLD_STATE_DIR } from '@aztec/world-state';
 
-import { mkdtemp, rename } from 'fs/promises';
+import { mkdir, mkdtemp, rename } from 'fs/promises';
 import { join } from 'path';
 
 import type { AztecNodeConfig } from '../aztec-node/config.js';
@@ -152,10 +152,10 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     // Green light. Download the snapshot to a temp location.
     downloadDir = await mkdtemp(join(dataDirectory, 'download-'));
     const downloadPaths = makeSnapshotLocalPaths(downloadDir);
-    log.info(`Downloading snapshot from ${snapshotsUrl} to ${downloadDir} for snapshot sync`, {
-      snapshot,
-      downloadPaths,
-    });
+    log.info(
+      `Downloading snapshot at L1 block ${snapshot.l1BlockNumber} L2 block ${snapshot.l2BlockNumber} from ${snapshotsUrl} to ${downloadDir} for snapshot sync`,
+      { snapshot, downloadPaths },
+    );
     await downloadSnapshot(snapshot, downloadPaths, fileStore);
     log.info(`Snapshot downloaded at ${downloadDir}`, { snapshotsUrl, snapshot, downloadPaths });
 
@@ -172,6 +172,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
     await prepareTarget(worldStateBasePath, WORLD_STATE_DB_VERSION, l1Contracts.rollupAddress);
     for (const [name, dir] of NATIVE_WORLD_STATE_DBS) {
       const path = join(worldStateBasePath, dir);
+      await mkdir(path, { recursive: true });
       await rename(downloadPaths[name], join(path, 'data.mdb'));
       log.info(`World state database ${name} set up from snapshot`, { path });
     }

@@ -7,7 +7,7 @@ export async function tryRmDir(dir: string | undefined, logger?: Logger): Promis
     return;
   }
   try {
-    logger?.verbose(`Cleaning up directory at ${dir}`);
+    logger?.debug(`Cleaning up directory at ${dir}`);
     await rm(dir, { recursive: true, force: true, maxRetries: 3 });
   } catch (err) {
     logger?.warn(`Failed to delete directory at ${dir}: ${err}`);

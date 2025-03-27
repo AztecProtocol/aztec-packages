@@ -8,10 +8,12 @@ export interface ReadOnlyFileStore {
   exists(pathOrUrl: string): Promise<boolean>;
 }
 
+export type FileStoreSaveOptions = { public?: boolean; metadata?: Record<string, string>; compress?: boolean };
+
 /** Simple file store. */
 export interface FileStore extends ReadOnlyFileStore {
   /** Saves contents to the given path. Returns an URI that can be used later to `read` the file. */
-  save(path: string, data: Buffer, opts: { public?: boolean }): Promise<string>;
+  save(path: string, data: Buffer, opts?: FileStoreSaveOptions): Promise<string>;
   /** Uploads contents from a local file. Returns an URI that can be used later to `read` the file. */
-  upload(destPath: string, srcPath: string, opts: { compress?: boolean; public?: boolean }): Promise<string>;
+  upload(destPath: string, srcPath: string, opts?: FileStoreSaveOptions): Promise<string>;
 }
