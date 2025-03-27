@@ -6,8 +6,7 @@ import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
   EpochData,
-  ValidatorSelectionStorage,
-  ValidatorSetSizeSnapshot
+  ValidatorSelectionStorage
 } from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
@@ -51,8 +50,7 @@ library ValidatorSelectionLib {
     EpochData storage epoch = store.epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
-      // TODO: can be combined into the current epoch store
-      checkpointValidatorSetSize(_stakingStore, epochNumber);
+      epoch.validatorSetSize = _stakingStore.attesters.length();
 
       epoch.sampleSeed = getSampleSeed(epochNumber);
       epoch.nextSeed = store.lastSeed = computeNextSeed(epochNumber);
@@ -154,20 +152,6 @@ library ValidatorSelectionLib {
     )];
 
     return _stakingStore.info[attester].proposer;
-  }
-
-  function checkpointValidatorSetSize(StakingStorage storage _stakingStore, Epoch _epochNumber)
-    internal
-  {
-    ValidatorSelectionStorage storage store = getStorage();
-    uint256 setSize = _stakingStore.attesters.length();
-
-    store.epochSizeSnapshots.push(
-      ValidatorSetSizeSnapshot({
-        size: uint128(setSize),
-        epochNumber: uint96(Epoch.unwrap(_epochNumber))
-      })
-    );
   }
 
   /**

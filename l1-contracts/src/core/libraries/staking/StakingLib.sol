@@ -130,7 +130,6 @@ library StakingLib {
       Errors.Staking__NothingToExit(_attester)
     );
     if (validator.status == Status.VALIDATING) {
-      // Need to remove them based on the index, not the address!!!!!
       require(store.attesters.remove(_attester), Errors.Staking__FailedToRemove(_attester));
     }
 

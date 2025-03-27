@@ -710,8 +710,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The current epoch number
    */
   function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
-    Epoch epoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
-
-    return epoch;
+    return Timestamp.wrap(block.timestamp).epochFromTimestamp();
   }
 }

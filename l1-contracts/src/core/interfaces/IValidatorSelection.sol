@@ -11,25 +11,17 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
  * @param nextSeed - The seed used to influence the NEXT epoch
  */
 struct EpochData {
+  uint256 validatorSetSize;
+  // TODO: remove in favor of commitment to comittee
   address[] committee;
   uint256 sampleSeed;
   uint256 nextSeed;
 }
 
-// TODO(md)
-struct ValidatorSetSizeSnapshot {
-  uint128 size;
-  uint96 epochNumber;
-}
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => EpochData) epochs;
-  // A mapping to snapshots of the validator set size
-
-  // TODO(md): this can just be inside the epoch data????
-  // Only keeping this here so it looks the same as the issue for now
-  ValidatorSetSizeSnapshot[] epochSizeSnapshots;
   // The last stored randao value, same value as `seed` in the last inserted epoch
   uint256 lastSeed;
   uint256 targetCommitteeSize;
