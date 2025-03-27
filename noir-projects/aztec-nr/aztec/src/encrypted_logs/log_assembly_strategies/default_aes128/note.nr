@@ -1,7 +1,10 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::{
-        log_assembly_strategies::default_aes128::aes128::AES128, log_encryption::LogEncryption,
+        log_assembly_strategies::default_aes128::aes128::AES128,
+        log_encryption::LogEncryption,
+        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        metadata_packing::to_expanded_metadata,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
     oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
@@ -26,6 +29,7 @@ fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u3
 fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
+    log_type_id: u64,
 ) -> [Field; (N + 2)]
 where
     Note: NoteType + Packable<N>,
@@ -34,14 +38,9 @@ where
 
     let mut fields = [0; N + 2];
 
-    // Note that we're almost accidentally following the standard log encoding here: because the note type id only uses
-    // 7 bits, it just barely fits in the log metadata, and the log type id is implicitly 0 (i.e. a private note log).
-    // Partial notes modify `get_id` to have it set the 8th bit, resulting in a log type id of 1 (i.e. a partial note
-    // private log). Fields 1 to len are the note content, which we here hardcode to be the storage slot in the first
-    // field, and the packed note following after.
-    // Ideally we'd know if this is a private note or a partial note, and call a function that'd be the opposite of
-    // discovery::private_notes::decode_private_note_log (or partial accordingly).
-    fields[0] = Note::get_id();
+    // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
+    // where the value gets decoded.
+    fields[0] = to_expanded_metadata(Note::get_id() as u64, log_type_id);
     fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
@@ -50,7 +49,7 @@ where
     fields
 }
 
-pub fn compute_log<Note, let N: u32>(
+pub fn compute_note_log<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
@@ -59,7 +58,44 @@ pub fn compute_log<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot);
+    compute_log(
+        note,
+        storage_slot,
+        recipient,
+        sender,
+        PRIVATE_NOTE_LOG_TYPE_ID,
+    )
+}
+
+pub fn compute_partial_note_log<Note, let N: u32>(
+    note: Note,
+    storage_slot: Field,
+    recipient: AztecAddress,
+    sender: AztecAddress,
+) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+where
+    Note: NoteType + Packable<N>,
+{
+    compute_log(
+        note,
+        storage_slot,
+        recipient,
+        sender,
+        PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID,
+    )
+}
+
+fn compute_log<Note, let N: u32>(
+    note: Note,
+    storage_slot: Field,
+    recipient: AztecAddress,
+    sender: AztecAddress,
+    log_type_id: u64,
+) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
+where
+    Note: NoteType + Packable<N>,
+{
+    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot, log_type_id);
 
     let ciphertext = AES128::encrypt_log(plaintext, recipient);
 
@@ -89,7 +125,7 @@ fn prefix_with_tag<let L: u32>(
     log_with_tag
 }
 
-pub unconstrained fn compute_log_unconstrained<Note, let N: u32>(
+pub unconstrained fn compute_note_log_unconstrained<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
@@ -98,7 +134,7 @@ pub unconstrained fn compute_log_unconstrained<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    compute_log(note, storage_slot, recipient, sender)
+    compute_note_log(note, storage_slot, recipient, sender)
 }
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
@@ -118,7 +154,7 @@ where
         let note_hash_counter = e.note_hash_counter;
         assert_note_exists(*context, note_hash_counter);
 
-        let encrypted_log = compute_log(note, storage_slot, recipient, sender);
+        let encrypted_log = compute_note_log(note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
@@ -146,7 +182,7 @@ where
 
         // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log =
-            unsafe { compute_log_unconstrained(note, storage_slot, recipient, sender) };
+            unsafe { compute_note_log_unconstrained(note, storage_slot, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
