@@ -84,7 +84,8 @@ tests:
 
   - regex: "simple e2e_p2p/slashing"
     owners:
-      - *sean
+      - *lasse
+
   - regex: "simple e2e_p2p/reqresp"
     error_regex: "TimeoutError"
     owners:

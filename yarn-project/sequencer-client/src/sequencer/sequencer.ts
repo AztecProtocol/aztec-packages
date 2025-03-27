@@ -255,72 +255,72 @@ export class Sequencer {
     if (!chainTip) {
       return;
     }
+    const chainTipArchive = chainTip.archive;
+    const newBlockNumber = chainTip.blockNumber + 1;
 
     this.setState(SequencerState.PROPOSER_CHECK, 0n);
 
-    const newBlockNumber = chainTip.blockNumber + 1;
+    const result = await this.publisher.canProposeAtNextEthBlock();
 
-    // If we cannot find a tip archive, assume genesis.
-    const chainTipArchive = chainTip.archive;
-
-    const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
-    if (!slot) {
-      this.log.debug(`Cannot propose block ${newBlockNumber}`);
+    if (!result) {
+      this.log.debug(`Not proposer`);
       return;
     }
 
-    this.log.debug(`Can propose block ${newBlockNumber} at slot ${slot}`);
+    const [slot, slotTimestamp, blockNumber, tipArchive] = result;
+    this.log.debug(`Is proposer for slot ${slot}`);
 
-    const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
-      new Fr(newBlockNumber),
-      this._coinbase,
-      this._feeRecipient,
-      slot,
-    );
-
-    const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(
-      slot,
-      newGlobalVariables.timestamp.toBigInt(),
-      VoteType.GOVERNANCE,
-    );
-    const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(
-      slot,
-      newGlobalVariables.timestamp.toBigInt(),
-      VoteType.SLASHING,
-    );
-
-    this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
-    this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
-      chainTipArchive,
-      blockNumber: newBlockNumber,
-      slot,
-    });
-
-    // If I created a "partial" header here that should make our job much easier.
-    const proposalHeader = new BlockHeader(
-      new AppendOnlyTreeSnapshot(chainTipArchive, 1),
-      ContentCommitment.empty(),
-      StateReference.empty(),
-      newGlobalVariables,
-      Fr.ZERO,
-      Fr.ZERO,
-    );
+    const enqueueGovernanceVotePromise = this.publisher.enqueueCastVote(slot, slotTimestamp, VoteType.GOVERNANCE);
+    const enqueueSlashingVotePromise = this.publisher.enqueueCastVote(slot, slotTimestamp, VoteType.SLASHING);
 
     let finishedFlushing = false;
-    const pendingTxCount = await this.p2pClient.getPendingTxCount();
-    if (pendingTxCount >= this.minTxsPerBlock || this.isFlushing) {
-      // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
-      // and also we may need to fetch more if we don't have enough valid txs.
-      const pendingTxs = this.p2pClient.iteratePendingTxs();
 
-      await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader).catch(err => {
-        this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
-      });
-      finishedFlushing = true;
+    // Only if we are caught up will we try to make a proposal
+    if (!chainTipArchive.equals(Fr.fromHexString(tipArchive)) || BigInt(newBlockNumber) !== blockNumber) {
+      const msg = `Sequencer state mismatch. Local (block_number: ${newBlockNumber}, archive: ${chainTipArchive}), L1 (block_number: ${blockNumber}, archive: ${tipArchive}).`;
+      this.log.warn(msg);
     } else {
-      this.log.debug(
-        `Not enough txs to build block ${newBlockNumber} at slot ${slot}: got ${pendingTxCount} txs, need ${this.minTxsPerBlock}`,
+      this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
+
+      const newGlobalVariables = await this.globalsBuilder.buildGlobalVariables(
+        new Fr(newBlockNumber),
+        this._coinbase,
+        this._feeRecipient,
+        slot,
+        slotTimestamp, // We pass in the timestamp to avoid a unnecessary calls
       );
+
+      this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+        chainTipArchive,
+        blockNumber: newBlockNumber,
+        slot,
+      });
+
+      // If I created a "partial" header here that should make our job much easier.
+      const proposalHeader = new BlockHeader(
+        new AppendOnlyTreeSnapshot(chainTipArchive, 1),
+        ContentCommitment.empty(),
+        StateReference.empty(),
+        newGlobalVariables,
+        Fr.ZERO,
+        Fr.ZERO,
+      );
+
+      const pendingTxCount = await this.p2pClient.getPendingTxCount();
+      if (pendingTxCount >= this.minTxsPerBlock || this.isFlushing) {
+        // We don't fetch exactly maxTxsPerBlock txs here because we may not need all of them if we hit a limit before,
+        // and also we may need to fetch more if we don't have enough valid txs.
+        const pendingTxs = this.p2pClient.iteratePendingTxs();
+
+        await this.buildBlockAndEnqueuePublish(pendingTxs, proposalHeader).catch(err => {
+          this.log.error(`Error building/enqueuing block`, err, { blockNumber: newBlockNumber, slot });
+        });
+        finishedFlushing = true;
+      } else {
+        this.log.debug(
+          `Not enough txs to build block ${newBlockNumber} at slot ${slot}: got ${pendingTxCount} txs, need ${this.minTxsPerBlock}`,
+        );
+      }
     }
 
     await enqueueGovernanceVotePromise.catch(err => {
@@ -357,29 +357,6 @@ export class Sequencer {
 
   public getForwarderAddress() {
     return this.publisher.getForwarderAddress();
-  }
-
-  /**
-   * Checks if we can propose at the next block and returns the slot number if we can.
-   * @param tipArchive - The archive of the previous block.
-   * @param proposalBlockNumber - The block number of the proposal.
-   * @returns The slot number if we can propose at the next block, otherwise undefined.
-   */
-  async slotForProposal(tipArchive: Buffer, proposalBlockNumber: bigint): Promise<bigint | undefined> {
-    const result = await this.publisher.canProposeAtNextEthBlock(tipArchive);
-
-    if (!result) {
-      return undefined;
-    }
-
-    const [slot, blockNumber] = result;
-
-    if (proposalBlockNumber !== blockNumber) {
-      const msg = `Sequencer block number mismatch. Expected ${proposalBlockNumber} but got ${blockNumber}.`;
-      this.log.warn(msg);
-      throw new Error(msg);
-    }
-    return slot;
   }
 
   /**

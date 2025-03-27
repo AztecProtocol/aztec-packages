@@ -29,13 +29,14 @@ import {
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
 import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { MerkleTreeId } from '@aztec/stdlib/trees';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
 import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
 import type { ValidatorClient } from '@aztec/validator-client';
 
-import { expect } from '@jest/globals';
+import { expect, jest } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
+import { stringToHex } from 'viem';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
@@ -77,7 +78,7 @@ describe('sequencer', () => {
   let feeRecipient: AztecAddress;
   const gasFees = GasFees.empty();
 
-  const archive = Fr.random();
+  const randomArchive = Fr.random();
 
   const mockedSig = new Signature(Buffer32.fromField(Fr.random()), Buffer32.fromField(Fr.random()), 27);
   const committee = [EthAddress.random()];
@@ -85,13 +86,13 @@ describe('sequencer', () => {
   const getSignatures = () => [mockedSig];
 
   const getAttestations = () => {
-    const attestation = new BlockAttestation(new ConsensusPayload(block.header, archive, []), mockedSig);
+    const attestation = new BlockAttestation(new ConsensusPayload(block.header, randomArchive, []), mockedSig);
     (attestation as any).sender = committee[0];
     return [attestation];
   };
 
   const createBlockProposal = () => {
-    return new BlockProposal(new ConsensusPayload(block.header, archive, [TxHash.random()]), mockedSig);
+    return new BlockProposal(new ConsensusPayload(block.header, randomArchive, [TxHash.random()]), mockedSig);
   };
 
   const processTxs = async (txs: Tx[]) => {
@@ -138,6 +139,8 @@ describe('sequencer', () => {
     });
   };
 
+  const treeRoot = (treeId: MerkleTreeId) => Fr.fromHexString(stringToHex(`rootOf${treeId}`));
+
   beforeEach(async () => {
     feeRecipient = await AztecAddress.random();
     initialBlockHeader = BlockHeader.empty();
@@ -165,7 +168,12 @@ describe('sequencer', () => {
     publisher.validateBlockForSubmission.mockResolvedValue(1n);
     publisher.enqueueProposeL2Block.mockResolvedValue(true);
     publisher.enqueueCastVote.mockResolvedValue(true);
-    publisher.canProposeAtNextEthBlock.mockResolvedValue([BigInt(newSlotNumber), BigInt(newBlockNumber)]);
+    publisher.canProposeAtNextEthBlock.mockResolvedValue([
+      BigInt(newSlotNumber),
+      0n,
+      BigInt(newBlockNumber),
+      treeRoot(MerkleTreeId.ARCHIVE).toString(),
+    ]);
 
     globalVariableBuilder = mock<GlobalVariableBuilder>();
     globalVariableBuilder.buildGlobalVariables.mockResolvedValue(globalVariables);
@@ -178,7 +186,12 @@ describe('sequencer', () => {
       return Promise.resolve([undefined]);
     });
     merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
-      return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
+      return Promise.resolve({
+        treeId,
+        root: treeRoot(treeId).toBuffer(),
+        size: 99n,
+        depth: 5,
+      });
     });
 
     p2p = mock<P2P>({
@@ -283,6 +296,33 @@ describe('sequencer', () => {
     expectPublisherProposeL2Block([txHash]);
   });
 
+  it('out of sync, does not build a block but still sends requests', async () => {
+    const loggerSpy = jest.spyOn((sequencer as any).log, 'warn');
+    const publisherSpy = jest.spyOn(publisher, 'sendRequests');
+
+    merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
+      return Promise.resolve({
+        treeId,
+        root: Fr.fromHexString('0x1234567890abcdef').toBuffer(),
+        size: 99n,
+        depth: 5,
+      });
+    });
+
+    const tx = await makeTx();
+    block = await makeBlock([tx]);
+    mockPendingTxs([tx]);
+    await sequencer.doRealWork();
+
+    const msg = `Sequencer state mismatch. Local (block_number: ${1}, archive: ${Fr.fromHexString(
+      '0x1234567890abcdef',
+    )}), L1 (block_number: ${1}, archive: ${treeRoot(MerkleTreeId.ARCHIVE)}).`;
+    expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(msg));
+
+    // Ensure that we tried to send requests even if we are out of sync
+    expect(publisherSpy).toHaveBeenCalled();
+  });
+
   it('builds a block for proposal setting limits', async () => {
     const txs = await timesParallel(5, i => makeTx(i * 0x10000));
     await sequencer.buildBlock(txs, globalVariables, { validateOnly: false });
@@ -344,7 +384,9 @@ describe('sequencer', () => {
     // Now we can propose, but lets assume that the content is still "bad" (missing sigs etc)
     publisher.canProposeAtNextEthBlock.mockResolvedValue([
       block.header.globalVariables.slotNumber.toBigInt(),
+      0n,
       block.header.globalVariables.blockNumber.toBigInt(),
+      treeRoot(MerkleTreeId.ARCHIVE).toString(),
     ]);
 
     await sequencer.doRealWork();
@@ -530,7 +572,7 @@ describe('sequencer', () => {
     expect(publisher.enqueueProposeL2Block).not.toHaveBeenCalled();
     // even though the chain tip moved, the sequencer should still have tried to build a block against the old archive
     // this should get caught by the rollup
-    expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalledWith(currentTip.archive.root.toBuffer());
+    expect(publisher.canProposeAtNextEthBlock).toHaveBeenCalled();
   });
 
   it('aborts building a block if the chain moves underneath it', async () => {

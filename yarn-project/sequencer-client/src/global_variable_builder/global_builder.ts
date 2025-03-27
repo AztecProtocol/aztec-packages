@@ -71,6 +71,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     coinbase: EthAddress,
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
+    timestamp?: bigint,
   ): Promise<GlobalVariables> {
     const version = new Fr(await this.rollupContract.getVersion());
     const chainId = new Fr(this.publicClient.chain.id);
@@ -80,7 +81,9 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       slotNumber = await this.rollupContract.getSlotAt(ts);
     }
 
-    const timestamp = await this.rollupContract.getTimestampForSlot(slotNumber);
+    if (timestamp === undefined) {
+      timestamp = await this.rollupContract.getTimestampForSlot(slotNumber);
+    }
 
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);

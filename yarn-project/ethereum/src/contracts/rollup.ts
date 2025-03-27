@@ -307,31 +307,28 @@ export class RollupContract {
    *
    * @dev     Throws if unable to propose
    *
-   * @param archive - The archive that we expect to be current state
-   * @return [slot, blockNumber] - If you can propose, the L2 slot number and L2 block number of the next Ethereum block,
+   * @param account - The account to check
+   * @param timestamp - The timestamp to check at
+   *
+   * @return [slot, slotTimestamp, blockNumber, tipArchive] - If you can propose, the L2 slot number, the L2 slot timestamp, the L2 block number and the tip archive,
    * @throws otherwise
    */
-  public async canProposeAtNextEthBlock(
-    archive: Buffer,
+  public async canProposeAtTime(
     account: `0x${string}` | Account,
-    slotDuration: bigint | number,
-  ): Promise<[bigint, bigint]> {
-    if (typeof slotDuration === 'number') {
-      slotDuration = BigInt(slotDuration);
-    }
-    const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
+    timestamp: bigint,
+  ): Promise<[bigint, bigint, bigint, `0x${string}`]> {
     try {
       const {
-        result: [slot, blockNumber],
+        result: [slot, slotTimestamp, blockNumber, tipArchive],
       } = await this.client.simulateContract({
         address: this.address,
         abi: RollupAbi,
         functionName: 'canProposeAtTime',
-        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        args: [timestamp],
         account,
       });
 
-      return [slot, blockNumber];
+      return [slot, slotTimestamp, blockNumber, tipArchive];
     } catch (err: unknown) {
       throw formatViemError(err);
     }
