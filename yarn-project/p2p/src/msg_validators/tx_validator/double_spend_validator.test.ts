@@ -43,15 +43,8 @@ describe('DoubleSpendTxValidator', () => {
     await expectInvalid(badTx, 'Existing nullifier');
   });
 
-  // If the tx has public calls, all merkle insertions will be performed by the AVM,
-  // and the AVM will catch any duplicates. So we don't need to check during tx validation.
-  it('accepts duplicates if the tx has public calls', async () => {
-    const badTx = await mockTx(1, {
-      numberOfNonRevertiblePublicCallRequests: 1,
-      numberOfRevertiblePublicCallRequests: 1,
-    });
-    badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] =
-      badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
-    await expectValid(badTx);
+  it('accepts txs with no duplicates', async () => {
+    const tx = await mockTxForRollup();
+    await expectValid(tx);
   });
 });
