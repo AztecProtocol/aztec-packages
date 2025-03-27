@@ -9,6 +9,7 @@ import {
   type AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
+  AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
 } from '@aztec/stdlib/avm';
@@ -18,11 +19,14 @@ import {
   AppendOnlyTreeSnapshot,
   type IndexedTreeId,
   MerkleTreeId,
+  type MerkleTreeLeafType,
   NullifierLeaf,
   PublicDataTreeLeaf,
   type SequentialInsertionResult,
   getTreeName,
 } from '@aztec/stdlib/trees';
+
+import { strict as assert } from 'assert';
 
 import type { PublicContractsDBInterface } from '../common/db_interfaces.js';
 import { PublicTreesDB } from './public_db_sources.js';
@@ -161,12 +165,30 @@ export class HintingPublicTreesDB extends PublicTreesDB {
           );
           break;
         default:
-          HintingPublicTreesDB.log.debug(`getLeafPreimage not hinted for tree ${getTreeName(treeId)} yet!`);
+          // Use getLeafValue for the other trees.
+          throw new Error('getLeafPreimage only supported for PublicDataTree and NullifierTree!');
           break;
       }
     }
 
     return preimage;
+  }
+
+  public override async getLeafValue<ID extends MerkleTreeId>(
+    treeId: ID,
+    index: bigint,
+  ): Promise<MerkleTreeLeafType<typeof treeId> | undefined> {
+    // Use getLeafPreimage for PublicDataTree and NullifierTree.
+    assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+
+    const value = await super.getLeafValue<ID>(treeId, index);
+    if (value) {
+      const key = await this.getHintKey(treeId);
+      // We can cast to Fr because we know the type of the tree.
+      this.hints.getLeafValueHints.push(new AvmGetLeafValueHint(key, treeId, index, value as Fr));
+    }
+
+    return value;
   }
 
   // State modification.

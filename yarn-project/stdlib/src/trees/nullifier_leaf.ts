@@ -88,7 +88,7 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   static fromLeaf(leaf: NullifierLeaf, nextKey: bigint, nextIndex: bigint): NullifierLeafPreimage {
-    return new NullifierLeafPreimage(leaf.nullifier, new Fr(nextKey), nextIndex);
+    return new NullifierLeafPreimage(leaf.value, new Fr(nextKey), nextIndex);
   }
 
   static clone(preimage: NullifierLeafPreimage): NullifierLeafPreimage {
@@ -104,19 +104,19 @@ export class NullifierLeaf implements IndexedTreeLeaf {
     /**
      * Nullifier value.
      */
-    public nullifier: Fr,
+    public value: Fr,
   ) {}
 
   getKey(): bigint {
-    return this.nullifier.toBigInt();
+    return this.value.toBigInt();
   }
 
   toBuffer(): Buffer {
-    return this.nullifier.toBuffer();
+    return this.value.toBuffer();
   }
 
   isEmpty(): boolean {
-    return this.nullifier.isZero();
+    return this.value.isZero();
   }
 
   updateTo(_another: NullifierLeaf): NullifierLeaf {
@@ -132,6 +132,6 @@ export class NullifierLeaf implements IndexedTreeLeaf {
   }
 
   static get schema() {
-    return z.object({ nullifier: schemas.Fr }).transform(({ nullifier }) => new NullifierLeaf(nullifier));
+    return z.object({ value: schemas.Fr }).transform(({ value }) => new NullifierLeaf(value));
   }
 }

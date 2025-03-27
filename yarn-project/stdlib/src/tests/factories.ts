@@ -64,6 +64,7 @@ import {
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
+  AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
   RevertCode,
@@ -1317,6 +1318,17 @@ export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPre
   );
 }
 
+export function makeAvmGetLeafValueHint(seed = 0): AvmGetLeafValueHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafValueHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    /*value=*/ new Fr(seed + 3),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1389,6 +1401,7 @@ export async function makeAvmExecutionHints(
       seed + 0x4f00,
     ),
     getLeafPreimageHintNullifierTree: makeArray(baseLength + 5, makeAvmGetLeafPreimageHintNullifierTree, seed + 0x5100),
+    getLeafValueHints: makeArray(baseLength + 5, makeAvmGetLeafValueHint, seed + 0x5300),
     ...overrides,
   };
 
@@ -1401,6 +1414,7 @@ export async function makeAvmExecutionHints(
     fields.getPreviousValueIndexHints,
     fields.getLeafPreimageHintPublicDataTree,
     fields.getLeafPreimageHintNullifierTree,
+    fields.getLeafValueHints,
   );
 }
 

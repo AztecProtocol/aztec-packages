@@ -104,7 +104,9 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
           "\n * get_leaf_preimage hints_public_data_tree: ",
           hints.getLeafPreimageHintsPublicDataTree.size(),
           "\n * get_leaf_preimage hints_nullifier_tree: ",
-          hints.getLeafPreimageHintsNullifierTree.size());
+          hints.getLeafPreimageHintsNullifierTree.size(),
+          "\n * get_leaf_value_hints: ",
+          hints.getLeafValueHints.size());
     debug("Initializing HintedRawMerkleDB with snapshots...",
           "\n * nullifierTree: ",
           tree_roots.nullifierTree.root,
@@ -160,6 +162,11 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
             /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
             /*nextVal=*/get_leaf_preimage_hint.nextValue,
         };
+    }
+
+    for (const auto& get_leaf_value_hint : hints.getLeafValueHints) {
+        GetLeafValueKey key = { get_leaf_value_hint.hintKey, get_leaf_value_hint.treeId, get_leaf_value_hint.index };
+        get_leaf_value_hints[key] = get_leaf_value_hint.value;
     }
 }
 
@@ -217,6 +224,14 @@ crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexe
                                         ")"));
     }
     return it->second;
+}
+
+FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(tree_id);
+    GetLeafValueKey key = { tree_info, tree_id, leaf_index };
+    auto it = get_leaf_value_hints.find(key);
+    return it == get_leaf_value_hints.end() ? 0 : it->second;
 }
 
 crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::

@@ -464,12 +464,15 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
-    const maybeLowLeaf = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
-    const index = maybeLowLeaf?.alreadyPresent ? maybeLowLeaf.index : undefined;
-    if (index !== undefined) {
-      // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
-      await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, index);
+    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!lowLeafResult) {
+      throw new Error('Low leaf not found');
     }
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    const index = lowLeafResult.alreadyPresent ? lowLeafResult.index : undefined;
 
     this.logger.debug(`[DB] Fetched nullifier index`, {
       eventName: 'public-db-access',
