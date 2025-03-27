@@ -15,7 +15,14 @@ namespace bb::avm2::simulation {
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
-    alu.add(context, a_addr, b_addr, dst_addr);
+    auto& memory = context.get_memory();
+    auto get_a = memory.get(a_addr); // These should return TaggedValueWrapper
+    auto get_b = memory.get(b_addr); // These should return TaggedValueWrapper
+    auto wrapper_a = TaggedValueWrapper(get_a.value);
+    auto wrapper_b = TaggedValueWrapper(get_b.value);
+    auto wrapper_c = alu.add(wrapper_a, wrapper_b);
+
+    memory.set(dst_addr, wrapper_c.into_memory_value(), wrapper_c.get_tag());
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.

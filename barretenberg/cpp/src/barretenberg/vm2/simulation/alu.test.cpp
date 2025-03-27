@@ -25,19 +25,20 @@ TEST(AvmSimulationAluTest, Add)
     EventEmitter<AluEvent> alu_event_emitter;
     Alu alu(alu_event_emitter);
 
-    // TODO: actually can choose to mock, not even use a memory, check the events, etc.
-    MemoryAddress a_addr = 0;
-    MemoryAddress b_addr = 1;
-    MemoryAddress dst_addr = 2;
+    // // TODO: actually can choose to mock, not even use a memory, check the events, etc.
+    // MemoryAddress a_addr = 0;
+    // MemoryAddress b_addr = 1;
+    // MemoryAddress dst_addr = 2;
+    //
+    // mem.set(a_addr, 1, MemoryTag::U32);
+    // mem.set(b_addr, 2, MemoryTag::U32);
 
-    mem.set(a_addr, 1, MemoryTag::U32);
-    mem.set(b_addr, 2, MemoryTag::U32);
+    TaggedValueWrapper a(Uint32(1));
+    TaggedValueWrapper b(Uint32(2));
+    auto c = alu.add(a, b);
 
-    alu.add(context, a_addr, b_addr, dst_addr);
-
-    auto c = mem.get(dst_addr);
-    EXPECT_EQ(c.value, 3);
-    EXPECT_EQ(c.tag, MemoryTag::U32);
+    EXPECT_EQ(c.into_memory_value(), 3);
+    EXPECT_EQ(c.get_tag(), MemoryTag::U32);
 }
 
 } // namespace

@@ -9,6 +9,103 @@
 
 namespace bb::avm2::simulation {
 
+template <typename T>
+    requires std::unsigned_integral<T>
+class TaggedIntegralValue {
+  public:
+    TaggedIntegralValue(T value)
+        : value(value)
+    {}
+    T get_value() const { return value; }
+
+    TaggedIntegralValue operator+(const TaggedIntegralValue& rhs) const
+    {
+        return TaggedIntegralValue(value + rhs.value);
+    }
+
+  private:
+    T value;
+};
+
+using Uint1 = TaggedIntegralValue<bool>;
+using Uint8 = TaggedIntegralValue<uint8_t>;
+using Uint16 = TaggedIntegralValue<uint16_t>;
+using Uint32 = TaggedIntegralValue<uint32_t>;
+using Uint64 = TaggedIntegralValue<uint64_t>;
+using Uint128 = TaggedIntegralValue<uint128_t>;
+
+using TaggedMemoryValue = std::variant<Uint1, Uint8, Uint16, Uint32, Uint64, Uint128, FF>;
+
+class TaggedValueWrapper {
+  public:
+    TaggedValueWrapper(TaggedMemoryValue value)
+        : value(value)
+    {}
+
+    bool operator==(const TaggedValueWrapper& rhs) const
+    {
+        bool tag_match = get_tag() == rhs.get_tag();
+        bool value_match = into_memory_value() == rhs.into_memory_value();
+        return tag_match && value_match;
+    }
+
+    TaggedValueWrapper operator+(const TaggedValueWrapper& rhs) const
+    {
+        TaggedMemoryValue result = std::visit(
+            [&](auto&& arg) -> TaggedMemoryValue {
+                using T = std::decay_t<decltype(arg)>;
+                return arg + std::get<T>(rhs.value);
+            },
+            value);
+        return { result };
+    }
+
+    FF into_memory_value() const
+    {
+        return std::visit(
+            [](auto&& arg) -> FF {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, Uint128>) {
+                    return FF(uint256_t::from_uint128(arg.get_value()));
+                } else if constexpr (std::is_same_v<T, FF>) {
+                    return arg;
+                } else {
+                    return FF(arg.get_value());
+                }
+            },
+            value);
+    }
+
+    MemoryTag get_tag() const
+    {
+        return std::visit(
+            [](auto&& arg) {
+                using T = std::decay_t<decltype(arg)>;
+                if constexpr (std::is_same_v<T, Uint1>) {
+                    return MemoryTag::U1;
+                } else if constexpr (std::is_same_v<T, Uint8>) {
+                    return MemoryTag::U8;
+                } else if constexpr (std::is_same_v<T, Uint16>) {
+                    return MemoryTag::U16;
+                } else if constexpr (std::is_same_v<T, Uint32>) {
+                    return MemoryTag::U32;
+                } else if constexpr (std::is_same_v<T, Uint64>) {
+                    return MemoryTag::U64;
+                } else if constexpr (std::is_same_v<T, Uint128>) {
+                    return MemoryTag::U128;
+                } else {
+                    return MemoryTag::FF;
+                    // } else {
+                    //     static_assert(false, "non-exhaustive visitor");
+                }
+            },
+            value);
+    };
+
+  private:
+    TaggedMemoryValue value;
+};
+
 struct ValueRefAndTag {
     const MemoryValue& value;
     MemoryTag tag;

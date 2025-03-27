@@ -46,8 +46,14 @@ class ExecutionSimulationTest : public ::testing::Test {
 
 TEST_F(ExecutionSimulationTest, Add)
 {
-    EXPECT_CALL(alu, add(Ref(context), 4, 5, 6));
-    execution.add(context, 4, 5, 6);
+    TaggedValueWrapper a(Uint32(4));
+    TaggedValueWrapper b(Uint32(5));
+    EXPECT_CALL(alu, add(a, b)).WillOnce(Return(TaggedValueWrapper(Uint32(9))));
+    EXPECT_CALL(context, get_memory).WillOnce(ReturnRef(memory));
+    EXPECT_CALL(memory, get(1)).WillOnce(Return(ValueRefAndTag({ .value = 4, .tag = MemoryTag::U32 })));
+    EXPECT_CALL(memory, get(2)).WillOnce(Return(ValueRefAndTag({ .value = 5, .tag = MemoryTag::U32 })));
+    EXPECT_CALL(memory, set(3, FF(9), MemoryTag::U32));
+    execution.add(context, 1, 2, 3);
 }
 
 TEST_F(ExecutionSimulationTest, Call)
