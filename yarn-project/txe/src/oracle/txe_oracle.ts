@@ -53,6 +53,7 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
+  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   type NoteSelector,
@@ -1265,9 +1266,17 @@ export class TXE implements TypedOracle {
     tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
+    eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
   ): Promise<void> {
-    return this.pxeOracleInterface.storePrivateEventLog(tag, contractAddress, recipient, logContent, txHash);
+    return this.pxeOracleInterface.storePrivateEventLog(
+      tag,
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+    );
   }
 }

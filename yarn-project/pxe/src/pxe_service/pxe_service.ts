@@ -901,22 +901,15 @@ export class PXEService implements PXE {
     // TODO: This is a temporary hack to ensure that the notes are synced before getting the events.
     await this.simulateUnconstrained('sync_notes', [], contractAddress);
 
-    const events = await this.privateEventDataProvider.getPrivateEvents(contractAddress, from, numBlocks, recipients);
+    const events = await this.privateEventDataProvider.getPrivateEvents(
+      contractAddress,
+      from,
+      numBlocks,
+      recipients,
+      eventMetadataDef.eventSelector,
+    );
 
-    const decodedEvents = events
-      .map((event: Fr[]): T | undefined => {
-        // TODO: Having the event type id be the first field of log content is a temporary hack.
-        const eventTypeId = event[0];
-
-        if (!eventTypeId.equals(eventMetadataDef.eventSelector.toField())) {
-          return undefined;
-        }
-
-        const eventFields = event.slice(1);
-
-        return decodeFromAbi([eventMetadataDef.abiType], eventFields) as T;
-      })
-      .filter(event => event !== undefined) as T[];
+    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
 
     return decodedEvents;
   }

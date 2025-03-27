@@ -1,5 +1,10 @@
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import type {
+  EventSelector,
+  FunctionArtifact,
+  FunctionArtifactWithContractName,
+  FunctionSelector,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -331,6 +336,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param tag - The tag of the event log.
    * @param contractAddress - The address of the contract that emitted the log.
    * @param recipient - The address of the recipient.
+   * @param eventSelector - The event selector of the event.
    * @param logContent - The content of the private event log.
    * @param txHash - The hash of the transaction that emitted the log.
    */
@@ -338,6 +344,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
+    eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
   ): Promise<void>;

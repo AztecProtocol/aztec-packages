@@ -5,7 +5,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import type { TypedOracle } from '@aztec/simulator/client';
-import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -634,6 +634,7 @@ export class TXEService {
     tag: ForeignCallSingle,
     contractAddress: ForeignCallSingle,
     recipient: ForeignCallSingle,
+    eventSelector: ForeignCallSingle,
     logContent: ForeignCallArray,
     txHash: ForeignCallSingle,
   ) {
@@ -641,6 +642,7 @@ export class TXEService {
       fromSingle(tag),
       AztecAddress.fromField(fromSingle(contractAddress)),
       AztecAddress.fromField(fromSingle(recipient)),
+      EventSelector.fromField(fromSingle(eventSelector)),
       fromArray(logContent),
       new TxHash(fromSingle(txHash)),
     );

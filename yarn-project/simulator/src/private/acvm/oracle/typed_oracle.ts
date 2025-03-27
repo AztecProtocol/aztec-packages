@@ -1,6 +1,6 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
@@ -263,6 +263,7 @@ export abstract class TypedOracle {
     _tag: Fr,
     _contractAddress: AztecAddress,
     _recipient: AztecAddress,
+    _eventSelector: EventSelector,
     _logContent: Fr[],
     _txHash: TxHash,
   ): Promise<void> {

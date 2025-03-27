@@ -1,5 +1,5 @@
 import { Fr, Point } from '@aztec/foundation/fields';
-import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
@@ -496,6 +496,7 @@ export class Oracle {
     [tag]: ACVMField[],
     [contractAddress]: ACVMField[],
     [recipient]: ACVMField[],
+    [eventSelector]: ACVMField[],
     logContentBVecStorage: ACVMField[],
     [logContentLength]: ACVMField[],
     [txHash]: ACVMField[],
@@ -504,6 +505,7 @@ export class Oracle {
       Fr.fromString(tag),
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       AztecAddress.fromField(Fr.fromString(recipient)),
+      EventSelector.fromField(Fr.fromString(eventSelector)),
       fromBoundedVec(logContentBVecStorage, logContentLength),
       new TxHash(Fr.fromString(txHash)),
     );

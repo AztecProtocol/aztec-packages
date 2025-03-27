@@ -1,6 +1,7 @@
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -381,9 +382,17 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
+    eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
   ): Promise<void> {
-    return this.executionDataProvider.storePrivateEventLog(tag, contractAddress, recipient, logContent, txHash);
+    return this.executionDataProvider.storePrivateEventLog(
+      tag,
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+    );
   }
 }

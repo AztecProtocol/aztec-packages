@@ -11,6 +11,7 @@ import {
   type SimulationProvider,
 } from '@aztec/simulator/client';
 import {
+  EventSelector,
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
   FunctionCall,
@@ -853,6 +854,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
+    eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
   ): Promise<void> {
@@ -861,7 +863,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     if (blockNumber === undefined) {
       throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
     }
-    return this.privateEventDataProvider.storePrivateEventLog(tag, contractAddress, recipient, logContent, blockNumber);
+    return this.privateEventDataProvider.storePrivateEventLog(
+      tag,
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      blockNumber,
+    );
   }
 }
 

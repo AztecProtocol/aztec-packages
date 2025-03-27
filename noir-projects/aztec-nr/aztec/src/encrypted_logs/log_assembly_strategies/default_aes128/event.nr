@@ -4,28 +4,30 @@ use crate::{
         log_assembly_strategies::default_aes128::{aes128::AES128, utils::prefix_with_tag},
         log_encryption::LogEncryption,
         log_type::PRIVATE_EVENT_LOG_TYPE_ID,
+        metadata_packing::to_expanded_metadata,
     },
     event::event_interface::EventInterface,
     prelude::AztecAddress,
 };
 use protocol_types::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::{Serialize, ToField}};
 
-fn compute_event_plaintext_for_this_strategy<Event, let N: u32>(event: Event) -> [Field; N + 2]
+fn compute_event_plaintext_for_this_strategy<Event, let N: u32>(event: Event) -> [Field; N + 1]
 where
     Event: EventInterface<N>,
 {
     // TODO(#11571): with decryption happening in Noir we can now use the Packable trait instead.
     let serialized_event = Serialize::<N>::serialize(event);
 
-    let mut fields = [0; N + 2];
+    let mut fields = [0; N + 1];
 
-    // First field has to be the log type id as it's expected by the process_log(...) function.
-    // Note: If you pack more info to the first file use the pack_two_u64s function to not diverge from the expected
-    // log format.
-    fields[0] = PRIVATE_EVENT_LOG_TYPE_ID as Field;
-    fields[1] = Event::get_event_type_id().to_field();
+    // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
+    // where the value gets decoded.
+    fields[0] = to_expanded_metadata(
+        Event::get_event_type_id().to_field() as u64,
+        PRIVATE_EVENT_LOG_TYPE_ID,
+    );
     for i in 0..serialized_event.len() {
-        fields[i + 2] = serialized_event[i];
+        fields[i + 1] = serialized_event[i];
     }
 
     fields

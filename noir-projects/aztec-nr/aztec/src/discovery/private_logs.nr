@@ -17,9 +17,11 @@ use crate::{
 };
 
 use protocol_types::{
+    abis::event_selector::EventSelector,
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
+    traits::FromField,
 };
 
 // TODO(#12750): don't make these values assume we're using AES.
@@ -89,9 +91,18 @@ pub unconstrained fn do_process_log<Env>(
         debug_log("Processing private event log");
 
         let tag = log.get(0);
+        // In the case of event logs, the log metadata is the event selector.
+        let event_selector = EventSelector::from_field(log_metadata as Field);
 
         // Log metadata are currently not used by event logs.
-        store_private_event_log(tag, contract_address, recipient, log_content, tx_hash);
+        store_private_event_log(
+            tag,
+            contract_address,
+            recipient,
+            event_selector,
+            log_content,
+            tx_hash,
+        );
     } else {
         // TODO(#11569): handle events
         debug_log_format(
