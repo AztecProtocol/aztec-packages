@@ -5,7 +5,7 @@
  *
  * @packageDocumentation
  */
-import type { PXE } from '@aztec/aztec.js';
+import { AccountManager, type PXE } from '@aztec/aztec.js';
 import type { AccountWalletWithSecretKey } from '@aztec/aztec.js/wallet';
 
 import {
@@ -48,21 +48,26 @@ export function getInitialTestAccounts(): Promise<InitialAccountData[]> {
 }
 
 /**
+ * Gets a collection of account managers for the Aztec accounts that are initially stored in the test environment.
+ * @param pxe - PXE instance.
+ * @returns A set of AccountManager implementations for each of the initial accounts.
+ */
+export function getInitialTestAccountsManagers(pxe: PXE): Promise<AccountManager[]> {
+  return Promise.all(
+    INITIAL_TEST_SECRET_KEYS.map((encryptionKey, i) =>
+      getSchnorrAccount(pxe, encryptionKey!, INITIAL_TEST_SIGNING_KEYS[i]!, INITIAL_TEST_ACCOUNT_SALTS[i]),
+    ),
+  );
+}
+
+/**
  * Gets a collection of wallets for the Aztec accounts that are initially stored in the test environment.
  * @param pxe - PXE instance.
  * @returns A set of AccountWallet implementations for each of the initial accounts.
  */
-export function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
+export async function getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]> {
   return Promise.all(
-    INITIAL_TEST_SECRET_KEYS.map(async (encryptionKey, i) => {
-      const account = await getSchnorrAccount(
-        pxe,
-        encryptionKey!,
-        INITIAL_TEST_SIGNING_KEYS[i]!,
-        INITIAL_TEST_ACCOUNT_SALTS[i],
-      );
-      return account.getWallet();
-    }),
+    (await Promise.all(await getInitialTestAccountsManagers(pxe))).map(accountManager => accountManager.getWallet()),
   );
 }
 

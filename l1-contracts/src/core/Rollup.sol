@@ -131,6 +131,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
+   * @notice  Get the validator set for a given epoch
+   *
+   * @dev     Consider removing this to replace with a `size` and individual getter.
+   *
+   * @param _epoch The epoch number to get the validator set for
+   *
+   * @return The validator set for the given epoch
+   */
+  function getEpochCommittee(Epoch _epoch)
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
+  }
+
+  /**
    * @notice  Get the committee for a given timestamp
    *
    * @param _ts - The timestamp to get the committee for
@@ -392,24 +409,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     address attester = StakingLib.getStorage().attesters.at(_index);
     return
       OperatorInfo({proposer: StakingLib.getStorage().info[attester].proposer, attester: attester});
-  }
-
-  /**
-   * @notice  Get the validator set for a given epoch
-   *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
-   *
-   * @param _epoch The epoch number to get the validator set for
-   *
-   * @return The validator set for the given epoch
-   */
-  function getEpochCommittee(Epoch _epoch)
-    external
-    view
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getStorage().epochs[_epoch].committee;
   }
 
   /**

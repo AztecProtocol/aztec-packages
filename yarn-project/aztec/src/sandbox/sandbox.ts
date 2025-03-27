@@ -121,8 +121,6 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
     if (config.testAccounts) {
       if (aztecNodeConfig.p2pEnabled) {
         userLog(`Not setting up test accounts as we are connecting to a network`);
-      } else if (config.noPXE) {
-        userLog(`Not setting up test accounts as we are not exposing a PXE`);
       } else {
         return await getInitialTestAccounts();
       }

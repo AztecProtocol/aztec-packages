@@ -71,6 +71,8 @@ LMDBStoreWrapper::LMDBStoreWrapper(const Napi::CallbackInfo& info)
 
     // The close operation requires exclusive execution, no other operations can be run concurrently with it
     _msg_processor.register_handler(LMDBStoreMessageType::CLOSE, this, &LMDBStoreWrapper::close, true);
+
+    _msg_processor.register_handler(LMDBStoreMessageType::COPY_STORE, this, &LMDBStoreWrapper::copy_store, true);
 }
 
 Napi::Value LMDBStoreWrapper::call(const Napi::CallbackInfo& info)
@@ -275,6 +277,14 @@ BoolResponse LMDBStoreWrapper::close()
 
     // and finally close the database handle
     _store.reset(nullptr);
+
+    return { true };
+}
+
+BoolResponse LMDBStoreWrapper::copy_store(const CopyStoreRequest& req)
+{
+    verify_store();
+    _store->copy_store(req.dstPath, req.compact.value_or(false));
 
     return { true };
 }

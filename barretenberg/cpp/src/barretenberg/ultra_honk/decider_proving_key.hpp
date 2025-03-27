@@ -86,12 +86,6 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             }
         }
 
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/905): This is adding ops to the op queue but NOT to
-        // the circuit, meaning the ECCVM/Translator will use different ops than the main circuit. This will lead to
-        // failure once https://github.com/AztecProtocol/barretenberg/issues/746 is resolved.
-        if constexpr (IsMegaFlavor<Flavor>) {
-            circuit.op_queue->append_nonzero_ops();
-        }
         vinfo("allocating polynomials object in proving key...");
         {
             PROFILE_THIS_NAME("allocating proving key");

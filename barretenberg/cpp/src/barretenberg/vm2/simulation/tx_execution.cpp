@@ -15,7 +15,7 @@ void TxExecution::simulate(const Tx& tx)
              " was a ",
              result.success ? "success" : "failure",
              " and it returned ",
-             result.returndata.size(),
+             context->get_last_rd_size(),
              " elements.");
     }
 }
