@@ -1,6 +1,9 @@
 telemetry:
   enabled: true
 
+snapshots:
+  frequency: "0 0 * * *" # daily uploads at midnight
+
 aztec:
   realProofs: true
   numberOfDefaultAccounts: 0

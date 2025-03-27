@@ -20,6 +20,7 @@ export type L2ChainConfig = {
   seqMinTxsPerBlock: number;
   seqMaxTxsPerBlock: number;
   realProofs: boolean;
+  snapshotsUrl: string;
 };
 
 export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
@@ -38,6 +39,7 @@ export const testnetIgnitionL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 0,
   realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
 };
 
 export const alphaTestnetL2ChainConfig: L2ChainConfig = {
@@ -56,6 +58,7 @@ export const alphaTestnetL2ChainConfig: L2ChainConfig = {
   seqMinTxsPerBlock: 0,
   seqMaxTxsPerBlock: 4,
   realProofs: true,
+  snapshotsUrl: 'https://storage.googleapis.com/aztec-testnet/snapshots/',
 };
 
 export async function getBootnodes(networkName: NetworkNames) {
@@ -114,4 +117,5 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
+  enrichVar('SYNC_SNAPSHOTS_URL', config.snapshotsUrl);
 }

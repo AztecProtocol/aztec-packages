@@ -191,6 +191,8 @@ spec:
               value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
