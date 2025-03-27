@@ -288,6 +288,10 @@ function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
   if (config.l1ConsensusHostApiKey && !config.l1ConsensusHostApiKeyHeader) {
     formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${config.l1ConsensusHostApiKey}`;
   }
+  // check if l1ConsensusHostUrl has a trailing '/' and remove it
+  if (config.l1ConsensusHostUrl && config.l1ConsensusHostUrl.endsWith('/')) {
+    config.l1ConsensusHostUrl = config.l1ConsensusHostUrl.slice(0, -1);
+  }
   return {
     url: formattedUrl,
     ...(config.l1ConsensusHostApiKey &&

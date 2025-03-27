@@ -12,6 +12,8 @@ import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 
+import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
+
 export { sequencerClientConfigMappings, type SequencerClientConfig };
 
 /**
@@ -24,11 +26,14 @@ export type AztecNodeConfig = ArchiverConfig &
   WorldStateConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
-  DataStoreConfig & {
+  DataStoreConfig &
+  SentinelConfig & {
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
     /** Whether to populate the genesis state with initial fee juice for the test accounts */
     testAccounts: boolean;
+    /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
+    sponsoredFPC: boolean;
   } & {
     l1Contracts: L1ContractAddresses;
   };
@@ -41,6 +46,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
+  ...sentinelConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
@@ -54,6 +60,11 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     env: 'TEST_ACCOUNTS',
     description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
     ...booleanConfigHelper(),
+  },
+  sponsoredFPC: {
+    env: 'SPONSORED_FPC',
+    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
+    ...booleanConfigHelper(false),
   },
 };
 

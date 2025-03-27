@@ -157,12 +157,12 @@ class WorldState {
 
     /**
      * @brief Finds the leaf that would have its nextIdx/nextValue fields modified if the target leaf were to be
-     * inserted into the tree. If the vlaue already exists in the tree, the leaf with the same value is returned.
+     * inserted into the tree. If the value already exists in the tree, the leaf with the same value is returned.
      *
      * @param revision The revision to query
      * @param tree_id The ID of the tree
      * @param leaf_key The leaf to find the predecessor of
-     * @return PredecessorInfo
+     * @return GetLowIndexedLeafResponse
      */
     crypto::merkle_tree::GetLowIndexedLeafResponse find_low_leaf_index(const WorldStateRevision& revision,
                                                                        MerkleTreeId tree_id,
