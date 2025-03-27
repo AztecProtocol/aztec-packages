@@ -5,31 +5,6 @@
 namespace acir_format {
 
 /**
- * @brief Deserialize `buf` either based on the first byte interpreted as a
-          Noir serialization format byte, or falling back to `bincode` if
-          the format cannot be recognized. Currently only `msgpack` format
-          is expected, or the legacy `bincode` format.
- * @note Due to the lack of exception handling available to us in Wasm we can't
- *       try `bincode` format and if it fails try `msgpack`; instead we have to
- *       make a decision and commit to it.
- */
-template <typename T>
-T deserialize_any_format(std::vector<uint8_t> const& buf,
-                         std::function<T(msgpack::object const&)> decode_msgpack,
-                         std::function<T(std::vector<uint8_t>)> decode_binpack);
-
-/**
- * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
- * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
- */
-Acir::Program deserialize_program(std::vector<uint8_t> const& buf);
-
-/**
- * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
- */
-Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf);
-
-/**
  * @brief Converts from the ACIR-native `WitnessStack` format to Barretenberg's internal `WitnessVector` format.
  *
  * @param buf Serialized representation of a `WitnessStack`.

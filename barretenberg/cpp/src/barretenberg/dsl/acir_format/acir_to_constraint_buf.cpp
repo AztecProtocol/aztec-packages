@@ -17,6 +17,106 @@ namespace acir_format {
 using namespace bb;
 
 /**
+ * @brief Deserialize `buf` either based on the first byte interpreted as a
+          Noir serialization format byte, or falling back to `bincode` if
+          the format cannot be recognized. Currently only `msgpack` format
+          is expected, or the legacy `bincode` format.
+ * @note Due to the lack of exception handling available to us in Wasm we can't
+ *       try `bincode` format and if it fails try `msgpack`; instead we have to
+ *       make a decision and commit to it.
+ */
+template <typename T>
+T deserialize_any_format(std::vector<uint8_t> const& buf,
+                         std::function<T(msgpack::object const&)> decode_msgpack,
+                         std::function<T(std::vector<uint8_t>)> decode_binpack)
+{
+    // We can't rely on exceptions to try to deserialize binpack, falling back to
+    // msgpack if it fails, because exceptions are (or were) not supported in Wasm
+    // and they are turned off in arch.cmake.
+    //
+    // For now our other option is to check if the data is valid msgpack,
+    // which slows things down, but we can't tell if the first byte of
+    // the data accidentally matches one of our format values.
+    //
+    // Unfortunately this doesn't seem to work either: `msgpack::parse`
+    // returns true for a `bincode` encoded program, and we have to check
+    // whether the value parsed is plausible.
+
+    if (buf.size() > 0) {
+        // Once we remove support for legacy bincode format, we should expect to always
+        // have a format marker corresponding to acir::serialization::Format::Msgpack,
+        // but until then a match could be pure coincidence.
+        if (buf[0] == 2) {
+            // Skip the format marker to get the data.
+            const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
+            size_t size = buf.size() - 1;
+            msgpack::null_visitor probe;
+            if (msgpack::parse(buffer, size, probe)) {
+                auto oh = msgpack::unpack(buffer, size);
+                // This has to be on a separate line, see
+                // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
+                auto o = oh.get();
+                // In experiments bincode data was parsed as 0.
+                // All the top level formats we look for are MAP types.
+                if (o.type == msgpack::type::MAP) {
+                    return decode_msgpack(o);
+                }
+            }
+        }
+        // `buf[0] == 0` would indicate bincode starting with a format byte,
+        // but if it's a coincidence and it fails to parse then we can't recover
+        // from it, so let's just acknowledge that for now we don't want to
+        // exercise this code path and treat the whole data as bincode.
+    }
+    return decode_binpack(buf);
+}
+
+/**
+ * @brief Deserializes a `Program` from bytes, trying `msgpack` or `bincode` formats.
+ * @note Ignores the Brillig parts of the bytecode when using `msgpack`.
+ */
+Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
+{
+    return deserialize_any_format<Acir::Program>(
+        buf,
+        [](auto o) -> Acir::Program {
+            Acir::Program program;
+            try {
+                // Deserialize into a partial structure that ignores the Brillig parts,
+                // so that new opcodes can be added without breaking Barretenberg.
+                Acir::ProgramWithoutBrillig program_wob;
+                o.convert(program_wob);
+                program.functions = program_wob.functions;
+            } catch (const msgpack::type_error&) {
+                std::cerr << o << std::endl;
+                throw_or_abort("failed to convert msgpack data to Program");
+            }
+            return program;
+        },
+        &Acir::Program::bincodeDeserialize);
+}
+
+/**
+ * @brief Deserializes a `WitnessStack` from bytes, trying `msgpack` or `bincode` formats.
+ */
+Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf)
+{
+    return deserialize_any_format<Witnesses::WitnessStack>(
+        buf,
+        [](auto o) {
+            Witnesses::WitnessStack witness_stack;
+            try {
+                o.convert(witness_stack);
+            } catch (const msgpack::type_error&) {
+                std::cerr << o << std::endl;
+                throw_or_abort("failed to convert msgpack data to WitnessStack");
+            }
+            return witness_stack;
+        },
+        &Witnesses::WitnessStack::bincodeDeserialize);
+}
+
+/**
  * @brief Construct a poly_tuple for a standard width-3 arithmetic gate from its acir representation
  *
  * @param arg acir representation of an 3-wire arithmetic operation
@@ -870,90 +970,6 @@ WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf)
     auto w = witness_stack.stack[witness_stack.stack.size() - 1].witness;
 
     return witness_map_to_witness_vector(w);
-}
-
-template <typename T>
-T deserialize_any_format(std::vector<uint8_t> const& buf,
-                         std::function<T(msgpack::object const&)> decode_msgpack,
-                         std::function<T(std::vector<uint8_t>)> decode_binpack)
-{
-    // We can't rely on exceptions to try to deserialize binpack, falling back to
-    // msgpack if it fails, because exceptions are (or were) not supported in Wasm
-    // and they are turned off in arch.cmake.
-    //
-    // For now our other option is to check if the data is valid msgpack,
-    // which slows things down, but we can't tell if the first byte of
-    // the data accidentally matches one of our format values.
-    //
-    // Unfortunately this doesn't seem to work either: `msgpack::parse`
-    // returns true for a `bincode` encoded program, and we have to check
-    // whether the value parsed is plausible.
-
-    if (buf.size() > 0) {
-        // Once we remove support for legacy bincode format, we should expect to always
-        // have a format marker corresponding to acir::serialization::Format::Msgpack,
-        // but until then a match could be pure coincidence.
-        if (buf[0] == 2) {
-            // Skip the format marker to get the data.
-            const char* buffer = &reinterpret_cast<const char*>(buf.data())[1];
-            size_t size = buf.size() - 1;
-            msgpack::null_visitor probe;
-            if (msgpack::parse(buffer, size, probe)) {
-                auto oh = msgpack::unpack(buffer, size);
-                // This has to be on a separate line, see
-                // https://github.com/msgpack/msgpack-c/issues/695#issuecomment-393035172
-                auto o = oh.get();
-                // In experiments bincode data was parsed as 0.
-                // All the top level formats we look for are MAP types.
-                if (o.type == msgpack::type::MAP) {
-                    return decode_msgpack(o);
-                }
-            }
-        }
-        // `buf[0] == 0` would indicate bincode starting with a format byte,
-        // but if it's a coincidence and it fails to parse then we can't recover
-        // from it, so let's just acknowledge that for now we don't want to
-        // exercise this code path and treat the whole data as bincode.
-    }
-    return decode_binpack(buf);
-}
-
-Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
-{
-    return deserialize_any_format<Acir::Program>(
-        buf,
-        [](auto o) -> Acir::Program {
-            Acir::Program program;
-            try {
-                // Deserialize into a partial structure that ignores the Brillig parts,
-                // so that new opcodes can be added without breaking Barretenberg.
-                Acir::ProgramWithoutBrillig program_wob;
-                o.convert(program_wob);
-                program.functions = program_wob.functions;
-            } catch (const msgpack::type_error&) {
-                std::cerr << o << std::endl;
-                throw_or_abort("failed to convert msgpack data to Program");
-            }
-            return program;
-        },
-        &Acir::Program::bincodeDeserialize);
-}
-
-Witnesses::WitnessStack deserialize_witness_stack(std::vector<uint8_t> const& buf)
-{
-    return deserialize_any_format<Witnesses::WitnessStack>(
-        buf,
-        [](auto o) {
-            Witnesses::WitnessStack witness_stack;
-            try {
-                o.convert(witness_stack);
-            } catch (const msgpack::type_error&) {
-                std::cerr << o << std::endl;
-                throw_or_abort("failed to convert msgpack data to WitnessStack");
-            }
-            return witness_stack;
-        },
-        &Witnesses::WitnessStack::bincodeDeserialize);
 }
 
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion)
