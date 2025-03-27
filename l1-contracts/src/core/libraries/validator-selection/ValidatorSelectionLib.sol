@@ -165,13 +165,13 @@ library ValidatorSelectionLib {
     internal
     returns (address[] memory)
   {
-    uint256 validatorSetSize = _stakingStore.attesters.length();
+    ValidatorSelectionStorage storage store = getStorage();
+    uint256 validatorSetSize = store.epochs[_epoch].validatorSetSize;
 
     if (validatorSetSize == 0) {
       return new address[](0);
     }
 
-    ValidatorSelectionStorage storage store = getStorage();
     uint256 targetCommitteeSize = store.targetCommitteeSize;
 
     // If we have less validators than the target committee size, we just return the full set
@@ -193,6 +193,8 @@ library ValidatorSelectionLib {
     internal
     returns (address[] memory)
   {
+    setupEpoch(_stakingStore);
+
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[_epochNumber];
 
