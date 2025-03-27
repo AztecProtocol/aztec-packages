@@ -488,7 +488,7 @@ export class PublicProcessor implements Traceable {
       if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
-        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs);
+        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs ?? 0);
       }
     });
 
