@@ -660,7 +660,7 @@ template <typename Flavor> class SumcheckVerifier {
         bool verified(true);
 
         // Pad gate challenges for Protogalaxy DeciderVerifier
-        round.pad_gate_challenges_for_protogalaxy(gate_challenges);
+        round.pad_gate_challenges(gate_challenges);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // All but final round.

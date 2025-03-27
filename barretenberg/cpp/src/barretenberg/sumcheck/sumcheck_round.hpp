@@ -689,14 +689,16 @@ template <typename Flavor> class SumcheckVerifierRound {
         return output;
     }
     /**
-     * @brief Temporary method to pad PG gate challenges to the CONST_PROOF_SIZE.
+     * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in
+     * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be handled by more flexible padded size
+     * handling in Sumcheck and Flavor Provers/Verifiers.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1310): Recursive Protogalaxy issues
      *
      * @param gate_challenges
      */
-    void pad_gate_challenges_for_protogalaxy(std::vector<FF>& gate_challenges)
+    void pad_gate_challenges(std::vector<FF>& gate_challenges)
     {
-        if (gate_challenges.size() == CONST_PG_LOG_N) {
+        if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
             FF zero{ 0 };
             if constexpr (IsRecursiveFlavor<Flavor>) {
                 zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
