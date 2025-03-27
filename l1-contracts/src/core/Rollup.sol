@@ -25,6 +25,7 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
 import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
@@ -709,6 +710,8 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return The current epoch number
    */
   function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
-    return Timestamp.wrap(block.timestamp).epochFromTimestamp();
+    Epoch epoch = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+
+    return epoch;
   }
 }

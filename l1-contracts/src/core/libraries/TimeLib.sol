@@ -45,6 +45,7 @@ library TimeLib {
 
   function epochFromTimestamp(Timestamp _a) internal view returns (Epoch) {
     TimeStorage storage store = getStorage();
+
     return Epoch.wrap(
       (Timestamp.unwrap(_a) - store.genesisTime) / (store.epochDuration * store.slotDuration)
     );

@@ -37,6 +37,12 @@ contract TimeCheater {
   }
 
   function cheat__setTimeStorage(TimeStorage memory _timeStorage) public {
+    console.log("cheat__setTimeStorage");
+    console.log("target", target);
+    console.log("abi.encodePacked");
+    console.log("epochDuration", _timeStorage.epochDuration);
+    console.log("slotDuration", _timeStorage.slotDuration);
+    console.log("genesisTime", _timeStorage.genesisTime);
     vm.store(
       target,
       TIME_STORAGE_POSITION,
@@ -59,6 +65,10 @@ contract TimeCheater {
 
   function cheat__progressEpoch() public {
     currentEpoch++;
+    console.log("cheat__progressEpoch", currentEpoch);
+    console.log("timestamp", block.timestamp);
+
     vm.warp(genesisTime + 1 + currentEpoch * slotDuration * epochDuration);
+    console.log("timestamp after", block.timestamp);
   }
 }

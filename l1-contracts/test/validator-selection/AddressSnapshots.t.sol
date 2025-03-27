@@ -10,8 +10,6 @@ import {
 import {TimeLib, TimeStorage} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 
-import "forge-std/console.sol";
-
 contract LibTest {
   SnapshottedAddressSet validatorSet;
 
@@ -66,7 +64,8 @@ contract AddressSnapshotsTest is Test {
 
   function test_getAddressFromIndexNow() public {
     // Empty should return 0
-    assertEq(libTest.getAddressFromIndexNow(0), address(0));
+    vm.expectRevert();
+    libTest.getAddressFromIndexNow(0);
 
     libTest.add(address(1));
     libTest.add(address(2));

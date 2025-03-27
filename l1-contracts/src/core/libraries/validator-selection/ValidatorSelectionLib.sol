@@ -5,10 +5,6 @@ pragma solidity >=0.8.27;
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
-  AddressSnapshotLib,
-  SnapshottedAddressSet
-} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {
   EpochData,
   ValidatorSelectionStorage,
   ValidatorSetSizeSnapshot
@@ -16,6 +12,10 @@ import {
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
@@ -56,7 +56,7 @@ library ValidatorSelectionLib {
 
       epoch.sampleSeed = getSampleSeed(epochNumber);
       epoch.nextSeed = store.lastSeed = computeNextSeed(epochNumber);
-      epoch.committee = sampleValidators(_stakingStore, epoch.sampleSeed);
+      epoch.committee = sampleValidators(_stakingStore, epochNumber, epoch.sampleSeed);
     }
   }
 
@@ -179,11 +179,12 @@ library ValidatorSelectionLib {
    *
    * @return The validators for the given epoch
    */
-  function sampleValidators(StakingStorage storage _stakingStore, uint256 _seed)
+  function sampleValidators(StakingStorage storage _stakingStore, Epoch _epoch, uint256 _seed)
     internal
     returns (address[] memory)
   {
     uint256 validatorSetSize = _stakingStore.attesters.length();
+
     if (validatorSetSize == 0) {
       return new address[](0);
     }
@@ -201,7 +202,8 @@ library ValidatorSelectionLib {
 
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
-      committee[i] = _stakingStore.attesters.at(indices[i]);
+      committee[i] =
+        _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], Epoch.unwrap(_epoch));
     }
     return committee;
   }
@@ -228,7 +230,8 @@ library ValidatorSelectionLib {
 
     // Emulate a sampling of the validators
     uint256 sampleSeed = getSampleSeed(_epochNumber);
-    return sampleValidators(_stakingStore, sampleSeed);
+
+    return sampleValidators(_stakingStore, _epochNumber, sampleSeed);
   }
 
   /**

@@ -4,8 +4,6 @@ pragma solidity >=0.8.27;
 
 import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
-import "forge-std/console.sol";
-
 // The validator index -> the validator at that point in time
 struct SnapshottedAddressSet {
   uint256 size;
@@ -29,6 +27,10 @@ struct AddressSnapshot {
 
 library AddressSnapshotLib {
   function add(SnapshottedAddressSet storage _self, address _validator) internal returns (bool) {
+    if (_self.validatorToIndex[_validator] != 0) {
+      return false;
+    }
+
     // Insert into the end of the array
     uint256 index = _self.size;
 
@@ -39,9 +41,6 @@ library AddressSnapshotLib {
 
     // Include max bit to indicate that the validator is in the set - means 0 index is not 0
     uint256 indexWithBit = index | (1 << 255);
-    console.log(" inserting validator", _validator);
-    console.log(" at index");
-    console.logBytes32(bytes32(indexWithBit));
 
     _self.validatorToIndex[_validator] = indexWithBit;
     _self.checkpoints[index].push(
@@ -63,28 +62,47 @@ library AddressSnapshotLib {
 
     address lastValidator = lastSnapshot.addr;
     uint256 newLocationWithMask = _index | (1 << 255);
+
     _self.validatorToIndex[lastValidator] = newLocationWithMask; // Remove the last validator from the index
 
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this epoch
     if (lastIndex == _index) {
       lastSnapshot.addr = address(0);
+
+      // TODO: reuse value above, only insert once
+      _self.validatorToIndex[lastValidator] = 0;
     }
 
-    require(lastSnapshot.epochNumber != epochNow, "Cannot edit an item twice within the same epoch");
-
     lastSnapshot.epochNumber = uint96(epochNow);
-    _self.checkpoints[_index].push(lastSnapshot);
+    // Check if there's already a checkpoint for this index in the current epoch
+    uint256 checkpointCount = _self.checkpoints[_index].length;
+    if (
+      checkpointCount > 0 && _self.checkpoints[_index][checkpointCount - 1].epochNumber == epochNow
+    ) {
+      // If there's already a checkpoint for this epoch, update it instead of adding a new one
+      _self.checkpoints[_index][checkpointCount - 1] = lastSnapshot;
+    } else {
+      // Otherwise add a new checkpoint
+      _self.checkpoints[_index].push(lastSnapshot);
+    }
+
+    // _self.checkpoints[_index].push(lastSnapshot);
+
     _self.size -= 1;
     return true;
   }
 
   function remove(SnapshottedAddressSet storage _self, address _validator) internal returns (bool) {
     uint256 index = _self.validatorToIndex[_validator];
-    require(index != 0, "Validator not found");
+    if (index == 0) {
+      return false;
+    }
 
     // Remove top most bit
+
     index = index & ~uint256(1 << 255);
+
     return remove(_self, index);
   }
 
@@ -100,7 +118,7 @@ library AddressSnapshotLib {
     uint256 numCheckpoints = _self.checkpoints[_index].length;
 
     if (_index >= _self.size) {
-      return address(0);
+      revert("update me");
     }
 
     if (numCheckpoints == 0) {
@@ -114,6 +132,7 @@ library AddressSnapshotLib {
   function getAddressFromIndexAtEpoch(
     SnapshottedAddressSet storage _self,
     uint256 _index,
+    // TODO: make Epoch type - waiting to not have to change all tests
     uint256 _epoch
   ) internal view returns (address) {
     uint256 numCheckpoints = _self.checkpoints[_index].length;
