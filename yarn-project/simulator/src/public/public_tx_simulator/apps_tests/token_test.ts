@@ -17,7 +17,8 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
   const token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
 
-  const constructorResult = await tester.simulateTx(
+  const constructorResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'constructor',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -31,7 +32,8 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   expect(constructorResult.revertCode.isOK()).toBe(true);
 
   const mintAmount = 100n;
-  const mintResult = await tester.simulateTx(
+  const mintResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'mint_to_public',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -47,7 +49,8 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
 
   const nonce = new Fr(0);
   const transferAmount = 50n;
-  const transferResult = await tester.simulateTx(
+  const transferResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'transfer_in_public',
     /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -62,7 +65,8 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   await checkBalance(tester, token, sender, receiver, mintAmount - transferAmount);
   await checkBalance(tester, token, sender, receiver, transferAmount);
 
-  const balResult = await tester.simulateTx(
+  const balResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'balance_of_public',
     sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -76,7 +80,8 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   );
   expect(balResult.revertCode.isOK()).toBe(true);
 
-  const burnResult = await tester.simulateTx(
+  const burnResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'burn_public',
     /*sender=*/ receiver,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -102,7 +107,8 @@ async function checkBalance(
   account: AztecAddress,
   expectedBalance: bigint,
 ) {
-  const balResult = await tester.simulateTx(
+  const balResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'balance_of_public',
     sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [

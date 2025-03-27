@@ -28,7 +28,8 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
     /*seed=*/ 3,
   );
 
-  const ammConstructorResult = await tester.simulateTx(
+  const ammConstructorResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'constructor',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -42,7 +43,8 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   expect(ammConstructorResult.revertCode.isOK()).toBe(true);
 
   // set the AMM as the minter for the liquidity token
-  const setMinterResult = await tester.simulateTx(
+  const setMinterResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'set_minter',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -80,7 +82,8 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   await tester.setPublicStorage(liquidityToken.address, liquidityPartialNote.commitment, new Fr(1));
 
   // private function add_liquidity enqueues a few public calls
-  const addLiquidityResult = await tester.simulateTx(
+  const addLiquidityResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'add_liquidity',
     /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -120,7 +123,8 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   };
   await tester.setPublicStorage(token1.address, tokenOutPartialNote.commitment, new Fr(1));
 
-  const swapResult = await tester.simulateTx(
+  const swapResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'swap_exact_tokens_for_tokens',
     /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -147,7 +151,8 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   await tester.setPublicStorage(token0.address, token0OutPartialNote.commitment, new Fr(1));
   await tester.setPublicStorage(token1.address, token1OutPartialNote.commitment, new Fr(1));
 
-  const removeLiquidityResult = await tester.simulateTx(
+  const removeLiquidityResult = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'remove_liquidity',
     /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -187,7 +192,8 @@ async function deployToken(tester: PublicTxSimulationTester, admin: AztecAddress
     seed,
   );
 
-  const result = await tester.simulateTx(
+  const result = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'constructor',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
@@ -209,7 +215,8 @@ async function mint(
   amount: bigint,
   token: ContractInstanceWithAddress,
 ) {
-  const result = await tester.simulateTx(
+  const result = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'mint_to_public',
     /*sender=*/ admin,
     /*setupCalls=*/ [],
     /*appCalls=*/ [

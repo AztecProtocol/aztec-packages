@@ -5,50 +5,40 @@ import { AvmGadgetsTestContractArtifact } from '@aztec/noir-contracts.js/AvmGadg
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import { Metrics } from '@aztec/telemetry-client';
-import type { TelemetryClient } from '@aztec/telemetry-client';
 
-import { benchmarkSetup } from '../../../test/bench.js';
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
+import { TestExecutorMetrics } from '../../test_executor_metrics.js';
 import { ammTest } from './amm_test.js';
 import { tokenTest } from './token_test.js';
 
 describe('Public TX simulator apps tests: benchmarks', () => {
   const logger = createLogger('public-tx-apps-tests-bench');
 
-  let telemetryClient: TelemetryClient;
-  let teardown: () => Promise<void>;
+  const metrics = new TestExecutorMetrics();
+  let tester: PublicTxSimulationTester;
 
-  beforeAll(() => {
-    ({ telemetryClient, teardown } = benchmarkSetup(
-      ///*telemetryConfig=*/ {},
-      /*metrics=*/ [
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS,
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED,
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND,
-        Metrics.PUBLIC_EXECUTOR_SIMULATION_DURATION,
-      ],
-    ));
+  beforeEach(async () => {
+    tester = await PublicTxSimulationTester.create(defaultGlobals(), metrics);
   });
 
-  afterAll(async () => {
-    await teardown();
+  afterAll(() => {
+    metrics.prettyPrint();
   });
 
-  it('TokenContract', async () => {
-    const tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'Token');
+  it('Token Contract test', async () => {
+    tester.setMetricsPrefix('Token');
     await tokenTest(tester, logger);
   });
 
-  it('AMM Contract', async () => {
-    const tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'AMM');
+  it('AMM Contract test', async () => {
+    tester.setMetricsPrefix('AMM');
     await ammTest(tester, logger);
   });
 
   it('AVM simulator bulk test', async () => {
+    tester.setMetricsPrefix('AvmTest');
     const deployer = AztecAddress.fromNumber(42);
 
-    const tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'AvmTest');
     const avmTestContract = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       deployer,
@@ -69,7 +59,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       /*expectedInitializationHash=*/ expectContractInstance.initializationHash,
     ];
 
-    const bulkResult = await tester.simulateTx(
+    const bulkResult = await tester.simulateTxWithLabel(
+      /*txLabel=*/ 'bulk_testing',
       /*sender=*/ deployer,
       /*setupCalls=*/ [],
       /*appCalls=*/ [
@@ -83,19 +74,20 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     expect(bulkResult.revertCode.isOK()).toBe(true);
   });
 
-  describe('AVM gadgets', () => {
+  describe('AVM gadgets tests', () => {
     const deployer = AztecAddress.fromNumber(42);
 
     let tester: PublicTxSimulationTester;
     let avmGadgetsTestContract: ContractInstanceWithAddress;
 
     beforeAll(async () => {
-      tester = await PublicTxSimulationTester.create(defaultGlobals(), telemetryClient, 'AvmGadgetsTest');
+      tester = await PublicTxSimulationTester.create(defaultGlobals(), metrics);
       avmGadgetsTestContract = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         deployer,
         /*contractArtifact=*/ AvmGadgetsTestContractArtifact,
       );
+      tester.setMetricsPrefix(`AvmGadgetsTest`);
     });
 
     describe.each(
@@ -103,7 +95,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
       [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 256, 511, 512, 2048],
     )('sha256_hash_%s', (length: number) => {
       it(`sha256_hash_${length}`, async () => {
-        const result = await tester.simulateTx(
+        const result = await tester.simulateTxWithLabel(
+          /*txLabel=*/ `sha256_hash_${length}`,
           /*sender=*/ deployer,
           /*setupCalls=*/ [],
           /*appCalls=*/ [
@@ -119,7 +112,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     });
 
     it('keccak_hash', async () => {
-      const result = await tester.simulateTx(
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'keccak_hash',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -134,7 +128,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     });
 
     it('keccak_f1600', async () => {
-      const result = await tester.simulateTx(
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'keccak_f1600',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -149,7 +144,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     });
 
     it('poseidon2_hash', async () => {
-      const result = await tester.simulateTx(
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'poseidon2_hash',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -164,7 +160,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     });
 
     it('pedersen_hash', async () => {
-      const result = await tester.simulateTx(
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'pedersen_hash',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [
@@ -179,7 +176,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
     });
 
     it('pedersen_hash_with_index', async () => {
-      const result = await tester.simulateTx(
+      const result = await tester.simulateTxWithLabel(
+        /*txLabel=*/ 'pedersen_hash_with_index',
         /*sender=*/ deployer,
         /*setupCalls=*/ [],
         /*appCalls=*/ [

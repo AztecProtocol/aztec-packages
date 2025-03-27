@@ -103,8 +103,9 @@ export const PUBLIC_EXECUTOR_SIMULATION_DURATION = 'aztec.public_executor.simula
 export const PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND = 'aztec.public_executor.simulation_mana_per_second';
 export const PUBLIC_EXECUTOR_SIMULATION_MANA_USED = 'aztec.public_executor.simulation_mana_used';
 export const PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS = 'aztec.public_executor.simulation_total_instructions';
-export const PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
-export const PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION = 'aztec.public_executor.private_effects_insertion';
+export const PUBLIC_EXECUTOR_TX_HASHING = 'aztec.public_executor.tx_hashing';
+export const PUBLIC_EXECUTOR_PRIVATE_EFFECTS_INSERTION = 'aztec.public_executor.private_effects_insertion';
+export const PUBLIC_EXECUTOR_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
 
 export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
   'aztec.proving_orchestrator.base_rollup.inputs_duration';

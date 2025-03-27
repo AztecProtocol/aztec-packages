@@ -31,6 +31,7 @@ import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js'
 import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
 import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
+import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { PublicTxContext } from './public_tx_context.js';
 
@@ -53,8 +54,6 @@ export type PublicTxResult = {
 };
 
 export class PublicTxSimulator {
-  metrics: ExecutorMetrics;
-
   private log: Logger;
 
   constructor(
@@ -63,18 +62,14 @@ export class PublicTxSimulator {
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
     private skipFeeEnforcement: boolean = false,
-    private telemetryClient: TelemetryClient = getTelemetryClient(),
+    telemetryClient: TelemetryClient = getTelemetryClient(),
+    private metrics: ExecutorMetricsInterface = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator'),
   ) {
     this.log = createLogger(`simulator:public_tx_simulator`);
-    this.metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
   }
 
-  get tracer(): Tracer {
+  get tracer(): Tracer | undefined {
     return this.metrics.tracer;
-  }
-
-  setMetricsLabel(label: string) {
-    this.metrics = new ExecutorMetrics(this.telemetryClient, label);
   }
 
   /**
@@ -85,10 +80,10 @@ export class PublicTxSimulator {
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
       const startTime = process.hrtime.bigint();
-
       const txHash = await tx.getTxHash();
-      this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
+      this.metrics.recordTxHashComputation(Number(process.hrtime.bigint() - startTime) / 1_000_000);
 
+      this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
       const context = await PublicTxContext.create(
         this.treesDB,
         this.contractsDB,
@@ -400,12 +395,17 @@ export class PublicTxSimulator {
     );
 
     if (result.reverted) {
-      this.metrics.recordFunctionSimulationFailure();
-    } else {
-      this.metrics.recordFunctionSimulation(
+      this.metrics.recordEnqueuedCallSimulationFailure(
+        fnName,
         timer.ms(),
         allocatedGas.sub(result.gasLeft).l2Gas,
+        result.totalInstructions,
+      );
+    } else {
+      this.metrics.recordEnqueuedCallSimulation(
         fnName,
+        timer.ms(),
+        allocatedGas.sub(result.gasLeft).l2Gas,
         result.totalInstructions,
       );
     }

@@ -8,13 +8,16 @@ import {
   ValueType,
 } from '@aztec/telemetry-client';
 
-export class ExecutorMetrics {
+import type { ExecutorMetricsInterface } from './executor_metrics_interface.js';
+
+export class ExecutorMetrics implements ExecutorMetricsInterface {
   public readonly tracer: Tracer;
   private fnCount: UpDownCounter;
   private fnDuration: Histogram;
   private manaPerSecond: Histogram;
-  private manaUsed: UpDownCounter;
-  private totalInstructions: UpDownCounter;
+  private manaUsed: Histogram;
+  private totalInstructions: Histogram;
+  private txHashing: Histogram;
   private privateEffectsInsertions: Histogram;
 
   constructor(client: TelemetryClient, name = 'PublicExecutor') {
@@ -37,36 +40,48 @@ export class ExecutorMetrics {
       valueType: ValueType.INT,
     });
 
-    this.manaUsed = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED, {
+    this.manaUsed = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_MANA_USED, {
       description: 'Total mana used',
       unit: 'mana',
       valueType: ValueType.INT,
     });
 
-    this.totalInstructions = meter.createUpDownCounter(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
+    this.totalInstructions = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS, {
       description: 'Total number of instructions executed',
       unit: 'instructions',
       valueType: ValueType.INT,
     });
 
-    this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION, {
+    this.txHashing = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_TX_HASHING, {
+      description: 'Tx hashing time',
+      unit: 'ms',
+      valueType: ValueType.INT,
+    });
+
+    this.privateEffectsInsertions = meter.createHistogram(Metrics.PUBLIC_EXECUTOR_PRIVATE_EFFECTS_INSERTION, {
       description: 'Private effects insertion time',
       unit: 'us',
       valueType: ValueType.INT,
     });
   }
 
-  recordFunctionSimulation(durationMs: number, manaUsed: number, fnName: string, totalInstructions: number) {
+  startRecordingTxSimulation(_txLabel: string) {
+    // do nothing (unimplemented)
+  }
+
+  stopRecordingTxSimulation(_txLabel: string, _durationMs: number) {
+    // do nothing (unimplemented)
+  }
+
+  recordEnqueuedCallSimulation(fnName: string, durationMs: number, manaUsed: number, totalInstructions: number) {
     this.fnCount.add(1, {
       [Attributes.OK]: true,
       [Attributes.APP_CIRCUIT_NAME]: fnName,
-      [Attributes.MANA_USED]: manaUsed,
-      [Attributes.TOTAL_INSTRUCTIONS]: totalInstructions,
     });
-    this.manaUsed.add(manaUsed, {
+    this.manaUsed.record(Math.ceil(manaUsed), {
       [Attributes.APP_CIRCUIT_NAME]: fnName,
     });
-    this.totalInstructions.add(totalInstructions, {
+    this.totalInstructions.record(Math.ceil(totalInstructions), {
       [Attributes.APP_CIRCUIT_NAME]: fnName,
     });
     this.fnDuration.record(Math.ceil(durationMs), {
@@ -80,10 +95,19 @@ export class ExecutorMetrics {
     }
   }
 
-  recordFunctionSimulationFailure() {
+  recordEnqueuedCallSimulationFailure(
+    _fnName: string,
+    _durationMs: number,
+    _manaUsed: number,
+    _totalInstructions: number,
+  ) {
     this.fnCount.add(1, {
       [Attributes.OK]: false,
     });
+  }
+
+  recordTxHashComputation(durationMs: number) {
+    this.txHashing.record(Math.ceil(durationMs));
   }
 
   recordPrivateEffectsInsertion(durationUs: number, type: 'revertible' | 'non-revertible') {
