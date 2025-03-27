@@ -8,9 +8,9 @@
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
 
 namespace bb::avm2 {
