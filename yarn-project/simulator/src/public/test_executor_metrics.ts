@@ -27,13 +27,13 @@ export interface PublicTxMetrics {
 }
 
 const NUM_SPACES = 4;
-const H1 = '\n# ';
+const H1 = '# ';
 const H2 = '\n## ';
 const INDENT = ' '.repeat(NUM_SPACES);
 const INDENT0 = '- ';
 const INDENT1 = INDENT + '- ';
 const INDENT2 = INDENT + INDENT + '- ';
-const H_LINE = '---------------------------------------------------------------------';
+const H_LINE = '\n---------------------------------------------------------------------';
 
 export enum PublicTxMetricsFilter {
   ALL,

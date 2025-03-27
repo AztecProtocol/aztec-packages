@@ -6,6 +6,8 @@ import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
+import { writeFileSync } from 'fs';
+
 import { PublicTxSimulationTester, defaultGlobals } from '../../fixtures/public_tx_simulation_tester.js';
 import { TestExecutorMetrics } from '../../test_executor_metrics.js';
 import { ammTest } from './amm_test.js';
@@ -22,8 +24,8 @@ describe('Public TX simulator apps tests: benchmarks', () => {
   });
 
   afterAll(() => {
-    metrics.prettyPrint();
-    logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+    const benchOutput = process.env.BENCH_OUTPUT_MD ?? 'bench.md';
+    writeFileSync(benchOutput, metrics.toPrettyString());
   });
 
   it('Token Contract test', async () => {
