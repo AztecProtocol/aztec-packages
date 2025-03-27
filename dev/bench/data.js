@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743076928041,
+  "lastUpdate": 1743078723015,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "68168980+just-mitch@users.noreply.github.com",
-            "name": "just-mitch",
-            "username": "just-mitch"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1a37d6d4c5f4470fa87bd5bd3934e23ce0a9fb10",
-          "message": "chore: deflake the kind smoke test (#12955)\n\nSmoke test runs in just under 5 minutes in ci now (just under 3 minutes\nlocally).\nIt has ran through the deflaker (locally) 100 times with no error; i.e.\n\n```\n./yarn-project/end-to-end/scripts/deflaker.sh ./spartan/bootstrap.sh test-kind-smoke\n```\n\nHowever, it did flake when I was running it on mainframe, so updating\nmyself to receive slack notifications.\n\nSee [passing CI run](http://ci.aztec-labs.com/5ffc13f772a79c68)\n\nchanges:\n- have the pxe and bot just connect to the boot node\n- retain the setup l2 contracts job if it fails\n- make the 1-validators yaml lighter/faster\n- use 1-validators in the smoke test in CI\n- fix the kubectl await to only await the pxe\n- make the deflaker support bootstrap scripts\n\nFix #11177",
-          "timestamp": "2025-03-23T14:40:39-04:00",
-          "tree_id": "370aae2582cceb57e889c939284ddc574d7c6e4d",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1a37d6d4c5f4470fa87bd5bd3934e23ce0a9fb10"
-        },
-        "date": 1742756808350,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 39638,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 25980,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 11538,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14775,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 15399,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3034,6 +2980,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15322,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "4eb1156250d2221e028c340e7d93dcdc39803cbe",
+          "message": "feat: gas benchmark for \"normal usage\" (#13073)\n\nFixed #13075\n\nCreating explicit benchmarking test for gas such that there is something\nthat is:\n1) convenient to check against for optimisations\n2) gives a somewhat correct view instead of having all the failure cases\nin the mix\n\nThe test runs with a validator set of 100 entities, that each have a\nforwarder contract. We then ram through time and submit and fake proof\n100 blocks to collect data.\n\nNotice, that if you bump up the numbers of entities or blocks foundry is\nprobably going to explode if you don't also change the gas limits\nbecause that is a lot of things being loaded in 🤷\n\nTodo: Talk to @Maddiaa0 @just-mitch and @aminsammara on which numbers\nare missing and what should make its way into the fancy benchmark graphs\nthat charlie setup. Most should be in #12615",
+          "timestamp": "2025-03-27T12:25:04Z",
+          "tree_id": "cfad1b61ac0b5244adf8725ad91e94149da1ddca",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4eb1156250d2221e028c340e7d93dcdc39803cbe"
+        },
+        "date": 1743078714351,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 39367,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 26105,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 11656,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 14431,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 15435,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
