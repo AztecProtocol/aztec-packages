@@ -9,7 +9,6 @@ import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
-import { resolveAssertionMessageFromRevertData } from '../../client.js';
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
 import { DEFAULT_BLOCK_NUMBER, getContractFunctionAbi, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
