@@ -364,9 +364,9 @@ class AvmFlavor {
 
     public:
       VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key) {
-            {{#each fixed as |item|}}
-            this->{{item}} = verification_key->{{item}};
-            {{/each}}
+            for (auto [commitment, vk_commitment] : zip_view(this->get_precomputed(), verification_key->get_all())) {
+                commitment = vk_commitment;
+            }
         }
     };
 
