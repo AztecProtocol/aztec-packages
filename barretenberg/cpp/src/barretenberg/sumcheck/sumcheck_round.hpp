@@ -697,10 +697,9 @@ template <typename Flavor> class SumcheckVerifierRound {
     void pad_gate_challenges_for_protogalaxy(std::vector<FF>& gate_challenges)
     {
         if (gate_challenges.size() == CONST_PG_LOG_N) {
-            FF zero;
+            FF zero{ 0 };
             if constexpr (IsRecursiveFlavor<Flavor>) {
-                zero = FF::from_witness(gate_challenges[0].get_context(), 0);
-                zero.fix_witness();
+                zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
             }
             for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
                 gate_challenges.emplace_back(zero);

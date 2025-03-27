@@ -89,8 +89,8 @@ template <typename FF> struct GateSeparatorPolynomial {
         // For the Ultra Recursive flavor to ensure constant size proofs, we perform constant amount of hashing
         // producing 28 gate betas and we need to use the betas in the dummy rounds to ensure the permutation related
         // selectors stay the same regardless of real circuit size.
-        FF one = FF::from_witness(challenge.get_context(), 1);
-        one.fix_witness();
+        FF one{ 1 };
+        one.convert_constant_to_fixed_witness(challenge.get_context());
 
         FF beta_val = FF::conditional_assign(dummy_round, one, betas[current_element_idx]);
         return (FF(1) + (challenge * (beta_val - FF(1))));
