@@ -36,7 +36,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
   protected override async computeTxHash(tx: Tx) {
     const timer = new Timer();
     const txHash = await super.computeTxHash(tx);
-    this.metrics.recordTxHashComputation(timer.us());
+    this.metrics.recordTxHashComputation(timer.ms());
     return txHash;
   }
 

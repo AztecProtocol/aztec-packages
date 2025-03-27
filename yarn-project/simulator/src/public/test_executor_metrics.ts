@@ -22,6 +22,15 @@ export interface PublicTxMetrics {
   enqueuedCalls: PublicEnqueuedCallMetrics[];
 }
 
+const DECIMALS = 2;
+
+export enum PublicTxMetricsFilter {
+  ALL,
+  TOTALS,
+  DURATIONS,
+  INSTRUCTIONS,
+}
+
 export class TestExecutorMetrics implements ExecutorMetricsInterface {
   private log: Logger;
   // tx label -> tx metrics
@@ -112,9 +121,66 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     }
   }
 
-  prettyPrint() {
-    this.log.info('Tx metrics:');
-    this.log.info(JSON.stringify(this.toJSON(), null, 2));
+  prettyPrint(filter: PublicTxMetricsFilter = PublicTxMetricsFilter.ALL) {
+    const separator = '=====================================================================';
+    this.log.info(separator);
+    this.log.info(`Public TX Simulation Metrics (${PublicTxMetricsFilter[filter]})`);
+    for (const [txLabel, txMetrics] of this.txMetrics.entries()) {
+      this.log.info(separator);
+      this.log.info(`Tx label: ${txLabel}`);
+      if (
+        filter == PublicTxMetricsFilter.DURATIONS ||
+        filter === PublicTxMetricsFilter.TOTALS ||
+        filter === PublicTxMetricsFilter.ALL
+      ) {
+        this.log.info(`\tTotal duration: ${txMetrics.totalDurationMs.toFixed(DECIMALS)} ms`);
+      }
+      if (filter === PublicTxMetricsFilter.TOTALS || filter === PublicTxMetricsFilter.ALL) {
+        this.log.info(`\tTotal mana used: ${txMetrics.manaUsed}`);
+        const manaPerSecond = Math.round((txMetrics.manaUsed * 1000) / txMetrics.totalDurationMs);
+        this.log.info(`\tMana per second: ${manaPerSecond.toFixed(DECIMALS)}`);
+      }
+
+      if (
+        filter === PublicTxMetricsFilter.INSTRUCTIONS ||
+        filter === PublicTxMetricsFilter.TOTALS ||
+        filter === PublicTxMetricsFilter.ALL
+      ) {
+        this.log.info(`\tTotal instructions executed: ${txMetrics.totalInstructions}`);
+      }
+      if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
+        this.log.info(`\tTx hash computation: ${txMetrics.txHashMs!.toFixed(DECIMALS)} ms`);
+        this.log.info(`\tPrivate insertions:`);
+        this.log.info(
+          `\t\tNon-revertible: ${(txMetrics.nonRevertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`,
+        );
+        this.log.info(`\t\tRevertible: ${(txMetrics.revertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`);
+      }
+      if (filter !== PublicTxMetricsFilter.TOTALS) {
+        // totals exclude enqueued calls
+        this.#printEnqueuedCalls(txMetrics, filter);
+      }
+    }
+    this.log.info(separator);
+  }
+
+  #printEnqueuedCalls(txMetrics: PublicTxMetrics, filter: PublicTxMetricsFilter) {
+    this.log.info(`\tEnqueued public calls:`);
+    for (const enqueuedCall of txMetrics.enqueuedCalls) {
+      this.log.info(`\t\tFn: ${enqueuedCall.fnName}`);
+      if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
+        this.log.info(`\t\t\tDuration: ${enqueuedCall.durationMs.toFixed(DECIMALS)} ms`);
+      }
+      if (filter === PublicTxMetricsFilter.ALL) {
+        this.log.info(`\t\t\tMana used: ${enqueuedCall.manaUsed}`);
+        const manaPerSecond = Math.round((enqueuedCall.manaUsed * 1000) / enqueuedCall.durationMs);
+        this.log.info(`\t\t\tMana per second: ${manaPerSecond.toFixed(DECIMALS)}`);
+      }
+
+      if (filter === PublicTxMetricsFilter.INSTRUCTIONS || filter === PublicTxMetricsFilter.ALL) {
+        this.log.info(`\t\t\tInstructions executed: ${enqueuedCall.totalInstructions}`);
+      }
+    }
   }
 
   toJSON() {
