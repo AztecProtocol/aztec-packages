@@ -682,26 +682,9 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
     if (filtered_variables_vector.size() < 2) {
         return;
     }
-    std::vector<uint32_t> filtered_variables_vector;
-    filtered_variables_vector.reserve(variables_vector.size());
-    // Only copy non-zero and non-constant variables
-    std::copy_if(variables_vector.begin(),
-                 variables_vector.end(),
-                 std::back_inserter(filtered_variables_vector),
-                 [&](uint32_t variable_index) {
-                     return variable_index != ultra_circuit_builder.zero_idx &&
-                            this->check_is_not_constant_variable(ultra_circuit_builder, variable_index);
-                 });
-    // Remove duplicates
-    auto unique_pointer = std::unique(filtered_variables_vector.begin(), filtered_variables_vector.end());
-    filtered_variables_vector.erase(unique_pointer, filtered_variables_vector.end());
-    if (filtered_variables_vector.size() < 2) {
-        return;
-    }
     for (size_t i = 0; i < filtered_variables_vector.size() - 1; i++) {
         this->add_new_edge(filtered_variables_vector[i], filtered_variables_vector[i + 1]);
     }
-}
 }
 
 /**
