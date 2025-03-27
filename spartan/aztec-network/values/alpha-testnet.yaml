@@ -10,7 +10,7 @@ aztec:
   contracts:
     registryAddress: "0xad85d55a4bbef35e95396191c22903aa717edf1c"
     rollupAddress: "0xee29e2cfdf6bac577e7a6497a6d61856be22c9f1"
-    slashFactoryAddress: ""
+    slashFactoryAddress: "0x0000000000000000000000000000000000000000"
     feeAssetHandlerContractAddress: "0xf0664fec6ac15313e18d5ad8225e46b7c6463338"
 
 network:
