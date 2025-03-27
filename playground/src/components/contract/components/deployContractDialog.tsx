@@ -10,6 +10,9 @@ import Typography from '@mui/material/Typography';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import Checkbox from '@mui/material/Checkbox';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import FormHelperText from '@mui/material/FormHelperText';
 import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
 import {
@@ -22,6 +25,7 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
+import { SponsoredFeePaymentMethod } from '../../../utils/fees/sponsored_fee_payment_method';
 
 const creationForm = css({
   display: 'flex',
@@ -44,8 +48,9 @@ export function DeployContractDialog({
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
-  const { wallet, setLogsOpen, node } = useContext(AztecContext);
+  const { wallet, setLogsOpen, node, pxe } = useContext(AztecContext);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
+  const [useSponsoredFees, setUseSponsoredFees] = useState(true);
 
   useEffect(() => {
     const defaultInitializer = getDefaultInitializer(contractArtifact);
@@ -109,6 +114,7 @@ export function DeployContractDialog({
       logDeployment(`Initializer: ${initializer?.name || 'No initializer'}`);
       logDeployment(`Parameters: ${JSON.stringify(parameters)}`);
       logDeployment(`Wallet Address: ${wallet?.getAddress().toString()}`);
+      logDeployment(`Using Sponsored Fees: ${useSponsoredFees}`);
 
       // Add specific detection for SignerlessWallet issues
       const walletType = wallet.constructor.name;
@@ -189,8 +195,29 @@ export function DeployContractDialog({
       const deployTx = deployer.deploy(...args);
       logDeployment('✅ Deployment transaction created');
 
+      // Configure deployment options with fee payment method if using sponsored fees
+      let deploymentOptions = {};
+      
+      if (useSponsoredFees) {
+        try {
+          logDeployment('🔄 Setting up sponsored fee payment...');
+          const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+          logDeployment('✅ Sponsored payment method created');
+          
+          deploymentOptions = {
+            fee: {
+              paymentMethod: sponsoredPaymentMethod
+            }
+          };
+          logDeployment('✅ Fee payment method configured');
+        } catch (feeError) {
+          logDeployment(`⚠️ Error setting up sponsored fees: ${feeError.message}`);
+          logDeployment('⚠️ Continuing with default fee payment');
+        }
+      }
+
       logDeployment('🔄 4/5: Sending deployment transaction to network...');
-      const sentTx = await deployTx.send();
+      const sentTx = await deployTx.send(deploymentOptions);
       logDeployment('✅ Deployment transaction sent to network');
       logDeployment('⏱️ This step may take 20-30 seconds...');
 
@@ -248,170 +275,129 @@ export function DeployContractDialog({
                 waitError.message.includes('IDBKeyRange') ||
                 waitError.message.includes('IndexedDB') ||
                 waitError.message.includes('DataError') ||
-                waitError.message.includes('getValuesAsync')
-              )) {
-              logDeployment('⚠️ Database error detected during deployment confirmation.');
-              logDeployment('⚠️ This is likely a temporary IndexedDB issue.');
-              logDeployment('⚠️ The contract might still be deployed successfully on the network,');
-              logDeployment('⚠️ but we cannot confirm it due to database errors.');
-
-              // For database errors, wait longer
-              await new Promise(resolve => setTimeout(resolve, 3000));
-            } else {
-              // For other errors, wait a standard time
-              await new Promise(resolve => setTimeout(resolve, 1000));
+                waitError.message.includes('database')
+            )) {
+              logDeployment('⚠️ Database error detected during wait. Transaction may have been sent.');
+              logDeployment('⚠️ Deployment might still succeed even with this error.');
+              logDeployment('⚠️ If you do not see your contract, try using Register afterward.');
+              break;
             }
 
-            // If we've reached max retries, rethrow the error
-            if (retryCount > maxWaitRetries) {
-              // If we can't confirm due to database errors, we need to check if the deployment succeeded anyway
-              if (waitError.message && (
-                  waitError.message.includes('IDBKeyRange') ||
-                  waitError.message.includes('IndexedDB') ||
-                  waitError.message.includes('DataError') ||
-                  waitError.message.includes('getValuesAsync')
-                )) {
-                logDeployment('⚠️ Could not confirm deployment due to database errors, but contract might be deployed.');
-                logDeployment('⚠️ Please use the Reset DB button and reload the page.');
-                logDeployment('⚠️ Then try to use the Register button to add your contract by address.');
-
-                // Break out of the loop without rethrowing - consider this a "soft" failure
-                break;
-              }
-
+            if (retryCount >= maxWaitRetries) {
               throw waitError;
             }
 
-            // Otherwise wait a bit and try again
-            logDeployment(`🔁 Retrying deployment confirmation... (${retryCount}/${maxWaitRetries})`);
+            // Wait an increasing amount of time before retrying
+            const waitTime = Math.min(2000 * retryCount, 10000);
+            logDeployment(`⚠️ Wait failed (attempt ${retryCount}/${maxWaitRetries}). Retrying in ${waitTime/1000} seconds...`);
+            await new Promise(resolve => setTimeout(resolve, waitTime));
           }
         }
       } finally {
         clearInterval(progressIndicator);
       }
 
-      if (!deployed) {
-        logDeployment('⚠️ Could not confirm deployment, but that doesn\'t mean it failed.');
-        logDeployment('⚠️ Your contract might still be deployed on the network.');
-        logDeployment('⚠️ Try using Reset DB button, reload the page, and register your contract.');
-
-        // Create a softer error message for the UI since we don't know for sure if it failed
-        alert('Could not confirm deployment due to database errors. Your contract might still be deployed. Try the Reset DB button, reload the page, and then use Register to find your contract.');
-        setDeploying(false);
-        return;
+      if (deployed) {
+        logDeployment('🎉 Contract deployment confirmed successfully!');
+        logDeployment(`Contract address: ${deployed.address.toString()}`);
+        onClose(deployed, alias);
+      } else {
+        logDeployment('⚠️ Contract deployment could not be confirmed. Check transactions panel for status.');
+        onClose();
       }
-
-      logDeployment('✅ DEPLOYMENT CONFIRMED!');
-      logDeployment(`🎉 Contract deployed at address: ${deployed.contract.instance.address.toString()}`);
-      logDeployment(`📝 Contract class ID: ${deployed.contract.instance.currentContractClassId.toString()}`);
-      logDeployment('=== CONTRACT DEPLOYMENT COMPLETED SUCCESSFULLY ===');
-
-      // Display a success alert with deployment information
-      alert(`Contract Deployed Successfully!\nAddress: ${deployed.contract.instance.address.toString()}\n\nYou can now interact with your contract.`);
-
-      onClose(deployed.contract.instance, alias);
     } catch (error) {
-      logDeployment('❌ CONTRACT DEPLOYMENT FAILED ❌');
-      console.error('Error type:', error.constructor.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-
-      // Try to extract more information about the error
-      if (error.cause) {
-        console.error('Error cause:', error.cause);
-      }
-
-      if (error.response) {
-        console.error('Error response:', error.response);
-      }
-
-      // Show more specific error messages to the user
-      let errorMsg = `Contract deployment failed:\n\n`;
+      console.error('=== DEPLOYMENT ERROR ===');
+      console.error(error);
       
-      // Add the actual error message
-      errorMsg += `Error: ${error.message}\n\n`;
+      // Show the error to the user
+      alert(`Deployment failed: ${error.message}`);
       
-      // Add error type if available
-      if (error.constructor.name !== 'Error') {
-        errorMsg += `Type: ${error.constructor.name}\n\n`;
-      }
-
-      // Add deployment context
-      errorMsg += `Deployment Context:\n`;
-      errorMsg += `- Contract: ${contractArtifact.name}\n`;
-      errorMsg += `- Initializer: ${initializer?.name || 'None'}\n`;
-      errorMsg += `- Wallet: ${wallet?.getAddress().toString()}\n\n`;
-
-      // Add troubleshooting steps
-      errorMsg += `Troubleshooting Steps:\n`;
-      errorMsg += `1. Check if your local sandbox is running\n`;
-      errorMsg += `2. Try the 'Reset DB' button and reload the page\n`;
-      errorMsg += `3. Check the browser console for more details\n`;
-      errorMsg += `4. Make sure you have enough funds in your wallet\n`;
-
-      // Display deployment log messages to help debug
-      console.log('Deployment log summary:');
+      // Also log a summary of deployment messages to help debug the issue
+      console.log('=== DEPLOYMENT LOG SUMMARY ===');
       deploymentStatusMessages.forEach(msg => console.log(msg));
-
-      // Show error in UI
-      alert(errorMsg);
+      
+      onClose();
+    } finally {
       setDeploying(false);
     }
   };
 
   return (
     <Dialog onClose={handleClose} open={open}>
-      <DialogTitle>Deploy contract</DialogTitle>
+      <DialogTitle>Deploy Contract</DialogTitle>
       <div css={creationForm}>
         {deploying ? (
           <>
-            <Typography>Deploying...</Typography>
+            <Typography>Deploying Contract...</Typography>
             <CircularProgress />
+            <Typography variant="caption">
+              This may take 20-30 seconds
+            </Typography>
           </>
         ) : (
           <>
-            <FormGroup sx={{ display: 'flex' }}>
-              <FormControl>
+            <TextField
+              value={alias}
+              label="Alias"
+              onChange={event => {
+                setAlias(event.target.value);
+              }}
+            />
+            {initializer && (
+              <FormControl fullWidth>
                 <InputLabel>Initializer</InputLabel>
                 <Select
-                  value={initializer?.name ?? ''}
+                  value={initializer.name}
                   label="Initializer"
-                  disabled={!functionAbis.some(fn => fn.isInitializer)}
-                  onChange={e => {
-                    setInitializer(getInitializer(contractArtifact, e.target.value));
+                  onChange={event => {
+                    setInitializer(
+                      getInitializer(
+                        contractArtifact,
+                        event.target.value as string,
+                      ),
+                    );
                   }}
                 >
                   {functionAbis
-                    .filter(fn => fn.isInitializer)
+                    .filter(fn => fn.name.startsWith('init'))
                     .map(fn => (
                       <MenuItem key={fn.name} value={fn.name}>
                         {fn.name}
                       </MenuItem>
                     ))}
                 </Select>
-                {initializer &&
-                  initializer.parameters.map((param, i) => (
-                    <FunctionParameter
-                      parameter={param}
-                      key={param.name}
-                      onParameterChange={newValue => {
-                        handleParameterChange(i, newValue);
-                      }}
+              </FormControl>
+            )}
+            {initializer?.parameters && initializer.parameters.length > 0 && (
+              <FormGroup row>
+                {initializer.parameters.map((param, i) => (
+                  <FunctionParameter
+                    parameter={param}
+                    key={param.name}
+                    onParameterChange={value =>
+                      handleParameterChange(i, value)
+                    }
+                  />
+                ))}
+              </FormGroup>
+            )}
+            
+            <FormControl component="fieldset" sx={{ mt: 2 }}>
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={useSponsoredFees}
+                      onChange={(e) => setUseSponsoredFees(e.target.checked)}
+                      name="useSponsoredFees"
                     />
-                  ))}
-              </FormControl>
-              <FormControl>
-                <TextField
-                  placeholder="Alias"
-                  value={alias}
-                  label="Alias"
-                  sx={{ marginTop: '1rem' }}
-                  onChange={event => {
-                    setAlias(event.target.value);
-                  }}
+                  }
+                  label="Use sponsored fees"
                 />
-              </FormControl>
-            </FormGroup>
+              </FormGroup>
+              <FormHelperText>Enable fee sponsorship for deployment</FormHelperText>
+            </FormControl>
+            
             <Button disabled={alias === ''} onClick={deploy}>
               Deploy
             </Button>

@@ -20,6 +20,7 @@
     "@aztec/aztec.js": "link:../yarn-project/aztec.js",
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/kv-store": "link:../yarn-project/kv-store",
+    "@aztec/noir-contracts.js": "link:../yarn-project/noir-contracts.js",
     "@aztec/pxe": "link:../yarn-project/pxe",
     "@aztec/stdlib": "link:../yarn-project/stdlib",
     "@emotion/react": "^11.14.0",

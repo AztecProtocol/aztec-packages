@@ -915,24 +915,6 @@ export function ContractComponent() {
                 <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
                   Register
                 </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="warning"
-                  onClick={() => logContractState('Manual Debug')}
-                  sx={{ marginLeft: '0.5rem' }}
-                >
-                  Debug
-                </Button>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  color="error"
-                  onClick={resetPXEDatabase}
-                  sx={{ marginLeft: '0.5rem' }}
-                >
-                  Reset DB
-                </Button>
                 <DeployContractDialog
                   contractArtifact={contractArtifact}
                   open={openDeployContractDialog}

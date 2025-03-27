@@ -9,6 +9,7 @@ import { css } from '@mui/styled-engine';
 import { useContext, useState, useEffect } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress } from '@aztec/aztec.js';
+import { SponsoredFeePaymentMethod } from '../../../utils/fees/sponsored_fee_payment_method';
 
 const creationForm = css({
   display: 'flex',
@@ -20,14 +21,11 @@ const creationForm = css({
 
 // Hardcoded SponsoredFPC addresses for different environments
 const SPONSORED_FPC_ADDRESSES = {
-  // Address on devnet - this should be the correct one from deployment
-  devnet: '0x1fd6a75cc72f39147756a663f3ef1edf85ebdd8471ed08c09920b2458d11cd8c',
+  devnet: '0x0',
 
-  // Address on sandbox - we'll use a dummy address that will likely be updated
-  sandbox: '0x1fd6a75cc72f39147756a663f3ef1edf85ebdd8471ed08c09920b2458d11cd8c',
+  sandbox: '0x0',
 
-  // Local hardcoded address for testing
-  local: '0x1fd6a75cc72f39147756a663f3ef1edf85ebdd8471ed08c09920b2458d11cd8c'
+  local: '0x0'
 };
 
 export function CreateAccountDialog({
@@ -107,16 +105,32 @@ export function CreateAccountDialog({
       console.log('Account registered with PXE');
 
       try {
-        console.log('Attempting to deploy account...');
-        const deployTx = await account.deploy();
+        console.log('Setting up sponsored fee payment...');
+        const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+        console.log('Sponsored payment method created');
+
+        console.log('Attempting to deploy account with sponsored fees...');
+        const deployTx = await account.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } });
         console.log('Deployment transaction created, waiting for confirmation...');
         await deployTx.wait();
-        console.log('Account deployed successfully!');
+        console.log('Account deployed successfully with sponsored fees!');
       } catch (err) {
         // Log the raw error without abstracting
-        console.error('Error with account deployment:');
+        console.error('Error with sponsored account deployment:');
         console.error(err);
-        console.log('Falling back to standard registration without deployment...');
+        console.log('Falling back to standard deployment without fee specification...');
+        
+        try {
+          // Try a regular deployment without fee specification
+          const deployTx = await account.deploy();
+          console.log('Standard deployment transaction created, waiting for confirmation...');
+          await deployTx.wait();
+          console.log('Account deployed successfully with standard deployment!');
+        } catch (fallbackErr) {
+          console.error('Error with standard account deployment:');
+          console.error(fallbackErr);
+          console.log('Falling back to standard registration without deployment...');
+        }
       }
 
       // Get the wallet regardless of whether deployment succeeded
