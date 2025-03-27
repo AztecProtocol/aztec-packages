@@ -3,12 +3,8 @@ import { type FunctionCall, FunctionType, decodeFromAbi } from '@aztec/stdlib/ab
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import {
-  BaseContractInteraction,
-  type RequestMethodOptions,
-  type SendMethodOptions,
-} from './base_contract_interaction.js';
-import type { SimulateMethodOptions } from './contract_function_interaction.js';
+import { BaseContractInteraction } from './base_contract_interaction.js';
+import type { RequestMethodOptions, SendMethodOptions, SimulateMethodOptions } from './interaction_options.js';
 
 /** A batch of function calls to be sent as a single transaction through a wallet. */
 export class BatchCall extends BaseContractInteraction {
