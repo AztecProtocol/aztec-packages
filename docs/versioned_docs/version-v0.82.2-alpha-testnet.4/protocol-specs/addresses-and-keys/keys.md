@@ -10,25 +10,25 @@ import Image from "@theme/IdealImage";
 The protocol does not enforce the usage of any of the following keys, and does not enforce the keys to conform to a particular length or algorithm. Users are expected to pick a set of keys valid for the encryption and tagging precompile they choose for their account.
 
 <!-- prettier-ignore -->
-| Cat. | Key | Derivation | Link |
-|---|---|---|---|
-| Seed | $\seed$ | $$\stackrel{\$}{\leftarrow} \mathbb{F}$$ | [Seed](#seed) |
-| | $\sk$ | $$\stackrel{\$}{\leftarrow} \mathbb{F}$$ | [Master Secret Key](#master-secret-key) |
-|||||
-| Master Secret Keys | $\nskm$ | $\text{poseidon2}(\text{``az\_nsk\_m''}, \sk)$ | [Master Nullifier Secret Key](#master-nullifier-secret-key) |
-| | $\ovskm$ | $\text{poseidon2}(\text{``az\_ovsk\_m''}, \sk)$ | [Master Outgoing Viewing Secret Key](#master-outgoing-viewing-secret-key) |
-| | $\ivskm$ | $\text{poseidon2}(\text{``az\_ivsk\_m''}, \sk)$ | [Master Incoming Viewing Secret Key](#master-incoming-viewing-secret-key) |
-| | $\tskm$ | $\text{poseidon2}(\text{``az\_tsk\_m''}, \sk)$ | [Master Tagging Secret Key](#master-tagging-secret-key) |
-|||||
-| Master Public Keys | $\Npkm$ | $\nskm \cdot G$ | [Master Nullifier Public Key](#master-nullifier-public-key) |
-| | $\Ovpkm$ | $\ovskm \cdot G$ | [Master Outgoing Viewing Public Key](#master-outgoing-viewing-public-key) |
-| | $\Ivpkm$ | $\ivskm \cdot G$ | [Master Incoming Viewing Public Key](#master-incoming-viewing-public-key) |
-| | $\Tpkm$ | $\tskm \cdot G$ | [Master Tagging Public Key](#master-tagging-public-key) | 
-||||
-| Hardened App-Siloed Secret Keys | $\nskapp$ | $\text{poseidon2}(\text{``az\_nsk\_app''}, \text{app\_address}, \nskm)$ | [Hardened, App-siloed Nullifier Secret Key](#app-siloed-nullifier-secret-key) |
-| | $\ovskapp$ | $\text{poseidon2}(\text{``az\_ovsk\_app''}, \text{app\_address}, \ovskm)$ | [Hardened, App-siloed Outgoing Viewing Secret Key](#app-siloed-outgoing-viewing-secret-key) |
-|||||
-| Other App-siloed Keys| $\Nkapp$ | $\text{poseidon2}(\text{``az\_nk\_app''}, \nskapp)$ | [App-siloed Nullifier Key](#app-siloed-nullifier-key) |
+| Cat.                            | Key        | Derivation                                                                | Link                                                                                        |
+| ------------------------------- | ---------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Seed                            | $\seed$    | $$\stackrel{\$}{\leftarrow} \mathbb{F}$$                                  | [Seed](#seed)                                                                               |
+|                                 | $\sk$      | $$\stackrel{\$}{\leftarrow} \mathbb{F}$$                                  | [Master Secret Key](#master-secret-key)                                                     |
+|                                 |            |                                                                           |                                                                                             |
+| Master Secret Keys              | $\nskm$    | $\text{poseidon2}(\text{``az\_nsk\_m''}, \sk)$                            | [Master Nullifier Secret Key](#master-nullifier-secret-key)                                 |
+|                                 | $\ovskm$   | $\text{poseidon2}(\text{``az\_ovsk\_m''}, \sk)$                           | [Master Outgoing Viewing Secret Key](#master-outgoing-viewing-secret-key)                   |
+|                                 | $\ivskm$   | $\text{poseidon2}(\text{``az\_ivsk\_m''}, \sk)$                           | [Master Incoming Viewing Secret Key](#master-incoming-viewing-secret-key)                   |
+|                                 | $\tskm$    | $\text{poseidon2}(\text{``az\_tsk\_m''}, \sk)$                            | [Master Tagging Secret Key](#master-tagging-secret-key)                                     |
+|                                 |            |                                                                           |                                                                                             |
+| Master Public Keys              | $\Npkm$    | $\nskm \cdot G$                                                           | [Master Nullifier Public Key](#master-nullifier-public-key)                                 |
+|                                 | $\Ovpkm$   | $\ovskm \cdot G$                                                          | [Master Outgoing Viewing Public Key](#master-outgoing-viewing-public-key)                   |
+|                                 | $\Ivpkm$   | $\ivskm \cdot G$                                                          | [Master Incoming Viewing Public Key](#master-incoming-viewing-public-key)                   |
+|                                 | $\Tpkm$    | $\tskm \cdot G$                                                           | [Master Tagging Public Key](#master-tagging-public-key)                                     |
+|                                 |            |                                                                           |
+| Hardened App-Siloed Secret Keys | $\nskapp$  | $\text{poseidon2}(\text{``az\_nsk\_app''}, \text{app\_address}, \nskm)$   | [Hardened, App-siloed Nullifier Secret Key](#app-siloed-nullifier-secret-key)               |
+|                                 | $\ovskapp$ | $\text{poseidon2}(\text{``az\_ovsk\_app''}, \text{app\_address}, \ovskm)$ | [Hardened, App-siloed Outgoing Viewing Secret Key](#app-siloed-outgoing-viewing-secret-key) |
+|                                 |            |                                                                           |                                                                                             |
+| Other App-siloed Keys           | $\Nkapp$   | $\text{poseidon2}(\text{``az\_nk\_app''}, \nskapp)$                       | [App-siloed Nullifier Key](#app-siloed-nullifier-key)                                       |
 
 
 ## Colour Key
@@ -47,7 +47,7 @@ The protocol does not enforce the usage of any of the following keys, and does n
 Diagram is out of date vs the content on this page
 :::
 
-<Image img={require("/img/protocol-specs/addresses-and-keys/image-5.png")} />
+<Image img={require("@site/static/img/protocol-specs/addresses-and-keys/image-5.png")} />
 
 The red boxes are uncertainties, which are explained later in this doc.
 
@@ -65,7 +65,7 @@ Elliptic curve operators $+$ and $\cdot$ are used to denote addition and scalar 
 
 $\text{poseidon2}: \mathbb{F}_r^t \rightarrow \mathbb{F}$ is the Poseidon2 hash function (and $t$ can take values as per the [Poseidon2 spec](https://eprint.iacr.org/2023/323.pdf)).
 
-Note that $q > r$. Below, we'll often define secret keys as an element of $\mathbb{F}_r$, as this is most efficient within a snark circuit. We'll then use such secret keys in scalar multiplications with Grumpkin points ($E(\mathbb{F}_r)$ whose affine points are of the form $\mathbb{F}_r \times \mathbb{F}_r$). Strictly speaking, such scalars in Grumpkin scalar multiplication should be in $\mathbb{F}_q$.  
+Note that $q > r$. Below, we'll often define secret keys as an element of $\mathbb{F}_r$, as this is most efficient within a snark circuit. We'll then use such secret keys in scalar multiplications with Grumpkin points ($E(\mathbb{F}_r)$ whose affine points are of the form $\mathbb{F}_r \times \mathbb{F}_r$). Strictly speaking, such scalars in Grumpkin scalar multiplication should be in $\mathbb{F}_q$.
 A potential consequence of using elements of $\mathbb{F}_r$ as secret keys could be that the resulting public keys are not uniformly-distributed in the Grumpkin group, so we should check this. The distribution of such public keys will have a statistical distance of $\frac{2(q - r)}{q}$ from uniform. It turns out that $\frac{1}{2^{126}} < \frac{2(q - r)}{q} < \frac{1}{2^{125}}$, so the statistical distance from uniform is broadly negligible, especially considering that the AltBN254 curve has fewer than 125-bits of security.
 
 ## Key Derivation
@@ -122,8 +122,8 @@ This $\sk$ must never enter a circuit. A user or wallet may wish to derive this 
 
 $$\sk \stackrel{\$}{\leftarrow} \mathbb{F}_r$$
 
-> Note: Often $\sk = hash(\seed)$ for some hardware-wallet-supported hash function, would be recommended. Although, care would need to be taken if the hardware wallet doesn't support hashing directly to $\mathbb{F}_r$, since a truncated hash output could be non-uniformly distributed in $\mathbb{F}_r$.  
-> For example, if the hardware wallet only supports sha256, then it would not be acceptable to compute $\sk$ as $\text{sha256}(\seed) \mod r$, since the resulting output (of reducing a 256-bit number modulo $r$) would be biased towards smaller values in $\mathbb{F_r}$. More uniformity might be achieved by instead computing $\sk$ as $( \text{sha256}(\seed, 1) || \text{sha256}(\seed, 2) ) \mod r$, for example, as a modulo reduction of a 512-bit number is closer to being uniformly distributed in $\mathbb{F_r}$.  
+> Note: Often $\sk = hash(\seed)$ for some hardware-wallet-supported hash function, would be recommended. Although, care would need to be taken if the hardware wallet doesn't support hashing directly to $\mathbb{F}_r$, since a truncated hash output could be non-uniformly distributed in $\mathbb{F}_r$.
+> For example, if the hardware wallet only supports sha256, then it would not be acceptable to compute $\sk$ as $\text{sha256}(\seed) \mod r$, since the resulting output (of reducing a 256-bit number modulo $r$) would be biased towards smaller values in $\mathbb{F_r}$. More uniformity might be achieved by instead computing $\sk$ as $( \text{sha256}(\seed, 1) || \text{sha256}(\seed, 2) ) \mod r$, for example, as a modulo reduction of a 512-bit number is closer to being uniformly distributed in $\mathbb{F_r}$.
 > This note is informal, and expert advice should be sought before adopting this approach.
 
 ## Nullifier Keys
@@ -143,7 +143,7 @@ $$
 
 > See [`derive_master_secret_key_from_secret_key`](#derive-master-secret-key-from-secret-key).
 
-> $\nskm$ MUST NOT enter an app circuit.  
+> $\nskm$ MUST NOT enter an app circuit.
 > $\nskm$ MAY enter the kernel circuit.
 
 ### Master Nullifier Public Key
@@ -176,9 +176,9 @@ $$
 
 If an app developer thinks some of their users might wish to have the option to enable some _trusted_ 3rd party to see when a particular user's notes are nullified, then this nullifier key might be of use. This $\Nkapp$ can be used in a nullifier's preimage, rather than $\nskapp$ in such cases, to enable said 3rd party to brute-force identify nullifications.
 
-> Note: this key can be optionally shared with a trusted 3rd party, and they would not be able to derive the user's secret keys.  
-> Note: knowledge of this key enables someone to identify when an emitted nullifier belongs to the user, and to identify which note hashes have been nullified.  
-> Note: knowledge of this key would not enable a 3rd party to view the contents of any notes; knowledge of the $\ivsk$ / $\ovskapp$ would be needed for that.  
+> Note: this key can be optionally shared with a trusted 3rd party, and they would not be able to derive the user's secret keys.
+> Note: knowledge of this key enables someone to identify when an emitted nullifier belongs to the user, and to identify which note hashes have been nullified.
+> Note: knowledge of this key would not enable a 3rd party to view the contents of any notes; knowledge of the $\ivsk$ / $\ovskapp$ would be needed for that.
 > Note: this is intentionally not named as a "public" key, since it must not be shared with the wider public.
 
 $$
@@ -207,7 +207,7 @@ $$
 
 > See [`derive_master_secret_key_from_seed`](#derive-master-secret-key-from-seed).
 
-> $\ovskm$ MUST NOT enter an app circuit.  
+> $\ovskm$ MUST NOT enter an app circuit.
 > $\ovskm$ MAY enter the kernel circuit.
 
 ### Master Outgoing Viewing Public Key

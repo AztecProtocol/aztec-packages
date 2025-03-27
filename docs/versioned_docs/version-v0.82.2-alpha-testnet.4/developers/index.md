@@ -45,16 +45,16 @@ title: Build
 
 <Card shadow='tl' link='https://github.com/AztecProtocol/aztec-starter'>
   <a href="https://github.com/AztecProtocol/aztec-starter" target="_blank" rel="noopener noreferrer">
-    <img 
-      src="/img/logos/github_light_mode.svg" 
-      style={{ 
-        width: '30px', 
-        height: '30px', 
-        marginLeft: '8px', 
-        paddingLeft: '8px', 
-        paddingTop: '10px' 
-      }} 
-      alt="GitHub Icon" 
+    <img
+      src="@site/static/img/logos/github_light_mode.svg"
+      style={{
+        width: '30px',
+        height: '30px',
+        marginLeft: '8px',
+        paddingLeft: '8px',
+        paddingTop: '10px'
+      }}
+      alt="GitHub Icon"
     />
   </a>
   <CardHeader>

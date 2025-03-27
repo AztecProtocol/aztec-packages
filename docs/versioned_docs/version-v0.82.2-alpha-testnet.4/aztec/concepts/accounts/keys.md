@@ -28,7 +28,7 @@ To spend a note, the user computes a nullifier corresponding to this note. A nul
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-<Image img={require("/img/address_derivation.png")} />
+<Image img={require("@site/static/img/address_derivation.png")} />
 
 Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. This is useful for encrypting notes for the recipient with only their address.
 
@@ -80,7 +80,7 @@ However if one wants to implement authorization logic containing signatures (e.g
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-```rust title="is_valid_impl" showLineNumbers 
+```rust title="is_valid_impl" showLineNumbers
 // Load public key from storage
 let storage = Storage::init(context);
 let public_key = storage.signing_public_key.get_note();
@@ -117,7 +117,7 @@ Storing the signing public key in a private note makes it accessible from the `e
 
 Using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers or new commitments per transaction. However, it does not allow the user to rotate their key.
 
-```rust title="public_key" showLineNumbers 
+```rust title="public_key" showLineNumbers
 signing_public_key: PrivateImmutable<PublicKeyNote, Context>,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.82.2-alpha-testnet.4/noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr#L28-L30" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr#L28-L30</a></sub></sup>

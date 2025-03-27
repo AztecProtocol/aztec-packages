@@ -64,7 +64,7 @@ A "portal" refers to the part of an application residing on L1, which is associa
 
 In a logical sense, a Message Box functions as a one-way message passing mechanism with two ends, one residing on each side of the divide, i.e., one component on L1 and another on L2. Essentially, these boxes are utilized to transmit messages between L1 and L2 via the rollup contract. The boxes can be envisaged as multi-sets that enable the same message to be inserted numerous times, a feature that is necessary to accommodate scenarios where, for instance, "deposit 10 eth to A" is required multiple times. The diagram below provides a detailed illustration of how one can perceive a message box in a logical context.
 
-<Image img={require("/img/com-abs-5.png")} />
+<Image img={require("@site/static/img/com-abs-5.png")} />
 
 - Here, a `sender` will insert a message into the `pending` set, the specific constraints of the actions depend on the implementation domain, but for now, say that anyone can insert into the pending set.
 - At some point, a rollup will be executed, in this step messages are "moved" from pending on Domain A, to ready on Domain B. Note that consuming the message is "pulling & deleting" (or nullifying). The action is atomic, so a message that is consumed from the pending set MUST be added to the ready set, or the state transition should fail. A further constraint on moving messages along the way, is that only messages where the `sender` and `recipient` pair exists in a leaf in the contracts tree are allowed!
@@ -78,7 +78,7 @@ By instead pulling, we can have the "message" be something that is derived from 
 
 To support messages in both directions we require two of these message boxes (one in each direction). However, due to the limitations of each domain, the message box for sending messages into the rollup and sending messages out are not fully symmetrical. In reality, the setup looks closer to the following:
 
-<Image img={require("/img/com-abs-6.png")} />
+<Image img={require("@site/static/img/com-abs-6.png")} />
 
 :::info
 The L2 -> L1 pending messages set only exist logically, as it is practically unnecessary. For anything to happen to the L2 state (e.g., update the pending messages), the state will be updated on L1, meaning that we could just as well insert the messages directly into the ready set.
@@ -149,4 +149,4 @@ To make it possible to hide when a specific message is consumed, the `L1ToL2Msg`
 
 The following diagram shows the overall architecture, combining the earlier sections.
 
-<Image img={require("/img/com-abs-7.png")} />
+<Image img={require("@site/static/img/com-abs-7.png")} />

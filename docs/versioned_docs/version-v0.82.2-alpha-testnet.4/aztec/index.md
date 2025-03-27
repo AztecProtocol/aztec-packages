@@ -14,7 +14,7 @@ Aztec is a privacy-first Layer 2 on Ethereum. It supports smart contracts with b
 
 ## High level view
 
-<Image img={require("/img/aztec-high-level.png")} />
+<Image img={require("@site/static/img/aztec-high-level.png")} />
 
 1. A user interacts with Aztec through Aztec.js (like web3js or ethersjs)
 2. Private functions are executed in the PXE, which is client-side
@@ -46,7 +46,7 @@ Private state works with UTXOs, which are chunks of data that we call notes. To 
 
 Public state works similarly to other chains like Ethereum, behaving like a public ledger. Public data is stored in a public data tree.
 
-![Public vs private state](../../static/img/public-and-private-state-diagram.png)
+![Public vs private state](@site/static/img/public-and-private-state-diagram.png)
 
 Aztec [smart contract](./smart_contracts_overview.md) developers should keep in mind that different data types are used when manipulating private or public state. Working with private state is creating commitments and nullifiers to state, whereas working with public state is directly updating state.
 

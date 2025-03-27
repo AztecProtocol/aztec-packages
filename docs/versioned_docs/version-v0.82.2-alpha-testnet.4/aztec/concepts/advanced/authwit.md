@@ -15,7 +15,7 @@ When building DeFi or other smart contracts, it is often desired to interact wit
 
 In the EVM world, this is often accomplished by having the user `approve` the protocol to transfer funds from their account, and then calling a `deposit` function on it afterwards.
 
-<Image img={require("/img/authwit.png")} />
+<Image img={require("@site/static/img/authwit.png")} />
 
 This flow makes it rather simple for the application developer to implement the deposit function, but does not come without its downsides.
 
@@ -30,7 +30,7 @@ This can lead to a series of issues though, eg:
 
 To avoid this, many protocols implement the `permit` flow, which uses a meta-transaction to let the user sign the approval off-chain, and pass it as an input to the `deposit` function, that way the user only has to send one transaction to make the deposit.
 
-<Image img={require("/img/authwit2.png")} />
+<Image img={require("@site/static/img/authwit2.png")} />
 
 This is a great improvement to infinite approvals, but still has its own sets of issues. For example, if the user is using a smart-contract wallet (such as Argent or Gnosis Safe), they will not be able to sign the permit message since the usual signature validation does not work well with contracts. [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) was proposed to give contracts a way to emulate this, but it is not widely adopted.
 
@@ -90,7 +90,7 @@ This can be read as "defi is allowed to call token transfer function with the ar
 
 With this out of the way, let's look at how this would work in the graph below. The exact contents of the witness will differ between implementations as mentioned before, but for the sake of simplicity you can think of it as a signature, which the account contract can then use to validate if it really should allow the action.
 
-<Image img={require("/img/authwit3.png")} />
+<Image img={require("@site/static/img/authwit3.png")} />
 
 :::info Static call for AuthWit checks
 The call to the account contract for checking authentication should be a static call, meaning that it cannot change state or make calls that change state. If this call is not static, it could be used to re-enter the flow and change the state of the contract.
@@ -104,7 +104,7 @@ The above flow could be re-entered at token transfer. It is mainly for show to i
 
 As noted earlier, we could use the ERC20 standard for public. But this seems like a waste when we have the ability to try righting some wrongs. Instead, we can expand our AuthWit scheme to also work in public. This is actually quite simple, instead of asking an oracle (which we can't do as easily because not private execution) we can just store the AuthWit in a shared registry, and look it up when we need it. While this needs the storage to be updated ahead of time (can be same tx), we can quite easily do so by batching the AuthWit updates with the interaction - a benefit of Account Contracts. A shared registry is used such that execution from the sequencers point of view will be more straight forward and predictable. Furthermore, since we have the authorization data directly in public state, if they are both set and unset (authorized and then used) in the same transaction, there will be no state effect after the transaction for the authorization which saves gas ⛽.
 
-<Image img={require("/img/authwit4.png")} />
+<Image img={require("@site/static/img/authwit4.png")} />
 
 ### Replays
 

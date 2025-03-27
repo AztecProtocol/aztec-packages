@@ -39,7 +39,7 @@ In this model, instead of informing the builder of our intentions, we construct 
 
 On the left-hand side of the diagram below, we see the fully public world where storage is shared, while on the right-hand side, we see the private world where all reads are historical.
 
-<Image img={require("/img/com-abs-1.png")} />
+<Image img={require("@site/static/img/com-abs-1.png")} />
 
 Given that Aztec will comprise both private and public functions, it is imperative that we determine the optimal ordering for these functions. From a logical standpoint, it is reasonable to execute the private functions first as they are executed on a state $S_i$, where $i \le n$, with $S_n$ representing the current state where the public functions always operate on the current state $S_n$. Prioritizing the private functions would also afford us the added convenience of enabling them to invoke the public functions, which is particularly advantageous when implementing a peer-to-pool architecture such as that employed by Uniswap.
 
@@ -47,11 +47,11 @@ Transactions that involve both private and public functions will follow a specif
 
 It is important to note that the execution of private functions is prioritized before executing any public functions. This means that private functions cannot "wait" on the results of any of their calls to public functions. Stated differently, any calls made across domains are unilateral in nature, akin to shouting into the void with the hope that something will occur at a later time. The figure below illustrates the order of function calls on the left-hand side, while the right-hand side shows how the functions will be executed. Notably, the second private function call is independent of the output of the public function and merely occurs after its execution.
 
-<Image img={require("/img/com-abs-2.png")} />
+<Image img={require("@site/static/img/com-abs-2.png")} />
 
 Multiple of these transactions are then ordered into a L2 block by the sequencer, who will also be executing the public functions (as they require the current head). Example seen below.
 
-<Image img={require("/img/com-abs-3.png")} />
+<Image img={require("@site/static/img/com-abs-3.png")} />
 
 :::info
 Be mindful that if part of a transaction is reverting, say the public part of a call, it will revert the entire transaction. Similarly to Ethereum, it might be possible for the block builder to create a block such that your valid transaction reverts because of altered state, e.g., trade incurring too much slippage or the like.
@@ -65,7 +65,7 @@ To summarize:
 
 A more comprehensive overview of the interplay between private and public functions and their ability to manipulate data is presented below. It is worth noting that all data reads performed by private functions are historical in nature, and that private functions are not capable of modifying public storage. Conversely, public functions have the capacity to manipulate private storage (e.g., inserting new note hashes, potentially as part of transferring funds from the public domain to the private domain).
 
-<Image img={require("/img/com-abs-4.png")} />
+<Image img={require("@site/static/img/com-abs-4.png")} />
 
 :::info
 You can think of private and public functions as being executed by two actors that can only communicate to each other by mailbox.

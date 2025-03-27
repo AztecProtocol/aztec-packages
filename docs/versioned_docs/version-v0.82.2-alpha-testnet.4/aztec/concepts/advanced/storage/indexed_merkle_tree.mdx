@@ -36,13 +36,17 @@ Currently the only feasible way to get privacy in public blockchains is via a UT
 
 A classic merkle tree:
 
-<Image img={require("/img/indexed-merkle-tree/normal-merkle-tree.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/normal-merkle-tree.png")}
+/>
 
 To destroy state, the concept of a "nullifier" tree is introduced. Typically represented as a sparse Merkle Tree, the structure is utilized to store notes deterministically linked to values in the append-only tree of encrypted notes.
 
 A sparse merkle tree (not every leaf stores a value):
 
-<Image img={require("/img/indexed-merkle-tree/sparse-merkle-tree.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/sparse-merkle-tree.png")}
+/>
 
 In order to spend / modify a note in the private state tree, one must create a nullifier for it, and prove that the nullifier does not already exist in the nullifier tree. As nullifier trees are modeled as sparse merkle trees, non membership checks are (conceptually) trivial.
 
@@ -132,23 +136,33 @@ A visual aid for insertion is presented below:
 
 1. Initial state
 
-<Image img={require("/img/indexed-merkle-tree/index-merkle-tree-1.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-1.png")}
+/>
 
 2. Add a new value $v=30$
 
-<Image img={require("/img/indexed-merkle-tree/index-merkle-tree-2.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-2.png")}
+/>
 
 3. Add a new value $v=10$
 
-<Image img={require("/img/indexed-merkle-tree/index-merkle-tree-3.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-3.png")}
+/>
 
 4. Add a new value $v=20$
 
-<Image img={require("/img/indexed-merkle-tree/index-merkle-tree-4.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-4.png")}
+/>
 
 5. Add a new value $v=50$
 
-<Image img={require("/img/indexed-merkle-tree/index-merkle-tree-5.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/index-merkle-tree-5.png")}
+/>
 
 By studying the transitions between each diagram you can see how the pointers are updated between each insertion.
 
@@ -193,31 +207,45 @@ In the following example we insert a subtree of size 4 into our tree at step 4. 
 
 1. Prepare to insert subtree $[35,50,60,15]$
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-1.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-1.png")}
+/>
 
 2. Update low nullifier for new nullifier $35$.
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-2.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-2.png")}
+/>
 
 3. Update low nullifier for new nullifier $50$. (Notice how the low nullifier exists within our pending insertion subtree, this becomes important later).
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-3.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-3.png")}
+/>
 
 4. Update low nullifier for new nullifier $60$.
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-4.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-4.png")}
+/>
 
 5. Update low nullifier for new nullifier $15$.
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-5.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-5.png")}
+/>
 
 6. Update pointers for new nullifier $15$.
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-6.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-6.png")}
+/>
 
 7. Insert subtree.
 
-<Image img={require("/img/indexed-merkle-tree/subtree-insert-7.png")} />
+<Image
+  img={require("@site/static/img/indexed-merkle-tree/subtree-insert-7.png")}
+/>
 
 ### Performance gains from subtree insertion
 
