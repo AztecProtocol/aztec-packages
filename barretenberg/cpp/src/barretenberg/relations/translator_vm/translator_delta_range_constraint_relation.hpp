@@ -9,7 +9,7 @@ template <typename FF_> class TranslatorDeltaRangeConstraintRelationImpl {
 
     // 1 + polynomial degree of this relation
     static constexpr size_t RELATION_LENGTH =
-        7; // degree((lagrange_real_last - 1)(lagrange_masking - 1) * D(D - 1)(D - 2)(D - 3)) = 5
+        7; // degree((lagrange_real_last - 1)(lagrange_masking - 1) * D(D - 1)(D - 2)(D - 3)) = 6
 
     static constexpr std::array<size_t, 10> SUBRELATION_PARTIAL_LENGTHS{
         7, // ordered_range_constraints_0 step in {0,1,2,3} subrelation

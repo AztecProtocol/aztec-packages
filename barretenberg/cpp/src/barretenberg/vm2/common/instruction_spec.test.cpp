@@ -35,5 +35,30 @@ TEST(InstructionSpecTest, CheckAllInstructionSizes)
     }
 }
 
+// Test checking that the hardcoded tag related fields in WIRE_INSTRUCTION_SPEC
+// are correct. This test would fail only when we change the wire format of an instruction.
+TEST(InstructionSpecTest, CheckAllInstructionsTagInformation)
+{
+    const auto& wire_format = simulation::testonly::get_instruction_wire_formats();
+
+    for (int i = 0; i < static_cast<int>(WireOpCode::LAST_OPCODE_SENTINEL); i++) {
+        const auto wire_opcode = static_cast<WireOpCode>(i);
+        const auto& operands = wire_format.at(wire_opcode);
+        const auto tag_counts = std::count(operands.begin(), operands.end(), simulation::OperandType::TAG);
+        const auto& wire_instruction_spec = WIRE_INSTRUCTION_SPEC.at(wire_opcode);
+
+        if (wire_instruction_spec.tag_operand_idx.has_value()) {
+            EXPECT_EQ(tag_counts, 1);
+            if (wire_instruction_spec.tag_operand_idx.value() == 2) {
+                EXPECT_EQ(operands.at(2), simulation::OperandType::TAG);
+            } else {
+                EXPECT_EQ(operands.at(3), simulation::OperandType::TAG);
+            }
+        } else {
+            EXPECT_EQ(tag_counts, 0);
+        }
+    }
+}
+
 } // namespace
 } // namespace bb::avm2
