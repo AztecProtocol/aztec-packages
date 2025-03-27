@@ -72,6 +72,7 @@ export class PublicTxSimulator {
   get tracer(): Tracer {
     return this.metrics.tracer;
   }
+
   /**
    * Simulate a transaction's public portion including all of its phases.
    * @param tx - The transaction to simulate.
@@ -96,6 +97,8 @@ export class PublicTxSimulator {
       await this.insertNonRevertiblesFromPrivate(context);
       // add new contracts to the contracts db so that their functions may be found and called
       // TODO(#6464): Should we allow emitting contracts in the private setup phase?
+      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+      // However things should work as they are now because the hinted db would still pick up the new contracts.
       await this.contractsDB.addNewNonRevertibleContracts(tx);
       const nonRevertEnd = process.hrtime.bigint();
       this.metrics.recordPrivateEffectsInsertion(Number(nonRevertEnd - nonRevertStart) / 1_000, 'non-revertible');
@@ -110,6 +113,8 @@ export class PublicTxSimulator {
       const success = await this.insertRevertiblesFromPrivate(context);
       if (success) {
         // add new contracts to the contracts db so that their functions may be found and called
+        // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+        // However things should work as they are now because the hinted db would still pick up the new contracts.
         await this.contractsDB.addNewRevertibleContracts(tx);
         const revertEnd = process.hrtime.bigint();
         this.metrics.recordPrivateEffectsInsertion(Number(revertEnd - revertStart) / 1_000, 'revertible');
@@ -131,7 +136,7 @@ export class PublicTxSimulator {
       await context.halt();
       await this.payFee(context);
 
-      const publicInputs = await context.generateAvmCircuitPublicInputs(await this.treesDB.getStateReference());
+      const publicInputs = await context.generateAvmCircuitPublicInputs();
       const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, context.hints);
 
       const revertCode = context.getFinalRevertCode();
@@ -142,6 +147,8 @@ export class PublicTxSimulator {
       // Commit contracts from this TX to the block-level cache and clear tx cache
       // If the tx reverted, only commit non-revertible contracts
       // NOTE: You can't create contracts in public, so this is only relevant for private-created contracts
+      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+      // However things should work as they are now because the hinted db would still pick up the new contracts.
       this.contractsDB.commitContractsForTx(/*onlyNonRevertibles=*/ !revertCode.isOK());
 
       const endTime = process.hrtime.bigint();
@@ -162,6 +169,8 @@ export class PublicTxSimulator {
     } finally {
       // Make sure there are no new contracts in the tx-level cache.
       // They should either be committed to block-level cache or cleared.
+      // FIXME(fcarreiro): this should conceptually use the hinted contracts db.
+      // However things should work as they are now because the hinted db would still pick up the new contracts.
       this.contractsDB.clearContractsForTx();
     }
   }
