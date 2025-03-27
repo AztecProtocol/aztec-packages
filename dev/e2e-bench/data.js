@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743091295835,
+  "lastUpdate": 1743094816263,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "gregojquiros@gmail.com",
-            "name": "Gregorio Juliana",
-            "username": "Thunkar"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "fdf1da45cb25b756eaa6af15e5dc7761d15cbcc3",
-          "message": "chore: fee cleanup (#12941)\n\n- `SponsoredFeePaymentMethod` gets into `aztec.js` , but that's it\n(meaning the method can be used from aztec.js, but there's no concept of\nwhere's deployed/how to get the address/bytecode, etc). It's under\n`@aztec/aztec.js/fee/testing` to make abundantly clear that this is not\na \"production acceptable\" approach.\n- Similarly to `setupCanonicalL2FeeJuice` there's a utility method that\ncan be used from the CLI/during sandbox setup to deploy a\n`SponsoredFeePaymentContract`. It spits out the address where the\ncontract is located, just like the test accounts.\n- You CAN programatically obtain the address of the \"canonical\"\n`SponsoredFeePaymentContract` via `@aztec/sandbox`, but you CANNOT via\n`@aztec/aztec.js`. This is because getting the address implies loading\nthe contract bytecode and it's not a protocol contract, making imports\nmessy and tripping the user into making poor decisions in their app\ndesign. If you want to use it in your app, obtain it from the sandbox\noutput or from an announcement (just like a faucet address, for example)\n- This address is only canonical in the sense it's salt is hardcoded to\n0 (this lives in `@aztec/constants` under `SPONSORED_FPC_SALT`. For\ntestnet it should be prefunded! @PhilWindle @alexghr\n\nThis PR also builds upon the work done in `aztec.js`, allowing us to\nfinally get rid of the special handling of account contract deployments\n`deploy_account_method.ts` by creating a new `FeePaymentMethod` (that's\nnot exposed externally!) that allows an account to pay for its own\ndeployment 😁\n\n---------\n\nCo-authored-by: Jan Beneš <janbenes1234@gmail.com>",
-          "timestamp": "2025-03-21T21:37:07+01:00",
-          "tree_id": "eaa4338861daa992bb53836b61dd28190a07ca6e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/fdf1da45cb25b756eaa6af15e5dc7761d15cbcc3"
-        },
-        "date": 1742590951089,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8311,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21135513940667963,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 106240,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 143863,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "9c82f3f053e01cee5359f8b1625ecd27c4978bd2",
+          "message": "chore(avm): final codegen nuking (#13089)\n\nMoves the only variable part of the flavor into a new file `flavor_variables.hpp`. Nukes the rest.",
+          "timestamp": "2025-03-27T16:48:44Z",
+          "tree_id": "6a91392f38901e6d52b5c3d60464129c53cd0385",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9c82f3f053e01cee5359f8b1625ecd27c4978bd2"
+        },
+        "date": 1743094814932,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9484,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2411809764163594,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 148894,
             "unit": "us"
           }
         ]
