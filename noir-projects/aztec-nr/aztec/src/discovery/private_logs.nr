@@ -27,18 +27,62 @@ use protocol_types::{
 // TODO(#12750): don't make these values assume we're using AES.
 use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
+// Define the log type that matches how logs were stored in TS
+struct TxScopedL2LogFields {
+    // Original log fields
+    log_fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
+    // Additional fields added during storage
+    tx_hash: Field,
+    data_start_index: Field,
+    block_number: Field,
+    recipient: Field,
+}
+
+impl<let N: u32> Deserialize<N> for TxScopedL2LogFields {
+    fn deserialize(fields: [Field; N]) -> Self {
+        // Deserialize the fields into our struct
+        let mut log_fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
+        for i in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
+            log_fields[i] = fields[i];
+        }
+
+        Self {
+            log_fields,
+            tx_hash: fields[PRIVATE_LOG_SIZE_IN_FIELDS],
+            data_start_index: fields[PRIVATE_LOG_SIZE_IN_FIELDS + 1],
+            block_number: fields[PRIVATE_LOG_SIZE_IN_FIELDS + 2],
+            recipient: fields[PRIVATE_LOG_SIZE_IN_FIELDS + 3],
+        }
+    }
+}
+
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
 /// public logs that will complete them.
 pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
-    _contract_address: AztecAddress,
-    _compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    contract_address: AztecAddress,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     // We will eventually fetch tagged logs, decrypt and process them here, but for now we simply call the `syncNotes`
     // oracle. This has PXE perform tag synchronization, log download, decryption, and finally calls to the the
-    // `process_log` contract function with the decrypted payload, which will in turn call `do_process_log` with a
+    // `process_log` contract function with the decrypted payload, which will in turn call `process_log` with a
     // decrypted log, letting us continue the work outside of PXE.
     sync_notes();
+
+    // Get logs from capsules
+    let CAPSULE_BASE_SLOT = 8240937;
+    let logs_array = CapsuleArray::at(_contract_address, CAPSULE_BASE_SLOT);
+    let len = logs_array.len();
+
+    let mut i = 0;
+    while i < len {
+        let log_fields: TxScopedL2LogFields = logs_array.get(i);
+
+        // Process each log
+        process_log(contract_address, compute_note_hash_and_nullifier, log);
+
+        i += 1;
+    }
 }
 
 /// Processes a log's ciphertext by decrypting it and then searching the plaintext for private notes or partial notes.
@@ -50,15 +94,10 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
 ///
 /// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved to
 /// search for the note's completion public log.
-pub unconstrained fn do_process_log<Env>(
+unconstrained fn process_log<Env>(
     contract_address: AztecAddress,
-    log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
-    tx_hash: Field,
-    unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    first_nullifier_in_tx: Field,
-    log_index_in_tx: Field,
-    recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    log: TxScopedL2LogFields,
 ) {
     debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
