@@ -58,7 +58,7 @@ import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 100000000;
-uint256 constant VALIDATOR_COUNT = 48;
+uint256 constant VALIDATOR_COUNT = 100;
 
 contract FakeCanonical is IRewardDistributor {
   uint256 public constant BLOCK_REWARD = 50e18;
