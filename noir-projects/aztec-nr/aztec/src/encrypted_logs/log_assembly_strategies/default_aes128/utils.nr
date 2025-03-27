@@ -29,7 +29,7 @@ mod test {
     use protocol_types::{
         address::AztecAddress,
         indexed_tagging_secret::IndexedTaggingSecret,
-        traits::{Deserialize, FromField, Serialize},
+        traits::{Deserialize, FromField},
     };
     use std::test::OracleMock;
 
@@ -46,8 +46,7 @@ mod test {
         let indexed_tagging_secret = IndexedTaggingSecret::deserialize([app_tagging_secret, index]);
 
         // Mock the tagging oracles
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret
-            .serialize());
+        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret);
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
         let log_without_tag = [1, 2, 3];
