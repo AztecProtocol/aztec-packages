@@ -27,7 +27,7 @@ void PublicDataTreeCheck::assert_read(const FF& leaf_slot,
             throw std::runtime_error("Low leaf slot is GTE leaf slot");
         }
         // indexed_leaf calls nextKey/nextSlot as nextValue, which is counter intuitive in public data tree
-        if (!field_gt.ff_gt(low_leaf_preimage.nextValue, leaf_slot)) {
+        if (low_leaf_preimage.nextValue != 0 && !field_gt.ff_gt(low_leaf_preimage.nextValue, leaf_slot)) {
             throw std::runtime_error("Leaf slot is GTE low leaf next slot");
         }
         if (value != 0) {

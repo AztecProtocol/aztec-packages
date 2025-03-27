@@ -16,8 +16,12 @@ void PublicDataTreeReadTraceBuilder::process(
         bool exists = event.low_leaf_preimage.value.slot == event.slot;
         FF slot_low_leaf_slot_diff_inv = exists ? 0 : (event.slot - event.low_leaf_preimage.value.slot).invert();
 
-        bool next_slot_is_zero = event.low_leaf_preimage.nextValue == 0;
-        FF next_slot_inv = next_slot_is_zero ? 0 : event.low_leaf_preimage.nextValue.invert();
+        bool next_slot_is_nonzero = false;
+        FF next_slot_inv = 0;
+        if (!exists) {
+            next_slot_is_nonzero = event.low_leaf_preimage.nextValue != 0;
+            next_slot_inv = next_slot_is_nonzero ? event.low_leaf_preimage.nextValue.invert() : 0;
+        }
 
         trace.set(row,
                   { { { C::public_data_read_sel, 1 },
@@ -34,7 +38,7 @@ void PublicDataTreeReadTraceBuilder::process(
                       { C::public_data_read_leaf_not_exists, !exists },
                       { C::public_data_read_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
                       { C::public_data_read_one, 1 },
-                      { C::public_data_read_next_slot_is_nonzero, !next_slot_is_zero },
+                      { C::public_data_read_next_slot_is_nonzero, next_slot_is_nonzero },
                       { C::public_data_read_next_slot_inv, next_slot_inv } } });
         row++;
     }

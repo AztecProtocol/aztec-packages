@@ -65,13 +65,14 @@ template <typename FF_> class public_data_readImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_read_sel * (FF(1) - new_term.public_data_read_next_slot_is_nonzero);
+            auto tmp = new_term.public_data_read_next_slot_is_nonzero *
+                       (FF(1) - new_term.public_data_read_next_slot_is_nonzero);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_read_sel *
+            auto tmp = new_term.public_data_read_leaf_not_exists *
                        ((new_term.public_data_read_low_leaf_next_slot *
                              (public_data_read_NEXT_SLOT_IS_ZERO * (FF(1) - new_term.public_data_read_next_slot_inv) +
                               new_term.public_data_read_next_slot_inv) -
