@@ -143,18 +143,19 @@ To use sponsored FPCs in other environments, they will need to be deployed and f
 Creating the SponsoredFPC is as simple as importing it and passing it the PXE:
 
 ```ts
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js";
+import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 ```
 
 ```ts
-const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+const paymentMethod = new SponsoredFeePaymentMethod(deployedSponsoredFPC);
 ```
 
 Then a transaction can specify this as the `paymentMethod` in the fee object.
+You can see an example of how to get a deployed instance of the sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
 For example, a contract can be deployed with an fpc as follows:
 
 ```ts
-const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+const paymentMethod = new SponsoredFeePaymentMethod(deployedSponsoredFPC);
 myAccountManager.deploy({ fee: { paymentMethod } });
 ```
 

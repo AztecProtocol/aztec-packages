@@ -7,3 +7,6 @@ namespace context_stack;
     
     pol commit is_static;
     is_static * (1 - is_static) = 0;
+
+    pol commit parent_calldata_offset_addr;
+    pol commit parent_calldata_size_addr;
