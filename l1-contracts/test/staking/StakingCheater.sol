@@ -6,6 +6,7 @@ import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   IStaking, ValidatorInfo, Exit, OperatorInfo, Status
 } from "@aztec/core/interfaces/IStaking.sol";
+import {TimeCheater} from "./TimeCheater.sol";
 
 import {Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
@@ -15,8 +16,12 @@ import {
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 
+import {TestConstants} from "@test/harnesses/TestConstants.sol";
+
 contract StakingCheater is IStaking {
   using AddressSnapshotLib for SnapshottedAddressSet;
+
+  TimeCheater internal timeCheater;
 
   constructor(
     IERC20 _stakingAsset,
@@ -24,6 +29,12 @@ contract StakingCheater is IStaking {
     uint256 _slashingQuorum,
     uint256 _roundSize
   ) {
+    timeCheater = new TimeCheater(
+      address(this),
+      block.timestamp,
+      TestConstants.AZTEC_SLOT_DURATION,
+      TestConstants.AZTEC_EPOCH_DURATION
+    );
     Timestamp exitDelay = Timestamp.wrap(60 * 60 * 24);
     Slasher slasher = new Slasher(_slashingQuorum, _roundSize);
     StakingLib.initialize(_stakingAsset, _minimumStake, exitDelay, address(slasher));
@@ -107,5 +118,9 @@ contract StakingCheater is IStaking {
 
   function cheat__RemoveAttester(address _attester) external {
     StakingLib.getStorage().attesters.remove(_attester);
+  }
+
+  function cheat__progressEpoch() external {
+    timeCheater.cheat__progressEpoch();
   }
 }

@@ -18,7 +18,7 @@ contract GettersTest is StakingBase {
     });
 
     // Progress into the next epoch
-    timeCheater.cheat__progressEpoch();
+    staking.cheat__progressEpoch();
   }
 
   function test_getAttesterAtIndex() external view {

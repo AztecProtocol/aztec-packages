@@ -2,8 +2,8 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 
 /**
  * @notice Structure to store a set of addresses with their historical snapshots

@@ -33,7 +33,7 @@ contract FinaliseWithdrawTest is StakingBase {
     });
 
     // Progress into the next epoch
-    timeCheater.cheat__progressEpoch();
+    staking.cheat__progressEpoch();
 
     vm.prank(WITHDRAWER);
     staking.initiateWithdraw(ATTESTER, RECIPIENT);

@@ -51,6 +51,7 @@ contract SetRollupTest is StakingAssetHandlerBase {
   function test_WhenValidatorIsAddedAfterSettingTheRollup() external {
     // it deposits into the new rollup
     StakingCheater newStaking = new StakingCheater(stakingAsset, MINIMUM_STAKE, 1, 1);
+
     assertNotEq(address(newStaking), address(staking));
 
     stakingAssetHandler.setRollup(address(newStaking));

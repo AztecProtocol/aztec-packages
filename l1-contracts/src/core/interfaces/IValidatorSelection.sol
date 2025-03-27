@@ -18,7 +18,6 @@ struct EpochData {
   uint256 nextSeed;
 }
 
-
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => EpochData) epochs;

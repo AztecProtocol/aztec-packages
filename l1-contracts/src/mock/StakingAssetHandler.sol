@@ -108,7 +108,11 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit AddValidatorPermissionGranted(_owner);
   }
 
-  function addValidator(address _attester, address _proposer) external override onlyCanAddValidator {
+  function addValidator(address _attester, address _proposer)
+    external
+    override(IStakingAssetHandler)
+    onlyCanAddValidator
+  {
     bool needsToMint = STAKING_ASSET.balanceOf(address(this)) < depositAmount;
     bool canMint = block.timestamp - lastMintTimestamp >= mintInterval;
 
@@ -124,38 +128,50 @@ contract StakingAssetHandler is IStakingAssetHandler, Ownable {
     emit ValidatorAdded(_attester, _proposer, withdrawer);
   }
 
-  function setRollup(address _rollup) external override onlyOwner {
+  function setRollup(address _rollup) external override(IStakingAssetHandler) onlyOwner {
     rollup = IStaking(_rollup);
     emit RollupUpdated(_rollup);
   }
 
-  function setDepositAmount(uint256 _amount) external override onlyOwner {
+  function setDepositAmount(uint256 _amount) external override(IStakingAssetHandler) onlyOwner {
     depositAmount = _amount;
     emit DepositAmountUpdated(_amount);
   }
 
-  function setMintInterval(uint256 _interval) external override onlyOwner {
+  function setMintInterval(uint256 _interval) external override(IStakingAssetHandler) onlyOwner {
     mintInterval = _interval;
     emit IntervalUpdated(_interval);
   }
 
-  function setDepositsPerMint(uint256 _depositsPerMint) external override onlyOwner {
+  function setDepositsPerMint(uint256 _depositsPerMint)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
     require(_depositsPerMint > 0, CannotMintZeroAmount());
     depositsPerMint = _depositsPerMint;
     emit DepositsPerMintUpdated(_depositsPerMint);
   }
 
-  function setWithdrawer(address _withdrawer) external override onlyOwner {
+  function setWithdrawer(address _withdrawer) external override(IStakingAssetHandler) onlyOwner {
     withdrawer = _withdrawer;
     emit WithdrawerUpdated(_withdrawer);
   }
 
-  function grantAddValidatorPermission(address _address) external override onlyOwner {
+  function grantAddValidatorPermission(address _address)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
     canAddValidator[_address] = true;
     emit AddValidatorPermissionGranted(_address);
   }
 
-  function revokeAddValidatorPermission(address _address) external override onlyOwner {
+  function revokeAddValidatorPermission(address _address)
+    external
+    override(IStakingAssetHandler)
+    onlyOwner
+  {
     canAddValidator[_address] = false;
     emit AddValidatorPermissionRevoked(_address);
   }

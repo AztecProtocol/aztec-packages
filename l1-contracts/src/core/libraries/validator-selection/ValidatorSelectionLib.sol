@@ -5,8 +5,7 @@ pragma solidity >=0.8.27;
 import {BlockHeaderValidationFlags} from "@aztec/core/interfaces/IRollup.sol";
 import {StakingStorage} from "@aztec/core/interfaces/IStaking.sol";
 import {
-  EpochData,
-  ValidatorSelectionStorage
+  EpochData, ValidatorSelectionStorage
 } from "@aztec/core/interfaces/IValidatorSelection.sol";
 import {SampleLib} from "@aztec/core/libraries/crypto/SampleLib.sol";
 import {SignatureLib, Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
