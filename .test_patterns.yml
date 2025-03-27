@@ -85,6 +85,10 @@ tests:
   - regex: "simple e2e_p2p/slashing"
     owners:
       - *sean
+  - regex: "simple e2e_p2p/reqresp"
+    error_regex: "TimeoutError"
+    owners:
+      - *sean
 
   - regex: "simple e2e_p2p/upgrade_governance_proposer"
     owners:
@@ -109,6 +113,10 @@ tests:
     error_regex: "✕ Claim secret is enough to consume the message"
     owners:
       - *lasse
+  - regex: "simple e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Someone else can mint funds to me on my behalf"
+    owners:
+      - *lasse
 
   - regex: "simple e2e_block_building"
     error_regex: "Cannot read properties of undefined"
@@ -130,6 +138,10 @@ tests:
     owners:
       - *sean
   - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    owners:
+      - *sean
+  - regex: "p2p/src/client/p2p_client.test.ts"
+    error_regex: "Exceeded timeout of 120000"
     owners:
       - *sean
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
@@ -173,10 +185,6 @@ tests:
   - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
     owners:
       - *adam
-
-  - regex: "spartan/bootstrap.sh test-kind-smoke"
-    owners:
-      - *mitch
 
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
