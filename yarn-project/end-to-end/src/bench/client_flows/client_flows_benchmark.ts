@@ -5,12 +5,16 @@ import {
   AztecAddress,
   type AztecNode,
   FeeJuicePaymentMethodWithClaim,
+  type FeePaymentMethod,
   type Logger,
   type PXE,
+  PrivateFeePaymentMethod,
+  SponsoredFeePaymentMethod,
+  type Wallet,
   createLogger,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import { type DeployL1ContractsArgs, RollupContract, createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -21,6 +25,7 @@ import { TestERC20Bytecode } from '@aztec/l1-artifacts/TestERC20Bytecode';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract as BananaCoin, TokenContract } from '@aztec/noir-contracts.js/Token';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { getCanonicalFeeJuice } from '@aztec/protocol-contracts/fee-juice';
@@ -35,7 +40,7 @@ import {
   deployAccounts,
 } from '../../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
-import { type SetupOptions, setupCanonicalFeeJuice } from '../../fixtures/utils.js';
+import { type SetupOptions, setupCanonicalFeeJuice, setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import {
   FeeJuicePortalTestingHarnessFactory,
@@ -45,6 +50,8 @@ import {
 const { E2E_DATA_PATH: dataPath } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
+export type FeePaymentMethodGetter = (wallet: Wallet) => Promise<FeePaymentMethod>;
+export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc';
 
 export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
@@ -76,9 +83,31 @@ export class ClientFlowsBenchmark {
   public amm!: AMMContract;
   // Liquidity token for AMM
   public liquidityToken!: TokenContract;
+  // Sponsored FPC contract
+  public sponsoredFPC!: SponsoredFPCContract;
 
   // PXE used by the benchmarking user. It can be set up with client-side proving enabled
   public userPXE!: PXE;
+
+  public paymentMethods: Record<BenchmarkingFeePaymentMethod, { forWallet: FeePaymentMethodGetter; circuits: number }> =
+    {
+      bridged_fee_juice: {
+        forWallet: this.getBridgedFeeJuicePaymentMethodForWallet.bind(this),
+        circuits: 2, // FeeJuice claim + kernel inner
+      },
+      private_fpc: {
+        forWallet: this.getPrivateFPCPaymentMethodForWallet.bind(this),
+        circuits:
+          2 + // FPC entrypoint + kernel inner
+          2 + // BananaCoin transfer_to_public + kernel inner
+          2 + // Account verify_private_authwit + kernel inner
+          2, // BananaCoin prepare_private_balance_increase + kernel inner
+      },
+      sponsored_fpc: {
+        forWallet: this.getSponsoredFPCPaymentMethodForWallet.bind(this),
+        circuits: 2, // Sponsored FPC sponsor_unconditionally + kernel inner
+      },
+    };
 
   constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
     this.logger = createLogger(`bench:client_flows${testName ? `:${testName}` : ''}`);
@@ -259,6 +288,20 @@ export class ClientFlowsBenchmark {
     );
   }
 
+  async applyDeploySponsoredFPCSnapshot() {
+    await this.snapshotManager.snapshot(
+      'deploy_sponsored_fpc',
+      async () => {
+        const sponsoredFPC = await setupSponsoredFPC(this.pxe);
+        this.logger.info(`SponsoredFPC deployed at ${sponsoredFPC.address}`);
+        return { sponsoredFPCAddress: sponsoredFPC.address };
+      },
+      async ({ sponsoredFPCAddress }) => {
+        this.sponsoredFPC = await SponsoredFPCContract.at(sponsoredFPCAddress, this.adminWallet);
+      },
+    );
+  }
+
   public async createCrossChainTestHarness(owner: AccountWallet) {
     const { publicClient, walletClient } = createL1Clients(this.context.aztecNodeConfig.l1RpcUrls, MNEMONIC);
 
@@ -327,5 +370,21 @@ export class ClientFlowsBenchmark {
         this.amm = await AMMContract.at(ammAddress, this.adminWallet);
       },
     );
+  }
+
+  public async getBridgedFeeJuicePaymentMethodForWallet(wallet: Wallet) {
+    const claim = await this.feeJuiceBridgeTestHarness.prepareTokensOnL1(
+      FEE_FUNDING_FOR_TESTER_ACCOUNT,
+      wallet.getAddress(),
+    );
+    return new FeeJuicePaymentMethodWithClaim(wallet, claim);
+  }
+
+  public async getPrivateFPCPaymentMethodForWallet(wallet: Wallet) {
+    return new PrivateFeePaymentMethod(this.bananaFPC.address, wallet);
+  }
+
+  public async getSponsoredFPCPaymentMethodForWallet(wallet: Wallet) {
+    return new SponsoredFeePaymentMethod(this.sponsoredFPC.address);
   }
 }

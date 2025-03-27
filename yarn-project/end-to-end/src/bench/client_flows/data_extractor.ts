@@ -179,9 +179,10 @@ async function main() {
     await writeFile(join(ivcFolder, flow, 'logs.json'), JSON.stringify(currentLogs, null, 2));
 
     if (!error) {
-      minimumTrace = getMinimumTrace(currentLogs, proverType);
       stats = currentLogs[0].data as { duration: number; eventName: string; proofSize: number };
     }
+
+    minimumTrace = getMinimumTrace(currentLogs, proverType);
 
     const steps = executionSteps.reduce<Step[]>((acc, step, i) => {
       const previousAccGateCount = i === 0 ? 0 : acc[i - 1].accGateCount!;
