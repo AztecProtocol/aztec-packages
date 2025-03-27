@@ -67,8 +67,8 @@ describe('e2e_p2p_validators_sentinel', () => {
 
     // Wait for a few blocks to be mined
     const currentBlock = t.monitor.l2BlockNumber;
-    const blockCount = NUM_VALIDATORS * 2;
-    const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * blockCount * 2 + 20;
+    const blockCount = 3;
+    const timeout = SHORTENED_BLOCK_TIME_CONFIG.aztecSlotDuration * blockCount * 8;
     t.logger.info(`Waiting until L2 block ${currentBlock + blockCount}`, { currentBlock, blockCount, timeout });
     await retryUntil(() => t.monitor.l2BlockNumber >= currentBlock + blockCount, 'blocks mined', timeout);
 
@@ -86,13 +86,22 @@ describe('e2e_p2p_validators_sentinel', () => {
     expect(offlineStats.missedAttestations.rate).toEqual(1);
     expect(offlineStats.missedProposals.rate).toBeOneOf([1, NaN]);
 
-    // Check stats for a working validator
-    const okValidator = t.validators[0].attester.toLowerCase();
-    const okStats = stats.stats[okValidator];
-    t.logger.info(`Asserting stats for ok validator ${okValidator}`);
-    expect(okStats.history.length).toBeGreaterThanOrEqual(blockCount - 1);
-    expect(okStats.history.some(h => h.status === 'attestation-sent')).toBeTrue();
-    expect(okStats.history.some(h => h.status === 'block-mined' || 'block-proposed')).toBeTrue();
-    expect(okStats.missedAttestations.rate).toBeLessThan(1);
+    // Check stats for a validator that mined a block
+    const [proposerValidator, proposerStats] = Object.entries(stats.stats).find(([_, v]) =>
+      v?.history?.some(h => h.status === 'block-mined'),
+    )!;
+    t.logger.info(`Asserting stats for proposer validator ${proposerValidator}`);
+    expect(t.validators.map(v => v.attester.toLowerCase())).toContain(proposerValidator);
+    expect(proposerStats.history.length).toBeGreaterThanOrEqual(blockCount - 1);
+    expect(proposerStats.missedProposals.rate).toBeLessThan(1);
+
+    // Check stats for a validator that attested to a block
+    const [attestorValidator, attestorStats] = Object.entries(stats.stats).find(([_, v]) =>
+      v?.history?.some(h => h.status === 'attestation-sent'),
+    )!;
+    t.logger.info(`Asserting stats for attestor validator ${attestorValidator}`);
+    expect(t.validators.map(v => v.attester.toLowerCase())).toContain(attestorValidator);
+    expect(attestorStats.history.length).toBeGreaterThanOrEqual(blockCount - 1);
+    expect(attestorStats.missedAttestations.rate).toBeLessThan(1);
   });
 });

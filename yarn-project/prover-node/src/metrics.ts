@@ -26,6 +26,7 @@ export class ProverNodeMetrics {
   txCalldataGas: Histogram;
   txBlobDataGasUsed: Histogram;
   txBlobDataGasCost: Histogram;
+  txTotalFee: Histogram;
 
   private senderBalance: Gauge;
 
@@ -100,6 +101,17 @@ export class ProverNodeMetrics {
       valueType: ValueType.INT,
     });
 
+    this.txTotalFee = meter.createHistogram(Metrics.L1_PUBLISHER_TX_TOTAL_FEE, {
+      description: 'How much L1 tx costs',
+      unit: 'gwei',
+      valueType: ValueType.DOUBLE,
+      advice: {
+        explicitBucketBoundaries: [
+          0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1, 1.2, 1.4, 1.8, 2,
+        ],
+      },
+    });
+
     this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
       unit: 'eth',
       description: 'The balance of the sender address',
@@ -157,6 +169,16 @@ export class ProverNodeMetrics {
 
     try {
       this.gasPrice.record(parseInt(formatEther(stats.gasPrice, 'gwei'), 10));
+    } catch (e) {
+      // ignore
+    }
+
+    const executionFee = stats.gasUsed * stats.gasPrice;
+    const blobFee = stats.blobGasUsed * stats.blobDataGas;
+    const totalFee = executionFee + blobFee;
+
+    try {
+      this.txTotalFee.record(parseFloat(formatEther(totalFee)));
     } catch (e) {
       // ignore
     }
