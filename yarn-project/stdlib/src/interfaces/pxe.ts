@@ -29,15 +29,9 @@ import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import {
-  PrivateExecutionResult,
-  Tx,
-  TxExecutionRequest,
-  TxHash,
-  TxProvingResult,
-  TxReceipt,
-  TxSimulationResult,
-} from '../tx/index.js';
+import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import {
   type GetContractClassLogsResponse,
@@ -60,38 +54,6 @@ export interface PXE {
    * @returns Whether the message is synced and ready to be included in a block.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
-
-  /**
-   * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
-   * behalf of a user. For instance, a token transfer initiated by a different address may request
-   * authorization from the user to move their tokens. This authorization is granted by the user
-   * account contract by verifying an auth witness requested to the execution oracle. Witnesses are
-   * usually a signature over a hash of the action to be authorized, but their actual contents depend
-   * on the account contract that consumes them.
-   *
-   * @param authWitness - The auth witness to insert. Composed of an identifier, which is the hash of
-   * the action to be authorized, and the actual witness as an array of fields, which are to be
-   * deserialized and processed by the account contract.
-   */
-  addAuthWitness(authWitness: AuthWitness): Promise<void>;
-
-  /**
-   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
-   * @param messageHash - The hash of the message for which to get the auth witness.
-   * @returns The serialized auth witness for the given message hash.
-   */
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
-
-  /**
-   * Adds a capsule.
-   * @param contract - The address of the contract to add the capsule to.
-   * @param storageSlot - The storage slot to add the capsule to.
-   * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
-   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
-   * network state it's backed by local PXE db.
-   */
-  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.
@@ -166,14 +128,13 @@ export interface PXE {
   getContracts(): Promise<AztecAddress[]>;
 
   /**
-   * Creates a proving result based on the provided preauthenticated execution request and the results
-   * of executing the private part of the transaction. This will assemble the zero-knowledge proof for the private execution.
-   * It returns an object that contains the proof and public inputs of the tail circuit, which can be converted into a Tx ready to be sent to the network
+   * Proves the private portion of a simulated transaction, ready to send to the network
+   * (where valiators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
-   * @returns A transaction ready to be sent to the network for execution.
-   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * @returns A result containing the proof and public inputs of the tail circuit.
+   * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
@@ -193,10 +154,10 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
-   * @param profile - (Optional) If true, will run the private kernel prover with profiling enabled and include the result (gate count) in TxSimulationResult.
+   * @param skipFeeEnforcement - (Optional) If false, fees are enforced.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction result object that includes public and private return values.
-   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   simulateTx(
@@ -205,9 +166,23 @@ export interface PXE {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
+
+  /**
+   * Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @returns A trace of the program execution with gate counts.
+   * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
+   */
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'execution-steps' | 'full',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
@@ -305,6 +280,7 @@ export interface PXE {
     functionName: string,
     args: any[],
     to: AztecAddress,
+    authwits?: AuthWitness[],
     from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded>;
@@ -454,12 +430,6 @@ const PXEInfoSchema = z.object({
 
 export const PXESchema: ApiSchemaFor<PXE> = {
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
-  addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
-  getAuthWitness: z
-    .function()
-    .args(schemas.Fr)
-    .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  storeCapsule: z.function().args(schemas.AztecAddress, schemas.Fr, z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
@@ -473,13 +443,20 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
+  profileTx: z
+    .function()
+    .args(
+      TxExecutionRequest.schema,
+      z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
+      optional(schemas.AztecAddress),
+    )
+    .returns(TxProfileResult.schema),
   simulateTx: z
     .function()
     .args(
       TxExecutionRequest.schema,
       z.boolean(),
       optional(schemas.AztecAddress),
-      optional(z.boolean()),
       optional(z.boolean()),
       optional(z.boolean()),
       optional(z.array(schemas.AztecAddress)),
@@ -513,6 +490,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       z.string(),
       z.array(z.any()),
       schemas.AztecAddress,
+      optional(z.array(AuthWitness.schema)),
       optional(schemas.AztecAddress),
       optional(z.array(schemas.AztecAddress)),
     )

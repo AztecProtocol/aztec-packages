@@ -26,7 +26,7 @@ Let's assume you have a file `src/index.ts` from the example used in the Sandbox
 
 1. Import relevant modules:
 
-#include_code imports /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
+#include_code imports1 /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
 
 2. Code to create an account. You must run this inside of a function:
 

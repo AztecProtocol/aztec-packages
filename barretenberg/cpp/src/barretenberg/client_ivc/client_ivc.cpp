@@ -139,12 +139,10 @@ void ClientIVC::complete_kernel_circuit_logic(ClientCircuit& circuit)
  * folding proof. Also execute the merge protocol to produce a merge proof.
  *
  * @param circuit
- * @param _one_circuit Receives the signal that the initial stack to be accumulated consists of only one circuit. In
  * this case, just produce a Honk proof for that circuit and do no folding.
  * @param precomputed_vk
  */
 void ClientIVC::accumulate(ClientCircuit& circuit,
-                           [[maybe_unused]] const bool _one_circuit,
                            const std::shared_ptr<MegaVerificationKey>& precomputed_vk,
                            const bool mock_vk)
 {
@@ -206,14 +204,11 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 }
 
 /**
- * @brief Construct the hiding circuit, which recursively verifies the last folding proof and decider proof, and
- * then produce a proof of the circuit's correctness with MegaHonk.
- *
- * @details The aim of this intermediate stage is to reduce the cost of producing a zero-knowledge ClientIVCProof.
- * @return HonkProof - a Mega proof
- * @return MergeProof - a Merge proof
+ * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
+ * decider proof.
  */
-std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
+std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> ClientIVC::
+    construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
     ASSERT(verification_queue.size() == 1);
@@ -228,12 +223,11 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
     // circuit. So, these have to be preserved as public inputs to the hiding circuit (and, subsequently, as public
     // inputs to the tube circuit) which are intermediate stages.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1048): link these properly, likely insecure
-    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(fold_proof[PUBLIC_INPUTS_SIZE_INDEX]));
+    auto num_public_inputs = static_cast<uint32_t>(static_cast<uint256_t>(honk_vk->num_public_inputs));
     num_public_inputs -= bb::PAIRING_POINT_ACCUMULATOR_SIZE;      // exclude aggregation object
     num_public_inputs -= bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE; // exclude propagated databus commitments
     for (size_t i = 0; i < num_public_inputs; i++) {
-        size_t offset = HONK_PROOF_PUBLIC_INPUT_OFFSET;
-        builder.add_public_variable(fold_proof[i + offset]);
+        builder.add_public_variable(fold_proof[i]);
     }
 
     const StdlibProof<ClientCircuit> stdlib_merge_proof =
@@ -267,12 +261,29 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
 
     auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
-    MegaProver prover(decider_pk);
 
+    return { decider_pk, merge_proof };
+}
+
+/**
+ * @brief Construct the hiding circuit  then produce a proof of the circuit's correctness with MegaHonk.
+ *
+ * @return HonkProof - a Mega proof
+ */
+std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
+{
+    auto [decider_pk, merge_proof] = construct_hiding_circuit_key();
+    MegaProver prover(decider_pk);
     HonkProof proof = prover.construct_proof();
 
     return { proof, merge_proof };
 }
+
+void ClientIVC::construct_vk()
+{
+    construct_hiding_circuit_key();
+    goblin.construct_vks();
+};
 
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
@@ -282,7 +293,6 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
 ClientIVC::Proof ClientIVC::prove()
 {
     auto [mega_proof, merge_proof] = construct_and_prove_hiding_circuit();
-
     return { mega_proof, goblin.prove(merge_proof) };
 };
 

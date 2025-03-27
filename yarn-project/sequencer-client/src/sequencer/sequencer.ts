@@ -33,7 +33,14 @@ import {
   Tx,
   type TxHash,
 } from '@aztec/stdlib/tx';
-import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
+import {
+  Attributes,
+  L1Metrics,
+  type TelemetryClient,
+  type Tracer,
+  getTelemetryClient,
+  trackSpan,
+} from '@aztec/telemetry-client';
 import type { ValidatorClient } from '@aztec/validator-client';
 
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
@@ -73,6 +80,7 @@ export class Sequencer {
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
+  private l1Metrics: L1Metrics;
   private isFlushing: boolean = false;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
@@ -99,6 +107,9 @@ export class Sequencer {
     protected log = createLogger('sequencer'),
   ) {
     this.metrics = new SequencerMetrics(telemetry, () => this.state, 'Sequencer');
+    this.l1Metrics = new L1Metrics(telemetry.getMeter('SequencerL1Metrics'), publisher.l1TxUtils.publicClient, [
+      publisher.getSenderAddress(),
+    ]);
 
     // Register the block builder with the validator client for re-execution
     this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));
@@ -109,6 +120,10 @@ export class Sequencer {
 
   get tracer(): Tracer {
     return this.metrics.tracer;
+  }
+
+  public getValidatorAddress() {
+    return this.validatorClient?.getValidatorAddress();
   }
 
   /**
@@ -183,6 +198,7 @@ export class Sequencer {
     this.runningPromise = new RunningPromise(this.work.bind(this), this.log, this.pollingIntervalMs);
     this.setState(SequencerState.IDLE, 0n, true /** force */);
     this.runningPromise.start();
+    this.l1Metrics.start();
     this.log.info(`Sequencer started with address ${this.publisher.getSenderAddress().toString()}`);
   }
 
@@ -196,6 +212,7 @@ export class Sequencer {
     this.slasherClient.stop();
     this.publisher.interrupt();
     this.setState(SequencerState.STOPPED, 0n, true /** force */);
+    this.l1Metrics.stop();
     this.log.info('Stopped sequencer');
   }
 
@@ -418,16 +435,16 @@ export class Sequencer {
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state
-    const publicProcessorFork = await this.worldState.fork();
-    const orchestratorFork = await this.worldState.fork();
+    const publicProcessorDBFork = await this.worldState.fork();
+    const orchestratorDBFork = await this.worldState.fork();
 
     const previousBlockHeader =
-      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorFork.getInitialHeader();
+      (await this.l2BlockSource.getBlock(blockNumber - 1))?.header ?? orchestratorDBFork.getInitialHeader();
 
     try {
-      const processor = this.publicProcessorFactory.create(publicProcessorFork, newGlobalVariables, true);
+      const processor = this.publicProcessorFactory.create(publicProcessorDBFork, newGlobalVariables, true);
       const blockBuildingTimer = new Timer();
-      const blockBuilder = this.blockBuilderFactory.create(orchestratorFork);
+      const blockBuilder = this.blockBuilderFactory.create(orchestratorDBFork);
       await blockBuilder.startNewBlock(newGlobalVariables, l1ToL2Messages, previousBlockHeader);
 
       // Deadline for processing depends on whether we're proposing a block
@@ -449,7 +466,7 @@ export class Sequencer {
       });
 
       const validators = createValidatorsForBlockBuilding(
-        publicProcessorFork,
+        publicProcessorDBFork,
         this.contractDataSource,
         newGlobalVariables,
         this.allowedInSetup,
@@ -516,8 +533,8 @@ export class Sequencer {
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       setTimeout(async () => {
         try {
-          await publicProcessorFork.close();
-          await orchestratorFork.close();
+          await publicProcessorDBFork.close();
+          await orchestratorDBFork.close();
         } catch (err) {
           // This can happen if the sequencer is stopped before we hit this timeout.
           this.log.warn(`Error closing forks for block processing`, err);

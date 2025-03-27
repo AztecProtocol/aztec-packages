@@ -1,14 +1,8 @@
-import {
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-  MAX_NOTE_HASHES_PER_TX,
-  PRIVATE_LOG_SIZE_IN_FIELDS,
-  PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
-} from '@aztec/constants';
+import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { poseidon2Hash } from '@aztec/foundation/crypto';
-import { Fr } from '@aztec/foundation/fields';
+import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { BufferReader } from '@aztec/foundation/serialize';
 import type { KeyStore } from '@aztec/key-store';
 import {
   AcirSimulator,
@@ -18,6 +12,7 @@ import {
 } from '@aztec/simulator/client';
 import {
   type FunctionArtifact,
+  type FunctionArtifactWithContractName,
   FunctionCall,
   FunctionSelector,
   FunctionType,
@@ -31,7 +26,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, L1NotePayload, LogWithTxData, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -39,7 +34,6 @@ import type { BlockHeader } from '@aztec/stdlib/tx';
 import { TxHash } from '@aztec/stdlib/tx';
 
 import type { AddressDataProvider } from '../storage/address_data_provider/address_data_provider.js';
-import type { AuthWitnessDataProvider } from '../storage/auth_witness_data_provider/auth_witness_data_provider.js';
 import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDao } from '../storage/note_data_provider/note_dao.js';
@@ -62,8 +56,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
-    private authWitnessDataProvider: AuthWitnessDataProvider,
-    private log = createLogger('pxe:pxe_data_manager'),
+    private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
 
   getKeyValidationRequest(pkMHash: Fr, contractAddress: AztecAddress): Promise<KeyValidationRequest> {
@@ -89,11 +82,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return instance;
   }
 
-  async getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined> {
-    const witness = await this.authWitnessDataProvider.getAuthWitness(messageHash);
-    return witness;
-  }
-
   async getNotes(contractAddress: AztecAddress, storageSlot: Fr, status: NoteStatus, scopes?: AztecAddress[]) {
     const noteDaos = await this.noteDataProvider.getNotes({
       contractAddress,
@@ -113,8 +101,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }));
   }
 
-  async getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact> {
+  async getFunctionArtifact(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionArtifactWithContractName> {
     const artifact = await this.contractDataProvider.getFunctionArtifact(contractAddress, selector);
+    if (!artifact) {
+      throw new Error(`Function artifact not found for contract ${contractAddress} and selector ${selector}.`);
+    }
     const debug = await this.contractDataProvider.getFunctionDebugMetadata(contractAddress, selector);
     return {
       ...artifact,
@@ -125,8 +119,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async getFunctionArtifactByName(
     contractAddress: AztecAddress,
     functionName: string,
-  ): Promise<FunctionArtifact | undefined> {
+  ): Promise<FunctionArtifactWithContractName | undefined> {
     const instance = await this.contractDataProvider.getContractInstance(contractAddress);
+    if (!instance) {
+      return;
+    }
     const artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
     return artifact && getFunctionArtifact(artifact, functionName);
   }
@@ -156,21 +153,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   // Only used in public.
-  public getL1ToL2LeafValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getL1ToL2MessageHash(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
   }
 
-  /**
-   * Gets the index of a commitment in the note hash tree.
-   * @param commitment - The commitment.
-   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
-   */
-  async getCommitmentIndex(commitment: Fr) {
-    return await this.#findLeafIndex('latest', MerkleTreeId.NOTE_HASH_TREE, commitment);
-  }
-
   // We need this in public as part of the EXISTS calls - but isn't used in private
-  public getCommitmentValue(_leafIndex: bigint): Promise<Fr | undefined> {
+  public getNoteHash(_leafIndex: bigint): Promise<Fr | undefined> {
     throw new Error('Unimplemented in private!');
   }
 
@@ -180,7 +168,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async #findLeafIndex(blockNumber: L2BlockNumber, treeId: MerkleTreeId, leafValue: Fr): Promise<bigint | undefined> {
     const [leafIndex] = await this.aztecNode.findLeavesIndexes(blockNumber, treeId, [leafValue]);
-    return leafIndex;
+    return leafIndex?.data;
   }
 
   public async getMembershipWitness(blockNumber: number, treeId: MerkleTreeId, leafValue: Fr): Promise<Fr[]> {
@@ -231,8 +219,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return await this.aztecNode.getBlock(blockNumber);
   }
 
-  public async getPublicDataTreeWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return await this.aztecNode.getPublicDataTreeWitness(blockNumber, leafSlot);
+  public async getPublicDataWitness(blockNumber: number, leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return await this.aztecNode.getPublicDataWitness(blockNumber, leafSlot);
   }
 
   public async getPublicStorageAt(blockNumber: number, contract: AztecAddress, slot: Fr): Promise<Fr> {
@@ -596,77 +584,35 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Decrypts logs tagged for a recipient and returns them.
-   * @param scopedLogs - The logs to decrypt.
-   * @param recipient - The recipient of the logs.
-   * @returns The decrypted notes.
-   */
-  async #decryptTaggedLogs(scopedLogs: TxScopedL2Log[], recipient: AztecAddress) {
-    const recipientCompleteAddress = await this.getCompleteAddress(recipient);
-    const ivskM = await this.keyStore.getMasterSecretKey(
-      recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
-    );
-    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
-
-    // Since we could have notes with the same index for different txs, we need
-    // to keep track of them scoping by txHash
-    const excludedIndices: Map<string, Set<number>> = new Map();
-    const decrypted = [];
-
-    for (const scopedLog of scopedLogs) {
-      if (scopedLog.isFromPublic) {
-        throw new Error('Attempted to decrypt public log');
-      }
-
-      const payload = await L1NotePayload.decryptAsIncoming(PrivateLog.fromBuffer(scopedLog.logData), addressSecret);
-
-      if (!payload) {
-        this.log.warn('Unable to decrypt tagged log - was it not meant for us?');
-        continue;
-      }
-
-      if (!excludedIndices.has(scopedLog.txHash.toString())) {
-        excludedIndices.set(scopedLog.txHash.toString(), new Set());
-      }
-
-      const plaintext = [payload.storageSlot, payload.noteTypeId.toField(), ...payload.privateNoteValues];
-
-      decrypted.push({ plaintext, txHash: scopedLog.txHash, contractAddress: payload.contractAddress });
-    }
-
-    return decrypted;
-  }
-
-  /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
+   * @param contractAddress - The address of the contract that the logs are tagged for.
    * @param logs - The logs to process.
    * @param recipient - The recipient of the logs.
    */
   public async processTaggedLogs(
+    contractAddress: AztecAddress,
     logs: TxScopedL2Log[],
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ): Promise<void> {
-    const decryptedLogs = await this.#decryptTaggedLogs(logs, recipient);
+    for (const scopedLog of logs) {
+      if (scopedLog.isFromPublic) {
+        throw new Error('Attempted to decrypt public log');
+      }
 
-    // We've produced the full NoteDao, which we'd be able to simply insert into the database. However, this is
-    // only a temporary measure as we migrate from the PXE-driven discovery into the new contract-driven approach. We
-    // discard most of the work done up to this point and reconstruct the note plaintext to then hand over to the
-    // contract for further processing.
-    for (const decryptedLog of decryptedLogs) {
       // Log processing requires the note hashes in the tx in which the note was created. We are now assuming that the
       // note was included in the same block in which the log was delivered - note that partial notes will not work this
       // way.
-      const txEffect = await this.aztecNode.getTxEffect(decryptedLog.txHash);
+      const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
       if (!txEffect) {
-        throw new Error(`Could not find tx effect for tx hash ${decryptedLog.txHash}`);
+        throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
-        decryptedLog.contractAddress,
-        decryptedLog.plaintext,
-        decryptedLog.txHash,
+        contractAddress,
+        scopedLog.log.toFields(),
+        scopedLog.txHash,
         txEffect.data.noteHashes,
         txEffect.data.nullifiers[0],
         recipient,
@@ -715,24 +661,15 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     // We store notes by their index in the global note hash tree, which has the convenient side effect of validating
     // note existence in said tree.
-    const [uniqueNoteHashTreeIndex] = await this.aztecNode.findLeavesIndexes(
+    const [uniqueNoteHashTreeIndexInBlock] = await this.aztecNode.findLeavesIndexes(
       syncedBlockNumber,
       MerkleTreeId.NOTE_HASH_TREE,
       [uniqueNoteHash],
     );
-    if (uniqueNoteHashTreeIndex === undefined) {
+    if (uniqueNoteHashTreeIndexInBlock === undefined) {
       throw new Error(
         `Note hash ${noteHash} (uniqued as ${uniqueNoteHash}) is not present on the tree at block ${syncedBlockNumber} (from tx ${txHash})`,
       );
-    }
-
-    // TODO (#12550): findLeavesIndexes should probably return an InBlock, same as findNullifiersIndexesWithBlock. This
-    // would save us from having to then query the tx receipt in order to get the block hash and number. Note regardless
-    // that we're not validating that the note was indeed created in this tx (which would require inspecting the tx
-    // effects), so maybe what we really want is an InTx.
-    const txReceipt = await this.aztecNode.getTxReceipt(new TxHash(txHash));
-    if (txReceipt === undefined) {
-      throw new Error(`Failed to fetch tx receipt for tx hash ${txHash} when searching for note hashes`);
     }
 
     const noteDao = new NoteDao(
@@ -743,9 +680,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       noteHash,
       siloedNullifier,
       new TxHash(txHash),
-      txReceipt.blockNumber!,
-      txReceipt.blockHash!.toString(),
-      uniqueNoteHashTreeIndex,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
+      uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
+      uniqueNoteHashTreeIndexInBlock?.data,
       recipient,
     );
 
@@ -757,7 +694,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       nullifier: noteDao.siloedNullifier.toString(),
     });
 
-    const [nullifierIndex] = await this.aztecNode.findNullifiersIndexesWithBlock(syncedBlockNumber, [siloedNullifier]);
+    const [nullifierIndex] = await this.aztecNode.findLeavesIndexes(syncedBlockNumber, MerkleTreeId.NULLIFIER_TREE, [
+      siloedNullifier,
+    ]);
     if (nullifierIndex !== undefined) {
       const { data: _, ...blockHashAndNum } = nullifierIndex;
       await this.noteDataProvider.removeNullifiedNotes([{ data: siloedNullifier, ...blockHashAndNum }], recipient);
@@ -786,35 +725,39 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       );
     }
 
-    const log = logsForTag[0];
+    const scopedLog = logsForTag[0];
 
     // getLogsByTag doesn't have all of the information that we need (notably note hashes and the first nullifier), so
     // we need to make a second call to the node for `getTxEffect`.
     // TODO(#9789): bundle this information in the `getLogsByTag` call.
-    const txEffect = await this.aztecNode.getTxEffect(log.txHash);
+    const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
     if (txEffect == undefined) {
-      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${log.txHash} which is known to exist`);
+      throw new Error(`Unexpected: failed to retrieve tx effects for tx ${scopedLog.txHash} which is known to exist`);
     }
-
-    const reader = BufferReader.asReader(log.logData);
-    const logArray = reader.readArray(PUBLIC_LOG_DATA_SIZE_IN_FIELDS, Fr);
 
     // Public logs always take up all available fields by padding with zeroes, and the length of the originally emitted
     // log is lost. Until this is improved, we simply remove all of the zero elements (which are expected to be at the
     // end).
     // TODO(#11636): use the actual log length.
-    const trimmedLog = logArray.filter(x => !x.isZero());
+    const trimmedLog = scopedLog.log.toFields().filter(x => !x.isZero());
 
-    return new LogWithTxData(trimmedLog, log.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+    return new LogWithTxData(trimmedLog, scopedLog.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
+  // TODO(#12553): nuke this as part of tackling that issue. This function is no longer unit tested as I had to remove
+  // it from pxe_oracle_interface.test.ts when moving decryption to Noir (at that point we could not get a hold of
+  // the decrypted note in the test as TS decryption no longer existed).
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
-      const nullifierIndexes = await this.aztecNode.findNullifiersIndexesWithBlock('latest', nullifiersToCheck);
+      const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
+        'latest',
+        MerkleTreeId.NULLIFIER_TREE,
+        nullifiersToCheck,
+      );
 
       const foundNullifiers = nullifiersToCheck
         .map((nullifier, i) => {
@@ -837,7 +780,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   async callProcessLog(
     contractAddress: AztecAddress,
-    logPlaintext: Fr[],
+    logCiphertext: Fr[],
     txHash: TxHash,
     noteHashes: Fr[],
     firstNullifier: Fr,
@@ -862,7 +805,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       type: FunctionType.UNCONSTRAINED,
       isStatic: artifact.isStatic,
       args: encodeArguments(artifact, [
-        toBoundedVec(logPlaintext, PRIVATE_LOG_SIZE_IN_FIELDS),
+        toBoundedVec(logCiphertext, PRIVATE_LOG_SIZE_IN_FIELDS),
         txHash.toString(),
         toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
         firstNullifier,
@@ -893,6 +836,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
   copyCapsule(contractAddress: AztecAddress, srcSlot: Fr, dstSlot: Fr, numEntries: number): Promise<void> {
     return this.capsuleDataProvider.copyCapsule(contractAddress, srcSlot, dstSlot, numEntries);
+  }
+
+  async getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
+    // TODO(#12656): return an app-siloed secret
+    const recipientCompleteAddress = await this.getCompleteAddress(address);
+    const ivskM = await this.keyStore.getMasterSecretKey(
+      recipientCompleteAddress.publicKeys.masterIncomingViewingPublicKey,
+    );
+    const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
+    return deriveEcdhSharedSecret(addressSecret, ephPk);
   }
 }
 

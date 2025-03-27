@@ -39,7 +39,7 @@ import { mock } from 'jest-mock-extended';
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmPersistableStateManager } from '../avm/journal/journal.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -58,9 +58,10 @@ describe('public_tx_simulator', () => {
   // gasUsed for each enqueued call.
   const enqueuedCallGasUsed = new Gas(12, 34);
 
-  let db: MerkleTreeWriteOperations;
-  let dbCopy: MerkleTreeWriteOperations;
-  let worldStateDB: WorldStateDB;
+  let merkleTrees: MerkleTreeWriteOperations;
+  let merkleTreesCopy: MerkleTreeWriteOperations;
+  let treesDB: PublicTreesDB;
+  let contractsDB: PublicContractsDB;
 
   let publicDataTree: AppendOnlyTree<Fr>;
 
@@ -120,7 +121,7 @@ describe('public_tx_simulator', () => {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const balancePublicDataTreeLeafSlot = await computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
-    await db.batchInsert(
+    await merkleTrees.batchInsert(
       MerkleTreeId.PUBLIC_DATA_TREE,
       [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
       0,
@@ -210,13 +211,13 @@ describe('public_tx_simulator', () => {
     //  console.log(`TESTING Nullifier tree root after insertion ${(await db.getStateReference()).partial.nullifierTree.root}`);
     //}
     // This is how the public processor inserts nullifiers.
-    await dbCopy.batchInsert(
+    await merkleTreesCopy.batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       siloedNullifiers.map(n => n.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
-    const expectedRoot = new Fr((await db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
-    const gotRoot = new Fr((await db.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
+    const expectedRoot = new Fr((await merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
+    const gotRoot = new Fr((await merkleTrees.getTreeInfo(MerkleTreeId.NULLIFIER_TREE)).root);
     const gotRootPublicInputs = txResult.avmProvingRequest.inputs.publicInputs.endTreeSnapshots.nullifierTree.root;
     expect(gotRoot).toEqual(expectedRoot);
     expect(gotRootPublicInputs).toEqual(expectedRoot);
@@ -228,7 +229,7 @@ describe('public_tx_simulator', () => {
       expect(simulateInternal).toHaveBeenNthCalledWith(
         i + 1,
         expect.anything(), // AvmPersistableStateManager
-        expect.anything(), // publicExecutionRequest
+        expect.anything(), // PublicCallRequestWithCalldata
         Gas.from(availableGas),
         expect.anything(), // txFee
         expect.anything(), // fnName
@@ -244,8 +245,8 @@ describe('public_tx_simulator', () => {
     skipFeeEnforcement?: boolean;
   }) => {
     const simulator = new PublicTxSimulator(
-      db,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       GlobalVariables.from({ ...GlobalVariables.empty(), gasFees }),
       doMerkleOperations,
       skipFeeEnforcement,
@@ -278,9 +279,10 @@ describe('public_tx_simulator', () => {
   };
 
   beforeEach(async () => {
-    db = await (await NativeWorldStateService.tmp()).fork();
-    dbCopy = await (await NativeWorldStateService.tmp()).fork();
-    worldStateDB = new WorldStateDB(db, mock<ContractDataSource>());
+    merkleTrees = await (await NativeWorldStateService.tmp()).fork();
+    merkleTreesCopy = await (await NativeWorldStateService.tmp()).fork();
+    treesDB = new PublicTreesDB(merkleTrees);
+    contractsDB = new PublicContractsDB(mock<ContractDataSource>());
 
     treeStore = openTmpStore();
 
@@ -481,9 +483,9 @@ describe('public_tx_simulator', () => {
       hasPublicTeardownCall: true,
     });
 
-    const revertibleRequests = tx.getRevertiblePublicExecutionRequests();
+    const revertibleRequests = tx.data.getRevertiblePublicCallRequests();
 
-    const contractAddress = revertibleRequests[0].callContext.contractAddress;
+    const contractAddress = revertibleRequests[0].contractAddress;
     const contractSlotA = fr(0x100);
     const contractSlotB = fr(0x150);
     const contractSlotC = fr(0x200);
@@ -881,7 +883,7 @@ describe('public_tx_simulator', () => {
     // When contract class logs are fields and only stored here, they will be filtered after simulation
     // in processed_tx.ts -> makeProcessedTxFromTxWithPublicCalls() like PrivateLogs.
 
-    const contractClass = await worldStateDB.getContractClass(contractClassId);
+    const contractClass = await contractsDB.getContractClass(contractClassId);
     if (kind == 'revertible') {
       expect(tx.contractClassLogs.length).toEqual(0);
       expect(contractClass).toBeUndefined();

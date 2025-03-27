@@ -6,6 +6,8 @@ import {
   CoinIssuerBytecode,
   ExtRollupLibAbi,
   ExtRollupLibBytecode,
+  FeeAssetHandlerAbi,
+  FeeAssetHandlerBytecode,
   FeeJuicePortalAbi,
   FeeJuicePortalBytecode,
   ForwarderAbi,
@@ -188,6 +190,10 @@ export const l1Artifacts = {
     contractAbi: RegisterNewRollupVersionPayloadAbi,
     contractBytecode: RegisterNewRollupVersionPayloadBytecode as Hex,
   },
+  feeAssetHandler: {
+    contractAbi: FeeAssetHandlerAbi,
+    contractBytecode: FeeAssetHandlerBytecode as Hex,
+  },
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
@@ -328,6 +334,8 @@ export const deployRollup = async (
     minimumStake: args.minimumStake,
     slashingQuorum: args.slashingQuorum,
     slashingRoundSize: args.slashingRoundSize,
+    manaTarget: args.manaTarget,
+    provingCostPerMana: args.provingCostPerMana,
   };
   const genesisStateArgs = {
     vkTreeRoot: args.vkTreeRoot.toString(),
@@ -388,19 +396,15 @@ export const cheat_initializeValidatorSet = async (
   acceleratedTestDeployments: boolean | undefined,
   logger: Logger,
 ) => {
-  const rollup = getContract({
-    address: getAddress(rollupAddress.toString()),
-    abi: l1Artifacts.rollup.contractAbi,
-    client: clients.walletClient,
-  });
-  const minimumStake = await rollup.read.getMinimumStake();
+  const rollup = new RollupContract(clients.publicClient, rollupAddress);
+  const minimumStake = await rollup.getMinimumStake();
   if (validators && validators.length > 0) {
     // Check if some of the initial validators are already registered, so we support idempotent deployments
     if (!acceleratedTestDeployments) {
       const validatorsInfo = await Promise.all(
         validators.map(async address => ({
           address,
-          ...(await rollup.read.getInfo([address])),
+          ...(await rollup.getInfo(address)),
         })),
       );
       const existingValidators = validatorsInfo.filter(v => v.status !== 0);
@@ -458,6 +462,44 @@ export const cheat_initializeValidatorSet = async (
       });
     }
   }
+};
+
+/**
+ * Initialize the fee asset handler and make it a minter on the fee asset.
+ * @note This function will only be used for testing purposes.
+ *
+ * @param clients - The L1 clients.
+ * @param deployer - The L1 deployer.
+ * @param feeAssetAddress - The address of the fee asset.
+ * @param logger - The logger.
+ */
+// eslint-disable-next-line camelcase
+export const cheat_initializeFeeAssetHandler = async (
+  clients: L1Clients,
+  deployer: L1Deployer,
+  feeAssetAddress: EthAddress,
+  logger: Logger,
+): Promise<{
+  feeAssetHandlerAddress: EthAddress;
+  txHash: Hex;
+}> => {
+  const feeAssetHandlerAddress = await deployer.deploy(l1Artifacts.feeAssetHandler, [
+    clients.walletClient.account.address,
+    feeAssetAddress.toString(),
+    BigInt(1e18),
+  ]);
+  logger.verbose(`Deployed FeeAssetHandler at ${feeAssetHandlerAddress}`);
+
+  const { txHash } = await deployer.sendTransaction({
+    to: feeAssetAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.feeAsset.contractAbi,
+      functionName: 'addMinter',
+      args: [feeAssetHandlerAddress.toString()],
+    }),
+  });
+  logger.verbose(`Added fee asset handler ${feeAssetHandlerAddress} as minter on fee asset in ${txHash}`);
+  return { feeAssetHandlerAddress, txHash };
 };
 
 /**
@@ -535,7 +577,7 @@ export const deployL1Contracts = async (
   // @note @LHerskind the assets are expected to be the same at some point, but for better
   // configurability they are different for now.
   const governanceAddress = await deployer.deploy(l1Artifacts.governance, [
-    feeAssetAddress.toString(),
+    stakingAssetAddress.toString(),
     governanceProposerAddress.toString(),
   ]);
   logger.verbose(`Deployed Governance at ${governanceAddress}`);
@@ -579,29 +621,24 @@ export const deployL1Contracts = async (
   // Transaction hashes to await
   const txHashes: Hex[] = [];
 
-  if (args.acceleratedTestDeployments || !(await feeAsset.read.freeForAll())) {
-    const { txHash } = await deployer.sendTransaction({
-      to: feeAssetAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'setFreeForAll',
-        args: [true],
-      }),
-    });
-    logger.verbose(`Fee asset set to free for all in ${txHash}`);
-    txHashes.push(txHash);
-  }
+  const { feeAssetHandlerAddress, txHash: feeAssetHandlerTxHash } = await cheat_initializeFeeAssetHandler(
+    clients,
+    deployer,
+    feeAssetAddress,
+    logger,
+  );
+  txHashes.push(feeAssetHandlerTxHash);
 
-  if (args.acceleratedTestDeployments || (await feeAsset.read.owner()) !== getAddress(coinIssuerAddress.toString())) {
+  if (args.acceleratedTestDeployments || !(await feeAsset.read.minters([coinIssuerAddress.toString()]))) {
     const { txHash } = await deployer.sendTransaction({
       to: feeAssetAddress.toString(),
       data: encodeFunctionData({
         abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'transferOwnership',
+        functionName: 'addMinter',
         args: [coinIssuerAddress.toString()],
       }),
     });
-    logger.verbose(`Fee asset transferred ownership to coin issuer in ${txHash}`);
+    logger.verbose(`Added coin issuer ${coinIssuerAddress} as minter on fee asset in ${txHash}`);
     txHashes.push(txHash);
   }
 
@@ -754,6 +791,7 @@ export const deployL1Contracts = async (
     l1ContractAddresses: {
       ...l1Contracts,
       slashFactoryAddress,
+      feeAssetHandlerAddress,
     },
   };
 };

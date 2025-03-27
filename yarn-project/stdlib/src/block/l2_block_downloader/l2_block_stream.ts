@@ -2,16 +2,17 @@ import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import type { L2Block } from '../l2_block.js';
 import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
+import type { PublishedL2Block } from '../published_l2_block.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
   private isSyncing = false;
+  private hasStarted = false;
 
   constructor(
-    private l2BlockSource: Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'>,
+    private l2BlockSource: Pick<L2BlockSource, 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'>,
     private localData: L2BlockStreamLocalDataProvider,
     private handler: L2BlockStreamEventHandler,
     private readonly log = createLogger('types:block_stream'),
@@ -76,7 +77,12 @@ export class L2BlockStream {
       // If we are just starting, use the starting block number from the options.
       if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
         latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+      }
+
+      // Only log this entry once (for sanity)
+      if (!this.hasStarted) {
         this.log.verbose(`Starting sync from block number ${latestBlockNumber}`);
+        this.hasStarted = true;
       }
 
       // Request new blocks from the source.
@@ -84,17 +90,15 @@ export class L2BlockStream {
         const from = latestBlockNumber + 1;
         const limit = Math.min(this.opts.batchSize ?? 20, sourceTips.latest.number - from + 1);
         this.log.trace(`Requesting blocks from ${from} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getBlocks(from, limit, this.opts.proven);
+        const blocks = await this.l2BlockSource.getPublishedBlocks(from, limit, this.opts.proven);
         if (blocks.length === 0) {
           break;
         }
         await this.emitEvent({ type: 'blocks-added', blocks });
-        latestBlockNumber = blocks.at(-1)!.number;
+        latestBlockNumber = blocks.at(-1)!.block.number;
       }
 
       // Update the proven and finalized tips.
-      // TODO(palla/reorg): Should we emit this before passing the new blocks? This would allow world-state to skip
-      // building the data structures for the pending chain if it's unneeded.
       if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven.number) {
         await this.emitEvent({ type: 'chain-proven', blockNumber: sourceTips.proven.number });
       }
@@ -160,7 +164,7 @@ export type L2BlockStreamEvent =
   | {
       type: 'blocks-added';
       /** New blocks added to the chain. */
-      blocks: L2Block[];
+      blocks: PublishedL2Block[];
     }
   | {
       type: 'chain-pruned';

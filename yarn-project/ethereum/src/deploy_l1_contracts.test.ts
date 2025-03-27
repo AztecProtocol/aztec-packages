@@ -2,13 +2,12 @@ import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 
-import { getContract } from 'viem';
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createEthereumChain } from './chain.js';
 import { DefaultL1ContractsConfig } from './config.js';
+import { RollupContract } from './contracts/rollup.js';
 import { type DeployL1ContractsArgs, deployL1Contracts } from './deploy_l1_contracts.js';
 import { startAnvil } from './test/start_anvil.js';
 
@@ -70,11 +69,7 @@ describe('deploy_l1_contracts', () => {
     });
 
   const getRollup = (deployed: Awaited<ReturnType<typeof deploy>>) =>
-    getContract({
-      address: deployed.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: deployed.publicClient,
-    });
+    new RollupContract(deployed.publicClient, deployed.l1ContractAddresses.rollupAddress);
 
   it('deploys without salt', async () => {
     await deploy();
@@ -84,7 +79,7 @@ describe('deploy_l1_contracts', () => {
     const deployed = await deploy({ initialValidators });
     const rollup = getRollup(deployed);
     for (const validator of initialValidators) {
-      const { status } = await rollup.read.getInfo([validator.toString()]);
+      const { status } = await rollup.getInfo(validator);
       expect(status).toBeGreaterThan(0);
     }
   });
@@ -111,7 +106,7 @@ describe('deploy_l1_contracts', () => {
 
     const rollup = getRollup(first);
     for (const validator of initialValidators) {
-      const { status } = await rollup.read.getInfo([validator.toString()]);
+      const { status } = await rollup.getInfo(validator);
       expect(status).toBeGreaterThan(0);
     }
   });

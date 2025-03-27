@@ -1,36 +1,27 @@
 import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
+import type { IndexedTreeLeaf } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
-import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
-import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
+import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { NullifierLeaf } from '../trees/nullifier_leaf.js';
+import { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
-export class AvmEnqueuedCallHint {
-  constructor(public readonly contractAddress: AztecAddress, public readonly calldata: Fr[]) {}
-
-  static get schema() {
-    return z
-      .object({
-        contractAddress: AztecAddress.schema,
-        calldata: schemas.Fr.array(),
-      })
-      .transform(({ contractAddress, calldata }) => new AvmEnqueuedCallHint(contractAddress, calldata));
-  }
-}
-
+////////////////////////////////////////////////////////////////////////////
+// Hints (contracts)
+////////////////////////////////////////////////////////////////////////////
 export class AvmContractClassHint {
   constructor(
     public readonly classId: Fr,
-    public readonly exists: boolean,
     public readonly artifactHash: Fr,
     public readonly privateFunctionsRoot: Fr,
-    public readonly publicBytecodeCommitment: Fr,
     public readonly packedBytecode: Buffer,
   ) {}
 
@@ -38,195 +29,235 @@ export class AvmContractClassHint {
     return z
       .object({
         classId: schemas.Fr,
-        exists: z.boolean(),
         artifactHash: schemas.Fr,
         privateFunctionsRoot: schemas.Fr,
-        publicBytecodeCommitment: schemas.Fr,
         packedBytecode: schemas.Buffer,
       })
       .transform(
-        ({ classId, exists, artifactHash, privateFunctionsRoot, publicBytecodeCommitment, packedBytecode }) =>
-          new AvmContractClassHint(
-            classId,
-            exists,
-            artifactHash,
-            privateFunctionsRoot,
-            publicBytecodeCommitment,
-            packedBytecode,
-          ),
+        ({ classId, artifactHash, privateFunctionsRoot, packedBytecode }) =>
+          new AvmContractClassHint(classId, artifactHash, privateFunctionsRoot, packedBytecode),
       );
+  }
+}
+
+export class AvmBytecodeCommitmentHint {
+  constructor(public readonly classId: Fr, public readonly commitment: Fr) {}
+
+  static get schema() {
+    return z
+      .object({
+        classId: schemas.Fr,
+        commitment: schemas.Fr,
+      })
+      .transform(({ classId, commitment }) => new AvmBytecodeCommitmentHint(classId, commitment));
   }
 }
 
 export class AvmContractInstanceHint {
   constructor(
     public readonly address: AztecAddress,
-    public readonly exists: boolean,
     public readonly salt: Fr,
     public readonly deployer: AztecAddress,
     public readonly currentContractClassId: Fr,
     public readonly originalContractClassId: Fr,
     public readonly initializationHash: Fr,
     public readonly publicKeys: PublicKeys,
-    // public readonly updateMembershipHint: AvmPublicDataReadTreeHint = AvmPublicDataReadTreeHint.empty(),
-    public readonly updateMembershipHint: AvmPublicDataReadTreeHint,
-    public readonly updatePreimage: Fr[] = [],
   ) {}
 
   static get schema() {
     return z
       .object({
         address: AztecAddress.schema,
-        exists: z.boolean(),
         salt: schemas.Fr,
         deployer: AztecAddress.schema,
         currentContractClassId: schemas.Fr,
         originalContractClassId: schemas.Fr,
         initializationHash: schemas.Fr,
         publicKeys: PublicKeys.schema,
-        updateMembershipHint: AvmPublicDataReadTreeHint.schema,
-        updatePreimage: schemas.Fr.array(),
       })
       .transform(
         ({
           address,
-          exists,
           salt,
           deployer,
           currentContractClassId,
           originalContractClassId,
           initializationHash,
           publicKeys,
-          updateMembershipHint,
-          updatePreimage,
         }) =>
           new AvmContractInstanceHint(
             address,
-            exists,
             salt,
             deployer,
             currentContractClassId,
             originalContractClassId,
             initializationHash,
             publicKeys,
-            updateMembershipHint,
-            updatePreimage,
           ),
       );
   }
 }
 
-export class AvmAppendTreeHint {
-  constructor(public readonly leafIndex: Fr, public readonly value: Fr, public readonly siblingPath: Fr[]) {}
+////////////////////////////////////////////////////////////////////////////
+// Hints (merkle db)
+////////////////////////////////////////////////////////////////////////////
+// Hint for MerkleTreeDB.getSiblingPath.
+export class AvmGetSiblingPathHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly index: bigint,
+    // return
+    public readonly path: Fr[],
+  ) {}
 
   static get schema() {
     return z
       .object({
-        leafIndex: schemas.Fr,
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        index: schemas.BigInt,
+        path: schemas.Fr.array(),
+      })
+      .transform(({ hintKey, treeId, index, path }) => new AvmGetSiblingPathHint(hintKey, treeId, index, path));
+  }
+}
+
+// Hint for MerkleTreeDB.getPreviousValueIndex.
+export class AvmGetPreviousValueIndexHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly value: Fr,
+    // return
+    public readonly index: bigint,
+    public readonly alreadyPresent: boolean,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
         value: schemas.Fr,
-        siblingPath: schemas.Fr.array(),
-      })
-      .transform(({ leafIndex, value, siblingPath }) => new AvmAppendTreeHint(leafIndex, value, siblingPath));
-  }
-}
-
-export class AvmNullifierWriteTreeHint {
-  constructor(public lowLeafRead: AvmNullifierReadTreeHint, public readonly insertionPath: Fr[]) {}
-
-  static get schema() {
-    return z
-      .object({
-        lowLeafRead: AvmNullifierReadTreeHint.schema,
-        insertionPath: schemas.Fr.array(),
-      })
-      .transform(({ lowLeafRead, insertionPath }) => new AvmNullifierWriteTreeHint(lowLeafRead, insertionPath));
-  }
-}
-
-export class AvmNullifierReadTreeHint {
-  constructor(
-    public readonly lowLeafPreimage: NullifierLeafPreimage,
-    public readonly lowLeafIndex: Fr,
-    public readonly lowLeafSiblingPath: Fr[],
-  ) {}
-
-  static get schema() {
-    return z
-      .object({
-        lowLeafPreimage: NullifierLeafPreimage.schema,
-        lowLeafIndex: schemas.Fr,
-        lowLeafSiblingPath: schemas.Fr.array(),
+        index: schemas.BigInt,
+        alreadyPresent: z.boolean(),
       })
       .transform(
-        ({ lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath }) =>
-          new AvmNullifierReadTreeHint(lowLeafPreimage, lowLeafIndex, lowLeafSiblingPath),
+        ({ hintKey, treeId, value, index, alreadyPresent }) =>
+          new AvmGetPreviousValueIndexHint(hintKey, treeId, value, index, alreadyPresent),
       );
   }
 }
 
-export class AvmPublicDataReadTreeHint {
-  constructor(
-    public readonly leafPreimage: PublicDataTreeLeafPreimage,
-    public readonly leafIndex: Fr,
-    public readonly siblingPath: Fr[],
-  ) {}
+// Hint for MerkleTreeDB.getLeafPreimage.
+// NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
+// having the type doesn't suffice since TS does type erasure in the end.
+function AvmGetLeafPreimageHintFactory<T extends IndexedTreeLeaf>(klass: {
+  schema: z.ZodSchema;
+  new (...args: any[]): T;
+}) {
+  return class AvmGetLeafPreimageHint {
+    constructor(
+      public readonly hintKey: AppendOnlyTreeSnapshot,
+      // params (tree id will be implicit)
+      public readonly index: bigint,
+      // return
+      public readonly leaf: T,
+      public readonly nextIndex: bigint,
+      public readonly nextValue: Fr,
+    ) {}
 
-  static empty() {
-    return new AvmPublicDataReadTreeHint(PublicDataTreeLeafPreimage.empty(), Fr.ZERO, []);
-  }
+    static get schema() {
+      return z
+        .object({
+          hintKey: AppendOnlyTreeSnapshot.schema,
+          index: schemas.BigInt,
+          leaf: klass.schema,
+          nextIndex: schemas.BigInt,
+          nextValue: schemas.Fr,
+        })
+        .transform(
+          ({ hintKey, index, leaf, nextIndex, nextValue }) =>
+            new AvmGetLeafPreimageHint(hintKey, index, leaf, nextIndex, nextValue),
+        );
+    }
+  };
+}
+
+// Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
+export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeaf) {}
+export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeaf) {}
+
+// Hint for MerkleTreeDB.getLeafValue.
+// Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
+export class AvmGetLeafValueHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly index: bigint,
+    // return
+    public readonly value: Fr,
+  ) {}
 
   static get schema() {
     return z
       .object({
-        leafPreimage: PublicDataTreeLeafPreimage.schema,
-        leafIndex: schemas.Fr,
-        siblingPath: schemas.Fr.array(),
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        index: schemas.BigInt,
+        value: schemas.Fr,
       })
-      .transform(
-        ({ leafPreimage, leafIndex, siblingPath }) =>
-          new AvmPublicDataReadTreeHint(leafPreimage, leafIndex, siblingPath),
-      );
+      .transform(({ hintKey, treeId, index, value }) => new AvmGetLeafValueHint(hintKey, treeId, index, value));
   }
 }
 
-export class AvmPublicDataWriteTreeHint {
+////////////////////////////////////////////////////////////////////////////
+// Hints (other)
+////////////////////////////////////////////////////////////////////////////
+export class AvmEnqueuedCallHint {
   constructor(
-    // To check the current slot has been written to
-    public readonly lowLeafRead: AvmPublicDataReadTreeHint,
-    public readonly newLeafPreimage: PublicDataTreeLeafPreimage,
-    public readonly insertionPath: Fr[],
+    public readonly msgSender: AztecAddress,
+    public readonly contractAddress: AztecAddress,
+    public readonly calldata: Fr[],
+    public isStaticCall: boolean,
   ) {}
 
   static get schema() {
     return z
       .object({
-        lowLeafRead: AvmPublicDataReadTreeHint.schema,
-        newLeafPreimage: PublicDataTreeLeafPreimage.schema,
-        insertionPath: schemas.Fr.array(),
+        msgSender: AztecAddress.schema,
+        contractAddress: AztecAddress.schema,
+        calldata: schemas.Fr.array(),
+        isStaticCall: z.boolean(),
       })
       .transform(
-        ({ lowLeafRead, newLeafPreimage, insertionPath }) =>
-          new AvmPublicDataWriteTreeHint(lowLeafRead, newLeafPreimage, insertionPath),
+        ({ msgSender, contractAddress, calldata, isStaticCall }) =>
+          new AvmEnqueuedCallHint(msgSender, contractAddress, calldata, isStaticCall),
       );
   }
 }
 
 export class AvmExecutionHints {
   constructor(
-    public readonly enqueuedCalls: AvmEnqueuedCallHint[],
-    public readonly contractInstances: AvmContractInstanceHint[],
-    public readonly contractClasses: AvmContractClassHint[],
-    public readonly publicDataReads: AvmPublicDataReadTreeHint[],
-    public readonly publicDataWrites: AvmPublicDataWriteTreeHint[],
-    public readonly nullifierReads: AvmNullifierReadTreeHint[],
-    public readonly nullifierWrites: AvmNullifierWriteTreeHint[],
-    public readonly noteHashReads: AvmAppendTreeHint[],
-    public readonly noteHashWrites: AvmAppendTreeHint[],
-    public readonly l1ToL2MessageReads: AvmAppendTreeHint[],
+    public readonly enqueuedCalls: AvmEnqueuedCallHint[] = [],
+    // Contract hints.
+    public readonly contractInstances: AvmContractInstanceHint[] = [],
+    public readonly contractClasses: AvmContractClassHint[] = [],
+    public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
+    // Merkle DB hints.
+    public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
+    public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
+    public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
+    public readonly getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree[] = [],
+    public readonly getLeafValueHints: AvmGetLeafValueHint[] = [],
   ) {}
 
   static empty() {
-    return new AvmExecutionHints([], [], [], [], [], [], [], [], [], []);
+    return new AvmExecutionHints();
   }
 
   static get schema() {
@@ -235,38 +266,35 @@ export class AvmExecutionHints {
         enqueuedCalls: AvmEnqueuedCallHint.schema.array(),
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
-        publicDataReads: AvmPublicDataReadTreeHint.schema.array(),
-        publicDataWrites: AvmPublicDataWriteTreeHint.schema.array(),
-        nullifierReads: AvmNullifierReadTreeHint.schema.array(),
-        nullifierWrites: AvmNullifierWriteTreeHint.schema.array(),
-        noteHashReads: AvmAppendTreeHint.schema.array(),
-        noteHashWrites: AvmAppendTreeHint.schema.array(),
-        l1ToL2MessageReads: AvmAppendTreeHint.schema.array(),
+        bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
+        getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
+        getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
+        getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
+        getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree.schema.array(),
+        getLeafValueHints: AvmGetLeafValueHint.schema.array(),
       })
       .transform(
         ({
           enqueuedCalls,
           contractInstances,
           contractClasses,
-          publicDataReads,
-          publicDataWrites,
-          nullifierReads,
-          nullifierWrites,
-          noteHashReads,
-          noteHashWrites,
-          l1ToL2MessageReads,
+          bytecodeCommitments,
+          getSiblingPathHints,
+          getPreviousValueIndexHints,
+          getLeafPreimageHintsPublicDataTree,
+          getLeafPreimageHintsNullifierTree,
+          getLeafValueHints,
         }) =>
           new AvmExecutionHints(
             enqueuedCalls,
             contractInstances,
             contractClasses,
-            publicDataReads,
-            publicDataWrites,
-            nullifierReads,
-            nullifierWrites,
-            noteHashReads,
-            noteHashWrites,
-            l1ToL2MessageReads,
+            bytecodeCommitments,
+            getSiblingPathHints,
+            getPreviousValueIndexHints,
+            getLeafPreimageHintsPublicDataTree,
+            getLeafPreimageHintsNullifierTree,
+            getLeafValueHints,
           ),
       );
   }

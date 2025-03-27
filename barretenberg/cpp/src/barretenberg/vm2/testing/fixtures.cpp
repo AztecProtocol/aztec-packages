@@ -2,7 +2,9 @@
 
 #include <vector>
 
+#include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 using bb::avm2::tracegen::TestTraceContainer;
 
@@ -11,9 +13,6 @@ namespace bb::avm2::testing {
 using simulation::Instruction;
 using simulation::Operand;
 using simulation::OperandType;
-
-// If MemoryTag enum changes, this value might need to be adjusted.
-constexpr uint8_t NUM_MEMORY_TAGS = static_cast<int>(MemoryTag::U128) + 1;
 
 std::vector<FF> random_fields(size_t n)
 {
@@ -50,7 +49,8 @@ Operand random_operand(OperandType operand_type)
     case OperandType::TAG: {
         uint8_t operand_u8 = 0;
         serialize::read(pos_ptr, operand_u8);
-        return Operand::u8(operand_u8 % NUM_MEMORY_TAGS); // Insecure bias but it is fine for testing purposes.
+        return Operand::u8(operand_u8 % static_cast<uint8_t>(MemoryTag::MAX) +
+                           1); // Insecure bias but it is fine for testing purposes.
     }
     case OperandType::INDIRECT16: // Irrelevant bits might be toggled but they are ignored during address resolution.
     case OperandType::UINT16: {
@@ -111,6 +111,21 @@ Instruction random_instruction(WireOpCode w_opcode)
 TestTraceContainer empty_trace()
 {
     return TestTraceContainer::from_rows({ { .precomputed_first_row = 1 }, { .precomputed_clk = 1 } });
+}
+
+ContractInstance random_contract_instance()
+{
+    ContractInstance instance = { .salt = FF::random_element(),
+                                  .deployer_addr = FF::random_element(),
+                                  .contract_class_id = FF::random_element(),
+                                  .initialisation_hash = FF::random_element(),
+                                  .public_keys = PublicKeys{
+                                      .nullifier_key = AffinePoint::random_element(),
+                                      .incoming_viewing_key = AffinePoint::random_element(),
+                                      .outgoing_viewing_key = AffinePoint::random_element(),
+                                      .tagging_key = AffinePoint::random_element(),
+                                  } };
+    return instance;
 }
 
 } // namespace bb::avm2::testing

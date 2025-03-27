@@ -54,15 +54,7 @@ export class LogStore {
         this.#log.debug(`Found private log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-        currentLogs.push(
-          new TxScopedL2Log(
-            txHash,
-            dataStartIndexForTx,
-            block.number,
-            /* isFromPublic */ false,
-            log.toBuffer(),
-          ).toBuffer(),
-        );
+        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log).toBuffer());
         taggedLogs.set(tag.toString(), currentLogs);
       });
 
@@ -71,15 +63,7 @@ export class LogStore {
         this.#log.debug(`Found public log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-        currentLogs.push(
-          new TxScopedL2Log(
-            txHash,
-            dataStartIndexForTx,
-            block.number,
-            /* isFromPublic */ true,
-            log.toBuffer(),
-          ).toBuffer(),
-        );
+        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log).toBuffer());
         taggedLogs.set(tag.toString(), currentLogs);
       });
     });
@@ -174,6 +158,7 @@ export class LogStore {
             this.#privateLogsByBlock.delete(block.number),
             this.#publicLogsByBlock.delete(block.number),
             this.#logTagsByBlock.delete(block.number),
+            this.#contractClassLogsByBlock.delete(block.number),
           ]),
         ),
       );

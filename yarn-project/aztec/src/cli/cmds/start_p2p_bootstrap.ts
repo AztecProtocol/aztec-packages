@@ -17,13 +17,14 @@ export async function startP2PBootstrap(
 ) {
   // Start a P2P bootstrap node.
   const config = extractRelevantOptions<BootnodeConfig>(options, bootnodeConfigMappings, 'p2p');
-  userLog(`Starting P2P bootstrap node with config: ${jsonStringify(config)}`);
+  const safeConfig = { ...config, peerIdPrivateKey: '<redacted>' };
+  userLog(`Starting P2P bootstrap node with config: ${jsonStringify(safeConfig)}`);
   const telemetryClient = initTelemetryClient(getTelemetryClientConfig());
   const store = await createStore('p2p-bootstrap', 1, config, createLogger('p2p:bootstrap:store'));
   const node = new BootstrapNode(store, telemetryClient);
   await node.start(config);
   signalHandlers.push(() => node.stop());
   services.bootstrap = [node, P2PBootstrapApiSchema];
-  userLog(`P2P bootstrap node started on ${config.udpListenAddress}`);
+  userLog(`P2P bootstrap node started on ${config.p2pIp}:${config.p2pPort}`);
   return { config: emptyChainConfig };
 }

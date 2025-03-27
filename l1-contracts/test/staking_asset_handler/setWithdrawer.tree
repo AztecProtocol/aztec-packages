@@ -1,0 +1,9 @@
+SetWithdrawerTest
+├── when caller of setWithdrawer is not owner
+│   └── it reverts
+├── when caller of setWithdrawer is owner
+│   ├── it sets the withdrawer
+│   └── it emits a {WithdrawerUpdated} event
+└── when owner calls addValidator after setting the withdrawer
+    └── it uses the new withdrawer
+

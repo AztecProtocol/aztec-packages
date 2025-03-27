@@ -88,8 +88,8 @@ describe('Forwarder', () => {
       client: publicClient,
     });
 
-    const freeForAllHash = await tokenContract.write.setFreeForAll([true], { account: privateKey });
-    await publicClient.waitForTransactionReceipt({ hash: freeForAllHash });
+    const addMinterHash = await tokenContract.write.addMinter([forwarder.getAddress()], { account: privateKey });
+    await publicClient.waitForTransactionReceipt({ hash: addMinterHash });
 
     logger.info(`Token address: ${tokenAddress}`);
   });

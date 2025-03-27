@@ -7,6 +7,7 @@ import times from 'lodash.times';
 import type { BlockHeader } from '../../tx/block_header.js';
 import type { L2Block } from '../l2_block.js';
 import type { L2BlockSource, L2Tips } from '../l2_block_source.js';
+import type { PublishedL2Block } from '../published_l2_block.js';
 import {
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -34,14 +35,14 @@ describe('L2BlockStream', () => {
     );
 
     // And returns blocks up until what was reported as the latest block
-    blockSource.getBlocks.mockImplementation((from, limit) =>
+    blockSource.getPublishedBlocks.mockImplementation((from, limit) =>
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
     blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
   });
 
-  const makeBlock = (number: number) => ({ number } as L2Block);
+  const makeBlock = (number: number) => ({ block: { number } as L2Block } as PublishedL2Block);
 
   const makeHeader = (number: number) =>
     mock<BlockHeader>({ hash: () => Promise.resolve(new Fr(number)) } as BlockHeader);
@@ -71,7 +72,7 @@ describe('L2BlockStream', () => {
       localData.latest.number = 10;
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledWith(11, 5, undefined);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledWith(11, 5, undefined);
       expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) }]);
     });
 
@@ -79,7 +80,8 @@ describe('L2BlockStream', () => {
       setRemoteTips(45);
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledTimes(5);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(5);
+      expect(handler.callCount).toEqual(5);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 11)) },
@@ -94,8 +96,21 @@ describe('L2BlockStream', () => {
       blockStream.running = false;
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledTimes(1);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(1);
       expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) }]);
+    });
+
+    it('halts on handler error and retries', async () => {
+      setRemoteTips(45);
+
+      handler.throwing = true;
+      await blockStream.work();
+      expect(handler.callCount).toEqual(1);
+
+      handler.throwing = false;
+      await blockStream.work();
+      expect(handler.callCount).toEqual(6);
+      expect(handler.events).toHaveLength(5);
     });
 
     it('handles a reorg and requests blocks from new tip', async () => {
@@ -132,8 +147,14 @@ describe('L2BlockStream', () => {
 
 class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
   public readonly events: L2BlockStreamEvent[] = [];
+  public throwing: boolean = false;
+  public callCount: number = 0;
 
   handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    this.callCount++;
+    if (this.throwing) {
+      throw new Error('Handler error');
+    }
     this.events.push(event);
     return Promise.resolve();
   }

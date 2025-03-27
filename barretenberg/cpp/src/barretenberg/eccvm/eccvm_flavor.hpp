@@ -107,13 +107,13 @@ class ECCVMFlavor {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
-  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
      */
-    template <typename DataType_> class PrecomputedEntities : public PrecomputedEntitiesBase {
+    template <typename DataType_> class PrecomputedEntities {
       public:
+        bool operator==(const PrecomputedEntities& other) const = default;
         using DataType = DataType_;
         DEFINE_FLAVOR_MEMBERS(DataType,
                               lagrange_first,  // column 0
@@ -352,16 +352,7 @@ class ECCVMFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-        // get_wires is inherited
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
@@ -371,7 +362,6 @@ class ECCVMFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -759,8 +749,9 @@ class ECCVMFlavor {
      * resolve that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for
      * portability of our circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
+        bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)

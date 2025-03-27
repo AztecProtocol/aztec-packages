@@ -1,6 +1,6 @@
-#!/bin/bash
-set -e
-source ../utils/setup.sh
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Basic flow, no aliases"
 

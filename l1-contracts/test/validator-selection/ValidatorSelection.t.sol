@@ -12,7 +12,7 @@ import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
 import {Outbox} from "@aztec/core/messagebridge/Outbox.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, RollupConfig, GenesisState} from "@aztec/core/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -101,21 +101,8 @@ contract ValidatorSelectionTest is DecoderBase {
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
       _governance: address(this),
-      _genesisState: GenesisState({
-        vkTreeRoot: bytes32(0),
-        protocolContractTreeRoot: bytes32(0),
-        genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-        genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
-      }),
-      _config: RollupConfig({
-        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-      })
+      _genesisState: TestConstants.getGenesisState(),
+      _config: TestConstants.getRollupConfigInput()
     });
     slasher = Slasher(rollup.getSlasher());
     slashFactory = new SlashFactory(IValidatorSelection(address(rollup)));
@@ -175,6 +162,24 @@ contract ValidatorSelectionTest is DecoderBase {
 
     address actualProposer = rollup.getCurrentProposer();
     assertEq(expectedProposer, actualProposer, "Invalid proposer");
+  }
+
+  function testCommitteeForNonSetupEpoch(uint8 _epochsToJump) public setup(4) {
+    Epoch pre = rollup.getCurrentEpoch();
+    vm.warp(
+      block.timestamp
+        + uint256(_epochsToJump) * rollup.getEpochDuration() * rollup.getSlotDuration()
+    );
+
+    Epoch post = rollup.getCurrentEpoch();
+
+    uint256 validatorSetSize = rollup.getAttesters().length;
+    uint256 targetCommitteeSize = rollup.getTargetCommitteeSize();
+    uint256 expectedSize =
+      validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
+
+    assertEq(rollup.getEpochCommittee(pre).length, expectedSize, "Invalid committee size");
+    assertEq(rollup.getEpochCommittee(post).length, expectedSize, "Invalid committee size");
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {

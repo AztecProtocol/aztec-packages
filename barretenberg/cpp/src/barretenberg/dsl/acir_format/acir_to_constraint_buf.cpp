@@ -1,16 +1,20 @@
 #include "acir_to_constraint_buf.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <tuple>
+#include <utility>
+
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#include <cstddef>
-#include <cstdint>
-#include <tuple>
-#include <utility>
 #ifndef __wasm__
 #include "barretenberg/api/get_bytecode.hpp"
 #endif
 #include "barretenberg/common/map.hpp"
+
 namespace acir_format {
 
 using namespace bb;
@@ -25,12 +29,6 @@ using namespace bb;
  */
 poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
-    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
-    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
-    // erroneously populated with this value. This does not cause failures however because the corresponding selector
-    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
-    // even if they dont break the relation. They'll still add cost in commitments, for example.
     poly_triple pt{
         .a = 0,
         .b = 0,
@@ -67,9 +65,6 @@ poly_triple serialize_arithmetic_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the pt.a == witness_idx
-        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
-        // +1 offset is removed from noir.
         if (!a_set || pt.a == witness_idx) { // q_l * w_l
             pt.a = witness_idx;
             pt.q_l = selector_value;
@@ -241,12 +236,6 @@ std::vector<mul_quad_<fr>> split_into_mul_quad_gates(Program::Expression const& 
 
 mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 {
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): The initialization of the witness indices a,b,c
-    // to 0 is implicitly assuming that (builder.zero_idx == 0) which is no longer the case. Now, witness idx 0 in
-    // general will correspond to some non-zero value and some witnesses which are not explicitly set below will be
-    // erroneously populated with this value. This does not cause failures however because the corresponding selector
-    // will indeed be 0 so the gate will be satisfied. Still, its a bad idea to have erroneous wire values
-    // even if they dont break the relation. They'll still add cost in commitments, for example.
     mul_quad_<fr> quad{ .a = 0,
                         .b = 0,
                         .c = 0,
@@ -280,9 +269,6 @@ mul_quad_<fr> serialize_mul_quad_gate(Program::Expression const& arg)
 
         // If the witness index has not yet been set or if the corresponding linear term is active, set the witness
         // index and the corresponding selector value.
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/816): May need to adjust the quad.a == witness_idx
-        // check (and the others like it) since we initialize a,b,c with 0 but 0 is a valid witness index once the
-        // +1 offset is removed from noir.
         if (!a_set || quad.a == witness_idx) {
             quad.a = witness_idx;
             quad.a_scaling = selector_value;
@@ -773,7 +759,7 @@ BlockConstraint handle_memory_init(Program::Opcode::MemoryInit const& mem_init)
 
 bool is_rom(Program::MemOp const& mem_op)
 {
-    return mem_op.operation.mul_terms.size() == 0 && mem_op.operation.linear_combinations.size() == 0 &&
+    return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
            uint256_t(mem_op.operation.q_c) == 0;
 }
 
@@ -804,9 +790,10 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, uint32_
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
-    std::unordered_map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
+    // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
+    std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
-        auto gate = circuit.opcodes[i];
+        const auto& gate = circuit.opcodes[i];
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
@@ -817,8 +804,7 @@ AcirFormat circuit_serde_to_acir_format(Program::Circuit const& circuit, uint32_
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
                     uint32_t block_id = arg.block_id.value;
-                    std::vector<size_t> opcode_indices = { i };
-                    block_id_to_block_constraint[block_id] = std::make_pair(block, opcode_indices);
+                    block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
                 } else if constexpr (std::is_same_v<T, Program::Opcode::MemoryOp>) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
@@ -863,15 +849,15 @@ WitnessVector witness_map_to_witness_vector(WitnessStack::WitnessMap const& witn
 {
     WitnessVector wv;
     size_t index = 0;
-    for (auto& e : witness_map.value) {
+    for (const auto& e : witness_map.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
         // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
-            wv.push_back(fr(0));
+            wv.emplace_back(0);
             index++;
         }
-        wv.push_back(fr(uint256_t(e.second)));
+        wv.emplace_back(uint256_t(e.second));
         index++;
     }
     return wv;
@@ -915,8 +901,7 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {
-        witness_vector_stack.emplace_back(
-            std::make_pair(stack_item.index, witness_map_to_witness_vector(stack_item.witness)));
+        witness_vector_stack.emplace_back(stack_item.index, witness_map_to_witness_vector(stack_item.witness));
     }
     return witness_vector_stack;
 }
@@ -932,7 +917,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
         program_buf_to_acir_format(bytecode,
                                    honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                                     // Remove honk recursion flag
-    const WitnessVectorStack witness_stack = [&]() {
+    WitnessVectorStack witness_stack = [&]() {
         if (witness_path.empty()) {
             info("producing a stack of empties");
             WitnessVectorStack stack_of_empties{ constraint_systems.size(),
@@ -943,7 +928,8 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
         return witness_buf_to_witness_stack(witness_data);
     }();
 
-    return { constraint_systems, witness_stack };
+    return { std::move(constraint_systems), std::move(witness_stack) };
 }
 #endif
+
 } // namespace acir_format

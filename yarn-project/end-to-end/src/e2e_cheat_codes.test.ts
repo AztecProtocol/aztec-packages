@@ -189,7 +189,11 @@ describe('e2e_cheat_codes', () => {
 
       // check if note was added to pending shield:
       const notes = await cc.aztec.loadPrivate(admin, token.address, balancesAdminSlot);
-      const values = notes.map(note => note.items[0]);
+
+      // @note If you get pain for dinner, this guys is the reason.
+      // Assuming that it is still testing the token contract, you need to look at the balances,
+      // and then the type of note, currently a `UintNote` which stores fields: [owner, randomness, amount]
+      const values = notes.map(note => note.items[2]);
       const balance = values.reduce((sum, current) => sum + current.toBigInt(), 0n);
       expect(balance).toEqual(mintAmount);
       // docs:end:load_private_cheatcode

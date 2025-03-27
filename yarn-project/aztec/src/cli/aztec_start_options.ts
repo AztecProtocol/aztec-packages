@@ -53,7 +53,17 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 };
 
 // These are options used by multiple modules so should be inputted once
-export const universalOptions = ['l1RpcUrls', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
+export const universalOptions = [
+  'l1RpcUrls',
+  'l1ConsensusHostUrl',
+  'l1ConsensusHostApiKey',
+  'l1ConsensusHostApiKeyHeader',
+  'l1ChainId',
+  'l1Contracts',
+  'p2pEnabled',
+  'dataDirectory',
+  'dataStoreMapSizeKb',
+];
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
@@ -88,9 +98,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   API: [
     {
       flag: '--port <value>',
-      description: 'Port to run the Aztec Services on on',
+      description: 'Port to run the Aztec Services on',
       defaultValue: 8080,
       envVar: 'AZTEC_PORT',
+      parseVal: val => parseInt(val, 10),
+    },
+    {
+      flag: '--admin-port <value>',
+      description: 'Port to run admin APIs of Aztec Services on on',
+      defaultValue: 8880,
+      envVar: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
@@ -120,6 +137,41 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Mnemonic for L1 accounts. Will be used if no publisher private keys are provided',
       defaultValue: DefaultMnemonic,
       envVar: 'MNEMONIC',
+    },
+    {
+      flag: '--l1-consensus-host-url <value>',
+      description: 'URL of the Ethereum consensus node that services will connect to',
+      defaultValue: undefined,
+      envVar: 'L1_CONSENSUS_HOST_URL',
+    },
+    {
+      flag: '--l1-consensus-host-api-key <value>',
+      description: 'API key for the Ethereum consensus node',
+      defaultValue: undefined,
+      envVar: 'L1_CONSENSUS_HOST_API_KEY',
+    },
+    {
+      flag: '--l1-consensus-host-api-key-header <value>',
+      description:
+        'API key header for the Ethereum consensus node. If not set, the api key will be appended to the URL as ?key=<api-key>',
+      defaultValue: undefined,
+      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
+    },
+  ],
+  STORAGE: [
+    {
+      flag: '--data-directory <value>',
+      description: 'Where to store data for services. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'DATA_DIRECTORY',
+    },
+    {
+      flag: '--data-store-map-size-kb <value>',
+      description:
+        'The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.',
+      defaultValue: undefined,
+      envVar: 'DATA_STORE_MAP_SIZE_KB',
+      parseVal: (val: string) => parseInt(val, 10),
     },
   ],
   'L1 CONTRACT ADDRESSES': [
@@ -173,12 +225,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec Node with options',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--data-directory <value>',
-      description: 'Where to store data. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'DATA_DIRECTORY',
     },
     {
       flag: '--node.archiverUrl <value>',
@@ -266,7 +312,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
-  BLOB_SINK: [
+  'BLOB SINK': [
     {
       flag: '--blob-sink',
       description: 'Starts Aztec Blob Sink with options',

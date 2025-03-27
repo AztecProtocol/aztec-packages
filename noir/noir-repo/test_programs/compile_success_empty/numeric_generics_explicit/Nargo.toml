@@ -1,6 +1,0 @@
-[package]
-name = "numeric_generics_explicit"
-type = "bin"
-authors = [""]
-
-[dependencies]

@@ -639,7 +639,7 @@ bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_c
                                                 const uint32_t& variable_index)
 {
     bool is_not_constant = true;
-    auto constant_variable_indices = ultra_circuit_builder.constant_variable_indices;
+    const auto& constant_variable_indices = ultra_circuit_builder.constant_variable_indices;
     for (const auto& pair : constant_variable_indices) {
         if (pair.second == ultra_circuit_builder.real_variable_index[variable_index]) {
             is_not_constant = false;
@@ -1028,9 +1028,7 @@ inline void Graph_<FF>::remove_unnecessary_sha256_plookup_variables(std::unorder
  */
 
 template <typename FF>
-inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                     std::unordered_set<uint32_t>& variables_in_one_gate,
-                                                     size_t gate_index)
+inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ultra_circuit_builder, size_t gate_index)
 {
     auto find_position = [&](uint32_t real_variable_index) {
         return variables_in_one_gate.contains(real_variable_index);
@@ -1040,9 +1038,9 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
     auto table_index = static_cast<size_t>(lookup_block.q_3()[gate_index]);
     for (const auto& table : lookup_tables) {
         if (table.table_index == table_index) {
-            std::set<bb::fr> column_1(table.column_1.begin(), table.column_1.end());
-            std::set<bb::fr> column_2(table.column_2.begin(), table.column_2.end());
-            std::set<bb::fr> column_3(table.column_3.begin(), table.column_3.end());
+            std::unordered_set<bb::fr> column_1(table.column_1.begin(), table.column_1.end());
+            std::unordered_set<bb::fr> column_2(table.column_2.begin(), table.column_2.end());
+            std::unordered_set<bb::fr> column_3(table.column_3.begin(), table.column_3.end());
             bb::plookup::BasicTableId table_id = table.id;
             // false cases for AES
             this->remove_unnecessary_aes_plookup_variables(
@@ -1086,13 +1084,12 @@ inline void Graph_<FF>::process_current_plookup_gate(bb::UltraCircuitBuilder& ul
  */
 
 template <typename FF>
-inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                                             std::unordered_set<uint32_t>& variables_in_one_gate)
+inline void Graph_<FF>::remove_unnecessary_plookup_variables(bb::UltraCircuitBuilder& ultra_circuit_builder)
 {
     auto& lookup_block = ultra_circuit_builder.blocks.lookup;
     if (lookup_block.size() > 0) {
         for (size_t i = 0; i < lookup_block.size(); i++) {
-            this->process_current_plookup_gate(ultra_circuit_builder, variables_in_one_gate, i);
+            this->process_current_plookup_gate(ultra_circuit_builder, i);
         }
     }
 }
@@ -1168,7 +1165,7 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     }
     this->remove_unnecessary_decompose_variables(
         ultra_circuit_builder, this->variables_in_one_gate, decompose_varialbes);
-    this->remove_unnecessary_plookup_variables(ultra_circuit_builder, this->variables_in_one_gate);
+    this->remove_unnecessary_plookup_variables(ultra_circuit_builder);
     this->remove_unnecessary_range_constrains_variables(ultra_circuit_builder);
     for (const auto& elem : this->fixed_variables) {
         this->variables_in_one_gate.erase(elem);

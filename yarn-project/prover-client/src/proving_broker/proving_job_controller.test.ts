@@ -1,4 +1,5 @@
 import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
+import { AbortError } from '@aztec/foundation/error';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
 import { type ProvingJobId, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
@@ -38,7 +39,7 @@ describe('ProvingJobController', () => {
 
   it('reports PROVING status while busy', () => {
     controller.start();
-    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.PROVING);
+    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.RUNNING);
   });
 
   it('reports DONE status after job is done', async () => {
@@ -47,14 +48,15 @@ describe('ProvingJobController', () => {
     expect(controller.getStatus()).toBe(ProvingJobControllerStatus.DONE);
   });
 
-  it('reports ABORTED status after job is aborted', async () => {
+  it('reports aborted error after cancellation', async () => {
     controller.start();
     controller.abort();
     await sleep(1); // give promises a chance to complete
-    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.ABORTED);
+    expect(controller.getStatus()).toBe(ProvingJobControllerStatus.DONE);
+    expect(controller.getResult()).toBeInstanceOf(AbortError);
   });
 
-  it('calls onComplete with the proof', async () => {
+  it('calls onComplete', async () => {
     const resp = makePublicInputsAndRecursiveProof(
       makeParityPublicInputs(),
       makeRecursiveProof(RECURSIVE_PROOF_LENGTH),
@@ -64,7 +66,8 @@ describe('ProvingJobController', () => {
 
     controller.start();
     await sleep(1); // give promises a chance to complete
-    expect(onComplete).toHaveBeenCalledWith('1', ProvingRequestType.BASE_PARITY, undefined, resp);
+    expect(onComplete).toHaveBeenCalled();
+    expect(controller.getResult()).toEqual(resp);
   });
 
   it('calls onComplete with the error', async () => {
@@ -73,7 +76,8 @@ describe('ProvingJobController', () => {
 
     controller.start();
     await sleep(1);
-    expect(onComplete).toHaveBeenCalledWith('1', ProvingRequestType.BASE_PARITY, err, undefined);
+    expect(onComplete).toHaveBeenCalled();
+    expect(controller.getResult()).toEqual(err);
   });
 
   it('does not crash if onComplete throws', async () => {
@@ -85,18 +89,10 @@ describe('ProvingJobController', () => {
     controller.start();
     await sleep(1);
     expect(onComplete).toHaveBeenCalled();
+    expect(controller.getResult()).toBeDefined();
   });
 
-  it('does not crash if onComplete rejects', async () => {
-    const err = new Error('test error');
-    onComplete.mockRejectedValueOnce(err);
-
-    controller.start();
-    await sleep(1);
-    expect(onComplete).toHaveBeenCalled();
-  });
-
-  it('does not call onComplete if abort is called', async () => {
+  it('calls onComplete if abort is called but result is masked', async () => {
     const { promise, resolve } = promiseWithResolvers<any>();
     jest.spyOn(prover, 'getBaseParityProof').mockReturnValueOnce(promise);
 
@@ -119,6 +115,7 @@ describe('ProvingJobController', () => {
     );
 
     await sleep(1);
-    expect(onComplete).not.toHaveBeenCalled();
+    expect(onComplete).toHaveBeenCalled();
+    expect(controller.getResult()).toBeInstanceOf(AbortError);
   });
 });

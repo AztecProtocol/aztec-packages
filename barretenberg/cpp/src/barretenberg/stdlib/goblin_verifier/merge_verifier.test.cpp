@@ -46,8 +46,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     static void test_recursive_merge_verification()
     {
         auto op_queue = std::make_shared<ECCOpQueue>();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
         InnerBuilder sample_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(sample_circuit);
@@ -89,9 +87,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     }
 };
 
-// Run the recursive verifier tests with Ultra and Mega builders
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1024): Ultra fails, possibly due to repeated points in
-// batch mul?
 using Builders = testing::Types<MegaCircuitBuilder, UltraCircuitBuilder>;
 
 TYPED_TEST_SUITE(RecursiveMergeVerifierTest, Builders);

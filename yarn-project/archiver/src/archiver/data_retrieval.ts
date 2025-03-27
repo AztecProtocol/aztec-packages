@@ -3,7 +3,7 @@ import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
 import type { EpochProofPublicInputArgs, ViemPublicClient } from '@aztec/ethereum';
 import { asyncPool } from '@aztec/foundation/async-pool';
 import type { EthAddress } from '@aztec/foundation/eth-address';
-import type { ViemSignature } from '@aztec/foundation/eth-signature';
+import { Signature, type ViemSignature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { numToUInt32BE } from '@aztec/foundation/serialize';
@@ -25,7 +25,7 @@ import {
 
 import { NoBlobBodiesFoundError } from './errors.js';
 import type { DataRetrieval } from './structs/data_retrieval.js';
-import type { L1Published, L1PublishedData } from './structs/published.js';
+import type { L1PublishedData, PublishedL2Block } from './structs/published.js';
 
 /**
  * Fetches new L2 blocks.
@@ -43,8 +43,8 @@ export async function retrieveBlocksFromRollup(
   searchStartBlock: bigint,
   searchEndBlock: bigint,
   logger: Logger = createLogger('archiver'),
-): Promise<L1Published<L2Block>[]> {
-  const retrievedBlocks: L1Published<L2Block>[] = [];
+): Promise<PublishedL2Block[]> {
+  const retrievedBlocks: PublishedL2Block[] = [];
   do {
     if (searchStartBlock > searchEndBlock) {
       break;
@@ -96,8 +96,8 @@ export async function processL2BlockProposedLogs(
   blobSinkClient: BlobSinkClientInterface,
   logs: GetContractEventsReturnType<typeof RollupAbi, 'L2BlockProposed'>,
   logger: Logger,
-): Promise<L1Published<L2Block>[]> {
-  const retrievedBlocks: L1Published<L2Block>[] = [];
+): Promise<PublishedL2Block[]> {
+  const retrievedBlocks: PublishedL2Block[] = [];
   await asyncPool(10, logs, async log => {
     const l2BlockNumber = log.args.blockNumber!;
     const archive = log.args.archive!;
@@ -122,7 +122,13 @@ export async function processL2BlockProposedLogs(
         timestamp: await getL1BlockTime(publicClient, log.blockNumber),
       };
 
-      retrievedBlocks.push({ data: block, l1 });
+      retrievedBlocks.push({ ...block, l1 });
+      logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
+        l1BlockNumber: log.blockNumber,
+        l2BlockNumber,
+        archive: archive.toString(),
+        signatures: block.signatures.map(signature => signature.toString()),
+      });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
         actual: archive,
@@ -203,11 +209,11 @@ async function getBlockFromRollupTx(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
-  blobHashes: Buffer[], // WORKTODO(md): buffer32?
+  blobHashes: Buffer[], // TODO(md): buffer32?
   l2BlockNum: bigint,
   rollupAddress: Hex,
   logger: Logger,
-): Promise<L2Block> {
+): Promise<Omit<PublishedL2Block, 'l1'>> {
   const { input: forwarderData, blockHash } = await publicClient.getTransaction({ hash: txHash });
 
   const rollupData = extractRollupProposeCalldata(forwarderData, rollupAddress);
@@ -220,7 +226,7 @@ async function getBlockFromRollupTx(
     throw new Error(`Unexpected rollup method called ${rollupFunctionName}`);
   }
 
-  const [decodedArgs, ,] = rollupArgs! as readonly [
+  const [decodedArgs, signatures] = rollupArgs! as readonly [
     {
       header: Hex;
       archive: Hex;
@@ -268,7 +274,8 @@ async function getBlockFromRollupTx(
     ]),
   );
 
-  return new L2Block(archive, header, blockBody);
+  const block = new L2Block(archive, header, blockBody);
+  return { block, signatures: signatures.map(Signature.fromViemSignature) };
 }
 
 /**

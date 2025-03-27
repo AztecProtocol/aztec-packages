@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {IPayload} from "@aztec/governance/interfaces/IPayload.sol";
 import {TestBase} from "@test/base/Base.sol";
 import {IMintableERC20} from "@aztec/governance/interfaces/IMintableERC20.sol";
-import {Rollup} from "../../harnesses/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {Governance} from "@aztec/governance/Governance.sol";
 import {GovernanceProposer} from "@aztec/governance/proposer/GovernanceProposer.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
@@ -67,7 +67,14 @@ contract UpgradeGovernanceProposerTest is TestBase {
     }
 
     RewardDistributor rewardDistributor = new RewardDistributor(token, registry, address(this));
-    rollup = new Rollup(new MockFeeJuicePortal(), rewardDistributor, token, address(this));
+    rollup = new Rollup(
+      new MockFeeJuicePortal(),
+      rewardDistributor,
+      token,
+      address(this),
+      TestConstants.getGenesisState(),
+      TestConstants.getRollupConfigInput()
+    );
 
     token.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     token.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);

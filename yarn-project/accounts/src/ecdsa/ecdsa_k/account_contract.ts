@@ -17,9 +17,12 @@ export abstract class EcdsaKBaseAccountContract extends DefaultAccountContract {
     super();
   }
 
-  async getDeploymentArgs() {
+  async getDeploymentFunctionAndArgs() {
     const signingPublicKey = await new Ecdsa().computePublicKey(this.signingPrivateKey);
-    return [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)];
+    return {
+      constructorName: 'constructor',
+      constructorArgs: [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)],
+    };
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

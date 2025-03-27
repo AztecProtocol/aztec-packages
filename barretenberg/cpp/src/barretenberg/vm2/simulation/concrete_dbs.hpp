@@ -22,11 +22,11 @@ class ContractDB final : public ContractDBInterface {
     // Gets an instance from the DB and proves address derivation from the result.
     // This does NOT prove that the address is in the nullifier tree.
     // Silo the address and use the MerkleDB to prove that.
-    ContractInstance get_contract_instance(const AztecAddress& address) const override;
+    std::optional<ContractInstance> get_contract_instance(const AztecAddress& address) const override;
     // Gets a class from the DB and proves class id derivation from the result.
     // This does NOT prove that the class id is in the nullifier tree.
     // Silo the class id and use the MerkleDB to prove that.
-    ContractClass get_contract_class(const ContractClassId& class_id) const override;
+    std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const override;
 
   private:
     ContractDBInterface& raw_contract_db;
@@ -36,16 +36,24 @@ class ContractDB final : public ContractDBInterface {
 };
 
 // Generates events.
-class MerkleDB final : public MerkleDBInterface {
+class MerkleDB final : public HighLevelMerkleDBInterface {
   public:
-    MerkleDB(MerkleDBInterface& raw_merkle_db)
+    MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db)
         : raw_merkle_db(raw_merkle_db)
     {}
 
+    // Unconstrained.
     const TreeSnapshots& get_tree_roots() const override;
 
+    // Constrained.
+    // TODO: When actually using this, consider siloing inside (and taking a silo gadget in the constructor).
+    // Probably better like this though.
+    FF storage_read(const FF& leaf_slot) const override;
+
   private:
-    MerkleDBInterface& raw_merkle_db;
+    LowLevelMerkleDBInterface& raw_merkle_db;
+    // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
+    // It's usually ok for mutexes but a gadget is big...
 };
 
 } // namespace bb::avm2::simulation

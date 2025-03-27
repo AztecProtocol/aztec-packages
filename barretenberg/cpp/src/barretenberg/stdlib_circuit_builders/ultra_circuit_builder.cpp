@@ -645,6 +645,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
      * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
      * can also chain double gates together
      **/
+    this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
+
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
     if (can_fuse_into_previous_gate) {

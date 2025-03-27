@@ -11,7 +11,7 @@ import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 
 /** Stores currently synced L2 tips and unfinalized block hashes. */
-export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
+export class L2TipsKVStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
   private readonly l2TipsStore: AztecAsyncMap<L2BlockTag, number>;
   private readonly l2BlockHashesStore: AztecAsyncMap<number, string>;
 
@@ -47,12 +47,14 @@ export class L2TipsStore implements L2BlockStreamEventHandler, L2BlockStreamLoca
 
   public async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
     switch (event.type) {
-      case 'blocks-added':
-        for (const block of event.blocks) {
+      case 'blocks-added': {
+        const blocks = event.blocks.map(b => b.block);
+        for (const block of blocks) {
           await this.l2BlockHashesStore.set(block.number, (await block.header.hash()).toString());
         }
-        await this.l2TipsStore.set('latest', event.blocks.at(-1)!.number);
+        await this.l2TipsStore.set('latest', blocks.at(-1)!.number);
         break;
+      }
       case 'chain-pruned':
         await this.l2TipsStore.set('latest', event.blockNumber);
         break;

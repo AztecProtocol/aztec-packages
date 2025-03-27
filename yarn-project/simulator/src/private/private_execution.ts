@@ -3,7 +3,12 @@ import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { type FunctionArtifact, type FunctionSelector, countArgumentsSize } from '@aztec/stdlib/abi';
+import {
+  type FunctionArtifact,
+  type FunctionArtifactWithContractName,
+  type FunctionSelector,
+  countArgumentsSize,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstance } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -13,7 +18,7 @@ import type { CircuitWitnessGenerationStats } from '@aztec/stdlib/stats';
 import { PrivateCallExecutionResult } from '@aztec/stdlib/tx';
 
 import { ExecutionError, resolveAssertionMessageFromError } from '../common/errors.js';
-import { fromACVMField, witnessMapToFields } from './acvm/deserialize.js';
+import { witnessMapToFields } from './acvm/deserialize.js';
 import { type ACVMWitness, Oracle, extractCallStack } from './acvm/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
 import type { PrivateExecutionOracle } from './private_execution_oracle.js';
@@ -25,19 +30,18 @@ import type { SimulationProvider } from './providers/simulation_provider.js';
 export async function executePrivateFunction(
   simulator: SimulationProvider,
   privateExecutionOracle: PrivateExecutionOracle,
-  artifact: FunctionArtifact,
+  artifact: FunctionArtifactWithContractName,
   contractAddress: AztecAddress,
   functionSelector: FunctionSelector,
   log = createLogger('simulator:private_execution'),
 ): Promise<PrivateCallExecutionResult> {
   const functionName = await privateExecutionOracle.getDebugFunctionName();
   log.verbose(`Executing private function ${functionName}`, { contract: contractAddress });
-  const acir = artifact.bytecode;
   const initialWitness = privateExecutionOracle.getInitialWitness(artifact);
   const acvmCallback = new Oracle(privateExecutionOracle);
   const timer = new Timer();
   const acirExecutionResult = await simulator
-    .executeUserCircuit(acir, initialWitness, acvmCallback)
+    .executeUserCircuit(initialWitness, artifact, acvmCallback)
     .catch((err: Error) => {
       err.message = resolveAssertionMessageFromError(err, artifact);
       throw new ExecutionError(
@@ -73,13 +77,11 @@ export async function executePrivateFunction(
   const newNotes = privateExecutionOracle.getNewNotes();
   const noteHashNullifierCounterMap = privateExecutionOracle.getNoteHashNullifierCounterMap();
   const nestedExecutions = privateExecutionOracle.getNestedExecutions();
-  const enqueuedPublicFunctionCalls = privateExecutionOracle.getEnqueuedPublicFunctionCalls();
-  const publicTeardownFunctionCall = privateExecutionOracle.getPublicTeardownFunctionCall();
 
   log.debug(`Returning from call to ${contractAddress.toString()}:${functionSelector}`);
 
   return new PrivateCallExecutionResult(
-    acir,
+    artifact.bytecode,
     Buffer.from(artifact.verificationKey!, 'base64'),
     partialWitness,
     publicInputs,
@@ -88,8 +90,6 @@ export async function executePrivateFunction(
     noteHashNullifierCounterMap,
     rawReturnValues,
     nestedExecutions,
-    enqueuedPublicFunctionCalls,
-    publicTeardownFunctionCall,
     contractClassLogs,
   );
 }
@@ -113,7 +113,7 @@ export function extractPrivateCircuitPublicInputs(
     if (returnedField === undefined) {
       throw new Error(`Missing return value for index ${i}`);
     }
-    returnData.push(fromACVMField(returnedField));
+    returnData.push(Fr.fromString(returnedField));
   }
   return PrivateCircuitPublicInputs.fromFields(returnData);
 }

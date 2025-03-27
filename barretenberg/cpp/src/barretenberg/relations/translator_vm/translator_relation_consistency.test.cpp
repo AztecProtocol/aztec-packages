@@ -77,20 +77,26 @@ TEST_F(TranslatorRelationConsistency, PermutationRelation)
         const auto& z_perm_shift = input_elements.z_perm_shift;
         const auto& lagrange_first = input_elements.lagrange_first;
         const auto& lagrange_last = input_elements.lagrange_last;
+        const auto& lagrange_masking = input_elements.lagrange_masking;
 
         RelationValues expected_values;
 
         const auto parameters = RelationParameters<FF>::get_random();
         const auto& gamma = parameters.gamma;
+        const auto& beta = parameters.beta;
 
         // (Contribution 1)
         auto contribution_1 =
-            (z_perm + lagrange_first) * (interleaved_range_constraints_0 + gamma) *
-                (interleaved_range_constraints_1 + gamma) * (interleaved_range_constraints_2 + gamma) *
-                (interleaved_range_constraints_3 + gamma) * (ordered_extra_range_constraints_numerator + gamma) -
-            (z_perm_shift + lagrange_last) * (ordered_range_constraints_0 + gamma) *
-                (ordered_range_constraints_1 + gamma) * (ordered_range_constraints_2 + gamma) *
-                (ordered_range_constraints_3 + gamma) * (ordered_range_constraints_4 + gamma);
+            (z_perm + lagrange_first) * (interleaved_range_constraints_0 + lagrange_masking * beta + gamma) *
+                (interleaved_range_constraints_1 + lagrange_masking * beta + gamma) *
+                (interleaved_range_constraints_2 + lagrange_masking * beta + gamma) *
+                (interleaved_range_constraints_3 + lagrange_masking * beta + gamma) *
+                (ordered_extra_range_constraints_numerator + lagrange_masking * beta + gamma) -
+            (z_perm_shift + lagrange_last) * (ordered_range_constraints_0 + lagrange_masking * beta + gamma) *
+                (ordered_range_constraints_1 + lagrange_masking * beta + gamma) *
+                (ordered_range_constraints_2 + lagrange_masking * beta + gamma) *
+                (ordered_range_constraints_3 + lagrange_masking * beta + gamma) *
+                (ordered_range_constraints_4 + lagrange_masking * beta + gamma);
         expected_values[0] = contribution_1;
 
         // (Contribution 2)
@@ -121,7 +127,8 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
         const auto& ordered_range_constraints_2_shift = input_elements.ordered_range_constraints_2_shift;
         const auto& ordered_range_constraints_3_shift = input_elements.ordered_range_constraints_3_shift;
         const auto& ordered_range_constraints_4_shift = input_elements.ordered_range_constraints_4_shift;
-        const auto& lagrange_last = input_elements.lagrange_last;
+        const auto& lagrange_masking = input_elements.lagrange_masking;
+        const auto& lagrange_real_last = input_elements.lagrange_real_last;
 
         RelationValues expected_values;
 
@@ -140,11 +147,13 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
         const auto delta_4 = ordered_range_constraints_3_shift - ordered_range_constraints_3;
         const auto delta_5 = ordered_range_constraints_4_shift - ordered_range_constraints_4;
 
-        const auto not_last = lagrange_last + minus_one;
+        const auto not_real_last = lagrange_real_last + minus_one;
+        const auto not_masked = lagrange_masking + minus_one;
 
         // Check the delta is {0,1,2,3}
-        auto delta_in_range = [not_last, minus_one, minus_two, minus_three](auto delta) {
-            return not_last * delta * (delta + minus_one) * (delta + minus_two) * (delta + minus_three);
+        auto delta_in_range = [&](auto delta) {
+            return not_real_last * not_masked * delta * (delta + minus_one) * (delta + minus_two) *
+                   (delta + minus_three);
         };
 
         // Check delta correctness
@@ -154,11 +163,11 @@ TEST_F(TranslatorRelationConsistency, DeltaRangeConstraintRelation)
         expected_values[3] = delta_in_range(delta_4);
         expected_values[4] = delta_in_range(delta_5);
         // Check that the last value is maximum allowed
-        expected_values[5] = lagrange_last * (ordered_range_constraints_0 + maximum_value);
-        expected_values[6] = lagrange_last * (ordered_range_constraints_1 + maximum_value);
-        expected_values[7] = lagrange_last * (ordered_range_constraints_2 + maximum_value);
-        expected_values[8] = lagrange_last * (ordered_range_constraints_3 + maximum_value);
-        expected_values[9] = lagrange_last * (ordered_range_constraints_4 + maximum_value);
+        expected_values[5] = lagrange_real_last * (ordered_range_constraints_0 + maximum_value);
+        expected_values[6] = lagrange_real_last * (ordered_range_constraints_1 + maximum_value);
+        expected_values[7] = lagrange_real_last * (ordered_range_constraints_2 + maximum_value);
+        expected_values[8] = lagrange_real_last * (ordered_range_constraints_3 + maximum_value);
+        expected_values[9] = lagrange_real_last * (ordered_range_constraints_4 + maximum_value);
         // We don't check that the first value is zero, because the shift mechanism already ensures it
 
         validate_relation_execution<Relation>(expected_values, input_elements, parameters);

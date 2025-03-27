@@ -36,12 +36,18 @@
  * @packageDocumentation
  */
 export { Contract } from '../contract/contract.js';
+export { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+
 export {
-  ContractFunctionInteraction,
-  type ProfileResult,
+  type RequestMethodOptions,
   type SendMethodOptions,
-} from '../contract/contract_function_interaction.js';
+  type ProfileMethodOptions,
+  type SimulateMethodOptions,
+} from '../contract/interaction_options.js';
+
+export { TxProfileResult } from '@aztec/stdlib/tx';
 export { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
+export { ProvenTx } from '../contract/proven_tx.js';
 export {
   ContractBase,
   type ContractMethod,
@@ -51,6 +57,7 @@ export {
 export { BatchCall } from '../contract/batch_call.js';
 export { type DeployOptions, DeployMethod } from '../contract/deploy_method.js';
 export { DeploySentTx } from '../contract/deploy_sent_tx.js';
+export { waitForProven, type WaitForProvenOpts, DefaultWaitForProvenOpts } from '../contract/wait_for_proven.js';
 
 export {
   type PartialAddress,

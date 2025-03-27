@@ -13,7 +13,6 @@
     "./keys": "./dest/keys/index.js",
     "./testing": "./dest/tests/index.js",
     "./testing/fixtures": "./dest/tests/fixtures.js",
-    "./interfaces": "./dest/interfaces/index.js",
     "./network": "./dest/network/index.js",
     "./utils": "./dest/utils/index.js",
     "./types": "./dest/types/index.js",
@@ -47,7 +46,8 @@
     "./epoch-helpers": "./dest/epoch-helpers/index.js",
     "./config": "./dest/config/index.js",
     "./testing/jest": "./dest/tests/jest.js",
-    "./database-version": "./dest/database-version/index.js"
+    "./database-version": "./dest/database-version/index.js",
+    "./validators": "./dest/validators/index.js"
   },
   "typedocOptions": {
     "entryPoints": [

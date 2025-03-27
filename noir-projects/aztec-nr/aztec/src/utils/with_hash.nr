@@ -4,10 +4,7 @@ use crate::{
     oracle,
 };
 use dep::protocol_types::{
-    address::AztecAddress,
-    block_header::BlockHeader,
-    hash::poseidon2_hash,
-    traits::{Packable, ToField},
+    address::AztecAddress, block_header::BlockHeader, hash::poseidon2_hash, traits::Packable,
 };
 
 /// A struct that allows for efficient reading of value `T` from public storage in private.

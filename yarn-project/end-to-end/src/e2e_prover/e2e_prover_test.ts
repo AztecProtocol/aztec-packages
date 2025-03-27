@@ -24,6 +24,7 @@ import { HonkVerifierAbi, HonkVerifierBytecode, RollupAbi, TestERC20Abi } from '
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import type { PXEService } from '@aztec/pxe/server';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { type Hex, getContract } from 'viem';
@@ -38,7 +39,7 @@ import {
   deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -67,6 +68,7 @@ export class FullProverTest {
   fakeProofsAsset!: TokenContract;
   tokenSim!: TokenSimulator;
   aztecNode!: AztecNode;
+  aztecNodeAdmin!: AztecNodeAdmin;
   pxe!: PXEService;
   cheatCodes!: CheatCodes;
   blobSink!: BlobSinkServer;
@@ -121,7 +123,7 @@ export class FullProverTest {
         // Create the token contract state.
         // Move this account thing to addAccounts above?
         this.logger.verbose(`Public deploy accounts...`);
-        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2), false);
+        await publicDeployAccounts(this.wallets[0], this.accounts.slice(0, 2));
 
         this.logger.verbose(`Deploying TokenContract...`);
         const asset = await TokenContract.deploy(
@@ -168,6 +170,7 @@ export class FullProverTest {
       cheatCodes: this.cheatCodes,
       blobSink: this.blobSink,
     } = this.context);
+    this.aztecNodeAdmin = this.context.aztecNode;
 
     const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
 
@@ -190,14 +193,14 @@ export class FullProverTest {
       this.circuitProofVerifier = await BBCircuitVerifier.new(bbConfig);
 
       this.logger.debug(`Configuring the node for real proofs...`);
-      await this.aztecNode.setConfig({
+      await this.aztecNodeAdmin.setConfig({
         realProofs: true,
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     } else {
       this.logger.debug(`Configuring the node min txs per block ${this.minNumberOfTxsPerBlock}...`);
       this.circuitProofVerifier = new TestCircuitVerifier();
-      await this.aztecNode.setConfig({
+      await this.aztecNodeAdmin.setConfig({
         minTxsPerBlock: this.minNumberOfTxsPerBlock,
       });
     }
@@ -292,7 +295,10 @@ export class FullProverTest {
       txGatheringIntervalMs: 1000,
       txGatheringMaxParallelRequests: 100,
     };
-    const { prefilledPublicData } = await getGenesisValues(this.context.initialFundedAccounts.map(a => a.address));
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const { prefilledPublicData } = await getGenesisValues(
+      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+    );
     this.proverNode = await createProverNode(
       proverConfig,
       {
@@ -345,16 +351,14 @@ export class FullProverTest {
         const privateAmount = 10000n;
         const publicAmount = 10000n;
 
-        const waitOpts = { proven: false };
-
         this.logger.verbose(`Minting ${privateAmount + publicAmount} publicly...`);
         await asset.methods
           .mint_to_public(accounts[0].address, privateAmount + publicAmount)
           .send()
-          .wait(waitOpts);
+          .wait();
 
         this.logger.verbose(`Transferring ${privateAmount} to private...`);
-        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait(waitOpts);
+        await asset.methods.transfer_to_private(accounts[0].address, privateAmount).send().wait();
 
         this.logger.verbose(`Minting complete.`);
 

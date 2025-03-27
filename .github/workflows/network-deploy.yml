@@ -15,6 +15,11 @@ on:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
         type: string
+      resources_file:
+        description: The resources file to use, e.g. gcloud.yaml
+        required: false
+        type: string
+        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -64,6 +69,11 @@ on:
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
+      resources_file:
+        description: The resources file to use, e.g. gcloud.yaml
+        required: false
+        type: string
+        default: gcloud.yaml
       aztec_docker_image:
         description: The Aztec Docker image to use, e.g. aztecprotocol/aztec:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
         required: true
@@ -103,6 +113,7 @@ jobs:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
+      RESOURCES_FILE: ${{ inputs.resources_file }}
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
       DEPLOYMENT_SALT: ${{ inputs.deployment_salt }}
       CHART_PATH: ./spartan/aztec-network
@@ -201,6 +212,7 @@ jobs:
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
@@ -214,6 +226,7 @@ jobs:
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
@@ -228,6 +241,7 @@ jobs:
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_PRIVATE_KEY=${{ secrets.SEPOLIA_L1_DEPLOYMENT_PRIVATE_KEY }}" \
@@ -244,6 +258,7 @@ jobs:
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
               -var="VALUES_FILE=${{ env.VALUES_FILE }}" \
+              -var="RESOURCES_FILE=${{ env.RESOURCES_FILE }}" \
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \

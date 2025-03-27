@@ -288,6 +288,8 @@ Combined wait-for-services and configure-env container for full nodes
       value: "{{ .Values.aztec.contracts.registryAddress }}"
     - name: SLASH_FACTORY_CONTRACT_ADDRESS
       value: "{{ .Values.aztec.contracts.slashFactoryAddress }}"
+    - name: FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+      value: "{{ .Values.aztec.contracts.feeAssetHandlerContractAddress }}"
 {{- end -}}
 
 {{/*
@@ -311,10 +313,8 @@ Combined P2P, and Service Address Setup Container
       value: "{{ .Values.network.public }}"
     - name: NAMESPACE
       value: {{ .Release.Namespace }}
-    - name: P2P_TCP_PORT
-      value: "{{ .Values.validator.service.p2pTcpPort }}"
-    - name: P2P_UDP_PORT
-      value: "{{ .Values.validator.service.p2pUdpPort }}"
+    - name: P2P_PORT
+      value: "{{ .Values.validator.service.p2pPort }}"
     - name: TELEMETRY
       value: "{{ .Values.telemetry.enabled }}"
     - name: OTEL_COLLECTOR_ENDPOINT
