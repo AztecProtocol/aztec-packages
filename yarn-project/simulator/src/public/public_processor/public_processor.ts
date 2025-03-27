@@ -131,7 +131,8 @@ export class PublicProcessor implements Traceable {
   /**
    * Run each tx through the public circuit and the public kernel circuit if needed.
    * @param txs - Txs to process.
-   * @param processedTxHandler - Handler for processed txs in the context of block building or proving.
+   * @param limits - Limits for processing the txs.
+   * @param validator - Pre-process validator and nullifier cache to use for processing the txs.
    * @returns The list of processed txs with their circuit simulation outputs.
    */
   public async process(
@@ -142,14 +143,13 @@ export class PublicProcessor implements Traceable {
       maxBlockGas?: Gas;
       deadline?: Date;
     } = {},
-    validators: {
+    validator: {
       preprocessValidator?: TxValidator<Tx>;
-      postprocessValidator?: TxValidator<ProcessedTx>;
       nullifierCache?: { addNullifiers: (nullifiers: Buffer[]) => void };
     } = {},
   ): Promise<[ProcessedTx[], FailedTx[], NestedProcessReturnValues[]]> {
     const { maxTransactions, maxBlockSize, deadline, maxBlockGas } = limits;
-    const { preprocessValidator, postprocessValidator, nullifierCache } = validators;
+    const { preprocessValidator, nullifierCache } = validator;
     const result: ProcessedTx[] = [];
     const failed: FailedTx[] = [];
     const timer = new Timer();
@@ -240,26 +240,6 @@ export class PublicProcessor implements Traceable {
           // Need to revert the checkpoint here and don't go any further
           await checkpoint.revert();
           continue;
-        }
-
-        // Re-validate the transaction
-        if (postprocessValidator) {
-          // Only accept processed transactions that are not double-spends,
-          // public functions emitting nullifiers would pass earlier check but fail here.
-          // Note that we're checking all nullifiers generated in the private execution twice,
-          // we could store the ones already checked and skip them here as an optimization.
-          // TODO(palla/txs): Can we get into this case? AVM validates this. We should be able to remove it.
-          const result = await postprocessValidator.validateTx(processedTx);
-          if (result.result !== 'valid') {
-            const reason = result.reason.join(', ');
-            this.log.error(`Rejecting tx ${processedTx.hash} after processing: ${reason}.`);
-            failed.push({ tx, error: new Error(`Tx failed post-process validation: ${reason}`) });
-            // Need to revert the checkpoint here and don't go any further
-            await checkpoint.revert();
-            continue;
-          } else {
-            this.log.trace(`Tx ${txHash.toString()} is valid post processing.`);
-          }
         }
 
         if (!tx.hasPublicCalls()) {
