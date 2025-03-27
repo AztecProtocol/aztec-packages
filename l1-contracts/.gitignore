@@ -27,3 +27,6 @@ serve/
 
 gas_report.new.*
 gas_report.diff
+
+gas_benchmark.new.*
+gas_benchmark.diff
