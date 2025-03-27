@@ -105,6 +105,11 @@ export class ProverNodeMetrics {
       description: 'How much L1 tx costs',
       unit: 'gwei',
       valueType: ValueType.DOUBLE,
+      advice: {
+        explicitBucketBoundaries: [
+          0.001, 0.002, 0.004, 0.008, 0.01, 0.02, 0.04, 0.08, 0.1, 0.2, 0.4, 0.8, 1, 1.2, 1.4, 1.8, 2,
+        ],
+      },
     });
 
     this.senderBalance = meter.createGauge(Metrics.L1_PUBLISHER_BALANCE, {
@@ -173,7 +178,7 @@ export class ProverNodeMetrics {
     const totalFee = executionFee + blobFee;
 
     try {
-      this.txTotalFee.record(parseInt(formatEther(totalFee, 'gwei'), 10));
+      this.txTotalFee.record(parseFloat(formatEther(totalFee)));
     } catch (e) {
       // ignore
     }
