@@ -688,5 +688,24 @@ template <typename Flavor> class SumcheckVerifierRound {
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
         return output;
     }
+    /**
+     * @brief Temporary method to pad PG gate challenges to the CONST_PROOF_SIZE.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1310): Recursive Protogalaxy issues
+     *
+     * @param gate_challenges
+     */
+    void pad_gate_challenges_for_protogalaxy(std::vector<FF>& gate_challenges)
+    {
+        if (gate_challenges.size() == CONST_PG_LOG_N) {
+            FF zero;
+            if constexpr (IsRecursiveFlavor<Flavor>) {
+                zero = FF::from_witness(gate_challenges[0].get_context(), 0);
+                zero.fix_witness();
+            }
+            for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+                gate_challenges.emplace_back(zero);
+            }
+        }
+    }
 };
 } // namespace bb

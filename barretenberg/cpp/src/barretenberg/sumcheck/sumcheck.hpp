@@ -654,9 +654,13 @@ template <typename Flavor> class SumcheckVerifier {
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   RelationSeparator alpha,
-                                  const std::vector<FF>& gate_challenges)
+                                  std::vector<FF>& gate_challenges)
+        requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
+
+        // Pad gate challenges for Protogalaxy DeciderVerifier
+        round.pad_gate_challenges_for_protogalaxy(gate_challenges);
 
         bb::GateSeparatorPolynomial<FF> gate_separators(gate_challenges);
         // All but final round.
