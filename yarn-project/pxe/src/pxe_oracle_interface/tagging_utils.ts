@@ -2,7 +2,7 @@ import type { Fr } from '@aztec/foundation/fields';
 import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 
 // Half the size of the window we slide over the tagging secret indexes.
-export const WINDOW_HALF_SIZE = 20;
+export const WINDOW_HALF_SIZE = 10;
 
 export function getIndexedTaggingSecretsForTheWindow(
   secretsAndWindows: { appTaggingSecret: Fr; leftMostIndex: number; rightMostIndex: number }[],
