@@ -33,6 +33,8 @@ export async function deployNewRollup(
   log(`Deploying new rollup contracts to chain ${chainId}...`);
   log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`);
   log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+  log(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   const { payloadAddress, rollup } = await deployNewRollupContracts(
     registryAddress,
