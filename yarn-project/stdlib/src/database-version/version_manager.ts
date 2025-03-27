@@ -123,7 +123,7 @@ export class DatabaseVersionManager<T> {
 
   static async writeVersion(version: DatabaseVersion, dataDir: string, fileSystem: DatabaseVersionManagerFs = fs) {
     await fileSystem.mkdir(dataDir, { recursive: true });
-    return fs.writeFile(join(dataDir, DatabaseVersionManager.VERSION_FILE), version.toBuffer());
+    return fileSystem.writeFile(join(dataDir, DatabaseVersionManager.VERSION_FILE), version.toBuffer());
   }
 
   /**
