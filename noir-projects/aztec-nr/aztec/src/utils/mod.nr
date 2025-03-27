@@ -6,5 +6,4 @@ pub mod point;
 pub mod random;
 pub mod to_bytes;
 pub mod secrets;
-pub mod u64s_packing;
 pub mod with_hash;

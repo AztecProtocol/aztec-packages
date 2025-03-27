@@ -8,9 +8,10 @@ use crate::{
         log_assembly_strategies::default_aes128::aes128::AES128,
         log_encryption::LogEncryption,
         log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        metadata_packing::from_expanded_metadata,
     },
     oracle::message_discovery::sync_notes,
-    utils::{array, u64s_packing::unpack_two_u64s},
+    utils::array,
 };
 
 use protocol_types::{
@@ -131,7 +132,7 @@ unconstrained fn decode_log_plaintext(
 
     // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
-    let (log_metadata, log_type_id) = unpack_two_u64s(expanded_log_metadata);
+    let (log_metadata, log_type_id) = from_expanded_metadata(expanded_log_metadata);
     let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
 
     (log_type_id, log_metadata, log_content)
