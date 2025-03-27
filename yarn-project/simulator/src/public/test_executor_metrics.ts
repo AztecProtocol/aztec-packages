@@ -212,8 +212,8 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     return pretty;
   }
 
-  toJSON() {
-    return Object.fromEntries(this.txMetrics.entries());
+  toJSON(indent = 2) {
+    return JSON.stringify(Object.fromEntries(this.txMetrics.entries()), null, indent);
   }
 }
 
