@@ -94,7 +94,13 @@ export class WalletDB {
     log: LogFn = this.#userLog,
   ) {
     if (alias) {
-      await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
+      const addressStr = address.toString();
+      console.log(`Storing account with alias ${alias} and address ${addressStr}`);
+      if (addressStr.startsWith('0x')) {
+        await this.#aliases.set(`accounts:${alias}`, Buffer.from(addressStr));
+      } else {
+        await this.#aliases.set(`accounts:${alias}`, Buffer.from('0x' + addressStr));
+      }
     }
     await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
     await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());

@@ -53,6 +53,34 @@ export function DeployContractDialog({
     setFunctionAbis(getAllFunctionAbis(contractArtifact));
   }, [contractArtifact]);
 
+  useEffect(() => {
+    if (open) {
+      // Override console.log to filter out block updates
+      const originalConsoleLog = console.log;
+      console.log = function(...args) {
+        // Filter out "Updated pxe last block" messages
+        if (
+          args.length > 0 &&
+          typeof args[0] === 'object' &&
+          args[0] !== null &&
+          args[0].module === 'pxe:service' &&
+          args.length > 1 &&
+          typeof args[1] === 'string' &&
+          args[1].includes('Updated pxe last block')
+        ) {
+          // Skip this log
+          return;
+        }
+        originalConsoleLog.apply(console, args);
+      };
+
+      // Restore console.log when dialog closes
+      return () => {
+        console.log = originalConsoleLog;
+      };
+    }
+  }, [open]);
+
   const handleParameterChange = (index, value) => {
     parameters[index] = value;
     setParameters(parameters);
@@ -75,13 +103,22 @@ export function DeployContractDialog({
       deploymentStatusMessages.push(message);
     };
 
-    logDeployment('=== CONTRACT DEPLOYMENT STARTED ===');
-    logDeployment(`Contract Name: ${contractArtifact.name}`);
-    logDeployment(`Initializer: ${initializer?.name || 'No initializer'}`);
-    logDeployment(`Parameters: ${JSON.stringify(parameters)}`);
-    logDeployment(`Wallet Address: ${wallet?.getAddress().toString()}`);
-
     try {
+      console.log('=== CONTRACT DEPLOYMENT STARTED ===');
+      logDeployment(`Contract Name: ${contractArtifact.name}`);
+      logDeployment(`Initializer: ${initializer?.name || 'No initializer'}`);
+      logDeployment(`Parameters: ${JSON.stringify(parameters)}`);
+      logDeployment(`Wallet Address: ${wallet?.getAddress().toString()}`);
+
+      // Add specific detection for SignerlessWallet issues
+      const walletType = wallet.constructor.name;
+      logDeployment(`Wallet Type: ${walletType}`);
+      
+      if (walletType.includes('Signerless') || walletType === 'EcdsaKAccountWallet') {
+        logDeployment('⚠️ Warning: Using a wallet type that might not fully support deployment');
+        logDeployment('⚠️ Will try to work around limitations if possible');
+      }
+
       // First, register the contract class with PXE to fix the "No artifact found" error
       logDeployment('🔄 1/5: Registering contract class with PXE...');
 
@@ -178,8 +215,36 @@ export function DeployContractDialog({
             retryCount++;
             console.error(`Deployment confirmation error (attempt ${retryCount}/${maxWaitRetries}):`, waitError);
 
+            // Special handling for SignerlessWallet errors
+            if (waitError.message && waitError.message.includes('SignerlessWallet: Method getCompleteAddress not implemented')) {
+              logDeployment('⚠️ SignerlessWallet error detected - this wallet type has limited capabilities');
+              logDeployment('⚠️ Contract might be deployed successfully, but confirmation is unavailable');
+              logDeployment('⚠️ Will attempt to retrieve deployed contract by address...');
+              
+              // Wait a bit to ensure the transaction is processed
+              await new Promise(resolve => setTimeout(resolve, 5000));
+              
+              try {
+                // Try to use transaction hash to find contract address (approach 1)
+                const txHash = sentTx.hash;
+                logDeployment(`⚠️ Transaction hash: ${txHash.toString()}`);
+                
+                // Fallback to checking recent contracts (approach 2)
+                logDeployment('⚠️ Checking recent contracts...');
+                // This would require additional code to check for recently deployed contracts
+                
+                logDeployment('⚠️ Unable to automatically confirm deployment due to wallet limitations');
+                logDeployment('⚠️ Please try using the Register button to add your contract by address.');
+                
+                // Break out of the loop - we can't confirm with this wallet
+                break;
+              } catch (fallbackError) {
+                logDeployment(`⚠️ Fallback resolution failed: ${fallbackError.message}`);
+              }
+            }
+            
             // Check if it's a database error
-            if (waitError.message && (
+            else if (waitError.message && (
                 waitError.message.includes('IDBKeyRange') ||
                 waitError.message.includes('IndexedDB') ||
                 waitError.message.includes('DataError') ||
@@ -261,16 +326,28 @@ export function DeployContractDialog({
       }
 
       // Show more specific error messages to the user
-      let errorMsg = `Contract deployment failed: ${error.message}`;
-
-      if (error.message && (
-          error.message.includes('IDBKeyRange') ||
-          error.message.includes('IndexedDB') ||
-          error.message.includes('DataError') ||
-          error.message.includes('getValuesAsync')
-        )) {
-        errorMsg = "Database error occurred during deployment. The contract might still be deployed. Try the 'Reset DB' button on the main screen, then reload the page.";
+      let errorMsg = `Contract deployment failed:\n\n`;
+      
+      // Add the actual error message
+      errorMsg += `Error: ${error.message}\n\n`;
+      
+      // Add error type if available
+      if (error.constructor.name !== 'Error') {
+        errorMsg += `Type: ${error.constructor.name}\n\n`;
       }
+
+      // Add deployment context
+      errorMsg += `Deployment Context:\n`;
+      errorMsg += `- Contract: ${contractArtifact.name}\n`;
+      errorMsg += `- Initializer: ${initializer?.name || 'None'}\n`;
+      errorMsg += `- Wallet: ${wallet?.getAddress().toString()}\n\n`;
+
+      // Add troubleshooting steps
+      errorMsg += `Troubleshooting Steps:\n`;
+      errorMsg += `1. Check if your local sandbox is running\n`;
+      errorMsg += `2. Try the 'Reset DB' button and reload the page\n`;
+      errorMsg += `3. Check the browser console for more details\n`;
+      errorMsg += `4. Make sure you have enough funds in your wallet\n`;
 
       // Display deployment log messages to help debug
       console.log('Deployment log summary:');

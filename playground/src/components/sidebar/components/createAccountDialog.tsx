@@ -6,7 +6,7 @@ import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { css } from '@mui/styled-engine';
-import { useContext, useState } from 'react';
+import { useContext, useState, useEffect } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress } from '@aztec/aztec.js';
 
@@ -41,6 +41,34 @@ export function CreateAccountDialog({
   const [secretKey] = useState(Fr.random());
   const [creatingAccount, setCreatingAccount] = useState(false);
   const { pxe, wallet, walletDB, nodeURL, setDrawerOpen, setLogsOpen } = useContext(AztecContext);
+
+  useEffect(() => {
+    // Override console.log to filter out block updates when dialog is open
+    if (open) {
+      const originalConsoleLog = console.log;
+      console.log = function(...args) {
+        // Filter out "Updated pxe last block" messages
+        if (
+          args.length > 0 &&
+          typeof args[0] === 'object' &&
+          args[0] !== null &&
+          args[0].module === 'pxe:service' &&
+          args.length > 1 &&
+          typeof args[1] === 'string' &&
+          args[1].includes('Updated pxe last block')
+        ) {
+          // Skip this log
+          return;
+        }
+        originalConsoleLog.apply(console, args);
+      };
+
+      // Restore console.log when dialog closes
+      return () => {
+        console.log = originalConsoleLog;
+      };
+    }
+  }, [open]);
 
   const createAccount = async () => {
     setCreatingAccount(true);
@@ -85,7 +113,9 @@ export function CreateAccountDialog({
         await deployTx.wait();
         console.log('Account deployed successfully!');
       } catch (err) {
-        console.error('Error with deployment:', err);
+        // Log the raw error without abstracting
+        console.error('Error with account deployment:');
+        console.error(err);
         console.log('Falling back to standard registration without deployment...');
       }
 
@@ -116,7 +146,9 @@ export function CreateAccountDialog({
       setCreatingAccount(false);
       onClose(ecdsaWallet, salt, alias);
     } catch (error) {
-      console.error('=== ERROR CREATING ECDSA K ACCOUNT ===', error);
+      console.error('=== ERROR CREATING ECDSA K ACCOUNT ===');
+      // Log the raw error without abstracting it
+      console.error(error);
       alert(`Error creating account: ${error.message}`);
       setCreatingAccount(false);
       onClose(); // Close dialog on error

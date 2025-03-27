@@ -546,8 +546,19 @@ export function ContractComponent() {
       console.log('Contract class ID:', contract.currentContractClassId.toString());
       console.log('Wallet available:', wallet ? 'Yes' : 'No');
       console.log('Contract artifact available:', contractArtifact ? 'Yes' : 'No');
+      console.log('Selected contract type:', selectedPredefinedContract || 'Custom');
 
       try {
+        // Register the contract class with PXE first
+        try {
+          console.log('Registering contract class with PXE...');
+          await wallet.registerContractClass(contractArtifact);
+          console.log('Contract class registered successfully with PXE');
+        } catch (err) {
+          // Log the error but continue
+          console.error('Error registering contract class - continuing anyway:', err);
+        }
+
         console.log('Initializing Contract instance at the deployed address...');
         const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
         console.log('Contract initialized successfully');
@@ -568,40 +579,16 @@ export function ContractComponent() {
 
         console.log('=== POST-DEPLOYMENT SETUP COMPLETED SUCCESSFULLY ===');
         console.log('Successfully deployed contract at address:', deployedContract.address.toString());
-
-        // Create a visible success message that stands out in the console
-        const successMsg = `
-█▀▀ █▀█ █▄░█ ▀█▀ █▀█ ▄▀█ █▀▀ ▀█▀   █▀ █░█ █▀▀ █▀▀ █▀▀ █▀ █▀
-█▄▄ █▄█ █░▀█ ░█░ █▀▄ █▀█ █▄▄ ░█░   ▄█ █▄█ █▄▄ █▄▄ ██▄ ▄█ ▄█
-
-► Contract Name: ${contractArtifact.name}
-► Contract Address: ${deployedContract.address.toString()}
-► Available Methods: ${methods.join(', ')}
-
-You can now interact with your contract functions below!
-        `;
-        console.log(successMsg);
-
-        // Also log the current state of the contract
-        logContractState('Deployed Contract State', deployedContract);
       } catch (error) {
-        console.error('=== POST-DEPLOYMENT SETUP FAILED ===');
-        console.error('Error type:', error.constructor.name);
-        console.error('Error message:', error.message);
-        console.error('Error stack:', error.stack);
-
-        // Try to extract more information about the error
-        if (error.cause) {
-          console.error('Error cause:', error.cause);
-        }
-
-        alert(`Error setting up deployed contract: ${error.message}`);
+        // Log the error directly without handling
+        console.error('=== DEPLOYMENT ERROR ===');
+        console.error(error);
+        
+        // Show the full error message to user
+        alert(`Error: ${error.message}`);
       }
-    } else {
-      console.log('No contract instance provided, skipping setup');
     }
-
-    console.log('Closing deployment dialog');
+    
     setOpenDeployContractDialog(false);
   };
 
@@ -673,19 +660,13 @@ You can now interact with your contract functions below!
         ...{ [fnName]: { success: true, data: result } },
       });
       console.log('=== SIMULATION COMPLETED SUCCESSFULLY ===');
-    } catch (e) {
-      console.error('=== SIMULATION FAILED ===');
-      console.error('Error type:', e.constructor.name);
-      console.error('Error message:', e.message);
-      console.error('Error stack:', e.stack);
-
-      if (e.cause) {
-        console.error('Error cause:', e.cause);
-      }
-
+    } catch (error) {
+      console.error('=== SIMULATION ERROR ===');
+      console.error(error);
+      
       setSimulationResults({
         ...simulationResults,
-        ...{ [fnName]: { success: false, error: e.message } },
+        ...{ [fnName]: { success: false, error: error.message } },
       });
     } finally {
       setIsWorking(false);
@@ -763,11 +744,11 @@ You can now interact with your contract functions below!
 
       console.log('Submitting transaction to the network...');
       receipt = await provenCall.send().wait({ dontThrowOnRevert: true });
-      console.log('Transaction receipt received:', receipt);
+      console.log('Transaction receipt:', receipt);
 
       console.log('Transaction status:', receipt.status);
       if (receipt.error) {
-        console.error('Transaction error in receipt:', receipt.error);
+        console.error('Transaction error:', receipt.error);
       }
 
       console.log('Storing transaction in wallet DB...');
@@ -789,22 +770,17 @@ You can now interact with your contract functions below!
         },
       });
       console.log('=== TRANSACTION COMPLETED ===');
-    } catch (e) {
-      console.error('=== TRANSACTION FAILED ===');
-      console.error('Error type:', e.constructor.name);
-      console.error('Error message:', e.message);
-      console.error('Error stack:', e.stack);
-
-      if (e.cause) {
-        console.error('Error cause:', e.cause);
-      }
-
+    } catch (error) {
+      // Log the raw error object to ensure all information is captured
+      console.error('=== TRANSACTION ERROR ===');
+      console.error(error);
+      
       setCurrentTx({
         ...currentTx,
         ...{
           txHash,
           status: 'error',
-          error: e.message,
+          error: error.message,
         },
       });
     } finally {
