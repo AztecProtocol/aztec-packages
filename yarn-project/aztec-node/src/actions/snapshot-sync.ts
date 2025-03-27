@@ -169,9 +169,9 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
     // Same for the world state dbs, only that we do not close them, since we assume they are not yet in use
     const worldStateBasePath = join(dataDirectory, WORLD_STATE_DIR);
+    await prepareTarget(worldStateBasePath, WORLD_STATE_DB_VERSION, l1Contracts.rollupAddress);
     for (const [name, dir] of NATIVE_WORLD_STATE_DBS) {
       const path = join(worldStateBasePath, dir);
-      await prepareTarget(path, WORLD_STATE_DB_VERSION, l1Contracts.rollupAddress);
       await rename(downloadPaths[name], join(path, 'data.mdb'));
       log.info(`World state database ${name} set up from snapshot`, { path });
     }
