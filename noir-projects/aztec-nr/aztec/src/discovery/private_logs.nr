@@ -1,19 +1,24 @@
-use crate::{oracle::message_discovery::sync_notes, utils::array};
+use crate::{
+    discovery::{
+        ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
+        partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
+        private_notes::process_private_note_log,
+    },
+    encrypted_logs::{
+        log_assembly_strategies::default_aes128::aes128::AES128, log_encryption::LogEncryption,
+    },
+    oracle::message_discovery::sync_notes,
+    utils::array,
+};
 
-use dep::protocol_types::{
+use protocol_types::{
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
 };
 
-use crate::discovery::{
-    ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
-    partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
-    private_notes::process_private_note_log,
-};
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
-// TODO(#12750): don't make this value assume we're using AES.
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+// TODO(#12750): don't make these values assume we're using AES.
+use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
@@ -49,7 +54,10 @@ pub unconstrained fn do_process_log<Env>(
 ) {
     debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
-    let log_plaintext = decrypt_log(log, recipient);
+    // The tag is ignored for now.
+    let ciphertext = array::subbvec(log, 1);
+
+    let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
     // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
@@ -90,7 +98,7 @@ pub unconstrained fn do_process_log<Env>(
 ///  - an arbitrary number of fields following that called the 'log content'
 ///
 /// ```
-/// log_plainext: [ log_expanded_metadata, ...log_content ]
+/// log_plaintext: [ log_expanded_metadata, ...log_content ]
 /// ```
 ///
 /// The expanded metadata itself is (currently) interpreted as a u64, of which:

@@ -1,107 +1,15 @@
 use crate::{
     context::PrivateContext,
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::encrypt_log,
+    encrypted_logs::{
+        log_assembly_strategies::default_aes128::aes128::AES128, log_encryption::LogEncryption,
+    },
     note::{note_emission::NoteEmission, note_interface::NoteType},
+    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
 };
 use dep::protocol_types::{
     abis::note_hash::NoteHash, address::AztecAddress, constants::PRIVATE_LOG_SIZE_IN_FIELDS,
     traits::Packable,
 };
-
-/*
- * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
- * It's because there are a few more optimisations that can be done for notes,
- * and so the stuff that looks like duplicated code currently, won't be
- * the same for long.
- * To modularise now feels premature, because we might get that modularisation wrong.
- * Much better (imo) to have a flattened templates for log assembly, because it
- * makes it much easier for us all to follow, it serves as a nice example for the
- * community to follow (if they wish to roll their own log layouts), and it gives
- * us more time to spot common patterns across all kinds of log layouts.
- */
-
-/*
- * LOG CONFIGURATION CHOICES:
- *
- * deliver_to: INPUT as recipient: AztecAddress
- * encrypt_with: aes128 CBC (Cipher Block Chaining)
- * shared_secret: ephemeral
- * shared_secret_randomness_extraction_hash: sha256
- * tag: true
- * tag_from: INPUT as sender: AztecAddress
- *
- * Note-specific:
- * derive_note_randomness_from_shared_secret: false
- *
- */
-
-/*
- * LOG LAYOUT CHOICE:
- *
- * Short explanation:
- * log = [tag, epk, header_ct=[[contract_address, ct_len], pkcs7_pad], ct=[[pt], pkcs7_pad], some bytes padding, some fields padding]
- *
- * Long explanation:
- * tag: Field
- * epk: [Field, u8]
- * header_ct: [[u8; 32], [u8; 2], [u8; 16]]
- * ct: [[u8; 2], [u8; x], [u8; y]]
- *
- * More precisely (in pseudocode):
- *
- * log = [
- *     tag: Field,
- *     Epk: Field,
- *
- *     le_bytes_31_to_fields(
- *
- *         log_bytes: [
- *             eph_pk_sign: [u8; 1],
- *
- *             header_ciphertext: aes_encrypt(
- *                 contract_address: [u8; 32],
- *                 ct_length: [u8; 2],
- *
- *                 // the aes128_encrypt fn automatically inserts padding:
- *                 header_pt_aes_padding: [u8; 14], // `16 - (input.len() % 16)`
-
- *             ): [u8; 48],
- *
- *             ciphertext: aes_encrypt(
- *                 final_pt: [
- *                     pt: {
- *                         note_bytes: {
- *                             storage_slot: [u8; 32],
- *                             note_type_id: [u8; 32],
- *                             ...note: [u8; N * 32],
- *                         }: [u8; N * 32 + 64],
- *                     }: [u8; N * 32 + 64],
-
- *                 ]: [u8; N * 32 + 64],
- *
- *                 // the aes128_encrypt fn automatically inserts padding:
- *                 pt_aes_padding: [u8; 16 - ( (|pt_length| + |pt|) % 16 )]
- *
- *             ): [u8; |pt| + |pt_aes_padding|]
- *                [u8; |ct|]
- *
- *             log_bytes_padding_to_mult_31: [u8; 31 * ceil((1 + 48 + |ct|)/31) - (1 + 48 + |ct|)],
- *                                           [u8; p]
- *
- *         ]: [u8; 1 + 48 + |ct| + p]
- *
- *     ): [Field; (1 + 48 + |ct| + p) / 31]
- *
- *     log_fields_padding: [Field; PRIVATE_LOG_SIZE_IN_FIELDS - 2 - (1 + 48 + |ct| + p) / 31],
- *
- * ]: [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
- *
- *
- */
-
-/********************************************************/
-// End of disgusting arithmetic on generics
-/********************************************************/
 
 // TODO: it feels like this existence check is in the wrong place. In fact, why is it needed at all? Under what circumstances have we found a non-existent note being emitted accidentally?
 fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u32) {
@@ -143,7 +51,6 @@ where
 }
 
 pub fn compute_log<Note, let N: u32>(
-    context: PrivateContext,
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
@@ -152,13 +59,37 @@ pub fn compute_log<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    let final_plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot);
+    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot);
 
-    encrypt_log(context.this_address(), final_plaintext, recipient, sender)
+    let ciphertext = AES128::encrypt_log(plaintext, recipient);
+
+    let log = prefix_with_tag(ciphertext, sender, recipient);
+
+    log
+}
+
+fn prefix_with_tag<let L: u32>(
+    log_without_tag: [Field; L],
+    sender: AztecAddress,
+    recipient: AztecAddress,
+) -> [Field; L + 1] {
+    // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
+    // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
+    // note automatically.
+    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
+    increment_app_tagging_secret_index_as_sender(sender, recipient);
+
+    let mut log_with_tag = [0; L + 1];
+
+    log_with_tag[0] = tag;
+    for i in 0..log_without_tag.len() {
+        log_with_tag[i + 1] = log_without_tag[i];
+    }
+
+    log_with_tag
 }
 
 pub unconstrained fn compute_log_unconstrained<Note, let N: u32>(
-    context: PrivateContext,
     note: Note,
     storage_slot: Field,
     recipient: AztecAddress,
@@ -167,7 +98,7 @@ pub unconstrained fn compute_log_unconstrained<Note, let N: u32>(
 where
     Note: NoteType + Packable<N>,
 {
-    compute_log(context, note, storage_slot, recipient, sender)
+    compute_log(note, storage_slot, recipient, sender)
 }
 
 /// Sends an encrypted message to `recipient` with the content of the note, which they will discover when processing
@@ -187,7 +118,7 @@ where
         let note_hash_counter = e.note_hash_counter;
         assert_note_exists(*context, note_hash_counter);
 
-        let encrypted_log = compute_log(*context, note, storage_slot, recipient, sender);
+        let encrypted_log = compute_log(note, storage_slot, recipient, sender);
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
     }
 }
@@ -213,9 +144,45 @@ where
 
         assert_note_exists(*context, note_hash_counter);
 
-        // Safety: this function does not constrain the encryption of the log, as explainted on its description.
+        // Safety: this function does not constrain the encryption of the log, as explained on its description.
         let encrypted_log =
-            unsafe { compute_log_unconstrained(*context, note, storage_slot, recipient, sender) };
+            unsafe { compute_log_unconstrained(note, storage_slot, recipient, sender) };
         context.emit_raw_note_log(encrypted_log, note_hash_counter);
+    }
+}
+
+mod test {
+    use super::prefix_with_tag;
+    use protocol_types::{
+        address::AztecAddress,
+        indexed_tagging_secret::IndexedTaggingSecret,
+        traits::{Deserialize, FromField, Serialize},
+    };
+    use std::test::OracleMock;
+
+    #[test]
+    unconstrained fn prefixing_with_tag() {
+        let sender = AztecAddress::from_field(1);
+        let recipient = AztecAddress::from_field(2);
+
+        let app_tagging_secret = 42;
+        let index = 5;
+
+        // I am using the deserialize trait instead of directly instantiating the IndexedTaggingSecret struct because
+        // direct instantiation functionality is not exposed.
+        let indexed_tagging_secret = IndexedTaggingSecret::deserialize([app_tagging_secret, index]);
+
+        // Mock the tagging oracles
+        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(indexed_tagging_secret
+            .serialize());
+        let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
+
+        let log_without_tag = [1, 2, 3];
+        let log_with_tag = prefix_with_tag(log_without_tag, sender, recipient);
+
+        let expected_result = [indexed_tagging_secret.compute_tag(recipient), 1, 2, 3];
+
+        // Check tag was prefixed correctly
+        assert_eq(log_with_tag, expected_result, "Tag was not prefixed correctly");
     }
 }
