@@ -81,6 +81,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option('--salt <number>', 'The optional salt to use in deployment', arg => parseInt(arg))
     .option('--json', 'Output the contract addresses in JSON format')
     .option('--test-accounts', 'Populate genesis state with initial fee juice for test accounts')
+    .option('--sponsored-fpc', 'Populate genesis state with a testing sponsored FPC contract')
     .action(async options => {
       const { deployNewRollup } = await import('./deploy_new_rollup.js');
 
@@ -95,6 +96,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
         options.mnemonicIndex,
         options.salt,
         options.testAccounts,
+        options.sponsoredFpc,
         options.json,
         initialValidators,
         log,

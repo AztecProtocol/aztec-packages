@@ -5,6 +5,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { deployNewRollupContracts } from '../../utils/aztec.js';
+import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
 
 export async function deployNewRollup(
   registryAddress: EthAddress,
@@ -15,6 +16,7 @@ export async function deployNewRollup(
   mnemonicIndex: number,
   salt: number | undefined,
   testAccounts: boolean,
+  sponsoredFPC: boolean,
   json: boolean,
   initialValidators: EthAddress[],
   log: LogFn,
@@ -23,7 +25,16 @@ export async function deployNewRollup(
   const config = getL1ContractsConfigEnvVars();
 
   const initialFundedAccounts = testAccounts ? await getInitialTestAccounts() : [];
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
+  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(
+    initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+  );
+
+  log(`Deploying new rollup contracts to chain ${chainId}...`);
+  log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`);
+  log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+  log(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   const { payloadAddress, rollup } = await deployNewRollupContracts(
     registryAddress,
