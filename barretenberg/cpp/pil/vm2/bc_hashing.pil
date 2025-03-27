@@ -120,7 +120,7 @@ namespace bc_hashing;
     // the rows above the final output_hash are activated. If they are activated, then
     // bytecode_id is maintained and pc_index decrements by 31 when we move to the top.
     // From #[START_AFTER_LATCH], we have the guarantee that we cannot meet a row with
-    // latch == 1 before we meet start == 1 when we go up. This shows that bytecod_id,
+    // latch == 1 before we meet start == 1 when we go up. This shows that bytecode_id,
     // pc_index, and incremental_hash evolution did not deviate from the happy path. When
     // we reach a row with start == 1 (we know we must reach one thanks to #[START_AFTER_LATCH]
     // enforces it on the second row.), then #[IV_IS_LEN] implies that pc_index and incremental_hash

@@ -159,11 +159,11 @@ sel { abs_diff } in precomputed.sel_range_16 { precomputed.clk };
 sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + sel_overflow_correction_needed * (bytes_to_read - bytes_remaining)) = 0;
 
 // Constrain shifted columns.
-// We need to guard with (1 - last_of_contract) because otherwise we would need to copy value
+// We need to guard with (1 - FIRST_OR_LAST_CONTRACT) because otherwise we would need to copy value
 // from another bytecode to satisfy the relations. The issue is then that it would pollute
 // the value packed_field and would lead computing the wrong hash in bytecode hashing.
-// By writing the following relations in the form bytes_pc_plus_i = (1 - last_of_contract) * bytes_pc_plus_{i-1}'
-// rather than (1 - last_of_contract) * (bytes_pc_plus_i - bytes_pc_plus_{i-1}') = 0
+// By writing the following relations in the form bytes_pc_plus_i = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_{i-1}'
+// rather than (1 - FIRST_OR_LAST_CONTRACT) * (bytes_pc_plus_i - bytes_pc_plus_{i-1}') = 0
 // we not only help witness generation to be satisfied but enforce the propagation
 // of zero values (instead of garbage) whch effectively prevents a malicious prover to
 // add garbage values beyond the end of the bytecode. This is not strictly necessary
@@ -213,7 +213,7 @@ bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
 // will use this selector (as 1) in the lookup tuple. Therefore, if the sequencer
 // does not choose at least the minimum amount of rows, the lookup will fail.
 // NOTE: The bytecode hashing trace will constrain itself that every 31st pc is packed.
-// However, we need to ensure that there is a single row per pair (pc, bytecod_id) in
+// However, we need to ensure that there is a single row per pair (pc, bytecode_id) in
 // this subtrace (otherwise, a malicious prover might copy wrong values).
 // This is ensured by #[SEL_TOGGLED_AT_PACKED], #[BC_DEC_ID_INCREMENT] and
 // #[BC_DEC_PC_INCREMENT] relations.
