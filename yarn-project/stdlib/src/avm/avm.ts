@@ -3,6 +3,8 @@ import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
 import type { IndexedTreeLeaf } from '@aztec/foundation/trees';
 
+import isEqual from 'lodash.isequal';
+import uniqWith from 'lodash.uniqwith';
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
@@ -216,19 +218,34 @@ export class AvmEnqueuedCallHint {
 
 export class AvmExecutionHints {
   constructor(
-    public readonly enqueuedCalls: AvmEnqueuedCallHint[] = [],
+    public enqueuedCalls: AvmEnqueuedCallHint[] = [],
     // Contract hints.
-    public readonly contractInstances: AvmContractInstanceHint[] = [],
-    public readonly contractClasses: AvmContractClassHint[] = [],
-    public readonly bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
+    public contractInstances: AvmContractInstanceHint[] = [],
+    public contractClasses: AvmContractClassHint[] = [],
+    public bytecodeCommitments: AvmBytecodeCommitmentHint[] = [],
     // Merkle DB hints.
-    public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
-    public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
-    public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
+    public getSiblingPathHints: AvmGetSiblingPathHint[] = [],
+    public getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
+    public getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
   ) {}
 
   static empty() {
     return new AvmExecutionHints();
+  }
+
+  // We need this only to remove duplicates before serializing.
+  // We can't just use Set because we need to compare the objects by value.
+  // This is a temporary solution until we decide if we want to write a HashSet class.
+  toJSON() {
+    this.enqueuedCalls = uniqWith(this.enqueuedCalls, isEqual);
+    this.contractInstances = uniqWith(this.contractInstances, isEqual);
+    this.contractClasses = uniqWith(this.contractClasses, isEqual);
+    this.bytecodeCommitments = uniqWith(this.bytecodeCommitments, isEqual);
+    this.getSiblingPathHints = uniqWith(this.getSiblingPathHints, isEqual);
+    this.getPreviousValueIndexHints = uniqWith(this.getPreviousValueIndexHints, isEqual);
+    this.getLeafPreimageHintsPublicDataTree = uniqWith(this.getLeafPreimageHintsPublicDataTree, isEqual);
+    // Somehow this does not trigger a recursive call to toJSON?
+    return this;
   }
 
   static get schema() {
