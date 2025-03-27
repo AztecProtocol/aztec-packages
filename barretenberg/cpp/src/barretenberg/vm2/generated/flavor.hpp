@@ -96,12 +96,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 47;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 936;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 134;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 942;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1117;
+    static constexpr size_t NUM_ALL_ENTITIES = 1124;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -175,7 +175,8 @@ class AvmFlavor {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
-        lookup_merkle_check_merkle_poseidon2_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
