@@ -13,16 +13,16 @@ import {TimeCheater} from "../staking/TimeCheater.sol";
 contract LibTest {
   SnapshottedAddressSet validatorSet;
 
-  function add(address _validator) public {
-    AddressSnapshotLib.add(validatorSet, _validator);
+  function add(address _validator) public returns (bool) {
+    return AddressSnapshotLib.add(validatorSet, _validator);
   }
 
-  function remove(uint256 _index) public {
-    AddressSnapshotLib.remove(validatorSet, _index);
+  function remove(uint256 _index) public returns (bool) {
+    return AddressSnapshotLib.remove(validatorSet, _index);
   }
 
-  function remove(address _validator) public {
-    AddressSnapshotLib.remove(validatorSet, _validator);
+  function remove(address _validator) public returns (bool) {
+    return AddressSnapshotLib.remove(validatorSet, _validator);
   }
 
   function at(uint256 _index) public view returns (address) {
@@ -73,10 +73,6 @@ contract AddressSnapshotsTest is Test {
   }
 
   function test_getAddresssIndexAt() public {
-    // Empty should return 0
-    timeCheater.cheat__setEpochNow(0);
-    assertEq(libTest.getAddressFromIndexAtEpoch(0, 0), address(0));
-
     // Adds validator 1 to the first index in the set, at epoch 1
     timeCheater.cheat__setEpochNow(1);
 
@@ -210,5 +206,67 @@ contract AddressSnapshotsTest is Test {
     // Expect past values to be maintained
     assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 0, /* epoch */ 0), address(1));
     assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 0, /* epoch */ 1), address(1));
+  }
+
+  function test_WhenNoValidatorsAreRegistered() external {
+    vm.expectRevert();
+    libTest.at(0);
+
+    // it causes getAddressFromIndexAtEpoch to return revert
+    assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 0, /* epoch */ 0), address(0));
+  }
+
+  modifier whenAddingAValidator() {
+    libTest.add(address(1));
+    _;
+  }
+
+  function test_WhenAlreadyAdded() external whenAddingAValidator {
+    // it returns false
+    assertFalse(libTest.add(address(1)));
+  }
+
+  function test_WhenNotPreviouslyAdded() external whenAddingAValidator {
+    // it returns true
+    assertTrue(libTest.add(address(2)));
+    // it increases the length
+    assertEq(libTest.length(), 2);
+
+    // it creates a checkpoint
+    timeCheater.cheat__setEpochNow(1);
+    assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 0, /* epoch */ 0), address(1));
+    assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 1, /* epoch */ 0), address(2));
+  }
+
+  function test_cannotRemoveAddressNotInTheSet() external {
+    // it returns false
+    assertFalse(libTest.remove(address(1)));
+  }
+
+  function test_WhenValidatorIsInTheSet() external {
+    // it returns true
+    libTest.add(address(1));
+    timeCheater.cheat__setEpochNow(1);
+
+    assertTrue(libTest.remove(address(1)));
+    // it decreases the length
+    assertEq(libTest.length(), 0);
+    // it updates the snapshot for that index
+    assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 0, /* epoch */ 1), address(0));
+
+    // it maintains historical values correctly
+    assertEq(libTest.getAddressFromIndexAtEpoch( /* index */ 0, /* epoch */ 0), address(1));
+  }
+
+  function test_WhenIndexIsOutOfBounds() external {
+    // it reverts with IndexOutOfBounds
+    vm.expectRevert();
+    libTest.at(1);
+  }
+
+  function test_WhenIndexIsValid() external {
+    // it returns the current validator at that index
+    libTest.add(address(1));
+    assertEq(libTest.at(0), address(1));
   }
 }

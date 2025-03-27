@@ -34,7 +34,6 @@ struct AddressSnapshot {
  * @dev This library provides functionality similar to EnumerableSet but can track addresses across different epochs
  *      and allows querying the state of addresses at any point in time
  */
-
 library AddressSnapshotLib {
   /**
    * @notice Bit mask used to indicate presence of a validator in the set
@@ -137,11 +136,7 @@ library AddressSnapshotLib {
    * @param _index The index to query
    * @return address The current address at the given index
    */
-  function at(SnapshottedAddressSet storage _self, uint256 _index)
-    internal
-    view
-    returns (address)
-  {
+  function at(SnapshottedAddressSet storage _self, uint256 _index) internal view returns (address) {
     uint256 numCheckpoints = _self.checkpoints[_index].length;
 
     if (_index >= _self.size) {

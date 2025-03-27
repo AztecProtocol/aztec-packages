@@ -201,8 +201,7 @@ library ValidatorSelectionLib {
 
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
-      committee[i] =
-        _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
+      committee[i] = _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
     }
     return committee;
   }
