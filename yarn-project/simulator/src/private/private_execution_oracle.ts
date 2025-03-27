@@ -506,6 +506,8 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
       this.historicalHeader.globalVariables.blockNumber.toNumber(),
       this.scopes,
     );
+
+    // here we want to nuke this call and instead we want syncTaggedLogs to store the log in capsule.
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.executionDataProvider.processTaggedLogs(
         this.contractAddress,

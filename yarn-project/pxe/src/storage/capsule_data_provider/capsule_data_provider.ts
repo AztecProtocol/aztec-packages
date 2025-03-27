@@ -67,6 +67,32 @@ export class CapsuleDataProvider implements DataProvider {
     }
   }
 
+  /**
+   * Appends multiple capsules to a capsule array stored at the base slot.
+   * The array length is stored at the base slot, and elements are stored in consecutive slots after it.
+   * All operations are performed in a single transaction.
+   * @param contractAddress - The contract address that owns the capsule array
+   * @param baseSlot - The slot where the array length is stored
+   * @param capsules - Array of capsule data to append
+   */
+  appendToCapsuleArray(contractAddress: AztecAddress, baseSlot: Fr, capsules: Fr[][]): Promise<void> {
+    return this.#store.transactionAsync(async () => {
+      // Load current length, defaulting to 0 if not found
+      const lengthData = await this.loadCapsule(contractAddress, baseSlot);
+      const currentLength = lengthData ? lengthData[0].toBigInt() : 0n;
+
+      // Store each capsule at consecutive slots after baseSlot + 1 + currentLength
+      for (let i = 0; i < capsules.length; i++) {
+        const nextSlot = baseSlot.add(new Fr(1)).add(new Fr(currentLength + BigInt(i)));
+        await this.storeCapsule(contractAddress, nextSlot, capsules[i]);
+      }
+
+      // Update length to include all new capsules
+      const newLength = currentLength + BigInt(capsules.length);
+      await this.storeCapsule(contractAddress, baseSlot, [new Fr(newLength)]);
+    });
+  }
+
   public async getSize() {
     return (await toArray(this.#capsules.valuesAsync())).reduce(
       (sum, value) => sum + value.length * Fr.SIZE_IN_BYTES,

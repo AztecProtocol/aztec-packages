@@ -434,14 +434,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs
    * to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
-   * @param recipient - The address of the recipient
+   * @param maxBlockNumber - The maximum block number up to which we want to fetch logs. Here because we don't want
+   * to sync further than the historical block number of the tx currently being constructed.
    * @returns A list of encrypted logs tagged with the recipient's address
    */
-  public async syncTaggedLogs(
-    contractAddress: AztecAddress,
-    maxBlockNumber: number,
-    scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedL2Log[]>> {
+  public async syncTaggedLogs(contractAddress: AztecAddress, maxBlockNumber: number, scopes?: AztecAddress[]) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
@@ -451,14 +448,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // length, since we don't really know the note they correspond to until we decrypt them.
 
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-    // A map of logs going from recipient address to logs. Note that the logs might have been processed before
-    // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
-    // that a logs will be received ordered by a given tag index and that the tags won't be reused).
-    const logsMap = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
-      const logsForRecipient: TxScopedL2Log[] = [];
-
       // Get all the secrets for the recipient and sender pairs (#9365)
       const secrets = await this.#getIndexedTaggingSecretsForSenders(contractAddress, recipient);
 
@@ -497,7 +488,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         // Fetch the logs for the tags and iterate over them
         const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
 
-        logsByTags.forEach((logsByTag, logIndex) => {
+        logsByTags.forEach(async (logsByTag, logIndex) => {
           if (logsByTag.length > 0) {
             // Discard public logs
             const filteredLogsByTag = logsByTag.filter(l => !l.isFromPublic);
@@ -505,8 +496,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
               this.log.warn(`Discarded ${logsByTag.filter(l => l.isFromPublic).length} public logs with matching tags`);
             }
 
-            // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...filteredLogsByTag);
+            // We filter out the logs that are newer than the historical block number of the tx currently being constructed
+            const filteredLogsByBlockNumber = filteredLogsByTag.filter(l => l.blockNumber <= maxBlockNumber);
+
+            // We store the logs in capsules (to later be obtained in Noir)
+            await this.#storeLogsCapsules(contractAddress, recipient, filteredLogsByBlockNumber);
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
@@ -567,12 +561,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         secretsAndWindows = newSecretsAndWindows;
       }
 
-      // We filter the logs by block number and store them in the map.
-      logsMap.set(
-        recipient.toString(),
-        logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber),
-      );
-
       // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db.
       await this.taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         Object.entries(newLargestIndexMapToStore).map(
@@ -580,7 +568,20 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         ),
       );
     }
-    return logsMap;
+  }
+
+  #storeLogsCapsules(contractAddress: AztecAddress, recipient: AztecAddress, logs: TxScopedL2Log[]) {
+    const CAPSULE_BASE_SLOT = new Fr(8240937);
+
+    const logsCapsules = logs.map(scopedLog => [
+      ...scopedLog.log.toFields(),
+      scopedLog.txHash.hash,
+      new Fr(scopedLog.dataStartIndexForTx),
+      new Fr(scopedLog.blockNumber),
+      recipient.toField(),
+    ]);
+
+    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, CAPSULE_BASE_SLOT, logsCapsules);
   }
 
   /**
