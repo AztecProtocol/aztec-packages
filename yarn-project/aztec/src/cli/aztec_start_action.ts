@@ -37,6 +37,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         l1Salt: nodeOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
+        realProofs: false,
       },
       userLog,
     );

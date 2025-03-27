@@ -44,7 +44,7 @@ import {
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
-import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable } from '@aztec/foundation/serialize';
@@ -55,7 +55,6 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
-  AvmAppendTreeHint,
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
@@ -63,10 +62,9 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
+  AvmGetLeafPreimageHintPublicDataTree,
+  AvmGetPreviousValueIndexHint,
+  AvmGetSiblingPathHint,
   RevertCode,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
@@ -78,7 +76,6 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
-  type PublicFunction,
   SerializableContractInstance,
   type UnconstrainedFunctionWithMembershipProof,
   computeContractClassId,
@@ -523,13 +520,7 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
 }
 
 export function makePublicCallRequest(seed = 1) {
-  return new PublicCallRequest(
-    makeAztecAddress(seed),
-    makeAztecAddress(seed + 1),
-    makeSelector(seed + 2),
-    false,
-    fr(seed + 0x3),
-  );
+  return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
 }
 
 function makeCountedPublicCallRequest(seed = 1) {
@@ -1171,16 +1162,10 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export async function makeContractClassPublic(
-  seed = 0,
-  publicDispatchFunction?: PublicFunction,
-): Promise<ContractClassPublic> {
+export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
-  const publicFunctions = publicDispatchFunction
-    ? [publicDispatchFunction]
-    : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = publicDispatchFunction?.bytecode ?? makeBytes(100, seed + 4);
+  const packedBytecode = publicBytecode ?? makeBytes(100, seed + 4);
   const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
   const id = await computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
@@ -1188,17 +1173,9 @@ export async function makeContractClassPublic(
     artifactHash,
     packedBytecode,
     privateFunctionsRoot,
-    publicFunctions,
     privateFunctions: [],
     unconstrainedFunctions: [],
     version: 1,
-  };
-}
-
-function makeContractClassPublicFunction(seed = 0): PublicFunction {
-  return {
-    selector: FunctionSelector.fromField(fr(seed + 1)),
-    bytecode: makeBytes(100, seed + 2),
   };
 }
 
@@ -1282,51 +1259,39 @@ export async function makeContractInstanceFromClassId(
   }).withAddress(address);
 }
 
-export function makeAvmTreeHints(seed = 0): AvmAppendTreeHint {
-  return new AvmAppendTreeHint(
-    new Fr(seed),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetSiblingPathHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    makeArray(seed % 64, i => new Fr(i), seed + 10),
   );
 }
 
-export function makeAvmNullifierReadTreeHints(seed = 0): AvmNullifierReadTreeHint {
-  const lowNullifierPreimage = new NullifierLeafPreimage(new Fr(seed), new Fr(seed + 1), BigInt(seed + 2));
-  return new AvmNullifierReadTreeHint(
-    lowNullifierPreimage,
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueIndexHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const value = new Fr(BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 128n));
+  return new AvmGetPreviousValueIndexHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    value,
+    index,
+    /*alreadyPresent=*/ index % 2n === 0n,
   );
 }
 
-export function makeAvmPublicDataReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
-  return new AvmPublicDataReadTreeHint(
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
-  );
-}
-
-export function makeAvmNullifierInsertionTreeHints(seed = 0): AvmNullifierWriteTreeHint {
-  return new AvmNullifierWriteTreeHint(
-    makeAvmNullifierReadTreeHints(seed),
-    makeArray(20, i => new Fr(i), seed + 0x1000),
-  );
-}
-
-export function makeAvmStorageReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
-  return new AvmPublicDataReadTreeHint(
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
-  );
-}
-
-export function makeAvmStorageUpdateTreeHints(seed = 0): AvmPublicDataWriteTreeHint {
-  return new AvmPublicDataWriteTreeHint(
-    makeAvmStorageReadTreeHints(seed),
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    makeArray(20, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPreimageHintPublicDataTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leaf=*/ makePublicDataTreeLeaf(seed + 3),
+    /*nextIndex=*/ index + 1n,
+    /*nextValue*/ new Fr(seed + 0x500),
   );
 }
 
@@ -1394,13 +1359,13 @@ export async function makeAvmExecutionHints(
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
-    publicDataReads: makeArray(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
-    publicDataWrites: makeArray(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
-    nullifierReads: makeArray(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
-    nullifierWrites: makeArray(baseLength + 10, makeAvmNullifierInsertionTreeHints, seed + 0x4c00),
-    noteHashReads: makeArray(baseLength + 11, makeAvmTreeHints, seed + 0x4d00),
-    noteHashWrites: makeArray(baseLength + 12, makeAvmTreeHints, seed + 0x4e00),
-    l1ToL2MessageReads: makeArray(baseLength + 13, makeAvmTreeHints, seed + 0x4f00),
+    getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
+    getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
+    getLeafPreimageHintPublicDataTrees: makeArray(
+      baseLength + 5,
+      makeAvmGetLeafPreimageHintPublicDataTree,
+      seed + 0x4f00,
+    ),
     ...overrides,
   };
 
@@ -1409,13 +1374,9 @@ export async function makeAvmExecutionHints(
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
-    fields.publicDataReads,
-    fields.publicDataWrites,
-    fields.nullifierReads,
-    fields.nullifierWrites,
-    fields.noteHashReads,
-    fields.noteHashWrites,
-    fields.l1ToL2MessageReads,
+    fields.getSiblingPathHints,
+    fields.getPreviousValueIndexHints,
+    fields.getLeafPreimageHintPublicDataTrees,
   );
 }
 

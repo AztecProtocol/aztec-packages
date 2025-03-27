@@ -1,14 +1,15 @@
 #pragma once
 
+#include <cstdint>
+#include <utility>
+#include <variant>
+
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
 #include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include <cstdint>
-#include <utility>
-#include <variant>
 
 namespace bb::world_state {
 

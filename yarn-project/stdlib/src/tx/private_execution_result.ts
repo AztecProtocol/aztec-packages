@@ -12,7 +12,7 @@ import { sortByCounter } from '../kernel/utils/order_and_comparison.js';
 import { ContractClassLog } from '../logs/contract_class_log.js';
 import { Note } from '../note/note.js';
 import { type ZodFor, mapSchema, schemas } from '../schemas/index.js';
-import { PublicExecutionRequest } from './public_execution_request.js';
+import { HashedValues } from './hashed_values.js';
 
 /**
  * The contents of a new note.
@@ -67,36 +67,13 @@ export class CountedContractClassLog implements IsEmpty {
   }
 }
 
-export class CountedPublicExecutionRequest {
-  constructor(public request: PublicExecutionRequest, public counter: number) {}
-
-  static get schema(): ZodFor<CountedPublicExecutionRequest> {
-    return z
-      .object({
-        request: PublicExecutionRequest.schema,
-        counter: schemas.Integer,
-      })
-      .transform(CountedPublicExecutionRequest.from);
-  }
-
-  static from(fields: FieldsOf<CountedPublicExecutionRequest>) {
-    return new CountedPublicExecutionRequest(fields.request, fields.counter);
-  }
-
-  isEmpty(): boolean {
-    return this.request.isEmpty() && !this.counter;
-  }
-
-  static async random() {
-    return new CountedPublicExecutionRequest(await PublicExecutionRequest.random(), 0);
-  }
-}
-
 export class PrivateExecutionResult {
   constructor(
     public entrypoint: PrivateCallExecutionResult,
     /** The first non revertible nullifier, or zero if there was none. */
     public firstNullifier: Fr,
+    /** An array of calldata for the enqueued public function calls and the teardown function call. */
+    public publicFunctionCalldata: HashedValues[],
   ) {}
 
   static get schema(): ZodFor<PrivateExecutionResult> {
@@ -104,16 +81,20 @@ export class PrivateExecutionResult {
       .object({
         entrypoint: PrivateCallExecutionResult.schema,
         firstNullifier: schemas.Fr,
+        publicFunctionCalldata: z.array(HashedValues.schema),
       })
       .transform(PrivateExecutionResult.from);
   }
 
   static from(fields: FieldsOf<PrivateExecutionResult>) {
-    return new PrivateExecutionResult(fields.entrypoint, fields.firstNullifier);
+    return new PrivateExecutionResult(fields.entrypoint, fields.firstNullifier, fields.publicFunctionCalldata);
   }
 
   static async random(nested = 1): Promise<PrivateExecutionResult> {
-    return new PrivateExecutionResult(await PrivateCallExecutionResult.random(nested), Fr.random());
+    return new PrivateExecutionResult(await PrivateCallExecutionResult.random(nested), Fr.random(), [
+      HashedValues.random(),
+      HashedValues.random(),
+    ]);
   }
 
   /**
@@ -149,10 +130,6 @@ export class PrivateCallExecutionResult {
     public returnValues: Fr[],
     /** The nested executions. */
     public nestedExecutions: PrivateCallExecutionResult[],
-    /** Enqueued public function execution requests to be picked up by the sequencer. */
-    public enqueuedPublicFunctionCalls: CountedPublicExecutionRequest[],
-    /** Public function execution requested for teardown */
-    public publicTeardownFunctionCall: PublicExecutionRequest,
     /**
      * Contract class logs emitted during execution of this function call.
      * Note: These are preimages to `contractClassLogsHashes`.
@@ -172,8 +149,6 @@ export class PrivateCallExecutionResult {
         noteHashNullifierCounterMap: mapSchema(z.coerce.number(), z.number()),
         returnValues: z.array(schemas.Fr),
         nestedExecutions: z.array(z.lazy(() => PrivateCallExecutionResult.schema)),
-        enqueuedPublicFunctionCalls: z.array(CountedPublicExecutionRequest.schema),
-        publicTeardownFunctionCall: PublicExecutionRequest.schema,
         contractClassLogs: z.array(CountedContractClassLog.schema),
       })
       .transform(PrivateCallExecutionResult.from);
@@ -190,8 +165,6 @@ export class PrivateCallExecutionResult {
       fields.noteHashNullifierCounterMap,
       fields.returnValues,
       fields.nestedExecutions,
-      fields.enqueuedPublicFunctionCalls,
-      fields.publicTeardownFunctionCall,
       fields.contractClassLogs,
     );
   }
@@ -207,8 +180,6 @@ export class PrivateCallExecutionResult {
       new Map([[0, 0]]),
       [Fr.random()],
       await timesParallel(nested, () => PrivateCallExecutionResult.random(0)),
-      [await CountedPublicExecutionRequest.random()],
-      await PublicExecutionRequest.random(),
       [new CountedContractClassLog(await ContractClassLog.random(), randomInt(10))],
     );
   }
@@ -255,49 +226,6 @@ export function collectSortedContractClassLogs(execResult: PrivateExecutionResul
   const allLogs = collectContractClassLogs(execResult.entrypoint);
   const sortedLogs = sortByCounter(allLogs);
   return sortedLogs.map(l => l.log);
-}
-
-function collectEnqueuedCountedPublicExecutionRequests(
-  execResult: PrivateCallExecutionResult,
-): CountedPublicExecutionRequest[] {
-  return [
-    ...execResult.enqueuedPublicFunctionCalls,
-    ...execResult.nestedExecutions.flatMap(collectEnqueuedCountedPublicExecutionRequests),
-  ];
-}
-
-/**
- * Collect all enqueued public function calls across all nested executions.
- * @param execResult - The topmost execution result.
- * @returns All enqueued public function calls.
- */
-export function collectEnqueuedPublicFunctionCalls(execResult: PrivateExecutionResult): PublicExecutionRequest[] {
-  const countedRequests = collectEnqueuedCountedPublicExecutionRequests(execResult.entrypoint);
-  // without the reverse sort, the logs will be in a queue like fashion which is wrong
-  // as the kernel processes it like a stack, popping items off and pushing them to output
-  return sortByCounter(countedRequests, false).map(r => r.request);
-}
-
-export function collectPublicTeardownFunctionCall(execResult: PrivateExecutionResult): PublicExecutionRequest {
-  const collectPublicTeardownFunctionCallRecursive = (
-    callResult: PrivateCallExecutionResult,
-  ): PublicExecutionRequest[] => {
-    return [
-      callResult.publicTeardownFunctionCall,
-      ...callResult.nestedExecutions.flatMap(collectPublicTeardownFunctionCallRecursive),
-    ].filter(call => !call.isEmpty());
-  };
-  const teardownCalls = collectPublicTeardownFunctionCallRecursive(execResult.entrypoint);
-
-  if (teardownCalls.length === 1) {
-    return teardownCalls[0];
-  }
-
-  if (teardownCalls.length > 1) {
-    throw new Error('Multiple public teardown calls detected');
-  }
-
-  return PublicExecutionRequest.empty();
 }
 
 export function getFinalMinRevertibleSideEffectCounter(execResult: PrivateExecutionResult): number {

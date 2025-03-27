@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { FunctionCall } from '@aztec/stdlib/abi';
 import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { HashedValues } from '@aztec/stdlib/tx';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
@@ -80,11 +80,7 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
  * @returns The inner hash for the function call
  **/
 export const computeInnerAuthWitHashFromFunctionCall = async (caller: AztecAddress, fnCall: FunctionCall) => {
-  return computeInnerAuthWitHash([
-    caller.toField(),
-    fnCall.selector.toField(),
-    (await HashedValues.fromValues(fnCall.args)).hash,
-  ]);
+  return computeInnerAuthWitHash([caller.toField(), fnCall.selector.toField(), await computeVarArgsHash(fnCall.args)]);
 };
 
 /**
@@ -100,9 +96,5 @@ export const computeInnerAuthWitHashFromAction = async (
   action: FunctionCall | ContractFunctionInteraction,
 ) => {
   action = action instanceof ContractFunctionInteraction ? (await action.request()).calls[0] : action;
-  return computeInnerAuthWitHash([
-    caller.toField(),
-    action.selector.toField(),
-    (await HashedValues.fromValues(action.args)).hash,
-  ]);
+  return computeInnerAuthWitHash([caller.toField(), action.selector.toField(), await computeVarArgsHash(action.args)]);
 };

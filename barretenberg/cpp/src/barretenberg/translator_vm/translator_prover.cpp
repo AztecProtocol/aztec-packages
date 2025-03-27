@@ -63,8 +63,9 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
     }
 
     // The ordered range constraints are of full circuit size.
-    for (const auto& [ordered_range_constraint, label] : zip_view(
-             key->proving_key->polynomials.get_ordered_constraints(), commitment_labels.get_ordered_constraints())) {
+    for (const auto& [ordered_range_constraint, label] :
+         zip_view(key->proving_key->polynomials.get_ordered_range_constraints(),
+                  commitment_labels.get_ordered_range_constraints())) {
         commit_to_witness_polynomial(ordered_range_constraint, label);
     }
 }
@@ -76,12 +77,11 @@ void TranslatorProver::execute_wire_and_sorted_constraints_commitments_round()
 void TranslatorProver::execute_grand_product_computation_round()
 {
     // Compute and store parameters required by relations in Sumcheck
+    FF beta = transcript->template get_challenge<FF>("beta");
     FF gamma = transcript->template get_challenge<FF>("gamma");
     const size_t NUM_LIMB_BITS = Flavor::NUM_LIMB_BITS;
-    relation_parameters.beta = 0;
+    relation_parameters.beta = beta;
     relation_parameters.gamma = gamma;
-    relation_parameters.public_input_delta = 0;
-    relation_parameters.lookup_grand_product_delta = 0;
     auto uint_evaluation_input = uint256_t(key->evaluation_input_x);
     relation_parameters.evaluation_input_x = { uint_evaluation_input.slice(0, NUM_LIMB_BITS),
                                                uint_evaluation_input.slice(NUM_LIMB_BITS, NUM_LIMB_BITS * 2),

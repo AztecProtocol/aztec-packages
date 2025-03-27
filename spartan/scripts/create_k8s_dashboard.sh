@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Install the Kubernetes Dashboard
 helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/

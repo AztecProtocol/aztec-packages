@@ -47,8 +47,8 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  storeInExecutionCache(_values: Fr[]): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('storeInExecutionCache'));
+  storeInExecutionCache(_values: Fr[], _hash: Fr): void {
+    throw new OracleMethodNotAvailableError('storeInExecutionCache');
   }
 
   loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
@@ -180,24 +180,22 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('callPrivateFunction'));
   }
 
-  enqueuePublicFunctionCall(
+  notifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
+    _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-  ): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('enqueuePublicFunctionCall'));
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('notifyEnqueuedPublicFunctionCall'));
   }
 
-  setPublicTeardownFunctionCall(
+  notifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
+    _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-  ): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('setPublicTeardownFunctionCall'));
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall'));
   }
 
   notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): void {
