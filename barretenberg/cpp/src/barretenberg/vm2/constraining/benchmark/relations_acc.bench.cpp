@@ -7,9 +7,9 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/generated/flavor.hpp"
-#include "barretenberg/vm2/generated/full_row.hpp"
 
 using namespace benchmark;
 using namespace bb::avm2;
