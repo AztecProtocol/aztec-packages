@@ -23,6 +23,8 @@ export interface PublicTxMetrics {
 }
 
 const DECIMALS = 2;
+const TAB_WIDTH = 4;
+const TAB = ' '.repeat(TAB_WIDTH);
 
 export enum PublicTxMetricsFilter {
   ALL,
@@ -133,12 +135,12 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         filter === PublicTxMetricsFilter.TOTALS ||
         filter === PublicTxMetricsFilter.ALL
       ) {
-        this.log.info(`\tTotal duration: ${txMetrics.totalDurationMs.toFixed(DECIMALS)} ms`);
+        this.log.info(`${TAB}Total duration: ${txMetrics.totalDurationMs.toFixed(DECIMALS)} ms`);
       }
       if (filter === PublicTxMetricsFilter.TOTALS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`\tTotal mana used: ${txMetrics.manaUsed}`);
+        this.log.info(`${TAB}Total mana used: ${txMetrics.manaUsed}`);
         const manaPerSecond = Math.round((txMetrics.manaUsed * 1000) / txMetrics.totalDurationMs);
-        this.log.info(`\tMana per second: ${manaPerSecond.toFixed(DECIMALS)}`);
+        this.log.info(`${TAB}Mana per second: ${manaPerSecond}`);
       }
 
       if (
@@ -146,15 +148,17 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         filter === PublicTxMetricsFilter.TOTALS ||
         filter === PublicTxMetricsFilter.ALL
       ) {
-        this.log.info(`\tTotal instructions executed: ${txMetrics.totalInstructions}`);
+        this.log.info(`${TAB}Total instructions executed: ${txMetrics.totalInstructions}`);
       }
       if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`\tTx hash computation: ${txMetrics.txHashMs!.toFixed(DECIMALS)} ms`);
-        this.log.info(`\tPrivate insertions:`);
+        this.log.info(`${TAB}Tx hash computation: ${txMetrics.txHashMs!.toFixed(DECIMALS)} ms`);
+        this.log.info(`${TAB}Private insertions:`);
         this.log.info(
-          `\t\tNon-revertible: ${(txMetrics.nonRevertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`,
+          `${TAB}${TAB}Non-revertible: ${(txMetrics.nonRevertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`,
         );
-        this.log.info(`\t\tRevertible: ${(txMetrics.revertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`);
+        this.log.info(
+          `${TAB}${TAB}Revertible: ${(txMetrics.revertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`,
+        );
       }
       if (filter !== PublicTxMetricsFilter.TOTALS) {
         // totals exclude enqueued calls
@@ -165,20 +169,20 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
   }
 
   #printEnqueuedCalls(txMetrics: PublicTxMetrics, filter: PublicTxMetricsFilter) {
-    this.log.info(`\tEnqueued public calls:`);
+    this.log.info(`${TAB}Enqueued public calls:`);
     for (const enqueuedCall of txMetrics.enqueuedCalls) {
-      this.log.info(`\t\tFn: ${enqueuedCall.fnName}`);
+      this.log.info(`${TAB}${TAB}Fn: ${enqueuedCall.fnName}`);
       if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`\t\t\tDuration: ${enqueuedCall.durationMs.toFixed(DECIMALS)} ms`);
+        this.log.info(`${TAB}${TAB}${TAB}Duration: ${enqueuedCall.durationMs.toFixed(DECIMALS)} ms`);
       }
       if (filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`\t\t\tMana used: ${enqueuedCall.manaUsed}`);
+        this.log.info(`${TAB}${TAB}${TAB}Mana used: ${enqueuedCall.manaUsed}`);
         const manaPerSecond = Math.round((enqueuedCall.manaUsed * 1000) / enqueuedCall.durationMs);
-        this.log.info(`\t\t\tMana per second: ${manaPerSecond.toFixed(DECIMALS)}`);
+        this.log.info(`${TAB}${TAB}${TAB}Mana per second: ${manaPerSecond}`);
       }
 
       if (filter === PublicTxMetricsFilter.INSTRUCTIONS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`\t\t\tInstructions executed: ${enqueuedCall.totalInstructions}`);
+        this.log.info(`${TAB}${TAB}${TAB}Instructions executed: ${enqueuedCall.totalInstructions}`);
       }
     }
   }

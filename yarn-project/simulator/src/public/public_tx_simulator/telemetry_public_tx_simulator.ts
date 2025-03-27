@@ -14,6 +14,8 @@ import { PublicTxContext } from './public_tx_context.js';
  * A public tx simulator that tracks runtime metrics in production.
  */
 export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
+  public readonly tracer: Tracer;
+
   constructor(
     treesDB: PublicTreesDB,
     contractsDB: PublicContractsDB,
@@ -24,10 +26,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
     super(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, metrics);
-  }
-
-  public get tracer(): Tracer | undefined {
-    return (this.metrics as ExecutorMetrics).tracer;
+    this.tracer = metrics.tracer;
   }
 
   @trackSpan('PublicTxSimulator.simulateEnqueuedCall', (phase, context, callRequest) => ({

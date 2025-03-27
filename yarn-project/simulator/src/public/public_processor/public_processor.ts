@@ -87,7 +87,7 @@ export class PublicProcessorFactory {
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient: TelemetryClient,
-  ): TelemetryPublicTxSimulator {
+  ): PublicTxSimulator {
     return new TelemetryPublicTxSimulator(
       treesDB,
       contractsDB,

@@ -32,7 +32,7 @@ import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
   phase: TxExecutionPhase;
-  durationMs: number;
+  durationMs?: number;
   returnValues: NestedProcessReturnValues[];
   reverted: boolean;
   revertReason?: SimulationError;
@@ -240,7 +240,6 @@ export class PublicTxSimulator {
 
     return {
       phase,
-      durationMs: 0,
       returnValues,
       reverted,
       revertReason,
