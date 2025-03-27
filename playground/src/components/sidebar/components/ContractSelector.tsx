@@ -136,22 +136,13 @@ export function ContractSelector({
       </FormControl>
       <Button
         variant="contained"
-        onClick={() => setOpenAddSendersDialog(true)}
-        endIcon={<ContactsIcon />}
-        disabled={!wallet}
-        sx={{ mt: 1 }}
-      >
-        Contacts
-      </Button>
-      <Button
-        variant="contained"
         color="secondary"
         onClick={handleShowContractInterface}
         endIcon={<CodeIcon />}
         disabled={!wallet}
         sx={{ mt: 1, width: '100%' }}
       >
-        Start Coding
+        Go
       </Button>
       <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
     </div>
