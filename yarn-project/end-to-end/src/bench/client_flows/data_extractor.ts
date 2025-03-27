@@ -131,7 +131,10 @@ async function main() {
   }
   const flows = await readdir(ivcFolder);
   logger.info(`Flows in ${ivcFolder}: \n${flows.map(flowName => `\t- ${flowName}`).join('\n')}`);
-  const { prover, type: proverType } = await createProver({}, proxyLogger.createLogger('bb:prover'));
+  const { prover, type: proverType } = await createProver(
+    { bbBinaryPath: process.env.BB_BINARY_PATH, bbWorkingDirectory: process.env.BB_WORKING_DIRECTORY },
+    proxyLogger.createLogger('bb:prover'),
+  );
 
   for (const flow of flows) {
     logger.info(`Processing flow ${flow}`);
