@@ -126,7 +126,7 @@ export interface TelemetryClient {
 
 /** Objects that adhere to this interface can use @trackSpan */
 export interface Traceable {
-  tracer: Tracer | undefined;
+  tracer: Tracer;
 }
 
 type SpanDecorator<T extends Traceable, F extends (...args: any[]) => any> = (
@@ -159,9 +159,6 @@ export function trackSpan<T extends Traceable, F extends (...args: any[]) => any
     // the return value of the decorator replaces the original method
     // in this wrapper method we start a span, call the original method, and then end the span
     return async function replacementMethod(this: T, ...args: Parameters<F>): Promise<Awaited<ReturnType<F>>> {
-      if (this.tracer === undefined) {
-        return await originalMethod.call(this, ...args);
-      }
       const name = typeof spanName === 'function' ? spanName.call(this, ...args) : spanName;
       const currentAttrs = typeof attributes === 'function' ? await attributes.call(this, ...args) : attributes;
 
