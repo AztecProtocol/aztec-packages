@@ -31,58 +31,61 @@ describe('Deployment benchmark', () => {
     await t.teardown();
   });
 
-  deploymentBenchmark('ecdsar1', 'bridged_fee_juice');
-  deploymentBenchmark('schnorr', 'bridged_fee_juice');
-  deploymentBenchmark('ecdsar1', 'sponsored_fpc');
-  deploymentBenchmark('schnorr', 'sponsored_fpc');
+  deploymentBenchmark('ecdsar1');
+  deploymentBenchmark('schnorr');
 
-  function deploymentBenchmark(accountType: AccountType, benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+  function deploymentBenchmark(accountType: AccountType) {
     return describe(`Deployment benchmark for ${accountType}`, () => {
-      it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
-        const benchysAccountManager = await t.createBenchmarkingAccountManager(accountType);
-        const benchysWallet = await benchysAccountManager.getWallet();
+      function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+        return it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
+          const benchysAccountManager = await t.createBenchmarkingAccountManager(accountType);
+          const benchysWallet = await benchysAccountManager.getWallet();
 
-        if (benchmarkingPaymentMethod === 'sponsored_fpc') {
-          await benchysWallet.registerContract(sponsoredFPC);
-        }
+          if (benchmarkingPaymentMethod === 'sponsored_fpc') {
+            await benchysWallet.registerContract(sponsoredFPC);
+          }
 
-        const deploymentInteraction = await benchysAccountManager.getDeployMethod();
+          const deploymentInteraction = await benchysAccountManager.getDeployMethod();
 
-        const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-        const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(
-          await paymentMethod.forWallet(benchysWallet),
-        );
-        const fee = { paymentMethod: wrappedPaymentMethod };
-        // Publicly deploy the contract, but skip the class registration as that is the
-        // "typical" use case
-        const options: DeployOptions = {
-          fee,
-          universalDeploy: true,
-          skipClassRegistration: true,
-          skipPublicDeployment: false,
-          skipInitialization: false,
-          contractAddressSalt: new Fr(benchysAccountManager.salt),
-        };
+          const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
+          const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(
+            await paymentMethod.forWallet(benchysWallet),
+          );
+          const fee = { paymentMethod: wrappedPaymentMethod };
+          // Publicly deploy the contract, but skip the class registration as that is the
+          // "typical" use case
+          const options: DeployOptions = {
+            fee,
+            universalDeploy: true,
+            skipClassRegistration: true,
+            skipPublicDeployment: false,
+            skipInitialization: false,
+            contractAddressSalt: new Fr(benchysAccountManager.salt),
+          };
 
-        await capturePrivateExecutionStepsIfEnvSet(
-          `deploy_${accountType}+${benchmarkingPaymentMethod}`,
-          deploymentInteraction,
-          options,
-          1 + // Multicall entrypoint
-            1 + // Kernel init
-            2 + // ContractInstanceDeployer deploy + kernel inner
-            2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
-            2 + // Account constructor + kernel inner
-            2 + // Account entrypoint (wrapped fee payload) + kernel inner
-            paymentMethod.circuits + // Payment method circuits
-            1 + // Kernel reset
-            1, // Kernel tail
-        );
+          await capturePrivateExecutionStepsIfEnvSet(
+            `deploy_${accountType}+${benchmarkingPaymentMethod}`,
+            deploymentInteraction,
+            options,
+            1 + // Multicall entrypoint
+              1 + // Kernel init
+              2 + // ContractInstanceDeployer deploy + kernel inner
+              2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
+              2 + // Account constructor + kernel inner
+              2 + // Account entrypoint (wrapped fee payload) + kernel inner
+              paymentMethod.circuits + // Payment method circuits
+              1 + // Kernel reset
+              1, // Kernel tail
+          );
 
-        // Ensure we paid a fee
-        const tx = await deploymentInteraction.send(options).wait();
-        expect(tx.transactionFee!).toBeGreaterThan(0n);
-      });
+          // Ensure we paid a fee
+          const tx = await deploymentInteraction.send(options).wait();
+          expect(tx.transactionFee!).toBeGreaterThan(0n);
+        });
+      }
+
+      deploymentTest('bridged_fee_juice');
+      deploymentTest('sponsored_fpc');
     });
   }
 });

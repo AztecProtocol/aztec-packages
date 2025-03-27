@@ -45,12 +45,10 @@ describe('Transfer benchmark', () => {
     await t.teardown();
   });
 
-  transferBenchmark('ecdsar1', 'private_fpc');
-  transferBenchmark('ecdsar1', 'sponsored_fpc');
-  transferBenchmark('schnorr', 'private_fpc');
-  transferBenchmark('schnorr', 'sponsored_fpc');
+  transferBenchmark('ecdsar1');
+  transferBenchmark('schnorr');
 
-  function transferBenchmark(accountType: AccountType, benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+  function transferBenchmark(accountType: AccountType) {
     return describe(`Transfer benchmark for ${accountType}`, () => {
       // Our benchmarking user
       let benchysWallet: AccountWallet;
@@ -70,7 +68,11 @@ describe('Transfer benchmark', () => {
         await benchysWallet.registerContract(sponsoredFPC);
       });
 
-      function recursionTest(recursions: number, notesToCreate: number) {
+      function recursionTest(
+        recursions: number,
+        notesToCreate: number,
+        benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod,
+      ) {
         return describe(`Mint ${notesToCreate} notes and transfer using a ${accountType} account`, () => {
           // Total amount of coins minted across all notes
           let totalAmount: bigint;
@@ -164,7 +166,8 @@ describe('Transfer benchmark', () => {
 
       for (let i = 0; i < MINIMUM_NOTES_FOR_RECURSION_LEVEL.length; i++) {
         // Create the minimum amount of notes for the test, which is just above the threshold for recursion at each level
-        recursionTest(i, MINIMUM_NOTES_FOR_RECURSION_LEVEL[i] + 1);
+        recursionTest(i, MINIMUM_NOTES_FOR_RECURSION_LEVEL[i] + 1, 'private_fpc');
+        recursionTest(i, MINIMUM_NOTES_FOR_RECURSION_LEVEL[i] + 1, 'sponsored_fpc');
       }
     });
   }

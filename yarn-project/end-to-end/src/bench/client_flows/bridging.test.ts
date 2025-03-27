@@ -35,12 +35,10 @@ describe('Bridging benchmark', () => {
     await t.teardown();
   });
 
-  bridgingBenchmark('ecdsar1', 'private_fpc');
-  bridgingBenchmark('schnorr', 'private_fpc');
-  bridgingBenchmark('ecdsar1', 'sponsored_fpc');
-  bridgingBenchmark('schnorr', 'sponsored_fpc');
+  bridgingBenchmark('ecdsar1');
+  bridgingBenchmark('schnorr');
 
-  function bridgingBenchmark(accountType: AccountType, benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+  function bridgingBenchmark(accountType: AccountType) {
     return describe(`Bridging benchmark for ${accountType}`, () => {
       // Our benchmarking user
       let benchysWallet: AccountWallet;
@@ -63,52 +61,59 @@ describe('Bridging benchmark', () => {
         await benchysWallet.registerContract(sponsoredFPC);
       });
 
-      it(`${accountType} contract bridges tokens from L1 claiming privately, pays using ${benchmarkingPaymentMethod}`, async () => {
-        // Generate a claim secret using pedersen
-        const l1TokenBalance = 1000000n;
-        const bridgeAmount = 100n;
+      function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+        return it(`${accountType} contract bridges tokens from L1 claiming privately, pays using ${benchmarkingPaymentMethod}`, async () => {
+          // Generate a claim secret using pedersen
+          const l1TokenBalance = 1000000n;
+          const bridgeAmount = 100n;
 
-        // 1. Mint tokens on L1
-        await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
+          // 1. Mint tokens on L1
+          await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
-        // 2. Deposit tokens to the TokenPortal
-        const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
-        await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
+          // 2. Deposit tokens to the TokenPortal
+          const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
+          await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
-        // 3. Consume L1 -> L2 message and mint private tokens on L2
-        const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
-        const options: SimulateMethodOptions = { fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) } };
+          // 3. Consume L1 -> L2 message and mint private tokens on L2
+          const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
+          const options: SimulateMethodOptions = {
+            fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+          };
 
-        const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
-        const claimInteraction = crossChainTestHarness.l2Bridge.methods.claim_private(
-          recipient,
-          claimAmount,
-          secretForL2MessageConsumption,
-          messageLeafIndex,
-        );
+          const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
+          const claimInteraction = crossChainTestHarness.l2Bridge.methods.claim_private(
+            recipient,
+            claimAmount,
+            secretForL2MessageConsumption,
+            messageLeafIndex,
+          );
 
-        await capturePrivateExecutionStepsIfEnvSet(
-          `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
-          claimInteraction,
-          options,
-          1 + // Account entrypoint
-            1 + // Kernel init
-            paymentMethod.circuits + // Payment method circuits
-            2 + // TokenBridge claim_private + kernel inner
-            2 + // BridgedAsset mint_to_private + kernel inner
-            1 + // Kernel reset
-            1, // Kernel tail
-        );
+          await capturePrivateExecutionStepsIfEnvSet(
+            `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
+            claimInteraction,
+            options,
+            1 + // Account entrypoint
+              1 + // Kernel init
+              paymentMethod.circuits + // Payment method circuits
+              2 + // TokenBridge claim_private + kernel inner
+              2 + // BridgedAsset mint_to_private + kernel inner
+              1 + // Kernel reset
+              1, // Kernel tail
+          );
 
-        // Ensure we paid a fee
-        const tx = await claimInteraction.send(options).wait();
-        expect(tx.transactionFee!).toBeGreaterThan(0n);
+          // Ensure we paid a fee
+          const tx = await claimInteraction.send(options).wait();
+          expect(tx.transactionFee!).toBeGreaterThan(0n);
 
-        // 4. Check the balance
+          // 4. Check the balance
 
-        const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
-        expect(balance).toBe(bridgeAmount);
-      });
+          const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
+          expect(balance).toBe(bridgeAmount);
+        });
+      }
+
+      privateClaimTest('private_fpc');
+      privateClaimTest('sponsored_fpc');
     });
   }
 });
