@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
+#include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
@@ -82,19 +83,22 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
     typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
+    typename S::template DefaultEventEmitter<PublicDataTreeReadEvent> public_data_read_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
+    FieldGreaterThan field_gt(range_check, field_gt_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_read_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(inputs.hints);
     HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
-    MerkleDB merkle_db(raw_merkle_db);
+    MerkleDB merkle_db(raw_merkle_db, public_data_tree_check);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
@@ -113,7 +117,6 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
-    FieldGreaterThan field_gt(range_check, field_gt_emitter);
 
     tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
 
@@ -137,7 +140,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              field_gt_emitter.dump_events(),
              merkle_check_emitter.dump_events(),
              range_check_emitter.dump_events(),
-             context_stack_emitter.dump_events() };
+             context_stack_emitter.dump_events(),
+             public_data_read_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

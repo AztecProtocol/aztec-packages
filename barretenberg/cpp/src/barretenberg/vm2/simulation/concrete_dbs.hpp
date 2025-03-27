@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/simulation/class_id_derivation.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/vm2/simulation/lib/raw_data_dbs.hpp"
+#include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -38,8 +39,9 @@ class ContractDB final : public ContractDBInterface {
 // Generates events.
 class MerkleDB final : public HighLevelMerkleDBInterface {
   public:
-    MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db)
+    MerkleDB(LowLevelMerkleDBInterface& raw_merkle_db, PublicDataTreeCheckInterface& public_data_tree_check)
         : raw_merkle_db(raw_merkle_db)
+        , public_data_tree_check(public_data_tree_check)
     {}
 
     // Unconstrained.
@@ -54,6 +56,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     LowLevelMerkleDBInterface& raw_merkle_db;
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.
     // It's usually ok for mutexes but a gadget is big...
+    PublicDataTreeCheckInterface& public_data_tree_check;
 };
 
 } // namespace bb::avm2::simulation

@@ -34,6 +34,7 @@
 #include "relations/merkle_check.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
+#include "relations/public_data_read.hpp"
 #include "relations/range_check.hpp"
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
@@ -50,6 +51,7 @@
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_merkle_check.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
+#include "relations/lookups_public_data_read.hpp"
 #include "relations/lookups_range_check.hpp"
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
@@ -96,12 +98,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 47;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 942;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 968;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1124;
+    static constexpr size_t NUM_ALL_ENTITIES = 1150;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -133,6 +135,7 @@ class AvmFlavor {
         avm2::merkle_check<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
+        avm2::public_data_read<FF_>,
         avm2::range_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>,
@@ -178,6 +181,11 @@ class AvmFlavor {
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
+        lookup_public_data_read_low_leaf_membership_relation<FF_>,
+        lookup_public_data_read_low_leaf_next_slot_validation_relation<FF_>,
+        lookup_public_data_read_low_leaf_poseidon2_0_relation<FF_>,
+        lookup_public_data_read_low_leaf_poseidon2_1_relation<FF_>,
+        lookup_public_data_read_low_leaf_slot_validation_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
         lookup_range_check_r0_is_u16_relation<FF_>,

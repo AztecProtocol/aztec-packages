@@ -1,8 +1,9 @@
+#include "barretenberg/vm2/simulation/merkle_check.hpp"
+
 #include <cassert>
 #include <cstdint>
 
 #include "barretenberg/vm2/common/constants.hpp"
-#include "barretenberg/vm2/simulation/merkle_check.hpp"
 
 namespace bb::avm2::simulation {
 
