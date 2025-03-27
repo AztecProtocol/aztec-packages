@@ -4,17 +4,17 @@
 
 namespace acir_format {
 
-AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
-
 /**
- * @brief Converts from the ACIR-native `WitnessMap` format to Barretenberg's internal `WitnessVector` format.
+ * @brief Converts from the ACIR-native `WitnessStack` format to Barretenberg's internal `WitnessVector` format.
  *
- * @param buf Serialized representation of a `WitnessMap`.
- * @return A `WitnessVector` equivalent to the passed `WitnessMap`.
+ * @param buf Serialized representation of a `WitnessStack`.
+ * @return A `WitnessVector` equivalent to the last `WitnessMap` in the stack.
  * @note This transformation results in all unassigned witnesses within the `WitnessMap` being assigned the value 0.
  *       Converting the `WitnessVector` back to a `WitnessMap` is unlikely to return the exact same `WitnessMap`.
  */
 WitnessVector witness_buf_to_witness_data(std::vector<uint8_t> const& buf);
+
+AcirFormat circuit_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
 std::vector<AcirFormat> program_buf_to_acir_format(std::vector<uint8_t> const& buf, uint32_t honk_recursion);
 
