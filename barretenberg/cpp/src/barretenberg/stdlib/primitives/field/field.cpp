@@ -625,7 +625,7 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
     field_t<Builder> inverse(witness_t<Builder>(context, inverse_value));
     if constexpr (IsUltraBuilder<Builder>) {
-        context->used_witnesses.push_back(inverse.witness_index);
+        context->update_used_witnesses(inverse.witness_index);
     }
     // Aim of new gate: `this` has an inverse (hence is not zero).
     // I.e.:
@@ -741,7 +741,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
 
     field_t x(witness_t(ctx, fc));
     if constexpr (IsUltraBuilder<Builder>) {
-        ctx->used_witnesses.push_back(x.witness_index);
+        ctx->update_used_witnesses(x.witness_index);
     }
     const field_t& a = *this;
     const field_t& b = other;
