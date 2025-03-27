@@ -2,7 +2,6 @@ import type { Logger } from '@aztec/aztec.js';
 import { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { BBWASMBundlePrivateKernelProver } from '@aztec/bb-prover/wasm/bundle';
 import { createLogger, logger } from '@aztec/foundation/log';
-import type { WitnessMap } from '@aztec/noir-types';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 
@@ -10,7 +9,6 @@ import { decode } from '@msgpack/msgpack';
 import assert from 'node:assert';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { number } from 'zod';
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 type LogLevel = (typeof logLevel)[number];
