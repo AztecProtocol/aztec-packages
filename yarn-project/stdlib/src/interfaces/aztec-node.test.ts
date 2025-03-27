@@ -365,6 +365,7 @@ class MockAztecNode implements AztecNode {
       finalized: { number: 1, hash: `0x01` },
     });
   }
+
   findLeavesIndexes(
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
