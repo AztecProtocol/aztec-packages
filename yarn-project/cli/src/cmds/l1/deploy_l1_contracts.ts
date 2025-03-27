@@ -30,6 +30,10 @@ export async function deployL1Contracts(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
   );
 
+  log(`Deploying Aztec contracts to chain ${chainId}...`);
+  log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`);
+  log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
     chainId,
