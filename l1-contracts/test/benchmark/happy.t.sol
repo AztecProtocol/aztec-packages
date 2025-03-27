@@ -41,14 +41,14 @@ import {
   L1FeeData,
   ManaBaseFeeComponents
 } from "@aztec/core/libraries/rollup/FeeLib.sol";
-
+import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {
   FeeModelTestPoints,
   TestPoint,
   FeeHeaderModel,
   ManaBaseFeeComponentsModel
 } from "test/fees/FeeModelTestPoints.t.sol";
-
+import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
@@ -56,6 +56,7 @@ import {
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 100000000;
+uint256 constant VALIDATOR_COUNT = 48;
 
 contract FakeCanonical is IRewardDistributor {
   uint256 public constant BLOCK_REWARD = 50e18;
@@ -89,6 +90,7 @@ contract FakeCanonical is IRewardDistributor {
 }
 
 contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
+  using MessageHashUtils for bytes32;
   using stdStorage for StdStorage;
   using TimeLib for Slot;
 
@@ -100,12 +102,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   // the empty blocks, but otherwise populate using the fee model test points.
 
   struct Block {
-    bytes32 archive;
-    bytes32 blockHash;
-    bytes header;
-    bytes body;
+    ProposeArgs proposeArgs;
     bytes blobInputs;
-    bytes32[] txHashes;
     Signature[] signatures;
   }
 
@@ -120,6 +118,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
   TestERC20 internal asset;
   FakeCanonical internal fakeCanonical;
 
+  Signature internal emptySignature;
+  mapping(address attester => uint256 privateKey) internal attesterPrivateKeys;
+  mapping(address proposer => address attester) internal proposerToAttester;
+
   constructor() {
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
   }
@@ -131,7 +133,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     asset = new TestERC20("test", "TEST", address(this));
 
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
-    asset.transferOwnership(address(fakeCanonical));
 
     rollup = new Rollup(
       IFeeJuicePortal(address(fakeCanonical)),
@@ -158,6 +159,32 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     vm.label(address(fakeCanonical), "FAKE CANONICAL");
     vm.label(address(asset), "ASSET");
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
+
+    // We are going to set up all of the validators
+    CheatDepositArgs[] memory initialValidators = new CheatDepositArgs[](VALIDATOR_COUNT);
+
+    for (uint256 i = 1; i < VALIDATOR_COUNT + 1; i++) {
+      uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
+      address attester = vm.addr(attesterPrivateKey);
+      attesterPrivateKeys[attester] = attesterPrivateKey;
+      uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", i)));
+      address proposer = vm.addr(proposerPrivateKey);
+
+      proposerToAttester[proposer] = attester;
+
+      initialValidators[i - 1] = CheatDepositArgs({
+        attester: attester,
+        proposer: proposer,
+        withdrawer: address(this),
+        amount: TestConstants.AZTEC_MINIMUM_STAKE
+      });
+    }
+
+    asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
+    rollup.cheat__InitialiseValidatorSet(initialValidators);
+
+    asset.transferOwnership(address(fakeCanonical));
   }
 
   function _loadL1Metadata(uint256 index) internal {
@@ -174,9 +201,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     bytes32 archiveRoot = bytes32(Constants.GENESIS_ARCHIVE_ROOT);
 
     bytes32[] memory txHashes = new bytes32[](0);
-    Signature[] memory signatures = new Signature[](0);
 
-    bytes memory body = full.block.body;
     bytes memory header = full.block.header;
 
     Slot slotNumber = rollup.getCurrentSlot();
@@ -214,15 +239,47 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       mstore(add(headerRef, 0x0268), manaSpent) // total mana used
     }
 
-    return Block({
+    ProposeArgs memory proposeArgs = ProposeArgs({
+      header: header,
       archive: archiveRoot,
       blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
-      header: header,
-      body: body,
-      blobInputs: full.block.blobInputs,
-      txHashes: txHashes,
-      signatures: signatures
+      oracleInput: OracleInput({feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier}),
+      txHashes: txHashes
     });
+
+    Signature[] memory signatures;
+
+    {
+      address[] memory validators = rollup.getEpochCommittee(rollup.getCurrentEpoch());
+      uint256 needed = validators.length * 2 / 3 + 1;
+      signatures = new Signature[](validators.length);
+
+      bytes32 digest = ProposeLib.digest(proposeArgs);
+
+      for (uint256 i = 0; i < validators.length; i++) {
+        if (i < needed) {
+          signatures[i] = createSignature(validators[i], digest);
+        } else {
+          signatures[i] = Signature({isEmpty: true, v: 0, r: 0, s: 0});
+        }
+      }
+    }
+
+    return
+      Block({proposeArgs: proposeArgs, blobInputs: full.block.blobInputs, signatures: signatures});
+  }
+
+  function createSignature(address _signer, bytes32 _digest)
+    internal
+    view
+    returns (Signature memory)
+  {
+    uint256 privateKey = attesterPrivateKeys[_signer];
+
+    bytes32 digest = _digest.toEthSignedMessageHash();
+    (uint8 v, bytes32 r, bytes32 s) = vm.sign(privateKey, digest);
+
+    return Signature({isEmpty: false, v: v, r: r, s: s});
   }
 
   function test_Benchmarking() public {
@@ -235,6 +292,10 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     // Loop through all of the L1 metadata
     for (uint256 i = 0; i < l1Metadata.length; i++) {
+      if (rollup.getPendingBlockNumber() >= 100) {
+        break;
+      }
+
       _loadL1Metadata(i);
 
       // For every "new" slot we encounter, we construct a block using current L1 Data
@@ -247,21 +308,11 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         );
 
         Block memory b = getBlock();
+        address proposer = rollup.getCurrentProposer();
 
         skipBlobCheck(address(rollup));
-        rollup.propose(
-          ProposeArgs({
-            header: b.header,
-            archive: b.archive,
-            blockHash: b.blockHash,
-            oracleInput: OracleInput({
-              feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
-            }),
-            txHashes: b.txHashes
-          }),
-          b.signatures,
-          b.blobInputs
-        );
+        vm.prank(proposer);
+        rollup.propose(b.proposeArgs, b.signatures, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
