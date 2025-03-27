@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743044392178,
+  "lastUpdate": 1743054346833,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "68168980+just-mitch@users.noreply.github.com",
-            "name": "just-mitch",
-            "username": "just-mitch"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "716ab4f58b72225c3a9fd96762d549b29290bc61",
-          "message": "feat: add minter role to TestERC20 (#12889)\n\nAllows multiple accounts to be minters of the staking and fee assets.\n\nCreates a FeeAssetHandler in the periphery to allow mints of a fixed\nsize.\n\nAlso allows rollup owner to update the mana target (and thus, the mana\nlimit which is twice the target).\n\nSee\n[design](https://github.com/AztecProtocol/engineering-designs/blob/42455c99b867cde4d67700bc97ac12309c2332ea/docs/faucets/dd.md#testerc20)\n\nFix #12887\nFix #12882",
-          "timestamp": "2025-03-21T10:11:56-04:00",
-          "tree_id": "9935c202bf8e512b93fb44eb02f255383fcacb23",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/716ab4f58b72225c3a9fd96762d549b29290bc61"
-        },
-        "date": 1742567978935,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9232,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23478361520280255,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 143834,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 104616,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "ilyas@aztecprotocol.com",
+            "name": "Ilyas Ridhuan",
+            "username": "IlyasRidhuan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "f03b2e5b541757e1dcb7daf821977f43758be70c",
+          "message": "feat(avm): add calldata & returndata to context (#13008)\n\n- Reading calldata and (almost) writing returndata to the vm2 contexts. \n- Splits context interfaces into Enqueued and Nested\n- Adds parent contexts (to nested contexts) and child contexts (in both)\nto the `context` class\n\nNothing much flexs these for now - we will need to start doing the\nXDATA_COPY opcodes soon.",
+          "timestamp": "2025-03-27T13:03:16+08:00",
+          "tree_id": "336f04ead2b9cf3e2cf99a1c1027b497c15f256e",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f03b2e5b541757e1dcb7daf821977f43758be70c"
+        },
+        "date": 1743054345575,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9433,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23989559743599587,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 142423,
             "unit": "us"
           }
         ]
