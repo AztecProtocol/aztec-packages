@@ -23,6 +23,7 @@ names:
   - sean: &sean "U04DT239VQU"
   - tom: &tom "U04LLT331NK"
   - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
 
 tests:
   # barretenberg
@@ -171,6 +172,10 @@ tests:
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ calculates correct gas prices for initial attempt"
+    owners:
+      - *spyros
 
   # boxes
   - regex: "boxes/scripts/run_test.sh vite"
