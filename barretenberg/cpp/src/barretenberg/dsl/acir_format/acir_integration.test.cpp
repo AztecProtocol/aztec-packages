@@ -554,11 +554,18 @@ TEST_P(AcirIntegrationFoldingTest, DebugProveAndVerifyProgramStack)
     using Builder = Flavor::CircuitBuilder;
     using Program = acir_format::AcirProgram;
 
-    std::string test_name = "grego_schnorr_deploy_failure";
+    std::string test_name = "deploy_ecdsar1+sponsored_fpc";
+    // std::string test_name = "deploy_schnorr+sponsored_fpc";
+    // std::string test_name = "ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc";
+    // std::string test_name = "ecdsar1+token_bridge_claim_private+sponsored_fpc";
+    // std::string test_name = "ecdsar1+token_bridge_claim_private+sponsored_fpc";
+
+    // std::string test_name = "grego_schnorr_deploy_failure";
     // std::string test_name = "amm_add_liquidity_failure";
     info("Test: ", test_name);
 
-    std::string base_path = "../../acir_tests/" + test_name;
+    std::string base_path = "../../acir_tests/acir_tests/key_transactions/" + test_name;
+    info("Test base path: ", base_path);
     std::string bytecode_path = base_path + "/acir.msgpack";
     std::string witness_path = base_path + "/witnesses.msgpack";
 
