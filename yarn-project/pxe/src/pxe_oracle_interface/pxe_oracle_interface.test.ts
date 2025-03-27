@@ -1,6 +1,5 @@
 import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
@@ -11,7 +10,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
+import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -37,10 +36,9 @@ async function computeSiloedTagForIndex(
   contractAddress: AztecAddress,
   index: number,
 ) {
-  const secretPoint = await computeTaggingSecretPoint(sender.completeAddress, sender.ivsk, recipient);
-  const appSecret = await poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
-  const tag = await poseidon2Hash([appSecret, recipient, index]);
-  return poseidon2Hash([contractAddress, tag]);
+  const appSecret = await computeAppTaggingSecret(sender.completeAddress, sender.ivsk, recipient, contractAddress);
+  const indexedTaggingSecret = new IndexedTaggingSecret(appSecret, index);
+  return indexedTaggingSecret.computeSiloedTag(recipient, contractAddress);
 }
 
 describe('PXEOracleInterface', () => {
@@ -175,14 +173,9 @@ describe('PXEOracleInterface', () => {
 
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
@@ -210,14 +203,9 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       const indexesAsSender = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
@@ -268,14 +256,9 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
@@ -298,14 +281,9 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // Increase our indexes to 2
@@ -339,14 +317,9 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // We set the indexes to WINDOW_HALF_SIZE + 1 so that it's outside the window and for this reason no updates
@@ -377,14 +350,9 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
