@@ -94,7 +94,6 @@ pub unconstrained fn do_process_log<Env>(
         // In the case of event logs, the log metadata is the event selector.
         let event_selector = EventSelector::from_field(log_metadata as Field);
 
-        // Log metadata are currently not used by event logs.
         store_private_event_log(
             tag,
             contract_address,
