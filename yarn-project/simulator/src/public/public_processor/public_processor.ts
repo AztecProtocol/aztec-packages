@@ -61,7 +61,7 @@ export class PublicProcessorFactory {
   ): PublicProcessor {
     const treesDB = new PublicTreesDB(merkleTree);
     const contractsDB = new PublicContractsDB(this.contractDataSource);
-    const publicTxSimulator = new TelemetryPublicTxSimulator(
+    const publicTxSimulator = this.createPublicTxSimulator(
       treesDB,
       contractsDB,
       globalVariables,
@@ -77,6 +77,24 @@ export class PublicProcessorFactory {
       publicTxSimulator,
       this.dateProvider,
       this.telemetryClient,
+    );
+  }
+
+  protected createPublicTxSimulator(
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDB,
+    globalVariables: GlobalVariables,
+    doMerkleOperations: boolean,
+    skipFeeEnforcement: boolean,
+    telemetryClient: TelemetryClient,
+  ): TelemetryPublicTxSimulator {
+    return new TelemetryPublicTxSimulator(
+      treesDB,
+      contractsDB,
+      globalVariables,
+      doMerkleOperations,
+      skipFeeEnforcement,
+      telemetryClient,
     );
   }
 }
