@@ -7,7 +7,7 @@ import {
   AddressSnapshotLib,
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
-import {TimeLib, TimeStorage} from "@aztec/core/libraries/TimeLib.sol";
+import {TimeLib, TimeStorage, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {TimeCheater} from "../staking/TimeCheater.sol";
 
 contract LibTest {
@@ -29,12 +29,8 @@ contract LibTest {
     return AddressSnapshotLib.at(validatorSet, _index);
   }
 
-  function getAddressFromIndexNow(uint256 _index) public view returns (address) {
-    return AddressSnapshotLib.getAddressFromIndexNow(validatorSet, _index);
-  }
-
   function getAddressFromIndexAtEpoch(uint256 _index, uint256 _epoch) public view returns (address) {
-    return AddressSnapshotLib.getAddressFromIndexAtEpoch(validatorSet, _index, _epoch);
+    return AddressSnapshotLib.getAddressFromIndexAtEpoch(validatorSet, _index, Epoch.wrap(_epoch));
   }
 
   function length() public view returns (uint256) {
@@ -62,18 +58,18 @@ contract AddressSnapshotsTest is Test {
     timeCheater = new TimeCheater(address(libTest), GENESIS_TIME, SLOT_DURATION, EPOCH_DURATION);
   }
 
-  function test_getAddressFromIndexNow() public {
+  function test_at_() public {
     // Empty should return 0
     vm.expectRevert();
-    libTest.getAddressFromIndexNow(0);
+    libTest.at(0);
 
     libTest.add(address(1));
     libTest.add(address(2));
     libTest.add(address(3));
 
-    assertEq(libTest.getAddressFromIndexNow(0), address(1));
-    assertEq(libTest.getAddressFromIndexNow(1), address(2));
-    assertEq(libTest.getAddressFromIndexNow(2), address(3));
+    assertEq(libTest.at(0), address(1));
+    assertEq(libTest.at(1), address(2));
+    assertEq(libTest.at(2), address(3));
   }
 
   function test_getAddresssIndexAt() public {
@@ -165,20 +161,14 @@ contract AddressSnapshotsTest is Test {
     timeCheater.cheat__setEpochNow(1);
     libTest.remove(address(2));
 
-    console.log("first remove");
-
     // Order flips
     address[] memory values = libTest.values();
     assertEq(values.length, 2);
     assertEq(values[0], address(1));
     assertEq(values[1], address(3));
 
-    console.log("second remove");
-
     timeCheater.cheat__setEpochNow(2);
     libTest.remove(address(3));
-
-    console.log("third remove");
 
     values = libTest.values();
     assertEq(values.length, 1);
@@ -187,14 +177,10 @@ contract AddressSnapshotsTest is Test {
     timeCheater.cheat__setEpochNow(3);
     libTest.add(address(4));
 
-    console.log("fourth add");
-
     values = libTest.values();
     assertEq(values.length, 2);
     assertEq(values[0], address(1));
     assertEq(values[1], address(4));
-
-    console.log("fifth remove");
 
     timeCheater.cheat__setEpochNow(4);
     libTest.remove(address(1));
@@ -209,19 +195,13 @@ contract AddressSnapshotsTest is Test {
     libTest.add(address(2));
     libTest.add(address(3));
 
-    console.log("first assertiong");
-
     // Index 1 is the first item in the set
     assertEq(libTest.at(0), address(1));
     assertEq(libTest.at(1), address(2));
     assertEq(libTest.at(2), address(3));
 
-    console.log("removing index 1");
-
     timeCheater.cheat__setEpochNow(1);
     libTest.remove( /* index */ 1);
-
-    console.log("second assertion");
 
     // When removing and item, the index has become shuffled
     assertEq(libTest.at(0), address(1));

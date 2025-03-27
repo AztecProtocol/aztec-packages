@@ -162,7 +162,6 @@ library ValidatorSelectionLib {
     ValidatorSelectionStorage storage store = getStorage();
     uint256 setSize = _stakingStore.attesters.length();
 
-    // TODO: safe cast
     store.epochSizeSnapshots.push(
       ValidatorSetSizeSnapshot({
         size: uint128(setSize),
@@ -203,7 +202,7 @@ library ValidatorSelectionLib {
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
       committee[i] =
-        _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], Epoch.unwrap(_epoch));
+        _stakingStore.attesters.getAddressFromIndexAtEpoch(indices[i], _epoch);
     }
     return committee;
   }
