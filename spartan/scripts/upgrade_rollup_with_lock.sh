@@ -142,7 +142,9 @@ if [ -n "$DEPOSIT_AMOUNT" ]; then
   $EXE deposit-governance-tokens -r $REGISTRY --recipient $MY_ADDR -a $DEPOSIT_AMOUNT $MINT
 fi
 
-PAYLOAD=$($EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC | jq -r '.payloadAddress')
+OUTPUT=$($EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC)
+
+PAYLOAD=$(echo $OUTPUT | jq -r '.payloadAddress')
 
 PROPOSAL_ID=$($EXE propose-with-lock -r $REGISTRY --payload-address $PAYLOAD --json | jq -r '.proposalId')
 
