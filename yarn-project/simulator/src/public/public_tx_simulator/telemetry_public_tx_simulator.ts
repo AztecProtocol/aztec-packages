@@ -11,9 +11,10 @@ import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 /**
- * A public tx simulator that tracks runtime metrics in production.
+ * A public tx simulator that tracks runtime/production metrics with telemetry.
  */
 export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
+  /* tracer needed by trackSpans */
   public readonly tracer: Tracer;
 
   constructor(

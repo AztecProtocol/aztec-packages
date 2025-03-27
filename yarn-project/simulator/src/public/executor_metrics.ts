@@ -1,3 +1,4 @@
+import type { RevertCode } from '@aztec/stdlib/avm';
 import {
   Attributes,
   type Histogram,
@@ -69,7 +70,7 @@ export class ExecutorMetrics implements ExecutorMetricsInterface {
     // do nothing (unimplemented)
   }
 
-  stopRecordingTxSimulation(_txLabel: string, _durationMs: number) {
+  stopRecordingTxSimulation(_txLabel: string, _revertedCode?: RevertCode) {
     // do nothing (unimplemented)
   }
 

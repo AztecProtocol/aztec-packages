@@ -1,4 +1,6 @@
+import { sum } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { Timer } from '@aztec/foundation/timer';
 import type { RevertCode } from '@aztec/stdlib/avm';
 
 import { strict as assert } from 'assert';
@@ -24,9 +26,14 @@ export interface PublicTxMetrics {
   revertedCode: RevertCode | undefined;
 }
 
-const DECIMALS = 2;
-const TAB_WIDTH = 4;
-const TAB = ' '.repeat(TAB_WIDTH);
+const NUM_SPACES = 4;
+const H1 = '\n# ';
+const H2 = '\n## ';
+const INDENT = ' '.repeat(NUM_SPACES);
+const INDENT0 = '- ';
+const INDENT1 = INDENT + '- ';
+const INDENT2 = INDENT + INDENT + '- ';
+const H_LINE = '---------------------------------------------------------------------';
 
 export enum PublicTxMetricsFilter {
   ALL,
@@ -36,13 +43,14 @@ export enum PublicTxMetricsFilter {
 }
 
 export class TestExecutorMetrics implements ExecutorMetricsInterface {
-  private log: Logger;
+  private logger: Logger;
   // tx label -> tx metrics
   private txMetrics: Map<string, PublicTxMetrics> = new Map();
   private currentTxLabel: string | undefined;
+  private txTimer: Timer | undefined;
 
   constructor() {
-    this.log = createLogger(`simulator:test_executor_metrics`);
+    this.logger = createLogger(`simulator:test_executor_metrics`);
   }
 
   startRecordingTxSimulation(txLabel: string) {
@@ -59,18 +67,22 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
       revertedCode: undefined,
     });
     this.currentTxLabel = txLabel;
+    this.txTimer = new Timer();
   }
 
-  stopRecordingTxSimulation(txLabel: string, durationMs: number, revertedCode?: RevertCode) {
+  stopRecordingTxSimulation(txLabel: string, revertedCode?: RevertCode) {
     assert(this.currentTxLabel === txLabel, 'Cannot stop recording metrics for tx when another is live');
+
     const txMetrics = this.txMetrics.get(txLabel)!;
 
     // total duration of tx
-    txMetrics.totalDurationMs = durationMs;
+    txMetrics.totalDurationMs = this.txTimer!.ms();
+    this.logger.debug(`Public TX simulation of ${txLabel} took ${txMetrics.totalDurationMs}ms`);
+
     // add manaUsed across all enqueued calls
-    txMetrics.manaUsed = txMetrics.enqueuedCalls.reduce((acc, call) => acc + call.manaUsed, 0);
+    txMetrics.manaUsed = sum(txMetrics.enqueuedCalls.map(call => call.manaUsed));
     // add totalInstructions across all enqueued calls
-    txMetrics.totalInstructions = txMetrics.enqueuedCalls.reduce((acc, call) => acc + call.totalInstructions, 0);
+    txMetrics.totalInstructions = sum(txMetrics.enqueuedCalls.map(call => call.totalInstructions));
     txMetrics.revertedCode = revertedCode;
 
     this.currentTxLabel = undefined;
@@ -128,23 +140,27 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
   }
 
   prettyPrint(filter: PublicTxMetricsFilter = PublicTxMetricsFilter.ALL) {
-    const separator = '=====================================================================';
-    this.log.info(separator);
-    this.log.info(`Public TX Simulation Metrics (${PublicTxMetricsFilter[filter]})`);
+    this.logger.info(this.toPrettyString(filter));
+  }
+
+  toPrettyString(filter: PublicTxMetricsFilter = PublicTxMetricsFilter.ALL) {
+    let pretty = '';
+    //pretty += H_LINE + '\n';
+    pretty += `${H1}Public TX Simulation Metrics (${PublicTxMetricsFilter[filter]})\n`;
     for (const [txLabel, txMetrics] of this.txMetrics.entries()) {
-      this.log.info(separator);
-      this.log.info(`Tx label: ${txLabel}`);
+      //pretty += H_LINE + '\n';
+      pretty += `${H2}TX Label: ${txLabel}\n`;
       if (
         filter == PublicTxMetricsFilter.DURATIONS ||
         filter === PublicTxMetricsFilter.TOTALS ||
         filter === PublicTxMetricsFilter.ALL
       ) {
-        this.log.info(`${TAB}Total duration: ${txMetrics.totalDurationMs.toFixed(DECIMALS)} ms`);
+        pretty += `${INDENT0}Total duration: ${fmtNum(txMetrics.totalDurationMs, 'ms')}\n`;
       }
       if (filter === PublicTxMetricsFilter.TOTALS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`${TAB}Total mana used: ${txMetrics.manaUsed}`);
+        pretty += `${INDENT0}Total mana used: ${fmtNum(txMetrics.manaUsed)}\n`;
         const manaPerSecond = Math.round((txMetrics.manaUsed * 1000) / txMetrics.totalDurationMs);
-        this.log.info(`${TAB}Mana per second: ${manaPerSecond}`);
+        pretty += `${INDENT0}Mana per second: ${fmtNum(manaPerSecond)}\n`;
       }
 
       if (
@@ -152,52 +168,55 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         filter === PublicTxMetricsFilter.TOTALS ||
         filter === PublicTxMetricsFilter.ALL
       ) {
-        this.log.info(`${TAB}Total instructions executed: ${txMetrics.totalInstructions}`);
+        pretty += `${INDENT0}Total instructions executed: ${fmtNum(txMetrics.totalInstructions)}\n`;
       }
       if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`${TAB}Tx hash computation: ${txMetrics.txHashMs!.toFixed(DECIMALS)} ms`);
-        this.log.info(`${TAB}Private insertions:`);
-        this.log.info(
-          `${TAB}${TAB}Non-revertible: ${(txMetrics.nonRevertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`,
-        );
-        this.log.info(
-          `${TAB}${TAB}Revertible: ${(txMetrics.revertiblePrivateInsertionsUs! / 1_000).toFixed(DECIMALS)} ms`,
-        );
+        pretty += `${INDENT0}Tx hash computation: ${fmtNum(txMetrics.txHashMs!, 'ms')}\n`;
+        pretty += `${INDENT0}Private insertions:\n`;
+        pretty += `${INDENT1}Non-revertible: ${fmtNum(txMetrics.nonRevertiblePrivateInsertionsUs! / 1_000, 'ms')}\n`;
+        pretty += `${INDENT1}Revertible: ${fmtNum(txMetrics.revertiblePrivateInsertionsUs! / 1_000, 'ms')}\n`;
       }
       if (filter !== PublicTxMetricsFilter.TOTALS) {
         // totals exclude enqueued calls
-        this.#printEnqueuedCalls(txMetrics, filter);
+        pretty += this.#enqueuedCallsToPrettyString(txMetrics, filter);
       }
       if (txMetrics.revertedCode !== undefined && !txMetrics.revertedCode.isOK()) {
-        this.log.info(`${TAB}Reverted code: ${txMetrics.revertedCode?.getDescription()}`);
+        pretty += `${INDENT0}Reverted code: ${txMetrics.revertedCode?.getDescription()}\n`;
       }
+      pretty += H_LINE + '\n';
     }
-    this.log.info(separator);
+    return pretty;
   }
 
-  #printEnqueuedCalls(txMetrics: PublicTxMetrics, filter: PublicTxMetricsFilter) {
-    this.log.info(`${TAB}Enqueued public calls:`);
+  #enqueuedCallsToPrettyString(txMetrics: PublicTxMetrics, filter: PublicTxMetricsFilter) {
+    let pretty = '';
+    pretty += `${INDENT0}Enqueued public calls:\n`;
     for (const enqueuedCall of txMetrics.enqueuedCalls) {
-      this.log.info(`${TAB}${TAB}Fn: ${enqueuedCall.fnName}`);
+      pretty += `${INDENT1}**Fn: ${enqueuedCall.fnName}**\n`;
       if (filter === PublicTxMetricsFilter.DURATIONS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`${TAB}${TAB}${TAB}Duration: ${enqueuedCall.durationMs.toFixed(DECIMALS)} ms`);
+        pretty += `${INDENT2}Duration: ${fmtNum(enqueuedCall.durationMs, 'ms')}\n`;
       }
       if (filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`${TAB}${TAB}${TAB}Mana used: ${enqueuedCall.manaUsed}`);
+        pretty += `${INDENT2}Mana used: ${fmtNum(enqueuedCall.manaUsed)}\n`;
         const manaPerSecond = Math.round((enqueuedCall.manaUsed * 1000) / enqueuedCall.durationMs);
-        this.log.info(`${TAB}${TAB}${TAB}Mana per second: ${manaPerSecond}`);
+        pretty += `${INDENT2}Mana per second: ${fmtNum(manaPerSecond)}\n`;
       }
 
       if (filter === PublicTxMetricsFilter.INSTRUCTIONS || filter === PublicTxMetricsFilter.ALL) {
-        this.log.info(`${TAB}${TAB}${TAB}Instructions executed: ${enqueuedCall.totalInstructions}`);
+        pretty += `${INDENT2}Instructions executed: ${fmtNum(enqueuedCall.totalInstructions)}\n`;
       }
       if (enqueuedCall.reverted) {
-        this.log.info(`${TAB}${TAB}${TAB}Reverted!`);
+        pretty += `${INDENT2}Reverted!\n`;
       }
     }
+    return pretty;
   }
 
   toJSON() {
     return Object.fromEntries(this.txMetrics.entries());
   }
+}
+
+function fmtNum(num: number, unit?: string) {
+  return `\`${num.toLocaleString()}${unit ? ` ${unit}` : ''}\``;
 }

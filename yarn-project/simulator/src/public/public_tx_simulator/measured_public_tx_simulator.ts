@@ -12,7 +12,7 @@ import { PublicTxContext } from './public_tx_context.js';
 import { type ProcessedPhase, type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 /**
- * A public tx simulator that tracks miscellaneous simulation metrics during testing.
+ * A public tx simulator that tracks miscellaneous simulation metrics without telemetry.
  */
 export class MeasuredPublicTxSimulator extends PublicTxSimulator {
   constructor(
@@ -26,11 +26,15 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
     super(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
   }
 
-  public override async simulate(tx: Tx): Promise<PublicTxResult> {
-    const timer = new Timer();
-    const result = await super.simulate(tx);
-    this.log.debug(`Public TX simulator took ${timer.ms()} ms\n`);
-    return result;
+  public override async simulate(tx: Tx, txLabel: string = 'unlabeledTx'): Promise<PublicTxResult> {
+    this.metrics.startRecordingTxSimulation(txLabel);
+    let avmResult: PublicTxResult | undefined;
+    try {
+      avmResult = await super.simulate(tx);
+    } finally {
+      this.metrics.stopRecordingTxSimulation(txLabel, avmResult?.revertCode);
+    }
+    return avmResult;
   }
 
   protected override async computeTxHash(tx: Tx) {

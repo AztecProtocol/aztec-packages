@@ -8,7 +8,11 @@ import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_te
 import { deployToken } from './token_test.js';
 
 const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
-
+/**
+ * THIS TEST IS BRITTLE! If it breaks, don't try fixing it.
+ * `.skip` it or literally just delete it and notify AVM team.
+ * You do NOT need permission to remove this test!
+ */
 export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) {
   const startTime = performance.now();
 

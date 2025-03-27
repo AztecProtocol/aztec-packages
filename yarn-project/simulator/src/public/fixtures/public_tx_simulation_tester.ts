@@ -1,6 +1,5 @@
 import { asyncMap } from '@aztec/foundation/async-map';
 import { Fr } from '@aztec/foundation/fields';
-import { Timer } from '@aztec/foundation/timer';
 import { type ContractArtifact, encodeArguments } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -112,16 +111,9 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     const txLabelWithCount = `${txLabel}.${this.txCount - 1}`;
     const fullTxLabel = this.metricsPrefix ? `${this.metricsPrefix}.${txLabelWithCount}` : txLabelWithCount;
-    this.metrics.startRecordingTxSimulation(fullTxLabel);
 
-    const timer = new Timer();
+    const avmResult = await this.simulator.simulate(tx, fullTxLabel);
 
-    let avmResult: PublicTxResult | undefined;
-    try {
-      avmResult = await this.simulator.simulate(tx);
-    } finally {
-      this.metrics.stopRecordingTxSimulation(fullTxLabel, timer.ms(), avmResult?.revertCode);
-    }
     // Something like this is often useful for debugging:
     //if (avmResult.revertReason) {
     //  // resolve / enrich revert reason
@@ -133,8 +125,6 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     //  const revertReason = resolveAssertionMessageFromRevertData(avmResult.revertReason.revertData, fnAbi!);
     //  this.logger.debug(`Revert reason: ${revertReason}`);
     //}
-
-    this.logger.debug(`Public transaction simulation took ${timer.ms()}ms`);
 
     return avmResult;
   }
