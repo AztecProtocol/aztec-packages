@@ -89,6 +89,7 @@ template <typename FF> class Graph_ {
     {
         return ultra_circuit_constructor.real_variable_index[variable_index];
     };
+
     size_t find_block_index(bb::UltraCircuitBuilder& ultra_builder, const UltraBlock& block);
     void process_gate_variables(bb::UltraCircuitBuilder& ultra_circuit_constructor,
                                 std::vector<uint32_t>& gate_variables,

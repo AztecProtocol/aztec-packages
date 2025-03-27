@@ -188,7 +188,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
-    static constexpr size_t INTERLEAVED_GROUP_SIZE = 16;
+    static constexpr size_t INTERLEAVED_DENOMINATOR_INDEX = 8;
 
   public:
     template <typename Transcript>
@@ -296,10 +296,10 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
             shplonk_evaluation_challenge, gemini_eval_challenge_powers);
         // Compute the Shplonk denominator for the interleaved opening claims 1/(z − r^s) where s is the group size
+        // s group size == 16, and this denominator in the inverse vanishing evals, so we can get it from there
         Fr interleaving_vanishing_eval;
         if (claim_batcher.interleaved) {
-            interleaving_vanishing_eval =
-                (shplonk_evaluation_challenge - gemini_eval_challenge_powers[4]).invert();
+            interleaving_vanishing_eval = inverse_vanishing_evals[INTERLEAVED_DENOMINATOR_INDEX];
         }
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily

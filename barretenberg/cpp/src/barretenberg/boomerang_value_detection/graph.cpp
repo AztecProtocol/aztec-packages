@@ -29,6 +29,7 @@ template <typename FF> size_t Graph_<FF>::find_block_index(UltraCircuitBuilder& 
     return index;
 }
 
+
 /**
  * @brief this method processes variables from a gate by removing duplicates and updating tracking structures
  * @tparam FF field type
@@ -663,7 +664,22 @@ template <typename FF>
 void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
                                                  const std::vector<uint32_t>& variables_vector)
 {
-    if (variables_vector.empty()) {
+    std::vector<uint32_t> filtered_variables_vector;
+    filtered_variables_vector.reserve(variables_vector.size());
+    
+    // Only copy non-zero and non-constant variables
+    std::copy_if(variables_vector.begin(), variables_vector.end(),
+                 std::back_inserter(filtered_variables_vector),
+                 [&](uint32_t variable_index) {
+                     return variable_index != ultra_circuit_builder.zero_idx &&
+                            this->check_is_not_constant_variable(ultra_circuit_builder, variable_index);
+                 });
+
+    // Remove duplicates
+    auto unique_pointer = std::unique(filtered_variables_vector.begin(), filtered_variables_vector.end());
+    filtered_variables_vector.erase(unique_pointer, filtered_variables_vector.end());
+    
+    if (filtered_variables_vector.size() < 2) {
         return;
     }
     std::vector<uint32_t> filtered_variables_vector;
@@ -685,6 +701,7 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
     for (size_t i = 0; i < filtered_variables_vector.size() - 1; i++) {
         this->add_new_edge(filtered_variables_vector[i], filtered_variables_vector[i + 1]);
     }
+}
 }
 
 /**
@@ -1153,6 +1170,9 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     this->remove_unnecessary_plookup_variables(ultra_circuit_builder);
     this->remove_unnecessary_range_constrains_variables(ultra_circuit_builder);
     for (const auto& elem : this->fixed_variables) {
+        this->variables_in_one_gate.erase(elem);
+    }
+    for (const auto& elem: ultra_circuit_builder.used_witnesses) {
         this->variables_in_one_gate.erase(elem);
     }
     this->remove_record_witness_variables(ultra_circuit_builder);

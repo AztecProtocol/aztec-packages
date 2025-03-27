@@ -333,6 +333,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
 
     std::vector<fr> ipa_proof;
 
+    std::vector<uint32_t> used_witnesses;
+
     void populate_public_inputs_block();
 
     void process_non_native_field_multiplications();
