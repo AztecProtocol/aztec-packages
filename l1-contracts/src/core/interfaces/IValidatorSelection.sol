@@ -36,6 +36,7 @@ interface IValidatorSelection is IValidatorSelectionCore {
   // Non view as uses transient storage
   function getCurrentEpochCommittee() external returns (address[] memory);
   function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
+  function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
 
   // Stable
   function getCurrentEpoch() external view returns (Epoch);
@@ -46,7 +47,6 @@ interface IValidatorSelection is IValidatorSelectionCore {
 
   // Likely removal of these to replace with a size and indiviual getter
   // Get the current epoch committee
-  function getEpochCommittee(Epoch _epoch) external view returns (address[] memory);
   function getAttesters() external view returns (address[] memory);
 
   function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
