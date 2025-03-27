@@ -1,6 +1,7 @@
 use crate::{
+    capsules::CapsuleArray,
     discovery::{
-        ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
+        ComputeNoteHashAndNullifier, log_capsule::LogCapsule, MAX_LOG_CONTENT_LEN,
         partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
         private_notes::process_private_note_log,
     },
@@ -27,35 +28,6 @@ use protocol_types::{
 // TODO(#12750): don't make these values assume we're using AES.
 use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
-// Define the log type that matches how logs were stored in TS
-struct TxScopedL2LogFields {
-    // Original log fields
-    log_fields: [Field; PRIVATE_LOG_SIZE_IN_FIELDS],
-    // Additional fields added during storage
-    tx_hash: Field,
-    data_start_index: Field,
-    block_number: Field,
-    recipient: Field,
-}
-
-impl<let N: u32> Deserialize<N> for TxScopedL2LogFields {
-    fn deserialize(fields: [Field; N]) -> Self {
-        // Deserialize the fields into our struct
-        let mut log_fields = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
-        for i in 0..PRIVATE_LOG_SIZE_IN_FIELDS {
-            log_fields[i] = fields[i];
-        }
-
-        Self {
-            log_fields,
-            tx_hash: fields[PRIVATE_LOG_SIZE_IN_FIELDS],
-            data_start_index: fields[PRIVATE_LOG_SIZE_IN_FIELDS + 1],
-            block_number: fields[PRIVATE_LOG_SIZE_IN_FIELDS + 2],
-            recipient: fields[PRIVATE_LOG_SIZE_IN_FIELDS + 3],
-        }
-    }
-}
-
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
 /// public logs that will complete them.
@@ -71,17 +43,22 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
 
     // Get logs from capsules
     let CAPSULE_BASE_SLOT = 8240937;
-    let logs_array = CapsuleArray::at(_contract_address, CAPSULE_BASE_SLOT);
-    let len = logs_array.len();
+    let logs = CapsuleArray::<LogCapsule>::at(contract_address, CAPSULE_BASE_SLOT);
+    let len = logs.len();
 
-    let mut i = 0;
-    while i < len {
-        let log_fields: TxScopedL2LogFields = logs_array.get(i);
+    for i in 0..len {
+        let log = logs.get(i);
 
         // Process each log
         process_log(contract_address, compute_note_hash_and_nullifier, log);
+    }
 
-        i += 1;
+    // TODO: Introduce array.pop()
+    // Delete the logs from capsules, starting from the end to avoid shifting elements
+    let mut i = len;
+    while i > 0 {
+        i -= 1;
+        logs.remove(i);
     }
 }
 
@@ -97,13 +74,14 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
 unconstrained fn process_log<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
-    log: TxScopedL2LogFields,
+    log_capsule: LogCapsule,
 ) {
-    debug_log_format("Processing log with tag {0}", [log.get(0)]);
+    debug_log_format("Processing log with tag {0}", [log_capsule.log.get(0)]);
 
-    // The first field of the log is the tag, which we don't need right now, and the rest is all ciphertext.
-    let ciphertext = array::subbvec(log, 1);
-    let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
+    // The tag is ignored for now.
+    let ciphertext = array::subbvec(log_capsule.log, 1);
+
+    let log_plaintext = AES128::decrypt_log(ciphertext, log_capsule.recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
     // have 3 log types: private note logs, partial note logs and event logs.
@@ -115,10 +93,10 @@ unconstrained fn process_log<Env>(
 
         process_private_note_log(
             contract_address,
-            tx_hash,
-            unique_note_hashes_in_tx,
-            first_nullifier_in_tx,
-            recipient,
+            log_capsule.tx_hash,
+            log_capsule.unique_note_hashes_in_tx,
+            log_capsule.first_nullifier_in_tx,
+            log_capsule.recipient,
             compute_note_hash_and_nullifier,
             log_metadata,
             log_content,
@@ -126,7 +104,7 @@ unconstrained fn process_log<Env>(
     } else if log_type_id == PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID {
         debug_log("Processing partial note private log");
 
-        process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
+        process_partial_note_private_log(contract_address, log_capsule.recipient, log_metadata, log_content);
     } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
         debug_log("Processing private event log");
 

@@ -1,6 +1,7 @@
 use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
+pub mod log_capsule;
 pub mod nonce_discovery;
 pub mod partial_notes;
 pub mod private_logs;

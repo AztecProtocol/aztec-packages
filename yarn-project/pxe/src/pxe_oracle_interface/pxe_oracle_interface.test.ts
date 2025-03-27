@@ -4,16 +4,13 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type AcirSimulator, type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
-import { type FunctionArtifact, FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
+import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
-import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -29,6 +26,8 @@ import { PXEOracleInterface } from './pxe_oracle_interface.js';
 import { WINDOW_HALF_SIZE } from './tagging_utils.js';
 
 jest.setTimeout(30_000);
+
+const LOG_CAPSULE_ARRAY_BASE_SLOT = 8240937n;
 
 async function computeSiloedTagForIndex(
   sender: { completeAddress: CompleteAddress; ivsk: Fq },
@@ -171,13 +170,14 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
-      // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
-      // one + half of the logs for the second index
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+
+      // Check capsule contents
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
-
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
         senders.map(sender =>
@@ -267,9 +267,12 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs with a sender index offset', async () => {
       const tagIndex = 5;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
-      // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+
+      // Check capsule contents
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
@@ -279,7 +282,7 @@ describe('PXEOracleInterface', () => {
         ),
       );
 
-      // First sender should have 2 logs, but keep index 1 since they were built using the same tag
+      // First sender should have 2 logs, but keep index 6 since they were built using the same tag
       // Next 4 senders should also have index 6 = offset + 1
       // Last 5 senders should have index 7 = offset + 2
       const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
@@ -310,11 +313,12 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
-      // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
-      // since the window starts at Math.max(0, 2 - window_size) = 0
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      // Check capsule contents
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // First sender should have 2 logs, but keep index 2 since they were built using the same tag
       // Next 4 senders should also have index 2 = tagIndex + 1
@@ -349,10 +353,12 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
-      // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should be skipped
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
+      // Check capsule contents
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(NUM_SENDERS / 2);
 
       // Indexes should remain where we set them (window_size + 1)
       const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
@@ -381,10 +387,13 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
-      // No logs should be synced since we start from index 2 = 12 - window_size
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
+      // Check capsule contents
+      let capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(0);
+
       // Since no logs were synced, window edge hash not been pushed and for this reason we should have called
       // the node only once for the initial window
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
@@ -394,7 +403,12 @@ describe('PXEOracleInterface', () => {
       // Wipe the database
       await taggingDataProvider.resetNoteSyncData();
 
-      syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+
+      // Check capsule contents after DB wipe
+      capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
@@ -416,10 +430,12 @@ describe('PXEOracleInterface', () => {
 
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
-      // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > MIN_BLOCK_NUMBER_OF_A_LOG
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
+      // Check capsule contents
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(NUM_SENDERS + 1);
     });
 
     it('should not sync public tagged logs', async () => {
@@ -438,84 +454,12 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
-      // We expect the above log to be discarded, and so none to be synced
-      expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
+      // Check capsule contents
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, new Fr(LOG_CAPSULE_ARRAY_BASE_SLOT + 1n));
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(0);
     });
   });
-
-  describe('Process logs', () => {
-    let simulator: MockProxy<AcirSimulator>;
-    let runUnconstrainedSpy: any;
-
-    let processLogFuncArtifact: FunctionArtifact;
-
-    beforeEach(async () => {
-      // Set up process_log function artifact --> it is never executed as simulator.runUnconstrained(...) is mocked
-      processLogFuncArtifact = {
-        name: 'process_log',
-        functionType: FunctionType.UNCONSTRAINED,
-        isInternal: false,
-        parameters: [],
-        returnTypes: [],
-        errorTypes: {},
-        isInitializer: false,
-        isStatic: false,
-        bytecode: Buffer.alloc(0),
-        debugSymbols: '',
-      };
-
-      // Set up contract instance and artifact
-      const contractInstance = await randomContractInstanceWithAddress();
-      const contractArtifact = randomContractArtifact();
-      contractArtifact.functions = [processLogFuncArtifact];
-      await contractDataProvider.addContractInstance(contractInstance);
-      await contractDataProvider.addContractArtifact(contractInstance.currentContractClassId, contractArtifact);
-      contractAddress = contractInstance.address;
-
-      simulator = mock<AcirSimulator>();
-      simulator.runUnconstrained.mockImplementation(() => Promise.resolve({}));
-
-      runUnconstrainedSpy = jest.spyOn(simulator, 'runUnconstrained');
-    });
-
-    function mockTaggedLogs(numLogs: number) {
-      return Array(numLogs)
-        .fill(0)
-        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, 0, PrivateLog.random(Fr.random())));
-    }
-
-    it('should call processLog on multiple logs', async () => {
-      const numLogs = 3;
-
-      const taggedLogs = mockTaggedLogs(numLogs);
-
-      // Mock getTxEffect to return a TxEffect containing the private logs
-      aztecNode.getTxEffect.mockImplementation(async () => {
-        const txEffect = await TxEffect.random();
-        txEffect.privateLogs = taggedLogs.map(log => log.log as PrivateLog);
-        return randomInBlock(txEffect);
-      });
-
-      await pxeOracleInterface.processTaggedLogs(contractAddress, taggedLogs, recipient.address, simulator);
-
-      // We test that a call to `processLog` is made with the correct function artifact and contract address
-      expect(runUnconstrainedSpy).toHaveBeenCalledTimes(numLogs);
-      expect(runUnconstrainedSpy).toHaveBeenCalledWith(
-        expect.anything(),
-        contractAddress,
-        await FunctionSelector.fromNameAndParameters(processLogFuncArtifact.name, processLogFuncArtifact.parameters),
-        [],
-      );
-    }, 30_000);
-  });
-
-  const setSyncedBlockNumber = (blockNumber: number) => {
-    return syncDataProvider.setHeader(
-      BlockHeader.empty({
-        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
-      }),
-    );
-  };
 });

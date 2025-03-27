@@ -9,7 +9,7 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
@@ -226,22 +226,14 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Returns the found logs
-   * and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
+   * in CapsuleArray ready for a later retrieval in Aztec.nr
    * @param contractAddress - The address of the contract that the logs are tagged for
    * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
    * synced.
    * @returns A map of recipient addresses to a list of encrypted logs.
    */
-  syncTaggedLogs(contractAddress: AztecAddress, scopes?: AztecAddress[]): Promise<Map<string, TxScopedL2Log[]>>;
-
-  /**
-   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
-   * @param contractAddress - The address of the contract that emitted the logs.
-   * @param logs - The logs to process.
-   * @param recipient - The recipient of the logs.
-   */
-  processTaggedLogs(contractAddress: AztecAddress, logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+  syncTaggedLogs(contractAddress: AztecAddress, scopes?: AztecAddress[]): Promise<void>;
 
   /**
    * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
