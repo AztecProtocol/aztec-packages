@@ -57,10 +57,6 @@ export class SimpleContractDataSource implements ContractDataSource {
     }
   }
 
-  #getDebugFunctionName(classId: Fr, selector: FunctionSelector): string | undefined {
-    return this.debugFunctionName.get(classId.toString())?.get(selector.toString());
-  }
-
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
   getBlockNumber(): Promise<number> {
