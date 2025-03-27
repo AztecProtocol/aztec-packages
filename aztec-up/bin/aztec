@@ -35,7 +35,7 @@ done
 set -- "${args[@]}"
 
 function get_env_vars {
-  docker run --rm aztecprotocol/aztec cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+  docker run --rm aztecprotocol/aztec:$VERSION cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
     awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
 }
 
@@ -103,7 +103,7 @@ case ${1:-} in
       --env SERVE=${SERVE:-0} \
       $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
       -v $(realpath $(dirname $2))/:/tmp \
-      aztecprotocol/aztec /tmp/$(basename $2) $3
+      aztecprotocol/aztec:$VERSION /tmp/$(basename $2) $3
     ;;
   *)
     export ENV_VARS_TO_INJECT="SECRET_KEY"

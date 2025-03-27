@@ -96,12 +96,12 @@ class AvmFlavor {
     static constexpr bool HasZK = false;
 
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 47;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 929;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 134;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 942;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
     // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
     // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1110;
+    static constexpr size_t NUM_ALL_ENTITIES = 1124;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -175,7 +175,8 @@ class AvmFlavor {
         lookup_instr_fetching_pc_abs_diff_positive_relation<FF_>,
         lookup_instr_fetching_tag_value_validation_relation<FF_>,
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
-        lookup_merkle_check_merkle_poseidon2_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
+        lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_range_check_dyn_diff_is_u16_relation<FF_>,
         lookup_range_check_dyn_rng_chk_pow_2_relation<FF_>,
@@ -444,54 +445,9 @@ class AvmFlavor {
       public:
         VerifierCommitments_(const std::shared_ptr<VerificationKey>& verification_key)
         {
-            this->precomputed_as_unary = verification_key->precomputed_as_unary;
-            this->precomputed_bitwise_input_a = verification_key->precomputed_bitwise_input_a;
-            this->precomputed_bitwise_input_b = verification_key->precomputed_bitwise_input_b;
-            this->precomputed_bitwise_op_id = verification_key->precomputed_bitwise_op_id;
-            this->precomputed_bitwise_output = verification_key->precomputed_bitwise_output;
-            this->precomputed_clk = verification_key->precomputed_clk;
-            this->precomputed_exec_opcode = verification_key->precomputed_exec_opcode;
-            this->precomputed_first_row = verification_key->precomputed_first_row;
-            this->precomputed_instr_size = verification_key->precomputed_instr_size;
-            this->precomputed_integral_tag_length = verification_key->precomputed_integral_tag_length;
-            this->precomputed_opcode_out_of_range = verification_key->precomputed_opcode_out_of_range;
-            this->precomputed_p_decomposition_limb = verification_key->precomputed_p_decomposition_limb;
-            this->precomputed_p_decomposition_limb_index = verification_key->precomputed_p_decomposition_limb_index;
-            this->precomputed_p_decomposition_radix = verification_key->precomputed_p_decomposition_radix;
-            this->precomputed_power_of_2 = verification_key->precomputed_power_of_2;
-            this->precomputed_sel_bitwise = verification_key->precomputed_sel_bitwise;
-            this->precomputed_sel_has_tag = verification_key->precomputed_sel_has_tag;
-            this->precomputed_sel_integral_tag = verification_key->precomputed_sel_integral_tag;
-            this->precomputed_sel_mem_tag_out_of_range = verification_key->precomputed_sel_mem_tag_out_of_range;
-            this->precomputed_sel_op_dc_0 = verification_key->precomputed_sel_op_dc_0;
-            this->precomputed_sel_op_dc_1 = verification_key->precomputed_sel_op_dc_1;
-            this->precomputed_sel_op_dc_10 = verification_key->precomputed_sel_op_dc_10;
-            this->precomputed_sel_op_dc_11 = verification_key->precomputed_sel_op_dc_11;
-            this->precomputed_sel_op_dc_12 = verification_key->precomputed_sel_op_dc_12;
-            this->precomputed_sel_op_dc_13 = verification_key->precomputed_sel_op_dc_13;
-            this->precomputed_sel_op_dc_14 = verification_key->precomputed_sel_op_dc_14;
-            this->precomputed_sel_op_dc_15 = verification_key->precomputed_sel_op_dc_15;
-            this->precomputed_sel_op_dc_16 = verification_key->precomputed_sel_op_dc_16;
-            this->precomputed_sel_op_dc_17 = verification_key->precomputed_sel_op_dc_17;
-            this->precomputed_sel_op_dc_2 = verification_key->precomputed_sel_op_dc_2;
-            this->precomputed_sel_op_dc_3 = verification_key->precomputed_sel_op_dc_3;
-            this->precomputed_sel_op_dc_4 = verification_key->precomputed_sel_op_dc_4;
-            this->precomputed_sel_op_dc_5 = verification_key->precomputed_sel_op_dc_5;
-            this->precomputed_sel_op_dc_6 = verification_key->precomputed_sel_op_dc_6;
-            this->precomputed_sel_op_dc_7 = verification_key->precomputed_sel_op_dc_7;
-            this->precomputed_sel_op_dc_8 = verification_key->precomputed_sel_op_dc_8;
-            this->precomputed_sel_op_dc_9 = verification_key->precomputed_sel_op_dc_9;
-            this->precomputed_sel_p_decomposition = verification_key->precomputed_sel_p_decomposition;
-            this->precomputed_sel_range_16 = verification_key->precomputed_sel_range_16;
-            this->precomputed_sel_range_8 = verification_key->precomputed_sel_range_8;
-            this->precomputed_sel_sha256_compression = verification_key->precomputed_sel_sha256_compression;
-            this->precomputed_sel_tag_is_op2 = verification_key->precomputed_sel_tag_is_op2;
-            this->precomputed_sel_to_radix_safe_limbs = verification_key->precomputed_sel_to_radix_safe_limbs;
-            this->precomputed_sel_unary = verification_key->precomputed_sel_unary;
-            this->precomputed_sha256_compression_round_constant =
-                verification_key->precomputed_sha256_compression_round_constant;
-            this->precomputed_to_radix_safe_limbs = verification_key->precomputed_to_radix_safe_limbs;
-            this->precomputed_zero = verification_key->precomputed_zero;
+            for (auto [commitment, vk_commitment] : zip_view(this->get_precomputed(), verification_key->get_all())) {
+                commitment = vk_commitment;
+            }
         }
     };
 

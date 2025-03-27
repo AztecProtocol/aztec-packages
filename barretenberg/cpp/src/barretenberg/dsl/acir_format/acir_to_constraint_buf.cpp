@@ -1,17 +1,21 @@
 #include "acir_to_constraint_buf.hpp"
+
+#include <cstddef>
+#include <cstdint>
+#include <map>
+#include <tuple>
+#include <utility>
+
 #include "barretenberg/common/container.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#include "barretenberg/serialize/msgpack.hpp"
-#include <cstddef>
-#include <cstdint>
-#include <tuple>
-#include <utility>
 #ifndef __wasm__
 #include "barretenberg/api/get_bytecode.hpp"
 #endif
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/serialize/msgpack.hpp"
+
 namespace acir_format {
 
 using namespace bb;
@@ -856,7 +860,7 @@ BlockConstraint handle_memory_init(Acir::Opcode::MemoryInit const& mem_init)
 
 bool is_rom(Acir::MemOp const& mem_op)
 {
-    return mem_op.operation.mul_terms.size() == 0 && mem_op.operation.linear_combinations.size() == 0 &&
+    return mem_op.operation.mul_terms.empty() && mem_op.operation.linear_combinations.empty() &&
            uint256_t(mem_op.operation.q_c) == 0;
 }
 
@@ -887,9 +891,10 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t h
     af.public_inputs = join({ map(circuit.public_parameters.value, [](auto e) { return e.value; }),
                               map(circuit.return_values.value, [](auto e) { return e.value; }) });
     // Map to a pair of: BlockConstraint, and list of opcodes associated with that BlockConstraint
+    // NOTE: We want to deterministically visit this map, so unordered_map should not be used.
     std::map<uint32_t, std::pair<BlockConstraint, std::vector<size_t>>> block_id_to_block_constraint;
     for (size_t i = 0; i < circuit.opcodes.size(); ++i) {
-        auto gate = circuit.opcodes[i];
+        const auto& gate = circuit.opcodes[i];
         std::visit(
             [&](auto&& arg) {
                 using T = std::decay_t<decltype(arg)>;
@@ -900,8 +905,7 @@ AcirFormat circuit_serde_to_acir_format(Acir::Circuit const& circuit, uint32_t h
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryInit>) {
                     auto block = handle_memory_init(arg);
                     uint32_t block_id = arg.block_id.value;
-                    std::vector<size_t> opcode_indices = { i };
-                    block_id_to_block_constraint[block_id] = std::make_pair(block, opcode_indices);
+                    block_id_to_block_constraint[block_id] = { block, /*opcode_indices=*/{ i } };
                 } else if constexpr (std::is_same_v<T, Acir::Opcode::MemoryOp>) {
                     auto block = block_id_to_block_constraint.find(arg.block_id.value);
                     if (block == block_id_to_block_constraint.end()) {
@@ -947,15 +951,15 @@ WitnessVector witness_map_to_witness_vector(Witnesses::WitnessMap const& witness
 {
     WitnessVector wv;
     size_t index = 0;
-    for (auto& e : witness_map.value) {
+    for (const auto& e : witness_map.value) {
         // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
         // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
         // which do not exist within the `WitnessMap` with the dummy value of zero.
         while (index < e.first.value) {
-            wv.push_back(fr(0));
+            wv.emplace_back(0);
             index++;
         }
-        wv.push_back(fr(uint256_t(e.second)));
+        wv.emplace_back(uint256_t(e.second));
         index++;
     }
     return wv;
@@ -991,8 +995,7 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
     WitnessVectorStack witness_vector_stack;
     witness_vector_stack.reserve(witness_stack.stack.size());
     for (auto const& stack_item : witness_stack.stack) {
-        witness_vector_stack.emplace_back(
-            std::make_pair(stack_item.index, witness_map_to_witness_vector(stack_item.witness)));
+        witness_vector_stack.emplace_back(stack_item.index, witness_map_to_witness_vector(stack_item.witness));
     }
     return witness_vector_stack;
 }
@@ -1008,7 +1011,7 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
         program_buf_to_acir_format(bytecode,
                                    honk_recursion); // TODO(https://github.com/AztecProtocol/barretenberg/issues/1013):
                                                     // Remove honk recursion flag
-    const WitnessVectorStack witness_stack = [&]() {
+    WitnessVectorStack witness_stack = [&]() {
         if (witness_path.empty()) {
             info("producing a stack of empties");
             WitnessVectorStack stack_of_empties{ constraint_systems.size(),
@@ -1019,7 +1022,8 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
         return witness_buf_to_witness_stack(witness_data);
     }();
 
-    return { constraint_systems, witness_stack };
+    return { std::move(constraint_systems), std::move(witness_stack) };
 }
 #endif
+
 } // namespace acir_format
