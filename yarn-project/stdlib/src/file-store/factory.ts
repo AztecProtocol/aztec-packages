@@ -54,7 +54,7 @@ export async function createReadOnlyFileStore(
     return undefined;
   } else if (config.startsWith('http://') || config.startsWith('https://')) {
     logger.info(`Creating read-only HTTP file store at ${config}`);
-    return new HttpFileStore(logger);
+    return new HttpFileStore(config, logger);
   } else {
     return await createFileStore(config, logger);
   }

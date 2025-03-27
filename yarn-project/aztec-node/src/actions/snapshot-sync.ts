@@ -183,7 +183,6 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
       await archiverStore.close();
     }
     if (downloadDir) {
-      log.verbose(`Cleaning up download dir ${downloadDir}`);
       await tryRmDir(downloadDir, log);
     }
   }

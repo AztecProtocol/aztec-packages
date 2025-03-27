@@ -22,7 +22,8 @@ export async function uploadSnapshot(
   const dataUrls = fromEntries(
     await Promise.all(
       getEntries(localPaths).map(
-        async ([key, path]) => [key, await store.upload(targetPathFor(key), path, { compress: true })] as const,
+        async ([key, path]) =>
+          [key, await store.upload(targetPathFor(key), path, { compress: true, public: true })] as const,
       ),
     ),
   );
@@ -37,7 +38,7 @@ export async function uploadSnapshot(
   };
   snapshotsIndex.snapshots.unshift(newSnapshotMetadata);
 
-  await store.save(getSnapshotIndexPath(metadata), Buffer.from(jsonStringify(snapshotsIndex, true)));
+  await store.save(getSnapshotIndexPath(metadata), Buffer.from(jsonStringify(snapshotsIndex, true)), { public: true });
   return newSnapshotMetadata;
 }
 

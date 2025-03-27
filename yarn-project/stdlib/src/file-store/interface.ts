@@ -11,7 +11,7 @@ export interface ReadOnlyFileStore {
 /** Simple file store. */
 export interface FileStore extends ReadOnlyFileStore {
   /** Saves contents to the given path. Returns an URI that can be used later to `read` the file. */
-  save(path: string, data: Buffer): Promise<string>;
+  save(path: string, data: Buffer, opts: { public?: boolean }): Promise<string>;
   /** Uploads contents from a local file. Returns an URI that can be used later to `read` the file. */
-  upload(destPath: string, srcPath: string, opts: { compress: boolean }): Promise<string>;
+  upload(destPath: string, srcPath: string, opts: { compress?: boolean; public?: boolean }): Promise<string>;
 }

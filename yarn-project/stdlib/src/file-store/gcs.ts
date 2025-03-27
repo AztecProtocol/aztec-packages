@@ -1,3 +1,5 @@
+import { type Logger, createLogger } from '@aztec/foundation/log';
+
 import { File, Storage, type UploadOptions } from '@google-cloud/storage';
 import { join } from 'path';
 
@@ -6,7 +8,11 @@ import type { FileStore } from './interface.js';
 export class GoogleCloudFileStore implements FileStore {
   private readonly storage: Storage;
 
-  constructor(private readonly bucketName: string, private readonly basePath: string) {
+  constructor(
+    private readonly bucketName: string,
+    private readonly basePath: string,
+    private readonly log: Logger = createLogger('stdlib:gcs-file-store'),
+  ) {
     this.storage = new Storage();
   }
 
@@ -14,22 +20,22 @@ export class GoogleCloudFileStore implements FileStore {
     await this.storage.getServiceAccount();
   }
 
-  public async save(path: string, data: Buffer): Promise<string> {
+  public async save(path: string, data: Buffer, opts: { public?: boolean } = { public: false }): Promise<string> {
     const fullPath = this.getFullPath(path);
     try {
       const bucket = this.storage.bucket(this.bucketName);
       const file = bucket.file(fullPath);
       await file.save(data);
-      return file.cloudStorageURI.toString();
-    } catch (err) {
-      throw new Error(`Error saving file to google cloud storage at ${fullPath}: ${err}`);
+      return this.handleUploadedFile(file, opts);
+    } catch (err: any) {
+      throw new Error(`Error saving file to google cloud storage at ${fullPath}: ${err.message ?? err}`);
     }
   }
 
   public async upload(
     destPath: string,
     srcPath: string,
-    opts: { compress: boolean } = { compress: true },
+    opts: { compress?: boolean; public?: boolean } = { compress: true, public: false },
   ): Promise<string> {
     const fullPath = this.getFullPath(destPath);
     try {
@@ -40,9 +46,26 @@ export class GoogleCloudFileStore implements FileStore {
         gzip: opts.compress,
       };
       await bucket.upload(srcPath, uploadOpts);
+      return this.handleUploadedFile(file, opts);
+    } catch (err: any) {
+      throw new Error(`Error saving file to google cloud storage at ${fullPath}: ${err.message ?? err}`);
+    }
+  }
+
+  private async handleUploadedFile(file: File, opts: { public?: boolean }): Promise<string> {
+    if (opts.public) {
+      try {
+        await file.makePublic();
+      } catch (err: any) {
+        this.log.warn(
+          `Error making file ${file.name} public: ${
+            err.message ?? err
+          }. This is expected if we handle public access at the bucket level.`,
+        );
+      }
+      return file.publicUrl().replaceAll('%2F', '/');
+    } else {
       return file.cloudStorageURI.toString();
-    } catch (err) {
-      throw new Error(`Error saving file to google cloud storage at ${fullPath}: ${err}`);
     }
   }
 

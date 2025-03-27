@@ -3,6 +3,7 @@ import { makeBackoff, retry } from '@aztec/foundation/retry';
 
 import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
+import { dirname } from 'path';
 import { Readable } from 'stream';
 import { finished } from 'stream/promises';
 
@@ -11,7 +12,7 @@ import type { ReadOnlyFileStore } from './interface.js';
 export class HttpFileStore implements ReadOnlyFileStore {
   private readonly fetch: typeof fetch;
 
-  constructor(private readonly log: Logger = createLogger('stdlib:http-file-store')) {
+  constructor(private readonly baseUrl: string, private readonly log: Logger = createLogger('stdlib:http-file-store')) {
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
         () => fetch(...args),
@@ -23,7 +24,8 @@ export class HttpFileStore implements ReadOnlyFileStore {
     };
   }
 
-  public async read(url: string): Promise<Buffer> {
+  public async read(pathOrUrl: string): Promise<Buffer> {
+    const url = this.getUrl(pathOrUrl);
     const response = await this.fetch(url);
     if (response.ok) {
       return Buffer.from(await response.arrayBuffer());
@@ -32,10 +34,11 @@ export class HttpFileStore implements ReadOnlyFileStore {
     }
   }
 
-  public async download(url: string, destPath: string): Promise<void> {
+  public async download(pathOrUrl: string, destPath: string): Promise<void> {
+    const url = this.getUrl(pathOrUrl);
     const response = await this.fetch(url);
     if (response.ok) {
-      await mkdir(destPath, { recursive: true });
+      await mkdir(dirname(destPath), { recursive: true });
       // Typescript complains about Readable.fromWeb, hence the cast
       await finished(Readable.fromWeb(response.body! as any).pipe(createWriteStream(destPath)));
     } else {
@@ -43,8 +46,13 @@ export class HttpFileStore implements ReadOnlyFileStore {
     }
   }
 
-  public async exists(url: string): Promise<boolean> {
+  public async exists(pathOrUrl: string): Promise<boolean> {
+    const url = this.getUrl(pathOrUrl);
     const response = await this.fetch(url);
     return response.ok;
+  }
+
+  private getUrl(path: string): string {
+    return URL.canParse(path) ? path : `${this.baseUrl.replace(/\/$/, '')}/${path}`;
   }
 }
