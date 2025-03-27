@@ -107,7 +107,7 @@ function build_gcc_syntax_check_only {
   cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
 }
 
-# Do basic tests that the fuzzing preset still compiles (namely does not check linking).
+# Do basic tests that the fuzzing preset still compiles (does not do optimization or create object files).
 function build_fuzzing_syntax_check_only {
   set -eu
   if cache_download barretenberg-fuzzing-$hash.zst; then
