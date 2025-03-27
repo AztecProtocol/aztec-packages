@@ -17,12 +17,28 @@ contract LibTest {
     AddressSnapshotLib.remove(validatorSet, _index);
   }
 
+  function remove(address _validator) public {
+    AddressSnapshotLib.remove(validatorSet, _validator);
+  }
+
+  function at(uint256 _index) public view returns (address) {
+    return AddressSnapshotLib.at(validatorSet, _index);
+  }
+
   function getValidatorInIndexNow(uint256 _index) public view returns (address) {
     return AddressSnapshotLib.getValidatorInIndexNow(validatorSet, _index);
   }
 
   function getAddresssIndexAt(uint256 _index, uint256 _epoch) public view returns (address) {
     return AddressSnapshotLib.getAddresssIndexAt(validatorSet, _index, _epoch);
+  }
+
+  function length() public view returns (uint256) {
+    return AddressSnapshotLib.length(validatorSet);
+  }
+
+  function values() public view returns (address[] memory) {
+    return AddressSnapshotLib.values(validatorSet);
   }
 }
 
@@ -132,5 +148,72 @@ contract AddressSnapshotsTest is Test {
     assertEq(libTest.getAddresssIndexAt( /* index */ 0, /* epoch */ 5), address(3));
     assertEq(libTest.getAddresssIndexAt( /* index */ 0, /* epoch */ 6), address(0));
     assertEq(libTest.getAddresssIndexAt( /* index */ 0, /* epoch */ 7), address(4));
+  }
+
+  function test_length() public {
+    assertEq(libTest.length(), 0);
+
+    libTest.add(address(1));
+    assertEq(libTest.length(), 1);
+
+    cheat__setEpochNow(1);
+    libTest.remove( /* index */ 0);
+    assertEq(libTest.length(), 0);
+
+    cheat__setEpochNow(2);
+    libTest.add(address(1));
+    libTest.add(address(2));
+    assertEq(libTest.length(), 2);
+
+    cheat__setEpochNow(3);
+    libTest.remove( /* index */ 0);
+    assertEq(libTest.length(), 1);
+  }
+
+  function test_values() public {
+    libTest.add(address(1));
+    libTest.add(address(2));
+    libTest.add(address(3));
+
+    address[] memory values = libTest.values();
+    assertEq(values.length, 3);
+    assertEq(values[0], address(1));
+    assertEq(values[1], address(2));
+    assertEq(values[2], address(3));
+  }
+
+  function test_remove_by_name() public {
+    libTest.add(address(1));
+    libTest.add(address(2));
+    libTest.add(address(3));
+
+    cheat__setEpochNow(1);
+    libTest.remove(address(2));
+
+    address[] memory values = libTest.values();
+    assertEq(values.length, 2);
+    assertEq(values[0], address(1));
+    assertEq(values[1], address(3));
+  }
+
+  function test_at() public {
+    libTest.add(address(1));
+    libTest.add(address(2));
+    libTest.add(address(3));
+
+    assertEq(libTest.at(0), address(1));
+    assertEq(libTest.at(1), address(2));
+    assertEq(libTest.at(2), address(3));
+
+    cheat__setEpochNow(1);
+    libTest.remove( /* index */ 0);
+
+    // When removing and item, the index has become shuffled
+    assertEq(libTest.at(0), address(3));
+    assertEq(libTest.at(1), address(2));
+
+    // Expect past values to be maintained
+    assertEq(libTest.getAddresssIndexAt( /* index */ 0, /* epoch */ 0), address(1));
+    assertEq(libTest.getAddresssIndexAt( /* index */ 0, /* epoch */ 1), address(3));
   }
 }
