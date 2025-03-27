@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743085372271,
+  "lastUpdate": 1743086117686,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "33e528f15947eef5697f2b70d7f510b5ba6b60fa",
-          "message": "feat: translator zk relation adjustments testing (#12718)\n\nThis PR changes DeltaRangeConstraint and Permutation relation in\nTranslator to operate correctly in the presence of masking data at the\nend of the polynomials as well as unit tests to establish correctness of\nthe changes given masking is not yet full enabled in Translator.",
-          "timestamp": "2025-03-24T12:35:09Z",
-          "tree_id": "c26431db9a5376c3059f3c292645c306fe11be29",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/33e528f15947eef5697f2b70d7f510b5ba6b60fa"
-        },
-        "date": 1742821398609,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 39080,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 27020,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 11870,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14521,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 15475,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3036,6 +2982,84 @@ window.BENCHMARK_DATA = {
             "value": 13546,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "distinct": true,
+          "id": "531b321fe2038f44e0bd9829344d657aa52eaaea",
+          "message": "Merge branch 'master' of github.com:aztecprotocol/aztec-packages",
+          "timestamp": "2025-03-27T14:28:08Z",
+          "tree_id": "fbd54ce970374fff13a20688f3c1aab6a6abdab1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/531b321fe2038f44e0bd9829344d657aa52eaaea"
+        },
+        "date": 1743086110346,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 16899.368651999794,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15049.991731 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 118099183530.7,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1464774219,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 202408256,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 17866.25002200003,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15430.016348000001 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 46519.166945000004,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 46519168000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3264.6335070000987,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3042.355048 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 7967.483516000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 7967485000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
