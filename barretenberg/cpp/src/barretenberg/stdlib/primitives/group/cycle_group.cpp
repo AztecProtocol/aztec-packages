@@ -15,7 +15,7 @@ namespace bb::stdlib {
  * defaults to a constant point at infinity.
  *
  * @note Please don't use this constructor in case you want to assign the
- * coordintaes later.
+ * coordinates later.
  */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(Builder* _context)
