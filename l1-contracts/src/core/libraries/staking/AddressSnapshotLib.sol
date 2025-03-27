@@ -4,6 +4,7 @@ pragma solidity >=0.8.27;
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Timestamp, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
 
 /**
  * @notice Structure to store a set of addresses with their historical snapshots
@@ -35,6 +36,8 @@ struct AddressSnapshot {
  *      and allows querying the state of addresses at any point in time
  */
 library AddressSnapshotLib {
+  using SafeCast for uint256;
+
   /**
    * @notice Bit mask used to indicate presence of a validator in the set
    */
@@ -61,7 +64,7 @@ library AddressSnapshotLib {
 
     _self.validatorToIndex[_validator] = indexWithBit;
     _self.checkpoints[index].push(
-      AddressSnapshot({addr: _validator, epochNumber: uint96(Epoch.unwrap(_epochNumber))})
+      AddressSnapshot({addr: _validator, epochNumber: Epoch.unwrap(_epochNumber).toUint96()})
     );
     _self.size += 1;
     return true;
@@ -83,20 +86,19 @@ library AddressSnapshotLib {
     AddressSnapshot memory lastSnapshot = _self.checkpoints[lastIndex][lastSnapshotLength - 1];
 
     address lastValidator = lastSnapshot.addr;
-    uint256 newLocationWithMask = _index | PRESENCE_BIT;
-
-    _self.validatorToIndex[lastValidator] = newLocationWithMask; // Remove the last validator from the index
+    uint256 newLocation = _index | PRESENCE_BIT;
 
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this epoch
+    // And since we are removing it, we set the location to 0
     if (lastIndex == _index) {
       lastSnapshot.addr = address(0);
-
-      // TODO: reuse value above, only insert once
-      _self.validatorToIndex[lastValidator] = 0;
+      newLocation = 0;
     }
 
-    lastSnapshot.epochNumber = uint96(epochNow);
+    _self.validatorToIndex[lastValidator] = newLocation;
+
+    lastSnapshot.epochNumber = epochNow.toUint96();
     // Check if there's already a checkpoint for this index in the current epoch
     uint256 checkpointCount = _self.checkpoints[_index].length;
     if (
@@ -164,7 +166,7 @@ library AddressSnapshotLib {
     Epoch _epoch
   ) internal view returns (address) {
     uint256 numCheckpoints = _self.checkpoints[_index].length;
-    uint96 epoch = uint96(Epoch.unwrap(_epoch));
+    uint96 epoch = Epoch.unwrap(_epoch).toUint96();
 
     if (numCheckpoints == 0) {
       return address(0);

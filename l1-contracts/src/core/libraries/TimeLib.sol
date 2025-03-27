@@ -5,6 +5,8 @@ pragma solidity >=0.8.27;
 // solhint-disable-next-line no-unused-import
 import {Timestamp, Slot, Epoch, SlotLib, EpochLib} from "@aztec/core/libraries/TimeMath.sol";
 
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
 struct TimeStorage {
   uint128 genesisTime;
   uint32 slotDuration; // Number of seconds in a slot
@@ -12,13 +14,15 @@ struct TimeStorage {
 }
 
 library TimeLib {
+  using SafeCast for uint256;
+
   bytes32 private constant TIME_STORAGE_POSITION = keccak256("aztec.time.storage");
 
   function initialize(uint256 _genesisTime, uint256 _slotDuration, uint256 _epochDuration) internal {
     TimeStorage storage store = getStorage();
-    store.genesisTime = uint128(_genesisTime);
-    store.slotDuration = uint32(_slotDuration);
-    store.epochDuration = uint32(_epochDuration);
+    store.genesisTime = _genesisTime.toUint128();
+    store.slotDuration = _slotDuration.toUint32();
+    store.epochDuration = _epochDuration.toUint32();
   }
 
   function toTimestamp(Slot _a) internal view returns (Timestamp) {
