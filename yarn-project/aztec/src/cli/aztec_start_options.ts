@@ -273,6 +273,19 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(),
     },
+    {
+      flag: '--node.syncMode <value>',
+      description:
+        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+      defaultValue: 'snapshot',
+      envVar: 'SYNC_MODE',
+    },
+    {
+      flag: '--node.snapshotsUrl <value>',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
+      defaultValue: undefined,
+      envVar: 'SYNC_SNAPSHOTS_URL',
+    },
   ],
   'P2P SUBSYSTEM': [
     {

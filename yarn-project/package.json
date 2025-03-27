@@ -47,6 +47,7 @@
     "l1-artifacts",
     "merkle-tree",
     "native",
+    "node-lib",
     "ivc-integration",
     "noir-bb-bench",
     "noir-contracts.js",

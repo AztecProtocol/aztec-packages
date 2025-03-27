@@ -513,7 +513,7 @@ export class TXEService {
       AztecAddress.fromField(fromSingle(sender)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
-    return toForeignCallResult([toArray(secret.toFields())]);
+    return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
   async syncNotes() {
