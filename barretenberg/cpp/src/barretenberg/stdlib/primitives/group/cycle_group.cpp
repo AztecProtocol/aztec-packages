@@ -10,6 +10,13 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib {
 
+/**
+ * @brief Construct a new cycle group<Builder>::cycle group object
+ * defaults to a constant point at infinity.
+ *
+ * @note Please don't use this constructor in case you want to assign the
+ * coordintaes later.
+ */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(Builder* _context)
     : x(0)
