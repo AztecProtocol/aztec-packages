@@ -255,6 +255,31 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeMutateBytecodeId)
                               "BC_DEC_ID_CONSTANT");
 }
 
+// Negative test about bc_decomposition_id not incremented after last_of_contract == 1
+TEST(BytecodeDecompositionConstrainingTest, NegativeBytecodeIdAfterLastContractNotIncremented)
+{
+    TestTraceContainer trace = TestTraceContainer::from_rows({
+        {
+            .bc_decomposition_id = 147,
+            .bc_decomposition_sel = 1,
+        },
+        {
+            .bc_decomposition_id = 147,
+            .bc_decomposition_last_of_contract = 1,
+            .bc_decomposition_sel = 1,
+        },
+        {
+            .bc_decomposition_id = 148,
+            .bc_decomposition_sel = 1,
+        },
+    });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_ID_INCREMENT);
+    trace.set(C::bc_decomposition_id, 2, 147); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DEC_ID_INCREMENT),
+                              "BC_DEC_ID_INCREMENT");
+}
+
 TEST(BytecodeDecompositionConstrainingTest, NegativeWrongBytesToReadNoCorrection)
 {
     TestTraceContainer trace = TestTraceContainer::from_rows({
@@ -338,6 +363,22 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeWrongPacking)
     trace.set(C::bc_decomposition_bytes_pc_plus_20, 0, 0); // Mutate to wrong value
     EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_BC_DECOMPOSITION_REPACKING),
                               "BC_DECOMPOSITION_REPACKING");
+}
+
+// Negative test where sel_packed == 1 and sel == 0
+TEST(BytecodeDecompositionConstrainingTest, NegativeSelPackedNotSel)
+{
+    TestTraceContainer trace;
+    trace.set(0,
+              { {
+                  { C::bc_decomposition_sel_packed, 1 },
+                  { C::bc_decomposition_sel, 1 },
+              } });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_TOGGLED_AT_PACKED);
+    trace.set(C::bc_decomposition_sel, 0, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_TOGGLED_AT_PACKED),
+                              "SEL_TOGGLED_AT_PACKED");
 }
 
 } // namespace
