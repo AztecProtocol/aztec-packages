@@ -108,9 +108,10 @@ async function createProver(config: NativeProverConfig = {}, log: Logger) {
 function getMinimumTrace(logs: Log[], proverType: ProverType): StructuredTrace {
   const minimumMessage = 'Minimum required block sizes for structured trace:';
   const minimumMessageIndex = logs.findIndex(log => log.message.includes(minimumMessage));
+  const candidateLogs = logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex);
   const traceLogs =
     proverType === 'wasm'
-      ? logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex).map(log => log.message)
+      ? candidateLogs.map(log => log.message)
       : logs
           .slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex)
           .filter(log => GATE_TYPES.some(type => log.message.includes(`bb - ${type}`)))
@@ -173,14 +174,15 @@ async function main() {
       userLog.error(`Failed to generate client ivc proof for ${flow}`, e);
       error = (e as Error).message;
     }
+    // Extract logs from this run from the proxy and write them to disk unconditionally
+    currentLogs = proxyLogger.getLogs();
+    await writeFile(join(ivcFolder, flow, 'logs.json'), JSON.stringify(currentLogs, null, 2));
+
     if (!error) {
       minimumTrace = getMinimumTrace(currentLogs, proverType);
       stats = currentLogs[0].data as { duration: number; eventName: string; proofSize: number };
     }
 
-    currentLogs = proxyLogger.getLogs();
-
-    await writeFile(join(ivcFolder, flow, 'logs.json'), JSON.stringify(currentLogs, null, 2));
     const steps = executionSteps.reduce<Step[]>((acc, step, i) => {
       const previousAccGateCount = i === 0 ? 0 : acc[i - 1].accGateCount!;
       return [
