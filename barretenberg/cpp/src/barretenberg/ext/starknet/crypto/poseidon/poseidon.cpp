@@ -1,6 +1,6 @@
 #include "poseidon.hpp"
 
-namespace bb::crypto {
+namespace bb::starknet::crypto {
 
 template <typename Params>
 typename Poseidon<Params>::FF Poseidon<Params>::hash(const std::vector<typename Poseidon<Params>::FF>& input)
@@ -16,4 +16,4 @@ typename Poseidon<Params>::FF Poseidon<Params>::hash(const std::vector<typename 
 
 template class Poseidon<PoseidonStark252BaseFieldParams>;
 
-} // namespace bb::crypto
+} // namespace bb::starknet::crypto

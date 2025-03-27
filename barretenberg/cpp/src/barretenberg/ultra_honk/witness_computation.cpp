@@ -8,11 +8,11 @@
 #include "barretenberg/relations/permutation_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 
 namespace bb {
 

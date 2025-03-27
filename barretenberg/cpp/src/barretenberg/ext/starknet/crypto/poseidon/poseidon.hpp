@@ -4,13 +4,13 @@
 #include "poseidon_permutation.hpp"
 #include "barretenberg/crypto/poseidon2/sponge/sponge.hpp"
 
-namespace bb::crypto {
+namespace bb::starknet::crypto {
 
 template <typename Params> class Poseidon {
   public:
     using FF = typename Params::FF;
 
-    using Sponge = FieldSponge<FF, Params::t - 1, 1, Params::t, PoseidonPermutation<Params>>;
+    using Sponge = bb::crypto::FieldSponge<FF, Params::t - 1, 1, Params::t, PoseidonPermutation<Params>>;
 
     static FF hash(const std::vector<FF>& input);
 
@@ -19,4 +19,4 @@ template <typename Params> class Poseidon {
 
 extern template class Poseidon<PoseidonStark252BaseFieldParams>;
 
-} // namespace bb::crypto
+} // namespace bb::starknet::crypto

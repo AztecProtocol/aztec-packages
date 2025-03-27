@@ -9,10 +9,10 @@
 #include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
-#include "barretenberg/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 #include "barretenberg/sumcheck/zk_sumcheck_data.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
+#include "barretenberg/ext/starknet/stdlib_circuit_builders/ultra_starknet_zk_flavor.hpp"
 
 #include <array>
 #include <vector>

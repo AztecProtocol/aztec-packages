@@ -1,9 +1,9 @@
 #include "poseidon_permutation.hpp"
-#include "barretenberg/crypto/poseidon/poseidon_params.hpp"
-#include "barretenberg/ecc/curves/stark252/stark252.hpp"
+#include "poseidon_params.hpp"
+#include "barretenberg/ext/starknet/ecc/curves/stark252/stark252.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb;
+using namespace bb::starknet;
 
 namespace {
 auto& engine = numeric::get_debug_randomness();

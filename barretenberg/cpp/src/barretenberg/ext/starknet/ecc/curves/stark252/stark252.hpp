@@ -2,7 +2,8 @@
 
 #include "barretenberg/ecc/fields/field.hpp"
 
-namespace bb::stark252 {
+namespace bb::starknet::stark252 {
+
 struct FqParams {
     static constexpr uint64_t modulus_0 = 0x0000000000000001ULL;
     static constexpr uint64_t modulus_1 = 0x0000000000000000ULL;
@@ -32,5 +33,7 @@ struct FqParams {
     static constexpr uint64_t r_squared_wasm_2 = 0xfffffffdbe000000ULL;
     static constexpr uint64_t r_squared_wasm_3 = 0x0752ad7802200010ULL;
 };
+
 using fq = field<FqParams>;
-} // namespace bb::stark252
+
+} // namespace bb::starknet::stark252

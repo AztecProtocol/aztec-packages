@@ -1,12 +1,12 @@
 #pragma once
 
-#include "barretenberg/ecc/curves/stark252/stark252.hpp"
+#include "barretenberg/ext/starknet/ecc/curves/stark252/stark252.hpp"
 
-namespace bb::crypto {
+namespace bb::starknet::crypto {
 
 struct PoseidonStark252BaseFieldParams {
 
-    using FF = bb::stark252::fq;
+    using FF = bb::starknet::stark252::fq;
     static constexpr size_t t = 3;
     static constexpr size_t d = 3;
     static constexpr size_t rounds_f = 8;
@@ -505,4 +505,5 @@ struct PoseidonStark252BaseFieldParams {
         FF(std::string("0x05c6798b795dabcf3dee9ae895a0a48b98458b78c7f7885959261ddd251606f5")),
     };
 };
-} // namespace bb::crypto
+
+} // namespace bb::starknet::crypto

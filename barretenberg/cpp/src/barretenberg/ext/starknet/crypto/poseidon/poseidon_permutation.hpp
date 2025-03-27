@@ -4,7 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 
-namespace bb::crypto {
+namespace bb::starknet::crypto {
 
 template <typename Params> class PoseidonPermutation {
   public:
@@ -84,4 +84,5 @@ template <typename Params> class PoseidonPermutation {
         return current_state;
     }
 };
-} // namespace bb::crypto
+
+} // namespace bb::starknet::crypto
