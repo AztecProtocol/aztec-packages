@@ -146,6 +146,10 @@ tests:
     error_regex: "Exceeded timeout of 120000"
     owners:
       - *sean
+  - regex: "p2p/src/testbench/port_change.test.ts"
+    error_regex: "Timeout waiting for worker"
+    owners:
+      - *sean
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - *lasse
