@@ -675,9 +675,11 @@ async function verifyProofInternal(
   logger.debug(`public inputs path: ${publicInputsFullPath}`);
   try {
     let args;
-    if (command == 'verify')
+    if (command == 'verify') {
       args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
-    else args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    } else {
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    }
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {

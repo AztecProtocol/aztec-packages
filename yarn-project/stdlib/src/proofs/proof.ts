@@ -1,6 +1,5 @@
 import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
-import { logger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
@@ -70,6 +69,10 @@ export class Proof {
 
   // This function assumes that the proof will contain an aggregation object
   public extractPublicInputs(): Fr[] {
+    if (this.isEmpty()) {
+      // return array of this.numPublicInputs 0s
+      return new Array(this.numPublicInputs).fill(Fr.zero());
+    }
     const reader = BufferReader.asReader(
       this.buffer.subarray(
         this.metadataOffset,
@@ -83,6 +86,10 @@ export class Proof {
   }
 
   public extractAggregationObject(): Fr[] {
+    if (this.isEmpty()) {
+      // return array of 16 0s
+      return new Array(16).fill(Fr.zero());
+    }
     const reader = BufferReader.asReader(
       this.buffer.subarray(
         this.metadataOffset +
