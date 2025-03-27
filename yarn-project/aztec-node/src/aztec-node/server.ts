@@ -1,4 +1,4 @@
-import { createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
@@ -86,6 +86,8 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
+import { trySnapshotSync } from '../actions/snapshot-sync.js';
+import { uploadSnapshot } from '../actions/upload-snapshot.js';
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
 import { type AztecNodeConfig, getPackageVersion } from './config.js';
@@ -97,6 +99,9 @@ import { NodeMetrics } from './node_metrics.js';
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private packageVersion: string;
   private metrics: NodeMetrics;
+
+  // Prevent two snapshot operations to happen simultaneously
+  private isUploadingSnapshot = false;
 
   // Serial queue to ensure that we only send one tx at a time
   private txQueue: SerialQueue = new SerialQueue();
@@ -161,12 +166,16 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
-    //validate that the actual chain id matches that specified in configuration
+
+    // validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
         `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
       );
     }
+
+    // attempt fast sync if needed
+    await trySnapshotSync(config, log);
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
@@ -989,6 +998,43 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
   public getValidatorsStats(): Promise<ValidatorsStats> {
     return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
+  }
+
+  public async startSnapshotUpload(location: string): Promise<void> {
+    // Note that we are forcefully casting the blocksource as an archiver
+    // We break support for archiver running remotely to the node
+    const archiver = this.blockSource as Archiver;
+    if (!('backupTo' in archiver)) {
+      throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
+    }
+
+    // Test that the archiver has done an initial sync.
+    if (!archiver.isInitialSyncComplete()) {
+      throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
+    }
+
+    // And it has an L2 block hash
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
+    if (!l2BlockHash) {
+      throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
+    }
+
+    if (this.isUploadingSnapshot) {
+      throw new Error(`Snapshot upload already in progress. Cannot start another one until complete.`);
+    }
+
+    // Do not wait for the upload to be complete to return to the caller, but flag that an operation is in progress
+    this.isUploadingSnapshot = true;
+    void uploadSnapshot(location, this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log)
+      .then(() => {
+        this.isUploadingSnapshot = false;
+      })
+      .catch(err => {
+        this.isUploadingSnapshot = false;
+        this.log.error(`Error uploading snapshot: ${err}`);
+      });
+
+    return Promise.resolve();
   }
 
   /**
