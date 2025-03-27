@@ -2,13 +2,15 @@ import { TextEncoder } from 'util';
 
 import { Ecdsa } from './index.js';
 
-describe('ecdsa', () => {
-  let ecdsa!: Ecdsa;
+describe('ECDSA over the secp256k1 curve', () => {
+  ECDSATestSuite(new Ecdsa('secp256k1'));
+});
 
-  beforeAll(() => {
-    ecdsa = new Ecdsa();
-  });
+describe('ECDSA over the secp256r1 curve', () => {
+  ECDSATestSuite(new Ecdsa('secp256r1'));
+});
 
+function ECDSATestSuite(ecdsa: Ecdsa) {
   it('should verify signature', async () => {
     // prettier-ignore
     const privateKey = Buffer.from([
@@ -57,4 +59,4 @@ describe('ecdsa', () => {
     expect(recoveredPubKey).toEqual(pubKey);
     expect(verified).toBe(true);
   });
-});
+}

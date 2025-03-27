@@ -8,3 +8,10 @@ namespace execution;
     
     pol commit is_static;
     is_static * (1 - is_static) = 0;
+
+    pol commit parent_calldata_offset_addr;
+    pol commit parent_calldata_size_addr;
+
+    pol commit last_child_returndata_offset_addr;
+    pol commit last_child_returndata_size_addr;
+    pol commit last_child_success; // Careful with this for now...

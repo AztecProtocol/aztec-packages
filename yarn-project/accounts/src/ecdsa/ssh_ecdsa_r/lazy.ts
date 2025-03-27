@@ -8,28 +8,11 @@ import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
 import { Fr } from '@aztec/foundation/fields';
 import type { ContractArtifact } from '@aztec/stdlib/abi';
-import { loadContractArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 
+import { getEcdsaRAccountContractArtifact } from '../ecdsa_r/lazy.js';
 import { EcdsaRSSHBaseAccountContract } from './account_contract.js';
-
-/*
- * Lazily loads the contract artifact
- * @returns The contract artifact for the ecdsa R account contract
- */
-/**
- *
- */
-export async function getEcdsaRAccountContractArtifact() {
-  // Cannot assert this import as it's incompatible with browsers
-  // https://caniuse.com/mdn-javascript_statements_import_import_assertions_type_json
-  // Use the new "with" syntax once supported by firefox
-  // https://caniuse.com/mdn-javascript_statements_import_import_attributes_type_json
-  // In the meantime, this lazy import is INCOMPATIBLE WITH NODEJS
-  const { default: ecdsaKAccountContractJson } = await import('../../../artifacts/EcdsaRAccount.json');
-  return loadContractArtifact(ecdsaKAccountContractJson);
-}
 
 /**
  * Account contract that authenticates transactions using ECDSA signatures

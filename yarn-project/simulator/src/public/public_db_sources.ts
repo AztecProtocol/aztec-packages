@@ -437,6 +437,9 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
   public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+
     this.logger.debug(`[DB] Fetched L1 to L2 message leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -448,6 +451,9 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
   public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+
     this.logger.debug(`[DB] Fetched note hash leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -458,7 +464,16 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
-    const index = (await this.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
+    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!lowLeafResult) {
+      throw new Error('Low leaf not found');
+    }
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    const index = lowLeafResult.alreadyPresent ? lowLeafResult.index : undefined;
+
     this.logger.debug(`[DB] Fetched nullifier index`, {
       eventName: 'public-db-access',
       duration: timer.ms(),

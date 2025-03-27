@@ -62,7 +62,9 @@ import {
   AvmContractInstanceHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
+  AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
+  AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
   RevertCode,
@@ -142,7 +144,7 @@ import { PublicTubeData } from '../rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
@@ -989,6 +991,15 @@ export function makePublicDataTreeLeaf(seed = 0): PublicDataTreeLeaf {
 }
 
 /**
+ * Makes arbitrary nullifier leaf.
+ * @param seed - The seed to use for generating the nullifier leaf.
+ * @returns A nullifier leaf.
+ */
+export function makeNullifierLeaf(seed = 0): NullifierLeaf {
+  return new NullifierLeaf(new Fr(seed));
+}
+
+/**
  * Makes arbitrary public data tree leaf preimages.
  * @param seed - The seed to use for generating the public data tree leaf preimage.
  * @returns A public data tree leaf preimage.
@@ -1295,6 +1306,29 @@ export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPr
   );
 }
 
+export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPreimageHintNullifierTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintNullifierTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leaf=*/ makeNullifierLeaf(seed + 3),
+    /*nextIndex=*/ index + 1n,
+    /*nextValue*/ new Fr(seed + 0x500),
+  );
+}
+
+export function makeAvmGetLeafValueHint(seed = 0): AvmGetLeafValueHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafValueHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    /*value=*/ new Fr(seed + 3),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1361,11 +1395,13 @@ export async function makeAvmExecutionHints(
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
-    getLeafPreimageHintPublicDataTrees: makeArray(
+    getLeafPreimageHintPublicDataTree: makeArray(
       baseLength + 5,
       makeAvmGetLeafPreimageHintPublicDataTree,
       seed + 0x4f00,
     ),
+    getLeafPreimageHintNullifierTree: makeArray(baseLength + 5, makeAvmGetLeafPreimageHintNullifierTree, seed + 0x5100),
+    getLeafValueHints: makeArray(baseLength + 5, makeAvmGetLeafValueHint, seed + 0x5300),
     ...overrides,
   };
 
@@ -1376,7 +1412,9 @@ export async function makeAvmExecutionHints(
     fields.bytecodeCommitments,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
-    fields.getLeafPreimageHintPublicDataTrees,
+    fields.getLeafPreimageHintPublicDataTree,
+    fields.getLeafPreimageHintNullifierTree,
+    fields.getLeafValueHints,
   );
 }
 
