@@ -27,11 +27,6 @@ function build_and_preview {
   if cache_download docs-$hash.tar.gz; then
     return
   fi
-  rm -rf \
-    processed-docs \
-    processed-docs-cache \
-    docs/reference/developer_references/aztecjs \
-    docs/reference/developer_references/smart_contract_reference/aztec-nr
   npm_install_deps
   denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
