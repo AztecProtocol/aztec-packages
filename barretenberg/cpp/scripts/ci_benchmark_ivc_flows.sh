@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-if [ $# -ne 2 ]; then
-  echo "Usage: $0 <input_folder> <output_folder>"
+if [ $# -ne 2 || $# -ne 3 ]; then
+  echo "Usage: $0 <input_folder> <output_folder> <max_jobs?>"
   exit 1
 fi
 export input_folder="$1"
@@ -79,7 +79,11 @@ function run_benchmark {
 export -f verify_ivc_flow client_ivc_flow run_benchmark
 
 num_cpus=$(get_num_cpus)
-jobs=$((num_cpus / HARDWARE_CONCURRENCY))
+max_jobs=$((num_cpus / HARDWARE_CONCURRENCY))
+jobs=${3:-$max_jobs}
+jobs=$(( $jobs < $max_jobs ? $jobs : $max_jobs ))
+echo "Using $jobs jobs."
+
 
 # Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
 parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: $(ls "$input_folder")

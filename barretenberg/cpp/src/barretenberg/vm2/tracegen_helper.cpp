@@ -81,6 +81,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_to_radix_safe_limbs(trace));
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
                            precomputed_builder.process_to_radix_p_decompositions(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
+                           precomputed_builder.process_memory_tag_range(trace));
         },
     };
 }
@@ -311,6 +313,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_tag_value_validation_settings>>(),
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>(),
             // Class Id Derivation
             std::make_unique<
@@ -353,7 +356,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_lo_range_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>(),
             // Merkle checks
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_settings>>());
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
