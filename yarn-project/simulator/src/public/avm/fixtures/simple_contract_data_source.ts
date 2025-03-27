@@ -22,8 +22,8 @@ export class SimpleContractDataSource implements ContractDataSource {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
   // maps contract instance address to address
   private contractArtifacts: Map<string, ContractArtifact> = new Map();
-  // maps contract class ID & function selector to name
-  private debugFunctionName: Map<string, Map<string, string>> = new Map();
+  // maps `${classID}:${fnSelector}` to name
+  private debugFunctionName: Map<string, string> = new Map();
 
   /////////////////////////////////////////////////////////////
   // Helper functions not in the contract data source interface
@@ -46,14 +46,14 @@ export class SimpleContractDataSource implements ContractDataSource {
     const classIdStr = classId.toString();
     const publicFns = artifact.nonDispatchPublicFunctions;
     if (publicFns.length !== 0) {
-      const fnSelectorsToNames = new Map<string, string>();
       for (const fn of publicFns) {
         const actualFnName = `${fn.name}`;
         const fnSelector = await getFunctionSelector(actualFnName, artifact);
+        const key = `${classIdStr}:${fnSelector.toString()}`;
+
         const longFnName = `${artifact.name}.${actualFnName}`;
-        fnSelectorsToNames.set(fnSelector.toString(), longFnName);
+        this.debugFunctionName.set(key, longFnName);
       }
-      this.debugFunctionName.set(classIdStr, fnSelectorsToNames);
     }
   }
 
@@ -102,7 +102,8 @@ export class SimpleContractDataSource implements ContractDataSource {
       );
       return `selector:${selector.toString()}`;
     }
-    const fnName = this.#getDebugFunctionName(contractInstance.currentContractClassId, selector);
+    const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
+    const fnName = this.debugFunctionName.get(key);
     if (!fnName) {
       this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
       return selector.toString();
