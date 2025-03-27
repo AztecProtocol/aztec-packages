@@ -383,12 +383,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     );
 
     const recursiveProof = makeRecursiveProofFromBinary(proof, NESTED_RECURSIVE_PROOF_LENGTH);
-    recursiveProof.binaryProof.numPublicInputs += AGGREGATION_OBJECT_LENGTH;
 
     const verificationKey = this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
     await this.verifyProof('RootRollupArtifact', proof);
-
+    // HACK: add the length of the aggregation object back to the number of public inputs
+    recursiveProof.binaryProof.numPublicInputs += AGGREGATION_OBJECT_LENGTH;
     return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
 
