@@ -57,9 +57,12 @@ pol commit bytes_rem_min_one_inv;
 #[BC_DEC_LAST_CONTRACT_BYTES_REM_ONE]
 sel * ((bytes_remaining - 1) * (last_of_contract * (1 - bytes_rem_min_one_inv) + bytes_rem_min_one_inv) + last_of_contract - 1) = 0;
 
+// The following alias is a boolean because last_of_contract == 1 ==> sel == 1 ==> first_row == 0 (sel' is defined)
+pol FIRST_OR_LAST_CONTRACT = precomputed.first_row + last_of_contract;
+
 // Initialization of pc per bytecode to zero
 #[BC_DEC_PC_ZERO_INITIALIZATION]
-(precomputed.first_row + last_of_contract) * pc' = 0;
+FIRST_OR_LAST_CONTRACT * pc' = 0;
 
 // pc evolution (increment within bytecode)
 #[BC_DEC_PC_INCREMENT]
@@ -73,7 +76,7 @@ sel * (1 - last_of_contract) * (bytes_remaining' - bytes_remaining + 1) = 0;
 // for a given instruction (pair [pc, bytecode_id]). Otherwise, instruction fetching might
 // be misled to copy the wrong instruction from this subtrace.
 #[BC_DEC_ID_CONSTANT]
-(1 - last_of_contract) * (id' - id) = 0;
+(1 - FIRST_OR_LAST_CONTRACT) * (id' - id) = 0;
 
 #[BC_DEC_ID_INCREMENT]
 sel' * last_of_contract * (id' - id - 1) = 0;
@@ -166,42 +169,42 @@ sel * ((1 - sel_overflow_correction_needed) * (bytes_to_read - WINDOW_SIZE) + se
 // add garbage values beyond the end of the bytecode. This is not strictly necessary
 // but this property comes at no additional cost.
 
-bytes_pc_plus_1 = (1 - last_of_contract) * bytes';
-bytes_pc_plus_2 = (1 - last_of_contract) * bytes_pc_plus_1';
-bytes_pc_plus_3 = (1 - last_of_contract) * bytes_pc_plus_2';
-bytes_pc_plus_4 = (1 - last_of_contract) * bytes_pc_plus_3';
-bytes_pc_plus_5 = (1 - last_of_contract) * bytes_pc_plus_4';
-bytes_pc_plus_6 = (1 - last_of_contract) * bytes_pc_plus_5';
-bytes_pc_plus_7 = (1 - last_of_contract) * bytes_pc_plus_6';
-bytes_pc_plus_8 = (1 - last_of_contract) * bytes_pc_plus_7';
-bytes_pc_plus_9 = (1 - last_of_contract) * bytes_pc_plus_8';
-bytes_pc_plus_10 = (1 - last_of_contract) * bytes_pc_plus_9';
-bytes_pc_plus_11 = (1 - last_of_contract) * bytes_pc_plus_10';
-bytes_pc_plus_12 = (1 - last_of_contract) * bytes_pc_plus_11';
-bytes_pc_plus_13 = (1 - last_of_contract) * bytes_pc_plus_12';
-bytes_pc_plus_14 = (1 - last_of_contract) * bytes_pc_plus_13';
-bytes_pc_plus_15 = (1 - last_of_contract) * bytes_pc_plus_14';
-bytes_pc_plus_16 = (1 - last_of_contract) * bytes_pc_plus_15';
-bytes_pc_plus_17 = (1 - last_of_contract) * bytes_pc_plus_16';
-bytes_pc_plus_18 = (1 - last_of_contract) * bytes_pc_plus_17';
-bytes_pc_plus_19 = (1 - last_of_contract) * bytes_pc_plus_18';
-bytes_pc_plus_20 = (1 - last_of_contract) * bytes_pc_plus_19';
-bytes_pc_plus_21 = (1 - last_of_contract) * bytes_pc_plus_20';
-bytes_pc_plus_22 = (1 - last_of_contract) * bytes_pc_plus_21';
-bytes_pc_plus_23 = (1 - last_of_contract) * bytes_pc_plus_22';
-bytes_pc_plus_24 = (1 - last_of_contract) * bytes_pc_plus_23';
-bytes_pc_plus_25 = (1 - last_of_contract) * bytes_pc_plus_24';
-bytes_pc_plus_26 = (1 - last_of_contract) * bytes_pc_plus_25';
-bytes_pc_plus_27 = (1 - last_of_contract) * bytes_pc_plus_26';
-bytes_pc_plus_28 = (1 - last_of_contract) * bytes_pc_plus_27';
-bytes_pc_plus_29 = (1 - last_of_contract) * bytes_pc_plus_28';
-bytes_pc_plus_30 = (1 - last_of_contract) * bytes_pc_plus_29';
-bytes_pc_plus_31 = (1 - last_of_contract) * bytes_pc_plus_30';
-bytes_pc_plus_32 = (1 - last_of_contract) * bytes_pc_plus_31';
-bytes_pc_plus_33 = (1 - last_of_contract) * bytes_pc_plus_32';
-bytes_pc_plus_34 = (1 - last_of_contract) * bytes_pc_plus_33';
-bytes_pc_plus_35 = (1 - last_of_contract) * bytes_pc_plus_34';
-bytes_pc_plus_36 = (1 - last_of_contract) * bytes_pc_plus_35';
+bytes_pc_plus_1 = (1 - FIRST_OR_LAST_CONTRACT) * bytes';
+bytes_pc_plus_2 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_1';
+bytes_pc_plus_3 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_2';
+bytes_pc_plus_4 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_3';
+bytes_pc_plus_5 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_4';
+bytes_pc_plus_6 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_5';
+bytes_pc_plus_7 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_6';
+bytes_pc_plus_8 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_7';
+bytes_pc_plus_9 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_8';
+bytes_pc_plus_10 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_9';
+bytes_pc_plus_11 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_10';
+bytes_pc_plus_12 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_11';
+bytes_pc_plus_13 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_12';
+bytes_pc_plus_14 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_13';
+bytes_pc_plus_15 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_14';
+bytes_pc_plus_16 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_15';
+bytes_pc_plus_17 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_16';
+bytes_pc_plus_18 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_17';
+bytes_pc_plus_19 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_18';
+bytes_pc_plus_20 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_19';
+bytes_pc_plus_21 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_20';
+bytes_pc_plus_22 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_21';
+bytes_pc_plus_23 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_22';
+bytes_pc_plus_24 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_23';
+bytes_pc_plus_25 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_24';
+bytes_pc_plus_26 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_25';
+bytes_pc_plus_27 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_26';
+bytes_pc_plus_28 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_27';
+bytes_pc_plus_29 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_28';
+bytes_pc_plus_30 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_29';
+bytes_pc_plus_31 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_30';
+bytes_pc_plus_32 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_31';
+bytes_pc_plus_33 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_32';
+bytes_pc_plus_34 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_33';
+bytes_pc_plus_35 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_34';
+bytes_pc_plus_36 = (1 - FIRST_OR_LAST_CONTRACT) * bytes_pc_plus_35';
 
 // For bytecode hashing, we need to re-pack 31 bytes at some PCs into a field.
 // We will have a selector for the PCs that are packed. This only needs to happen

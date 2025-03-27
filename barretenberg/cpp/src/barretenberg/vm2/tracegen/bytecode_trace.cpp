@@ -24,9 +24,6 @@ void BytecodeTraceBuilder::process_decomposition(
 {
     using C = Column;
 
-    // Adding this separator on first row is necessary to satisfy relations related to bytes_pc_plus_XXX values.
-    trace.set(C::bc_decomposition_last_of_contract, 0, 1);
-
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
 
