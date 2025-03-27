@@ -191,8 +191,7 @@ describe('PXEOracleInterface', () => {
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
-    // TODO(benesjan): Re-enable this. Does it even make sense to have sender indexes be directional?
-    it.skip('should sync tagged logs as senders', async () => {
+    it('should sync tagged logs as senders', async () => {
       for (const sender of senders) {
         await addressDataProvider.addCompleteAddress(sender.completeAddress);
         await keyStore.addAccount(sender.secretKey, sender.completeAddress.partialAddress);
@@ -203,21 +202,25 @@ describe('PXEOracleInterface', () => {
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      // An array of direction-less secrets for each sender-recipient pair
       const secrets = await Promise.all(
         senders.map(sender =>
           computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
         ),
       );
 
+      // We only get the tagging secret at index `index` for each sender because each sender only needs to track
+      // their own tagging secret with the recipient. The secrets array contains all sender-recipient pairs, so
+      // secrets[index] corresponds to the tagging secret between sender[index] and the recipient.
       const getTaggingSecretsIndexesAsSenderForSenders = () =>
         Promise.all(
-          senders.map(sender =>
-            taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets, sender.completeAddress.address),
+          senders.map((sender, index) =>
+            taggingDataProvider.getTaggingSecretsIndexesAsSender([secrets[index]], sender.completeAddress.address),
           ),
         );
 
       const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      expect(indexesAsSender).toStrictEqual([[0], [0], [0], [0], [0], [0], [0], [0], [0], [0]]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
@@ -230,7 +233,7 @@ describe('PXEOracleInterface', () => {
       }
 
       let indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([[1], [1], [1], [1], [1], [2], [2], [2], [2], [2]]);
 
       // Only 1 window is obtained for each sender
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
@@ -249,7 +252,7 @@ describe('PXEOracleInterface', () => {
       }
 
       indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
-      expect(indexesAsSenderAfterSync).toStrictEqual([12, 12, 12, 12, 12, 13, 13, 13, 13, 13]);
+      expect(indexesAsSenderAfterSync).toStrictEqual([[12], [12], [12], [12], [12], [13], [13], [13], [13], [13]]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
