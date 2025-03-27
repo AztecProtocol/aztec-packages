@@ -48,6 +48,7 @@ namespace public_data_read;
     pol commit slot_low_leaf_slot_diff_inv;
     pol SLOT_LOW_LEAF_SLOT_DIFF = slot - low_leaf_slot;
 
+    #[EXISTS_FLAG_CHECK]
     sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - slot_low_leaf_slot_diff_inv) + slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0;
 
     // If doesn't exist, we need to validate that the slot is greater than the low leaf slot
@@ -66,6 +67,7 @@ namespace public_data_read;
     pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
 
     pol commit next_slot_inv;
+    #[NEXT_SLOT_IS_ZERO_CHECK]
     leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) + next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0;
 
     #[LOW_LEAF_NEXT_SLOT_VALIDATION]
@@ -74,4 +76,5 @@ namespace public_data_read;
 
     // ========= VALUE VALIDATION =========
     // value = LEAF_EXISTS ? low_leaf_value : 0
+    #[VALUE_IS_CORRECT]
     low_leaf_value * LEAF_EXISTS - value = 0;
