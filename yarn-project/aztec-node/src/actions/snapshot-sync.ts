@@ -12,7 +12,7 @@ import { tryRmDir } from '@aztec/foundation/fs';
 import type { Logger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { DatabaseVersionManager } from '@aztec/stdlib/database-version';
-import { type FileStore, createFileStore } from '@aztec/stdlib/file-store';
+import { type ReadOnlyFileStore, createReadOnlyFileStore } from '@aztec/stdlib/file-store';
 import {
   type SnapshotMetadata,
   type SnapshotsIndexMetadata,
@@ -62,9 +62,9 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
       return false;
     }
 
-    let fileStore: FileStore;
+    let fileStore: ReadOnlyFileStore;
     try {
-      fileStore = await createFileStore(snapshotsUrl);
+      fileStore = await createReadOnlyFileStore(snapshotsUrl, log);
     } catch (err) {
       log.error(`Invalid config for downloading snapshots`, err);
       return false;

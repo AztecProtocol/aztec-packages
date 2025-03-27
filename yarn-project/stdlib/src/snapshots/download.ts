@@ -1,6 +1,6 @@
 import { fromEntries, getEntries } from '@aztec/foundation/collection';
 import { jsonParseWithSchemaSync } from '@aztec/foundation/json-rpc';
-import type { FileStore } from '@aztec/stdlib/file-store';
+import type { ReadOnlyFileStore } from '@aztec/stdlib/file-store';
 
 import { join } from 'path';
 
@@ -15,7 +15,7 @@ import {
 
 export async function getSnapshotIndex(
   metadata: SnapshotsIndexMetadata,
-  store: FileStore,
+  store: ReadOnlyFileStore,
 ): Promise<SnapshotsIndex | undefined> {
   const basePath = getBasePath(metadata);
   const snapshotIndexPath = `${basePath}/index.json`;
@@ -33,7 +33,7 @@ export async function getSnapshotIndex(
 
 export async function getLatestSnapshotMetadata(
   metadata: SnapshotsIndexMetadata,
-  store: FileStore,
+  store: ReadOnlyFileStore,
 ): Promise<SnapshotMetadata | undefined> {
   const snapshotsIndex = await getSnapshotIndex(metadata, store);
   return snapshotsIndex?.snapshots.sort((a, b) => b.l1BlockNumber - a.l1BlockNumber)[0];
@@ -54,7 +54,7 @@ export function makeSnapshotLocalPaths(baseDir: string): SnapshotDataUrls {
 export async function downloadSnapshot(
   snapshot: Pick<SnapshotMetadata, 'dataUrls'>,
   localPaths: Record<SnapshotDataKeys, string>,
-  store: FileStore,
+  store: ReadOnlyFileStore,
 ): Promise<void> {
   await Promise.all(getEntries(localPaths).map(([key, path]) => store.download(snapshot.dataUrls[key], path)));
 }

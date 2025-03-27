@@ -1,10 +1,15 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import { GoogleCloudFileStore } from './gcs.js';
-import type { FileStore } from './interface.js';
+import { HttpFileStore } from './http.js';
+import type { FileStore, ReadOnlyFileStore } from './interface.js';
 import { LocalFileStore } from './local.js';
 
-const supportedExamples = [`gs://bucket-name/path/to/store`, `file:///absolute/local/path/to/store`];
+const supportedExamples = [
+  `gs://bucket-name/path/to/store`,
+  `file:///absolute/local/path/to/store`,
+  `https://host/path`,
+];
 
 export async function createFileStore(config: string, logger?: Logger): Promise<FileStore>;
 export async function createFileStore(config: undefined, logger?: Logger): Promise<undefined>;
@@ -36,5 +41,21 @@ export async function createFileStore(
     }
   } else {
     throw new Error(`Unknown file store config: '${config}'. Supported values are ${supportedExamples.join(', ')}.`);
+  }
+}
+
+export async function createReadOnlyFileStore(config: string, logger?: Logger): Promise<ReadOnlyFileStore>;
+export async function createReadOnlyFileStore(config: undefined, logger?: Logger): Promise<undefined>;
+export async function createReadOnlyFileStore(
+  config: string | undefined,
+  logger = createLogger('stdlib:file-store'),
+): Promise<ReadOnlyFileStore | undefined> {
+  if (config === undefined) {
+    return undefined;
+  } else if (config.startsWith('http://') || config.startsWith('https://')) {
+    logger.info(`Creating read-only HTTP file store at ${config}`);
+    return new HttpFileStore(logger);
+  } else {
+    return await createFileStore(config, logger);
   }
 }
