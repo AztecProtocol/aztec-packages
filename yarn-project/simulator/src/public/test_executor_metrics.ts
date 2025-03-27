@@ -1,4 +1,5 @@
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import type { RevertCode } from '@aztec/stdlib/avm';
 
 import { strict as assert } from 'assert';
 
@@ -20,6 +21,7 @@ export interface PublicTxMetrics {
   nonRevertiblePrivateInsertionsUs: number | undefined;
   revertiblePrivateInsertionsUs: number | undefined;
   enqueuedCalls: PublicEnqueuedCallMetrics[];
+  revertedCode: RevertCode | undefined;
 }
 
 const DECIMALS = 2;
@@ -54,11 +56,12 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
       nonRevertiblePrivateInsertionsUs: undefined,
       revertiblePrivateInsertionsUs: undefined,
       enqueuedCalls: [],
+      revertedCode: undefined,
     });
     this.currentTxLabel = txLabel;
   }
 
-  stopRecordingTxSimulation(txLabel: string, durationMs: number) {
+  stopRecordingTxSimulation(txLabel: string, durationMs: number, revertedCode?: RevertCode) {
     assert(this.currentTxLabel === txLabel, 'Cannot stop recording metrics for tx when another is live');
     const txMetrics = this.txMetrics.get(txLabel)!;
 
@@ -68,6 +71,7 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
     txMetrics.manaUsed = txMetrics.enqueuedCalls.reduce((acc, call) => acc + call.manaUsed, 0);
     // add totalInstructions across all enqueued calls
     txMetrics.totalInstructions = txMetrics.enqueuedCalls.reduce((acc, call) => acc + call.totalInstructions, 0);
+    txMetrics.revertedCode = revertedCode;
 
     this.currentTxLabel = undefined;
   }
@@ -164,6 +168,9 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
         // totals exclude enqueued calls
         this.#printEnqueuedCalls(txMetrics, filter);
       }
+      if (txMetrics.revertedCode !== undefined && !txMetrics.revertedCode.isOK()) {
+        this.log.info(`${TAB}Reverted code: ${txMetrics.revertedCode?.getDescription()}`);
+      }
     }
     this.log.info(separator);
   }
@@ -183,6 +190,9 @@ export class TestExecutorMetrics implements ExecutorMetricsInterface {
 
       if (filter === PublicTxMetricsFilter.INSTRUCTIONS || filter === PublicTxMetricsFilter.ALL) {
         this.log.info(`${TAB}${TAB}${TAB}Instructions executed: ${enqueuedCall.totalInstructions}`);
+      }
+      if (enqueuedCall.reverted) {
+        this.log.info(`${TAB}${TAB}${TAB}Reverted!`);
       }
     }
   }

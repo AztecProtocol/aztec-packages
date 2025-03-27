@@ -1,11 +1,11 @@
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { AMMContractArtifact } from '@aztec/noir-contracts.js/AMM';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
+import { deployToken } from './token_test.js';
 
 const INITIAL_TOKEN_BALANCE = 1_000_000_000n;
 
@@ -13,6 +13,7 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   const startTime = performance.now();
 
   const admin = AztecAddress.fromNumber(42);
+  const sender = AztecAddress.fromNumber(111);
 
   logger.debug(`Deploying tokens`);
   const token0 = await deployToken(tester, admin, /*seed=*/ 0);
@@ -42,6 +43,8 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   );
   expect(ammConstructorResult.revertCode.isOK()).toBe(true);
 
+  logger.debug(`Setting AMM as minter for liquidity token`);
+
   // set the AMM as the minter for the liquidity token
   const setMinterResult = await tester.simulateTxWithLabel(
     /*txLabel=*/ 'set_minter',
@@ -57,10 +60,70 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
   );
   expect(setMinterResult.revertCode.isOK()).toBe(true);
 
-  // AMM must have balance of both tokens to initiate the private portion of add_liquidity.
-  await mint(tester, admin, /*to=*/ amm.address, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
-  await mint(tester, admin, /*to=*/ amm.address, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
+  logger.debug(`Adding liquidity`);
+  const amount0Max = (INITIAL_TOKEN_BALANCE * 6n) / 10n;
+  const amount0Min = (INITIAL_TOKEN_BALANCE * 4n) / 10n;
+  const amount1Max = (INITIAL_TOKEN_BALANCE * 5n) / 10n;
+  const amount1Min = (INITIAL_TOKEN_BALANCE * 4n) / 10n;
 
+  const addLiquidityResult = await addLiquidity(
+    tester,
+    sender,
+    /*amm=*/ amm,
+    /*token0=*/ token0,
+    /*token1=*/ token1,
+    /*liquidityToken=*/ liquidityToken,
+    /*amount0Max=*/ amount0Max,
+    /*amount1Max=*/ amount1Max,
+    /*amount0Min=*/ amount0Min,
+    /*amount1Min=*/ amount1Min,
+  );
+  expect(addLiquidityResult.revertCode.isOK()).toBe(true);
+
+  logger.debug(`Swapping tokens`);
+  const swapResult = await swapExactTokensForTokens(
+    tester,
+    sender,
+    /*amm=*/ amm,
+    /*tokenIn=*/ token0,
+    /*tokenOut=*/ token1,
+    /*amountIn=*/ amount0Min / 10n, // something smaller than total liquidity
+    /*amountOutMin=*/ amount1Min / 100n, // something even smaller
+  );
+  expect(swapResult.revertCode.isOK()).toBe(true);
+
+  logger.debug(`Removing liquidity`);
+  const removeLiquidityResult = await removeLiquidity(
+    tester,
+    sender,
+    /*amm=*/ amm,
+    /*token0=*/ token0,
+    /*token1=*/ token1,
+    /*liquidityToken=*/ liquidityToken,
+    /*liquidity=*/ 100n,
+    /*amount0Min=*/ 1n, // remove some tiny amount
+    /*amount1Min=*/ 1n,
+  );
+  expect(removeLiquidityResult.revertCode.isOK()).toBe(true);
+
+  const endTime = performance.now();
+
+  logger.info(`AMM public tx simulator test took ${endTime - startTime}ms\n`);
+}
+
+async function addLiquidity(
+  tester: PublicTxSimulationTester,
+  sender: AztecAddress,
+  amm: ContractInstanceWithAddress,
+  token0: ContractInstanceWithAddress,
+  token1: ContractInstanceWithAddress,
+  liquidityToken: ContractInstanceWithAddress,
+  amount0Max: bigint,
+  amount1Max: bigint,
+  amount0Min: bigint,
+  amount1Min: bigint,
+  _nonce?: bigint,
+) {
   const refundToken0PartialNote = {
     commitment: new Fr(42),
   };
@@ -71,31 +134,49 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
     commitment: new Fr(99),
   };
 
-  const amount0Max = (INITIAL_TOKEN_BALANCE * 6n) / 10n;
-  const amount0Min = (INITIAL_TOKEN_BALANCE * 4n) / 10n;
-  const amount1Max = (INITIAL_TOKEN_BALANCE * 5n) / 10n;
-  const amount1Min = (INITIAL_TOKEN_BALANCE * 4n) / 10n;
-
-  // Public storage slot for partial notes must be nonzero
-  await tester.setPublicStorage(token0.address, refundToken0PartialNote.commitment, new Fr(1));
-  await tester.setPublicStorage(token1.address, refundToken1PartialNote.commitment, new Fr(1));
-  await tester.setPublicStorage(liquidityToken.address, liquidityPartialNote.commitment, new Fr(1));
-
-  // private function add_liquidity enqueues a few public calls
-  const addLiquidityResult = await tester.simulateTxWithLabel(
+  return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'add_liquidity',
-    /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
+    /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
-      // TODO: add_liquidity enqueues more
-      // token0.transfer_to_public enqueues a _increase_public_balance
-      // token0.prepare_private_balance_increase enqueues a _store_balances_set_partial_note
-      // token1.transfer_to_public enqueues a _increase_public_balance
-      // token1.prepare_private_balance_increase enqueues a _store_balances_set_partial_note
-      // liquidityToken.prepare_private_balance_increase enqueues a _store_balances_set_partial_note
-
-      // _add_liquidity
+      // token0.transfer_to_public enqueues a call to _increase_public_balance
       {
+        sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_increase_public_balance',
+        args: [/*to=*/ amm.address, /*amount=*/ amount0Max],
+        address: token0.address,
+      },
+      // token0.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      {
+        sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_store_balances_set_partial_note',
+        args: [refundToken0PartialNote],
+        address: token0.address,
+      },
+      // token1.transfer_to_public enqueues a call to _increase_public_balance
+      {
+        sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_increase_public_balance',
+        args: [/*to=*/ amm.address, /*amount=*/ amount1Max],
+        address: token1.address,
+      },
+      // token1.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      {
+        sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_store_balances_set_partial_note',
+        args: [refundToken1PartialNote],
+        address: token1.address,
+      },
+      // liquidityToken.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      {
+        sender: liquidityToken.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_store_balances_set_partial_note',
+        args: [liquidityPartialNote],
+        address: liquidityToken.address,
+      },
+      // amm.add_liquidity enqueues a call to _add_liquidity
+      {
+        sender: amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_add_liquidity',
         args: [
           /*config=*/ {
@@ -116,47 +197,100 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
       },
     ],
   );
-  expect(addLiquidityResult.revertCode.isOK()).toBe(true);
+}
 
+async function swapExactTokensForTokens(
+  tester: PublicTxSimulationTester,
+  sender: AztecAddress,
+  amm: ContractInstanceWithAddress,
+  tokenIn: ContractInstanceWithAddress,
+  tokenOut: ContractInstanceWithAddress,
+  amountIn: bigint,
+  amountOutMin: bigint,
+  _nonce?: bigint,
+) {
   const tokenOutPartialNote = {
-    commitment: new Fr(111),
+    commitment: new Fr(66),
   };
-  await tester.setPublicStorage(token1.address, tokenOutPartialNote.commitment, new Fr(1));
 
-  const swapResult = await tester.simulateTxWithLabel(
+  return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'swap_exact_tokens_for_tokens',
-    /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
+    /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
+      // tokenIn.transfer_to_public enqueues a call to _increase_public_balance
       {
+        sender: tokenIn.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_increase_public_balance',
+        args: [/*to=*/ amm.address, /*amount=*/ amountIn],
+        address: tokenIn.address,
+      },
+      // tokenOut.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      {
+        sender: tokenOut.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_store_balances_set_partial_note',
+        args: [tokenOutPartialNote],
+        address: tokenOut.address,
+      },
+
+      {
+        sender: amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_swap_exact_tokens_for_tokens',
-        args: [token0.address, token1.address, amount0Max, amount1Min, tokenOutPartialNote],
+        args: [tokenIn.address, tokenOut.address, amountIn, amountOutMin, tokenOutPartialNote],
         address: amm.address,
       },
     ],
   );
-  expect(swapResult.revertCode.isOK()).toBe(true);
+}
 
-  const liquidity = 100n;
-  // Mimic remove_liquidity's `transfer_to_public` by minting liquidity tokens to the AMM.
-  await mint(tester, admin, /*to=*/ amm.address, /*amount=*/ liquidity, liquidityToken);
-
-  const token0OutPartialNote = {
+async function removeLiquidity(
+  tester: PublicTxSimulationTester,
+  sender: AztecAddress,
+  amm: ContractInstanceWithAddress,
+  token0: ContractInstanceWithAddress,
+  token1: ContractInstanceWithAddress,
+  liquidityToken: ContractInstanceWithAddress,
+  liquidity: bigint,
+  amount0Min: bigint,
+  amount1Min: bigint,
+  _nonce?: bigint,
+) {
+  const token0PartialNote = {
+    commitment: new Fr(111),
+  };
+  const token1PartialNote = {
     commitment: new Fr(222),
   };
-  const token1OutPartialNote = {
-    commitment: new Fr(333),
-  };
-  // Public storage slot for partial notes must be nonzero
-  await tester.setPublicStorage(token0.address, token0OutPartialNote.commitment, new Fr(1));
-  await tester.setPublicStorage(token1.address, token1OutPartialNote.commitment, new Fr(1));
 
-  const removeLiquidityResult = await tester.simulateTxWithLabel(
+  return await tester.simulateTxWithLabel(
     /*txLabel=*/ 'remove_liquidity',
-    /*sender=*/ amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
+    /*sender=*/ sender,
     /*setupCalls=*/ [],
     /*appCalls=*/ [
+      // liquidityToken.transfer_to_public enqueues a call to _increase_public_balance
       {
+        sender: liquidityToken.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_increase_public_balance',
+        args: [/*to=*/ amm.address, /*amount=*/ liquidity],
+        address: liquidityToken.address,
+      },
+      // token0.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      {
+        sender: token0.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_store_balances_set_partial_note',
+        args: [token0PartialNote],
+        address: token0.address,
+      },
+      // token1.prepare_private_balance_increase enqueues a call to _store_balances_set_partial_note
+      {
+        sender: token1.address, // INTERNAL FUNCTION! Sender must be 'this'.
+        fnName: '_store_balances_set_partial_note',
+        args: [token1PartialNote],
+        address: token1.address,
+      },
+      // amm.remove_liquidity enqueues a call to _remove_liquidity
+      {
+        sender: amm.address, // INTERNAL FUNCTION! Sender must be 'this'.
         fnName: '_remove_liquidity',
         args: [
           /*config=*/ {
@@ -166,67 +300,13 @@ export async function ammTest(tester: PublicTxSimulationTester, logger: Logger) 
             liquidity_token: liquidityToken.address,
           },
           liquidity,
-          token0OutPartialNote,
-          token1OutPartialNote,
-          /*amount0Min=*/ 1n,
-          /*amount1Min=*/ 1n,
+          token0PartialNote,
+          token1PartialNote,
+          amount0Min,
+          amount1Min,
         ],
         address: amm.address,
       },
     ],
   );
-  expect(removeLiquidityResult.revertCode.isOK()).toBe(true);
-
-  const endTime = performance.now();
-
-  logger.info(`AMM public tx simulator test took ${endTime - startTime}ms\n`);
-}
-
-async function deployToken(tester: PublicTxSimulationTester, admin: AztecAddress, seed = 0) {
-  const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
-  const token = await tester.registerAndDeployContract(
-    constructorArgs,
-    /*deployer=*/ admin,
-    TokenContractArtifact,
-    /*skipNullifierInsertion=*/ false,
-    seed,
-  );
-
-  const result = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'constructor',
-    /*sender=*/ admin,
-    /*setupCalls=*/ [],
-    /*appCalls=*/ [
-      {
-        fnName: 'constructor',
-        args: constructorArgs,
-        address: token.address,
-      },
-    ],
-  );
-  expect(result.revertCode.isOK()).toBe(true);
-  return token;
-}
-
-async function mint(
-  tester: PublicTxSimulationTester,
-  admin: AztecAddress,
-  to: AztecAddress,
-  amount: bigint,
-  token: ContractInstanceWithAddress,
-) {
-  const result = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'mint_to_public',
-    /*sender=*/ admin,
-    /*setupCalls=*/ [],
-    /*appCalls=*/ [
-      {
-        fnName: 'mint_to_public',
-        args: [to, amount],
-        address: token.address,
-      },
-    ],
-  );
-  expect(result.revertCode.isOK()).toBe(true);
-  return token;
 }

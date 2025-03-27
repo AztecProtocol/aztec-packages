@@ -9,6 +9,7 @@ import { PublicCallRequest } from '@aztec/stdlib/kernel';
 import { GlobalVariables, PublicCallRequestWithCalldata, type Tx } from '@aztec/stdlib/tx';
 import { NativeWorldStateService } from '@aztec/world-state';
 
+import { resolveAssertionMessageFromRevertData } from '../../client.js';
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
 import { DEFAULT_BLOCK_NUMBER, getContractFunctionAbi, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
@@ -22,6 +23,7 @@ const TIMESTAMP = new Fr(99833);
 const DEFAULT_GAS_FEES = new GasFees(2, 3);
 
 export type TestEnqueuedCall = {
+  sender?: AztecAddress;
   address: AztecAddress;
   fnName: string;
   args: any[];
@@ -82,10 +84,14 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     /* need some unique first nullifier for note-nonce computations */
     firstNullifier = new Fr(420000 + this.txCount++),
   ): Promise<Tx> {
-    const setupCallRequests = await asyncMap(setupCalls, call => this.#createPubicCallRequestForCall(call, sender));
-    const appCallRequests = await asyncMap(appCalls, call => this.#createPubicCallRequestForCall(call, sender));
+    const setupCallRequests = await asyncMap(setupCalls, call =>
+      this.#createPubicCallRequestForCall(call, call.sender ?? sender),
+    );
+    const appCallRequests = await asyncMap(appCalls, call =>
+      this.#createPubicCallRequestForCall(call, call.sender ?? sender),
+    );
     const teardownCallRequest = teardownCall
-      ? await this.#createPubicCallRequestForCall(teardownCall, sender)
+      ? await this.#createPubicCallRequestForCall(teardownCall, teardownCall.sender ?? sender)
       : undefined;
 
     return createTxForPublicCalls(firstNullifier, setupCallRequests, appCallRequests, teardownCallRequest, feePayer);
@@ -111,12 +117,23 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
 
     const timer = new Timer();
 
-    let avmResult: PublicTxResult;
+    let avmResult: PublicTxResult | undefined;
     try {
       avmResult = await this.simulator.simulate(tx);
     } finally {
-      this.metrics.stopRecordingTxSimulation(fullTxLabel, timer.ms());
+      this.metrics.stopRecordingTxSimulation(fullTxLabel, timer.ms(), avmResult?.revertCode);
     }
+    // Something like this is often useful for debugging:
+    //if (avmResult.revertReason) {
+    //  // resolve / enrich revert reason
+    //  const lastAppCall = appCalls[appCalls.length - 1];
+
+    //  const contractArtifact =
+    //    lastAppCall.contractArtifact || (await this.contractDataSource.getContractArtifact(lastAppCall.address));
+    //  const fnAbi = getContractFunctionAbi(lastAppCall.fnName, contractArtifact!);
+    //  const revertReason = resolveAssertionMessageFromRevertData(avmResult.revertReason.revertData, fnAbi!);
+    //  this.logger.debug(`Revert reason: ${revertReason}`);
+    //}
 
     this.logger.debug(`Public transaction simulation took ${timer.ms()}ms`);
 

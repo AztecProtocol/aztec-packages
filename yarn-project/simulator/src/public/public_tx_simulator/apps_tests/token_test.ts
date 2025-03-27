@@ -5,7 +5,6 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 import { PublicTxSimulationTester } from '../../fixtures/public_tx_simulation_tester.js';
-import type { PublicTxResult } from '../../index.js';
 
 export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger) {
   const startTime = performance.now();
@@ -14,22 +13,7 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   const sender = AztecAddress.fromNumber(111);
   const receiver = AztecAddress.fromNumber(222);
 
-  const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
-  const token = await tester.registerAndDeployContract(constructorArgs, /*deployer=*/ admin, TokenContractArtifact);
-
-  const constructorResult = await tester.simulateTxWithLabel(
-    /*txLabel=*/ 'constructor',
-    /*sender=*/ admin,
-    /*setupCalls=*/ [],
-    /*appCalls=*/ [
-      {
-        address: token.address,
-        fnName: 'constructor',
-        args: constructorArgs,
-      },
-    ],
-  );
-  expect(constructorResult.revertCode.isOK()).toBe(true);
+  const token = await deployToken(tester, admin);
 
   const mintAmount = 100n;
   const mintResult = await tester.simulateTxWithLabel(
@@ -100,6 +84,32 @@ export async function tokenTest(tester: PublicTxSimulationTester, logger: Logger
   logger.info(`TokenContract public tx simulator test took ${endTime - startTime}ms\n`);
 }
 
+export async function deployToken(tester: PublicTxSimulationTester, admin: AztecAddress, seed = 0) {
+  const constructorArgs = [admin, /*name=*/ 'Token', /*symbol=*/ 'TOK', /*decimals=*/ new Fr(18)];
+  const token = await tester.registerAndDeployContract(
+    constructorArgs,
+    /*deployer=*/ admin,
+    TokenContractArtifact,
+    /*skipNullifierInsertion=*/ false,
+    seed,
+  );
+
+  const result = await tester.simulateTxWithLabel(
+    /*txLabel=*/ 'Token.constructor',
+    /*sender=*/ admin,
+    /*setupCalls=*/ [],
+    /*appCalls=*/ [
+      {
+        fnName: 'constructor',
+        args: constructorArgs,
+        address: token.address,
+      },
+    ],
+  );
+  expect(result.revertCode.isOK()).toBe(true);
+  return token;
+}
+
 async function checkBalance(
   tester: PublicTxSimulationTester,
   token: ContractInstanceWithAddress,
@@ -121,11 +131,8 @@ async function checkBalance(
     ],
   );
   expect(balResult.revertCode.isOK()).toBe(true);
-  expectAppCall0Output(balResult, [new Fr(expectedBalance)]);
-}
-
-function expectAppCall0Output(txResult: PublicTxResult, expectedOutput: Fr[]): void {
-  expect(txResult.processedPhases).toEqual([
-    expect.objectContaining({ returnValues: [expect.objectContaining({ values: expectedOutput })] }),
+  // should be 1 call with 1 return value that is expectedBalance
+  expect(balResult.processedPhases).toEqual([
+    expect.objectContaining({ returnValues: [expect.objectContaining({ values: [new Fr(expectedBalance)] })] }),
   ]);
 }

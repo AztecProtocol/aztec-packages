@@ -23,6 +23,7 @@ describe('Public TX simulator apps tests: benchmarks', () => {
 
   afterAll(() => {
     metrics.prettyPrint();
+    logger.info(`\n`); // sometimes jest tests obscure the last line(s)
   });
 
   it('Token Contract test', async () => {
