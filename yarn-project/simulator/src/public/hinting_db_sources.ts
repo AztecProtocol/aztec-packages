@@ -97,7 +97,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   // Getters.
   public override async getSiblingPath<N extends number>(treeId: MerkleTreeId, index: bigint): Promise<SiblingPath<N>> {
     const path = await super.getSiblingPath<N>(treeId, index);
-    const key = await this.#getHintKey(treeId);
+    const key = await this.getHintKey(treeId);
     this.hints.getSiblingPathHints.push(new AvmGetSiblingPathHint(key, treeId, index, path.toFields()));
     return Promise.resolve(path);
   }
@@ -120,7 +120,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
         )}, ${value}}) returned undefined. Possible wrong tree setup or corrupted state.`,
       );
     }
-    const key = await this.#getHintKey(treeId);
+    const key = await this.getHintKey(treeId);
     this.hints.getPreviousValueIndexHints.push(
       new AvmGetPreviousValueIndexHint(key, treeId, new Fr(value), result.index, result.alreadyPresent),
     );
@@ -133,7 +133,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   ): Promise<IndexedTreeLeafPreimage | undefined> {
     const preimage = await super.getLeafPreimage<ID>(treeId, index);
     if (preimage) {
-      const key = await this.#getHintKey(treeId);
+      const key = await this.getHintKey(treeId);
 
       switch (treeId) {
         case MerkleTreeId.PUBLIC_DATA_TREE:
@@ -162,11 +162,11 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     leaves: Buffer[],
   ): Promise<SequentialInsertionResult<TreeHeight>> {
     HintingPublicTreesDB.log.debug('sequentialInsert not hinted yet!');
-    const beforeState = await this.#getHintKey(treeId);
+    const beforeState = await this.getHintKey(treeId);
 
     const result = await super.sequentialInsert<TreeHeight, ID>(treeId, leaves);
 
-    const afterState = await this.#getHintKey(treeId);
+    const afterState = await this.getHintKey(treeId);
     HintingPublicTreesDB.log.debug(
       `Evolved tree state (${getTreeName(treeId)}): ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${
         afterState.root
@@ -182,21 +182,21 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     // WARNING: is this enough? we might actually need the number of the checkpoint or similar...
     // We will need to keep a stack of checkpoints on the C++ side.
     const beforeState = {
-      [MerkleTreeId.PUBLIC_DATA_TREE]: await this.#getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
-      [MerkleTreeId.NULLIFIER_TREE]: await this.#getHintKey(MerkleTreeId.NULLIFIER_TREE),
-      [MerkleTreeId.NOTE_HASH_TREE]: await this.#getHintKey(MerkleTreeId.NOTE_HASH_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: await this.#getHintKey(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      [MerkleTreeId.ARCHIVE]: await this.#getHintKey(MerkleTreeId.ARCHIVE),
+      [MerkleTreeId.PUBLIC_DATA_TREE]: await this.getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
+      [MerkleTreeId.NULLIFIER_TREE]: await this.getHintKey(MerkleTreeId.NULLIFIER_TREE),
+      [MerkleTreeId.NOTE_HASH_TREE]: await this.getHintKey(MerkleTreeId.NOTE_HASH_TREE),
+      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: await this.getHintKey(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      [MerkleTreeId.ARCHIVE]: await this.getHintKey(MerkleTreeId.ARCHIVE),
     };
 
     await super.revertCheckpoint();
 
     const afterState = {
-      [MerkleTreeId.PUBLIC_DATA_TREE]: await this.#getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
-      [MerkleTreeId.NULLIFIER_TREE]: await this.#getHintKey(MerkleTreeId.NULLIFIER_TREE),
-      [MerkleTreeId.NOTE_HASH_TREE]: await this.#getHintKey(MerkleTreeId.NOTE_HASH_TREE),
-      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: await this.#getHintKey(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
-      [MerkleTreeId.ARCHIVE]: await this.#getHintKey(MerkleTreeId.ARCHIVE),
+      [MerkleTreeId.PUBLIC_DATA_TREE]: await this.getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
+      [MerkleTreeId.NULLIFIER_TREE]: await this.getHintKey(MerkleTreeId.NULLIFIER_TREE),
+      [MerkleTreeId.NOTE_HASH_TREE]: await this.getHintKey(MerkleTreeId.NOTE_HASH_TREE),
+      [MerkleTreeId.L1_TO_L2_MESSAGE_TREE]: await this.getHintKey(MerkleTreeId.L1_TO_L2_MESSAGE_TREE),
+      [MerkleTreeId.ARCHIVE]: await this.getHintKey(MerkleTreeId.ARCHIVE),
     };
 
     HintingPublicTreesDB.log.debug('Evolved tree state:');
@@ -210,7 +210,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   }
 
   // Private methods.
-  async #getHintKey(treeId: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
+  private async getHintKey(treeId: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
     const treeInfo = await super.getTreeInfo(treeId);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
   }

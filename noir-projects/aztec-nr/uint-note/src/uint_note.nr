@@ -143,12 +143,7 @@ impl UintNote {
             public_log_tag: commitment,
         };
 
-        // TODO: we're abusing the note encoding scheme by computing the log for a fake note type with such a note type
-        // id that the recipient will realize that these are the private fields of a partial note. Ideally we'd not rely
-        // on this crude mechanism and we'd instead compute it as a proper event log. However, given the current state
-        // of the log library it's far easier to do it this way.
-        let encrypted_log = default_aes128::note::compute_log(
-            *context,
+        let encrypted_log = default_aes128::note::compute_partial_note_log(
             private_log_content,
             storage_slot,
             recipient,
@@ -193,9 +188,7 @@ struct PrivateUintPartialNotePrivateLogContent {
 
 impl NoteType for PrivateUintPartialNotePrivateLogContent {
     fn get_id() -> Field {
-        // We abuse the fact that note type ids are 7 bits long to use the 8th bit indicate the log corresponds to a
-        // partial note. Ideally we'd use proper events with selectors, but those are not handled well at the moment.
-        UintNote::get_id() + 128
+        UintNote::get_id()
     }
 }
 
