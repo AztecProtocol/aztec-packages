@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743041525452,
+  "lastUpdate": 1743044390078,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "aakoshh@gmail.com",
-            "name": "Akosh Farkash",
-            "username": "aakoshh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7843a6714547a71c64274830ebb6176d78dbb890",
-          "message": "chore: Change `/bin/bash` shebang to be env based (#12834)\n\nChanges `#!/bin/bash` in scripts into `#!/usr/bin/env bash`, to be more\ncross platform.\n\n### Why?\n\nI was just trying to test initialising `noir-repo` on my Mac, because I\nwanted to avoid having to delete it on the mainframe, however the\nversion of `bash` shipped with MacOS is 3.2, and it doesn't have all the\noptions that the `ci3` scripts assume, which caused failures. I have the\nlatest `bash` installed via Homebrew, but the scripts are coded to use\nthe one in `/bin`, which is the old version and cannot be updated.\n\n```console\n$ hash=$(./noir/bootstrap.sh hash)\n/Users/aakoshh/Work/aztec/aztec-packages/ci3/source_options: line 9: shopt: globstar: invalid shell option name\n$ shopt\n...\nglobskipdots   \ton\nglobstar       \toff\ngnu_errfmt     \toff\n...\n$ echo $SHELL\n/opt/homebrew/bin/bash\n$ /bin/bash --version\nGNU bash, version 3.2.57(1)-release (arm64-apple-darwin24)\nCopyright (C) 2007 Free Software Foundation, Inc.\n$ /opt/homebrew/bin/bash --version\nGNU bash, version 5.2.37(1)-release (aarch64-apple-darwin24.0.0)\n$ /bin/bash\n$ shopt\n...\nforce_fignore  \ton\ngnu_errfmt     \toff\nhistappend     \toff\n...\n```",
-          "timestamp": "2025-03-22T22:36:09Z",
-          "tree_id": "cdd738af86bfece376a20ac399eedd13061319f1",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7843a6714547a71c64274830ebb6176d78dbb890"
-        },
-        "date": 1742685224433,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 18292.73986399994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16015.570333 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 117871055915,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1602432119,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 215761735,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 18697.826976999975,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16113.96241 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 50587.317206,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 50587316000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3904.717247999997,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3147.889574 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 10807.665549000001,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 10807668000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2217.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3058,6 +2980,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 15581,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "20d734a11549d7a100d8f7e0ec64ca86d4cb73f8",
+          "message": "feat: 64 bit log type id, 64 bit log metadata (#12956)",
+          "timestamp": "2025-03-26T20:32:24-06:00",
+          "tree_id": "92987217b6b580a9f6bcd2098d3abb548eeec484",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/20d734a11549d7a100d8f7e0ec64ca86d4cb73f8"
+        },
+        "date": 1743044379930,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 34214,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 22120,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 10816,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 13104,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 13473,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
