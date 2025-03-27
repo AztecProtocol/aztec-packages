@@ -24,8 +24,12 @@ describe('Public TX simulator apps tests: benchmarks', () => {
   });
 
   afterAll(() => {
-    const benchOutput = process.env.BENCH_OUTPUT_MD ?? 'bench.md';
-    writeFileSync(benchOutput, metrics.toPrettyString());
+    if (process.env.BENCH_OUTPUT_MD) {
+      writeFileSync(process.env.BENCH_OUTPUT_MD, metrics.toPrettyString());
+    } else {
+      logger.info(`\n`); // sometimes jest tests obscure the last line(s)
+      logger.info(metrics.toPrettyString());
+    }
   });
 
   it('Token Contract test', async () => {
