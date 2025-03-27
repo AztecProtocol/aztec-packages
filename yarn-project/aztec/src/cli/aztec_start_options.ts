@@ -85,12 +85,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.testAccounts',
-      description: 'Deploy test accounts on sandbox start',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
-    },
-    {
       flag: '--sandbox.noPXE',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
@@ -268,12 +262,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: 100,
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
-    },
-    {
-      flag: '--node.testAccounts',
-      description: 'Populate genesis state with initial fee juice for test accounts',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(),
     },
   ],
   'P2P SUBSYSTEM': [
