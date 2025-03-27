@@ -3,6 +3,7 @@
 #include <optional>
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/merkle_tree/types.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
@@ -33,6 +34,8 @@ class LowLevelMerkleDBInterface {
     // We don't template the preimage methods because templated methods cannot be virtual.
     virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>
     get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const = 0;
+    virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> get_leaf_preimage_nullifier_tree(
+        crypto::merkle_tree::index_t leaf_index) const = 0;
 };
 
 // High level access to a merkle db. In general these will be constrained.

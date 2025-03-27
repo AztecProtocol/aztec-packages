@@ -9,6 +9,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { NullifierLeaf } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
@@ -187,6 +188,7 @@ function AvmGetLeafPreimageHintFactory<T extends IndexedTreeLeaf>(klass: {
 }
 
 export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeaf) {}
+export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeaf) {}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -225,6 +227,7 @@ export class AvmExecutionHints {
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
     public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
     public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
+    public readonly getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree[] = [],
   ) {}
 
   static empty() {
@@ -241,6 +244,7 @@ export class AvmExecutionHints {
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
         getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
+        getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree.schema.array(),
       })
       .transform(
         ({
@@ -251,6 +255,7 @@ export class AvmExecutionHints {
           getSiblingPathHints,
           getPreviousValueIndexHints,
           getLeafPreimageHintsPublicDataTree,
+          getLeafPreimageHintsNullifierTree,
         }) =>
           new AvmExecutionHints(
             enqueuedCalls,
@@ -260,6 +265,7 @@ export class AvmExecutionHints {
             getSiblingPathHints,
             getPreviousValueIndexHints,
             getLeafPreimageHintsPublicDataTree,
+            getLeafPreimageHintsNullifierTree,
           ),
       );
   }

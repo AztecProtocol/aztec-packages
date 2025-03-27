@@ -7,6 +7,7 @@ import {
   AvmContractClassHint,
   AvmContractInstanceHint,
   type AvmExecutionHints,
+  AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
@@ -17,6 +18,7 @@ import {
   AppendOnlyTreeSnapshot,
   type IndexedTreeId,
   MerkleTreeId,
+  NullifierLeaf,
   PublicDataTreeLeaf,
   type SequentialInsertionResult,
   getTreeName,
@@ -142,6 +144,17 @@ export class HintingPublicTreesDB extends PublicTreesDB {
               key,
               index,
               preimage.asLeaf() as PublicDataTreeLeaf,
+              preimage.getNextIndex(),
+              new Fr(preimage.getNextKey()),
+            ),
+          );
+          break;
+        case MerkleTreeId.NULLIFIER_TREE:
+          this.hints.getLeafPreimageHintsNullifierTree.push(
+            new AvmGetLeafPreimageHintNullifierTree(
+              key,
+              index,
+              preimage.asLeaf() as NullifierLeaf,
               preimage.getNextIndex(),
               new Fr(preimage.getNextKey()),
             ),

@@ -130,4 +130,8 @@ export class NullifierLeaf implements IndexedTreeLeaf {
   static fromBuffer(buf: Buffer): NullifierLeaf {
     return new NullifierLeaf(Fr.fromBuffer(buf));
   }
+
+  static get schema() {
+    return z.object({ nullifier: schemas.Fr }).transform(({ nullifier }) => new NullifierLeaf(nullifier));
+  }
 }

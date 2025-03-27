@@ -2,6 +2,7 @@
 
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -42,6 +43,8 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
                                                                         const FF& value) const override;
     crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> get_leaf_preimage_public_data_tree(
         crypto::merkle_tree::index_t leaf_index) const override;
+    crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> get_leaf_preimage_nullifier_tree(
+        crypto::merkle_tree::index_t leaf_index) const override;
 
   private:
     TreeSnapshots tree_roots;
@@ -55,6 +58,8 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     using GetLeafPreimageKey = utils::HashableTuple<AppendOnlyTreeSnapshot, crypto::merkle_tree::index_t>;
     unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>
         get_leaf_preimage_hints_public_data_tree;
+    unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>
+        get_leaf_preimage_hints_nullifier_tree;
 
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };

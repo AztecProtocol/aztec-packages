@@ -174,6 +174,7 @@ struct ExecutionHints {
     std::vector<GetSiblingPathHint> getSiblingPathHints;
     std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
     std::vector<GetLeafPreimageHint<crypto::merkle_tree::PublicDataLeafValue>> getLeafPreimageHintsPublicDataTree;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::NullifierLeafValue>> getLeafPreimageHintsNullifierTree;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -183,7 +184,8 @@ struct ExecutionHints {
                    bytecodeCommitments,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,
-                   getLeafPreimageHintsPublicDataTree);
+                   getLeafPreimageHintsPublicDataTree,
+                   getLeafPreimageHintsNullifierTree);
 };
 
 ////////////////////////////////////////////////////////////////////////////
