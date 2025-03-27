@@ -18,6 +18,7 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Rollup, BlockLog} from "@aztec/core/Rollup.sol";
 import {
   IRollup,
+  IRollupCore,
   SubmitEpochRootProofArgs,
   PublicInputArgs,
   RollupConfigInput
@@ -52,6 +53,7 @@ import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
+import {Forwarder} from "@aztec/periphery/Forwarder.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -167,8 +169,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", i)));
       address attester = vm.addr(attesterPrivateKey);
       attesterPrivateKeys[attester] = attesterPrivateKey;
-      uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", i)));
-      address proposer = vm.addr(proposerPrivateKey);
+
+      address proposer = address(new Forwarder(attester));
 
       proposerToAttester[proposer] = attester;
 
@@ -311,8 +313,17 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
         address proposer = rollup.getCurrentProposer();
 
         skipBlobCheck(address(rollup));
-        vm.prank(proposer);
-        rollup.propose(b.proposeArgs, b.signatures, b.blobInputs);
+
+        address[] memory targets = new address[](1);
+        targets[0] = address(rollup);
+
+        bytes[] memory data = new bytes[](1);
+        data[0] = abi.encodeCall(IRollupCore.propose, (b.proposeArgs, b.signatures, b.blobInputs));
+
+        address caller = proposerToAttester[proposer];
+        vm.prank(caller);
+        Forwarder(proposer).forward(targets, data);
+        // rollup.propose(b.proposeArgs, b.signatures, b.blobInputs);
 
         nextSlot = nextSlot + Slot.wrap(1);
       }
