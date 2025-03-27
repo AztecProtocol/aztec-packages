@@ -70,6 +70,7 @@ export const L1_PUBLISHER_BLOB_INCLUSION_BLOCKS = 'aztec.l1_publisher.blob_inclu
 export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'aztec.l1_publisher.blob_tx_success';
 export const L1_PUBLISHER_BLOB_TX_FAILURE = 'aztec.l1_publisher.blob_tx_failure';
 export const L1_PUBLISHER_BALANCE = 'aztec.l1_publisher.balance';
+export const L1_PUBLISHER_TX_TOTAL_FEE = 'aztec.l1_publisher.tx_total_fee';
 
 export const L1_BLOCK_HEIGHT = 'aztec.l1.block_height';
 export const L1_BALANCE_ETH = 'aztec.l1.balance';
