@@ -23,15 +23,12 @@ export class TaggingDataProvider {
     this.#taggingSecretIndexesForRecipients = this.#store.openMap('tagging_secret_indexes_for_recipients');
   }
 
-  async setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[], sender: AztecAddress): Promise<void> {
-    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders, sender);
+  setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[], sender: AztecAddress) {
+    return this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders, sender);
   }
 
-  async setTaggingSecretsIndexesAsRecipient(
-    indexedSecrets: IndexedTaggingSecret[],
-    recipient: AztecAddress,
-  ): Promise<void> {
-    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients, recipient);
+  setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[], recipient: AztecAddress) {
+    return this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients, recipient);
   }
 
   /**
@@ -43,24 +40,24 @@ export class TaggingDataProvider {
    * @param storageMap - The storage map to set the indexes in.
    * @param inDirectionOf - The address that the secrets are in the direction of.
    */
-  async #setTaggingSecretsIndexes(
+  #setTaggingSecretsIndexes(
     indexedSecrets: IndexedTaggingSecret[],
     storageMap: AztecAsyncMap<string, number>,
     inDirectionOf: AztecAddress,
   ) {
-    await Promise.all(
+    return Promise.all(
       indexedSecrets.map(indexedSecret =>
         storageMap.set(`${indexedSecret.appTaggingSecret.toString()}_${inDirectionOf.toString()}`, indexedSecret.index),
       ),
     );
   }
 
-  async getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[], recipient: AztecAddress) {
-    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients, recipient);
+  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[], recipient: AztecAddress) {
+    return this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients, recipient);
   }
 
-  async getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[], sender: AztecAddress) {
-    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders, sender);
+  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[], sender: AztecAddress) {
+    return this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders, sender);
   }
 
   /**
