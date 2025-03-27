@@ -83,10 +83,10 @@ struct Instruction {
 };
 
 enum class InstrDeserializationError : uint8_t {
-    NO_ERROR,
     PC_OUT_OF_RANGE,
     OPCODE_OUT_OF_RANGE,
     INSTRUCTION_OUT_OF_RANGE,
+    TAG_OUT_OF_RANGE,
 };
 
 /**
@@ -100,5 +100,16 @@ enum class InstrDeserializationError : uint8_t {
  * @return The instruction
  */
 Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t pos);
+
+/**
+ * @brief Check whether the instruction must have a tag operand and whether the operand
+ *        value is in the value tag range. This is specified by OPCODE_WIRE_FORMAT. If
+ *        the instruction does not have a valid wire opcode or the relevant tag operand
+ *        is missing, we return false. However, we do not fully validate the instruction.
+ *
+ * @param instruction The instruction to be checked upon.
+ * @return Boolean telling whether instruction complies with the tag specification.
+ */
+bool check_tag(const Instruction& instruction);
 
 } // namespace bb::avm2::simulation

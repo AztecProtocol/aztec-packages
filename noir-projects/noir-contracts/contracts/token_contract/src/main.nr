@@ -283,6 +283,7 @@ pub contract Token {
             to,
             from,
         ));
+
         // We don't constrain encryption of the note log in `transfer` (unlike in `transfer_in_private`) because the transfer
         // function is only designed to be used in situations where the event is not strictly necessary (e.g. payment to
         // another person where the payment is considered to be successful when the other party successfully decrypts a
