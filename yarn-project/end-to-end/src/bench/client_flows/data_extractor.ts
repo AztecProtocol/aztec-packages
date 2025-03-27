@@ -90,6 +90,8 @@ type NativeProverConfig = { bbBinaryPath?: string; bbWorkingDirectory?: string }
 
 type ProverType = 'wasm' | 'native';
 
+type Step = { fnName: string; gateCount: number; accGateCount?: number };
+
 async function createProver(config: NativeProverConfig = {}, log: Logger) {
   const simulationProvider = new WASMSimulator();
   if (!config.bbBinaryPath || !config.bbWorkingDirectory) {
@@ -103,13 +105,21 @@ async function createProver(config: NativeProverConfig = {}, log: Logger) {
   }
 }
 
-function getMinimumTrace(logs: Log[]) {
+function getMinimumTrace(logs: Log[], proverType: ProverType): StructuredTrace {
   const minimumMessage = 'Minimum required block sizes for structured trace:';
   const minimumMessageIndex = logs.findIndex(log => log.message.includes(minimumMessage));
-  const traceLogs = logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex).reverse();
+  const traceLogs =
+    proverType === 'wasm'
+      ? logs.slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex).map(log => log.message)
+      : logs
+          .slice(minimumMessageIndex - GATE_TYPES.length, minimumMessageIndex)
+          .filter(log => GATE_TYPES.some(type => log.message.includes(`bb - ${type}`)))
+          .map(log => log.message.split('\n'))
+          .flat();
   const traceSizes = traceLogs.map(log => {
-    const [gateType, gateSizeStr] = log.message
+    const [gateType, gateSizeStr] = log
       .replace(/\n.*\)$/, '')
+      .replace(/bb - /, '')
       .split(':')
       .map(s => s.trim());
     const gateSize = parseInt(gateSizeStr);
@@ -134,8 +144,10 @@ async function main() {
     proxyLogger.createLogger('bb:prover'),
   );
 
+  const userLog = createLogger('client_ivc_flows:data_processor');
+
   for (const flow of flows) {
-    logger.info(`Processing flow ${flow}`);
+    userLog.info(`Processing flow ${flow}`);
     const bytecode = await readFile(join(ivcFolder, flow, 'acir.msgpack'));
     const acirStack = decode(bytecode) as Buffer[];
     const witnesses = await readFile(join(ivcFolder, flow, 'witnesses.json'));
@@ -150,23 +162,44 @@ async function main() {
       bytecode: acirStack[i],
       witness: witnessStack[i],
     }));
-    await prover.createClientIvcProof(privateExecutionSteps);
-    const currentLogs = proxyLogger.getLogs();
+    let minimumTrace: StructuredTrace | undefined;
+    let stats: { duration: number; eventName: string; proofSize: number } | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let error: any | undefined;
+    let currentLogs: Log[] = [];
+    try {
+      await prover.createClientIvcProof(privateExecutionSteps);
+    } catch (e) {
+      userLog.error(`Failed to generate client ivc proof for ${flow}`, e);
+      error = (e as Error).message;
+    }
+    if (!error) {
+      minimumTrace = getMinimumTrace(currentLogs, proverType);
+      stats = currentLogs[0].data as { duration: number; eventName: string; proofSize: number };
+    }
+
+    currentLogs = proxyLogger.getLogs();
+
     await writeFile(join(ivcFolder, flow, 'logs.json'), JSON.stringify(currentLogs, null, 2));
-    const minimumTrace = getMinimumTrace(currentLogs);
-    const stats = currentLogs[0].data as { duration: number; eventName: string; proofSize: number };
-    const steps = executionSteps.map((step, i) => {
-      const previousStepGateCount = i > 0 ? executionSteps[i - 1].gateCount : 0;
-      return { fnName: step.fnName, gateCount: step.gateCount, accGateCount: previousStepGateCount + step.gateCount };
-    });
+    const steps = executionSteps.reduce<Step[]>((acc, step, i) => {
+      const previousAccGateCount = i === 0 ? 0 : acc[i - 1].accGateCount!;
+      return [
+        ...acc,
+        {
+          fnName: step.fnName,
+          gateCount: step.gateCount,
+          accGateCount: previousAccGateCount + step.gateCount,
+        },
+      ];
+    }, []);
     const totalGateCount = steps[steps.length - 1].accGateCount;
     const benchmark = {
       proverType,
-      minimumTrace,
+      minimumTrace: minimumTrace,
       totalGateCount,
-      duration: stats.duration,
-      proofSize: stats.proofSize,
+      stats,
       steps,
+      error,
     };
     await writeFile(join(ivcFolder, flow, 'benchmark.json'), JSON.stringify(benchmark, null, 2));
     proxyLogger.flushLogs();
@@ -176,6 +209,7 @@ async function main() {
 try {
   await main();
 } catch (e) {
+  // eslint-disable-next-line no-console
   console.error(e);
   process.exit(1);
 }
