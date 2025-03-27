@@ -1,4 +1,5 @@
 #include "merge_prover.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -8,9 +9,7 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-template <class Flavor>
-MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                   std::shared_ptr<CommitmentKey> commitment_key)
+MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key)
     : op_queue(op_queue)
     , pcs_commitment_key(commitment_key ? commitment_key
                                         : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
@@ -30,14 +29,14 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  * @return honk::proof
  */
-template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>::construct_proof()
+MergeProver::MergeProof MergeProver::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
-    std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+    std::array<Polynomial, NUM_OP_QUEUE_COLUMNS> T_current = op_queue->construct_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_OP_QUEUE_COLUMNS> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_OP_QUEUE_COLUMNS> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
@@ -45,7 +44,7 @@ template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         // Compute commitments
         Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
         Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
@@ -64,19 +63,19 @@ template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
     // Compute evaluation t(\kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         FF evaluation = t_current[idx].evaluate(kappa);
         transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ std::move(t_current[idx]), { kappa, evaluation } });
     }
     // Compute evaluation T_prev(\kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         FF evaluation = T_prev[idx].evaluate(kappa);
         transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ T_prev[idx], { kappa, evaluation } });
     }
     // Compute evaluation T(\kappa)
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         FF evaluation = T_current[idx].evaluate(kappa);
         transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ std::move(T_current[idx]), { kappa, evaluation } });
@@ -100,9 +99,4 @@ template <typename Flavor> MergeProver_<Flavor>::MergeProof MergeProver_<Flavor>
 
     return transcript->proof_data;
 }
-
-template class MergeProver_<UltraFlavor>;
-template class MergeProver_<MegaFlavor>;
-template class MergeProver_<MegaZKFlavor>;
-
 } // namespace bb

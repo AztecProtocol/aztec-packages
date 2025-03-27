@@ -4,8 +4,7 @@
 
 namespace bb {
 
-template <typename Flavor>
-MergeVerifier_<Flavor>::MergeVerifier_()
+MergeVerifier::MergeVerifier()
     : transcript(std::make_shared<Transcript>())
     , pcs_verification_key(std::make_unique<VerifierCommitmentKey>()){};
 
@@ -22,17 +21,17 @@ MergeVerifier_<Flavor>::MergeVerifier_()
  * @tparam Flavor
  * @return bool Verification result
  */
-template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+bool MergeVerifier::verify_proof(const HonkProof& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
 
     uint32_t subtable_size = transcript->template receive_from_prover<uint32_t>("subtable_size");
 
     // Receive table column polynomial commitments [t_j], [T_{j,prev}], and [T_j], j = 1,2,3,4
-    std::array<Commitment, Flavor::NUM_WIRES> t_commitments;
-    std::array<Commitment, Flavor::NUM_WIRES> T_prev_commitments;
-    std::array<Commitment, Flavor::NUM_WIRES> T_commitments;
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    std::array<Commitment, NUM_OP_QUEUE_COLUMNS> t_commitments;
+    std::array<Commitment, NUM_OP_QUEUE_COLUMNS> T_prev_commitments;
+    std::array<Commitment, NUM_OP_QUEUE_COLUMNS> T_commitments;
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         std::string suffix = std::to_string(idx);
         t_commitments[idx] = transcript->template receive_from_prover<Commitment>("t_CURRENT_" + suffix);
         T_prev_commitments[idx] = transcript->template receive_from_prover<Commitment>("T_PREV_" + suffix);
@@ -42,22 +41,22 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     FF kappa = transcript->template get_challenge<FF>("kappa");
 
     // Receive evaluations t_j(\kappa), T_{j,prev}(\kappa), T_j(\kappa), j = 1,2,3,4
-    std::array<FF, Flavor::NUM_WIRES> t_evals;
-    std::array<FF, Flavor::NUM_WIRES> T_prev_evals;
-    std::array<FF, Flavor::NUM_WIRES> T_evals;
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    std::array<FF, NUM_OP_QUEUE_COLUMNS> t_evals;
+    std::array<FF, NUM_OP_QUEUE_COLUMNS> T_prev_evals;
+    std::array<FF, NUM_OP_QUEUE_COLUMNS> T_evals;
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         t_evals[idx] = transcript->template receive_from_prover<FF>("t_eval_" + std::to_string(idx));
     }
-    for (size_t idx = 0; idx < Flavor::NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         T_prev_evals[idx] = transcript->template receive_from_prover<FF>("T_prev_eval_" + std::to_string(idx));
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         T_evals[idx] = transcript->template receive_from_prover<FF>("T_eval_" + std::to_string(idx));
     }
 
     // Check the identity T_j(\kappa) = t_j(\kappa) + \kappa^m * T_{j,prev}(\kappa). If it fails, return false
     bool identity_checked = true;
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         FF T_prev_shifted_eval_reconstructed = T_prev_evals[idx] * kappa.pow(subtable_size);
         bool current_check = T_evals[idx] == t_evals[idx] + T_prev_shifted_eval_reconstructed;
         identity_checked = identity_checked && current_check;
@@ -69,17 +68,17 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     Commitment batched_commitment = t_commitments[0];
     FF batched_eval = t_evals[0];
     auto alpha_pow = alpha;
-    for (size_t idx = 1; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 1; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         batched_commitment = batched_commitment + (t_commitments[idx] * alpha_pow);
         batched_eval += alpha_pow * t_evals[idx];
         alpha_pow *= alpha;
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         batched_commitment = batched_commitment + (T_prev_commitments[idx] * alpha_pow);
         batched_eval += alpha_pow * T_prev_evals[idx];
         alpha_pow *= alpha;
     }
-    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
+    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
         batched_commitment = batched_commitment + (T_commitments[idx] * alpha_pow);
         batched_eval += alpha_pow * T_evals[idx];
         alpha_pow *= alpha;
@@ -91,9 +90,4 @@ template <typename Flavor> bool MergeVerifier_<Flavor>::verify_proof(const HonkP
     auto verified = pcs_verification_key->pairing_check(pairing_points[0], pairing_points[1]);
     return identity_checked && verified;
 }
-
-template class MergeVerifier_<UltraFlavor>;
-template class MergeVerifier_<MegaFlavor>;
-template class MergeVerifier_<MegaZKFlavor>;
-
 } // namespace bb
