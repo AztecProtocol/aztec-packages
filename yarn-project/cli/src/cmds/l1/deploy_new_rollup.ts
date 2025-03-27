@@ -24,17 +24,10 @@ export async function deployNewRollup(
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialFundedAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
-  );
-
-  log(`Deploying new rollup contracts to chain ${chainId}...`);
-  log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`);
-  log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
-  log(`Genesis block hash: ${genesisBlockHash.toString()}`);
-  log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+  const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
+  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
 
   const { payloadAddress, rollup } = await deployNewRollupContracts(
     registryAddress,
@@ -57,6 +50,10 @@ export async function deployNewRollup(
         {
           payloadAddress: payloadAddress.toString(),
           rollupAddress: rollup.address,
+          initialFundedAccounts: initialFundedAccounts.map(a => a.toString()),
+          initialValidators: initialValidators.map(a => a.toString()),
+          genesisBlockHash: genesisBlockHash.toString(),
+          genesisArchiveRoot: genesisArchiveRoot.toString(),
         },
         null,
         2,
@@ -65,5 +62,9 @@ export async function deployNewRollup(
   } else {
     log(`Payload Address: ${payloadAddress.toString()}`);
     log(`Rollup Address: ${rollup.address}`);
+    log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+    log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+    log(`Genesis block hash: ${genesisBlockHash.toString()}`);
+    log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }
