@@ -30,12 +30,6 @@ export async function deployL1Contracts(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
   );
 
-  log(`Deploying Aztec contracts to chain ${chainId}...`);
-  log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`);
-  log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
-  log(`Genesis block hash: ${genesisBlockHash.toString()}`);
-  log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
-
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
     chainId,
@@ -73,5 +67,9 @@ export async function deployL1Contracts(
     log(`Governance Address: ${l1ContractAddresses.governanceAddress.toString()}`);
     log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress?.toString()}`);
     log(`FeeAssetHandler Address: ${l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
+    log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.address.toString()).join(', ')}`);
+    log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+    log(`Genesis block hash: ${genesisBlockHash.toString()}`);
+    log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }
