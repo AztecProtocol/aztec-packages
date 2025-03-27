@@ -34,6 +34,7 @@ import {
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { TelemetryPublicTxSimulator } from '../public_tx_simulator/TelemetryPublicTxSimulator.js';
 import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -88,7 +89,7 @@ export class PublicProcessorFactory {
     skipFeeEnforcement: boolean,
     telemetryClient: TelemetryClient,
   ) {
-    return new PublicTxSimulator(
+    return new TelemetryPublicTxSimulator(
       treesDB,
       contractsDB,
       globalVariables,

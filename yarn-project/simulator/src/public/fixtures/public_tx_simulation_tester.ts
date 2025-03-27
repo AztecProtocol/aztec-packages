@@ -13,7 +13,8 @@ import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tes
 import { getContractFunctionAbi, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { type PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
+import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
 import { createTxForPublicCalls } from './utils.js';
 
@@ -36,7 +37,7 @@ export type TestEnqueuedCall = {
  */
 export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   private txCount = 0;
-  private simulator: PublicTxSimulator;
+  private simulator: MeasuredPublicTxSimulator;
   private metricsPrefix?: string;
 
   constructor(
@@ -50,13 +51,12 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
     const treesDB = new PublicTreesDB(merkleTree);
     const contractsDB = new PublicContractsDB(contractDataSource);
 
-    this.simulator = new PublicTxSimulator(
+    this.simulator = new MeasuredPublicTxSimulator(
       treesDB,
       contractsDB,
       globals,
       /*doMerkleOperations=*/ true,
       /*skipFeeEnforcement=*/ false,
-      /*telemetryClient=*/ undefined,
       this.metrics,
     );
   }
