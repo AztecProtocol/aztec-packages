@@ -14,7 +14,9 @@
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
+
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/generated/flavor_variables.hpp"
 
 // Metaprogramming to concatenate tuple types.
 template <typename... input_t> using tuple_cat_t = decltype(std::tuple_cat(std::declval<input_t>()...));
@@ -56,13 +58,11 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 47;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 942;
-    static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
-    static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    // We have two copies of the witness entities, so we subtract the number of fixed ones (they have no shift), one for
-    // the unshifted and one for the shifted
-    static constexpr size_t NUM_ALL_ENTITIES = 1124;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES;
+    static constexpr size_t NUM_WITNESS_ENTITIES = AvmFlavorVariables::NUM_WITNESS_ENTITIES;
+    static constexpr size_t NUM_SHIFTED_ENTITIES = AvmFlavorVariables::NUM_SHIFTED_ENTITIES;
+    static constexpr size_t NUM_WIRES = AvmFlavorVariables::NUM_WIRES;
+    static constexpr size_t NUM_ALL_ENTITIES = AvmFlavorVariables::NUM_ALL_ENTITIES;
 
     // In the sumcheck univariate computation, we divide the trace in chunks and each chunk is
     // evenly processed by all the threads. This constant defines the maximum number of rows
@@ -75,16 +75,14 @@ class AvmFlavor {
     static constexpr size_t MAX_CHUNK_THREAD_PORTION_SIZE = 32;
 
     // Need to be templated for recursive verifier
-    template <typename FF_>
-    using MainRelations_ = //
+    template <typename FF_> using MainRelations_ = AvmFlavorVariables::MainRelations_<FF_>;
 
-        using MainRelations = MainRelations_<FF>;
+    using MainRelations = MainRelations_<FF>;
 
     // Need to be templated for recursive verifier
-    template <typename FF_>
-    using LookupRelations_ = //
+    template <typename FF_> using LookupRelations_ = AvmFlavorVariables::LookupRelations_<FF_>;
 
-        using LookupRelations = LookupRelations_<FF>;
+    using LookupRelations = LookupRelations_<FF>;
 
     // Need to be templated for recursive verifier
     template <typename FF_> using Relations_ = tuple_cat_t<MainRelations_<FF_>, LookupRelations_<FF_>>;
