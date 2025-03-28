@@ -22,7 +22,7 @@ describe('versioning', () => {
     versions = {
       l1ChainId: 1,
       l1RollupAddress: EthAddress.random(),
-      l2ChainVersion: 3,
+      rollupVersion: 3,
       l2ProtocolContractsTreeRoot: Fr.random().toString(),
       l2CircuitsVkTreeRoot: Fr.random().toString(),
     };
@@ -40,12 +40,12 @@ describe('versioning', () => {
     });
 
     it('validates partial versions', () => {
-      const partial = { l1ChainId: 1, l2ChainVersion: 3 };
+      const partial = { l1ChainId: 1, rollupVersion: 3 };
       validatePartialComponentVersionsMatch(partial, versions);
     });
 
     it('throws on mismatch for partial versions', () => {
-      const partial = { l1ChainId: 10, l2ChainVersion: 3 };
+      const partial = { l1ChainId: 10, rollupVersion: 3 };
       expect(() => validatePartialComponentVersionsMatch(partial, versions)).toThrow(/l1ChainId/);
     });
   });
@@ -61,7 +61,7 @@ describe('versioning', () => {
       versions = {
         l1ChainId: 1,
         l1RollupAddress: EthAddress.random(),
-        l2ChainVersion: undefined,
+        rollupVersion: undefined,
         l2ProtocolContractsTreeRoot: Fr.random().toString(),
         l2CircuitsVkTreeRoot: Fr.random().toString(),
       };
@@ -93,7 +93,7 @@ describe('versioning', () => {
 
     it('passes if missing on server', async () => {
       const client = createSafeJsonRpcClient(context.url, TestApiSchema, {
-        onResponse: getVersioningResponseHandler({ ...versions, l2ChainVersion: 5 }),
+        onResponse: getVersioningResponseHandler({ ...versions, rollupVersion: 5 }),
       });
       expect(await client.get()).toEqual(1);
     });

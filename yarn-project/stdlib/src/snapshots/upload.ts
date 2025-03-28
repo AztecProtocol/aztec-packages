@@ -6,7 +6,7 @@ import { getBasePath, getSnapshotIndex, getSnapshotIndexPath } from './download.
 import type { SnapshotDataKeys, SnapshotMetadata, SnapshotsIndex } from './types.js';
 
 export type UploadSnapshotMetadata = Pick<SnapshotMetadata, 'l2BlockNumber' | 'l2BlockHash' | 'l1BlockNumber'> &
-  Pick<SnapshotsIndex, 'l1ChainId' | 'l2Version' | 'rollupAddress'>;
+  Pick<SnapshotsIndex, 'l1ChainId' | 'rollupVersion' | 'rollupAddress'>;
 
 export async function uploadSnapshot(
   localPaths: Record<SnapshotDataKeys, string>,
@@ -45,9 +45,11 @@ export async function uploadSnapshot(
   return newSnapshotMetadata;
 }
 
-function createEmptyIndex(metadata: Pick<SnapshotsIndex, 'l1ChainId' | 'l2Version' | 'rollupAddress'>): SnapshotsIndex {
+function createEmptyIndex(
+  metadata: Pick<SnapshotsIndex, 'l1ChainId' | 'rollupVersion' | 'rollupAddress'>,
+): SnapshotsIndex {
   return {
-    ...pick(metadata, 'l1ChainId', 'l2Version', 'rollupAddress'),
+    ...pick(metadata, 'l1ChainId', 'rollupVersion', 'rollupAddress'),
     snapshots: [],
   };
 }

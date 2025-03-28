@@ -100,7 +100,7 @@ describe('e2e_sandbox_example', () => {
     logger.info(format('Aztec Sandbox Info ', nodeInfo));
     // docs:end:setup
 
-    expect(typeof nodeInfo.protocolVersion).toBe('number');
+    expect(typeof nodeInfo.rollupVersion).toBe('number');
     expect(typeof nodeInfo.l1ChainId).toBe('number');
     expect(typeof nodeInfo.l1ContractAddresses.rollupAddress).toBe('object');
 

@@ -144,7 +144,7 @@ describe('Contract Class', () => {
     const mockNodeInfo: NodeInfo = {
       nodeVersion: 'vx.x.x',
       l1ChainId: 1,
-      protocolVersion: 2,
+      rollupVersion: 2,
       l1ContractAddresses: l1Addresses,
       enr: undefined,
       protocolContractAddresses: {

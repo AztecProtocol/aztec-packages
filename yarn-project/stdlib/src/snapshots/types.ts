@@ -27,7 +27,7 @@ export type SnapshotMetadata = {
 
 export type SnapshotsIndexMetadata = {
   l1ChainId: number;
-  l2Version: number;
+  rollupVersion: number;
   rollupAddress: EthAddress;
 };
 
@@ -37,7 +37,7 @@ export type SnapshotsIndex = SnapshotsIndexMetadata & {
 
 export const SnapshotsIndexSchema = z.object({
   l1ChainId: z.number(),
-  l2Version: z.number(),
+  rollupVersion: z.number(),
   rollupAddress: schemas.EthAddress,
   snapshots: z.array(
     z.object({
