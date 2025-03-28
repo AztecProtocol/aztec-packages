@@ -15,6 +15,8 @@ aztec-wallet() {
   node --no-warnings ../cli-wallet/dest/bin/index.js "$@"
 }
 
+export PXE_PROVER=none
+
 aztec-wallet import-test-accounts
 
 # docs:start:declare-accounts
