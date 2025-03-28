@@ -1,8 +1,11 @@
 use crate::{
     capsules::CapsuleArray,
     discovery::{
-        ComputeNoteHashAndNullifier, log_capsule::LogCapsule, MAX_LOG_CONTENT_LEN,
-        partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
+        ComputeNoteHashAndNullifier,
+        log_capsule::{LOG_CAPSULE_ARRAY_BASE_SLOT, LogCapsule},
+        MAX_LOG_CONTENT_LEN,
+        partial_notes::process_partial_note_private_log,
+        PRIVATE_LOG_EXPANDED_METADATA_LEN,
         private_notes::process_private_note_log,
     },
     encrypted_logs::{
@@ -41,8 +44,7 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     sync_notes();
 
     // Get logs from capsules
-    let CAPSULE_BASE_SLOT = 8240937;
-    let logs = CapsuleArray::<LogCapsule>::at(contract_address, CAPSULE_BASE_SLOT);
+    let logs = CapsuleArray::<LogCapsule>::at(contract_address, LOG_CAPSULE_ARRAY_BASE_SLOT);
     let len = logs.len();
 
     for i in 0..len {

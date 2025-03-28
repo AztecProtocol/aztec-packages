@@ -4,6 +4,11 @@ use protocol_types::{
     traits::{Deserialize, Serialize},
 };
 
+// Base slot for the log capsule array. This value is copied over to `log_capsule.ts` so if you change this, you need
+// to change it there as well. I did not place the value to `protocol_types/constants.nr` because this log capsules
+// are a temporary solution and putting it to `constants.nr` felt like cluttering it.
+pub(crate) global LOG_CAPSULE_ARRAY_BASE_SLOT: Field = 8240937;
+
 #[derive(Deserialize, Serialize)]
 pub(crate) struct LogCapsule {
     pub log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,

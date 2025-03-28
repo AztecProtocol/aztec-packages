@@ -14,6 +14,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
+  LOG_CAPSULE_ARRAY_BASE_SLOT,
   LogCapsule,
   LogWithTxData,
   TxScopedL2Log,
@@ -561,8 +562,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   async #storeLogsCapsules(contractAddress: AztecAddress, recipient: AztecAddress, logs: TxScopedL2Log[]) {
-    const CAPSULE_BASE_SLOT = new Fr(8240937);
-
     // Build all capsules upfront with their tx effects
     const logsCapsules = await Promise.all(
       logs.map(async scopedLog => {
@@ -583,7 +582,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       }),
     );
 
-    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, CAPSULE_BASE_SLOT, logsCapsules);
+    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT, logsCapsules);
   }
 
   public async deliverNote(
