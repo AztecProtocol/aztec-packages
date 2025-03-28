@@ -28,8 +28,8 @@ describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
-  const slashingQuorum = 6;
-  const slashingRoundSize = 10;
+  const slashingQuorum = 3;
+  const slashingRoundSize = 5;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -199,21 +199,30 @@ describe('e2e_p2p_slashing', () => {
 
       sInfo = await slashingInfo();
       t.logger.info(`We have ${sInfo.leaderVotes} votes in round ${sInfo.roundNumber} on ${sInfo.info[1]}`);
-      if (sInfo.leaderVotes > votesNeeded) {
+      if (sInfo.leaderVotes >= votesNeeded) {
         t.logger.info(`We have sufficient votes`);
         break;
       }
     }
 
-    t.logger.info('Deploy the actual payload for slashing!');
     const slashEvent = slashEvents[0];
     await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: await slashFactory.write.createSlashPayload([slashEvent.epoch, slashEvent.amount], {
         account: t.ctx.deployL1ContractsValues.walletClient.account,
       }),
     });
+    const [address, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([
+      slashEvent.epoch,
+      slashEvent.amount,
+    ]);
+    t.logger.info(`Slash payload for ${slashEvent.epoch}, ${slashEvent.amount} deployed at ${address} ${isDeployed}`);
+    t.logger.info(
+      `Committee for epoch ${slashEvent.epoch}: ${(await rollup.getEpochCommittee(slashEvent.epoch)).map(addr =>
+        addr.toLowerCase(),
+      )}`,
+    );
 
-    t.logger.info(`We jump in time to the next round to execute`);
+    t.logger.info(`We wait until next round to execute the payload`);
     await waitUntilNextRound();
     const attestersPre = await rollup.getAttesters();
 
@@ -223,13 +232,23 @@ describe('e2e_p2p_slashing', () => {
       expect(attesterInfo.status).toEqual(1);
     }
 
-    t.logger.info(`Push the proposal, SLASHING!`);
+    t.logger.info(`Execute payload for ${sInfo.roundNumber} at ${sInfo.info[1]}, SLASHING!`);
+
+    const { result } = await t.ctx.deployL1ContractsValues.publicClient.simulateContract({
+      address: getAddress(slashingProposer.address),
+      abi: SlashingProposerAbi,
+      functionName: 'executeProposal',
+      args: [sInfo.roundNumber],
+    });
+    t.logger.info(`Result: `, result);
+
     const tx = await slashingProposer.write.executeProposal([sInfo.roundNumber], {
       account: t.ctx.deployL1ContractsValues.walletClient.account,
     });
     const receipt = await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
       hash: tx,
     });
+    t.logger.info(`Performed slash in ${receipt.transactionHash}`);
 
     const slashingEvents = parseEventLogs({
       abi: RollupAbi,
@@ -240,6 +259,8 @@ describe('e2e_p2p_slashing', () => {
       // Because TS is a little nagging bitch
       return (event.args as any).attester;
     });
+
+    t.logger.info(`Attesters slashed: ${attestersSlashed.map(addr => addr.toLowerCase())}`);
 
     // Convert attestersPre elements to lowercase for consistent comparison
     const normalizedAttestersPre = attestersPre.map(addr => addr.toLowerCase());
