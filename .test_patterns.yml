@@ -48,6 +48,10 @@ tests:
     error_regex: "Sumcheck verification failed."
     owners:
       - *luke
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
+    error_regex: "verified: false"
+    owners:
+      - *sergei
 
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
