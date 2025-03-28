@@ -53,7 +53,7 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
         process_log(contract_address, compute_note_hash_and_nullifier, log);
     }
 
-    // TODO: Introduce array.pop()
+    // TODO: Introduce array.pop() or array.wipe()?
     // Delete the logs from capsules, starting from the end to avoid shifting elements
     let mut i = len;
     while i > 0 {
