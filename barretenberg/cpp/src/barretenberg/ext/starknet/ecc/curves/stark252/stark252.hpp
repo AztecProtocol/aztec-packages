@@ -17,10 +17,10 @@ struct FqParams {
 
     static constexpr uint64_t r_inv = 0xffffffffffffffffULL;
 
-    static constexpr uint64_t r_inv_0 = 0x0000000000000001UL;
-    static constexpr uint64_t r_inv_1 = 0x0000000000000000UL;
-    static constexpr uint64_t r_inv_2 = 0xf7ffffffffffffefUL;
-    static constexpr uint64_t r_inv_3 = 0x0800000000000010UL;
+    static constexpr uint64_t r_inv_0 = 0x0000000000000001ULL;
+    static constexpr uint64_t r_inv_1 = 0x0000000000000000ULL;
+    static constexpr uint64_t r_inv_2 = 0xf7ffffffffffffefULL;
+    static constexpr uint64_t r_inv_3 = 0x0800000000000010ULL;
 
     static constexpr uint64_t modulus_wasm_0 = 0x00000001;
     static constexpr uint64_t modulus_wasm_1 = 0x00000000;
