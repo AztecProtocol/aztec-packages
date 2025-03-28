@@ -675,6 +675,7 @@ async function verifyProofInternal(
   logger.debug(`public inputs path: ${publicInputsFullPath}`);
   try {
     let args;
+    // Specify the public inputs path in the case of UH verification.
     if (command == 'verify') {
       args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
     } else {

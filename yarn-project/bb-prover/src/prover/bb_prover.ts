@@ -753,8 +753,15 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
     const fieldsWithoutPublicInputs = json.map(Fr.fromHexString);
 
-    // concat binary public inputs and binary proof
+    // Concat binary public inputs and binary proof
+    // This buffer will have the form: [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, binary proof]
     const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Get rid of if possible.
+    const metadataLength = 4;
+    assert(
+      binaryProofWithPublicInputs.length ==
+        metadataLength + numPublicInputs * 32 + metadataLength + NESTED_RECURSIVE_PROOF_LENGTH * 32,
+    );
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProofWithPublicInputs.length}`,
     );

@@ -77,11 +77,15 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
     if (init_kzg_accumulator) {
+        ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
         num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
     }
     if constexpr (HasIPAAccumulator<Flavor>) {
+        ASSERT(num_inner_public_inputs >= IPA_CLAIM_SIZE);
         num_inner_public_inputs -= IPA_CLAIM_SIZE;
     }
+    // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
+    // the "proof" refers to everything except the inner public inputs.
     PublicInputsAndProof public_inputs_and_proof{
         PublicInputsVector(concat_pi_and_proof.begin(),
                            concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
