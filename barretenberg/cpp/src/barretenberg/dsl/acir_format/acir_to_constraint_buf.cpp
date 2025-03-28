@@ -83,7 +83,7 @@ Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
 {
     return deserialize_any_format<Acir::Program>(
         buf,
-        [](auto o) -> Acir::Program {
+        [](auto o) {
             Acir::Program program;
             try {
                 // Deserialize into a partial structure that ignores the Brillig parts,
@@ -97,7 +97,12 @@ Acir::Program deserialize_program(std::vector<uint8_t> const& buf)
             }
             return program;
         },
-        &Acir::Program::bincodeDeserialize);
+        [](auto buf) {
+            auto program_wob = Acir::ProgramWithoutBrillig::bincodeDeserialize(buf);
+            Acir::Program program;
+            program.functions = program_wob.functions;
+            return program;
+        });
 }
 
 /**
