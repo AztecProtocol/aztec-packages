@@ -83,13 +83,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.testAccounts',
+      flag: '--sandbox.testAccounts [value]',
       description: 'Deploy test accounts on sandbox start',
       envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
+      ...booleanConfigHelper(),
     },
     {
-      flag: '--sandbox.noPXE',
+      flag: '--sandbox.noPXE [value]',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),
@@ -268,7 +268,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: val => parseInt(val, 10),
     },
     {
-      flag: '--node.testAccounts',
+      flag: '--node.testAccounts [value]',
       description: 'Populate genesis state with initial fee juice for test accounts',
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(),
@@ -282,14 +282,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     {
       flag: '--node.snapshotsUrl <value>',
-      description: 'Base URL for downloading snapshots for fast sync.',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
       defaultValue: undefined,
       envVar: 'SYNC_SNAPSHOTS_URL',
     },
   ],
   'P2P SUBSYSTEM': [
     {
-      flag: '--p2p-enabled',
+      flag: '--p2p-enabled [value]',
       description: 'Enable P2P subsystem',
       envVar: 'P2P_ENABLED',
       ...booleanConfigHelper(),

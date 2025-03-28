@@ -9,6 +9,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { SideEffectTrace } from '../../../public/side_effect_trace.js';
 import type { AvmContractCallResult } from '../../avm/avm_contract_call_result.js';
 import {
+  DEFAULT_BLOCK_NUMBER,
   getContractFunctionAbi,
   getFunctionSelector,
   initContext,
@@ -16,7 +17,6 @@ import {
   resolveContractAssertionMessage,
 } from '../../avm/fixtures/index.js';
 import { AvmPersistableStateManager } from '../../avm/journal/journal.js';
-import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';

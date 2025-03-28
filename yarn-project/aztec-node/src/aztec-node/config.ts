@@ -2,6 +2,7 @@ import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/con
 import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
@@ -27,19 +28,12 @@ export type AztecNodeConfig = ArchiverConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
   DataStoreConfig &
-  SentinelConfig & {
-    /** Whether the validator is disabled for this node */
-    disableValidator: boolean;
-    /** Whether to populate the genesis state with initial fee juice for the test accounts */
-    testAccounts: boolean;
-    /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
-    sponsoredFPC: boolean;
+  SentinelConfig &
+  SharedNodeConfig & {
     /** L1 contracts addresses */
     l1Contracts: L1ContractAddresses;
-    /** Sync mode: full to always sync via L1, snapshot to download a snapshot if there is no local data, force-snapshot to download even if there is local data. */
-    syncMode: 'full' | 'snapshot' | 'force-snapshot';
-    /** Base URL for snapshots index. Index file will be searched at `SNAPSHOTS_BASE_URL/aztec-L1_CHAIN_ID-VERSION-ROLLUP_ADDRESS/index.json` */
-    snapshotsUrl?: string;
+    /** Whether the validator is disabled for this node */
+    disableValidator: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -51,6 +45,7 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
   ...sentinelConfigMappings,
+  ...sharedNodeConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
@@ -59,26 +54,6 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
     ...booleanConfigHelper(),
-  },
-  testAccounts: {
-    env: 'TEST_ACCOUNTS',
-    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
-    ...booleanConfigHelper(),
-  },
-  sponsoredFPC: {
-    env: 'SPONSORED_FPC',
-    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
-    ...booleanConfigHelper(false),
-  },
-  syncMode: {
-    env: 'SYNC_MODE',
-    description:
-      'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
-    defaultValue: 'snapshot',
-  },
-  snapshotsUrl: {
-    env: 'SYNC_SNAPSHOTS_URL',
-    description: 'Base URL for snapshots index.',
   },
 };
 

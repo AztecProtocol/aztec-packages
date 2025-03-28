@@ -10,6 +10,13 @@
 #include "barretenberg/transcript/origin_tag.hpp"
 namespace bb::stdlib {
 
+/**
+ * @brief Construct a new cycle group<Builder>::cycle group object
+ * defaults to a constant point at infinity.
+ *
+ * @note Please don't use this constructor in case you want to assign the
+ * coordinates later.
+ */
 template <typename Builder>
 cycle_group<Builder>::cycle_group(Builder* _context)
     : x(0)
@@ -28,12 +35,12 @@ cycle_group<Builder>::cycle_group(Builder* _context)
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bool is_standard)
+cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity)
     : x(_x.normalize())
     , y(_y.normalize())
     , _is_infinity(is_infinity)
     , _is_constant(_x.is_constant() && _y.is_constant() && is_infinity.is_constant())
-    , _is_standard(is_standard)
+    , _is_standard(is_infinity.is_constant())
 {
     if (_x.get_context() != nullptr) {
         context = _x.get_context();
@@ -41,6 +48,13 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
         context = _y.get_context();
     } else {
         context = is_infinity.get_context();
+    }
+
+    if (is_infinity.is_constant() && is_infinity.get_value()) {
+        this->x = 0;
+        this->y = 0;
+        this->_is_infinity = true;
+        this->_is_constant = true;
     }
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1067): This ASSERT is missing in the constructor but
@@ -63,12 +77,12 @@ cycle_group<Builder>::cycle_group(field_t _x, field_t _y, bool_t is_infinity, bo
  * @param is_infinity
  */
 template <typename Builder>
-cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity, bool is_standard)
-    : x(_x)
-    , y(_y)
+cycle_group<Builder>::cycle_group(const FF& _x, const FF& _y, bool is_infinity)
+    : x(is_infinity ? 0 : _x)
+    , y(is_infinity ? 0 : _y)
     , _is_infinity(is_infinity)
     , _is_constant(true)
-    , _is_standard(is_standard)
+    , _is_standard(true)
     , context(nullptr)
 {
     ASSERT(get_value().on_curve());
@@ -105,7 +119,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::one(Build
 {
     field_t x(_context, Group::one.x);
     field_t y(_context, Group::one.y);
-    return cycle_group<Builder>(x, y, /*is_infinity=*/false, /*is_standard=*/true);
+    return cycle_group<Builder>(x, y, /*is_infinity=*/false);
 }
 
 /**
@@ -163,18 +177,18 @@ cycle_group<Builder> cycle_group<Builder>::from_constant_witness(Builder* _conte
     // Since we are not using these coordinates anyway
     // We can set them both to be zero
     if (_in.is_point_at_infinity()) {
-        result.x = field_t(witness_t(_context, FF::zero()));
-        result.y = field_t(witness_t(_context, FF::zero()));
+        result.x = FF::zero();
+        result.y = FF::zero();
+        result._is_constant = true;
     } else {
         result.x = field_t(witness_t(_context, _in.x));
         result.y = field_t(witness_t(_context, _in.y));
+        result.x.assert_equal(result.x.get_value());
+        result.y.assert_equal(result.y.get_value());
+        result._is_constant = false;
     }
-    result.x.assert_equal(result.x.get_value());
-    result.y.assert_equal(result.y.get_value());
-
     // point at infinity is circuit constant
     result._is_infinity = _in.is_point_at_infinity();
-    result._is_constant = false;
     result._is_standard = true;
     return result;
 }
@@ -230,42 +244,61 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::get_stand
  */
 template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(const bool_t& is_infinity)
 {
-    // No operations are performed in this case
-    if (is_infinity.is_constant() && !is_infinity.get_value()) {
+    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+
+    this->_is_standard = true;
+
+    if (is_infinity.is_constant() && this->_is_infinity.is_constant()) {
+        // Check that it's not possible to enter the case when
+        // The point is already infinity, but `is_infinity` = false
+        ASSERT((this->_is_infinity.get_value() == is_infinity.get_value()) || is_infinity.get_value());
+
+        if (is_infinity.get_value()) {
+            this->x = 0;
+            this->y = 0;
+            this->_is_infinity = true;
+            this->_is_constant = true;
+        }
         return;
     }
-    this->_is_standard = true;
+
+    if (is_infinity.is_constant() && !this->_is_infinity.is_constant()) {
+        if (is_infinity.get_value()) {
+            this->x = 0;
+            this->y = 0;
+            this->_is_infinity = true;
+            this->_is_constant = true;
+        } else {
+            this->_is_infinity.assert_equal(false);
+            this->_is_infinity = false;
+        }
+        return;
+    }
+
+    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+        // I can't imagine this case happening, but still
+        is_infinity.assert_equal(true);
+
+        this->x = 0;
+        this->y = 0;
+        this->_is_constant = true;
+        return;
+    }
 
     this->x = field_t::conditional_assign(is_infinity, 0, this->x);
     this->y = field_t::conditional_assign(is_infinity, 0, this->y);
 
-    if (is_infinity.is_constant() && is_infinity.get_value()) {
-        this->_is_constant = true;
-        this->_is_infinity = true;
-        return;
-    }
+    // We won't bump into the case where we end up with non constant coordinates
+    ASSERT(!this->x.is_constant() && !this->y.is_constant());
+    this->_is_constant = false;
 
-    if (!this->x.is_constant() && this->y.is_constant()) {
-        auto ctx = this->x.get_context();
-        this->y = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->y.get_value()));
-    }
-    if (this->x.is_constant() && !this->y.is_constant()) {
-        auto ctx = this->y.get_context();
-        this->x = field_t::from_witness_index(ctx, ctx->put_constant_variable(this->x.get_value()));
-    }
-
-    // Due to conditional_assign behavior
-    // Sometimes we won't create the gate here
-    // If this->x = 0 and this->y = 0 and both of them are constants
-    // This ensures that at least one of the switches was performed
-    this->_is_constant = this->x.is_constant() && this->y.is_constant();
-
-    if (!this->_is_constant) {
-        this->_is_infinity = is_infinity;
-    }
+    // We have to check this to avoid the situation, where we change the infinity
+    bool_t set_allowed = (this->_is_infinity == is_infinity) || is_infinity;
+    set_allowed.assert_equal(true);
+    this->_is_infinity = is_infinity;
 
     // In case we set point at infinity on a constant without an existing context
-    if (this->context == nullptr && !this->_is_constant) {
+    if (this->context == nullptr) {
         this->context = is_infinity.get_context();
     }
 }
@@ -277,10 +310,16 @@ template <typename Builder> void cycle_group<Builder>::set_point_at_infinity(con
  */
 template <typename Builder> void cycle_group<Builder>::standardize()
 {
+    ASSERT((this->x.is_constant() && this->y.is_constant() && this->_is_infinity.is_constant()) == this->_is_constant);
+    if (this->_is_infinity.is_constant() && this->_is_infinity.get_value()) {
+        ASSERT(this->_is_constant && this->_is_standard);
+    }
+
     if (this->_is_standard) {
         return;
     }
     this->_is_standard = true;
+
     this->x = field_t::conditional_assign(this->_is_infinity, 0, this->x);
     this->y = field_t::conditional_assign(this->_is_infinity, 0, this->y);
 }
@@ -398,7 +437,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(
     auto lambda = y_diff.divide_no_zero_check(x_diff);
     auto x3 = lambda.madd(lambda, -other.x - x);
     auto y3 = lambda.madd(x - x3, -y);
-    cycle_group result(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
+    cycle_group result(x3, y3, /*is_infinity=*/false);
     return result;
 }
 
@@ -440,10 +479,9 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         auto x3 = hint.value().x;
         auto y3 = hint.value().y;
         if (lhs_constant && rhs_constant) {
-            return cycle_group(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
+            return cycle_group(x3, y3, /*is_infinity=*/false);
         }
-        result =
-            cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
+        result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
     } else {
         const auto p1 = get_value();
         const auto p2 = other.get_value();
@@ -456,7 +494,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_add(const cycle_group& 
         }
         field_t r_x(witness_t(context, p3.x));
         field_t r_y(witness_t(context, p3.y));
-        result = cycle_group(r_x, r_y, /*is_infinity=*/false, /*is_standard=*/true);
+        result = cycle_group(r_x, r_y, /*is_infinity=*/false);
     }
     bb::ecc_add_gate_<FF> add_gate{
         .x1 = x.get_witness_index(),
@@ -514,10 +552,9 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             auto x3 = hint.value().x;
             auto y3 = hint.value().y;
             if (lhs_constant && rhs_constant) {
-                return cycle_group(x3, y3, /*is_infinity=*/false, /*is_standard=*/true);
+                return cycle_group(x3, y3, /*is_infinity=*/false);
             }
-            result = cycle_group(
-                witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false, /*is_standard=*/true);
+            result = cycle_group(witness_t(context, x3), witness_t(context, y3), /*is_infinity=*/false);
         } else {
             auto p1 = get_value();
             auto p2 = other.get_value();
@@ -530,7 +567,7 @@ cycle_group<Builder> cycle_group<Builder>::unconditional_subtract(const cycle_gr
             }
             field_t r_x(witness_t(context, p3.x));
             field_t r_y(witness_t(context, p3.y));
-            result = cycle_group(r_x, r_y, /*is_infinity=*/false, /*is_standard=*/true);
+            result = cycle_group(r_x, r_y, /*is_infinity=*/false);
         }
         bb::ecc_add_gate_<FF> add_gate{
             .x1 = x.get_witness_index(),
@@ -620,7 +657,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
         return *this;
     }
 
-    Builder* context = get_context(other);
     const bool_t x_coordinates_match = (x == other.x);
     const bool_t y_coordinates_match = (y == other.y);
     const bool_t double_predicate = (x_coordinates_match && y_coordinates_match);
@@ -638,7 +674,8 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
         lambda = (y2 - y1).divide_no_zero_check(x_diff);
     } else {
-        lambda = field_t::from_witness(context, (y2.get_value() - y1.get_value()) / x_diff.get_value());
+        lambda =
+            field_t::from_witness(this->get_context(other), (y2.get_value() - y1.get_value()) / x_diff.get_value());
         field_t::evaluate_polynomial_identity(x_diff, lambda, -y2, y1);
     }
 
@@ -650,19 +687,18 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
 
     // dbl if x_match, y_match
     // infinity if x_match, !y_match
-    cycle_group result(context);
-    result.x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
-    result.y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
+    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
     const bool_t lhs_infinity = is_point_at_infinity();
     const bool_t rhs_infinity = other.is_point_at_infinity();
     // if lhs infinity, return rhs
-    result.x = field_t::conditional_assign(lhs_infinity, other.x, result.x);
-    result.y = field_t::conditional_assign(lhs_infinity, other.y, result.y);
+    result_x = field_t::conditional_assign(lhs_infinity, other.x, result_x);
+    result_y = field_t::conditional_assign(lhs_infinity, other.y, result_y);
 
     // if rhs infinity, return lhs
-    result.x = field_t::conditional_assign(rhs_infinity, x, result.x);
-    result.y = field_t::conditional_assign(rhs_infinity, y, result.y);
+    result_x = field_t::conditional_assign(rhs_infinity, x, result_x);
+    result_y = field_t::conditional_assign(rhs_infinity, y, result_y);
 
     // is result point at infinity?
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
@@ -670,11 +706,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator+
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    // need to set this before set_point_at_infinity call
-    result._is_constant = this->_is_constant & other._is_constant;
-    result.set_point_at_infinity(result_is_infinity);
-
-    return result;
+    return cycle_group(result_x, result_y, result_is_infinity);
 }
 
 /**
@@ -696,7 +728,6 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
         return -other;
     }
 
-    Builder* context = get_context(other);
     const bool_t x_coordinates_match = (x == other.x);
     const bool_t y_coordinates_match = (y == other.y);
     const bool_t double_predicate = (x_coordinates_match && !y_coordinates_match).normalize();
@@ -707,7 +738,16 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     auto x2 = other.x;
     auto y2 = other.y;
     auto x_diff = x2.add_two(-x1, x_coordinates_match);
-    auto lambda = (-y2 - y1) / x_diff;
+    // Computes lambda = (-y2-y1)/x_diff, using the fact that x_diff is never 0
+    field_t lambda;
+    if ((y1.is_constant() && y2.is_constant()) || x_diff.is_constant()) {
+        lambda = (-y2 - y1).divide_no_zero_check(x_diff);
+    } else {
+        lambda =
+            field_t::from_witness(this->get_context(other), (-y2.get_value() - y1.get_value()) / x_diff.get_value());
+        field_t::evaluate_polynomial_identity(x_diff, lambda, y2, y1);
+    }
+
     auto x3 = lambda.madd(lambda, -(x2 + x1));
     auto y3 = lambda.madd(x1 - x3, -y1);
     cycle_group add_result(x3, y3, x_coordinates_match);
@@ -716,19 +756,18 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
 
     // dbl if x_match, !y_match
     // infinity if x_match, y_match
-    cycle_group result(context);
-    result.x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
-    result.y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
+    auto result_x = field_t::conditional_assign(double_predicate, dbl_result.x, add_result.x);
+    auto result_y = field_t::conditional_assign(double_predicate, dbl_result.y, add_result.y);
 
     const bool_t lhs_infinity = is_point_at_infinity();
     const bool_t rhs_infinity = other.is_point_at_infinity();
     // if lhs infinity, return -rhs
-    result.x = field_t::conditional_assign(lhs_infinity, other.x, result.x);
-    result.y = field_t::conditional_assign(lhs_infinity, (-other.y).normalize(), result.y);
+    result_x = field_t::conditional_assign(lhs_infinity, other.x, result_x);
+    result_y = field_t::conditional_assign(lhs_infinity, (-other.y).normalize(), result_y);
 
     // if rhs infinity, return lhs
-    result.x = field_t::conditional_assign(rhs_infinity, x, result.x);
-    result.y = field_t::conditional_assign(rhs_infinity, y, result.y);
+    result_x = field_t::conditional_assign(rhs_infinity, x, result_x);
+    result_y = field_t::conditional_assign(rhs_infinity, y, result_y);
 
     // is result point at infinity?
     // yes = infinity_predicate && !lhs_infinity && !rhs_infinity
@@ -737,11 +776,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator-
     bool_t result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
 
-    // need to set this before set_point_at_infinity call
-    result._is_constant = this->_is_constant & other._is_constant;
-    result.set_point_at_infinity(result_is_infinity);
-
-    return result;
+    return cycle_group(result_x, result_y, result_is_infinity);
 }
 
 /**
@@ -1318,7 +1353,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
         // Merge tag of table with tag of index
         x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
         y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
-        return cycle_group(x, y, /*is_infinity=*/false, /*is_standard=*/true);
+        return cycle_group(x, y, /*is_infinity=*/false);
     }
     field_t x = _index * (point_table[1].x - point_table[0].x) + point_table[0].x;
     field_t y = _index * (point_table[1].y - point_table[0].y) + point_table[0].y;
@@ -1326,7 +1361,7 @@ template <typename Builder> cycle_group<Builder> cycle_group<Builder>::straus_lo
     // Merge tag of table with tag of index
     x.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
     y.set_origin_tag(OriginTag(tag, _index.get_origin_tag()));
-    return cycle_group(x, y, /*is_infinity=*/false, /*is_standard=*/true);
+    return cycle_group(x, y, /*is_infinity=*/false);
 }
 
 /**
@@ -1577,7 +1612,7 @@ typename cycle_group<Builder>::batch_mul_internal_output cycle_group<Builder>::_
         for (size_t j = 0; j < lookup_data[ColumnIdx::C2].size(); ++j) {
             const auto x = lookup_data[ColumnIdx::C2][j];
             const auto y = lookup_data[ColumnIdx::C3][j];
-            lookup_points.emplace_back(cycle_group(x, y, /*is_infinity=*/false, /*is_standard=*/true));
+            lookup_points.emplace_back(cycle_group(x, y, /*is_infinity=*/false));
         }
 
         std::optional<AffineElement> offset_1 =
@@ -1941,7 +1976,7 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
 
     bool _is_standard_res = lhs._is_standard && rhs._is_standard;
     if (predicate.is_constant()) {
-        _is_standard_res = (predicate.get_value() && lhs._is_standard) && (!predicate.get_value() && rhs._is_standard);
+        _is_standard_res = predicate.get_value() ? lhs._is_standard : rhs._is_standard;
     }
 
     // Rare case when we bump into two constants, s.t. lhs = -rhs
@@ -1949,8 +1984,12 @@ cycle_group<Builder> cycle_group<Builder>::conditional_assign(const bool_t& pred
         auto ctx = predicate.get_context();
         x_res = field_t::from_witness_index(ctx, ctx->put_constant_variable(x_res.get_value()));
     }
-    return { x_res, y_res, _is_infinity_res, _is_standard_res };
+
+    cycle_group<Builder> result(x_res, y_res, _is_infinity_res);
+    result._is_standard = _is_standard_res;
+    return result;
 };
+
 template <typename Builder> cycle_group<Builder> cycle_group<Builder>::operator/(const cycle_group& /*unused*/) const
 {
     // TODO(@kevaundray solve the discrete logarithm problem)

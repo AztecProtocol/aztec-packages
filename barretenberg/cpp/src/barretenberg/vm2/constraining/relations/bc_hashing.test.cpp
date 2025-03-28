@@ -178,6 +178,22 @@ TEST(BytecodeHashingConstrainingTest, NegativeChainOutput)
                               "CHAIN_OUTPUT_TO_INCR");
 }
 
+// Negative test where latch == 1 and sel == 0
+TEST(BytecodeHashingConstrainingTest, NegativeLatchNotSel)
+{
+    TestTraceContainer trace;
+    trace.set(0,
+              { {
+                  { C::bc_hashing_latch, 1 },
+                  { C::bc_hashing_sel, 1 },
+              } });
+
+    check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_TOGGLED_AT_LATCH);
+    trace.set(C::bc_hashing_sel, 0, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_hashing>(trace, bc_hashing::SR_SEL_TOGGLED_AT_LATCH),
+                              "SEL_TOGGLED_AT_LATCH");
+}
+
 TEST(BytecodeHashingConstrainingTest, NegativeBytecodeInteraction)
 {
     TestTraceContainer trace({

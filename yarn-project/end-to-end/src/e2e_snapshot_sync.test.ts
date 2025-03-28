@@ -5,6 +5,7 @@ import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
 import { tryRmDir } from '@aztec/foundation/fs';
 import { withLogNameSuffix } from '@aztec/foundation/log';
+import { type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 
 import { mkdtemp, readdir } from 'fs/promises';
 import { tmpdir } from 'os';
@@ -59,6 +60,28 @@ describe('e2e_snapshot_sync', () => {
     );
   };
 
+  // Adapted from utils/createAndSyncProverNode
+  const createTestProverNode = async (suffix: string, config: Partial<ProverNodeConfig> = {}) => {
+    log.warn('Creating and syncing a prover node...');
+    return await withLogNameSuffix(suffix, () =>
+      createProverNode({
+        ...context.config,
+        dataDirectory: join(context.config.dataDirectory!, randomBytes(8).toString('hex')),
+        p2pEnabled: true, // So we don't need prover coordination
+        proverCoordinationNodeUrl: undefined,
+        proverNodeMaxPendingJobs: 10,
+        proverNodeMaxParallelBlocksPerEpoch: 32,
+        proverNodePollingIntervalMs: 200,
+        txGatheringTimeoutMs: 60000,
+        txGatheringIntervalMs: 1000,
+        txGatheringMaxParallelRequests: 100,
+        proverAgentCount: 1,
+        realProofs: false,
+        ...config,
+      }),
+    );
+  };
+
   it('waits until a few L2 blocks have been mined', async () => {
     log.warn(`Waiting for L2 blocks to be mined`);
     await retryUntil(() => monitor.l2BlockNumber > L2_TARGET_BLOCK_NUM, 'l2-blocks-mined', 90, 1);
@@ -72,7 +95,7 @@ describe('e2e_snapshot_sync', () => {
     log.warn(`Snapshot created`);
   });
 
-  it('downloads snapshot from new node', async () => {
+  it('downloads snapshot when syncing new node', async () => {
     log.warn(`Syncing brand new node with snapshot sync`);
     const node = await createNonValidatorNode('1', {
       blobSinkUrl: undefined, // set no blob sink so it cannot sync on its own
@@ -92,6 +115,25 @@ describe('e2e_snapshot_sync', () => {
     expect(await getBlockHashLeafIndex(node)).toBeDefined();
 
     log.warn(`Stopping new node`);
+    await node.stop();
+  });
+
+  it('downloads snapshot when syncing new prover node', async () => {
+    log.warn(`Syncing brand new prover node with snapshot sync`);
+    const node = await createTestProverNode('1', {
+      blobSinkUrl: undefined, // set no blob sink so it cannot sync on its own
+      snapshotsUrl: snapshotLocation,
+      syncMode: 'snapshot',
+    });
+
+    log.warn(`New node prover synced`);
+    const tips = await node.getL2Tips();
+    expect(tips.latest.number).toBeLessThanOrEqual(L2_TARGET_BLOCK_NUM);
+
+    const worldState = await node.getWorldStateSyncStatus();
+    expect(worldState.latestBlockNumber).toBeLessThanOrEqual(L2_TARGET_BLOCK_NUM);
+
+    log.warn(`Stopping new prover node`);
     await node.stop();
   });
 });

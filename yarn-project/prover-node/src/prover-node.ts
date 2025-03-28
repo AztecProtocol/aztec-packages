@@ -15,6 +15,7 @@ import {
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
@@ -161,6 +162,16 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.l1Metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
+  }
+
+  /** Returns world state status. */
+  public getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    return this.worldState.status().then(s => s.syncSummary);
+  }
+
+  /** Returns archiver status. */
+  public getL2Tips() {
+    return this.l2BlockSource.getL2Tips();
   }
 
   /**
