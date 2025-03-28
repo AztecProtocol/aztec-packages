@@ -153,4 +153,5 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToAnotherLeaf)
 }
 
 } // namespace
+
 } // namespace bb::avm2::simulation
