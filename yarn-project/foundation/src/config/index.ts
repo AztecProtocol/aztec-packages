@@ -180,6 +180,24 @@ function safeParseNumber(value: string, defaultValue: number): number {
 }
 
 /**
+ * Safely parses a positive integer from a string.
+ * If the value is not a number or is not a safe integer, the default value is returned.
+ * @param value - The string value to parse
+ * @param defaultValue - The default value to return
+ * @returns Either parsed value or default value
+ */
+export function safeParsePositiveInteger(value: string): number;
+export function safeParsePositiveInteger(value: string, defaultValue: number): number;
+export function safeParsePositiveInteger(value: string, defaultValue?: number): number | undefined {
+  // Check value has no non-numeric characters
+  if (!/^\d+$/.test(value)) {
+    throw new Error('Value must be a positive integer: ' + value);
+  }
+  const parsedValue = parseInt(value, 10);
+  return Number.isSafeInteger(parsedValue) && parsedValue > 0 ? parsedValue : defaultValue;
+}
+
+/**
  * Picks specific keys from the given configuration mappings.
  *
  * @template T - The type of the full configuration object.
