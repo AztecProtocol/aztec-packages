@@ -1,6 +1,6 @@
 import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { poseidon2Hash, randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -623,8 +623,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
       // TODO(#13137): The following is a workaround to disable the logIndexInTx check for TXE tests as TXE currently
       // returns nonsensical tx effects and the tx has is incremented from 0 up (so it never crosses a 1000).
-      if (scopedLog.txHash.toBigInt() > 1000) {
-        logIndexInTx = Fr.random().toNumber();
+      if (scopedLog.txHash.toBigInt() < 1000n) {
+        logIndexInTx = randomInt(10);
       }
 
       if (logIndexInTx === -1) {
