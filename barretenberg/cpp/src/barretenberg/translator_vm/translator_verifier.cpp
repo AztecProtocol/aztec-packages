@@ -57,7 +57,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
-    using Sumcheck = Verifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
+    using Sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
 
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
