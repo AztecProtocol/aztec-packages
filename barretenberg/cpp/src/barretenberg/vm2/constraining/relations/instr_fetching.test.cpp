@@ -249,32 +249,6 @@ std::vector<RangeCheckEvent> gen_range_check_events(const std::vector<Instructio
     return range_check_events;
 }
 
-// Positive test for interaction with range checks using same events as for the test
-// EachOpcodeWithTraceGen, i.e., one event/row is generated per wire opcode.
-TEST(InstrFetchingConstrainingTest, RangeCheckInteractions)
-{
-    TestTraceContainer trace;
-    BytecodeTraceBuilder bytecode_builder;
-    PrecomputedTraceBuilder precomputed_builder;
-    RangeCheckTraceBuilder range_check_builder;
-
-    const auto instr_fetch_events = gen_instr_events_each_opcode();
-    const auto range_check_events = gen_range_check_events(instr_fetch_events);
-
-    precomputed_builder.process_sel_range_8(trace);
-    precomputed_builder.process_sel_range_16(trace);
-    bytecode_builder.process_instruction_fetching(instr_fetch_events, trace);
-    range_check_builder.process(range_check_events, trace);
-    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
-
-    LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
-    LookupIntoDynamicTableGeneric<pc_abs_diff_positive_lookup::Settings>().process(trace);
-
-    EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
-
-    check_relation<instr_fetching>(trace);
-}
-
 // Positive test for the interaction with bytecode decomposition table.
 // One event/row is generated per wire opcode (same as for test WireInstructionSpecInteractions).
 TEST(InstrFetchingConstrainingTest, BcDecompositionInteractions)
@@ -327,6 +301,31 @@ void check_all(const std::vector<InstructionFetchingEvent>& instr_events,
     LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
 
     EXPECT_EQ(trace.get_num_rows(), 1 << 16); // 2^16 for range checks
+
+    check_relation<instr_fetching>(trace);
+}
+
+void check_without_range_check(const std::vector<InstructionFetchingEvent>& instr_events,
+                               const std::vector<BytecodeDecompositionEvent>& decomposition_events)
+{
+    TestTraceContainer trace;
+    BytecodeTraceBuilder bytecode_builder;
+    PrecomputedTraceBuilder precomputed_builder;
+
+    precomputed_builder.process_wire_instruction_spec(trace);
+    precomputed_builder.process_sel_range_8(trace);
+    precomputed_builder.process_memory_tag_range(trace);
+    bytecode_builder.process_instruction_fetching(instr_events, trace);
+    bytecode_builder.process_decomposition(decomposition_events, trace);
+    precomputed_builder.process_misc(trace, trace.get_num_rows()); // Limit to the number of rows we need.
+
+    LookupIntoIndexedByClk<instr_abs_diff_positive_lookup::Settings>().process(trace);
+    LookupIntoIndexedByClk<wire_instr_spec_lookup::Settings>().process(trace);
+    LookupIntoIndexedByClk<tag_validation_lookup::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<bc_decomposition_lookup::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<bytecode_size_bc_decomposition_lookup::Settings>().process(trace);
+
+    EXPECT_EQ(trace.get_num_rows(), 1 << 8); // 2^8 for range checks
 
     check_relation<instr_fetching>(trace);
 }
@@ -402,7 +401,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRange)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
 }
 
 // Positive test with one single instruction (SET_FF) with error INSTRUCTION_OUT_OF_RANGE.
@@ -439,7 +438,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOutOfRangeSplitOperand)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
 }
 
 // Positive test with error case PC_OUT_OF_RANGE. We pass a pc which is out of range.
@@ -518,7 +517,7 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionOpcodeOutOfRange)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
 }
 
 // Positive test with one single instruction (SET_16) with error TAG_OUT_OF_RANGE.
@@ -552,10 +551,10 @@ TEST(InstrFetchingConstrainingTest, SingleInstructionTagOutOfRange)
         },
     };
 
-    check_all(instr_events, gen_range_check_events(instr_events), decomposition_events);
+    check_without_range_check(instr_events, decomposition_events);
 }
 
-// TODO(jeanmon): Reconsider this test.
+// TODO(jeanmon): Reconsider this test after #13140
 // Negative interaction test with some values not matching the instruction spec table.
 TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongWireInstructionSpecInteractions)
 {
@@ -721,7 +720,7 @@ TEST(InstrFetchingConstrainingTest, NegativeWrongBytecodeSizeBcDecompositionInte
     }
 }
 
-// TODO(jeanmon): Reconsider this test.
+// TODO(jeanmon): Reconsider this test after #13140
 // Negative interaction test for #[TAG_VALUE_VALIDATION] where tag_out_of_range is wrongly mutated
 TEST(InstrFetchingConstrainingTest, DISABLED_NegativeWrongTagValidationInteractions)
 {
