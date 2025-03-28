@@ -5,8 +5,8 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
-#include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/flavor_settings.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_read.hpp"
 #include "barretenberg/vm2/generated/relations/merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/public_data_read.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -25,7 +25,7 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
-namespace bb::avm2::constraining {
+namespace bb::avm2::tracegen {
 namespace {
 
 using ::testing::NiceMock;
@@ -46,13 +46,6 @@ using simulation::PublicDataTreeLeafPreimage;
 using simulation::PublicDataTreeReadEvent;
 using simulation::root_from_path;
 
-using tracegen::FieldGreaterThanTraceBuilder;
-using tracegen::LookupIntoDynamicTableSequential;
-using tracegen::MerkleCheckTraceBuilder;
-using tracegen::Poseidon2TraceBuilder;
-using tracegen::PublicDataTreeReadTraceBuilder;
-using tracegen::TestTraceContainer;
-
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using public_data_read = bb::avm2::public_data_read<FF>;
@@ -64,11 +57,6 @@ using lookup_low_leaf_poseidon2_1 = lookup_public_data_read_low_leaf_poseidon2_1
 using lookup_low_leaf_membership = lookup_public_data_read_low_leaf_membership_relation<FF>;
 using lookup_low_leaf_slot_validation = lookup_public_data_read_low_leaf_slot_validation_relation<FF>;
 using lookup_low_leaf_next_slot_validation = lookup_public_data_read_low_leaf_next_slot_validation_relation<FF>;
-
-TEST(PublicDataTreeReadConstrainingTest, EmptyRow)
-{
-    check_relation<public_data_read>(testing::empty_trace());
-}
 
 struct TestParams {
     FF leaf_slot;
@@ -90,9 +78,9 @@ std::vector<TestParams> positive_tests = {
         .leaf_slot = 42, .value = 0, .low_leaf = PublicDataTreeLeafPreimage(PublicDataLeafValue(10, 0), 28, 50) }
 };
 
-class PublicDataReadPositiveTests : public TestWithParam<TestParams> {};
+class PublicDataReadInteractionsTests : public TestWithParam<TestParams> {};
 
-TEST_P(PublicDataReadPositiveTests, Positive)
+TEST_P(PublicDataReadInteractionsTests, PositiveWithInteractions)
 {
     const auto& param = GetParam();
 
@@ -135,109 +123,16 @@ TEST_P(PublicDataReadPositiveTests, Positive)
     field_gt_builder.process(field_gt_event_emitter.dump_events(), trace);
     public_data_tree_read_builder.process(public_data_tree_read_event_emitter.dump_events(), trace);
 
-    check_relation<public_data_read>(trace);
+    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_0::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_low_leaf_poseidon2_1::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_low_leaf_membership::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_low_leaf_slot_validation::Settings>().process(trace);
+    LookupIntoDynamicTableSequential<lookup_low_leaf_next_slot_validation::Settings>().process(trace);
 }
 
-INSTANTIATE_TEST_SUITE_P(PublicDataTreeReadConstrainingTest,
-                         PublicDataReadPositiveTests,
+INSTANTIATE_TEST_SUITE_P(PublicDataTreeReadTracegenTest,
+                         PublicDataReadInteractionsTests,
                          ::testing::ValuesIn(positive_tests));
 
-TEST(PublicDataTreeReadConstrainingTest, NegativeExistsFlagCheck)
-{
-    // Test constraint: sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - slot_low_leaf_slot_diff_inv) +
-    // slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0
-    TestTraceContainer trace({
-        { { C::public_data_read_sel, 1 },
-          { C::public_data_read_slot, 27 },
-          { C::public_data_read_low_leaf_slot, 27 },
-          { C::public_data_read_slot_low_leaf_slot_diff_inv, 0 },
-          { C::public_data_read_leaf_not_exists, 0 } },
-        { { C::public_data_read_sel, 1 },
-          { C::public_data_read_slot, 28 },
-          { C::public_data_read_low_leaf_slot, 27 },
-          { C::public_data_read_slot_low_leaf_slot_diff_inv, FF(1).invert() },
-          { C::public_data_read_leaf_not_exists, 1 } },
-    });
-
-    check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_FLAG_CHECK);
-
-    trace.set(C::public_data_read_leaf_not_exists, 0, 1);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
-
-    trace.set(C::public_data_read_leaf_not_exists, 0, 0);
-    trace.set(C::public_data_read_leaf_not_exists, 1, 0);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
-}
-
-TEST(PublicDataTreeReadConstrainingTest, NegativeNextSlotIsZero)
-{
-    // Test constraint: leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) +
-    // next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0
-    TestTraceContainer trace({
-        {
-            { C::public_data_read_leaf_not_exists, 1 },
-            { C::public_data_read_low_leaf_next_slot, 0 },
-            { C::public_data_read_next_slot_inv, 0 },
-            { C::public_data_read_next_slot_is_nonzero, 0 },
-        },
-        {
-            { C::public_data_read_leaf_not_exists, 1 },
-            { C::public_data_read_low_leaf_next_slot, 1 },
-            { C::public_data_read_next_slot_inv, FF(1).invert() },
-            { C::public_data_read_next_slot_is_nonzero, 1 },
-        },
-    });
-
-    check_relation<public_data_read>(trace, public_data_read::SR_NEXT_SLOT_IS_ZERO_CHECK);
-
-    trace.set(C::public_data_read_next_slot_is_nonzero, 0, 1);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_NEXT_SLOT_IS_ZERO_CHECK),
-                              "NEXT_SLOT_IS_ZERO_CHECK");
-
-    trace.set(C::public_data_read_next_slot_is_nonzero, 0, 0);
-    trace.set(C::public_data_read_next_slot_is_nonzero, 1, 0);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_NEXT_SLOT_IS_ZERO_CHECK),
-                              "NEXT_SLOT_IS_ZERO_CHECK");
-}
-
-TEST(PublicDataTreeReadConstrainingTest, NegativeValueIsCorrect)
-{
-    // Test constraint: leaf_not_exists * (low_leaf_next_slot * (NEXT_SLOT_IS_ZERO * (1 - next_slot_inv) +
-    // next_slot_inv) - 1 + NEXT_SLOT_IS_ZERO) = 0
-    TestTraceContainer trace({
-        {
-            { C::public_data_read_low_leaf_value, 27 },
-            { C::public_data_read_leaf_not_exists, 0 },
-            { C::public_data_read_value, 27 },
-        },
-        {
-            { C::public_data_read_low_leaf_value, 27 },
-            { C::public_data_read_leaf_not_exists, 1 },
-            { C::public_data_read_value, 0 },
-        },
-    });
-
-    check_relation<public_data_read>(trace, public_data_read::SR_VALUE_IS_CORRECT);
-
-    // Invalid, if leaf exists, the value should be the low leaf value
-    trace.set(C::public_data_read_value, 0, 0);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_VALUE_IS_CORRECT),
-                              "VALUE_IS_CORRECT");
-
-    trace.set(C::public_data_read_value, 0, 27);
-    // Invalid, if leaf does not exists, the value should be zero
-    trace.set(C::public_data_read_value, 1, 27);
-
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_VALUE_IS_CORRECT),
-                              "VALUE_IS_CORRECT");
-}
-
 } // namespace
-} // namespace bb::avm2::constraining
+} // namespace bb::avm2::tracegen

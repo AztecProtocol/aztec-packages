@@ -22,7 +22,7 @@ class PublicDataTreeCheckInterface {
 
 class PublicDataTreeCheck : public PublicDataTreeCheckInterface {
   public:
-    PublicDataTreeCheck(Poseidon2& poseidon2,
+    PublicDataTreeCheck(Poseidon2Interface& poseidon2,
                         MerkleCheckInterface& merkle_check,
                         FieldGreaterThanInterface& field_gt,
                         EventEmitterInterface<PublicDataTreeReadEvent>& read_event_emitter)
