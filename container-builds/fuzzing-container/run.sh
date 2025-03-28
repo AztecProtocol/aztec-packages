@@ -81,15 +81,10 @@ if [[ $? -ne 0 ]]; then
 fi
 
 if [[ "$mode" == "show-fuzzers" ]]; then
-    docker run -it --rm                                  \
-        --user "$(id -u):$(id -g)"                       \
-        --name fuzzer                                    \
-        -v "$(pwd)/crash-reports:/fuzzing/crash-reports" \
-        -v "$(pwd)/output:/fuzzing/output"               \
-        --cpus="$cpus"                                   \
-        -m "$mem"                                        \
-        --entrypoint "./entrypoint.sh"                   \
-        "$image_name"                                    \
+    docker run -it --rm                                      \
+        --name fuzzer                                        \
+        --entrypoint "./entrypoint.sh"                       \
+        "$image_name"                                        \
         --show-fuzzers                                        
     exit 0;
 fi
@@ -105,30 +100,30 @@ fi
 [[ -d output ]] || mkdir output;
 
 if [[ $verbosity == '1' ]]; then
-    docker run -it --rm                                  \
-        --user "$(id -u):$(id -g)"                       \
-        --name fuzzer                                    \
-        -v "$(pwd)/crash-reports:/fuzzing/crash-reports" \
-        -v "$(pwd)/output:/fuzzing/output"               \
-        --cpus="$cpus"                                   \
-        -m "$mem"                                        \
-        --entrypoint "./entrypoint.sh"                   \
-        "$image_name"                                    \
-        --verbose                                        \
-        --fuzzer "$fuzzer"                               \
-        --mode "$mode"                                   \
+    docker run -it --rm                                         \
+        --user root                                             \
+        --name fuzzer                                           \
+        -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports:rw" \
+        -v "$(pwd)/output:/home/fuzzer/output:rw"               \
+        --cpus="$cpus"                                          \
+        -m "$mem"                                               \
+        --entrypoint "./entrypoint.sh"                          \
+        "$image_name"                                           \
+        --verbose                                               \
+        --fuzzer "$fuzzer"                                      \
+        --mode "$mode"                                          \
         --timeout "$timeout"                             
 else
-    docker run -it --rm                                  \
-        --user "$(id -u):$(id -g)"                       \
-        --name fuzzer                                    \
-        -v "$(pwd)/crash-reports:/fuzzing/crash-reports" \
-        -v "$(pwd)/output:/fuzzing/output"               \
-        --cpus="$cpus"                                   \
-        -m "$mem"                                        \
-        --entrypoint "./entrypoint.sh"                   \
-        "$image_name"                                    \
-        --fuzzer "$fuzzer"                               \
-        --mode "$mode"                                   \
+    docker run -it --rm                                         \
+        --user root                                             \
+        --name fuzzer                                           \
+        -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports"    \
+        -v "$(pwd)/output:/home/fuzzer/output"                  \
+        --cpus="$cpus"                                          \
+        -m "$mem"                                               \
+        --entrypoint "./entrypoint.sh"                          \
+        "$image_name"                                           \
+        --fuzzer "$fuzzer"                                      \
+        --mode "$mode"                                          \
         --timeout "$timeout"                             
 fi

@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 
+umask 000
+
 main_fuzzer="./build-fuzzing/bin"
 post_fuzzer="./build-fuzzing-asan/bin"
 
-CRASHES="/fuzzing/crash-reports"
+workdir="/home/fuzzer"
+
+CRASHES="$workdir/crash-reports"
 [[ -d "$CRASHES" ]] ||  mkdir "$CRASHES" 2> /dev/null
 
-OUTPUT="/fuzzing/output"
+OUTPUT="$workdir/output"
 [[ -d "$OUTPUT" ]] || mkdir "$OUTPUT" 2> /dev/null
 
 fuzzer=''
@@ -126,7 +130,9 @@ if compgen -G "$CRASHES/*" &> /dev/null; then
 fi
 
 fuzz() {
-    TMPOUT=$(mktemp -d)
+    TMPOUT="$(mktemp -d)"
+    [[ -d "$TMPOUT" ]] || mkdir "$TMPOUT"
+    
     "$main_fuzzer" -max_total_time="$timeout" -verbosity="$verbosity" -artifact_prefix="$TMPOUT/" -timeout=10 -len_control=100 -workers=4 -jobs=4 -entropic=1 -shrink=1 -use_value_profile=1 -print_final_stats=1 &> "$TMPOUT/session.txt";
 
     files=("$TMPOUT"/crash-*)
@@ -145,7 +151,7 @@ fuzz() {
         done
     fi
     mv "$TMPOUT/"* "$OUTPUT";
-    rm -rf "$TMPOUT"
+    rmdir "$TMPOUT"
 }
 
 cov() {
