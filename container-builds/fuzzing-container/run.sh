@@ -18,6 +18,7 @@ show_help() {
     echo "  --mem <memory>              Set the amount of memory for container to use (default: $mem)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
     echo "  -h, --help                  Display this help and exit"
+    echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
     echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
     echo "and coverage testing based on the mode specified."
@@ -33,6 +34,10 @@ while [[ $# -gt 0 ]]; do
         -f|--fuzzer)
             fuzzer="$2"
             shift 2
+            ;;
+        --show-fuzzers)
+            mode="show-fuzzers"
+            shift
             ;;
         -t|--timeout)
             timeout="$2"
@@ -72,6 +77,27 @@ image_name=barretenberg-fuzzer
 
 docker build src/ -t "$image_name":latest
 if [[ $? -ne 0 ]]; then
+    exit 1;
+fi
+
+if [[ "$mode" == "show-fuzzers" ]]; then
+    docker run -it --rm                                  \
+        --user "$(id -u):$(id -g)"                       \
+        --name fuzzer                                    \
+        -v "$(pwd)/crash-reports:/fuzzing/crash-reports" \
+        -v "$(pwd)/output:/fuzzing/output"               \
+        --cpus="$cpus"                                   \
+        -m "$mem"                                        \
+        --entrypoint "./entrypoint.sh"                   \
+        "$image_name"                                    \
+        --show-fuzzers                                        
+    exit 0;
+fi
+
+if [ -z "${fuzzer}" ]; then
+    echo "err: No fuzzer was provided";
+    echo
+    show_help
     exit 1;
 fi
 

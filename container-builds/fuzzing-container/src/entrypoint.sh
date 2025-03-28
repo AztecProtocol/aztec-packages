@@ -14,6 +14,16 @@ verbosity='0'
 timeout='2592000' # 1 month
 mode='fuzzing'
 
+show_fuzzers() {
+    echo "The following fuzzers are available:"
+    echo
+    if compgen -G "$main_fuzzer/*"* &> /dev/null; then
+        for f in "$main_fuzzer/"*; do
+            basename "$f";
+        done;
+    fi
+}
+
 show_help() {
     echo "Usage: $0 [options]"
     echo ""
@@ -23,16 +33,12 @@ show_help() {
     echo "  -t, --timeout <timeout>     Set the maximum total time for fuzzing in seconds (default: $timeout - 1 month)"
     echo "  -m, --mode <mode>           Set the mode of operation (fuzzing or coverage) (default: $mode)"
     echo "  -h, --help                  Display this help and exit"
+    echo "  --show-fuzzers              Display the available fuzzers"
     echo ""
     echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
     echo "and coverage testing based on the mode specified."
     echo
-    echo "The following fuzzers are available:"
-    if compgen -G "$main_fuzzer/*"* &> /dev/null; then
-        for f in "$main_fuzzer/"*; do
-            basename "$f";
-        done;
-    fi
+    show_fuzzers;
 }
 
 while [[ $# -gt 0 ]]; do
@@ -44,6 +50,10 @@ while [[ $# -gt 0 ]]; do
         -f|--fuzzer)
             fuzzer="$2"
             shift 2
+            ;;
+        --show-fuzzers)
+            show_fuzzers
+            exit 0;
             ;;
         -t|--timeout)
             timeout="$2"
