@@ -10,7 +10,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -20,6 +20,7 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, createP2PClient } from '@aztec/p2p';
@@ -86,6 +87,8 @@ import {
 } from '@aztec/telemetry-client';
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
+
+import { createPublicClient, fallback, getContract, http } from 'viem';
 
 import { createSentinel } from '../sentinel/factory.js';
 import { Sentinel } from '../sentinel/sentinel.js';
@@ -170,6 +173,37 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
         `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
+      );
+    }
+
+    const publicClient = createPublicClient({
+      chain: ethereumChain.chainInfo,
+      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      pollingInterval: config.viemPollingIntervalMS,
+    });
+
+    const l1ContractsAddresses = await RegistryContract.collectAddresses(
+      publicClient,
+      config.l1Contracts.registryAddress,
+      config.version ?? 'canonical',
+    );
+
+    // Overwrite the passed in vars.
+    config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+
+    const rollup = getContract({
+      address: l1ContractsAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    const versionFromRollup = Number(await rollup.read.getVersion());
+
+    config.version ??= versionFromRollup;
+
+    if (config.version !== versionFromRollup) {
+      log.warn(
+        `Registry looked up and returned a rollup with version (${config.version}), but this does not match with version detected from the rollup directly: (${versionFromRollup}).`,
       );
     }
 
