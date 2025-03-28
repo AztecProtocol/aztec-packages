@@ -4,7 +4,7 @@ import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import { type ExecutionDataProvider, MessageLoadOracleInputs, type SimulationProvider } from '@aztec/simulator/client';
+import { type ExecutionDataProvider, MessageLoadOracleInputs } from '@aztec/simulator/client';
 import { type FunctionArtifactWithContractName, FunctionSelector, getFunctionArtifact } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { InBlock, L2Block, L2BlockNumber } from '@aztec/stdlib/block';
