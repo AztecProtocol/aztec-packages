@@ -14,7 +14,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -75,6 +75,11 @@ describe('PXEOracleInterface', () => {
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
     simulationProvider = new WASMSimulator();
+
+    // PXEOracleInterface.syncTagLogFunction(...) syncs log up to the block number up to which PXE synced. We set
+    // as sufficiently high sync number here to not interfere with the tests.
+    setSyncedBlockNumber(100);
+
     pxeOracleInterface = new PXEOracleInterface(
       aztecNode,
       keyStore,
@@ -420,8 +425,12 @@ describe('PXEOracleInterface', () => {
     });
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
+      const maxBlockNumber = 1;
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
+
+      setSyncedBlockNumber(maxBlockNumber);
+
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
@@ -516,4 +525,12 @@ describe('PXEOracleInterface', () => {
       );
     }, 30_000);
   });
+
+  const setSyncedBlockNumber = (blockNumber: number) => {
+    syncDataProvider.setHeader(
+      BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
+      }),
+    );
+  };
 });
