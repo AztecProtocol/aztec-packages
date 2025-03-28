@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743161590945,
+  "lastUpdate": 1743166146354,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a85f5305d491e61bb0df159c31a08bf52e2534dc",
-          "message": "fix: sponsored fpc arg parsed correctly (#12976) (#12977)\n\nResyncing master after hotfix for alpha-testnet. Holding for release\n0.82.2 to go in !\n\nCo-authored-by: sklppy88 <esau@aztecprotocol.com>",
-          "timestamp": "2025-03-24T14:22:44+01:00",
-          "tree_id": "c89fe9c6a93cbbbbfb0f71c913853684e78bb142",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a85f5305d491e61bb0df159c31a08bf52e2534dc"
-        },
-        "date": 1742824274500,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9222,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23453868234761024,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 133036,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 109733,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "970dae5b7745165c81b93a0b7240b428cf94e782",
+          "message": "fix: force anvil/blob networking to ipv4 on localhost. attempt to fix port flakes (#13099)\n\nWe occasionally get \"port in use\" or \"unable to find available port\"\nissues in tests that use the network stack.\nWhen I was facing these with TXE startups, I think I eventually\n\"resolved\" it by ensuring we bind explicitly to the loopback interface\nusing only ipv4 by directly specifying `127.0.0.1`.\nIf you provide `localhost` you might bind on ipv6, and some of our\ndefaults are `0.0.0.0` which attempts to bind on all available\ninterfaces - and I think that may actually be where the problem lies.\n\nThis is a bit of a wing - we can see if it works.",
+          "timestamp": "2025-03-28T12:21:17Z",
+          "tree_id": "f7043bb7e63a83a3c90364e35ab71a1e7d373f83",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/970dae5b7745165c81b93a0b7240b428cf94e782"
+        },
+        "date": 1743166145458,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9690,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24643834975023474,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 143240,
             "unit": "us"
           }
         ]
