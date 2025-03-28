@@ -185,6 +185,10 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
+  getCurrentEpoch() {
+    return this.rollup.read.getCurrentEpoch();
+  }
+
   async getCurrentEpochCommittee() {
     const { result } = await this.client.simulateContract({
       address: this.address,
