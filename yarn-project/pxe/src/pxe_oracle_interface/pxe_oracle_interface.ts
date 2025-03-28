@@ -617,6 +617,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
+      // TODO(#13155): Handle multiple found indexes for the same log.
       let logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
 
       // TODO(#13137): The following is a workaround to disable the logIndexInTx check for TXE tests as TXE currently
