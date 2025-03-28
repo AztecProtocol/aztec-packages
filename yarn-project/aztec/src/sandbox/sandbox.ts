@@ -206,7 +206,7 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
 export async function createAztecNode(
   config: Partial<AztecNodeConfig> = {},
   deps: { telemetry?: TelemetryClient; blobSinkClient?: BlobSinkClientInterface } = {},
-  options: { prefilledPublicData?: PublicDataTreeLeaf[] } = {},
+  options: { prefilledPublicData?: PublicDataTreeLeaf[]; genesisArchiveTreeRoot?: Fr } = {},
 ) {
   // TODO(#12272): will clean this up. This is criminal.
   const { l1Contracts, ...rest } = getConfigEnvVars();

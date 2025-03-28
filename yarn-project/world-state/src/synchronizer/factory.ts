@@ -1,3 +1,4 @@
+import { Fr } from '@aztec/foundation/fields';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
@@ -13,16 +14,18 @@ export async function createWorldStateSynchronizer(
   config: WorldStateConfig & DataStoreConfig,
   l2BlockSource: L2BlockSource & L1ToL2MessageSource,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
+  genesisArchiveTreeRoot = Fr.ZERO,
   client: TelemetryClient = getTelemetryClient(),
 ) {
   const instrumentation = new WorldStateInstrumentation(client);
-  const merkleTrees = await createWorldState(config, prefilledPublicData, instrumentation);
+  const merkleTrees = await createWorldState(config, prefilledPublicData, genesisArchiveTreeRoot, instrumentation);
   return new ServerWorldStateSynchronizer(merkleTrees, l2BlockSource, config, instrumentation);
 }
 
 export async function createWorldState(
   config: WorldStateConfig & DataStoreConfig,
   prefilledPublicData: PublicDataTreeLeaf[] = [],
+  genesisArchiveTreeRoot = Fr.ZERO,
   instrumentation: WorldStateInstrumentation = new WorldStateInstrumentation(getTelemetryClient()),
 ) {
   const newConfig = {
@@ -41,6 +44,7 @@ export async function createWorldState(
         newConfig.dataDirectory,
         newConfig.dataStoreMapSizeKB,
         prefilledPublicData,
+        genesisArchiveTreeRoot,
         instrumentation,
       )
     : await NativeWorldStateService.tmp(
