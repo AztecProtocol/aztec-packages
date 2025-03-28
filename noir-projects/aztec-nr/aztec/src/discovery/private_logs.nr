@@ -36,9 +36,8 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     // We will eventually fetch tagged logs, decrypt and process them here, but for now we simply call the `syncNotes`
-    // oracle. This has PXE perform tag synchronization, log download, decryption, and finally calls to the the
-    // `process_log` contract function with the decrypted payload, which will in turn call `process_log` with a
-    // decrypted log, letting us continue the work outside of PXE.
+    // oracle. This makes PXE synchronize tags, download logs and store the logs in capsules which are then retrieved
+    // and processed here.
     sync_notes();
 
     // Get logs from capsules
