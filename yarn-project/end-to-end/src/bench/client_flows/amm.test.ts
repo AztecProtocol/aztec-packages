@@ -33,6 +33,8 @@ describe('AMM benchmark', () => {
   let liquidityToken: TokenContract;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.amm;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -48,8 +50,9 @@ describe('AMM benchmark', () => {
     await t.teardown();
   });
 
-  ammBenchmark('ecdsar1');
-  ammBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    ammBenchmark(accountType);
+  }
 
   function ammBenchmark(accountType: AccountType) {
     return describe(`AMM benchmark for ${accountType}`, () => {
@@ -154,8 +157,9 @@ describe('AMM benchmark', () => {
         });
       }
 
-      addLiquidityTest('private_fpc');
-      addLiquidityTest('sponsored_fpc');
+      for (const paymentMethod of config.feePaymentMethods) {
+        addLiquidityTest(paymentMethod);
+      }
     });
   }
 });

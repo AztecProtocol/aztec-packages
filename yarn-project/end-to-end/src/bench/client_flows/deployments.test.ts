@@ -15,6 +15,8 @@ describe('Deployment benchmark', () => {
   let adminWallet: AccountWallet;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.deployments;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -31,8 +33,9 @@ describe('Deployment benchmark', () => {
     await t.teardown();
   });
 
-  deploymentBenchmark('ecdsar1');
-  deploymentBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    deploymentBenchmark(accountType);
+  }
 
   function deploymentBenchmark(accountType: AccountType) {
     return describe(`Deployment benchmark for ${accountType}`, () => {
@@ -84,8 +87,9 @@ describe('Deployment benchmark', () => {
         });
       }
 
-      deploymentTest('bridged_fee_juice');
-      deploymentTest('sponsored_fpc');
+      for (const paymentMethod of config.feePaymentMethods) {
+        deploymentTest(paymentMethod);
+      }
     });
   }
 });

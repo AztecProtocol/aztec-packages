@@ -30,6 +30,8 @@ describe('Transfer benchmark', () => {
   let node: AztecNode;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.transfers;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -45,8 +47,9 @@ describe('Transfer benchmark', () => {
     await t.teardown();
   });
 
-  transferBenchmark('ecdsar1');
-  transferBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    transferBenchmark(accountType);
+  }
 
   function transferBenchmark(accountType: AccountType) {
     return describe(`Transfer benchmark for ${accountType}`, () => {
@@ -164,10 +167,10 @@ describe('Transfer benchmark', () => {
         });
       }
 
-      for (let i = 0; i < MINIMUM_NOTES_FOR_RECURSION_LEVEL.length; i++) {
-        // Create the minimum amount of notes for the test, which is just above the threshold for recursion at each level
-        recursionTest(i, MINIMUM_NOTES_FOR_RECURSION_LEVEL[i] + 1, 'private_fpc');
-        recursionTest(i, MINIMUM_NOTES_FOR_RECURSION_LEVEL[i] + 1, 'sponsored_fpc');
+      for (const paymentMethod of config.feePaymentMethods) {
+        for (const recursions of config.recursions ?? []) {
+          recursionTest(recursions, MINIMUM_NOTES_FOR_RECURSION_LEVEL[recursions] + 1, paymentMethod);
+        }
       }
     });
   }

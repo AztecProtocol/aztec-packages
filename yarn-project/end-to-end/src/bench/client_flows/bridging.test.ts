@@ -8,7 +8,12 @@ import { jest } from '@jest/globals';
 
 import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
-import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import {
+  type AccountType,
+  type BenchmarkingFeePaymentMethod,
+  type ClientFlowConfig,
+  ClientFlowsBenchmark,
+} from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
@@ -22,6 +27,8 @@ describe('Bridging benchmark', () => {
   let bananaCoin: TokenContract;
   // Sponsored FPC contract
   let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.bridging;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -35,8 +42,9 @@ describe('Bridging benchmark', () => {
     await t.teardown();
   });
 
-  bridgingBenchmark('ecdsar1');
-  bridgingBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    bridgingBenchmark(accountType);
+  }
 
   function bridgingBenchmark(accountType: AccountType) {
     return describe(`Bridging benchmark for ${accountType}`, () => {
@@ -112,8 +120,9 @@ describe('Bridging benchmark', () => {
         });
       }
 
-      privateClaimTest('private_fpc');
-      privateClaimTest('sponsored_fpc');
+      for (const paymentMethod of config.feePaymentMethods) {
+        privateClaimTest(paymentMethod);
+      }
     });
   }
 });

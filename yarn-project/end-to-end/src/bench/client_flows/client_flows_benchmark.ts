@@ -47,11 +47,63 @@ import {
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
 
-const { E2E_DATA_PATH: dataPath } = process.env;
+const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
 export type FeePaymentMethodGetter = (wallet: Wallet) => Promise<FeePaymentMethod>;
 export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc';
+
+export type ClientFlowConfig = {
+  accounts: AccountType[];
+  feePaymentMethods: BenchmarkingFeePaymentMethod[];
+  recursions?: number[];
+};
+
+type ClientFlows = 'deployments' | 'transfers' | 'bridging' | 'amm';
+
+type ClientFlowsConfig = {
+  [key in ClientFlows]: ClientFlowConfig;
+};
+
+const KEY_FLOWS_CONFIG: ClientFlowsConfig = {
+  deployments: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['sponsored_fpc'],
+  },
+  amm: {
+    accounts: ['ecdsar1'],
+    feePaymentMethods: ['sponsored_fpc'],
+  },
+  bridging: {
+    accounts: ['ecdsar1'],
+    feePaymentMethods: ['sponsored_fpc'],
+  },
+  transfers: {
+    accounts: ['ecdsar1'],
+    feePaymentMethods: ['sponsored_fpc'],
+    recursions: [1],
+  },
+};
+
+const FULL_FLOWS_CONFIG: ClientFlowsConfig = {
+  deployments: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['bridged_fee_juice', 'sponsored_fpc'],
+  },
+  amm: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
+  },
+  bridging: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
+  },
+  transfers: {
+    accounts: ['ecdsar1', 'schnorr'],
+    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
+    recursions: [0, 1, 2],
+  },
+};
 
 export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
@@ -112,6 +164,8 @@ export class ClientFlowsBenchmark {
       },
     };
 
+  public config: ClientFlowsConfig;
+
   constructor(testName?: string, setupOptions: Partial<SetupOptions & DeployL1ContractsArgs> = {}) {
     this.logger = createLogger(`bench:client_flows${testName ? `:${testName}` : ''}`);
     this.snapshotManager = createSnapshotManager(
@@ -120,6 +174,7 @@ export class ClientFlowsBenchmark {
       { startProverNode: true, ...setupOptions },
       { ...setupOptions },
     );
+    this.config = BENCHMARK_CONFIG === 'key_flows' ? KEY_FLOWS_CONFIG : FULL_FLOWS_CONFIG;
   }
 
   async setup() {
