@@ -158,7 +158,7 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     for (size_t idx = 0; idx < log_circuit_size; idx++) {
         FF true_eval_at_the_challenge = prover_output.round_univariates[idx].evaluate(prover_output.challenge[idx]);
         FF verifier_eval_at_the_challenge = verifier_output.round_univariate_evaluations[idx][2];
-        info(idx, "   ", true_eval_at_the_challenge == verifier_eval_at_the_challenge);
+        EXPECT_TRUE(true_eval_at_the_challenge == verifier_eval_at_the_challenge);
     }
 
     // Check that the first sumcheck univariate is consistent with the claimed ZK Sumchek Sum
