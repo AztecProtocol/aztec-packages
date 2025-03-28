@@ -1,13 +1,12 @@
 FROM ubuntu:noble AS base-build
 
 RUN apt-get update
-RUN apt-get install -y build-essential python3 wget unzip git sudo
+RUN apt-get install -y build-essential python3 wget unzip git
 RUN apt-get install -y cmake clang-16 ninja-build
 RUN apt-get -y autoremove
 RUN apt-get clean
 RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
-RUN echo '%sudo ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 RUN userdel -r ubuntu && useradd -m fuzzer -G sudo
 WORKDIR /home/fuzzer
 

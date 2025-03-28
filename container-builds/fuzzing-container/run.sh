@@ -82,7 +82,6 @@ fi
 
 if [[ "$mode" == "show-fuzzers" ]]; then
     docker run -it --rm                                      \
-        --name fuzzer                                        \
         --entrypoint "./entrypoint.sh"                       \
         "$image_name"                                        \
         --show-fuzzers                                        
@@ -102,7 +101,6 @@ fi
 if [[ $verbosity == '1' ]]; then
     docker run -it --rm                                         \
         --user root                                             \
-        --name fuzzer                                           \
         -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports:rw" \
         -v "$(pwd)/output:/home/fuzzer/output:rw"               \
         --cpus="$cpus"                                          \
@@ -116,7 +114,6 @@ if [[ $verbosity == '1' ]]; then
 else
     docker run -it --rm                                         \
         --user root                                             \
-        --name fuzzer                                           \
         -v "$(pwd)/crash-reports:/home/fuzzer/crash-reports"    \
         -v "$(pwd)/output:/home/fuzzer/output"                  \
         --cpus="$cpus"                                          \
