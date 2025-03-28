@@ -1,6 +1,7 @@
 import { Blob } from '@aztec/blob-lib';
 import { makeEncodedBlob } from '@aztec/blob-lib/testing';
 import type { L2BlockProposedEvent, ViemPublicClient } from '@aztec/ethereum';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 import { fileURLToPath } from '@aztec/foundation/url';
 
@@ -11,6 +12,7 @@ import request from 'supertest';
 
 import { BlobscanBlockResponseSchema } from '../archive/blobscan_archive_client.js';
 import type { BlobArchiveClient } from '../archive/interface.js';
+import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
 import { outboundTransform } from '../encoding/index.js';
 import { BlobWithIndex } from '../types/blob_with_index.js';
 import type { BlobSinkConfig } from './config.js';
@@ -22,7 +24,12 @@ describe('BlobSinkService', () => {
   const startServer = async (
     config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient; l1Client: ViemPublicClient }> = {},
   ) => {
-    service = new BlobSinkServer({ ...config, port: 0 }, undefined, config.blobArchiveClient, config.l1Client);
+    service = new BlobSinkServer(
+      { ...config, l1RpcUrls: [], rollupAddress: EthAddress.ZERO, port: 0 },
+      new MemoryBlobStore(),
+      config.blobArchiveClient,
+      config.l1Client,
+    );
     await service.start();
   };
 

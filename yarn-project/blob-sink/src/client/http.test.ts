@@ -1,20 +1,27 @@
 import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import http from 'http';
 import type { AddressInfo } from 'net';
 
+import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
 import { HttpBlobSinkClient } from './http.js';
 
 describe('HttpBlobSinkClient', () => {
   runBlobSinkClientTests(async () => {
-    const server = new BlobSinkServer({
-      port: 0,
-    });
+    const server = new BlobSinkServer(
+      {
+        l1RpcUrls: [],
+        rollupAddress: EthAddress.ZERO,
+        port: 0,
+      },
+      new MemoryBlobStore(),
+    );
     await server.start();
 
     const client = new HttpBlobSinkClient({
@@ -157,9 +164,14 @@ describe('HttpBlobSinkClient', () => {
 
     // When the consensus host is not responding, we should still be able to request blobs with the block hash
     it('should handle no consensus host', async () => {
-      blobSinkServer = new BlobSinkServer({
-        port: 0,
-      });
+      blobSinkServer = new BlobSinkServer(
+        {
+          port: 0,
+          l1RpcUrls: [],
+          rollupAddress: EthAddress.ZERO,
+        },
+        new MemoryBlobStore(),
+      );
       await blobSinkServer.start();
 
       const blobSinkSpy = jest.spyOn((blobSinkServer as any).blobStore, 'getBlobSidecars');

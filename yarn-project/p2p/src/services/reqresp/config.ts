@@ -1,4 +1,4 @@
-import { type ConfigMapping, numberConfigHelper } from '@aztec/foundation/config';
+import { type ConfigMappingsType, numberConfigHelper } from '@aztec/foundation/config';
 
 export const DEFAULT_INDIVIDUAL_REQUEST_TIMEOUT_MS = 2000;
 export const DEFAULT_OVERALL_REQUEST_TIMEOUT_MS = 4000;
@@ -21,7 +21,7 @@ export interface P2PReqRespConfig {
   individualRequestTimeoutMs: number;
 }
 
-export const p2pReqRespConfigMappings: Record<keyof P2PReqRespConfig, ConfigMapping> = {
+export const p2pReqRespConfigMappings: ConfigMappingsType<P2PReqRespConfig> = {
   overallRequestTimeoutMs: {
     env: 'P2P_REQRESP_OVERALL_REQUEST_TIMEOUT_MS',
     description: 'The overall timeout for a request response operation.',

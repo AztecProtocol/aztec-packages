@@ -99,9 +99,9 @@ export const pxeCliConfigMappings: ConfigMappingsType<CliPXEOptions> = {
 };
 
 export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEServiceConfig> = {
+  ...dataConfigMappings,
   ...pxeConfigMappings,
   ...pxeCliConfigMappings,
-  ...dataConfigMappings,
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,

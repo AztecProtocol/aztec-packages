@@ -20,7 +20,13 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
   version: {
     env: 'VERSION',
     description: 'The version of the rollup.',
-    parseEnv: (val: string) => (Number.isSafeInteger(parseInt(val, 10)) ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => {
+      const parsed = parseInt(val, 10);
+      if (Number.isSafeInteger(parsed)) {
+        return parsed;
+      }
+      throw new Error('Hey, not a number: ' + val);
+    },
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',

@@ -2,7 +2,6 @@ import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { type ViemPublicClient, getL2BlockProposalEvents } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { bufferToHex, pluralize } from '@aztec/foundation/string';
-import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import express, { type Express, type Request, type Response, json } from 'express';
@@ -12,8 +11,7 @@ import type { Hex } from 'viem';
 import { z } from 'zod';
 
 import type { BlobArchiveClient } from '../archive/index.js';
-import { type BlobStore, DiskBlobStore } from '../blobstore/index.js';
-import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
+import { type BlobStore } from '../blobstore/index.js';
 import { inboundTransform } from '../encoding/index.js';
 import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
 import { BlobWithIndex } from '../types/index.js';
@@ -32,14 +30,13 @@ export class BlobSinkServer {
 
   private app: Express;
   private server: Server | null = null;
-  private blobStore: BlobStore;
   private metrics: BlobSinkMetrics;
   private log: Logger = createLogger('aztec:blob-sink');
   private l1PublicClient: ViemPublicClient | undefined;
 
   constructor(
-    private config: BlobSinkConfig = {},
-    store?: AztecAsyncKVStore,
+    private config: BlobSinkConfig,
+    private blobStore: BlobStore,
     private blobArchiveClient?: BlobArchiveClient,
     l1PublicClient?: ViemPublicClient,
     telemetry: TelemetryClient = getTelemetryClient(),
@@ -52,8 +49,6 @@ export class BlobSinkServer {
 
     this.metrics = new BlobSinkMetrics(telemetry);
     this.l1PublicClient = l1PublicClient;
-
-    this.blobStore = store === undefined ? new MemoryBlobStore() : new DiskBlobStore(store);
 
     // Setup routes
     this.setupRoutes();
