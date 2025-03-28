@@ -378,7 +378,7 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
   }
 
-  public override async storePrivateEventLog(
+  public override storePrivateEventLog(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
@@ -393,7 +393,6 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
       logContent,
       txHash,
       logIndexInTx,
-      await this.executionDataProvider.getBlockNumber(),
     );
   }
 }

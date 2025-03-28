@@ -1262,7 +1262,7 @@ export class TXE implements TypedOracle {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
   }
 
-  async storePrivateEventLog(
+  storePrivateEventLog(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
@@ -1277,7 +1277,6 @@ export class TXE implements TypedOracle {
       logContent,
       txHash,
       logIndexInTx,
-      await this.getBlockNumber(),
     );
   }
 }

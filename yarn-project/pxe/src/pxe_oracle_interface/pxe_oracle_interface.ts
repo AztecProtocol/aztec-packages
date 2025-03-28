@@ -876,14 +876,17 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     logContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
-    historicalBlockNumber: number,
   ): Promise<void> {
     const txReceipt = await this.aztecNode.getTxReceipt(txHash);
     const blockNumber = txReceipt.blockNumber;
     if (blockNumber === undefined) {
       throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
     }
-    if (blockNumber > historicalBlockNumber) {
+    const historicalBlockNumber = await this.syncDataProvider.getBlockNumber();
+    if (historicalBlockNumber === undefined) {
+      throw new Error(`Obtained undefined historical block number in storePrivateEventLog`);
+    }
+    if (blockNumber > historicalBlockNumber!) {
       throw new Error(
         `Attempting to store private event log from a block newer than the historical block of the simulation. Log block number: ${blockNumber}, historical block number: ${historicalBlockNumber}`,
       );
