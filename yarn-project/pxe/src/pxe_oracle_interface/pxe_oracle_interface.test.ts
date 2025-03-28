@@ -4,7 +4,6 @@ import { Fq, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { type SimulationProvider, WASMSimulator } from '@aztec/simulator/client';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
@@ -51,7 +50,6 @@ describe('PXEOracleInterface', () => {
   let taggingDataProvider: TaggingDataProvider;
   let capsuleDataProvider: CapsuleDataProvider;
   let keyStore: KeyStore;
-  let simulationProvider: SimulationProvider;
 
   let recipient: CompleteAddress;
   let contractAddress: AztecAddress;
@@ -76,11 +74,9 @@ describe('PXEOracleInterface', () => {
     taggingDataProvider = new TaggingDataProvider(store);
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
-    simulationProvider = new WASMSimulator();
     pxeOracleInterface = new PXEOracleInterface(
       aztecNode,
       keyStore,
-      simulationProvider,
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,

@@ -37,7 +37,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   constructor(
     private aztecNode: AztecNode,
     private keyStore: KeyStore,
-    private simulationProvider: SimulationProvider,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
