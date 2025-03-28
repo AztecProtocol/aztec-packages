@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/aztec.js';
 import type { EnvVar } from '@aztec/foundation/config';
 
 import path from 'path';
@@ -92,6 +93,15 @@ function enrichVar(envVar: EnvVar, value: string) {
   process.env[envVar] = value;
 }
 
+function enrichEthAddressVar(envVar: EnvVar, value: string) {
+  // EthAddress doesn't like being given empty strings
+  if (value === '') {
+    enrichVar(envVar, EthAddress.ZERO.toString());
+    return;
+  }
+  enrichVar(envVar, value);
+}
+
 export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames) {
   const config = await getL2ChainConfig(networkName);
   if (!config) {
@@ -106,12 +116,13 @@ export async function enrichEnvironmentWithChainConfig(networkName: NetworkNames
   enrichVar('SPONSORED_FPC', config.sponsoredFPC.toString());
   enrichVar('P2P_ENABLED', config.p2pEnabled.toString());
   enrichVar('L1_CHAIN_ID', config.l1ChainId.toString());
-  enrichVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
-  enrichVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
-  enrichVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
   enrichVar('SEQ_MIN_TX_PER_BLOCK', config.seqMinTxsPerBlock.toString());
   enrichVar('SEQ_MAX_TX_PER_BLOCK', config.seqMaxTxsPerBlock.toString());
   enrichVar('DATA_DIRECTORY', path.join(process.env.HOME || '~', '.aztec', networkName, 'data'));
   enrichVar('PROVER_REAL_PROOFS', config.realProofs.toString());
   enrichVar('PXE_PROVER_ENABLED', config.realProofs.toString());
+
+  enrichEthAddressVar('REGISTRY_CONTRACT_ADDRESS', config.registryAddress);
+  enrichEthAddressVar('SLASH_FACTORY_CONTRACT_ADDRESS', config.slashFactoryAddress);
+  enrichEthAddressVar('FEE_ASSET_HANDLER_CONTRACT_ADDRESS', config.feeAssetHandlerAddress);
 }
