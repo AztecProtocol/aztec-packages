@@ -15,8 +15,12 @@ struct FqParams {
     static constexpr uint64_t r_squared_2 = 0xffffffffff6f8000ULL;
     static constexpr uint64_t r_squared_3 = 0x07ffd4ab5e008810ULL;
 
-    // Reference: https://eprint.iacr.org/2015/696.pdf
     static constexpr uint64_t r_inv = 0xffffffffffffffffULL;
+
+    static constexpr uint64_t r_inv_0 = 0x0000000000000001UL;
+    static constexpr uint64_t r_inv_1 = 0x0000000000000000UL;
+    static constexpr uint64_t r_inv_2 = 0xf7ffffffffffffefUL;
+    static constexpr uint64_t r_inv_3 = 0x0800000000000010UL;
 
     static constexpr uint64_t modulus_wasm_0 = 0x00000001;
     static constexpr uint64_t modulus_wasm_1 = 0x00000000;
@@ -32,6 +36,16 @@ struct FqParams {
     static constexpr uint64_t r_squared_wasm_1 = 0x000004cc3fffffffULL;
     static constexpr uint64_t r_squared_wasm_2 = 0xfffffffdbe000000ULL;
     static constexpr uint64_t r_squared_wasm_3 = 0x0752ad7802200010ULL;
+
+    static constexpr uint64_t r_inv_wasm_0 = 0x00000001;
+    static constexpr uint64_t r_inv_wasm_1 = 0x00000000;
+    static constexpr uint64_t r_inv_wasm_2 = 0x00000000;
+    static constexpr uint64_t r_inv_wasm_3 = 0x00000000;
+    static constexpr uint64_t r_inv_wasm_4 = 0x00000000;
+    static constexpr uint64_t r_inv_wasm_5 = 0x3fbc0000;
+    static constexpr uint64_t r_inv_wasm_6 = 0x0043ffff;
+    static constexpr uint64_t r_inv_wasm_7 = 0x3ff80000;
+    static constexpr uint64_t r_inv_wasm_8 = 0x0007ffff;
 };
 
 using fq = field<FqParams>;
