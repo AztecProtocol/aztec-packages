@@ -3,7 +3,7 @@ import { PublicContractsDB, getCallRequestsWithCalldataByPhase } from '@aztec/si
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
-  PublicCallRequestWithCalldata,
+  type PublicCallRequestWithCalldata,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
