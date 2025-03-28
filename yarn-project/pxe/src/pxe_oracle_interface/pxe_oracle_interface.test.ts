@@ -164,7 +164,7 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
       // one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
@@ -260,7 +260,7 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs with a sender index offset', async () => {
       const tagIndex = 5;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
@@ -303,7 +303,7 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
       // since the window starts at Math.max(0, 2 - window_size) = 0
@@ -342,7 +342,7 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
@@ -374,7 +374,7 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // No logs should be synced since we start from index 2 = 12 - window_size
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
@@ -387,7 +387,7 @@ describe('PXEOracleInterface', () => {
       // Wipe the database
       await taggingDataProvider.resetNoteSyncData();
 
-      syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
@@ -405,7 +405,7 @@ describe('PXEOracleInterface', () => {
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 1);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
@@ -427,7 +427,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 1);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // We expect the above log to be discarded, and so none to be synced
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
