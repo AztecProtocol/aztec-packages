@@ -1083,11 +1083,7 @@ export class TXE implements TypedOracle {
   }
 
   async syncNotes() {
-    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(
-      this.contractAddress,
-      await this.getBlockNumber(),
-      undefined,
-    );
+    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, undefined);
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.pxeOracleInterface.processTaggedLogs(
