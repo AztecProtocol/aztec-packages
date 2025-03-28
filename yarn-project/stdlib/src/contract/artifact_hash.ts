@@ -6,7 +6,8 @@ import { MerkleTree, MerkleTreeCalculator } from '@aztec/foundation/trees';
 
 import { type ContractArtifact, type FunctionArtifact, FunctionSelector, FunctionType } from '../abi/index.js';
 
-const VERSION = 1;
+// TODO: should this be redefined here as constant??
+const ROLLUP_VERSION = 1;
 
 // TODO(miranda): Artifact and artifact metadata hashes are currently the only SHAs not truncated by a byte.
 // They are never recalculated in the circuit or L1 contract, but they are input to circuits, so perhaps modding here is preferable?
@@ -41,7 +42,7 @@ export async function computeArtifactHash(
   if ('privateFunctionRoot' in artifact && 'unconstrainedFunctionRoot' in artifact && 'metadataHash' in artifact) {
     const { privateFunctionRoot, unconstrainedFunctionRoot, metadataHash } = artifact;
     const preimage = [privateFunctionRoot, unconstrainedFunctionRoot, metadataHash].map(x => x.toBuffer());
-    return sha256Fr(Buffer.concat([numToUInt8(VERSION), ...preimage]));
+    return sha256Fr(Buffer.concat([numToUInt8(ROLLUP_VERSION), ...preimage]));
   }
 
   const preimage = await computeArtifactHashPreimage(artifact);
@@ -99,7 +100,9 @@ export async function computeFunctionArtifactHash(
 
   const bytecodeHash = sha256Fr(fn.bytecode).toBuffer();
   const metadataHash = 'functionMetadataHash' in fn ? fn.functionMetadataHash : computeFunctionMetadataHash(fn);
-  return sha256Fr(Buffer.concat([numToUInt8(VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]));
+  return sha256Fr(
+    Buffer.concat([numToUInt8(ROLLUP_VERSION), selector.toBuffer(), metadataHash.toBuffer(), bytecodeHash]),
+  );
 }
 
 export function computeFunctionMetadataHash(fn: FunctionArtifact) {

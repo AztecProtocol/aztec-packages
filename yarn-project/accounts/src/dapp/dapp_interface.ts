@@ -17,7 +17,7 @@ export class DefaultDappInterface extends DefaultAccountInterface {
     authWitnessProvider: AuthWitnessProvider,
     userAddress: CompleteAddress,
     dappAddress: AztecAddress,
-    nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'protocolVersion'>,
+    nodeInfo: Pick<NodeInfo, 'l1ChainId' | 'rollupVersion'>,
   ) {
     super(authWitnessProvider, userAddress, nodeInfo);
     this.entrypoint = new DefaultDappEntrypoint(
@@ -25,14 +25,14 @@ export class DefaultDappInterface extends DefaultAccountInterface {
       authWitnessProvider,
       dappAddress,
       nodeInfo.l1ChainId,
-      nodeInfo.protocolVersion,
+      nodeInfo.rollupVersion,
     );
   }
 
   static createFromUserWallet(wallet: AccountWallet, dappAddress: AztecAddress): DefaultDappInterface {
     return new DefaultDappInterface(wallet, wallet.getCompleteAddress(), dappAddress, {
       l1ChainId: wallet.getChainId().toNumber(),
-      protocolVersion: wallet.getVersion().toNumber(),
+      rollupVersion: wallet.getVersion().toNumber(),
     });
   }
 }
