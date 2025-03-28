@@ -1,8 +1,8 @@
-include "./merkle_check.pil";
-include "./ff_gt.pil";
-include "./poseidon2_hash.pil";
-include "./constants_gen.pil";
-include "./precomputed.pil";
+include "merkle_check.pil";
+include "ff_gt.pil";
+include "poseidon2_hash.pil";
+include "constants_gen.pil";
+include "precomputed.pil";
 
 namespace public_data_read;
     pol commit sel;

@@ -52,7 +52,7 @@ TEST(AvmSimulationPublicDataTree, Exists)
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
     };
-    EXPECT_THAT(event_emitter.dump_events(), AllOf(SizeIs(1), ElementsAre(expect_event)));
+    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 
     // Negative test: wrong value
     value = 28;
@@ -91,7 +91,7 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToInfinity)
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
     };
-    EXPECT_THAT(event_emitter.dump_events(), AllOf(SizeIs(1), ElementsAre(expect_event)));
+    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 
     // Negative test: wrong value
     value = 1;
@@ -137,7 +137,7 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToAnotherLeaf)
         .low_leaf_hash = low_leaf_hash,
         .low_leaf_index = low_leaf_index,
     };
-    EXPECT_THAT(event_emitter.dump_events(), AllOf(SizeIs(1), ElementsAre(expect_event)));
+    EXPECT_THAT(event_emitter.dump_events(), ElementsAre(expect_event));
 
     // Negative test: wrong value
     value = 1;
