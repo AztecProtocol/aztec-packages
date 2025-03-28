@@ -297,7 +297,7 @@ TEST_F(IPATest, ShpleminiIPAWithShift)
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
     auto prover_opening_claims =
-        GeminiProver::prove(small_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
+        GeminiProver::prove(small_log_n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
     const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
     PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
 
@@ -355,7 +355,7 @@ TEST_F(IPATest, ShpleminiIPAShiftsRemoval)
     // vectors corresponding to the "shifted" commitment
     auto verifier_transcript = NativeTranscript::verifier_init_empty(prover_transcript);
 
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(small_n,
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(small_log_n,
                                                                                     mock_claims.claim_batcher,
                                                                                     mle_opening_point,
                                                                                     vk->get_g1_identity(),
