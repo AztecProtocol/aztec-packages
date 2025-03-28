@@ -481,8 +481,10 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
         stdlib_verification_keys.push_back(std::make_shared<StdlibVerificationKey>(
             StdlibVerificationKey::from_witness_indices(builder, constraint.key)));
     }
-    // Create stdlib representations of each {proof, vkey} pair to be recursively verified
-    ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
+    // DEBUG: commenting this out results in using the internally computed VKs in CIVC which is necessary if the
+    // structured trace differs from that used to generate the acir witness data.
+    // // Create stdlib representations of each {proof, vkey} pair to be recursively verified
+    // ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
 
     // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
     // verification queue. This ensures that the witnesses utilized in constraints generated based on acir are properly
