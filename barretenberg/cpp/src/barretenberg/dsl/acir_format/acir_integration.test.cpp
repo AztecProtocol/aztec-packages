@@ -548,13 +548,18 @@ TEST_F(AcirIntegrationTest, DISABLED_HonkRecursion)
     EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }
 
+/**
+ * @brief Setup for running/debugging CIVC from inputs in the form acir.msgpack + witness.msgpack
+ *
+ */
 TEST_P(AcirIntegrationFoldingTest, DebugProveAndVerifyProgramStack)
 {
     using Flavor = MegaFlavor;
     using Builder = Flavor::CircuitBuilder;
     using Program = acir_format::AcirProgram;
 
-    std::string test_name = "deploy_ecdsar1+sponsored_fpc";
+    // Directory containing the acir.msgpack and witness.msgpack files
+    std::string test_name = "key_transactions/deploy_ecdsar1+sponsored_fpc";
     // std::string test_name = "deploy_schnorr+sponsored_fpc";
     // std::string test_name = "ecdsar1+amm_add_liquidity_1_recursions+sponsored_fpc";
     // std::string test_name = "ecdsar1+token_bridge_claim_private+sponsored_fpc";
@@ -564,8 +569,7 @@ TEST_P(AcirIntegrationFoldingTest, DebugProveAndVerifyProgramStack)
     // std::string test_name = "amm_add_liquidity_failure";
     info("Test: ", test_name);
 
-    std::string base_path = "../../acir_tests/acir_tests/key_transactions/" + test_name;
-    info("Test base path: ", base_path);
+    std::string base_path = "../../acir_tests/acir_tests/" + test_name;
     std::string bytecode_path = base_path + "/acir.msgpack";
     std::string witness_path = base_path + "/witnesses.msgpack";
 
@@ -575,14 +579,6 @@ TEST_P(AcirIntegrationFoldingTest, DebugProveAndVerifyProgramStack)
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
-
-    // // For contract deploy failure:
-    // Program& program = program_stack[4];
-    // Builder circuit = acir_format::create_circuit<Builder>(program, metadata);
-
-    // // For amm add liquidity failure:
-    // Program& program = program_stack[6];
-    // Builder circuit = acir_format::create_circuit<Builder>(program, metadata);
 
     size_t circuit_idx = 0;
     for (Program& program : program_stack) {
@@ -597,28 +593,6 @@ TEST_P(AcirIntegrationFoldingTest, DebugProveAndVerifyProgramStack)
     ClientIVC::Proof proof = ivc->prove();
     [[maybe_unused]] bool result = ivc->verify(proof);
     EXPECT_TRUE(result);
-}
-
-/**
- * @brief Test recursive honk recursive verification
- *
- */
-TEST_F(AcirIntegrationTest, DebugIndividual)
-{
-    using Flavor = UltraFlavor;
-    using Builder = Flavor::CircuitBuilder;
-
-    std::string test_name = "ram_blowup_regression"; // arbitrary program with RAM gates
-    // Note: honk_recursion set to 1 here we are using the UltraFlavor.
-    // The honk_recursion flag determines whether a noir program will be recursively verified via Honk in a Noir
-    // program.
-    auto acir_program = get_program_data_from_test_file(test_name, 0);
-
-    // Construct a bberg circuit from the acir representation
-    Builder circuit = acir_format::create_circuit<Builder>(acir_program);
-
-    EXPECT_TRUE(CircuitChecker::check(circuit));
-    EXPECT_TRUE(prove_and_verify_honk<Flavor>(circuit));
 }
 
 #endif
