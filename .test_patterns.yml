@@ -172,10 +172,6 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *alex
-  - regex: "ethereum/src/contracts/registry.test.ts"
-    error_regex: "lower than or equal to previous block's timestamp"
-    owners:
-      - *mitch
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
     owners:
