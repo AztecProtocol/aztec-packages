@@ -340,5 +340,21 @@ TEST(BytecodeDecompositionConstrainingTest, NegativeWrongPacking)
                               "BC_DECOMPOSITION_REPACKING");
 }
 
+// Negative test where sel_packed == 1 and sel == 0
+TEST(BytecodeDecompositionConstrainingTest, NegativeSelPackedNotSel)
+{
+    TestTraceContainer trace;
+    trace.set(0,
+              { {
+                  { C::bc_decomposition_sel_packed, 1 },
+                  { C::bc_decomposition_sel, 1 },
+              } });
+
+    check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_TOGGLED_AT_PACKED);
+    trace.set(C::bc_decomposition_sel, 0, 0); // Mutate to wrong value
+    EXPECT_THROW_WITH_MESSAGE(check_relation<bc_decomposition>(trace, bc_decomposition::SR_SEL_TOGGLED_AT_PACKED),
+                              "SEL_TOGGLED_AT_PACKED");
+}
+
 } // namespace
 } // namespace bb::avm2::constraining

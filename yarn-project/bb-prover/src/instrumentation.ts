@@ -92,7 +92,6 @@ export class ProverInstrumentation {
     const s = typeof timerOrMS === 'number' ? timerOrMS / 1000 : timerOrMS.s();
     this[metric].record(s, {
       [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName,
-      [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
     });
   }
 
@@ -122,7 +121,6 @@ export class ProverInstrumentation {
   ) {
     this[metric].record(Math.ceil(size), {
       [Attributes.PROTOCOL_CIRCUIT_NAME]: circuitName,
-      [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
     });
   }
 

@@ -124,7 +124,7 @@ describe('Registry', () => {
       defaultL1TxUtilsConfig,
     );
 
-    const { governance, voteAmount } = await createGovernanceProposal(
+    const { governance, voteAmount, proposalId } = await createGovernanceProposal(
       payloadAddress.toString(),
       addresses,
       privateKey,
@@ -133,7 +133,7 @@ describe('Registry', () => {
     );
 
     await executeGovernanceProposal(
-      0n,
+      proposalId,
       governance,
       voteAmount,
       privateKey,
