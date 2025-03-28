@@ -218,11 +218,6 @@ HonkProof TranslatorProver::construct_proof()
     // Execute Shplemini PCS
     execute_pcs_rounds();
     vinfo("computed opening proof");
-    // #ifndef __wasm__
-    // Free the commitment key
-    key->proving_key->commitment_key = nullptr;
-    // #endif
-
     return export_proof();
 }
 
