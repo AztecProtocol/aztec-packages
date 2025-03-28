@@ -46,7 +46,7 @@ class TranslatorFlavor {
     // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
     // they become too small.
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 8192;
+    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 16384;
     static_assert(TRANSLATOR_VM_FIXED_SIZE >= MINIMUM_MINI_CIRCUIT_SIZE);
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
