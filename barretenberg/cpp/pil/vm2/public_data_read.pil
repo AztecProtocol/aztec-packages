@@ -40,7 +40,7 @@ namespace public_data_read;
     in merkle_check.start { merkle_check.read_node, merkle_check.index, merkle_check.path_len, merkle_check.read_root };
 
     // ========= LOW LEAF VALIDATION =========
-    // Active if the leaf for the requested slot doesn't exist
+    // We commit leaf not exists instead of leaf exists since it'll be used as a selector for a lookup
     pol commit leaf_not_exists;
     leaf_not_exists * (1 - leaf_not_exists) = 0;
     pol LEAF_EXISTS = 1 - leaf_not_exists;
@@ -62,6 +62,7 @@ namespace public_data_read;
     in ff_gt.sel_gt { ff_gt.a, ff_gt.b, ff_gt.result };
 
     // If next slot is not zero (which would be infinity), it has to be greater than the slot.
+    // We commit next_slot_is_nonzero instead of next_slot_is_zero since it'll be used as a selector for a lookup
     pol commit next_slot_is_nonzero;
     next_slot_is_nonzero * (1 - next_slot_is_nonzero) = 0;
     pol NEXT_SLOT_IS_ZERO = 1 - next_slot_is_nonzero;
