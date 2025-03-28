@@ -62,6 +62,7 @@ export const universalOptions = [
   'l1Contracts',
   'p2pEnabled',
   'dataDirectory',
+  'dataStoreMapSizeKb',
 ];
 
 // Define categories and options
@@ -157,6 +158,22 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
     },
   ],
+  STORAGE: [
+    {
+      flag: '--data-directory <value>',
+      description: 'Where to store data for services. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'DATA_DIRECTORY',
+    },
+    {
+      flag: '--data-store-map-size-kb <value>',
+      description:
+        'The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.',
+      defaultValue: undefined,
+      envVar: 'DATA_STORE_MAP_SIZE_KB',
+      parseVal: (val: string) => parseInt(val, 10),
+    },
+  ],
   'L1 CONTRACT ADDRESSES': [
     {
       flag: '--rollup-address <value>',
@@ -210,12 +227,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--data-directory <value>',
-      description: 'Where to store data. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'DATA_DIRECTORY',
-    },
-    {
       flag: '--node.archiverUrl <value>',
       description: 'URL for an archiver service',
       defaultValue: undefined,
@@ -262,6 +273,19 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'TEST_ACCOUNTS',
       ...booleanConfigHelper(),
     },
+    {
+      flag: '--node.syncMode <value>',
+      description:
+        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+      defaultValue: 'snapshot',
+      envVar: 'SYNC_MODE',
+    },
+    {
+      flag: '--node.snapshotsUrl <value>',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
+      defaultValue: undefined,
+      envVar: 'SYNC_SNAPSHOTS_URL',
+    },
   ],
   'P2P SUBSYSTEM': [
     {
@@ -301,7 +325,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
-  BLOB_SINK: [
+  'BLOB SINK': [
     {
       flag: '--blob-sink',
       description: 'Starts Aztec Blob Sink with options',

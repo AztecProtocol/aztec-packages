@@ -33,21 +33,21 @@ template <typename FF_> class executionImpl {
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TRACE_CONTINUITY_1
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp =
                 new_term.execution_sel * (FF(1) - new_term.execution_sel_shift) * (FF(1) - new_term.execution_last);
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // TRACE_CONTINUITY_2
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = (FF(1) - new_term.precomputed_first_row) * (FF(1) - new_term.execution_sel) *
                        new_term.execution_sel_shift;
             tmp *= scaling_factor;
             std::get<3>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // LAST_IS_LAST
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
             auto tmp = new_term.execution_last * new_term.execution_sel_shift;
             tmp *= scaling_factor;

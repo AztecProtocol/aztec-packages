@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -22,10 +22,8 @@ L1_CHAIN_ID=${5:-}
 PROJECT_ID=${6:-}
 TAG=${7:-"latest"}
 
-P2P_UDP_PORT=40400
-P2P_TCP_PORT=40400
-P2P_UDP_PORTS="[\"$P2P_UDP_PORT\"]"
-P2P_TCP_PORTS="[\"$P2P_TCP_PORT\"]"
+P2P_PORT=40400
+P2P_PORTS="[\"$P2P_PORT\"]"
 
 echo "NETWORK_NAME: $NETWORK_NAME"
 echo "GCP_REGIONS: $GCP_REGIONS"
@@ -71,8 +69,7 @@ terraform init -backend-config="prefix=network/common/gcp"
 
 terraform apply \
   -var "sa_account_id=service-acc-nodes" \
-  -var "p2p_tcp_ports=$P2P_TCP_PORTS" \
-  -var "p2p_udp_ports=$P2P_UDP_PORTS" \
+  -var "p2p_ports=$P2P_PORTS" \
   -var "project_id=$PROJECT_ID"
 
 # Create the static IPs for the bootnodes
@@ -136,7 +133,7 @@ while read -r REGION IP; do
     PRIVATE_KEY=$(gcloud secrets versions access latest --secret="${SECRET_NAME}")
 
     # Now we can generate the enr
-    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$IP" "$P2P_UDP_PORT" "$L1_CHAIN_ID" $TAG)
+    ENR=$(cd scripts && ./generate_encoded_enr.sh "$PRIVATE_KEY" "$IP" "$P2P_PORT" "$L1_CHAIN_ID" $TAG)
 
     echo "ENR: $ENR"
 
@@ -179,6 +176,6 @@ terraform apply \
   -var="peer_id_private_keys=$PRIVATE_KEYS_JSON" \
   -var="machine_type=$GCP_MACHINE_TYPE" \
   -var="project_id=$PROJECT_ID" \
-  -var="p2p_udp_port=$P2P_UDP_PORT" \
+  -var="p2p_port=$P2P_PORT" \
   -var="l1_chain_id=$L1_CHAIN_ID" \
   -var="image_tag=$TAG"

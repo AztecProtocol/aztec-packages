@@ -26,11 +26,12 @@ import {
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
-import type { BBNativePrivateKernelProver } from '@aztec/bb-prover';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH } from '@aztec/constants';
+import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
   type DeployL1ContractsArgs,
   type DeployL1ContractsReturnType,
@@ -49,13 +50,21 @@ import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
-import { type PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe/server';
+import {
+  type PXEService,
+  type PXEServiceConfig,
+  createPXEServiceWithSimulationProvider,
+  getPXEServiceConfig,
+} from '@aztec/pxe/server';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
-import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
+import { WASMSimulator } from '@aztec/simulator/client';
+import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
+import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
 import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -135,18 +144,15 @@ export const setupL1Contracts = async (
  * Sets up Private eXecution Environment (PXE).
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE service.
- * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @param proofCreator - An optional proof creator to use
- * @returns Private eXecution Environment (PXE), accounts, wallets and logger.
+ * @returns Private eXecution Environment (PXE), logger and teardown function.
  */
 export async function setupPXEService(
   aztecNode: AztecNode,
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -162,6 +168,8 @@ export async function setupPXEService(
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
+  // For tests we only want proving enabled if specifically requested
+  pxeServiceConfig.proverEnabled = !!opts.proverEnabled;
 
   // If no data directory provided, create a temp directory and clean up afterwards
   const configuredDataDirectory = pxeServiceConfig.dataDirectory;
@@ -169,7 +177,14 @@ export async function setupPXEService(
     pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
   }
 
-  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
+  const simulationProvider = new WASMSimulator();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const pxe = await createPXEServiceWithSimulationProvider(
+    aztecNode,
+    simulationProviderWithRecorder,
+    pxeServiceConfig,
+    useLogSuffix,
+  );
 
   const teardown = async () => {
     if (!configuredDataDirectory) {
@@ -344,6 +359,8 @@ export async function setup(
 ): Promise<EndToEndContext> {
   const config = { ...getConfigEnvVars(), ...opts };
   config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+  // For tests we only want proving enabled if specifically requested
+  config.realProofs = !!opts.realProofs;
 
   const logger = getLogger();
 
@@ -481,6 +498,8 @@ export async function setup(
       l1RpcUrls: config.l1RpcUrls,
       rollupAddress: config.l1Contracts.rollupAddress,
       port: blobSinkPort,
+      dataDirectory: config.dataDirectory,
+      dataStoreMapSizeKB: config.dataStoreMapSizeKB,
     },
     telemetry,
   );
@@ -718,7 +737,7 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Deploy the protocol contracts to a running instance.
+ * Deploy the canonical Fee Juice contract to a running instance.
  */
 export async function setupCanonicalFeeJuice(pxe: PXE) {
   // "deploy" the Fee Juice as it contains public functions
@@ -736,6 +755,40 @@ export async function setupCanonicalFeeJuice(pxe: PXE) {
   } catch (error) {
     getLogger().warn(`Fee Juice might have already been setup. Got error: ${inspect(error)}.`);
   }
+}
+
+/**
+ * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * but by conventions its address is computed with a salt of 0.
+ * @returns The address of the sponsored FPC contract
+ */
+export async function getSponsoredFPCAddress() {
+  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
+  return sponsoredFPCInstance.address;
+}
+
+/**
+ * Deploy a sponsored FPC contract to a running instance.
+ */
+export async function setupSponsoredFPC(pxe: PXE) {
+  const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
+  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+
+  // Make the contract pay for the deployment fee itself
+  const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
+  const deployed = await SponsoredFPCContract.deploy(deployer)
+    .send({
+      contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
+      universalDeploy: true,
+      fee: { paymentMethod },
+    })
+    .deployed();
+
+  getLogger().info(`SponsoredFPC: ${deployed.address}`);
+  return deployed;
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {

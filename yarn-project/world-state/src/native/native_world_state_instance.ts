@@ -8,7 +8,7 @@ import {
   NULLIFIER_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { NativeWorldState as BaseNativeWorldState, MsgpackChannel } from '@aztec/native';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
@@ -54,7 +54,7 @@ export class NativeWorldState implements NativeWorldStateInstance {
     dbMapSizeKb: number,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
     private instrumentation: WorldStateInstrumentation,
-    private log = createLogger('world-state:database'),
+    private log: Logger = createLogger('world-state:database'),
   ) {
     const threads = Math.min(cpus().length, MAX_WORLD_STATE_THREADS);
     log.info(

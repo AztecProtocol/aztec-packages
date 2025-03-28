@@ -34,7 +34,7 @@ import {
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
-import { PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
+import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
 /**
@@ -87,8 +87,8 @@ export class PublicProcessorFactory {
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient: TelemetryClient,
-  ) {
-    return new PublicTxSimulator(
+  ): PublicTxSimulator {
+    return new TelemetryPublicTxSimulator(
       treesDB,
       contractsDB,
       globalVariables,
@@ -321,7 +321,7 @@ export class PublicProcessor implements Traceable {
     this.log.verbose(
       !tx.hasPublicCalls()
         ? `Processed tx ${processedTx.hash} with no public calls in ${time}ms`
-        : `Processed tx ${processedTx.hash} with ${tx.enqueuedPublicFunctionCalls.length} public calls in ${time}ms`,
+        : `Processed tx ${processedTx.hash} with ${tx.numberOfPublicCalls()} public calls in ${time}ms`,
       {
         txHash: processedTx.hash,
         txFee: processedTx.txEffect.transactionFee.toBigInt(),
@@ -488,7 +488,7 @@ export class PublicProcessor implements Traceable {
       if (phase.reverted) {
         this.metrics.recordRevertedPhase(phase.phase);
       } else {
-        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs);
+        this.metrics.recordPhaseDuration(phase.phase, phase.durationMs ?? 0);
       }
     });
 

@@ -24,8 +24,8 @@ export RUSTFLAGS="-Dwarnings"
 
 # Update the noir-repo and compute hashes.
 function noir_sync {
-  # The sync.sh script strives not to send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
-  DENOISE=0 denoise "scripts/sync.sh init && scripts/sync.sh update"
+  # Don't send anything to `stdout`, so as not to interfere with `test_cmds` and `hash`.
+  denoise "scripts/sync.sh init && scripts/sync.sh update" >&2
 }
 
 # Calculate the content hash for caching, taking into account that `noir-repo`
@@ -64,10 +64,16 @@ function noir_content_hash {
   fi
 }
 
+if [ ! -v NOIR_HASH ]; then
+  noir_sync
+  export NOIR_HASH=$(noir_content_hash)
+fi
+
+
 # Builds nargo, acvm and profiler binaries.
 function build_native {
   set -euo pipefail
-  local hash=$(noir_content_hash)
+  local hash=$NOIR_HASH
   if cache_download noir-$hash.tar.gz; then
     return
   fi
@@ -83,23 +89,17 @@ function build_native {
 # Builds js packages.
 function build_packages {
   set -euo pipefail
-  local hash=$(noir_content_hash)
+  local hash=$NOIR_HASH
 
   if cache_download noir-packages-$hash.tar.gz; then
     cd noir-repo
     npm_install_deps
-    # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
-    # Tests fail with message "env: ‘mocha’: No such file or directory"
-    yarn install
     return
   fi
 
   cd noir-repo
   npm_install_deps
 
-  # Hack to get around failure introduced by https://github.com/AztecProtocol/aztec-packages/pull/12371
-  # Tests fail with message "env: ‘mocha’: No such file or directory"
-  yarn install
   yarn workspaces foreach  -A --parallel --topological-dev --verbose $js_include run build
 
   # We create a folder called packages, that contains each package as it would be published to npm, named correctly.
@@ -156,7 +156,7 @@ function test {
 
 # Prints the commands to run tests, one line per test, prefixed with the appropriate content hash.
 function test_cmds {
-  local test_hash=$(noir_content_hash 1)
+  local test_hash=$NOIR_HASH
   cd noir-repo
   cargo nextest list --workspace --locked --release -Tjson-pretty 2>/dev/null | \
       jq -r '
@@ -231,25 +231,20 @@ case "$cmd" in
     git clean -ffdx
     ;;
   "ci")
-    noir_sync
     build
     test
     ;;
   ""|"fast"|"full")
-    noir_sync
     build
     ;;
   test_cmds|build_native|build_packages|format|test|release)
-    noir_sync
     $cmd "$@"
     ;;
   "hash")
-    noir_sync
-    echo $(noir_content_hash)
+    echo $NOIR_HASH
     ;;
   "hash-tests")
-    noir_sync
-    echo $(noir_content_hash 1)
+    echo $NOIR_HASH
     ;;
   "make-patch")
     scripts/sync.sh make-patch

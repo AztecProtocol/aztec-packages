@@ -1,5 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
@@ -16,7 +17,7 @@ import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 import { createAztecNode, deployContractsToL1 } from '../../sandbox/index.js';
 import { getL1Config } from '../get_l1_config.js';
-import { extractNamespacedOptions, extractRelevantOptions } from '../util.js';
+import { extractNamespacedOptions, extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
 
 export async function startNode(
   options: any,
@@ -45,10 +46,18 @@ export async function startNode(
     process.exit(1);
   }
 
-  const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
-  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
-  );
+  await preloadCrsDataForVerifying(nodeConfig, userLog);
+
+  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {

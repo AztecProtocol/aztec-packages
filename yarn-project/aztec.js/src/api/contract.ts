@@ -36,10 +36,18 @@
  * @packageDocumentation
  */
 export { Contract } from '../contract/contract.js';
-export { ContractFunctionInteraction, type SendMethodOptions } from '../contract/contract_function_interaction.js';
+export { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+
+export {
+  type RequestMethodOptions,
+  type SendMethodOptions,
+  type ProfileMethodOptions,
+  type SimulateMethodOptions,
+} from '../contract/interaction_options.js';
 
 export { TxProfileResult } from '@aztec/stdlib/tx';
 export { DefaultWaitOpts, SentTx, type WaitOpts } from '../contract/sent_tx.js';
+export { ProvenTx } from '../contract/proven_tx.js';
 export {
   ContractBase,
   type ContractMethod,

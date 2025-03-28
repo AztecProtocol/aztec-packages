@@ -121,6 +121,17 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 }
 // docs:end:deployAndInitializeTokenAndBridgeContracts
 
+export type CrossChainContext = {
+  l2Token: AztecAddress;
+  l2Bridge: AztecAddress;
+  tokenPortal: EthAddress;
+  underlying: EthAddress;
+  ethAccount: EthAddress;
+  ownerAddress: AztecAddress;
+  inbox: EthAddress;
+  outbox: EthAddress;
+};
+
 /**
  * A Class for testing cross chain interactions, contains common interactions
  * shared between cross chain tests.
@@ -205,6 +216,7 @@ export class CrossChainTestHarness {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
       this.underlyingERC20Address,
+      this.l1ContractAddresses.feeAssetHandlerAddress,
       this.l1ContractAddresses.outboxAddress,
       this.publicClient,
       this.walletClient,
@@ -215,7 +227,12 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensOnL1(amount: bigint) {
-    await this.l1TokenManager.mint(amount, this.ethAccount.toString());
+    const contract = getContract({
+      abi: TestERC20Abi,
+      address: this.l1TokenManager.tokenAddress.toString(),
+      client: this.walletClient,
+    });
+    await contract.write.mint([this.ethAccount.toString(), amount]);
     expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
   }
 
@@ -356,6 +373,19 @@ export class CrossChainTestHarness {
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);
+  }
+
+  toCrossChainContext(): CrossChainContext {
+    return {
+      l2Token: this.l2Token.address,
+      l2Bridge: this.l2Bridge.address,
+      tokenPortal: this.tokenPortalAddress,
+      underlying: this.underlyingERC20Address,
+      ethAccount: this.ethAccount,
+      ownerAddress: this.ownerAddress,
+      inbox: this.l1ContractAddresses.inboxAddress,
+      outbox: this.l1ContractAddresses.outboxAddress,
+    };
   }
 }
 // docs:end:cross_chain_test_harness

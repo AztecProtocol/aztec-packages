@@ -1,20 +1,16 @@
-use dep::protocol_types::{
-    block_header::BlockHeader,
-    constants::BLOCK_HEADER_LENGTH,
-    traits::{Deserialize, Hash},
+use protocol_types::{
+    block_header::BlockHeader, merkle_tree::root::root_from_sibling_path, traits::Hash,
 };
-use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
 use crate::{
     context::PrivateContext, oracle::get_membership_witness::get_archive_membership_witness,
 };
 
 #[oracle(getBlockHeader)]
-unconstrained fn get_block_header_at_oracle(_block_number: u32) -> [Field; BLOCK_HEADER_LENGTH] {}
+unconstrained fn get_block_header_at_oracle(_block_number: u32) -> BlockHeader {}
 
 unconstrained fn get_block_header_at_internal(block_number: u32) -> BlockHeader {
-    let header = get_block_header_at_oracle(block_number);
-    BlockHeader::deserialize(header)
+    get_block_header_at_oracle(block_number)
 }
 
 pub fn get_block_header_at(block_number: u32, context: PrivateContext) -> BlockHeader {

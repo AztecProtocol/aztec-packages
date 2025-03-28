@@ -11,22 +11,21 @@ import { type BlobSinkArchiveApiConfig, blobSinkArchiveApiConfigMappings } from 
 
 export type BlobSinkConfig = {
   port?: number;
-  dataStoreConfig?: DataStoreConfig;
+  archiveApiUrl?: string;
 } & BlobSinkArchiveApiConfig &
-  Partial<Pick<L1ReaderConfig, 'l1RpcUrls'> & Pick<L1ContractAddresses, 'rollupAddress'>>;
+  Partial<Pick<L1ReaderConfig, 'l1RpcUrls'> & Pick<L1ContractAddresses, 'rollupAddress'>> &
+  Partial<DataStoreConfig>;
 
 export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
   port: {
     env: 'BLOB_SINK_PORT',
     description: 'The port to run the blob sink server on',
   },
-  dataStoreConfig: {
-    ...dataConfigMappings,
-    description: 'The configuration for the data store',
-  },
+
   ...blobSinkArchiveApiConfigMappings,
   ...pickConfigMappings(l1ReaderConfigMappings, ['l1RpcUrls']),
   ...pickConfigMappings(l1ContractAddressesMapping, ['rollupAddress']),
+  ...dataConfigMappings,
 };
 
 /**

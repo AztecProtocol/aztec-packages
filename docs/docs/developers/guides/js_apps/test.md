@@ -1,6 +1,7 @@
 ---
 title: Testing Aztec.nr contracts with TypeScript
 tags: [contracts, tests]
+sidebar_position: 6
 ---
 
 In this guide we will cover how to interact with your Aztec.nr smart contracts in a testing environment to write automated tests for your apps.

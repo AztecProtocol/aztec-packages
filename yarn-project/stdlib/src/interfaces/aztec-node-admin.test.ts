@@ -33,6 +33,10 @@ describe('AztecNodeAdminApiSchema', () => {
   it('flushTxs', async () => {
     await context.client.flushTxs();
   });
+
+  it('startSnapshotUpload', async () => {
+    await context.client.startSnapshotUpload('foo');
+  });
 });
 
 class MockAztecNodeAdmin implements AztecNodeAdmin {
@@ -42,6 +46,9 @@ class MockAztecNodeAdmin implements AztecNodeAdmin {
     return Promise.resolve();
   }
   flushTxs(): Promise<void> {
+    return Promise.resolve();
+  }
+  startSnapshotUpload(_location: string): Promise<void> {
     return Promise.resolve();
   }
 }

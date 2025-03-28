@@ -1,4 +1,4 @@
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   Attributes,
@@ -40,7 +40,10 @@ export class WorldStateInstrumentation {
   private requestHistogram: Histogram;
   private criticalErrors: UpDownCounter;
 
-  constructor(public readonly telemetry: TelemetryClient, private log = createLogger('world-state:instrumentation')) {
+  constructor(
+    public readonly telemetry: TelemetryClient,
+    private log: Logger = createLogger('world-state:instrumentation'),
+  ) {
     const meter = telemetry.getMeter('World State');
     this.dbMapSize = meter.createGauge(Metrics.WORLD_STATE_DB_MAP_SIZE, {
       description: `The current configured map size for each merkle tree`,

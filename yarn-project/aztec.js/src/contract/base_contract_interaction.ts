@@ -1,35 +1,16 @@
 import type { FeeOptions, TxExecutionOptions, UserFeeOptions } from '@aztec/entrypoints/interfaces';
 import type { ExecutionPayload } from '@aztec/entrypoints/payload';
-import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { GasSettings } from '@aztec/stdlib/gas';
-import type { Capsule, HashedValues, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
+import type { Capsule, TxExecutionRequest, TxProvingResult } from '@aztec/stdlib/tx';
 
 import { FeeJuicePaymentMethod } from '../fee/fee_juice_payment_method.js';
 import type { Wallet } from '../wallet/wallet.js';
 import { getGasLimits } from './get_gas_limits.js';
+import type { RequestMethodOptions, SendMethodOptions } from './interaction_options.js';
 import { ProvenTx } from './proven_tx.js';
 import { SentTx } from './sent_tx.js';
-
-/**
- * Represents options for calling a (constrained) function in a contract.
- * Allows the user to specify the sender address and nonce for a transaction.
- */
-export type SendMethodOptions = {
-  /** Wether to skip the simulation of the public part of the transaction. */
-  skipPublicSimulation?: boolean;
-  /** The fee options for the transaction. */
-  fee?: UserFeeOptions;
-  /** Custom nonce to inject into the app payload of the transaction. Useful when trying to cancel an ongoing transaction by creating a new one with a higher fee */
-  nonce?: Fr;
-  /** Whether the transaction can be cancelled. If true, an extra nullifier will be emitted: H(nonce, GENERATOR_INDEX__TX_NULLIFIER) */
-  cancellable?: boolean;
-  /** Authwits to use in the simulation */
-  authWitnesses?: AuthWitness[];
-  /** Capsules to use in the simulation */
-  capsules?: Capsule[];
-};
 
 /**
  * Base class for an interaction with a contract, be it a deployment, a function call, or a batch.
@@ -42,7 +23,6 @@ export abstract class BaseContractInteraction {
     protected wallet: Wallet,
     protected authWitnesses: AuthWitness[] = [],
     protected capsules: Capsule[] = [],
-    protected extraHashedValues: HashedValues[] = [],
   ) {}
 
   /**
@@ -58,7 +38,7 @@ export abstract class BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns An execution request wrapped in promise.
    */
-  public abstract request(options?: SendMethodOptions): Promise<ExecutionPayload>;
+  public abstract request(options?: RequestMethodOptions): Promise<ExecutionPayload>;
 
   /**
    * Creates a transaction execution request, simulates and proves it. Differs from .prove in
@@ -153,8 +133,8 @@ export abstract class BaseContractInteraction {
    */
   protected async getFeeOptions(
     executionPayload: ExecutionPayload,
-    fee?: UserFeeOptions,
-    options?: TxExecutionOptions,
+    fee: UserFeeOptions = {},
+    options: TxExecutionOptions,
   ): Promise<FeeOptions> {
     // docs:end:getFeeOptions
     const defaultFeeOptions = await this.getDefaultFeeOptions(fee);
@@ -165,7 +145,7 @@ export abstract class BaseContractInteraction {
     let gasSettings = defaultFeeOptions.gasSettings;
     if (fee?.estimateGas) {
       const feeForEstimation: FeeOptions = { paymentMethod, gasSettings };
-      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options ?? {});
+      const txRequest = await this.wallet.createTxExecutionRequest(executionPayload, feeForEstimation, options);
       const simulationResult = await this.wallet.simulateTx(
         txRequest,
         true /*simulatePublic*/,
@@ -184,26 +164,5 @@ export abstract class BaseContractInteraction {
     }
 
     return { gasSettings, paymentMethod };
-  }
-
-  /**
-   * Return all authWitnesses added for this interaction.
-   */
-  public getAuthWitnesses() {
-    return this.authWitnesses;
-  }
-
-  /**
-   * Return all capsules added for this contract interaction.
-   */
-  public getCapsules() {
-    return this.capsules;
-  }
-
-  /**
-   * Return all extra hashed values added for this contract interaction.
-   */
-  public getExtraHashedValues() {
-    return this.extraHashedValues;
   }
 }

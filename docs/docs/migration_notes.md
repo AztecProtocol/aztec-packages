@@ -8,11 +8,23 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
+
+It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
+For this reason we now return that information along with the indexes.
+This allows us to reduce the number of individual AztecNode queries.
+
+Along this change `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions wer removed as all its uses can now be replaced with the newly modified `findLeavesIndexes` function.
+
+## [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
+
+This change was done to have consistent naming across codebase.
+
 ## [aztec.js] Wallet interface and Authwit management
 
 The `Wallet` interface in `aztec.js` is undergoing transformations, trying to be friendlier to wallet builders and reducing the surface of its API. This means `Wallet` no longer extends `PXE`, and instead just implements a subset of the methods of the former. This is NOT going to be its final form, but paves the way towards better interfaces and starts to clarify what the responsibilities of the wallet are:
 
-``` typescript
+```typescript
 /**
  * The wallet interface.
  */
@@ -20,34 +32,34 @@ export type Wallet = AccountInterface &
   Pick<
     PXE,
     // Simulation
-    | 'simulateTx'
-    | 'simulateUnconstrained'
-    | 'profileTx'
+    | "simulateTx"
+    | "simulateUnconstrained"
+    | "profileTx"
     // Sending
-    | 'sendTx'
+    | "sendTx"
     // Contract management (will probably be collapsed in the future to avoid instance and class versions)
-    | 'getContractClassMetadata'
-    | 'getContractMetadata'
-    | 'registerContract'
-    | 'registerContractClass'
+    | "getContractClassMetadata"
+    | "getContractMetadata"
+    | "registerContract"
+    | "registerContractClass"
     // Likely to be removed
-    | 'proveTx'
+    | "proveTx"
     // Will probably be collapsed
-    | 'getNodeInfo'
-    | 'getPXEInfo'
+    | "getNodeInfo"
+    | "getPXEInfo"
     // Fee info
-    | 'getCurrentBaseFees'
+    | "getCurrentBaseFees"
     // Still undecided, kept for the time being
-    | 'updateContract'
+    | "updateContract"
     // Sender management
-    | 'registerSender'
-    | 'getSenders'
-    | 'removeSender'
+    | "registerSender"
+    | "getSenders"
+    | "removeSender"
     // Tx status
-    | 'getTxReceipt'
+    | "getTxReceipt"
     // Events. Kept since events are going to be reworked and changes will come when that's done
-    | 'getPrivateEvents'
-    | 'getPublicEvents'
+    | "getPrivateEvents"
+    | "getPublicEvents"
   > & {
     createAuthWit(intent: IntentInnerHash | IntentAction): Promise<AuthWitness>;
   };
@@ -93,7 +105,6 @@ const witness = await wallet.createAuthWit({ caller, action });
 --await wallet.lookupValidity(wallet.getAddress(), { caller, action });
 ++await wallet.lookupValidity(wallet.getAddress(), { caller, action }, witness);
 ```
-
 
 ### [PXE] Concurrent contract function simulation disabled
 

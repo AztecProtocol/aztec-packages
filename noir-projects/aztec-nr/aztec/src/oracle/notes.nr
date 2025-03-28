@@ -5,8 +5,8 @@ use crate::{
 
 use dep::protocol_types::{
     address::AztecAddress,
-    indexed_tagging_secret::{INDEXED_TAGGING_SECRET_LENGTH, IndexedTaggingSecret},
-    traits::{Deserialize, FromField, Packable},
+    indexed_tagging_secret::IndexedTaggingSecret,
+    traits::{FromField, Packable},
 };
 
 /// Notifies the simulator that a note has been created, so that it can be returned in future read requests in the same
@@ -54,7 +54,7 @@ unconstrained fn notify_created_note_oracle_wrapper<let N: u32>(
     note_hash: Field,
     counter: u32,
 ) {
-    let _ = notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
+    notify_created_note_oracle(storage_slot, note_type_id, packed_note, note_hash, counter);
 }
 
 #[oracle(notifyCreatedNote)]
@@ -64,29 +64,25 @@ unconstrained fn notify_created_note_oracle<let N: u32>(
     _packed_note: [Field; N],
     _note_hash: Field,
     _counter: u32,
-) -> Field {}
+) {}
 
 unconstrained fn notify_nullified_note_oracle_wrapper(
     nullifier: Field,
     note_hash: Field,
     counter: u32,
 ) {
-    let _ = notify_nullified_note_oracle(nullifier, note_hash, counter);
+    notify_nullified_note_oracle(nullifier, note_hash, counter);
 }
 
 #[oracle(notifyNullifiedNote)]
-unconstrained fn notify_nullified_note_oracle(
-    _nullifier: Field,
-    _note_hash: Field,
-    _counter: u32,
-) -> Field {}
+unconstrained fn notify_nullified_note_oracle(_nullifier: Field, _note_hash: Field, _counter: u32) {}
 
 unconstrained fn notify_created_nullifier_oracle_wrapper(nullifier: Field) {
-    let _ = notify_created_nullifier_oracle(nullifier);
+    notify_created_nullifier_oracle(nullifier);
 }
 
 #[oracle(notifyCreatedNullifier)]
-unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) -> Field {}
+unconstrained fn notify_created_nullifier_oracle(_nullifier: Field) {}
 
 #[oracle(getNotes)]
 unconstrained fn get_notes_oracle<let N: u32, let ORACLE_RETURN_FIELD_LENGTH: u32>(
@@ -213,34 +209,23 @@ where
 /// current transaction is included in a block. While this might seem of little use at first, certain design patterns
 /// benefit from this abstraction (see e.g. `PrivateMutable`).
 pub unconstrained fn check_nullifier_exists(inner_nullifier: Field) -> bool {
-    check_nullifier_exists_oracle(inner_nullifier) == 1
+    check_nullifier_exists_oracle(inner_nullifier)
 }
 
 #[oracle(checkNullifierExists)]
-unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> Field {}
+unconstrained fn check_nullifier_exists_oracle(_inner_nullifier: Field) -> bool {}
 
-/// Same as `get_indexed_tagging_secret_as_sender`, except it returns the derived tag, ready to be included in a log.
+/// Returns the derived app tagging secret ready to be included in a log for a given sender and recipient pair,
+/// siloed for the current contract address.
 pub unconstrained fn get_app_tag_as_sender(sender: AztecAddress, recipient: AztecAddress) -> Field {
-    get_indexed_tagging_secret_as_sender(sender, recipient).compute_tag(recipient)
-}
-
-/// Returns the tagging secret for a given sender and recipient pair, siloed for the current contract address.
-/// Includes the last known index used to send a note tagged with this secret.
-/// For this to work, PXE must know the ivsk_m of the sender.
-/// For the recipient's side, only the address is needed.
-pub unconstrained fn get_indexed_tagging_secret_as_sender(
-    sender: AztecAddress,
-    recipient: AztecAddress,
-) -> IndexedTaggingSecret {
-    let result = get_indexed_tagging_secret_as_sender_oracle(sender, recipient);
-    IndexedTaggingSecret::deserialize(result)
+    get_indexed_tagging_secret_as_sender_oracle(sender, recipient).compute_tag(recipient)
 }
 
 #[oracle(getIndexedTaggingSecretAsSender)]
 unconstrained fn get_indexed_tagging_secret_as_sender_oracle(
     _sender: AztecAddress,
     _recipient: AztecAddress,
-) -> [Field; INDEXED_TAGGING_SECRET_LENGTH] {}
+) -> IndexedTaggingSecret {}
 
 /// Notifies the simulator that a tag has been used in a note, and to therefore increment the associated index so that
 /// future notes get a different tag and can be discovered by the recipient.

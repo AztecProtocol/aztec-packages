@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -u # not -e
 [ "${BUILD_SYSTEM_DEBUG:-}" = 1 ] && set -x
 
@@ -18,7 +18,8 @@ for i in $(seq 1 $ATTEMPTS); do
   # Second should be the actual exit status.
   wait $pid
   wait $pid
-  [ $? -eq 0 ] && exit 0
+  code=$?
+  [ $code -eq 0 ] || [ $code -eq 143 ] && exit 0
   [ "$i" != "$ATTEMPTS" ] && sleep 5
 done
 

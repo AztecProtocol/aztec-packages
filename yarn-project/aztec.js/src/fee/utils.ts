@@ -12,10 +12,16 @@ import { FeeJuicePaymentMethod } from './fee_juice_payment_method.js';
  * @param wallet - The wallet to use for the simulation.
  * @param contractAddress - The address of the contract to call.
  * @param abi - The ABI of the function to simulate.
+ * @param args - The arguments to pass to the function.
  * @returns The return values of the function call.
  */
-export async function simulateWithoutSignature(wallet: Wallet, contractAddress: AztecAddress, abi: FunctionAbi) {
-  const interaction = new ContractFunctionInteraction(wallet, contractAddress, abi, []);
+export async function simulateWithoutSignature(
+  wallet: Wallet,
+  contractAddress: AztecAddress,
+  abi: FunctionAbi,
+  args: any[],
+) {
+  const interaction = new ContractFunctionInteraction(wallet, contractAddress, abi, args);
 
   const request = await interaction.request();
   const maxFeesPerGas = (await wallet.getCurrentBaseFees()).mul(1.5);
