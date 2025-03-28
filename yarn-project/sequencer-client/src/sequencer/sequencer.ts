@@ -773,4 +773,8 @@ export class Sequencer {
   get feeRecipient(): AztecAddress {
     return this._feeRecipient;
   }
+
+  get maxL2BlockGas(): number | undefined {
+    return this.config.maxL2BlockGas;
+  }
 }

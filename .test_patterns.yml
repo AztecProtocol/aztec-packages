@@ -48,6 +48,10 @@ tests:
     error_regex: "Sumcheck verification failed."
     owners:
       - *luke
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
+    error_regex: "verified: false"
+    owners:
+      - *sergei
 
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
@@ -146,6 +150,10 @@ tests:
     error_regex: "Exceeded timeout of 120000"
     owners:
       - *sean
+  - regex: "p2p/src/testbench/port_change.test.ts"
+    error_regex: "Timeout waiting for worker"
+    owners:
+      - *sean
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - *lasse
@@ -164,10 +172,6 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *alex
-  - regex: "ethereum/src/contracts/registry.test.ts"
-    error_regex: "lower than or equal to previous block's timestamp"
-    owners:
-      - *mitch
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
     owners:
@@ -178,12 +182,17 @@ tests:
       - *spyros
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh vite"
+  - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
   # kind tests
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+    owners:
+      - *mitch
+
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
       - *leila

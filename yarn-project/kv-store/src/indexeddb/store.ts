@@ -75,29 +75,6 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /**
-   * Forks the current DB into a new DB by backing it up to a temporary location and opening a new indexedb.
-   * @returns A new AztecIndexedDBStore.
-   */
-  async fork(): Promise<AztecAsyncKVStore> {
-    const forkedStore = await AztecIndexedDBStore.open(this.#log, undefined, true);
-    this.#log.verbose(`Forking store to ${forkedStore.#name}`);
-
-    // Copy old data to new store
-    const oldData = this.#rootDB.transaction('data').store;
-    const dataToWrite = [];
-    for await (const cursor of oldData.iterate()) {
-      dataToWrite.push(cursor.value);
-    }
-    const tx = forkedStore.#rootDB.transaction('data', 'readwrite').store;
-    for (const data of dataToWrite) {
-      await tx.add(data);
-    }
-
-    this.#log.debug(`Forked store at ${forkedStore.#name} opened successfully`);
-    return forkedStore;
-  }
-
-  /**
    * Creates a new AztecMap in the store.
    * @param name - Name of the map
    * @returns A new AztecMap
@@ -199,5 +176,9 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
   close(): Promise<void> {
     return Promise.resolve();
+  }
+
+  backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
+    throw new Error('Method not implemented.');
   }
 }

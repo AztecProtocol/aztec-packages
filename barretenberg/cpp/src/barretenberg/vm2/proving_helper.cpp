@@ -11,9 +11,9 @@
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
+#include "barretenberg/vm2/constraining/prover.hpp"
+#include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/debugger.hpp"
-#include "barretenberg/vm2/generated/prover.hpp"
-#include "barretenberg/vm2/generated/verifier.hpp"
 
 namespace bb::avm2 {
 namespace {
