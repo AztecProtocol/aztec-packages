@@ -11,8 +11,8 @@
 namespace bb::avm2::simulation {
 
 using ::testing::_;
+using ::testing::AllOf;
 using ::testing::ElementsAre;
-using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::StrictMock;
@@ -44,6 +44,16 @@ TEST(AvmSimulationPublicDataTree, Exists)
 
     public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root);
 
+    PublicDataTreeReadEvent expect_event = {
+        .value = value,
+        .slot = leaf_slot,
+        .root = root,
+        .low_leaf_preimage = low_leaf,
+        .low_leaf_hash = low_leaf_hash,
+        .low_leaf_index = low_leaf_index,
+    };
+    EXPECT_THAT(event_emitter.dump_events(), AllOf(SizeIs(1), ElementsAre(expect_event)));
+
     // Negative test: wrong value
     value = 28;
     EXPECT_THROW_WITH_MESSAGE(
@@ -73,6 +83,15 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToInfinity)
     EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.value.slot)).WillRepeatedly(Return(true));
 
     public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root);
+    PublicDataTreeReadEvent expect_event = {
+        .value = value,
+        .slot = leaf_slot,
+        .root = root,
+        .low_leaf_preimage = low_leaf,
+        .low_leaf_hash = low_leaf_hash,
+        .low_leaf_index = low_leaf_index,
+    };
+    EXPECT_THAT(event_emitter.dump_events(), AllOf(SizeIs(1), ElementsAre(expect_event)));
 
     // Negative test: wrong value
     value = 1;
@@ -110,6 +129,15 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToAnotherLeaf)
     EXPECT_CALL(field_gt, ff_gt(low_leaf.nextValue, leaf_slot)).WillRepeatedly(Return(true));
 
     public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root);
+    PublicDataTreeReadEvent expect_event = {
+        .value = value,
+        .slot = leaf_slot,
+        .root = root,
+        .low_leaf_preimage = low_leaf,
+        .low_leaf_hash = low_leaf_hash,
+        .low_leaf_index = low_leaf_index,
+    };
+    EXPECT_THAT(event_emitter.dump_events(), AllOf(SizeIs(1), ElementsAre(expect_event)));
 
     // Negative test: wrong value
     value = 1;
