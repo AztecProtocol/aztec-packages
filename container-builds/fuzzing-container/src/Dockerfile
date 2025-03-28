@@ -15,7 +15,12 @@ ADD https://api.github.com/repos/AztecProtocol/barretenberg/git/refs/heads/maste
 RUN git clone https://github.com/AztecProtocol/barretenberg.git
 WORKDIR /fuzzing/barretenberg/cpp
 
-COPY prepare.sh .
-RUN ./prepare.sh
+# Build all fuzzers
+RUN cmake --preset fuzzing
+RUN cmake --build --preset fuzzing
+
+# Build all post-crash loggers
+RUN cmake --preset fuzzing-asan
+RUN cmake --build --preset fuzzing-asan
 
 COPY entrypoint.sh .

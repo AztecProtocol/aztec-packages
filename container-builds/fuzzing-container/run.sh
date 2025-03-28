@@ -68,17 +68,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-if [ -z "${fuzzer}" ]; then
-    echo "err: No fuzzer was provided";
-    echo
-    show_help
-    exit 1;
-fi
-
 image_name=barretenberg-fuzzer
 
 docker build src/ -t "$image_name":latest
-
 if [[ $? -ne 0 ]]; then
     exit 1;
 fi
@@ -88,7 +80,7 @@ fi
 
 if [[ $verbosity == '1' ]]; then
     docker run -it --rm                                  \
-        --user $(id -u):$(id -g)                         \
+        --user "$(id -u):$(id -g)"                       \
         --name fuzzer                                    \
         -v "$(pwd)/crash-reports:/fuzzing/crash-reports" \
         -v "$(pwd)/output:/fuzzing/output"               \
@@ -102,7 +94,7 @@ if [[ $verbosity == '1' ]]; then
         --timeout "$timeout"                             
 else
     docker run -it --rm                                  \
-        --user $(id -u):$(id -g)                         \
+        --user "$(id -u):$(id -g)"                       \
         --name fuzzer                                    \
         -v "$(pwd)/crash-reports:/fuzzing/crash-reports" \
         -v "$(pwd)/output:/fuzzing/output"               \

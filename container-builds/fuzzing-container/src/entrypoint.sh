@@ -26,6 +26,13 @@ show_help() {
     echo ""
     echo "This script handles fuzzing testing with specified parameters, managing crash reports,"
     echo "and coverage testing based on the mode specified."
+    echo
+    echo "The following fuzzers are available:"
+    if compgen -G "$main_fuzzer/*"* &> /dev/null; then
+        for f in "$main_fuzzer/"*; do
+            basename "$f";
+        done;
+    fi
 }
 
 while [[ $# -gt 0 ]]; do
@@ -66,9 +73,13 @@ done
 
 if [ -z "${fuzzer}" ]; then
     echo "No fuzzer was provided";
+    echo;
+    show_help;
     exit 1;
 elif [ ! -e "$main_fuzzer/$fuzzer" ]; then
     echo "$main_fuzzer/$fuzzer does not exist";
+    echo;
+    show_help;
     exit 1;
 fi
 
@@ -97,7 +108,7 @@ if compgen -G "$CRASHES/*" &> /dev/null; then
         "$post_fuzzer" "$x" &> /dev/null;
         status=$?;
         if [[ "$status" -ne 0 ]]; then
-            ./build-fuzzing-asan/bin/"$fuzzer" "$x" &> "$OUTPUT"/result.txt;
+            "$post_fuzzer" "$x" &> "$OUTPUT"/result.txt;
             printf "Existing %s resulted in exit status %d\n" "$x" "$status";
             exit 1;
         fi
