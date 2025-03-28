@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743168507159,
+  "lastUpdate": 1743171009002,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "88586592+porco-rosso-j@users.noreply.github.com",
-            "name": "porco",
-            "username": "porco-rosso-j"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0c21c74c146a282b210cc07cbeb227a1ee19bb18",
-          "message": "fix: added #[derive(Eq)] to EcdsaPublicKeyNote (#12966)",
-          "timestamp": "2025-03-25T12:16:13Z",
-          "tree_id": "8c08a239ac2f371e5beb924745ab8ccac8b15176",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0c21c74c146a282b210cc07cbeb227a1ee19bb18"
-        },
-        "date": 1742906862887,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9747,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.24788486045693608,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 158651,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 140707,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c08d38c040be51ce7c87023a1aaf821179f9e32",
+          "message": "chore: fuzzing build in ci (#13105)\n\nSet for now not to create object files, just sanity check the build.\nAlso moved to zstd compression (toggled via file suffix check of .zst)\nfor speed\n\n---------\n\nCo-authored-by: Sarkoxed <75146596+Sarkoxed@users.noreply.github.com>",
+          "timestamp": "2025-03-28T16:41:00+03:00",
+          "tree_id": "41e68df8ec1e660c1fe50e59153964abb2322581",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c08d38c040be51ce7c87023a1aaf821179f9e32"
+        },
+        "date": 1743171008041,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9296,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23640309848813126,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 147785,
             "unit": "us"
           }
         ]
