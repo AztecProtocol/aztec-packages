@@ -596,7 +596,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     logs: TxScopedL2Log[],
     recipient: AztecAddress,
-    simulator?: AcirSimulator, // TODO: this argument is used only in 1 test hence we should remove it
+    simulator?: AcirSimulator,
   ): Promise<void> {
     for (const scopedLog of logs) {
       if (scopedLog.isFromPublic) {
@@ -787,7 +787,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     noteHashes: Fr[],
     firstNullifier: Fr,
     recipient: AztecAddress,
-    simulator?: AcirSimulator, // TODO: this argument is used only in 1 test hence we should remove it
+    simulator?: AcirSimulator,
   ) {
     const artifact: FunctionArtifact | undefined = await this.contractDataProvider.getFunctionArtifactByName(
       contractAddress,
