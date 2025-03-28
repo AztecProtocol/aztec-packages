@@ -1,6 +1,6 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { jsonParseWithSchemaSync, jsonStringify } from '@aztec/foundation/json-rpc';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 
 import fs from 'fs/promises';
 import { inspect } from 'node:util';
@@ -11,7 +11,14 @@ import { z } from 'zod';
  * Represents a version record for storing in a version file.
  */
 export class DatabaseVersion {
-  constructor(public readonly schemaVersion: number, public readonly rollupAddress: EthAddress) {}
+  constructor(
+    /** The version of the data on disk. Used to perform upgrades */
+    public readonly schemaVersion: number,
+    /** The rollup the data pertains to */
+    public readonly rollupAddress: EthAddress,
+    /** A simple tag that needs to match for the database to be reused */
+    public readonly tag = '',
+  ) {}
 
   public toBuffer(): Buffer {
     return Buffer.from(jsonStringify(this));
@@ -29,7 +36,7 @@ export class DatabaseVersion {
    * Compares two versions. If the rollups addresses are different then it returns undefined
    */
   public cmp(other: DatabaseVersion): undefined | -1 | 0 | 1 {
-    if (this.rollupAddress.equals(other.rollupAddress)) {
+    if (this.rollupAddress.equals(other.rollupAddress) && this.tag === other.tag) {
       if (this.schemaVersion < other.schemaVersion) {
         return -1;
       } else if (this.schemaVersion > other.schemaVersion) {
@@ -56,8 +63,9 @@ export class DatabaseVersion {
       .object({
         schemaVersion: z.number(),
         rollupAddress: EthAddress.schema,
+        tag: z.string(),
       })
-      .transform(({ schemaVersion, rollupAddress }) => new DatabaseVersion(schemaVersion, rollupAddress));
+      .transform(({ schemaVersion, rollupAddress, tag }) => new DatabaseVersion(schemaVersion, rollupAddress, tag));
   }
 
   /** Allows for better introspection. */
@@ -66,7 +74,7 @@ export class DatabaseVersion {
   }
 
   public toString(): string {
-    return this.schemaVersion.toString();
+    return `DatabaseVersion{schemaVersion=${this.schemaVersion},rollupAddress=${this.rollupAddress},tag="${this.tag}"}`;
   }
 
   /**
@@ -81,6 +89,17 @@ export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'writeFile' 
 
 export const DATABASE_VERSION_FILE_NAME = 'db_version';
 
+export type DatabaseVersionManagerOptions<T> = {
+  schemaVersion: number;
+  rollupAddress: EthAddress;
+  tag?: string;
+  dataDirectory: string;
+  onOpen: (dataDir: string) => Promise<T>;
+  onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
+  fileSystem?: DatabaseVersionManagerFs;
+  log?: Logger;
+};
+
 /**
  * A manager for handling database versioning and migrations.
  * This class will check the version of data in a directory and either
@@ -91,6 +110,12 @@ export class DatabaseVersionManager<T> {
 
   private readonly versionFile: string;
   private readonly currentVersion: DatabaseVersion;
+
+  private dataDirectory: string;
+  private onOpen: (dataDir: string) => Promise<T>;
+  private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
+  private fileSystem: DatabaseVersionManagerFs;
+  private log: Logger;
 
   /**
    * Create a new version manager
@@ -104,21 +129,28 @@ export class DatabaseVersionManager<T> {
    * @param log - Optional custom logger
    * @param options - Configuration options
    */
-  constructor(
-    schemaVersion: number,
-    rollupAddress: EthAddress,
-    private dataDirectory: string,
-    private onOpen: (dataDir: string) => Promise<T>,
-    private onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>,
-    private fileSystem: DatabaseVersionManagerFs = fs,
-    private log = createLogger(`foundation:version-manager`),
-  ) {
+  constructor({
+    schemaVersion,
+    rollupAddress,
+    tag,
+    dataDirectory,
+    onOpen,
+    onUpgrade,
+    fileSystem = fs,
+    log = createLogger(`foundation:version-manager`),
+  }: DatabaseVersionManagerOptions<T>) {
     if (schemaVersion < 1) {
       throw new TypeError(`Invalid schema version received: ${schemaVersion}`);
     }
 
-    this.versionFile = join(this.dataDirectory, DatabaseVersionManager.VERSION_FILE);
-    this.currentVersion = new DatabaseVersion(schemaVersion, rollupAddress);
+    this.versionFile = join(dataDirectory, DatabaseVersionManager.VERSION_FILE);
+    this.currentVersion = new DatabaseVersion(schemaVersion, rollupAddress, tag);
+
+    this.dataDirectory = dataDirectory;
+    this.onOpen = onOpen;
+    this.onUpgrade = onUpgrade;
+    this.fileSystem = fileSystem;
+    this.log = log;
   }
 
   static async writeVersion(version: DatabaseVersion, dataDir: string, fileSystem: DatabaseVersionManagerFs = fs) {
@@ -165,12 +197,16 @@ export class DatabaseVersionManager<T> {
         }
       } else if (cmp !== 0) {
         this.log.info(
-          `Can't upgrade from version ${storedVersion.schemaVersion} to ${this.currentVersion.schemaVersion}. Resetting database at ${this.dataDirectory}`,
+          `Can't upgrade from version ${storedVersion} to ${this.currentVersion}. Resetting database at ${this.dataDirectory}`,
         );
         needsReset = true;
       }
     } else {
-      this.log.warn('Rollup address changed, resetting data directory', { versionFile: this.versionFile });
+      this.log.warn('Rollup or tag has changed, resetting data directory', {
+        versionFile: this.versionFile,
+        storedVersion,
+        currentVersion: this.currentVersion,
+      });
       needsReset = true;
     }
 

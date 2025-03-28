@@ -58,20 +58,22 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
     dataDir: string,
     dbMapSizeKb: number,
     prefilledPublicData: PublicDataTreeLeaf[] = [],
+    genesisArchiveTreeRoot: Fr = Fr.ZERO,
     instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
     log = createLogger('world-state:database'),
     cleanup = () => Promise.resolve(),
   ): Promise<NativeWorldStateService> {
     const worldStateDirectory = join(dataDir, WORLD_STATE_DIR);
     // Create a version manager to handle versioning
-    const versionManager = new DatabaseVersionManager(
-      WORLD_STATE_DB_VERSION,
+    const versionManager = new DatabaseVersionManager({
+      schemaVersion: WORLD_STATE_DB_VERSION,
       rollupAddress,
-      worldStateDirectory,
-      (dir: string) => {
+      tag: 'genesisArchiveTreeRoot:' + genesisArchiveTreeRoot,
+      dataDirectory: worldStateDirectory,
+      onOpen: (dir: string) => {
         return Promise.resolve(new NativeWorldState(dir, dbMapSizeKb, prefilledPublicData, instrumentation));
       },
-    );
+    });
 
     const [instance] = await versionManager.open();
     const worldState = new this(instance, instrumentation, log, cleanup);
@@ -106,7 +108,7 @@ export class NativeWorldStateService implements MerkleTreeDatabase {
       }
     };
 
-    return this.new(rollupAddress, dataDir, dbMapSizeKb, prefilledPublicData, instrumentation, log, cleanup);
+    return this.new(rollupAddress, dataDir, dbMapSizeKb, prefilledPublicData, Fr.ZERO, instrumentation, log, cleanup);
   }
 
   protected async init() {
