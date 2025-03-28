@@ -99,7 +99,7 @@ template <typename Curve> class ShpleminiProver_ {
     }
 
     /**
-     * @brief Create a vector of 3*log_circuit_size opening claims for the evaluations of Sumcheck Round Univariates at
+     * @brief Create a vector of 3*log_n opening claims for the evaluations of Sumcheck Round Univariates at
      * 0, 1, and a round challenge.
      *
      */
@@ -112,8 +112,8 @@ template <typename Curve> class ShpleminiProver_ {
         OpeningClaim new_claim;
         std::vector<OpeningClaim> sumcheck_round_claims = {};
 
-        const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size));
-        for (size_t idx = 0; idx < log_circuit_size; idx++) {
+        const size_t log_n = numeric::get_msb(static_cast<uint32_t>(circuit_size));
+        for (size_t idx = 0; idx < log_n; idx++) {
             const std::vector<FF> evaluation_points = { FF(0), FF(1), multilinear_challenge[idx] };
             size_t eval_idx = 0;
             new_claim.polynomial = std::move(sumcheck_round_univariates[idx]);
@@ -170,7 +170,7 @@ template <typename Curve> class ShpleminiProver_ {
  * \text{scalars}, \text{shplonk_evaluation_point}) \f$ that satisfies the following: \f[ \text{batch_mul}
  * (\text{commitments},\ \text{scalars}) = \text{shplonk_opening_claim}.\text{point} \f] and the sizes of 'commitments'
  * and 'scalars' are equal to: \f[
- * \#\text{claimed_evaluations} + \text{log_circuit_size} + 2
+ * \#\text{claimed_evaluations} + \text{log_n} + 2
  * \f]
  *
  * The output triple is either fed to the corresponding \ref bb::KZG< Curve_ >::reduce_verify_batch_opening_claim
@@ -193,7 +193,7 @@ template <typename Curve> class ShpleminiVerifier_ {
   public:
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
-        const Fr N,
+        const size_t log_n,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
@@ -209,14 +209,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
     {
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
-
-        // Extract log_circuit_size
-        size_t log_circuit_size{ 0 };
-        if constexpr (Curve::is_stdlib_type) {
-            log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
-        } else {
-            log_circuit_size = numeric::get_msb(static_cast<uint32_t>(N));
-        }
 
         // When padding is enabled, the size of the multilinear challenge may be bigger than the log of `circuit_size`.
         const size_t virtual_log_n = multivariate_challenge.size();
@@ -328,14 +320,14 @@ template <typename Curve> class ShpleminiVerifier_ {
         }
 
         // Compute the Shplonk batching power for the interleaved claims. This is \nu^{n+1} where n is the
-        // log_circuit_size as the interleaved claims are sent after the rest of Gemini fold claims. Add the evaluations
+        // log_n as the interleaved claims are sent after the rest of Gemini fold claims. Add the evaluations
         // of (P₊(rˢ) ⋅ ν^{n+1}) / (z − r^s) and (P₋(rˢ) ⋅ ν^{n+2})/(z − r^s) to the constant term accumulator
         Fr shplonk_batching_pos = Fr{ 0 };
         Fr shplonk_batching_neg = Fr{ 0 };
         if (claim_batcher.interleaved) {
             // Currently, the prover places the Interleaving claims before the Gemini dummy claims.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving.
-            const size_t interleaved_pos_index = 2 * log_circuit_size;
+            const size_t interleaved_pos_index = 2 * log_n;
             const size_t interleaved_neg_index = interleaved_pos_index + 1;
             shplonk_batching_pos = shplonk_batching_challenge_powers[interleaved_pos_index];
             shplonk_batching_neg = shplonk_batching_challenge_powers[interleaved_neg_index];
@@ -355,7 +347,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // for i = 0, ..., n-1.
         // In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
         const std::vector<Fr> gemini_fold_pos_evaluations =
-            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_circuit_size,
+            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_n,
                                                                  batched_evaluation,
                                                                  multivariate_challenge,
                                                                  gemini_eval_challenge_powers,
@@ -365,7 +357,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to Gemini fold polynomials Aᵢ in the vector of batch_mul commitments, compute the
         // contributions from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars for
         // the batch mul
-        batch_gemini_claims_received_from_prover(log_circuit_size,
+        batch_gemini_claims_received_from_prover(log_n,
                                                  fold_commitments,
                                                  gemini_fold_neg_evaluations,
                                                  gemini_fold_pos_evaluations,
@@ -405,7 +397,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
         // Currently, only used in ECCVM
         if (committed_sumcheck) {
-            batch_sumcheck_round_claims(log_circuit_size,
+            batch_sumcheck_round_claims(log_n,
                                         commitments,
                                         scalars,
                                         constant_term_accumulator,
@@ -451,7 +443,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * A_i\left(-r^{2^i}\right)}{z+ r^{2^i}} \f} for \f$ i = 1, \ldots, n-1 \f$ and adds them to the
      * 'constant_term_accumulator'.
      *
-     * @param log_circuit_size The logarithm of the circuit size, determining the depth of the Gemini protocol.
+     * @param log_n The logarithm of the circuit size, determining the depth of the Gemini protocol.
      * @param fold_commitments A vector containing the commitments to the Gemini fold polynomials \f$ A_i \f$.
      * @param gemini_neg_evaluations The evaluations of Gemini fold polynomials \f$ A_i \f$ at \f$ -r^{2^i} \f$ for \f$
      * i = 0, \ldots, n - 1 \f$.
@@ -464,7 +456,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param scalars Output vector where the computed scalars will be stored.
      * @param constant_term_accumulator The accumulator for the summands of the Shplonk constant term.
      */
-    static void batch_gemini_claims_received_from_prover(const size_t log_circuit_size,
+    static void batch_gemini_claims_received_from_prover(const size_t log_n,
                                                          const std::vector<Commitment>& fold_commitments,
                                                          const std::vector<Fr>& gemini_neg_evaluations,
                                                          const std::vector<Fr>& gemini_pos_evaluations,
@@ -497,12 +489,12 @@ template <typename Curve> class ShpleminiVerifier_ {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = gemini_neg_evaluations[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_circuit_size);
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_n);
                 Fr zero = Fr(0);
                 scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
                 scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
             } else {
-                if (j >= log_circuit_size) {
+                if (j >= log_n) {
                     scaling_factor_neg = 0;
                     scaling_factor_pos = 0;
                 }
@@ -683,7 +675,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      *   where \f$S_i(x)\f$ denotes the Sumcheck round-\f$i\f$ univariate polynomial. This contribution is added to
      *   \p constant_term_accumulator.
      *
-     * @param log_circuit_size
+     * @param log_n
      * @param commitments
      * @param scalars
      * @param constant_term_accumulator
@@ -693,7 +685,7 @@ template <typename Curve> class ShpleminiVerifier_ {
      * @param sumcheck_round_commitments
      * @param sumcheck_round_evaluations
      */
-    static void batch_sumcheck_round_claims(const size_t log_circuit_size,
+    static void batch_sumcheck_round_claims(const size_t log_n,
                                             std::vector<Commitment>& commitments,
                                             std::vector<Fr>& scalars,
                                             Fr& constant_term_accumulator,
@@ -756,11 +748,11 @@ template <typename Curve> class ShpleminiVerifier_ {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = shplonk_evaluation_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= log_circuit_size);
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= log_n);
                 const_term_contribution = Fr::conditional_assign(dummy_round, zero, const_term_contribution);
                 batched_scalar = Fr::conditional_assign(dummy_round, zero, batched_scalar);
             } else {
-                if (round_idx >= log_circuit_size) {
+                if (round_idx >= log_n) {
                     const_term_contribution = 0;
                     batched_scalar = 0;
                 }

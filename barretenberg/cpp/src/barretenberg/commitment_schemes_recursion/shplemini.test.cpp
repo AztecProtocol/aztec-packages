@@ -122,7 +122,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             .k_shift_magnitude = MockClaimGen::k_magnitude
         };
 
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(log_circuit_size,
                                                                                   claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),

@@ -128,7 +128,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(key->circuit_size,
+        Shplemini::compute_batch_opening_claim(log_circuit_size,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),
