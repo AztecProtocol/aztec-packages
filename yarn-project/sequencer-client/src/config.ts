@@ -117,10 +117,10 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
   ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
+  ...chainConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
-  ...chainConfigMappings,
   ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
 };
 

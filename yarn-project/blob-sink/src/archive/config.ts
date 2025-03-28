@@ -3,7 +3,7 @@ import { type ConfigMappingsType, pickConfigMappings } from '@aztec/foundation/c
 
 export type BlobSinkArchiveApiConfig = {
   archiveApiUrl?: string;
-} & Partial<Pick<L1ReaderConfig, 'l1ChainId'>>;
+} & Pick<L1ReaderConfig, 'l1ChainId'>;
 
 export const blobSinkArchiveApiConfigMappings: ConfigMappingsType<BlobSinkArchiveApiConfig> = {
   archiveApiUrl: {

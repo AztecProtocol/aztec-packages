@@ -55,10 +55,11 @@ describe('SequencerPublisher', () => {
   let publisher: SequencerPublisher;
 
   const GAS_GUESS = 300_000n;
+  const l1RpcUrls = [`http://127.0.0.1:8545`];
 
   beforeEach(async () => {
     mockBlobSinkServer = undefined;
-    blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL });
+    blobSinkClient = new HttpBlobSinkClient({ blobSinkUrl: BLOB_SINK_URL, l1RpcUrls, l1ChainId: 31337 });
 
     l2Block = await L2Block.random(42);
 
@@ -80,7 +81,7 @@ describe('SequencerPublisher', () => {
     l1TxUtils.getBlockNumber.mockResolvedValue(1n);
     const config = {
       blobSinkUrl: BLOB_SINK_URL,
-      l1RpcUrls: [`http://127.0.0.1:8545`],
+      l1RpcUrls,
       l1ChainId: 1,
       publisherPrivateKey: `0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80`,
       l1Contracts: {

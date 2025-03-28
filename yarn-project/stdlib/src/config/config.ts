@@ -25,7 +25,7 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
       if (Number.isSafeInteger(parsed)) {
         return parsed;
       }
-      throw new Error('Hey, not a number: ' + val);
+      throw new Error('VERSION must be a number: ' + val);
     },
   },
   l1Contracts: {

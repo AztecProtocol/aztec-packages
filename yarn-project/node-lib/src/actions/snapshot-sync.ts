@@ -32,9 +32,9 @@ import type { SharedNodeConfig } from '../config/index.js';
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
 type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'snapshotsUrl'> &
+  Required<DataStoreConfig> &
   Pick<ChainConfig, 'l1ChainId' | 'version'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
-  Required<DataStoreConfig> &
   EthereumClientConfig & {
     minL1BlocksToTriggerReplace?: number;
   };
@@ -57,6 +57,11 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
 
     if (!dataDirectory) {
       log.verbose('Snapshot sync is disabled. No local data directory defined.');
+      return false;
+    }
+
+    if (!l1Contracts.rollupAddress) {
+      log.error('Snapshot sync is disabled. No rollup address available.');
       return false;
     }
 

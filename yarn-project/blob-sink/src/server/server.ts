@@ -11,7 +11,7 @@ import type { Hex } from 'viem';
 import { z } from 'zod';
 
 import type { BlobArchiveClient } from '../archive/index.js';
-import { type BlobStore } from '../blobstore/index.js';
+import type { BlobStore } from '../blobstore/index.js';
 import { inboundTransform } from '../encoding/index.js';
 import { type PostBlobSidecarRequest, blockIdSchema, indicesSchema } from '../types/api.js';
 import { BlobWithIndex } from '../types/index.js';

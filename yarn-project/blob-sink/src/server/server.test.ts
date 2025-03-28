@@ -25,7 +25,7 @@ describe('BlobSinkService', () => {
     config: Partial<BlobSinkConfig & { blobArchiveClient: BlobArchiveClient; l1Client: ViemPublicClient }> = {},
   ) => {
     service = new BlobSinkServer(
-      { ...config, l1RpcUrls: [], rollupAddress: EthAddress.ZERO, port: 0 },
+      { ...config, l1RpcUrls: [], rollupAddress: EthAddress.ZERO, port: 0, l1ChainId: 31337 },
       new MemoryBlobStore(),
       config.blobArchiveClient,
       config.l1Client,
