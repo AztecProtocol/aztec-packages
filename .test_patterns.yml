@@ -186,12 +186,17 @@ tests:
       - *spyros
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh vite"
+  - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
   # kind tests
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+    owners:
+      - *mitch
+
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
       - *leila
