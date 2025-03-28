@@ -27,7 +27,13 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import {
+  IndexedTaggingSecret,
+  LogWithTxData,
+  PrivateLog,
+  TxScopedL2Log,
+  deriveEcdhSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -613,6 +619,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
+      const logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
+      if (logIndexInTx === -1) {
+        throw new Error(`Could not find log in tx effect for tx hash ${scopedLog.txHash}`);
+      }
+
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
         contractAddress,
@@ -620,6 +631,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         scopedLog.txHash,
         txEffect.data.noteHashes,
         txEffect.data.nullifiers[0],
+        logIndexInTx,
         recipient,
         simulator,
       );
@@ -786,6 +798,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     txHash: TxHash,
     noteHashes: Fr[],
     firstNullifier: Fr,
+    logIndexInTx: number,
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ) {
@@ -811,6 +824,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         txHash.toString(),
         toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
         firstNullifier,
+        logIndexInTx,
         recipient,
       ]),
       returnTypes: artifact.returnTypes,
@@ -851,12 +865,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   async storePrivateEventLog(
-    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
+    logIndexInTx: number,
   ): Promise<void> {
     const txReceipt = await this.aztecNode.getTxReceipt(txHash);
     const blockNumber = txReceipt.blockNumber;
@@ -864,11 +878,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
     }
     return this.privateEventDataProvider.storePrivateEventLog(
-      tag,
       contractAddress,
       recipient,
       eventSelector,
       logContent,
+      txHash,
+      logIndexInTx,
       blockNumber,
     );
   }

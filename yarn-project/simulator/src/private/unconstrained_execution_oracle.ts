@@ -379,20 +379,20 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
   }
 
   public override storePrivateEventLog(
-    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
+    logIndexInTx: number,
   ): Promise<void> {
     return this.executionDataProvider.storePrivateEventLog(
-      tag,
       contractAddress,
       recipient,
       eventSelector,
       logContent,
       txHash,
+      logIndexInTx,
     );
   }
 }

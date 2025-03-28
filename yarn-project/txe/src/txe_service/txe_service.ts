@@ -631,20 +631,20 @@ export class TXEService {
   }
 
   async storePrivateEventLog(
-    tag: ForeignCallSingle,
     contractAddress: ForeignCallSingle,
     recipient: ForeignCallSingle,
     eventSelector: ForeignCallSingle,
     logContent: ForeignCallArray,
     txHash: ForeignCallSingle,
+    logIndexInTx: ForeignCallSingle,
   ) {
     await this.typedOracle.storePrivateEventLog(
-      fromSingle(tag),
       AztecAddress.fromField(fromSingle(contractAddress)),
       AztecAddress.fromField(fromSingle(recipient)),
       EventSelector.fromField(fromSingle(eventSelector)),
       fromArray(logContent),
       new TxHash(fromSingle(txHash)),
+      fromSingle(logIndexInTx).toNumber(),
     );
     return toForeignCallResult([]);
   }

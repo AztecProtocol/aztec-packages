@@ -484,8 +484,6 @@ describe('PXEOracleInterface', () => {
       simulator.runUnconstrained.mockImplementation(() => Promise.resolve({}));
 
       runUnconstrainedSpy = jest.spyOn(simulator, 'runUnconstrained');
-
-      aztecNode.getTxEffect.mockResolvedValue(randomInBlock(await TxEffect.random()));
     });
 
     function mockTaggedLogs(numLogs: number) {
@@ -498,6 +496,13 @@ describe('PXEOracleInterface', () => {
       const numLogs = 3;
 
       const taggedLogs = mockTaggedLogs(numLogs);
+
+      // Mock getTxEffect to return a TxEffect containing the private logs
+      aztecNode.getTxEffect.mockImplementation(async () => {
+        const txEffect = await TxEffect.random();
+        txEffect.privateLogs = taggedLogs.map(log => log.log as PrivateLog);
+        return randomInBlock(txEffect);
+      });
 
       await pxeOracleInterface.processTaggedLogs(contractAddress, taggedLogs, recipient.address, simulator);
 

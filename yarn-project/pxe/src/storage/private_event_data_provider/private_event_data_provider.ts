@@ -1,10 +1,10 @@
-import { sha256 } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { AztecAsyncArray, AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { TxHash } from '@aztec/stdlib/tx';
 
 import type { DataProvider } from '../data_provider.js';
 
@@ -23,10 +23,10 @@ export class PrivateEventDataProvider implements DataProvider {
   /** Map from contract_address_recipient_eventSelector to array of indices into #eventLogs for efficient lookup */
   #eventLogIndex: AztecAsyncMap<string, number[]>;
   /**
-   * Map from tag to array of event log hashes.
-   * @dev A single tag can map to multiple hashes because we don't have a guarantee that tags won't be reused.
+   * Map from txHash_logIndexInTx to boolean indicating if log has been seen.
+   * @dev A single transaction can have multiple logs.
    */
-  #tagToLogHashes: AztecAsyncMap<string, Buffer[]>;
+  #seenLogs: AztecAsyncMap<string, boolean>;
 
   logger = createLogger('private_event_data_provider');
 
@@ -34,48 +34,39 @@ export class PrivateEventDataProvider implements DataProvider {
     this.#store = store;
     this.#eventLogs = this.#store.openArray('private_event_logs');
     this.#eventLogIndex = this.#store.openMap('private_event_log_index');
-    this.#tagToLogHashes = this.#store.openMap('tag_to_log_hashes');
+    this.#seenLogs = this.#store.openMap('seen_logs');
   }
 
   /**
    * Store a private event log.
-   * @param tag - The tag of the event log.
    * @param contractAddress - The address of the contract that emitted the event.
    * @param recipient - The recipient of the event.
    * @param eventSelector - The event selector of the event.
    * @param logContent - The content of the event.
+   * @param txHash - The transaction hash of the event log.
+   * @param logIndexInTx - The index of the log within the transaction.
    * @param blockNumber - The block number in which the event was emitted.
    */
   storePrivateEventLog(
-    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
     logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
     blockNumber: number,
   ): Promise<void> {
     return this.#store.transactionAsync(async () => {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
 
-      // Since we don't have a guarantee that the event log will be processed only once, we need to check whether
-      // the log has already been stored under the same tag to not have duplicate entries. It could also happen that
-      // there is a different log under the same tag, so we need to check for that as well.
-      const tagStr = tag.toString();
-      const logHash = sha256(serializeToBuffer([eventSelector.toField(), ...logContent]));
+      // We identify a unique log by its transaction hash and index within that transaction
+      const txKey = `${txHash.toString()}_${logIndexInTx}`;
 
-      // Check if events with this tag already exist
-      const existingHashes = (await this.#tagToLogHashes.getAsync(tagStr)) || [];
-      const isDuplicate = existingHashes.some(hash => hash.equals(logHash));
-
-      if (isDuplicate) {
-        // Duplicate events are expected since the tagging scheme looks back through tag indices,
-        // which can result in the same event being processed multiple times
-        this.logger.verbose('Ignoring duplicate event with same tag and content', { tag: tagStr });
+      // Check if this exact log has already been stored
+      const hasBeenSeen = await this.#seenLogs.getAsync(txKey);
+      if (hasBeenSeen) {
+        this.logger.verbose('Ignoring duplicate event log', { txHash: txHash.toString(), logIndexInTx });
         return;
-      } else if (existingHashes.length > 0) {
-        // We've stumbled upon a tag which already has a content stored for it but the content is different.
-        // This can also occur because we don't have a guarantee that indexes won't be re-used.
-        this.logger.verbose('Event with same tag but different content detected', { tag: tagStr });
       }
 
       this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
@@ -86,8 +77,8 @@ export class PrivateEventDataProvider implements DataProvider {
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
 
-      // Store tag->content hash mapping
-      await this.#tagToLogHashes.set(tagStr, [...existingHashes, logHash]);
+      // Mark this log as seen
+      await this.#seenLogs.set(txKey, true);
     });
   }
 

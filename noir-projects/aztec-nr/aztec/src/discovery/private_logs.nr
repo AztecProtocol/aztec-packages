@@ -56,6 +56,7 @@ pub unconstrained fn do_process_log<Env>(
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
+    log_index_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
@@ -90,17 +91,16 @@ pub unconstrained fn do_process_log<Env>(
     } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
         debug_log("Processing private event log");
 
-        let tag = log.get(0);
         // In the case of event logs, the log metadata is the event selector.
         let event_selector = EventSelector::from_field(log_metadata as Field);
 
         store_private_event_log(
-            tag,
             contract_address,
             recipient,
             event_selector,
             log_content,
             tx_hash,
+            log_index_in_tx,
         );
     } else {
         // TODO(#11569): handle events

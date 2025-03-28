@@ -1263,20 +1263,20 @@ export class TXE implements TypedOracle {
   }
 
   storePrivateEventLog(
-    tag: Fr,
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
     logContent: Fr[],
     txHash: TxHash,
+    logIndexInTx: number,
   ): Promise<void> {
     return this.pxeOracleInterface.storePrivateEventLog(
-      tag,
       contractAddress,
       recipient,
       eventSelector,
       logContent,
       txHash,
+      logIndexInTx,
     );
   }
 }

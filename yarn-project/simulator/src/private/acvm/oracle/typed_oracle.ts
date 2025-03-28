@@ -260,12 +260,12 @@ export abstract class TypedOracle {
   }
 
   storePrivateEventLog(
-    _tag: Fr,
     _contractAddress: AztecAddress,
     _recipient: AztecAddress,
     _eventSelector: EventSelector,
     _logContent: Fr[],
     _txHash: TxHash,
+    _logIndexInTx: number,
   ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('storePrivateEventLog'));
   }
