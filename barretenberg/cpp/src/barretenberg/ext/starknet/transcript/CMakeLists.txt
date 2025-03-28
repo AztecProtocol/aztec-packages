@@ -1,1 +1,1 @@
-barretenberg_module(ext_starknet_transcript ext_starknet_crypto_poseidon)
+barretenberg_module(ext_starknet_transcript transcript ext_starknet_crypto_poseidon)
