@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-#include "barretenberg/vm2/generated/flavor.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 
 namespace bb::avm2::constraining {
 

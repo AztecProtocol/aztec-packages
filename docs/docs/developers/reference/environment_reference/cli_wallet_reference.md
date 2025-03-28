@@ -103,13 +103,11 @@ Now the funded account can deploy itself with the bridged fees, claiming the bri
 
 #### Minting on Testnet
 
-To mint the fee asset on L1, call the fee asset ERC20 token contract on the appropriate network.
+This will mint the max amount of fee juice on L1 and bridge it to L2.
 
 ```bash
-cast call $FEE_ASSET_HANDLER_CONTRACT "mint(address)" $MY_L1_ADDRESS --rpc-url <RPC_URL>
+aztec-wallet bridge-fee-juice <AztecAddress>
 ```
-
-With the fee asset on L1, call `bridge-fee-juice` to bridge it to Aztec, omitting the `--mint` flag, as described [here](../../reference/environment_reference/cli_reference.md#bridge-fee-juice).
 
 ## Account Management
 
