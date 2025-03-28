@@ -8,6 +8,7 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
+import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
 import {
@@ -253,6 +254,20 @@ export function describeArchiverDataStore(
 
       it('returns undefined if tx is not found', async () => {
         await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
+      });
+
+      it('does not fail if the block is unwound while requesting a tx', async () => {
+        const expectedTx = await wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block);
+        let done = false;
+        void (async () => {
+          while (!done) {
+            void store.getTxEffect(expectedTx.data.txHash);
+            await sleep(1);
+          }
+        })();
+        await store.unwindBlocks(blocks.length, blocks.length);
+        done = true;
+        expect(await store.getTxEffect(expectedTx.data.txHash)).toEqual(undefined);
       });
     });
 

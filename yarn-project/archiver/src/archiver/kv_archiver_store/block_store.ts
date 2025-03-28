@@ -131,7 +131,10 @@ export class BlockStore {
    */
   async *getBlocks(start: number, limit: number): AsyncIterableIterator<PublishedL2Block> {
     for await (const blockStorage of this.#blocks.valuesAsync(this.#computeBlockRange(start, limit))) {
-      yield await this.getBlockFromBlockStorage(blockStorage);
+      const block = await this.getBlockFromBlockStorage(blockStorage);
+      if (block) {
+        yield block;
+      }
     }
   }
 
@@ -166,9 +169,8 @@ export class BlockStore {
     const blockHash = (await header.hash()).toString();
     const blockBodyBuffer = await this.#blockBodies.getAsync(blockHash);
     if (blockBodyBuffer === undefined) {
-      throw new Error(
-        `Could not retrieve body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`,
-      );
+      this.#log.warn(`Could not find body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`);
+      return undefined;
     }
     const body = Body.fromBuffer(blockBodyBuffer);
     const block = new L2Block(archive, header, body);
@@ -210,7 +212,11 @@ export class BlockStore {
       return undefined;
     }
 
-    const block = (await this.getBlock(blockNumber))!;
+    const block = await this.getBlock(blockNumber);
+    if (!block) {
+      return undefined;
+    }
+
     const tx = block.block.body.txEffects[txIndex];
 
     return new TxReceipt(
