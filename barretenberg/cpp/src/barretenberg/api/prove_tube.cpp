@@ -79,6 +79,9 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
     std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
     const auto to_json = [](const std::vector<bb::fr>& data) {
+        if (data.empty()) {
+            return std::string("[]");
+        }
         return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
     auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
