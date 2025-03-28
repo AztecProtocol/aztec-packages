@@ -12,6 +12,8 @@ namespace bb::avm2::simulation {
 struct ValueRefAndTag {
     const MemoryValue& value;
     MemoryTag tag;
+
+    bool operator==(const ValueRefAndTag& other) const { return value == other.value && tag == other.tag; }
 };
 
 using SliceWithTags = std::pair<std::vector<MemoryValue>, std::vector<MemoryTag>>;
