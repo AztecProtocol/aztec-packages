@@ -308,6 +308,7 @@ async function setupFromFresh(
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
   // Only enable proving if specifically requested.
   aztecNodeConfig.realProofs = !!opts.realProofs;
+  aztecNodeConfig.listenAddress = '127.0.0.1';
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -317,7 +318,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -490,6 +491,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   aztecNodeConfig.dataDirectory = statePath;
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  aztecNodeConfig.listenAddress = '127.0.0.1';
 
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];

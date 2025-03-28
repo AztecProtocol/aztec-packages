@@ -1,0 +1,16 @@
+AddValidatorTest
+├── when caller is not canAddValidator
+│   └── it reverts
+└── when caller is canAddValidator
+    ├── when it needs to mint
+    │   ├── when not enough time has passed since last mint
+    │   │   └── it reverts
+    │   └── when enough time has passed since last mint
+    │       ├── it mints staking asset
+    │       ├── it emits a {ToppedUp} event
+    │       ├── it updates the lastMintTimestamp
+    │       ├── it deposits into the rollup
+    │       └── it emits a {ValidatorAdded} event
+    └── when it does not need to mint
+        ├── it deposits into the rollup
+        └── it emits a {ValidatorAdded} event

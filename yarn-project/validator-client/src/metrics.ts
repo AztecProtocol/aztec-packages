@@ -43,7 +43,6 @@ export class ValidatorMetrics {
   public async recordFailedReexecution(proposal: BlockProposal) {
     this.failedReexecutionCounter.add(1, {
       [Attributes.STATUS]: 'failed',
-      [Attributes.BLOCK_NUMBER]: proposal.payload.header.globalVariables.blockNumber.toString(),
       [Attributes.BLOCK_PROPOSER]: (await proposal.getSender())?.toString(),
     });
   }

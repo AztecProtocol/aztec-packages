@@ -28,7 +28,6 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
 import { AvmContext } from '../avm_context.js';
@@ -42,6 +41,7 @@ import { NullifierManager } from '../journal/nullifiers.js';
 import { PublicStorage } from '../journal/public_storage.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 /**
  * Create a new AVM context with default values.

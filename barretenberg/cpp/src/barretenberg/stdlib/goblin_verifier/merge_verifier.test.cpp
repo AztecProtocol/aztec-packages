@@ -46,8 +46,6 @@ template <class RecursiveBuilder> class RecursiveMergeVerifierTest : public test
     static void test_recursive_merge_verification()
     {
         auto op_queue = std::make_shared<ECCOpQueue>();
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/800) Testing cleanup
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
 
         InnerBuilder sample_circuit{ op_queue };
         GoblinMockCircuits::construct_simple_circuit(sample_circuit);

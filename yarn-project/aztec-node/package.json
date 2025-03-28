@@ -5,7 +5,8 @@
   "type": "module",
   "exports": {
     ".": "./dest/index.js",
-    "./config": "./dest/aztec-node/config.js"
+    "./config": "./dest/aztec-node/config.js",
+    "./sentinel": "./dest/aztec-node/sentinel.js"
   },
   "bin": "./dest/bin/index.js",
   "typedocOptions": {
@@ -70,7 +71,9 @@
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
+    "@aztec/l1-artifacts": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
+    "@aztec/node-lib": "workspace:^",
     "@aztec/p2p": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/prover-client": "workspace:^",
@@ -82,7 +85,8 @@
     "@aztec/world-state": "workspace:^",
     "koa": "^2.14.2",
     "koa-router": "^12.0.0",
-    "tslib": "^2.4.0"
+    "tslib": "^2.4.0",
+    "viem": "2.23.7"
   },
   "devDependencies": {
     "@jest/globals": "^29.5.0",

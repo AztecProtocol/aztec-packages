@@ -20,11 +20,19 @@ class ExecutionComponentsProviderInterface {
   public:
     virtual ~ExecutionComponentsProviderInterface() = default;
 
-    // TODO: separate into enqueued and nested context.
-    virtual std::unique_ptr<ContextInterface> make_context(AztecAddress address,
-                                                           AztecAddress msg_sender,
-                                                           std::span<const FF> calldata,
-                                                           bool is_static) = 0;
+    // TODO: Update this, these params are temporary
+    virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
+                                                                  AztecAddress msg_sender,
+                                                                  ContextInterface& parent_context,
+                                                                  MemoryAddress cd_offset_addr,
+                                                                  MemoryAddress cd_size_addr,
+                                                                  bool is_static) = 0;
+
+    virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
+                                                                    AztecAddress msg_sender,
+                                                                    std::span<const FF> calldata,
+                                                                    bool is_static) = 0;
+
     virtual std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) = 0;
 };
 
@@ -37,13 +45,21 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
         , memory_events(memory_events)
         , instruction_info_db(instruction_info_db)
     {}
-    std::unique_ptr<ContextInterface> make_context(AztecAddress address,
-                                                   AztecAddress msg_sender,
-                                                   std::span<const FF> calldata,
-                                                   bool is_static) override;
+    std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
+                                                          AztecAddress msg_sender,
+                                                          ContextInterface& parent_context,
+                                                          uint32_t cd_offset_addr,
+                                                          uint32_t cd_size_addr,
+                                                          bool is_static) override;
+    std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
+                                                            AztecAddress msg_sender,
+                                                            std::span<const FF> calldata,
+                                                            bool is_static) override;
     std::unique_ptr<AddressingInterface> make_addressing(AddressingEvent& event) override;
 
   private:
+    uint32_t next_context_id = 0;
+
     TxBytecodeManagerInterface& tx_bytecode_manager;
     EventEmitterInterface<MemoryEvent>& memory_events;
     const InstructionInfoDBInterface& instruction_info_db;
