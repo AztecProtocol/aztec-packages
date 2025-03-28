@@ -93,10 +93,8 @@ export const MAX_OPCODE_VALUE = Math.max(
     .filter(k => !isNaN(k)),
 );
 
-// Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
-// See vm/avm_trace/deserialization.cpp)
-// Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,
-// this one is parsed as UINT8.
+// Possible types for an instruction's operand in its wire format.
+// The counterpart cpp file is: vm2/simulation/lib/serialization.hpp.
 export enum OperandType {
   UINT8,
   UINT16,
@@ -186,7 +184,7 @@ export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType
     if (operands[i] === OperandType.TAG) {
       // We parsed a single byte (readUInt8()) and therefore value is of number type (not bigint)
       // We need to cast to number because checkIsValidTag expects a number.
-      TaggedMemory.checkIsValidTag(Number(argValues[i]) ?? 0);
+      TaggedMemory.checkIsValidTag(Number(argValues[i] ?? 0));
     }
   }
 
