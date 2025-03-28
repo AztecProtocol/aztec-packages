@@ -241,6 +241,7 @@ spec:
   selector:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: full-node
+  # The admin port is restricted from public access thanks to terraform/gke-cluster/firewall.tf
   ports:
     - port: {{ .Values.fullNode.service.adminPort }}
       targetPort: {{ .Values.fullNode.service.adminPort }}

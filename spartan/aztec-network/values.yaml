@@ -30,9 +30,9 @@ telemetry:
   excludeMetrics: ""
 
 snapshots:
-  uploadLocation: "gs://aztec-testnet/snapshots/"
-  syncUrl: "https://storage.googleapis.com/aztec-testnet/snapshots/"
-  frequency: "" # Disable uploads by default
+  uploadLocation:
+  syncUrl:
+  frequency:
 
 images:
   aztec:
