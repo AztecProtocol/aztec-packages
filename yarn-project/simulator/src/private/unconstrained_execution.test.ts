@@ -82,7 +82,7 @@ describe('Unconstrained Execution test suite', () => {
         })),
       );
 
-      executionDataProvider.syncTaggedLogs.mockImplementation((_, __, ___) =>
+      executionDataProvider.syncTaggedLogs.mockImplementation((_, __) =>
         Promise.resolve(new Map<string, TxScopedL2Log[]>()),
       );
       executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
