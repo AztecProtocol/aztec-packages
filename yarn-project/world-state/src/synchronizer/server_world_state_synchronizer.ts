@@ -1,6 +1,6 @@
 import { L1_TO_L2_MSG_SUBTREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
-import { createLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { elapsed } from '@aztec/foundation/timer';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
@@ -22,6 +22,7 @@ import {
   type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { SnapshotDataKeys } from '@aztec/stdlib/snapshots';
 import type { L2BlockHandledStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TraceableL2BlockStream, getTelemetryClient } from '@aztec/telemetry-client';
@@ -30,6 +31,8 @@ import { WorldStateInstrumentation } from '../instrumentation/instrumentation.js
 import type { WorldStateStatusFull } from '../native/message.js';
 import type { MerkleTreeAdminDatabase } from '../world-state-db/merkle_tree_db.js';
 import type { WorldStateConfig } from './config.js';
+
+export type { SnapshotDataKeys };
 
 /**
  * Synchronizes the world state with the L2 blocks from a L2BlockSource via a block stream.
@@ -54,7 +57,7 @@ export class ServerWorldStateSynchronizer
     private readonly l2BlockSource: L2BlockSource & L1ToL2MessageSource,
     private readonly config: WorldStateConfig,
     private instrumentation = new WorldStateInstrumentation(getTelemetryClient()),
-    private readonly log = createLogger('world_state'),
+    private readonly log: Logger = createLogger('world_state'),
   ) {
     this.merkleTreeCommitted = this.merkleTreeDb.getCommitted();
     this.historyToKeep = config.worldStateBlockHistory < 1 ? undefined : config.worldStateBlockHistory;
@@ -75,6 +78,10 @@ export class ServerWorldStateSynchronizer
 
   public fork(blockNumber?: number): Promise<MerkleTreeWriteOperations> {
     return this.merkleTreeDb.fork(blockNumber);
+  }
+
+  public backupTo(dstPath: string, compact?: boolean): Promise<Record<Exclude<SnapshotDataKeys, 'archiver'>, string>> {
+    return this.merkleTreeDb.backupTo(dstPath, compact);
   }
 
   public async start() {
@@ -145,6 +152,21 @@ export class ServerWorldStateSynchronizer
 
   public async getLatestBlockNumber() {
     return (await this.getL2Tips()).latest.number;
+  }
+
+  public async stopSync() {
+    this.log.debug('Stopping sync...');
+    await this.blockStream?.stop();
+    this.log.info('Stopped sync');
+  }
+
+  public resumeSync() {
+    if (!this.blockStream) {
+      throw new Error('Cannot resume sync as block stream is not initialized');
+    }
+    this.log.debug('Resuming sync...');
+    this.blockStream.start();
+    this.log.info('Resumed sync');
   }
 
   /**

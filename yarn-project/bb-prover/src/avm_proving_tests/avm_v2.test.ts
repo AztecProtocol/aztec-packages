@@ -11,7 +11,7 @@ describe('AVM v2', () => {
   let tester: AvmProvingTesterV2;
 
   beforeEach(async () => {
-    tester = await AvmProvingTesterV2.create();
+    tester = await AvmProvingTesterV2.new();
     avmTestContractInstance = await tester.registerAndDeployContract(
       /*constructorArgs=*/ [],
       /*deployer=*/ AztecAddress.fromNumber(420),

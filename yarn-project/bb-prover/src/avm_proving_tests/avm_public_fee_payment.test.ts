@@ -16,7 +16,7 @@ describe('AVM WitGen & Circuit – public fee payment', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
 
     await tester.registerFeeJuiceContract();
     await tester.setFeePayerBalance(feePayer, initialFeeJuiceBalance);
