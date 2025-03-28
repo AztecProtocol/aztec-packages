@@ -74,7 +74,7 @@ describe('PXEOracleInterface', () => {
     keyStore = new KeyStore(store);
     simulationProvider = new WASMSimulator();
 
-    // PXEOracleInterface.syncTagLogFunction(...) syncs log up to the block number up to which PXE synced. We set
+    // PXEOracleInterface.syncTaggedLogs(...) function syncs logs up to the block number up to which PXE synced. We set
     // as sufficiently high sync number here to not interfere with the tests.
     await setSyncedBlockNumber(100);
 
