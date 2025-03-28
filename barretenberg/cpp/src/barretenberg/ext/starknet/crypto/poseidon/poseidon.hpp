@@ -1,8 +1,8 @@
 #pragma once
 
+#include "barretenberg/crypto/poseidon2/sponge/sponge.hpp"
 #include "poseidon_params.hpp"
 #include "poseidon_permutation.hpp"
-#include "barretenberg/crypto/poseidon2/sponge/sponge.hpp"
 
 namespace bb::starknet::crypto {
 

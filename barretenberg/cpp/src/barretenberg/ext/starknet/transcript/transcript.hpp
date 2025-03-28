@@ -1,7 +1,7 @@
 #pragma once
 
-#include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/ext/starknet/crypto/poseidon/poseidon.hpp"
+#include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::starknet {
 

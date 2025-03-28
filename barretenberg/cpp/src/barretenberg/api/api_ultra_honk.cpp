@@ -23,7 +23,12 @@ Circuit _compute_circuit(const std::string& bytecode_path,
                          const bool init_kzg_accumulator)
 {
     uint32_t honk_recursion = 0;
-    if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraStarknetFlavor, UltraKeccakZKFlavor, UltraStarknetZKFlavor>) {
+    if constexpr (IsAnyOf<Flavor,
+                          UltraFlavor,
+                          UltraKeccakFlavor,
+                          UltraStarknetFlavor,
+                          UltraKeccakZKFlavor,
+                          UltraStarknetZKFlavor>) {
         honk_recursion = 1;
     } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         honk_recursion = 2;
