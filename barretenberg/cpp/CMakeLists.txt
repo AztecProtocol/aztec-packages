@@ -71,6 +71,7 @@ if(ENABLE_ASAN)
 endif()
 
 if(FUZZING)
+    add_definitions(-DULTRA_FUZZ)
     if(SHOW_INFORMATION)
         add_definitions(-DSHOW_INFORMATION=1)
     endif()
@@ -80,9 +81,6 @@ if(FUZZING)
     if(DISABLE_CUSTOM_MUTATORS)
         add_definitions(-DDISABLE_CUSTOM_MUTATORS=1)
     endif()
-
-    add_compile_options(-fsanitize=fuzzer)
-    add_link_options(-fsanitize=fuzzer)
 
     set(MULTITHREADING OFF)
 endif()

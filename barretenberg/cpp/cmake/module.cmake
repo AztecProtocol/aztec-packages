@@ -216,7 +216,6 @@ function(barretenberg_module MODULE_NAME)
 
     file(GLOB_RECURSE FUZZERS_SOURCE_FILES *.fuzzer.cpp)
     if(FUZZING AND FUZZERS_SOURCE_FILES)
-        add_definitions(-DULTRA_FUZZ)
         foreach(FUZZER_SOURCE_FILE ${FUZZERS_SOURCE_FILES})
             get_filename_component(FUZZER_NAME_STEM ${FUZZER_SOURCE_FILE} NAME_WE)
             add_executable(
@@ -226,6 +225,12 @@ function(barretenberg_module MODULE_NAME)
             list(APPEND exe_targets ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer)
 
             target_link_options(
+                ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
+                PRIVATE
+                "-fsanitize=fuzzer"
+            )
+
+            target_compile_options(
                 ${MODULE_NAME}_${FUZZER_NAME_STEM}_fuzzer
                 PRIVATE
                 "-fsanitize=fuzzer"
