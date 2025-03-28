@@ -10,10 +10,10 @@ RUN rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 WORKDIR /fuzzing
 
 # Check whether the version of barretenberg is fresh
-ADD https://api.github.com/repos/AztecProtocol/barretenberg/git/refs/heads/master version.json
+ADD https://api.github.com/repos/AztecProtocol/aztec-packages/commits?path=barretenberg version.json
 
-RUN git clone https://github.com/AztecProtocol/barretenberg.git
-WORKDIR /fuzzing/barretenberg/cpp
+RUN git clone https://github.com/AztecProtocol/aztec-packages.git
+WORKDIR /fuzzing/aztec-packages/barretenberg/cpp
 
 # Build all fuzzers
 RUN cmake --preset fuzzing
