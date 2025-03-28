@@ -167,7 +167,6 @@ export class TXE implements TypedOracle {
     this.pxeOracleInterface = new PXEOracleInterface(
       this.node,
       this.keyStore,
-      this.simulationProvider,
       this.contractDataProvider,
       this.noteDataProvider,
       this.capsuleDataProvider,
