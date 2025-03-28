@@ -23,32 +23,63 @@ export class TaggingDataProvider {
     this.#taggingSecretIndexesForRecipients = this.#store.openMap('tagging_secret_indexes_for_recipients');
   }
 
-  async setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
-    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders);
+  setTaggingSecretsIndexesAsSender(indexedSecrets: IndexedTaggingSecret[], sender: AztecAddress) {
+    return this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForSenders, sender);
   }
 
-  async setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[]): Promise<void> {
-    await this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients);
+  setTaggingSecretsIndexesAsRecipient(indexedSecrets: IndexedTaggingSecret[], recipient: AztecAddress) {
+    return this.#setTaggingSecretsIndexes(indexedSecrets, this.#taggingSecretIndexesForRecipients, recipient);
   }
 
-  async #setTaggingSecretsIndexes(indexedSecrets: IndexedTaggingSecret[], storageMap: AztecAsyncMap<string, number>) {
-    await Promise.all(
+  /**
+   * Sets the indexes of the tagging secrets for the given app tagging secrets in the direction of the given address.
+   * @dev We need to specify the direction because app tagging secrets are direction-less due to the way they are generated
+   * but we need to guarantee that the index is stored under a uni-directional key because the tags are themselves
+   * uni-directional.
+   * @param indexedSecrets - The app tagging secrets and indexes to set.
+   * @param storageMap - The storage map to set the indexes in.
+   * @param inDirectionOf - The address that the secrets are in the direction of.
+   */
+  #setTaggingSecretsIndexes(
+    indexedSecrets: IndexedTaggingSecret[],
+    storageMap: AztecAsyncMap<string, number>,
+    inDirectionOf: AztecAddress,
+  ) {
+    return Promise.all(
       indexedSecrets.map(indexedSecret =>
-        storageMap.set(indexedSecret.appTaggingSecret.toString(), indexedSecret.index),
+        storageMap.set(`${indexedSecret.appTaggingSecret.toString()}_${inDirectionOf.toString()}`, indexedSecret.index),
       ),
     );
   }
 
-  async getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[]) {
-    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients);
+  getTaggingSecretsIndexesAsRecipient(appTaggingSecrets: Fr[], recipient: AztecAddress) {
+    return this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForRecipients, recipient);
   }
 
-  async getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[]) {
-    return await this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders);
+  getTaggingSecretsIndexesAsSender(appTaggingSecrets: Fr[], sender: AztecAddress) {
+    return this.#getTaggingSecretsIndexes(appTaggingSecrets, this.#taggingSecretIndexesForSenders, sender);
   }
 
-  #getTaggingSecretsIndexes(appTaggingSecrets: Fr[], storageMap: AztecAsyncMap<string, number>): Promise<number[]> {
-    return Promise.all(appTaggingSecrets.map(async secret => (await storageMap.getAsync(`${secret.toString()}`)) ?? 0));
+  /**
+   * Returns the indexes of the tagging secrets for the given app tagging secrets in the direction of the given address.
+   * @dev We need to specify the direction because app tagging secrets are direction-less due to the way they are generated
+   * but we need to guarantee that the index is stored under a uni-directional key because the tags are themselves
+   * uni-directional.
+   * @param appTaggingSecrets - The app tagging secrets to get the indexes for.
+   * @param storageMap - The storage map to get the indexes from.
+   * @param inDirectionOf - The address that the secrets are in the direction of.
+   * @returns The indexes of the tagging secrets.
+   */
+  #getTaggingSecretsIndexes(
+    appTaggingSecrets: Fr[],
+    storageMap: AztecAsyncMap<string, number>,
+    inDirectionOf: AztecAddress,
+  ): Promise<number[]> {
+    return Promise.all(
+      appTaggingSecrets.map(
+        async secret => (await storageMap.getAsync(`${secret.toString()}_${inDirectionOf.toString()}`)) ?? 0,
+      ),
+    );
   }
 
   resetNoteSyncData(): Promise<void> {
