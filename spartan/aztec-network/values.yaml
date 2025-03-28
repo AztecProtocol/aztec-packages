@@ -29,6 +29,11 @@ telemetry:
   useGcloudLogging: true
   excludeMetrics: ""
 
+snapshots:
+  uploadLocation:
+  syncUrl:
+  frequency:
+
 images:
   aztec:
     image: aztecprotocol/aztec
@@ -116,6 +121,7 @@ fullNode:
   service:
     p2pPort: 40400
     nodePort: 8080
+    adminPort: 8880
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
