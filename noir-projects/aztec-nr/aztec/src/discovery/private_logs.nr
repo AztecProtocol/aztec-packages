@@ -1,7 +1,11 @@
 use crate::{
+    capsules::CapsuleArray,
     discovery::{
-        ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
-        partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
+        ComputeNoteHashAndNullifier,
+        log_capsule::{LOG_CAPSULE_ARRAY_BASE_SLOT, LogCapsule},
+        MAX_LOG_CONTENT_LEN,
+        partial_notes::process_partial_note_private_log,
+        PRIVATE_LOG_EXPANDED_METADATA_LEN,
         private_notes::process_private_note_log,
     },
     encrypted_logs::{
@@ -14,11 +18,7 @@ use crate::{
     utils::array,
 };
 
-use protocol_types::{
-    address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
-    debug_log::{debug_log, debug_log_format},
-};
+use protocol_types::{address::AztecAddress, debug_log::{debug_log, debug_log_format}};
 
 // TODO(#12750): don't make these values assume we're using AES.
 use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
@@ -27,14 +27,32 @@ use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
 /// public logs that will complete them.
 pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
-    _contract_address: AztecAddress,
-    _compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    contract_address: AztecAddress,
+    compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     // We will eventually fetch tagged logs, decrypt and process them here, but for now we simply call the `syncNotes`
-    // oracle. This has PXE perform tag synchronization, log download, decryption, and finally calls to the the
-    // `process_log` contract function with the decrypted payload, which will in turn call `do_process_log` with a
-    // decrypted log, letting us continue the work outside of PXE.
+    // oracle. This makes PXE synchronize tags, download logs and store the logs in capsules which are then retrieved
+    // and processed here.
     sync_notes();
+
+    // Get logs from capsules
+    let logs = CapsuleArray::<LogCapsule>::at(contract_address, LOG_CAPSULE_ARRAY_BASE_SLOT);
+    let len = logs.len();
+
+    for i in 0..len {
+        let log = logs.get(i);
+
+        // Process each log
+        process_log(contract_address, compute_note_hash_and_nullifier, log);
+    }
+
+    // TODO: Introduce array.pop() or array.wipe()?
+    // Delete the logs from capsules, starting from the end to avoid shifting elements
+    let mut i = len;
+    while i > 0 {
+        i -= 1;
+        logs.remove(i);
+    }
 }
 
 /// Processes a log's ciphertext by decrypting it and then searching the plaintext for private notes or partial notes.
@@ -46,21 +64,17 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
 ///
 /// Partial notes result in a pending partial note entry being stored in a PXE capsule, which will later be retrieved to
 /// search for the note's completion public log.
-pub unconstrained fn do_process_log<Env>(
+unconstrained fn process_log<Env>(
     contract_address: AztecAddress,
-    log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,
-    tx_hash: Field,
-    unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
-    first_nullifier_in_tx: Field,
-    recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
+    log_capsule: LogCapsule,
 ) {
-    debug_log_format("Processing log with tag {0}", [log.get(0)]);
+    debug_log_format("Processing log with tag {0}", [log_capsule.log.get(0)]);
 
     // The tag is ignored for now.
-    let ciphertext = array::subbvec(log, 1);
+    let ciphertext = array::subbvec(log_capsule.log, 1);
 
-    let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
+    let log_plaintext = AES128::decrypt_log(ciphertext, log_capsule.recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
     // have 3 log types: private note logs, partial note logs and event logs.
@@ -72,10 +86,10 @@ pub unconstrained fn do_process_log<Env>(
 
         process_private_note_log(
             contract_address,
-            tx_hash,
-            unique_note_hashes_in_tx,
-            first_nullifier_in_tx,
-            recipient,
+            log_capsule.tx_hash,
+            log_capsule.unique_note_hashes_in_tx,
+            log_capsule.first_nullifier_in_tx,
+            log_capsule.recipient,
             compute_note_hash_and_nullifier,
             log_metadata,
             log_content,
@@ -83,7 +97,12 @@ pub unconstrained fn do_process_log<Env>(
     } else if log_type_id == PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID {
         debug_log("Processing partial note private log");
 
-        process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
+        process_partial_note_private_log(
+            contract_address,
+            log_capsule.recipient,
+            log_metadata,
+            log_content,
+        );
     } else {
         // TODO(#11569): handle events
         debug_log_format(

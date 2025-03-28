@@ -22,7 +22,6 @@ pub comptime fn aztec(m: Module) -> Quoted {
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
-    let process_log = generate_process_log();
     let note_exports = generate_note_exports();
     let public_dispatch = generate_public_dispatch(m);
     let sync_notes = generate_sync_notes();
@@ -31,7 +30,6 @@ pub comptime fn aztec(m: Module) -> Quoted {
         $note_exports
         $interface
         $contract_library_method_compute_note_hash_and_nullifier
-        $process_log
         $public_dispatch
         $sync_notes
     }
@@ -250,60 +248,6 @@ comptime fn generate_contract_library_method_compute_note_hash_and_nullifier() -
                 _contract_address: aztec::protocol_types::address::AztecAddress,
                 _nonce: Field,
             ) -> Option<aztec::discovery::NoteHashAndNullifier> {
-                panic(f"This contract does not use private notes")
-            }
-        }
-    }
-}
-
-comptime fn generate_process_log() -> Quoted {
-    // This mandatory function processes a log emitted by the contract. This is currently used to process private logs
-    // and perform message discovery, resulting in new private notes, partial notes and events.
-    // The bulk of the work of this function is done by aztec::discovery::do_process_log, so all we need to do is call
-    // that function.
-
-    // We'll produce the entire body of the function in one go and then insert it into the function.
-    let notes = NOTES.entries();
-
-    if notes.len() > 0 {
-        quote {
-            unconstrained fn process_log(
-                log_ciphertext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
-                tx_hash: Field,
-                unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
-                first_nullifier_in_tx: Field,
-                recipient: aztec::protocol_types::address::AztecAddress,
-            ) {
-                // Because this unconstrained function is injected after the contract is processed by the macros, it'll
-                // not be modified by the macros that alter unconstrained functions. As such, we need to manually inject
-                // the unconstrained execution context since it will not be available otherwise.
-                let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
-
-                // TODO(#10727): allow other contracts to process logs and deliver notes
-                let contract_address = context.this_address();
-
-                aztec::discovery::private_logs::do_process_log(
-                    contract_address,
-                    log_ciphertext,
-                    tx_hash,
-                    unique_note_hashes_in_tx,
-                    first_nullifier_in_tx,
-                    recipient,
-                    _compute_note_hash_and_nullifier,
-                );
-            }
-        }
-    } else {
-        // Contracts with no notes still implement this function to avoid having special-casing, the implementation
-        // simply throws immediately.
-        quote {
-            unconstrained fn process_log(
-                _log_ciphertext: BoundedVec<Field, dep::aztec::protocol_types::constants::PRIVATE_LOG_SIZE_IN_FIELDS>,
-                _tx_hash: Field,
-                _unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
-                _first_nullifier_in_tx: Field,
-                _recipient: aztec::protocol_types::address::AztecAddress,
-            ) {
                 panic(f"This contract does not use private notes")
             }
         }

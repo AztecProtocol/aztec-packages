@@ -501,18 +501,11 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
   }
 
   public override async syncNotes() {
-    const taggedLogsByRecipient = await this.executionDataProvider.syncTaggedLogs(
+    await this.executionDataProvider.syncTaggedLogs(
       this.contractAddress,
       this.historicalHeader.globalVariables.blockNumber.toNumber(),
       this.scopes,
     );
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.executionDataProvider.processTaggedLogs(
-        this.contractAddress,
-        taggedLogs,
-        AztecAddress.fromString(recipient),
-      );
-    }
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }
