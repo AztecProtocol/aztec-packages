@@ -163,7 +163,6 @@ async function main() {
       bytecode: acirStack[i],
       witness: witnessStack[i],
     }));
-    let minimumTrace: StructuredTrace | undefined;
     let stats: { duration: number; eventName: string; proofSize: number } | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let error: any | undefined;
@@ -182,7 +181,7 @@ async function main() {
       stats = currentLogs[0].data as { duration: number; eventName: string; proofSize: number };
     }
 
-    minimumTrace = getMinimumTrace(currentLogs, proverType);
+    const minimumTrace = getMinimumTrace(currentLogs, proverType);
 
     const steps = executionSteps.reduce<Step[]>((acc, step, i) => {
       const previousAccGateCount = i === 0 ? 0 : acc[i - 1].accGateCount!;

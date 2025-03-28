@@ -14,7 +14,7 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import { type DeployL1ContractsArgs, RollupContract, createL1Clients, deployL1Contract } from '@aztec/ethereum';
 import { ChainMonitor } from '@aztec/ethereum/test';
 import { randomBytes } from '@aztec/foundation/crypto';
@@ -91,10 +91,12 @@ export class ClientFlowsBenchmark {
 
   public paymentMethods: Record<BenchmarkingFeePaymentMethod, { forWallet: FeePaymentMethodGetter; circuits: number }> =
     {
+      // eslint-disable-next-line camelcase
       bridged_fee_juice: {
         forWallet: this.getBridgedFeeJuicePaymentMethodForWallet.bind(this),
         circuits: 2, // FeeJuice claim + kernel inner
       },
+      // eslint-disable-next-line camelcase
       private_fpc: {
         forWallet: this.getPrivateFPCPaymentMethodForWallet.bind(this),
         circuits:
@@ -103,6 +105,7 @@ export class ClientFlowsBenchmark {
           2 + // Account verify_private_authwit + kernel inner
           2, // BananaCoin prepare_private_balance_increase + kernel inner
       },
+      // eslint-disable-next-line camelcase
       sponsored_fpc: {
         forWallet: this.getSponsoredFPCPaymentMethodForWallet.bind(this),
         circuits: 2, // Sponsored FPC sponsor_unconditionally + kernel inner
@@ -380,11 +383,11 @@ export class ClientFlowsBenchmark {
     return new FeeJuicePaymentMethodWithClaim(wallet, claim);
   }
 
-  public async getPrivateFPCPaymentMethodForWallet(wallet: Wallet) {
-    return new PrivateFeePaymentMethod(this.bananaFPC.address, wallet);
+  public getPrivateFPCPaymentMethodForWallet(wallet: Wallet) {
+    return Promise.resolve(new PrivateFeePaymentMethod(this.bananaFPC.address, wallet));
   }
 
-  public async getSponsoredFPCPaymentMethodForWallet(wallet: Wallet) {
-    return new SponsoredFeePaymentMethod(this.sponsoredFPC.address);
+  public getSponsoredFPCPaymentMethodForWallet(_wallet: Wallet) {
+    return Promise.resolve(new SponsoredFeePaymentMethod(this.sponsoredFPC.address));
   }
 }
