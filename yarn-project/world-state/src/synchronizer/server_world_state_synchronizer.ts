@@ -234,13 +234,13 @@ export class ServerWorldStateSynchronizer
         await this.handleL2Blocks(event.blocks.map(b => b.block));
         break;
       case 'chain-pruned':
-        await this.handleChainPruned(event.blockNumber);
+        await this.handleChainPruned(event.block.number);
         break;
       case 'chain-proven':
-        await this.handleChainProven(event.blockNumber);
+        await this.handleChainProven(event.block.number);
         break;
       case 'chain-finalized':
-        await this.handleChainFinalized(event.blockNumber);
+        await this.handleChainFinalized(event.block.number);
         break;
     }
   }
