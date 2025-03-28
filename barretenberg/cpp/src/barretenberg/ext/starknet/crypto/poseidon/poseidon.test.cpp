@@ -6,7 +6,7 @@
 using namespace bb::starknet;
 
 namespace {
-auto& engine = numeric::get_debug_randomness();
+auto& engine = bb::numeric::get_debug_randomness();
 }
 
 TEST(Poseidon, HashBasicTests)
