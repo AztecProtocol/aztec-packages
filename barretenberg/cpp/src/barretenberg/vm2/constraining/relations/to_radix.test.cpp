@@ -3,8 +3,8 @@
 
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_to_radix.hpp"
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"

@@ -1,20 +1,11 @@
 use crate::{
     context::PrivateContext,
-    encrypted_logs::{
-        encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
-        log_assembly_strategies::default_aes128::{
-            arithmetic_generics_utils::{
-                get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
-            },
-            note::encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES,
-        },
-    },
+    encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
     event::event_interface::EventInterface,
     keys::{
         ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         ephemeral::generate_ephemeral_key_pair,
     },
-    oracle::notes::{get_app_tag_as_sender, increment_app_tagging_secret_index_as_sender},
     utils::{
         conversion::{bytes_to_fields::bytes_to_fields, fields_to_bytes::fields_to_bytes},
         point::get_sign_of_point,
@@ -27,6 +18,8 @@ use dep::protocol_types::{
     traits::{Serialize, ToField},
 };
 use std::aes128::aes128_encrypt;
+
+global HEADER_CIPHERTEXT_SIZE_IN_BYTES: u32 = 48;
 
 /*
  * WHY IS THERE LOTS OF CODE DUPLICATION BETWEEN event.nr and note.nr?
@@ -87,7 +80,7 @@ fn compute_log<Event, let N: u32>(
     context: PrivateContext,
     event: Event,
     recipient: AztecAddress,
-    sender: AztecAddress,
+    _sender: AztecAddress,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Event: EventInterface<N>,
@@ -219,15 +212,12 @@ where
 
     // In this strategy, we prepend [tag, eph_pk.x]
 
-    // Safety: we assume that the sender wants for the recipient to find the tagged note, and therefore that they will
-    // cooperate and use the correct tag. Usage of a bad tag will result in the recipient not being able to find the
-    // note automatically.
-    let tag = unsafe { get_app_tag_as_sender(sender, recipient) };
-    increment_app_tagging_secret_index_as_sender(sender, recipient);
-
     let mut final_log: [Field; PRIVATE_LOG_SIZE_IN_FIELDS] = [0; PRIVATE_LOG_SIZE_IN_FIELDS];
 
-    final_log[0] = tag;
+    // At this point we feed in an incorrect tag because we don't want the event logs to be processed when invoking
+    // `sync_notes`. This currently fine as the events are solely to be obtain via the getPrivateEvents function
+    // that doesn't work with the tag.
+    final_log[0] = 1234;
     final_log[1] = eph_pk.x;
 
     let mut offset = 2;
@@ -296,4 +286,93 @@ where
         let encrypted_log = unsafe { compute_log_unconstrained(*context, e, recipient, sender) };
         context.emit_private_log(encrypted_log);
     }
+}
+
+// These utils got copied here because note encryption diverged from the event one. The encryption functionality
+//
+// in this file is soon to be removed and replaced with the standard AES128 encryption from ./aes128.nr.
+/********************************************************/
+// Disgusting arithmetic on generics
+/********************************************************/
+
+// In this section, instead of initialising arrays with very complicated generic
+// arithmetic, such as:
+// let my_arr: [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] = [0; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))];
+//... we instead do the arithmetic a little bit at a time, so that the computation
+// can be audited and understood. Now, we can't do arithmetic on generics in the body
+// of a function, so we abusing functions in the following way:
+
+// |full_pt| = |pt| = (N * 32) + 64
+fn get_arr_of_size__full_plaintext<let PT: u32>() -> [u8; PT] {
+    [0; PT]
+}
+
+// |pt_aes_padding| = 16 - (|full_pt| % 16)
+fn get_arr_of_size__plaintext_aes_padding<let FULL_PT: u32>(
+    _full_pt: [u8; FULL_PT],
+) -> [u8; 16 - (FULL_PT % 16)] {
+    [0; 16 - (FULL_PT % 16)]
+}
+
+// |ct| = |full_pt| + |pt_aes_padding|
+fn get_arr_of_size__ciphertext<let FULL_PT: u32, let PT_AES_PADDING: u32>(
+    _full_pt: [u8; FULL_PT],
+    _pt_aes_padding: [u8; PT_AES_PADDING],
+) -> [u8; FULL_PT + PT_AES_PADDING] {
+    [0; FULL_PT + PT_AES_PADDING]
+}
+
+// Ok, so we have the following bytes:
+// eph_pk_sign, header_ciphertext, ciphertext:
+// Let lbwop = 1 + 48 + |ct| // aka log bytes without padding
+fn get_arr_of_size__log_bytes_without_padding<let CT: u32>(_ct: [u8; CT]) -> [u8; 1 + 48 + CT] {
+    [0; 1 + 48 + CT]
+}
+
+// Recall:
+//   lbwop := 1 + 48 + |ct| // aka log bytes without padding
+// We now want to pad b to the next multiple of 31, so as to "fill" fields.
+// Let p be that padding.
+// p = 31 * ceil(lbwop / 31) - lbwop
+//   = 31 * ((lbwop + 30) // 31) - lbwop
+//     (because ceil(x / y) = (x + y - 1) // y ).
+fn get_arr_of_size__log_bytes_padding<let LBWOP: u32>(
+    _lbwop: [u8; LBWOP],
+) -> [u8; (31 * ((LBWOP + 30) / 31)) - LBWOP] {
+    [0; (31 * ((LBWOP + 30) / 31)) - LBWOP]
+}
+
+// |log_bytes| = 1 + 48 + |ct| + p // aka log bytes (with padding)
+// Recall:
+//   lbwop := 1 + 48 + |ct|
+//   p is the padding
+fn get_arr_of_size__log_bytes<let LBWOP: u32, let P: u32>(
+    _lbwop: [u8; LBWOP],
+    _p: [u8; P],
+) -> [u8; LBWOP + P] {
+    [0; LBWOP + P]
+}
+
+// The return type is pasted from the LSP's expectation, because it was too difficult
+// to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
+// PT is the plaintext length.
+pub(crate) fn get_arr_of_size__log_bytes_padding__from_PT<let PT: u32>() -> [u8; ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49))] {
+    let full_pt = get_arr_of_size__full_plaintext::<PT>();
+    let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
+    let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
+    let lbwop = get_arr_of_size__log_bytes_without_padding(ct);
+    let p = get_arr_of_size__log_bytes_padding(lbwop);
+    p
+}
+
+// The return type is pasted from the LSP's expectation, because it was too difficult
+// to match its weird way of doing algebra. It doesn't know all rules of arithmetic.
+pub(crate) fn get_arr_of_size__log_bytes__from_PT<let PT: u32>() -> [u8; (((PT + (16 - (PT % 16))) + 49) + ((((((PT + (16 - (PT % 16))) + 49) + 30) / 31) * 31) - ((PT + (16 - (PT % 16))) + 49)))] {
+    let full_pt = get_arr_of_size__full_plaintext::<PT>();
+    let pt_aes_padding = get_arr_of_size__plaintext_aes_padding(full_pt);
+    let ct = get_arr_of_size__ciphertext(full_pt, pt_aes_padding);
+    let lbwop = get_arr_of_size__log_bytes_without_padding(ct);
+    let p = get_arr_of_size__log_bytes_padding(lbwop);
+    let log_bytes = get_arr_of_size__log_bytes(lbwop, p);
+    log_bytes
 }

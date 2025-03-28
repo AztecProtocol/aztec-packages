@@ -11,6 +11,7 @@ export * from './signature.js';
  * TODO: Replace with codegen api on bb.js.
  */
 export class Ecdsa {
+  constructor(private curve: 'secp256k1' | 'secp256r1' = 'secp256k1') {}
   /**
    * Computes a secp256k1 public key from a private key.
    * @param privateKey - Secp256k1 private key.
@@ -18,7 +19,9 @@ export class Ecdsa {
    */
   public async computePublicKey(privateKey: Buffer): Promise<Buffer> {
     const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
-    const [result] = api.getWasm().callWasmExport('ecdsa__compute_public_key', [privateKey], [64]);
+    const [result] = api
+      .getWasm()
+      .callWasmExport(`ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_compute_public_key`, [privateKey], [64]);
     return Buffer.from(result);
   }
 
@@ -33,7 +36,11 @@ export class Ecdsa {
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [r, s, v] = api
       .getWasm()
-      .callWasmExport('ecdsa__construct_signature_', [messageArray, privateKey], [32, 32, 1]);
+      .callWasmExport(
+        `ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_construct_signature_`,
+        [messageArray, privateKey],
+        [32, 32, 1],
+      );
     return new EcdsaSignature(Buffer.from(r), Buffer.from(s), Buffer.from(v));
   }
 
@@ -48,7 +55,11 @@ export class Ecdsa {
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [result] = api
       .getWasm()
-      .callWasmExport('ecdsa__recover_public_key_from_signature_', [messageArray, sig.r, sig.s, sig.v], [64]);
+      .callWasmExport(
+        `ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_recover_public_key_from_signature_`,
+        [messageArray, sig.r, sig.s, sig.v],
+        [64],
+      );
     return Buffer.from(result);
   }
 
@@ -64,7 +75,11 @@ export class Ecdsa {
     const messageArray = concatenateUint8Arrays([numToInt32BE(msg.length), msg]);
     const [result] = api
       .getWasm()
-      .callWasmExport('ecdsa__verify_signature_', [messageArray, pubKey, sig.r, sig.s, sig.v], [1]);
+      .callWasmExport(
+        `ecdsa_${this.curve === 'secp256r1' ? 'r' : ''}_verify_signature_`,
+        [messageArray, pubKey, sig.r, sig.s, sig.v],
+        [1],
+      );
     return result[0] === 1;
   }
 }

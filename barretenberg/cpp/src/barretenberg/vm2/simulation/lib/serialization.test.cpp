@@ -6,6 +6,8 @@
 
 namespace bb::avm2 {
 namespace {
+
+using simulation::check_tag;
 using simulation::deserialize_instruction;
 using simulation::InstrDeserializationError;
 using simulation::Instruction;
@@ -129,6 +131,46 @@ TEST(SerializationTest, InstructionOutOfRange)
     } catch (const InstrDeserializationError& error) {
         EXPECT_EQ(error, InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE);
     }
+}
+
+// Testing check_tag with a valid instruction for wire opcode SET_128
+TEST(SerializationTest, CheckTagValid)
+{
+    Instruction instr = {
+        .opcode = WireOpCode::SET_128,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::U128)), Operand::u128(12345) }
+    };
+    EXPECT_TRUE(check_tag(instr));
+}
+
+// Testing check_tag with an invalid tag for wire opcode SET_128
+TEST(SerializationTest, CheckTagInvalid)
+{
+    Instruction instr = {
+        .opcode = WireOpCode::SET_128,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::MAX) + 1), Operand::u128(12345) }
+    };
+    EXPECT_FALSE(check_tag(instr));
+}
+
+// Testing check_tag with an invalid instruction for wire opcode SET_128, not enough operands
+TEST(SerializationTest, CheckTagInvalidNotEnoughOperands)
+{
+    Instruction instr = { .opcode = WireOpCode::SET_128, .indirect = 2, .operands = { Operand::u16(1002) } };
+    EXPECT_FALSE(check_tag(instr));
+}
+
+// Testing check_tag with an invalid instruction for wire opcode SET_128, tag is not a byte
+TEST(SerializationTest, CheckTagInvalidTagNotByte)
+{
+    Instruction instr = {
+        .opcode = WireOpCode::SET_128,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u16(static_cast<uint8_t>(MemoryTag::U128)), Operand::u128(12345) }
+    };
+    EXPECT_FALSE(check_tag(instr));
 }
 
 } // namespace

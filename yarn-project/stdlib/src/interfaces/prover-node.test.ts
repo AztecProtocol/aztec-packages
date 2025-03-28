@@ -1,6 +1,8 @@
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 
+import type { L2Tips } from '../block/l2_block_source.js';
 import { type EpochProvingJobState, type ProverNodeApi, ProverNodeApiSchema } from './prover-node.js';
+import type { WorldStateSyncStatus } from './world_state.js';
 
 describe('ProvingNodeApiSchema', () => {
   let handler: MockProverNode;
@@ -32,9 +34,41 @@ describe('ProvingNodeApiSchema', () => {
   it('startProof', async () => {
     await context.client.startProof(1);
   });
+
+  it('getL2Tips', async () => {
+    const result = await context.client.getL2Tips();
+    expect(result).toEqual({
+      latest: { number: 1, hash: `0x01` },
+      proven: { number: 1, hash: `0x01` },
+      finalized: { number: 1, hash: `0x01` },
+    });
+  });
+
+  it('getWorldStateSyncStatus', async () => {
+    const response = await context.client.getWorldStateSyncStatus();
+    expect(response).toEqual(await handler.getWorldStateSyncStatus());
+  });
 });
 
 class MockProverNode implements ProverNodeApi {
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    return Promise.resolve({
+      finalisedBlockNumber: 1,
+      latestBlockHash: '0x',
+      latestBlockNumber: 1,
+      oldestHistoricBlockNumber: 1,
+      treesAreSynched: true,
+    });
+  }
+
+  getL2Tips(): Promise<L2Tips> {
+    return Promise.resolve({
+      latest: { number: 1, hash: `0x01` },
+      proven: { number: 1, hash: `0x01` },
+      finalized: { number: 1, hash: `0x01` },
+    });
+  }
+
   getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
     return Promise.resolve([
       { uuid: 'uuid1', status: 'initialized', epochNumber: 10 },
@@ -45,6 +79,7 @@ class MockProverNode implements ProverNodeApi {
       { uuid: 'uuid6', status: 'failed', epochNumber: 10 },
     ]);
   }
+
   startProof(epochNumber: number): Promise<void> {
     expect(typeof epochNumber).toBe('number');
     return Promise.resolve();

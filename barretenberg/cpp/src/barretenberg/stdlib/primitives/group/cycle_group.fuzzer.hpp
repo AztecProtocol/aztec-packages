@@ -17,49 +17,9 @@
 #include "barretenberg/common/fuzzer.hpp"
 
 // #define SHOW_INFORMATION
-// #define SHOW_PRETTY_INFORMATION
 #define DISABLE_MULTIPLICATION
 
 #ifdef SHOW_INFORMATION
-#define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)                                 \
-    {                                                                                                                  \
-        std::cout << operation_name << " "                                                                             \
-                  << (vector[first_index].cycle_group.is_constant() ? "constant(" : "witness(")                        \
-                  << vector[first_index].cycle_group.get_value() << ") at " << first_index << " " << preposition       \
-                  << std::flush;                                                                                       \
-    }
-
-#define PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, vector, operation_name, preposition)                      \
-    {                                                                                                                  \
-        std::cout << operation_name << " "                                                                             \
-                  << (vector[first_index].cycle_group.is_constant() ? "constant(" : "witness(")                        \
-                  << vector[first_index].cycle_group.get_value() << ") at " << first_index << " " << preposition       \
-                  << " " << (vector[second_index].cycle_group.is_constant() ? "constant(" : "witness(")                \
-                  << vector[second_index].cycle_group.get_value() << ") at " << second_index << std::flush;            \
-    }
-
-#define PRINT_MUL_ARG_INSTRUCTION(first_index, scalar, vector, operation_name, preposition)                            \
-    {                                                                                                                  \
-        std::cout << operation_name << " "                                                                             \
-                  << (vector[first_index].cycle_group.is_constant() ? "constant(" : "witness(")                        \
-                  << vector[first_index].cycle_group.get_value() << ") at " << first_index << " " << preposition       \
-                  << " " << scalar << std::flush;                                                                      \
-    }
-
-#define PRINT_RESULT(prefix, action, index, value)                                                                     \
-    {                                                                                                                  \
-        std::cout << "  result(" << value.cycle_group.get_value() << ")" << action << index << std::endl               \
-                  << std::flush;                                                                                       \
-    }
-
-#else
-#define PRINT_SINGLE_ARG_INSTRUCTION(first_index, vector, operation_name, preposition)
-#define PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, vector, operation_name, preposition)
-#define PRINT_MUL_ARG_INSTRUCTION(first_index, scalar, vector, operation_name, preposition)
-#define PRINT_RESULT(prefix, action, index, value)
-#endif
-
-#ifdef SHOW_PRETTY_INFORMATION
 #define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
     std::string rhs = stack[first_index].cycle_group.is_constant() ? "c" : "w";                                        \
     std::string out = rhs;                                                                                             \
@@ -796,19 +756,16 @@ template <typename Builder> class CycleGroupBase {
              * will use the context of another input parameter
              */
             const bool predicate_is_const = static_cast<bool>(VarianceRNG.next() & 1);
-#ifdef SHOW_INFORMATION
-            std::cout << "Constant predicate? " << predicate_is_const << std::endl;
-#endif
             if (predicate_is_const) {
                 const bool predicate_has_ctx = static_cast<bool>(VarianceRNG.next() % 2);
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "bool_t(" << (predicate_has_ctx ? "&builder," : "nullptr,")
-                          << (predicate ? "true);" : "false);");
+                          << (predicate ? "true)" : "false)");
 #endif
                 return bool_t(predicate_has_ctx ? builder : nullptr, predicate);
             }
-#ifdef SHOW_PRETTY_INFORMATION
-            std::cout << "bool_t(witness_t(&builder, " << (predicate ? "true));" : "false));");
+#ifdef SHOW_INFORMATION
+            std::cout << "bool_t(witness_t(&builder, " << (predicate ? "true));" : "false))");
 #endif
             return bool_t(witness_t(builder, predicate));
         }
@@ -816,9 +773,6 @@ template <typename Builder> class CycleGroupBase {
         cycle_group_t cg() const
         {
             const bool reconstruct = static_cast<bool>(VarianceRNG.next() % 2);
-#ifdef SHOW_INFORMATION
-            std::cout << " reconstruction? " << reconstruct << std::endl;
-#endif
             if (!reconstruct) {
                 return this->cycle_group;
             }
@@ -844,17 +798,14 @@ template <typename Builder> class CycleGroupBase {
 
             if (other.cg().get_value() == this->cg().get_value()) {
                 uint8_t dbl_path = VarianceRNG.next() % 4;
-#ifdef SHOW_INFORMATION
-                std::cout << " using " << size_t(dbl_path) << " dbl path" << std::endl;
-#endif
                 switch (dbl_path) {
                 case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "left.dbl" << std::endl;
 #endif
                     return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
                 case 1:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "right.dbl" << std::endl;
 #endif
                     return ExecutionHandler(base_scalar_res, base_res, other.cg().dbl());
@@ -866,23 +817,26 @@ template <typename Builder> class CycleGroupBase {
             } else if (other.cg().get_value() == -this->cg().get_value()) {
                 uint8_t inf_path = VarianceRNG.next() % 4;
                 cycle_group_t res;
-#ifdef SHOW_INFORMATION
-                std::cout << " using " << size_t(inf_path) << " inf path" << std::endl;
-#endif
                 switch (inf_path) {
                 case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "left.set_point_at_infinity(";
 #endif
                     res = this->cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef SHOW_INFORMATION
+                    std::cout << ");" << std::endl;
+#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "right.set_point_at_infinity(";
 #endif
                     res = other.cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef SHOW_INFORMATION
+                    std::cout << ");" << std::endl;
+#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() + other.cg());
@@ -893,28 +847,25 @@ template <typename Builder> class CycleGroupBase {
             bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
                             other.cycle_group.is_point_at_infinity().get_value();
             uint8_t add_option = smth_inf ? 4 + (VarianceRNG.next() % 2) : VarianceRNG.next() % 6;
-#ifdef SHOW_INFORMATION
-            std::cout << " using " << size_t(add_option) << " add path" << std::endl;
-#endif
 
             switch (add_option) {
             case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "left.unconditional_add(right);" << std::endl;
 #endif
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_add(other.cg()));
             case 1:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "right.unconditional_add(left);" << std::endl;
 #endif
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().unconditional_add(this->cg()));
             case 2:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "left.checked_unconditional_add(right);" << std::endl;
 #endif
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().checked_unconditional_add(other.cg()));
             case 3:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "right.checked_unconditional_add(left);" << std::endl;
 #endif
                 return ExecutionHandler(base_scalar_res, base_res, other.cg().checked_unconditional_add(this->cg()));
@@ -933,18 +884,15 @@ template <typename Builder> class CycleGroupBase {
 
             if (other.cg().get_value() == -this->cg().get_value()) {
                 uint8_t dbl_path = VarianceRNG.next() % 3;
-#ifdef SHOW_INFORMATION
-                std::cout << " using " << size_t(dbl_path) << " dbl path" << std::endl;
-#endif
 
                 switch (dbl_path) {
                 case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "left.dbl();" << std::endl;
 #endif
                     return ExecutionHandler(base_scalar_res, base_res, this->cg().dbl());
                 case 1:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "-right.dbl();" << std::endl;
 #endif
                     return ExecutionHandler(base_scalar_res, base_res, -other.cg().dbl());
@@ -954,24 +902,27 @@ template <typename Builder> class CycleGroupBase {
             } else if (other.cg().get_value() == this->cg().get_value()) {
                 uint8_t inf_path = VarianceRNG.next() % 3;
                 cycle_group_t res;
-#ifdef SHOW_INFORMATION
-                std::cout << " using " << size_t(inf_path) << " inf path" << std::endl;
-#endif
 
                 switch (inf_path) {
                 case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "left.set_point_at_infinity(";
 #endif
                     res = this->cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef SHOW_INFORMATION
+                    std::cout << ");" << std::endl;
+#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 1:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                     std::cout << "right.set_point_at_infinity(";
 #endif
                     res = other.cg();
                     res.set_point_at_infinity(this->construct_predicate(builder, true));
+#ifdef SHOW_INFORMATION
+                    std::cout << ");" << std::endl;
+#endif
                     return ExecutionHandler(base_scalar_res, base_res, res);
                 case 2:
                     return ExecutionHandler(base_scalar_res, base_res, this->cg() - other.cg());
@@ -980,18 +931,15 @@ template <typename Builder> class CycleGroupBase {
             bool smth_inf = this->cycle_group.is_point_at_infinity().get_value() ||
                             other.cycle_group.is_point_at_infinity().get_value();
             uint8_t add_option = smth_inf ? 2 : VarianceRNG.next() % 3;
-#ifdef SHOW_INFORMATION
-            std::cout << " using " << size_t(add_option) << " sub path" << std::endl;
-#endif
 
             switch (add_option) {
             case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "left.unconditional_subtract(right);" << std::endl;
 #endif
                 return ExecutionHandler(base_scalar_res, base_res, this->cg().unconditional_subtract(other.cg()));
             case 1:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "left.checked_unconditional_subtract(right);" << std::endl;
 #endif
                 return ExecutionHandler(
@@ -1006,9 +954,6 @@ template <typename Builder> class CycleGroupBase {
         {
             bool is_witness = VarianceRNG.next() & 1;
 #ifdef SHOW_INFORMATION
-            std::cout << "Mul is witness? " << is_witness << std::endl;
-#endif
-#ifdef SHOW_PRETTY_INFORMATION
             std::cout << " * cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
                       << multiplier << "\");";
 #endif
@@ -1033,9 +978,6 @@ template <typename Builder> class CycleGroupBase {
 
                 bool is_witness = VarianceRNG.next() & 1;
 #ifdef SHOW_INFORMATION
-                std::cout << " Mul is witness? " << is_witness << std::endl;
-#endif
-#ifdef SHOW_PRETTY_INFORMATION
                 std::cout << "cycle_scalar_t" << (is_witness ? "::from_witness(&builder, " : "(") << "ScalarField(\""
                           << to_mul[i] << "\"), ";
 #endif
@@ -1087,18 +1029,15 @@ template <typename Builder> class CycleGroupBase {
         ExecutionHandler set(Builder* builder)
         {
             uint32_t switch_case = VarianceRNG.next() % 4;
-#ifdef SHOW_INFORMATION
-            std::cout << " using " << switch_case << " constructor" << std::endl;
-#endif
             switch (switch_case) {
             case 0:
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "cycle_group_t(" << std::endl;
 #endif
                 /* construct via cycle_group_t */
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(this->cycle_group));
             case 1: {
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "cycle_group_t::from" << (this->cycle_group.is_constant() ? "" : "_constant")
                           << "_witness(&builder, e.get_value());";
 #endif
@@ -1111,7 +1050,7 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t::from_witness(builder, e));
             }
             case 2: {
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "tmp = el;" << std::endl;
                 std::cout << "res = cycle_group_t(tmp);" << std::endl;
 #endif
@@ -1121,7 +1060,7 @@ template <typename Builder> class CycleGroupBase {
                 return ExecutionHandler(this->base_scalar, this->base, cycle_group_t(cg_new));
             }
             case 3: {
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
                 std::cout << "tmp = el;" << std::endl;
                 std::cout << "res = cycle_group_t(std::move(tmp));" << std::endl;
 #endif
@@ -1137,13 +1076,14 @@ template <typename Builder> class CycleGroupBase {
         ExecutionHandler set_inf(Builder* builder)
         {
             auto res = this->set(builder);
-            const bool set_inf = static_cast<bool>(VarianceRNG.next() & 1);
-#ifdef SHOW_PRETTY_INFORMATION
+            const bool set_inf =
+                res.cycle_group.is_point_at_infinity().get_value() ? true : static_cast<bool>(VarianceRNG.next() & 1);
+#ifdef SHOW_INFORMATION
             std::cout << "el.set_point_at_infinty(";
 #endif
             res.set_point_at_infinity(this->construct_predicate(builder, set_inf));
-#ifdef SHOW_PRETTY_INFORMATION
-            std::cout << std::endl;
+#ifdef SHOW_INFORMATION
+            std::cout << ");" << std::endl;
 #endif
             return res;
         }
@@ -1166,10 +1106,6 @@ template <typename Builder> class CycleGroupBase {
                                  instruction.arguments.element.value,
                                  cycle_group_t(static_cast<AffineElement>(instruction.arguments.element.value))));
 #ifdef SHOW_INFORMATION
-            std::cout << "Pushed constant value " << instruction.arguments.element.value << ", "
-                      << instruction.arguments.element.scalar << " to position " << stack.size() - 1 << std::endl;
-#endif
-#ifdef SHOW_PRETTY_INFORMATION
             std::cout << "auto c" << stack.size() - 1 << " = cycle_group_t(ae(\""
                       << instruction.arguments.element.scalar << "\"));" << std::endl;
 #endif
@@ -1193,10 +1129,6 @@ template <typename Builder> class CycleGroupBase {
                 instruction.arguments.element.value,
                 cycle_group_t::from_witness(builder, static_cast<AffineElement>(instruction.arguments.element.value))));
 #ifdef SHOW_INFORMATION
-            std::cout << "Pushed witness value " << instruction.arguments.element.value << ", "
-                      << instruction.arguments.element.scalar << " to position " << stack.size() - 1 << std::endl;
-#endif
-#ifdef SHOW_PRETTY_INFORMATION
             std::cout << "auto w" << stack.size() - 1 << " = cycle_group_t::from_witness(&builder, ae(\""
                       << instruction.arguments.element.scalar << "\"));" << std::endl;
 #endif
@@ -1222,10 +1154,6 @@ template <typename Builder> class CycleGroupBase {
                                  cycle_group_t::from_constant_witness(
                                      builder, static_cast<AffineElement>(instruction.arguments.element.value))));
 #ifdef SHOW_INFORMATION
-            std::cout << "Pushed constant witness value " << instruction.arguments.element.value << ", "
-                      << instruction.arguments.element.scalar << " to position " << stack.size() - 1 << std::endl;
-#endif
-#ifdef SHOW_PRETTY_INFORMATION
             std::cout << "auto cw" << stack.size() - 1 << " = cycle_group_t::from_constant_witness(&builder, ae(\""
                       << instruction.arguments.element.scalar << "\"));" << std::endl;
 #endif
@@ -1251,8 +1179,7 @@ template <typename Builder> class CycleGroupBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Doubling", "doubled")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_SINGLE_ARG(stack, first_index, output_index)
             std::cout << out << " = " << rhs << ".dbl();" << std::endl;
 #endif
@@ -1260,10 +1187,8 @@ template <typename Builder> class CycleGroupBase {
             result = stack[first_index].dbl();
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1288,8 +1213,7 @@ template <typename Builder> class CycleGroupBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t output_index = instruction.arguments.twoArgs.out;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Negating", "negated")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_SINGLE_ARG(stack, first_index, output_index)
             std::cout << out << " = -" << rhs << ";" << std::endl;
 #endif
@@ -1297,10 +1221,8 @@ template <typename Builder> class CycleGroupBase {
             result = -stack[first_index];
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1324,11 +1246,7 @@ template <typename Builder> class CycleGroupBase {
             size_t first_index = instruction.arguments.twoArgs.in % stack.size();
             size_t second_index = instruction.arguments.twoArgs.out % stack.size();
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "ASSERT_EQUAL", "== something + ")
 #ifdef SHOW_INFORMATION
-            std::cout << std::endl;
-#endif
-#ifdef SHOW_PRETTY_INFORMATION
             PREP_TWO_ARG(stack, first_index, second_index, 0)
             std::cout << "assert_equal(" << lhs << ", " << rhs << ", builder);" << std::endl;
 #endif
@@ -1356,21 +1274,18 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.twoArgs.out;
             ExecutionHandler result;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Setting value", "")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_SINGLE_ARG(stack, first_index, output_index)
             std::cout << out << " = ";
 #endif
             result = stack[first_index].set(builder);
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             std::cout << rhs << ");" << std::endl;
 #endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1396,18 +1311,15 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.twoArgs.out;
             ExecutionHandler result;
 
-            PRINT_SINGLE_ARG_INSTRUCTION(first_index, stack, "Setting value to inf", "")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_SINGLE_ARG(stack, first_index, output_index)
             std::cout << out << " = " << rhs << std::endl;
 #endif
             result = stack[first_index].set_inf(builder);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1433,8 +1345,7 @@ template <typename Builder> class CycleGroupBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Adding", "+")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_TWO_ARG(stack, first_index, second_index, output_index)
             std::cout << out << " = " << lhs << " + " << rhs << ";" << std::endl;
 #endif
@@ -1442,10 +1353,8 @@ template <typename Builder> class CycleGroupBase {
             result = stack[first_index].operator_add(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1471,8 +1380,7 @@ template <typename Builder> class CycleGroupBase {
             size_t second_index = instruction.arguments.threeArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.threeArgs.out;
 
-            PRINT_TWO_ARG_INSTRUCTION(first_index, second_index, stack, "Subtracting", "-")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_TWO_ARG(stack, first_index, second_index, output_index)
             std::cout << out << " = " << lhs << " - " << rhs << ";" << std::endl;
 #endif
@@ -1480,10 +1388,8 @@ template <typename Builder> class CycleGroupBase {
             result = stack[first_index].operator_sub(builder, stack[second_index]);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1509,28 +1415,21 @@ template <typename Builder> class CycleGroupBase {
             size_t second_index = instruction.arguments.fourArgs.in2 % stack.size();
             size_t output_index = instruction.arguments.fourArgs.out % stack.size();
             bool predicate = instruction.arguments.fourArgs.in3 % 2;
-#ifdef SHOW_INFORMATION
-            std::cout << " using predicate: " << predicate << std::endl;
-#endif
 
             ExecutionHandler result;
 
-            PRINT_TWO_ARG_INSTRUCTION(
-                second_index, first_index, stack, "Selecting #" + std::to_string(!predicate) + " from", ", ")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_TWO_ARG(stack, first_index, second_index, output_index)
             std::cout << out << " = cycle_group_t::conditional_assign(";
 #endif
             result = stack[first_index].conditional_assign(builder, stack[second_index], predicate);
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             std::cout << rhs << ", " << lhs << ");" << std::endl;
 #endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1556,8 +1455,7 @@ template <typename Builder> class CycleGroupBase {
             size_t output_index = instruction.arguments.mulArgs.out;
             ScalarField scalar = instruction.arguments.mulArgs.scalar;
 
-            PRINT_MUL_ARG_INSTRUCTION(first_index, scalar, stack, "Multiplying", "*")
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             PREP_SINGLE_ARG(stack, first_index, output_index)
             std::cout << out << " = " << rhs << std::endl;
 #endif
@@ -1565,10 +1463,8 @@ template <typename Builder> class CycleGroupBase {
             result = stack[first_index].mul(builder, scalar);
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
@@ -1592,27 +1488,12 @@ template <typename Builder> class CycleGroupBase {
             }
             std::vector<ExecutionHandler> to_add;
             std::vector<ScalarField> to_mul = instruction.batchMulArgs.scalars;
-#ifdef SHOW_INFORMATION
-            std::cout << "BATCH_MUL:" << std::endl;
-            for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
-                size_t idx = (size_t)instruction.arguments.batchMulArgs.inputs[i] % stack.size();
-                ScalarField scalar = instruction.arguments.batchMulArgs.scalars[i];
-                std::cout << (stack[idx].cycle_group.is_constant() ? "Constant( " : "Witness( ")
-                          << stack[idx].cycle_group.get_value() << ") at " << idx << " * ";
-                std::cout << scalar;
-                if (i == (instruction.arguments.multOpArgs.mult_pairs_count - 1)) {
-                    std::cout << std::endl;
-                } else {
-                    std::cout << " + " << std::endl;
-                }
-            }
-#endif
             for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
                 to_add.push_back(stack[(size_t)instruction.arguments.batchMulArgs.inputs[i] % stack.size()]);
             }
             size_t output_index = (size_t)instruction.arguments.multOpArgs.output_index;
 
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             std::string res = "";
             bool is_const = true;
             for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
@@ -1628,15 +1509,13 @@ template <typename Builder> class CycleGroupBase {
             std::cout << out << " = cycle_group_t::batch_mul({" << res << "}, {";
 #endif
             auto result = ExecutionHandler::batch_mul(builder, to_add, to_mul);
-#ifdef SHOW_PRETTY_INFORMATION
+#ifdef SHOW_INFORMATION
             std::cout << "});" << std::endl;
 #endif
             // If the output index is larger than the number of elements in stack, append
             if (output_index >= stack.size()) {
-                PRINT_RESULT("", "pushed to ", stack.size(), result)
                 stack.push_back(result);
             } else {
-                PRINT_RESULT("", "saved to ", output_index, result)
                 stack[output_index] = result;
             }
             return 0;
