@@ -47,7 +47,7 @@ describe('Public Processor app tests: TokenContract', () => {
       getTelemetryClient(),
     );
 
-    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
+    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);

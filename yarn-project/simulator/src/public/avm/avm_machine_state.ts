@@ -68,6 +68,11 @@ export class AvmMachineState {
   /** Output data must NOT be modified once it is set */
   private output: Fr[] = [];
 
+  // Metrics only - not needed for execution
+  /** instruction counter, including nested calls */
+  public instrCounter: number = 0;
+  // End metrics only
+
   constructor(gasLeft: Gas);
   constructor(l2GasLeft: number, daGasLeft: number);
   constructor(gasLeftOrL2GasLeft: Gas | number, daGasLeft?: number) {

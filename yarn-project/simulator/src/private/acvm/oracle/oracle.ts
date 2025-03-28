@@ -355,12 +355,12 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[][]> {
+  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
     const taggingSecret = await this.typedOracle.getIndexedTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
-    return [taggingSecret.toFields().map(toACVMField)];
+    return taggingSecret.toFields().map(toACVMField);
   }
 
   async incrementAppTaggingSecretIndexAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {

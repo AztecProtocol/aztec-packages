@@ -23,6 +23,7 @@ names:
   - sean: &sean "U04DT239VQU"
   - tom: &tom "U04LLT331NK"
   - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
 
 tests:
   # barretenberg
@@ -66,33 +67,30 @@ tests:
       - *charlie
 
   # Sometimes see this on ARM. But not when run on it's own...
-  # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
-  #                                                                                                                                                                                running 1 test
-  # test tests::debug_ram_blowup_regression has been running for over 60 seconds                                                                                                   test tests::debug_ram_blowup_regression ... FAILED
-  #                                                                                                                                                                                failures:
-  #                                                                                                                                                                                ---- tests::debug_ram_blowup_regression stdout ----
-  # thread 'tests::debug_ram_blowup_regression' panicked at tooling/debugger/tests/debug.rs:27:14:                                                                                 Could not start debugger: Timeout { expected: "Regex: \".*\Starting debugger.*\"", got: "`^`[?2004l`\r``\r``\n`
-  # Waiting for lock on Nargo.toml...`\r``\n`                                                                                                                                      ", timeout: 30s }
-  # note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-  #                                                                                                                                                                                failures:
-  #     tests::debug_ram_blowup_regression
-  # test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
     owners:
       - *charlie
 
-  - regex: "simple e2e_p2p/slashing"
+  - regex: "simple e2e_p2p"
+    error_regex: "could not listen on any available address"
     owners:
       - *sean
+  - regex: "simple e2e_p2p/slashing"
+    skip: true
+    owners:
+      - *lasse
   - regex: "simple e2e_p2p/reqresp"
     error_regex: "TimeoutError"
     owners:
       - *sean
-
   - regex: "simple e2e_p2p/upgrade_governance_proposer"
     owners:
       - *lasse
+  - regex: "simple e2e_p2p/validators_sentinel"
+    error_regex: "TimeoutError: Timeout awaiting blocks mined"
+    owners:
+      - *palla
 
   - regex: "simple e2e_fees/private_payments"
     owners:
@@ -122,6 +120,10 @@ tests:
     error_regex: "Cannot read properties of undefined"
     owners:
       - *palla
+  - regex: "simple e2e_block_building"
+    error_regex: "Could not retrieve body for block"
+    owners:
+      - *palla
   - regex: "prover-client/src/test/bb_prover_parity.test.ts"
     owners:
       - *palla
@@ -144,6 +146,10 @@ tests:
     error_regex: "Exceeded timeout of 120000"
     owners:
       - *sean
+  - regex: "p2p/src/testbench/port_change.test.ts"
+    error_regex: "Timeout waiting for worker"
+    owners:
+      - *sean
   - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
     owners:
       - *lasse
@@ -158,6 +164,10 @@ tests:
     error_regex: "timeout: sending signal TERM to command"
     owners:
       - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "Failed to fetch dynamically imported module"
+    owners:
+      - *alex
   - regex: "ethereum/src/contracts/registry.test.ts"
     error_regex: "lower than or equal to previous block's timestamp"
     owners:
@@ -166,6 +176,10 @@ tests:
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ calculates correct gas prices for initial attempt"
+    owners:
+      - *spyros
 
   # boxes
   - regex: "boxes/scripts/run_test.sh vite"
@@ -185,10 +199,6 @@ tests:
   - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
     owners:
       - *adam
-
-  - regex: "spartan/bootstrap.sh test-kind-smoke"
-    owners:
-      - *mitch
 
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
