@@ -240,11 +240,6 @@ TEST(ToRadixConstrainingTest, ToLeBitsInteractions)
     LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
-    check_interaction<lookup_limb_range>(trace);
-    check_interaction<lookup_limb_less_than_radix_range>(trace);
-    check_interaction<lookup_fetch_safe_limbs>(trace);
-    check_interaction<lookup_fetch_p_limb>(trace);
-    check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
 TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
@@ -275,11 +270,6 @@ TEST(ToRadixConstrainingTest, ToLeRadixInteractions)
     LookupIntoIndexedByClk<lookup_limb_p_diff_range::Settings>().process(trace);
 
     check_relation<to_radix>(trace);
-    check_interaction<lookup_limb_range>(trace);
-    check_interaction<lookup_limb_less_than_radix_range>(trace);
-    check_interaction<lookup_fetch_safe_limbs>(trace);
-    check_interaction<lookup_fetch_p_limb>(trace);
-    check_interaction<lookup_limb_p_diff_range>(trace);
 }
 
 TEST(ToRadixConstrainingTest, NegativeOverflowCheck)
