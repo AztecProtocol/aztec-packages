@@ -619,11 +619,17 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
-      const logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
-      // TODO(benesjan): This check breaks TXE tests because TXE is feeding in random tx effects or smt.
-      // if (logIndexInTx === -1) {
-      //   throw new Error(`Could not find log in tx effect for tx hash ${scopedLog.txHash}`);
-      // }
+      let logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
+
+      // TODO(#13137): The following is a workaround to disable the logIndexInTx check for TXE tests as TXE currently
+      // returns nonsensical tx effects and the tx has is incremented from 0 up (so it never crosses a 1000).
+      if (scopedLog.txHash.toBigInt() > 1000) {
+        logIndexInTx = Fr.random().toNumber();
+      }
+
+      if (logIndexInTx === -1) {
+        throw new Error(`Could not find log in tx effect for tx hash ${scopedLog.txHash}`);
+      }
 
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
