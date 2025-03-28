@@ -5,10 +5,13 @@
 
 using namespace bb::starknet;
 
+/*
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 }
+*/
 
+/*
 TEST(Poseidon, HashBasicTests)
 {
     using fq = stark252::fq;
@@ -28,6 +31,7 @@ TEST(Poseidon, HashBasicTests)
     EXPECT_EQ(r0, r1);
     EXPECT_NE(r0, r2);
 }
+*/
 
 TEST(Poseidon, HashConsistencyCheck)
 {

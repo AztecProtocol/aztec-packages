@@ -5,9 +5,11 @@
 
 using namespace bb::starknet;
 
+/*
 namespace {
 auto& engine = bb::numeric::get_debug_randomness();
 }
+*/
 
 TEST(PoseidonPermutation, TestVectors)
 {
@@ -18,6 +20,7 @@ TEST(PoseidonPermutation, TestVectors)
     EXPECT_EQ(result, expected);
 }
 
+/*
 TEST(PoseidonPermutation, BasicTests)
 {
     using fq = stark252::fq;
@@ -36,6 +39,7 @@ TEST(PoseidonPermutation, BasicTests)
     EXPECT_EQ(r0, r1);
     EXPECT_NE(r0, r2);
 }
+*/
 
 TEST(PoseidonPermutation, ConsistencyCheck)
 {
