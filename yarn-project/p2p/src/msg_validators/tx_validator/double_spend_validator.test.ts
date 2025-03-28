@@ -23,14 +23,23 @@ describe('DoubleSpendTxValidator', () => {
   });
 
   it('rejects duplicates in non revertible data', async () => {
-    const badTx = await mockTxForRollup();
-    badTx.data.forRollup!.end.nullifiers[1] = badTx.data.forRollup!.end.nullifiers[0];
+    const badTx = await mockTx(1, {
+      numberOfNonRevertiblePublicCallRequests: 1,
+      numberOfRevertiblePublicCallRequests: 0,
+    });
+    badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] =
+      badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
     await expectInvalid(badTx, 'Duplicate nullifier in tx');
   });
 
   it('rejects duplicates in revertible data', async () => {
-    const badTx = await mockTxForRollup();
-    badTx.data.forRollup!.end.nullifiers[1] = badTx.data.forRollup!.end.nullifiers[0];
+    const badTx = await mockTx(1, {
+      numberOfNonRevertiblePublicCallRequests: 0,
+      numberOfRevertiblePublicCallRequests: 1,
+      numberOfRevertibleNullifiers: 1,
+    });
+    badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] =
+      badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0];
     await expectInvalid(badTx, 'Duplicate nullifier in tx');
   });
 
