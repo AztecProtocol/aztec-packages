@@ -175,10 +175,14 @@ export class SlasherClient extends WithTracer {
     this.log.info('Slasher client stopped.');
   }
 
-  // I need to get the slot number from the block that was just pruned
   private handlePruneL2Blocks(event: L2BlockSourceEvent): void {
+    // We do not try to slash if the penalty is 0
+    if (this.slashingAmount == 0n) {
+      return;
+    }
+
     const { slotNumber, epochNumber } = event;
-    this.log.info(`Detected chain prune. Punishing the validators at epoch ${epochNumber})`, event);
+    this.log.info(`Detected chain prune. Punishing the validators at epoch ${epochNumber}`, event);
 
     // Set the lifetime such that we have a full round that we could vote throughout.
     const slotsIntoRound = slotNumber % BigInt(this.config.slashingRoundSize);
