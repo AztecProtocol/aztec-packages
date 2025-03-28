@@ -76,7 +76,7 @@ describe('PXEOracleInterface', () => {
 
     // PXEOracleInterface.syncTagLogFunction(...) syncs log up to the block number up to which PXE synced. We set
     // as sufficiently high sync number here to not interfere with the tests.
-    setSyncedBlockNumber(100);
+    await setSyncedBlockNumber(100);
 
     pxeOracleInterface = new PXEOracleInterface(
       aztecNode,
@@ -409,11 +409,10 @@ describe('PXEOracleInterface', () => {
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
       const maxBlockNumber = 1;
+      await setSyncedBlockNumber(maxBlockNumber);
+
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-
-      setSyncedBlockNumber(maxBlockNumber);
-
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
@@ -510,7 +509,7 @@ describe('PXEOracleInterface', () => {
   });
 
   const setSyncedBlockNumber = (blockNumber: number) => {
-    syncDataProvider.setHeader(
+    return syncDataProvider.setHeader(
       BlockHeader.empty({
         globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
       }),
