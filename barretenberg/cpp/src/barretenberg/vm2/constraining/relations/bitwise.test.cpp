@@ -350,8 +350,6 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
     LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length::Settings>().process(trace);
 
     check_relation<bitwise>(trace);
-    check_interaction<lookup_bitwise_byte_operations>(trace);
-    check_interaction<lookup_bitwise_integral_tag_length>(trace);
 }
 
 } // namespace

@@ -46,7 +46,7 @@ import type { ValidatorClient } from '@aztec/validator-client';
 import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import type { SlasherClient } from '../slasher/slasher_client.js';
-import { createValidatorsForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
+import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
 import { getDefaultAllowedSetupFunctions } from './allowed.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
@@ -465,7 +465,7 @@ export class Sequencer {
         deadline,
       });
 
-      const validators = createValidatorsForBlockBuilding(
+      const validator = createValidatorForBlockBuilding(
         publicProcessorDBFork,
         this.contractDataSource,
         newGlobalVariables,
@@ -482,7 +482,7 @@ export class Sequencer {
       };
       const limits = opts.validateOnly ? { deadline } : { deadline, ...proposerLimits };
       const [publicProcessorDuration, [processedTxs, failedTxs]] = await elapsed(() =>
-        processor.process(pendingTxs, limits, validators),
+        processor.process(pendingTxs, limits, validator),
       );
 
       if (!opts.validateOnly && failedTxs.length > 0) {
@@ -772,5 +772,9 @@ export class Sequencer {
 
   get feeRecipient(): AztecAddress {
     return this._feeRecipient;
+  }
+
+  get maxL2BlockGas(): number | undefined {
+    return this.config.maxL2BlockGas;
   }
 }

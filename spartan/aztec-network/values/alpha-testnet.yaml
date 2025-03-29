@@ -1,6 +1,11 @@
 telemetry:
   enabled: true
 
+snapshots:
+  uploadLocation: "gs://aztec-testnet/snapshots/"
+  syncUrl: "https://storage.googleapis.com/aztec-testnet/snapshots/"
+  frequency: "0 0 * * *" # daily uploads at midnight
+
 aztec:
   realProofs: true
   numberOfDefaultAccounts: 0
