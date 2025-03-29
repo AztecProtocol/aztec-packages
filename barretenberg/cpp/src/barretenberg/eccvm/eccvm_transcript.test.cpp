@@ -129,7 +129,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_entry(round, "Z_PERM", frs_per_G);
         manifest_expected.add_challenge(round, "Sumcheck:alpha");
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; i++) {
             round++;
             std::string label = "Sumcheck:gate_challenge_" + std::to_string(i);
             manifest_expected.add_challenge(round, label);
@@ -141,7 +141,7 @@ class ECCVMTranscriptTests : public ::testing::Test {
         // get the challenge for the ZK Sumcheck claim
         manifest_expected.add_challenge(round, "Libra:Challenge");
 
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
             round++;
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Sumcheck:univariate_comm_" + idx, frs_per_G);
@@ -163,13 +163,13 @@ class ECCVMTranscriptTests : public ::testing::Test {
         manifest_expected.add_challenge(round, "rho");
 
         round++;
-        for (size_t i = 1; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i < CONST_ECCVM_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:FOLD_" + idx, frs_per_G);
         }
         manifest_expected.add_challenge(round, "Gemini:r");
         round++;
-        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i <= CONST_ECCVM_LOG_N; ++i) {
             std::string idx = std::to_string(i);
             manifest_expected.add_entry(round, "Gemini:a_" + idx, frs_per_Fr);
         }

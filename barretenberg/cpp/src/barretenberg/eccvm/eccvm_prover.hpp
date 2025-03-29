@@ -32,7 +32,7 @@ class ECCVMProver {
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const bool fixed_size = false,
+                         const bool fixed_size = true,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
