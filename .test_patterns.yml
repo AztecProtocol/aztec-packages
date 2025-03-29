@@ -80,15 +80,12 @@ tests:
     error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/slashing"
-    skip: true
-    owners:
-      - *lasse
-  - regex: "simple e2e_p2p/reqresp"
+  - regex: "simple e2e_p2p"
     error_regex: "TimeoutError"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/upgrade_governance_proposer"
+  - regex: "simple e2e_p2p/slashing"
+    skip: true
     owners:
       - *lasse
   - regex: "simple e2e_p2p/validators_sentinel"
@@ -126,6 +123,10 @@ tests:
       - *palla
   - regex: "simple e2e_block_building"
     error_regex: "Could not retrieve body for block"
+    owners:
+      - *palla
+  - regex: "composed/integration_l1_publisher"
+    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
   - regex: "prover-client/src/test/bb_prover_parity.test.ts"
