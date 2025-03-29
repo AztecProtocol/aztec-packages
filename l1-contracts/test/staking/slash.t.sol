@@ -41,6 +41,9 @@ contract SlashTest is StakingBase {
       _withdrawer: WITHDRAWER,
       _amount: DEPOSIT_AMOUNT
     });
+
+    // Progress into the next epoch
+    staking.cheat__progressEpoch();
     _;
   }
 
