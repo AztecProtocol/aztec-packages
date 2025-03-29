@@ -1,4 +1,5 @@
 #pragma once
+#include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/stdlib/eccvm_verifier/eccvm_recursive_flavor.hpp"
 
 namespace bb {
@@ -29,12 +30,13 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
+    TranslationEvaluations_<FF> translation_evaluations;
+
     // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
     // `multivariate_to_univariate_opening_claim`
     static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
     std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
     FF translation_masking_term_eval;
-
     // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
     FF evaluation_challenge_x;
     FF batching_challenge_v;
