@@ -2,6 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 
 namespace bb {
@@ -65,14 +66,27 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
+    std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
-    write_file(tubeProofPath, to_buffer<true>(tube_proof));
+    PublicInputsAndProof public_inputs_and_proof{
+        PublicInputsVector(tube_proof.begin(),
+                           tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
+        HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())
+    };
+    write_file(tubePublicInputsPath, to_buffer<true>(public_inputs_and_proof.public_inputs));
+    write_file(tubeProofPath, to_buffer<true>(public_inputs_and_proof.proof));
 
+    std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
     std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
     const auto to_json = [](const std::vector<bb::fr>& data) {
+        if (data.empty()) {
+            return std::string("[]");
+        }
         return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
-    auto proof_data = to_json(tube_proof);
+    auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
+    auto proof_data = to_json(public_inputs_and_proof.proof);
+    write_file(tubePublicInputsAsFieldsPath, { public_inputs_data.begin(), public_inputs_data.end() });
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = output_path + "/vk";

@@ -36,7 +36,7 @@ $BIN write_vk \
 PROOF_FIELDS_LENGTH=$(jq 'length' $output_dir/proof_fields.json)
 UH_PROOF_FIELDS_LENGTH=440
 NUM_PUBLIC_INPUTS=$((PROOF_FIELDS_LENGTH - UH_PROOF_FIELDS_LENGTH))
-jq ".[:$NUM_PUBLIC_INPUTS]" $output_dir/proof_fields.json > $output_dir/public-inputs
+jq ".[:$NUM_PUBLIC_INPUTS]" $output_dir/proof_fields.json > $output_dir/public_inputs_fields.json
 
 # Remove public inputs from the proof (first NUM_PUBLIC_INPUTS*32 bytes)
 # Also remove the first 4 bytes, which is the proof length in fields

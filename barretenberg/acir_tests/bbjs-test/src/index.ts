@@ -12,7 +12,8 @@ const BYTES_PER_FIELD = 32;
 const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
 
 const proofPath = (dir: string) => path.join(dir, "proof");
-const publicInputsPath = (dir: string) => path.join(dir, "public-inputs");
+const publicInputsAsFieldsPath = (dir: string) =>
+  path.join(dir, "public_inputs_fields.json");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
 
 async function generateProof({
@@ -33,19 +34,33 @@ async function generateProof({
   debug(`Generating proof for ${bytecodePath}...`);
   const circuitArtifact = await fs.readFile(bytecodePath);
   const bytecode = JSON.parse(circuitArtifact.toString()).bytecode;
-  const backend = new UltraHonkBackend(bytecode, { threads: multiThreaded ? 8 : 1 });
+  const backend = new UltraHonkBackend(bytecode, {
+    threads: multiThreaded ? 8 : 1,
+  });
 
   const witness = await fs.readFile(witnessPath);
-  const proof = await backend.generateProof(new Uint8Array(witness), { keccak: (oracleHash === "keccak") });
-  assert(proof.proof.length === UH_PROOF_LENGTH_IN_BYTES, `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`);
+  const proof = await backend.generateProof(new Uint8Array(witness), {
+    keccak: oracleHash === "keccak",
+  });
+  assert(
+    proof.proof.length === UH_PROOF_LENGTH_IN_BYTES,
+    `Unexpected proof length ${proof.proof.length} for ${bytecodePath}`
+  );
 
   await fs.writeFile(proofPath(outputDirectory), Buffer.from(proof.proof));
   debug("Proof written to " + proofPath(outputDirectory));
 
-  await fs.writeFile(publicInputsPath(outputDirectory), JSON.stringify(proof.publicInputs));
-  debug("Public inputs written to " + publicInputsPath(outputDirectory));
+  await fs.writeFile(
+    publicInputsAsFieldsPath(outputDirectory),
+    JSON.stringify(proof.publicInputs)
+  );
+  debug(
+    "Public inputs written to " + publicInputsAsFieldsPath(outputDirectory)
+  );
 
-  const verificationKey = await backend.getVerificationKey({ keccak: (oracleHash === "keccak") });
+  const verificationKey = await backend.getVerificationKey({
+    keccak: oracleHash === "keccak",
+  });
   await fs.writeFile(vkeyPath(outputDirectory), Buffer.from(verificationKey));
   debug("Verification key written to " + vkeyPath(outputDirectory));
 
@@ -58,9 +73,14 @@ async function verifyProof({ directory }: { directory: string }) {
   const verifier = new BarretenbergVerifier();
 
   const proof = await fs.readFile(proofPath(directory));
-  assert(proof.length === UH_PROOF_LENGTH_IN_BYTES, `Unexpected proof length ${proof.length}`);
+  assert(
+    proof.length === UH_PROOF_LENGTH_IN_BYTES,
+    `Unexpected proof length ${proof.length}`
+  );
 
-  const publicInputs = JSON.parse(await fs.readFile(publicInputsPath(directory), "utf8"));
+  const publicInputs = JSON.parse(
+    await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
+  );
   const vkey = await fs.readFile(vkeyPath(directory));
 
   const verified = await verifier.verifyUltraHonkProof(
