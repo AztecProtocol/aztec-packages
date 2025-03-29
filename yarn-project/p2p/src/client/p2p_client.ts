@@ -9,6 +9,7 @@ import type {
   L2Tips,
   PublishedL2Block,
 } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { P2PApi, PeerInfo, ProverCoordination } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
@@ -211,7 +212,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   constructor(
     _clientType: T,
     store: AztecAsyncKVStore,
-    private l2BlockSource: L2BlockSource,
+    private l2BlockSource: L2BlockSource & ContractDataSource,
     mempools: MemPools<T>,
     private p2pService: P2PService,
     config: Partial<P2PConfig> = {},

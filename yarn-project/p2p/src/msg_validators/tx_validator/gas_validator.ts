@@ -1,16 +1,11 @@
-import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasFees } from '@aztec/stdlib/gas';
+import type { PublicStateSource } from '@aztec/stdlib/trees';
 import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
-
-/** Provides a view into public contract state */
-export interface PublicStateSource {
-  storageRead: (contractAddress: AztecAddress, slot: Fr) => Promise<Fr>;
-}
 
 export class GasTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_gas');
