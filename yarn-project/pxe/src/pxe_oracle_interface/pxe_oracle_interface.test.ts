@@ -14,7 +14,7 @@ import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -75,6 +75,11 @@ describe('PXEOracleInterface', () => {
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
     simulationProvider = new WASMSimulator();
+
+    // PXEOracleInterface.syncTaggedLogs(...) function syncs logs up to the block number up to which PXE synced. We set
+    // as sufficiently high sync number here to not interfere with the tests.
+    await setSyncedBlockNumber(100);
+
     pxeOracleInterface = new PXEOracleInterface(
       aztecNode,
       keyStore,
@@ -166,7 +171,7 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
       // one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
@@ -261,7 +266,7 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs with a sender index offset', async () => {
       const tagIndex = 5;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first one + half of the logs for the second index
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
@@ -313,7 +318,7 @@ describe('PXEOracleInterface', () => {
         secrets.map(secret => new IndexedTaggingSecret(secret, 2)),
       );
 
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
       // since the window starts at Math.max(0, 2 - window_size) = 0
@@ -355,7 +360,7 @@ describe('PXEOracleInterface', () => {
         secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 1)),
       );
 
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should be skipped
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
@@ -391,7 +396,7 @@ describe('PXEOracleInterface', () => {
         secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 2)),
       );
 
-      let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // No logs should be synced since we start from index 2 = 12 - window_size
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
@@ -404,7 +409,7 @@ describe('PXEOracleInterface', () => {
       // Wipe the database
       await taggingDataProvider.resetNoteSyncData();
 
-      syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
+      syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
@@ -420,9 +425,12 @@ describe('PXEOracleInterface', () => {
     });
 
     it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
+      const maxBlockNumber = 1;
+      await setSyncedBlockNumber(maxBlockNumber);
+
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 1);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
@@ -444,7 +452,7 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
-      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 1);
+      const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
       // We expect the above log to be discarded, and so none to be synced
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(0);
@@ -516,4 +524,12 @@ describe('PXEOracleInterface', () => {
       );
     }, 30_000);
   });
+
+  const setSyncedBlockNumber = (blockNumber: number) => {
+    return syncDataProvider.setHeader(
+      BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
+      }),
+    );
+  };
 });

@@ -226,17 +226,14 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with the recipient's address and all the senders in the address book.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Returns the found logs
+   * and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
-   * @param recipient - The address of the recipient
-   * @returns A list of encrypted logs tagged with the recipient's address
+   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
+   * synced.
+   * @returns A map of recipient addresses to a list of encrypted logs.
    */
-  syncTaggedLogs(
-    contractAddress: AztecAddress,
-    maxBlockNumber: number,
-    scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedL2Log[]>>;
+  syncTaggedLogs(contractAddress: AztecAddress, scopes?: AztecAddress[]): Promise<Map<string, TxScopedL2Log[]>>;
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
