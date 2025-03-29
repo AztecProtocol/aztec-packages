@@ -198,7 +198,7 @@ We can see that each account has the expected balance of tokens.
 
 ### Calling an unconstrained (view) function
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="@site/static/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
 
 ## Create and submit a transaction
 

@@ -151,7 +151,7 @@ To update Aztec.js packages, go to your `package.json` and replace the versions 
 ```diff
 [dependencies]
 -"@aztec/accounts": "0.7.5",
-+"@aztec/accounts": "#include_aztec_short_version",
++"@aztec/accounts": "#include_aztec_version",
 -"@aztec/noir-contracts.js": "0.35.1",
-+"@aztec/accounts": "#include_aztec_short_version",
++"@aztec/accounts": "#include_aztec_version",
 ```
