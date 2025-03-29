@@ -22,10 +22,10 @@ function live_publish_log {
     if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
       publish_log
     fi
-    sleep 5 &
-    local sleep_pid=$!
-    trap 'kill $sleep_pid &>/dev/null' SIGTERM
-    wait $!
+    for i in {1..5}; do
+      [ ! -f $outfile ] && break
+      sleep 1
+    done
   done
 }
 
@@ -33,8 +33,6 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_str="$name log id: ${yellow}http://ci.aztec-labs.com/$key${reset}"
   echo_stderr -e "$log_str"
   live_publish_log &
-  publish_pid=$!
-  trap 'kill $publish_pid &>/dev/null' EXIT
   if [ "$dup" -eq 1 ]; then
     tee -a $outfile
     # Print a second line if the log is long enough.
