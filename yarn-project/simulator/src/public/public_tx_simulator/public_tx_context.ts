@@ -38,10 +38,10 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import type { PublicContractsDBInterface } from '../../server.js';
-import { AvmPersistableStateManager } from '../avm/index.js';
 import { HintingPublicContractsDB, HintingPublicTreesDB } from '../hinting_db_sources.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
+import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { getCallRequestsWithCalldataByPhase } from '../utils.js';
 
 /**
@@ -110,7 +110,7 @@ export class PublicTxContext {
     const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = AvmPersistableStateManager.create(
+    const txStateManager = PublicPersistableStateManager.create(
       hintingTreesDB,
       hintingContractsDB,
       trace,
@@ -424,9 +424,9 @@ export class PublicTxContext {
 class PhaseStateManager {
   private log: Logger;
 
-  private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
+  private currentlyActiveStateManager: PublicPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {
+  constructor(private readonly txStateManager: PublicPersistableStateManager) {
     this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 

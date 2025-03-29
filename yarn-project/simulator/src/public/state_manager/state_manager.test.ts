@@ -7,9 +7,7 @@ import { makeContractClassPublic } from '@aztec/stdlib/testing';
 
 import { mock } from 'jest-mock-extended';
 
-import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
-import { initPersistableStateManager } from '../fixtures/index.js';
+import { initPersistableStateManager } from '../avm/fixtures/index.js';
 import {
   mockGetBytecodeCommitment,
   mockGetContractClass,
@@ -19,10 +17,12 @@ import {
   mockNoteHashCount,
   mockNoteHashExists,
   mockStorageRead,
-} from '../test_utils.js';
-import type { AvmPersistableStateManager } from './journal.js';
+} from '../avm/test_utils.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
+import type { PublicPersistableStateManager } from './state_manager.js';
 
-describe('journal', () => {
+describe('state_manager', () => {
   let address: AztecAddress;
   const utxo = Fr.random();
   const leafIndex = Fr.random();
@@ -31,7 +31,7 @@ describe('journal', () => {
   let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
 
   beforeEach(async () => {
     address = await AztecAddress.random();

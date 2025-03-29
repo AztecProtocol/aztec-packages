@@ -6,10 +6,10 @@ import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
@@ -30,7 +30,7 @@ describe('External Calls', () => {
   let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
 
   beforeEach(() => {
     treesDB = mock<PublicTreesDB>();

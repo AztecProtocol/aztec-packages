@@ -28,11 +28,11 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 
 import { strict as assert } from 'assert';
 
-import { getPublicFunctionDebugName } from '../../../common/debug_fn_name.js';
-import type { PublicTreesDB } from '../../../public/public_db_sources.js';
-import type { PublicContractsDBInterface } from '../../../server.js';
-import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
-import type { AvmExecutionEnvironment } from '../avm_execution_environment.js';
+import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
+import type { PublicContractsDBInterface } from '../../server.js';
+import type { AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
+import type { PublicTreesDB } from '../public_db_sources.js';
+import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
 import { NullifierCollisionError, NullifierManager } from './nullifiers.js';
 import { PublicStorage } from './public_storage.js';
 
@@ -45,8 +45,8 @@ import { PublicStorage } from './public_storage.js';
  *
  * Manages merging of successful/reverted child state into current state.
  */
-export class AvmPersistableStateManager {
-  private readonly log = createLogger('simulator:avm:state_manager');
+export class PublicPersistableStateManager {
+  private readonly log = createLogger('simulator:state_manager');
 
   /** Make sure a forked state is never merged twice. */
   private alreadyMergedIntoParent = false;
@@ -72,8 +72,15 @@ export class AvmPersistableStateManager {
     doMerkleOperations: boolean = false,
     firstNullifier: Fr,
     blockNumber: number,
-  ): AvmPersistableStateManager {
-    return new AvmPersistableStateManager(treesDB, contractsDB, trace, firstNullifier, blockNumber, doMerkleOperations);
+  ): PublicPersistableStateManager {
+    return new PublicPersistableStateManager(
+      treesDB,
+      contractsDB,
+      trace,
+      firstNullifier,
+      blockNumber,
+      doMerkleOperations,
+    );
   }
 
   // DO NOT USE!
@@ -87,7 +94,7 @@ export class AvmPersistableStateManager {
    */
   public async fork() {
     await this.treesDB.createCheckpoint();
-    return new AvmPersistableStateManager(
+    return new PublicPersistableStateManager(
       this.treesDB,
       this.contractsDB,
       this.trace.fork(),
@@ -102,18 +109,18 @@ export class AvmPersistableStateManager {
   /**
    * Accept forked world state modifications & traced side effects / hints
    */
-  public async merge(forkedState: AvmPersistableStateManager) {
+  public async merge(forkedState: PublicPersistableStateManager) {
     await this._merge(forkedState, /*reverted=*/ false);
   }
 
   /**
    * Reject forked world state modifications & traced side effects, keep traced hints
    */
-  public async reject(forkedState: AvmPersistableStateManager) {
+  public async reject(forkedState: PublicPersistableStateManager) {
     await this._merge(forkedState, /*reverted=*/ true);
   }
 
-  private async _merge(forkedState: AvmPersistableStateManager, reverted: boolean) {
+  private async _merge(forkedState: PublicPersistableStateManager, reverted: boolean) {
     // sanity check to avoid merging the same forked trace twice
     assert(
       !forkedState.alreadyMergedIntoParent,

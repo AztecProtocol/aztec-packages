@@ -1,6 +1,6 @@
 import type { Fr } from '@aztec/foundation/fields';
 
-import type { PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../public_db_sources.js';
 
 /**
  * A class to manage new nullifier staging and existence checks during a contract call's AVM simulation.
