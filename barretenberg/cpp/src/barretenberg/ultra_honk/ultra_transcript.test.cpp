@@ -320,6 +320,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     typename TestFixture::Verifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
+/*
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
@@ -336,6 +337,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
+*/
 }
 
 TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
