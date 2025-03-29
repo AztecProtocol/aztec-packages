@@ -36,7 +36,7 @@ export class TXEService {
   constructor(private logger: Logger, private typedOracle: TypedOracle) {}
 
   static async init(logger: Logger, protocolContracts: ProtocolContract[]) {
-    logger.debug(`TXE service initialized`);
+    logger.debug('TXE service initialized');
     const store = await openTmpStore('test');
     const txe = await TXE.create(logger, store, protocolContracts);
     const service = new TXEService(logger, txe);
@@ -53,7 +53,7 @@ export class TXEService {
 
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
-    this.logger.debug(`time traveling ${nBlocks} blocks`);
+    this.logger.debug('time traveling %s blocks', nBlocks);
 
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
@@ -85,7 +85,7 @@ export class TXEService {
     } else {
       await (this.typedOracle as TXE).addContractInstance(instance);
       await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
-      this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+      this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     }
 
     return toForeignCallResult([
@@ -111,7 +111,7 @@ export class TXEService {
     const publicDataWrites = await Promise.all(
       valuesFr.map(async (value, i) => {
         const storageSlot = startStorageSlotFr.add(new Fr(i));
-        this.logger.debug(`Oracle storage write: slot=${storageSlot.toString()} value=${value}`);
+        this.logger.debug('Oracle storage write: slot=%s value=%s', storageSlot.toString(), value);
         return new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
       }),
     );
@@ -130,7 +130,7 @@ export class TXEService {
     await accountDataProvider.setAccount(completeAddress.address, completeAddress);
     const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
     await addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug(`Created account ${completeAddress.address}`);
+    this.logger.debug('Created account %s', completeAddress.address);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -138,7 +138,7 @@ export class TXEService {
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
-    this.logger.debug(`Deployed ${artifact.name} at ${instance.address}`);
+    this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     await (this.typedOracle as TXE).addContractInstance(instance);
     await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
 
@@ -148,7 +148,7 @@ export class TXEService {
     await accountDataProvider.setAccount(completeAddress.address, completeAddress);
     const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
     await addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug(`Created account ${completeAddress.address}`);
+    this.logger.debug('Created account %s', completeAddress.address);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),

@@ -85,7 +85,7 @@ class TXEDispatcher {
     let instance;
 
     if (TXEArtifactsCache.has(cacheKey)) {
-      this.logger.debug(`Using cached artifact for ${cacheKey}`);
+      this.logger.debug('Using cached artifact for %s', cacheKey);
       ({ artifact, instance } = TXEArtifactsCache.get(cacheKey)!);
     } else {
       let artifactPath = '';
@@ -99,22 +99,24 @@ class TXEDispatcher {
         if (pathStr.includes('@')) {
           const [workspace, pkg] = pathStr.split('@');
           const targetPath = join(rootPath, workspace, './target');
-          this.logger.debug(`Looking for compiled artifact in workspace ${targetPath}`);
+          this.logger.debug('Looking for compiled artifact in workspace %s', targetPath);
           artifactPath = join(targetPath, `${pkg}-${contractName}.json`);
         } else {
           // We're deploying a standalone contract
           // env.deploy("../path/to/contract/root", "contractName")
           const targetPath = join(rootPath, pathStr, './target');
-          this.logger.debug(`Looking for compiled artifact in ${targetPath}`);
+          this.logger.debug('Looking for compiled artifact in %s', targetPath);
           [artifactPath] = (await readdir(targetPath)).filter(file => file.endsWith(`-${contractName}.json`));
         }
       }
-      this.logger.debug(`Loading compiled artifact ${artifactPath}`);
+      this.logger.debug('Loading compiled artifact %s', artifactPath);
       artifact = loadContractArtifact(JSON.parse(await readFile(artifactPath, 'utf-8')));
       this.logger.debug(
-        `Deploy ${
-          artifact.name
-        } with initializer ${initializer}(${decodedArgs}) and public keys hash ${publicKeysHash.toString()}`,
+        'Deploy %s with initializer %s(%s) and public keys hash %s',
+        artifact.name,
+        initializer,
+        decodedArgs.map(arg => arg.toString()).join('-'),
+        publicKeysHash.toString(),
       );
       instance = await getContractInstanceFromDeployParams(artifact, {
         constructorArgs: decodedArgs,
@@ -162,10 +164,10 @@ class TXEDispatcher {
   // eslint-disable-next-line camelcase
   async resolve_foreign_call(callData: TXEForeignCallInput): Promise<ForeignCallResult> {
     const { session_id: sessionId, function: functionName, inputs } = callData;
-    this.logger.debug(`Calling ${functionName} on session ${sessionId}`);
+    this.logger.debug('Calling %s on session %s', functionName, sessionId);
 
     if (!TXESessions.has(sessionId) && functionName != 'reset') {
-      this.logger.debug(`Creating new session ${sessionId}`);
+      this.logger.debug('Creating new session %s', sessionId);
       if (!this.protocolContracts) {
         this.protocolContracts = await Promise.all(
           protocolContractNames.map(name => new BundledProtocolContractsProvider().getProtocolContractArtifact(name)),
@@ -177,7 +179,7 @@ class TXEDispatcher {
     switch (functionName) {
       case 'reset': {
         TXESessions.delete(sessionId) &&
-          this.logger.debug(`Called reset on session ${sessionId}, yeeting it out of existence`);
+          this.logger.debug('Called reset on session %s, yeeting it out of existence', sessionId);
         return toForeignCallResult([]);
       }
       case 'deploy': {
