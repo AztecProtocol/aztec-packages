@@ -24,6 +24,7 @@ names:
   - tom: &tom "U04LLT331NK"
   - sergei: &sergei "U05RR81391B"
   - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
 
 tests:
   # barretenberg
@@ -113,7 +114,7 @@ tests:
   - regex: "simple e2e_block_building"
     error_regex: "Cannot read properties of undefined"
     owners:
-      - *palla
+      - *jan
   - regex: "simple e2e_block_building"
     error_regex: "Could not retrieve body for block"
     owners:

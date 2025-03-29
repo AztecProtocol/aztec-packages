@@ -68,7 +68,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(KEY_NAME=$key_name NO_SPOT=${CI_NIGHTLY:-0} aws_request_instance $instance_name $cores $arch)
+ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
 IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
