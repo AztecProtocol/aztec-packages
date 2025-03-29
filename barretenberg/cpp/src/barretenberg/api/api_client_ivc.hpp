@@ -46,5 +46,9 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
 
 std::vector<uint8_t> decompress(const void* bytes, size_t size);
 
+std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
+                                                           const std::filesystem::path& bytecode_path,
+                                                           const std::filesystem::path& witness_path);
+
 void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path, const std::string& output_path);
 } // namespace bb
