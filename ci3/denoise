@@ -39,11 +39,11 @@ function publish_log {
   fi
 
   {
+    echo "Parent Log: ${PARENT_LOG_URL:-none}"
     echo "Command: $cmd"
     echo "Date: $(date)"
     echo "Status: $status"
     echo "Took: ${time}"
-    echo "Parent Log: ${PARENT_LOG_URL:-none}"
     echo
 
     cat $outfile

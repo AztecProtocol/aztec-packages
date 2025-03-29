@@ -43,7 +43,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       echo_stderr -e "$log_str"
     fi
   else
-    cat >$outfile
+    cat >>$outfile
   fi
   publish_log
 else
