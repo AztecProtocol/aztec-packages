@@ -75,7 +75,7 @@ if(FUZZING)
     if(SHOW_INFORMATION)
         add_definitions(-DSHOW_INFORMATION=1)
     endif()
-        
+
     add_definitions(-DFUZZING=1)
 
     if(DISABLE_CUSTOM_MUTATORS)

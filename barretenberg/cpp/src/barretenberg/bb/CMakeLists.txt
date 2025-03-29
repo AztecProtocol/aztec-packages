@@ -1,3 +1,15 @@
+barretenberg_module(
+    bb-cli-lib
+    barretenberg
+    env
+    circuit_checker
+    ${TRACY_LIBS}
+    libdeflate::libdeflate_static)
+
+if(NOT DISABLE_AZTEC_VM)
+    add_dependencies(bb-cli-lib vm)
+endif()
+
 if (NOT(FUZZING) AND NOT(WASM))
     add_executable(
         bb
@@ -7,11 +19,7 @@ if (NOT(FUZZING) AND NOT(WASM))
     target_link_libraries(
         bb
         PRIVATE
-        barretenberg
-        env
-        circuit_checker
-        ${TRACY_LIBS}
-        libdeflate::libdeflate_static
+        bb-cli-lib
     )
     if(CHECK_CIRCUIT_STACKTRACES)
         target_link_libraries(
