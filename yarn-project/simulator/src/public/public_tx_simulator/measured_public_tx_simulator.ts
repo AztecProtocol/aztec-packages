@@ -5,9 +5,9 @@ import type { AvmSimulationStats } from '@aztec/stdlib/stats';
 import { type GlobalVariables, PublicCallRequestWithCalldata, Tx, TxExecutionPhase } from '@aztec/stdlib/tx';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import type { AvmPersistableStateManager } from '../avm/index.js';
 import type { ExecutorMetricsInterface } from '../executor_metrics_interface.js';
 import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 import { type ProcessedPhase, type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
@@ -65,7 +65,7 @@ export class MeasuredPublicTxSimulator extends PublicTxSimulator {
   }
 
   protected override async simulateEnqueuedCallInternal(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     callRequest: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,

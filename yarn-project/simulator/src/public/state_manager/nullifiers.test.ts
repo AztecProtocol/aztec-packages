@@ -2,7 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import type { PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../public_db_sources.js';
 import { NullifierManager } from './nullifiers.js';
 
 describe('avm nullifier caching', () => {
