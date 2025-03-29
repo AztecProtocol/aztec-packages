@@ -301,9 +301,11 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
 
 TYPED_TEST(UltraTranscriptTests, StructureTest)
 {
-    using Flavor = TypeParam;
-    using FF = Flavor::FF;
-    using Commitment = Flavor::Commitment;
+    /*
+        using Flavor = TypeParam;
+        using FF = Flavor::FF;
+        using Commitment = Flavor::Commitment;
+    */
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
     if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor>) {
