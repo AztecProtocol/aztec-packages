@@ -1,114 +1,95 @@
 import { EcdsaRAccountContractArtifact } from '@aztec/accounts/ecdsa';
-import {
-  AccountWallet,
-  type DeployOptions,
-  FeeJuicePaymentMethodWithClaim,
-  Fr,
-  registerContractClass,
-} from '@aztec/aztec.js';
-import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
+import { AccountWallet, type DeployOptions, Fr, registerContractClass } from '@aztec/aztec.js';
+import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
 import { jest } from '@jest/globals';
 
 import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
-import { ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
-describe('Client flows benchmarking', () => {
+describe('Deployment benchmark', () => {
   const t = new ClientFlowsBenchmark('deployments');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
+  // Sponsored FPC contract
+  let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.deployments;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
-    ({ adminWallet } = await t.setup());
+    await t.applyDeploySponsoredFPCSnapshot();
+    ({ adminWallet, sponsoredFPC } = await t.setup());
+    // Ensure the ECDSAK1 contract is already registered, to avoid benchmarking an extra call to the ContractClassRegisterer
+    // The typical interaction would be for a user to deploy an account contract that is already registered in the
+    // network.
+    const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
+    await registerContractClassInteraction.send().wait();
   });
 
   afterAll(async () => {
     await t.teardown();
   });
 
-  describe('Deployments', () => {
-    it('Deploy ECDSA R1 account contract, pay using bridged fee juice', async () => {
-      // Ensure the contract is already registered, to avoid benchmarking an extra call to the ContractClassRegisterer
-      // The typical interaction would be for a user to deploy an account contract that is already registered in the
-      // network.
-      const registerContractClassInteraction = await registerContractClass(adminWallet, EcdsaRAccountContractArtifact);
-      await registerContractClassInteraction.send().wait();
+  for (const accountType of config.accounts) {
+    deploymentBenchmark(accountType);
+  }
 
-      const benchysAccountManager = await t.createBenchmarkingAccountManager('ecdsar1');
-      const benchysWallet = await benchysAccountManager.getWallet();
-      const benchysAddress = benchysWallet.getAddress();
+  function deploymentBenchmark(accountType: AccountType) {
+    return describe(`Deployment benchmark for ${accountType}`, () => {
+      function deploymentTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+        return it(`Deploys a ${accountType} account contract, pays using ${benchmarkingPaymentMethod}`, async () => {
+          const benchysAccountManager = await t.createBenchmarkingAccountManager(accountType);
+          const benchysWallet = await benchysAccountManager.getWallet();
 
-      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, benchysAddress);
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
+          if (benchmarkingPaymentMethod === 'sponsored_fpc') {
+            await benchysWallet.registerContract(sponsoredFPC);
+          }
 
-      const deploymentInteraction = await benchysAccountManager.getDeployMethod();
-      const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(paymentMethod);
-      const fee = { paymentMethod: wrappedPaymentMethod };
-      // Publicly deploy the contract, but skip the class registration as that is the
-      // "typical" use case
-      const options: DeployOptions = {
-        fee,
-        universalDeploy: true,
-        skipClassRegistration: true,
-        skipPublicDeployment: false,
-        skipInitialization: false,
-        contractAddressSalt: new Fr(benchysAccountManager.salt),
-      };
+          const deploymentInteraction = await benchysAccountManager.getDeployMethod();
 
-      await capturePrivateExecutionStepsIfEnvSet(
-        'deploy_r1+claim_fee_juice+pay_fee_juice',
-        deploymentInteraction,
-        options,
-      );
+          const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
+          const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(
+            await paymentMethod.forWallet(benchysWallet),
+          );
+          const fee = { paymentMethod: wrappedPaymentMethod };
+          // Publicly deploy the contract, but skip the class registration as that is the
+          // "typical" use case
+          const options: DeployOptions = {
+            fee,
+            universalDeploy: true,
+            skipClassRegistration: true,
+            skipPublicDeployment: false,
+            skipInitialization: false,
+            contractAddressSalt: new Fr(benchysAccountManager.salt),
+          };
 
-      // Ensure we paid a fee
-      const tx = await deploymentInteraction.send(options).wait();
-      expect(tx.transactionFee!).toBeGreaterThan(0n);
+          await capturePrivateExecutionStepsIfEnvSet(
+            `deploy_${accountType}+${benchmarkingPaymentMethod}`,
+            deploymentInteraction,
+            options,
+            1 + // Multicall entrypoint
+              1 + // Kernel init
+              2 + // ContractInstanceDeployer deploy + kernel inner
+              2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
+              2 + // Account constructor + kernel inner
+              2 + // Account entrypoint (wrapped fee payload) + kernel inner
+              paymentMethod.circuits + // Payment method circuits
+              1 + // Kernel reset
+              1, // Kernel tail
+          );
+
+          // Ensure we paid a fee
+          const tx = await deploymentInteraction.send(options).wait();
+          expect(tx.transactionFee!).toBeGreaterThan(0n);
+        });
+      }
+
+      for (const paymentMethod of config.feePaymentMethods) {
+        deploymentTest(paymentMethod);
+      }
     });
-
-    it('Deploy Schnorr Account contract, pay using bridged fee juice', async () => {
-      const benchysAccountManager = await t.createBenchmarkingAccountManager('schnorr');
-      const benchysWallet = await benchysAccountManager.getWallet();
-      const benchysAddress = benchysWallet.getAddress();
-
-      const claim = await t.feeJuiceBridgeTestHarness.prepareTokensOnL1(FEE_FUNDING_FOR_TESTER_ACCOUNT, benchysAddress);
-      const paymentMethod = new FeeJuicePaymentMethodWithClaim(benchysWallet, claim);
-
-      const deploymentInteraction = await benchysAccountManager.getDeployMethod();
-      const wrappedPaymentMethod = await benchysAccountManager.getSelfPaymentMethod(paymentMethod);
-      const fee = { paymentMethod: wrappedPaymentMethod };
-      // Publicly deploy the contract, but skip the class registration as that is the
-      // "typical" use case
-      const options: DeployOptions = {
-        fee,
-        universalDeploy: true,
-        skipClassRegistration: true,
-        skipPublicDeployment: false,
-        skipInitialization: false,
-        contractAddressSalt: new Fr(benchysAccountManager.salt),
-      };
-
-      await capturePrivateExecutionStepsIfEnvSet(
-        'deploy_schnorr+claim_fee_juice+pay_fee_juice',
-        deploymentInteraction,
-        options,
-        1 + // Multicall entrypoint
-          1 + // Kernel init
-          2 + // ContractInstanceDeployer deploy + kernel inner
-          2 + // ContractClassRegisterer assert_class_id_is_registered + kernel inner
-          2 + // Account constructor + kernel inner
-          2 + // Account entrypoint (wrapped fee payload) + kernel inner
-          2 + // FeeJuice claim + kernel inner
-          1 + // Kernel reset
-          1, // Kernel tail
-      );
-
-      // Ensure we paid a fee
-      const tx = await deploymentInteraction.send(options).wait();
-      expect(tx.transactionFee!).toBeGreaterThan(0n);
-    });
-  });
+  }
 });

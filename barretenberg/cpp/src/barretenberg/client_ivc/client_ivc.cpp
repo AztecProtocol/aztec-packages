@@ -158,6 +158,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // The commitment key is initialised with the number of points determined by the trace_settings' dyadic size. If a
     // circuit overflows past the dyadic size the commitment key will not have enough points so we need to increase it
+    // WORKTODO: we need to check that the size we set here is also enough to commit to the polynomials in translator
     if (proving_key->proving_key.circuit_size > trace_settings.dyadic_size()) {
         bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
         goblin.commitment_key = bn254_commitment_key;

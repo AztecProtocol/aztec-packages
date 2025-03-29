@@ -1,14 +1,15 @@
-import { AccountWallet, Fr, PrivateFeePaymentMethod, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AccountWallet, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
 import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
-import { type AccountType, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(900_000);
 
@@ -16,7 +17,7 @@ const AMOUNT_PER_NOTE = 1_000_000;
 
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
-describe('Client flows benchmarking', () => {
+describe('AMM benchmark', () => {
   const t = new ClientFlowsBenchmark('amm');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
@@ -30,6 +31,10 @@ describe('Client flows benchmarking', () => {
   let amm: AMMContract;
   // Liquidity contract for the AMM
   let liquidityToken: TokenContract;
+  // Sponsored FPC contract
+  let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.amm;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
@@ -37,15 +42,17 @@ describe('Client flows benchmarking', () => {
     await t.applyFPCSetupSnapshot();
     await t.applyDeployCandyBarTokenSnapshot();
     await t.applyDeployAmmSnapshot();
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken } = await t.setup());
+    await t.applyDeploySponsoredFPCSnapshot();
+    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, amm, liquidityToken, sponsoredFPC } = await t.setup());
   });
 
   afterAll(async () => {
     await t.teardown();
   });
 
-  ammBenchmark('ecdsar1');
-  ammBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    ammBenchmark(accountType);
+  }
 
   function ammBenchmark(accountType: AccountType) {
     return describe(`AMM benchmark for ${accountType}`, () => {
@@ -68,68 +75,91 @@ describe('Client flows benchmarking', () => {
         // Register the AMM and liquidity token on the user's Wallet so we can simulate and prove
         await benchysWallet.registerContract(amm);
         await benchysWallet.registerContract(liquidityToken);
+        // Register the sponsored FPC on the user's PXE so we can simulate and prove
+        await benchysWallet.registerContract(sponsoredFPC);
       });
 
-      describe(`Add liquidity with ${notesToCreate} notes in both tokens using a ${accountType} account`, () => {
-        beforeEach(async () => {
-          // Mint some CandyBarCoins for the user, separated in different notes
-          await mintNotes(
-            adminWallet,
-            benchysWallet.getAddress(),
-            candyBarCoin,
-            Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
-          );
-          // Mint some BananaCoins for the user, separated in different notes
-          await mintNotes(
-            adminWallet,
-            benchysWallet.getAddress(),
-            bananaCoin,
-            Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
-          );
-        });
-
-        // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
-        const amountToSend = MINIMUM_NOTES_FOR_RECURSION_LEVEL[1] * AMOUNT_PER_NOTE + 1;
-
-        it(`${accountType} contract adds liquidity to the AMM sending ${amountToSend} tokens using 1 recursions in both`, async () => {
-          const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, benchysWallet);
-          const options: SimulateMethodOptions = { fee: { paymentMethod } };
-
-          const nonceForAuthwits = Fr.random();
-          const token0Authwit = await benchysWallet.createAuthWit({
-            caller: amm.address,
-            action: bananaCoin.methods.transfer_to_public(
+      function addLiquidityTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+        return describe(`Add liquidity with ${notesToCreate} notes in both tokens using a ${accountType} account`, () => {
+          beforeEach(async () => {
+            // Mint some CandyBarCoins for the user, separated in different notes
+            await mintNotes(
+              adminWallet,
               benchysWallet.getAddress(),
-              amm.address,
-              amountToSend,
-              nonceForAuthwits,
-            ),
-          });
-          const token1Authwit = await benchysWallet.createAuthWit({
-            caller: amm.address,
-            action: candyBarCoin.methods.transfer_to_public(
+              candyBarCoin,
+              Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
+            );
+            // Mint some BananaCoins for the user, separated in different notes
+            await mintNotes(
+              adminWallet,
               benchysWallet.getAddress(),
-              amm.address,
-              amountToSend,
-              nonceForAuthwits,
-            ),
+              bananaCoin,
+              Array(notesToCreate).fill(BigInt(AMOUNT_PER_NOTE)),
+            );
           });
 
-          const addLiquidityInteraction = amm
-            .withWallet(benchysWallet)
-            .methods.add_liquidity(amountToSend, amountToSend, amountToSend, amountToSend, nonceForAuthwits)
-            .with({ authWitnesses: [token0Authwit, token1Authwit] });
+          // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
+          const amountToSend = MINIMUM_NOTES_FOR_RECURSION_LEVEL[1] * AMOUNT_PER_NOTE + 1;
 
-          await capturePrivateExecutionStepsIfEnvSet(
-            `${accountType}+amm_add_liquidity_1_recursions+pay_private_fpc`,
-            addLiquidityInteraction,
-            options,
-          );
+          it(`${accountType} contract adds liquidity to the AMM sending ${amountToSend} tokens using 1 recursions in both and pays using ${benchmarkingPaymentMethod}`, async () => {
+            const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
+            const options: SimulateMethodOptions = {
+              fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+            };
 
-          const tx = await addLiquidityInteraction.send().wait();
-          expect(tx.transactionFee!).toBeGreaterThan(0n);
+            const nonceForAuthwits = Fr.random();
+            const token0Authwit = await benchysWallet.createAuthWit({
+              caller: amm.address,
+              action: bananaCoin.methods.transfer_to_public(
+                benchysWallet.getAddress(),
+                amm.address,
+                amountToSend,
+                nonceForAuthwits,
+              ),
+            });
+            const token1Authwit = await benchysWallet.createAuthWit({
+              caller: amm.address,
+              action: candyBarCoin.methods.transfer_to_public(
+                benchysWallet.getAddress(),
+                amm.address,
+                amountToSend,
+                nonceForAuthwits,
+              ),
+            });
+
+            const addLiquidityInteraction = amm
+              .withWallet(benchysWallet)
+              .methods.add_liquidity(amountToSend, amountToSend, amountToSend, amountToSend, nonceForAuthwits)
+              .with({ authWitnesses: [token0Authwit, token1Authwit] });
+
+            await capturePrivateExecutionStepsIfEnvSet(
+              `${accountType}+amm_add_liquidity_1_recursions+${benchmarkingPaymentMethod}`,
+              addLiquidityInteraction,
+              options,
+              1 + // Account entrypoint
+                1 + // Kernel init
+                paymentMethod.circuits + // Payment method circuits
+                2 + // AMM add_liquidity + kernel inner
+                2 + // Token transfer_to_public + kernel inner (token0)
+                2 + // Account verify_private_authwit + kernel inner
+                2 + // Token prepare_private_balance_increase + kernel inner (token0 refund)
+                2 + // Token transfer_to_public + kernel inner (token1)
+                2 + // Account verify_private_authwit + kernel inner
+                2 + // Token prepare_private_balance_increase + kernel inner (token1 refund)
+                2 + // Token prepare_private_balance_increase + kernel inner (liquidity token mint)
+                1 + // Kernel reset
+                1, // Kernel tail
+            );
+
+            const tx = await addLiquidityInteraction.send().wait();
+            expect(tx.transactionFee!).toBeGreaterThan(0n);
+          });
         });
-      });
+      }
+
+      for (const paymentMethod of config.feePaymentMethods) {
+        addLiquidityTest(paymentMethod);
+      }
     });
   }
 });

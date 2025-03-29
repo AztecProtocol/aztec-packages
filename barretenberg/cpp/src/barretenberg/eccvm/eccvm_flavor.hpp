@@ -46,6 +46,8 @@ class ECCVMFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // Fixed size of the ECCVM circuits used in ClientIVC
+    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
     static constexpr size_t NUM_WIRES = 85;
