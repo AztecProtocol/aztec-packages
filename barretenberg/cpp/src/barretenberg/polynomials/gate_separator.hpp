@@ -86,17 +86,13 @@ template <typename FF> struct GateSeparatorPolynomial {
      */
     template <typename Bool> FF univariate_eval(const FF& challenge, const Bool& dummy_round) const
     {
-        FF beta_or_dummy;
         // For the Ultra Recursive flavor to ensure constant size proofs, we perform constant amount of hashing
         // producing 28 gate betas and we need to use the betas in the dummy rounds to ensure the permutation related
-        // selectors stay the same regardless of real circuit size.  The other recursive verifiers aren't constant for
-        // the dummy sumcheck rounds we just use 1 as we only generated real log_n betas
-        if (current_element_idx < betas.size()) {
-            beta_or_dummy = betas[current_element_idx];
-        } else {
-            beta_or_dummy = FF::from_witness(challenge.get_context(), 1);
-        }
-        FF beta_val = FF::conditional_assign(dummy_round, FF::from_witness(challenge.get_context(), 1), beta_or_dummy);
+        // selectors stay the same regardless of real circuit size.
+        FF one{ 1 };
+        one.convert_constant_to_fixed_witness(challenge.get_context());
+
+        FF beta_val = FF::conditional_assign(dummy_round, one, betas[current_element_idx]);
         return (FF(1) + (challenge * (beta_val - FF(1))));
     }
 
