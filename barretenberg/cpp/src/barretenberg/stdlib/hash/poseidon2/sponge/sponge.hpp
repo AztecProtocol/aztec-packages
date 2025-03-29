@@ -74,6 +74,11 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < rate; ++i) {
             output[i] = state[i];
         }
+        if constexpr (IsUltraBuilder<Builder>) {
+            for (size_t i = rate; i < t; i++) {
+                builder->used_witnesses.push_back(state[i].witness_index);
+            }
+        }
         return output;
     }
 
@@ -149,6 +154,14 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
         }
+        if constexpr (IsUltraBuilder<Builder>) {
+            for (const auto& elem : sponge.cache) {
+                if (elem.witness_index != IS_CONSTANT) {
+                    builder.used_witnesses.push_back(elem.witness_index);
+                }
+            }
+        }
+
         return output;
     }
 

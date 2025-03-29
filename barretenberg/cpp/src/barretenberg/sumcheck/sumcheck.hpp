@@ -740,9 +740,11 @@ template <typename Flavor> class SumcheckVerifier {
             full_honk_purported_value =
                 full_honk_purported_value * correcting_factor + libra_evaluation * libra_challenge;
         }
-
         //! [Final Verification Step]
         if constexpr (IsRecursiveFlavor<Flavor>) {
+            (full_honk_purported_value == round.target_total_sum)
+                .assert_equal(stdlib::bool_t<typename Flavor::CircuitBuilder>(true));
+
             verified = verified && (full_honk_purported_value.get_value() == round.target_total_sum.get_value());
         } else {
             verified = verified && (full_honk_purported_value == round.target_total_sum);
