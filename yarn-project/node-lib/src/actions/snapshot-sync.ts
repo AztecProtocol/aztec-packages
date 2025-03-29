@@ -32,7 +32,7 @@ import type { SharedNodeConfig } from '../config/index.js';
 const MIN_L1_BLOCKS_TO_TRIGGER_REPLACE = 86400 / 2 / 12;
 
 type SnapshotSyncConfig = Pick<SharedNodeConfig, 'syncMode' | 'snapshotsUrl'> &
-  Pick<ChainConfig, 'l1ChainId' | 'version'> &
+  Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> &
   Pick<ArchiverConfig, 'archiverStoreMapSizeKb' | 'maxLogs'> &
   Required<DataStoreConfig> &
   EthereumClientConfig & {
@@ -44,7 +44,7 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
   let downloadDir: string | undefined;
 
   try {
-    const { syncMode, snapshotsUrl, dataDirectory, l1ChainId, version: l2Version, l1Contracts } = config;
+    const { syncMode, snapshotsUrl, dataDirectory, l1ChainId, rollupVersion, l1Contracts } = config;
     if (syncMode === 'full') {
       log.debug('Snapshot sync is disabled. Running full sync.', { syncMode: syncMode });
       return false;
@@ -96,7 +96,11 @@ export async function trySnapshotSync(config: SnapshotSyncConfig, log: Logger) {
       return false;
     }
 
-    const indexMetadata: SnapshotsIndexMetadata = { l1ChainId, l2Version, rollupAddress: l1Contracts.rollupAddress };
+    const indexMetadata: SnapshotsIndexMetadata = {
+      l1ChainId,
+      rollupVersion,
+      rollupAddress: l1Contracts.rollupAddress,
+    };
     let snapshot: SnapshotMetadata | undefined;
     try {
       snapshot = await getLatestSnapshotMetadata(indexMetadata, fileStore);

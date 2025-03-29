@@ -185,7 +185,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const l1ContractsAddresses = await RegistryContract.collectAddresses(
       publicClient,
       config.l1Contracts.registryAddress,
-      config.version ?? 'canonical',
+      config.rollupVersion ?? 'canonical',
     );
 
     // Overwrite the passed in vars.
@@ -197,13 +197,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       client: publicClient,
     });
 
-    const versionFromRollup = Number(await rollup.read.getVersion());
+    const rollupVersionFromRollup = Number(await rollup.read.getVersion());
 
-    config.version ??= versionFromRollup;
+    config.rollupVersion ??= rollupVersionFromRollup;
 
-    if (config.version !== versionFromRollup) {
+    if (config.rollupVersion !== rollupVersionFromRollup) {
       log.warn(
-        `Registry looked up and returned a rollup with version (${config.version}), but this does not match with version detected from the rollup directly: (${versionFromRollup}).`,
+        `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
       );
     }
 
@@ -276,7 +276,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       sequencer,
       validatorsSentinel,
       ethereumChain.chainInfo.id,
-      config.version,
+      config.rollupVersion,
       new GlobalVariableBuilder(config),
       proofVerifier,
       telemetry,
@@ -325,20 +325,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-      await Promise.all([
-        this.getNodeVersion(),
-        this.getVersion(),
-        this.getChainId(),
-        this.getEncodedEnr(),
-        this.getL1ContractAddresses(),
-        this.getProtocolContractAddresses(),
-      ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.getNodeVersion(),
+      this.getVersion(),
+      this.getChainId(),
+      this.getEncodedEnr(),
+      this.getL1ContractAddresses(),
+      this.getProtocolContractAddresses(),
+    ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
-      protocolVersion,
+      rollupVersion,
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,

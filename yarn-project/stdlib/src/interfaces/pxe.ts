@@ -313,7 +313,7 @@ export interface PXE {
 
   /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
-   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * L1 chain identifier, rollup version, and L1 address of the rollup contract.
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;

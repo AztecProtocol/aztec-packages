@@ -112,7 +112,7 @@ A successful run should show something like this:
   enr: undefined,
   nodeVersion: '0.82.0',
   l1ChainId: 31337,
-  protocolVersion: 1,
+  rollupVersion: 1,
   l1ContractAddresses: {
     rollupAddress: EthAddress<0x759f145841f36282f23e0935697c7b2e00401902>,
     registryAddress: EthAddress<0xd5448148ccca5b2f27784c72265fc37201741778>,

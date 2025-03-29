@@ -7,7 +7,7 @@ export { type AllowedElement, type SequencerConfig, SequencerConfigSchema } from
 export const emptyChainConfig: ChainConfig = {
   l1ChainId: 0,
   l1Contracts: { rollupAddress: EthAddress.ZERO },
-  version: 0,
+  rollupVersion: 0,
 };
 
 export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
@@ -17,8 +17,8 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
     defaultValue: 31337,
     description: 'The chain ID of the ethereum host.',
   },
-  version: {
-    env: 'VERSION',
+  rollupVersion: {
+    env: 'ROLLUP_VERSION',
     description: 'The version of the rollup.',
     parseEnv: (val: string) => (Number.isSafeInteger(parseInt(val, 10)) ? parseInt(val, 10) : undefined),
   },
@@ -33,7 +33,7 @@ export type ChainConfig = {
   /** The chain id of the ethereum host. */
   l1ChainId: number;
   /** The version of the rollup. */
-  version: number;
+  rollupVersion: number;
   /** The address to the L1 contracts. */
   l1Contracts: {
     /** The address to rollup */

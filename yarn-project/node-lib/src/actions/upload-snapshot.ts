@@ -14,7 +14,7 @@ import { mkdtemp } from 'fs/promises';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-type UploadSnapshotConfig = Pick<ChainConfig, 'l1ChainId' | 'version'> & Pick<DataStoreConfig, 'dataDirectory'>;
+type UploadSnapshotConfig = Pick<ChainConfig, 'l1ChainId' | 'rollupVersion'> & Pick<DataStoreConfig, 'dataDirectory'>;
 
 /**
  * Pauses the archiver and world state sync, creates backups of the archiver and world state lmdb environments,
@@ -64,7 +64,7 @@ async function buildSnapshotMetadata(
 
   return {
     l1ChainId: config.l1ChainId,
-    l2Version: config.version,
+    rollupVersion: config.rollupVersion,
     rollupAddress,
     l2BlockNumber,
     l2BlockHash,

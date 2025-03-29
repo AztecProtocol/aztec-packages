@@ -81,9 +81,9 @@ export async function setupSponsoredFPC(
   const SponsoredFPCContract = await getSponsoredFPCContract();
   const address = await getSponsoredFPCAddress();
   const paymentMethod = new SponsoredFeePaymentMethod(address);
-  const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
+  const { l1ChainId: chainId, rollupVersion } = await pxe.getNodeInfo();
 
-  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
 
   const deployTx = SponsoredFPCContract.deploy(deployer).send({
     contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
