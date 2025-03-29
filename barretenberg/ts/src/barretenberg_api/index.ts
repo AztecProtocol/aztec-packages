@@ -653,6 +653,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async acirProveUltraStarknetHonk(acirVec: Uint8Array, recursive: boolean, witnessVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec, recursive, witnessVec].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_prove_ultra_starknet_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirVerifyUltraHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
@@ -677,6 +689,18 @@ export class BarretenbergApi {
     return out[0];
   }
 
+  async acirVerifyUltraStarknetHonk(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<boolean> {
+    const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
+    const outTypes: OutputType[] = [BoolDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_verify_ultra_starknet_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
   async acirWriteVkUltraHonk(acirVec: Uint8Array, recursive: boolean): Promise<Uint8Array> {
     const inArgs = [acirVec, recursive].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
@@ -694,6 +718,18 @@ export class BarretenbergApi {
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_write_vk_ultra_keccak_honk',
+      inArgs,
+      outTypes.map(t => t.SIZE_IN_BYTES),
+    );
+    const out = result.map((r, i) => outTypes[i].fromBuffer(r));
+    return out[0];
+  }
+
+  async acirWriteVkUltraStarknetHonk(acirVec: Uint8Array, recursive: boolean): Promise<Uint8Array> {
+    const inArgs = [acirVec, recursive].map(serializeBufferable);
+    const outTypes: OutputType[] = [BufferDeserializer()];
+    const result = await this.wasm.callWasmExport(
+      'acir_write_vk_ultra_starknet_honk',
       inArgs,
       outTypes.map(t => t.SIZE_IN_BYTES),
     );
