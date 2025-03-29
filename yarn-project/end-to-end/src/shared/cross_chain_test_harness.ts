@@ -216,7 +216,6 @@ export class CrossChainTestHarness {
     this.l1TokenPortalManager = new L1TokenPortalManager(
       this.tokenPortalAddress,
       this.underlyingERC20Address,
-      this.l1ContractAddresses.feeAssetHandlerAddress,
       this.l1ContractAddresses.outboxAddress,
       this.publicClient,
       this.walletClient,
@@ -227,12 +226,7 @@ export class CrossChainTestHarness {
   }
 
   async mintTokensOnL1(amount: bigint) {
-    const contract = getContract({
-      abi: TestERC20Abi,
-      address: this.l1TokenManager.tokenAddress.toString(),
-      client: this.walletClient,
-    });
-    await contract.write.mint([this.ethAccount.toString(), amount]);
+    await this.l1TokenManager.mint(amount, this.ethAccount.toString());
     expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
   }
 
