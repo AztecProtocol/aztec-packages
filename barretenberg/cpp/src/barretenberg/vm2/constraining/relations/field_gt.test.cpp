@@ -70,9 +70,9 @@ std::vector<TestParams> comparison_tests = {
     TestParams{ 0, -1, false }
 };
 
-class BasicTest : public TestWithParam<TestParams> {};
+class FieldGreaterThanBasicTest : public TestWithParam<TestParams> {};
 
-TEST_P(BasicTest, BasicComparison)
+TEST_P(FieldGreaterThanBasicTest, BasicComparison)
 {
     const auto& param = GetParam();
 
@@ -92,11 +92,13 @@ TEST_P(BasicTest, BasicComparison)
     check_relation<ff_gt>(trace);
 }
 
-INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest, BasicTest, ::testing::ValuesIn(comparison_tests));
+INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
+                         FieldGreaterThanBasicTest,
+                         ::testing::ValuesIn(comparison_tests));
 
-class InteractionsTests : public TestWithParam<TestParams> {};
+class FieldGreaterThanInteractionsTests : public TestWithParam<TestParams> {};
 
-TEST_P(InteractionsTests, InteractionsWithRangeCheck)
+TEST_P(FieldGreaterThanInteractionsTests, InteractionsWithRangeCheck)
 {
     const auto& param = GetParam();
 
@@ -123,7 +125,9 @@ TEST_P(InteractionsTests, InteractionsWithRangeCheck)
     check_relation<ff_gt>(trace);
 }
 
-INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest, InteractionsTests, ::testing::ValuesIn(comparison_tests));
+INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
+                         FieldGreaterThanInteractionsTests,
+                         ::testing::ValuesIn(comparison_tests));
 
 TEST(FieldGreaterThanConstrainingTest, NegativeManipulatedDecompositions)
 {
