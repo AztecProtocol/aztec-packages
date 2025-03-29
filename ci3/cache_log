@@ -36,7 +36,9 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   publish_pid=$!
   trap 'kill $publish_pid &>/dev/null' EXIT
   if [ "$dup" -eq 1 ]; then
-    tee $outfile
+    tee -a $outfile
+    # Print a second line if the log is long enough.
+    # This is to avoid having to scroll up to see the log id.
     if [ "$(cat $outfile | wc -l)" -ge 16 ]; then
       echo_stderr -e "$log_str"
     fi
