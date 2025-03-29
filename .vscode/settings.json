@@ -187,5 +187,6 @@
     "markdown",
     "HTML (EEx)",
     "HTML (Eex)"
-  ]
+  ],
+  "editor.tabSize": 2
 }
