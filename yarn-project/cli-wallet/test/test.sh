@@ -33,6 +33,7 @@ done
 set -- "${POSITIONAL_ARGS[@]}" # restore positional parameters
 
 export WALLET_DATA_DIRECTORY="${LOCATION}/data"
+export PXE_PROVER="none"
 
 rm -rf $WALLET_DATA_DIRECTORY
 mkdir -p $WALLET_DATA_DIRECTORY

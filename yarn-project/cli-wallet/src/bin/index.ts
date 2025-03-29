@@ -17,7 +17,7 @@ import { PXEWrapper } from '../utils/pxe_wrapper.js';
 const userLog = createConsoleLogger();
 const debugLogger = createLogger('wallet');
 
-const { WALLET_DATA_DIRECTORY = join(homedir(), '.aztec/wallet'), PXE_PROVER = 'none' } = process.env;
+const { WALLET_DATA_DIRECTORY = join(homedir(), '.aztec/wallet') } = process.env;
 
 function injectInternalCommands(program: Command, log: LogFn, db: WalletDB) {
   program
@@ -77,7 +77,12 @@ async function main() {
     .description('Aztec wallet')
     .version(walletVersion)
     .option('-d, --data-dir <string>', 'Storage directory for wallet data', WALLET_DATA_DIRECTORY)
-    .option('-p, --prover <string>', 'wasm|native|none', PXE_PROVER)
+    .addOption(
+      new Option('-p, --prover <string>', 'The type of prover the wallet uses (only applies if not using a remote PXE)')
+        .choices(['wasm', 'native', 'none'])
+        .env('PXE_PROVER')
+        .default('native'),
+    )
     .addOption(
       new Option('--remote-pxe', 'Connect to an external PXE RPC server, instead of the local one')
         .env('REMOTE_PXE')
