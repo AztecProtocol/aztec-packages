@@ -198,11 +198,7 @@ tests:
 
   # Slack testing.
   - regex: "nonsense to match"
-    owners:
-      - *charlie
-
-  - regex: "nonsense to match"
+    error_regex: "something else"
     owners:
       - *charlie
       - *adam
-    error_regex: "something else"

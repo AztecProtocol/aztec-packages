@@ -81,7 +81,7 @@ else
   timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 fi
 timeout_pid=$!
-trap "kill -- -$timeout_pid" SIGTERM SIGINT
+trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
 
@@ -165,6 +165,8 @@ EOF
 
 # Prints a list of test owners based on matching test name pattern, and optional error regex.
 function get_owners {
+  # Attempt to diagnose oddity where sometime owner isn't found.
+  set -x
   entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
 
   # Iterate over each matching entry.
