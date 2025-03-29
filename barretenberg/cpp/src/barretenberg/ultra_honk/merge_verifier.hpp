@@ -13,8 +13,8 @@ namespace bb {
  * @brief Verifier class for the Goblin ECC op queue transcript merge protocol
  *
  */
-template <typename Flavor> class MergeVerifier_ {
-    using Curve = typename Flavor::Curve;
+class MergeVerifier {
+    using Curve = curve::BN254;
     using FF = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using PCS = bb::KZG<Curve>;
@@ -25,12 +25,11 @@ template <typename Flavor> class MergeVerifier_ {
   public:
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeVerifier_();
+    explicit MergeVerifier();
     bool verify_proof(const HonkProof& proof);
 
   private:
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
-    static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 };
 
 } // namespace bb
