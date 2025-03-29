@@ -140,6 +140,12 @@ export class RollupContract {
     return this.rollup.read.getManaLimit();
   }
 
+  @memoize
+  async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
+    const block = await this.rollup.read.getBlock([0n]);
+    return block.archive;
+  }
+
   getSlasher() {
     return this.rollup.read.getSlasher();
   }
