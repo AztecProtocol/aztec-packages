@@ -46,6 +46,8 @@ class ECCVMFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // Fixed size of the ECCVM circuits used in ClientIVC
+    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
     static constexpr size_t NUM_WIRES = 85;
@@ -527,8 +529,7 @@ class ECCVMFlavor {
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
             if ((fixed_size) && (ECCVM_FIXED_SIZE < dyadic_num_rows)) {
-                info("The ECCVM circuit size has exceeded the fixed upper bound");
-                ASSERT(false);
+                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound");
             }
 
             dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
