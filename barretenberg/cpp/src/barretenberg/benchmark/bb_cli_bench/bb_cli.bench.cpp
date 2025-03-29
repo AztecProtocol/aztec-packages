@@ -52,7 +52,7 @@ void benchmark_bb_cli_user_provided(benchmark::State& state)
     }
 }
 
-BENCHMARK(benchmark_bb_cli_user_provided)->Unit(benchmark::kMillisecond);
+BENCHMARK(benchmark_bb_cli_user_provided)->Iterations(1)->Unit(benchmark::kMillisecond);
 
 } // namespace
 

@@ -49,7 +49,10 @@ function client_ivc_flow {
   local flow_folder="$input_folder/$flow"
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
-  ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
+  function bb_cli_bench {
+    MAIN_ARGS="$*" ./build-op-count-time/bb_cli_bench
+  }
+  bb_cli_bench prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
   echo "$flow has proven."
   local end=$(date +%s%N)
   dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"

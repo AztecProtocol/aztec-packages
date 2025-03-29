@@ -110,6 +110,15 @@
       }
     },
     {
+      "name": "clang16-pic-assert",
+      "displayName": "Release build with Position Independent Code and asserts",
+      "description": "Build with globally installed Clang-16 using Position Independent Code and asserts",
+      "inherits": "clang16-pic",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
+      }
+    },
+    {
       "name": "clang16-dbg",
       "displayName": "Debugging build with Clang-16",
       "description": "Build with globally installed Clang-16 in debug mode",
@@ -568,6 +577,11 @@
       "name": "clang16-pic",
       "inherits": "default",
       "configurePreset": "clang16-pic"
+    },
+    {
+      "name": "clang16-pic-assert",
+      "inherits": "default",
+      "configurePreset": "clang16-pic-assert"
     },
     {
       "name": "default-pic",
