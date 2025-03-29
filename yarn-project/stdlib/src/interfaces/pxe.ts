@@ -129,7 +129,7 @@ export interface PXE {
 
   /**
    * Proves the private portion of a simulated transaction, ready to send to the network
-   * (where valiators prove the public portion).
+   * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
