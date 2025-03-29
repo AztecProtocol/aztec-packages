@@ -308,7 +308,7 @@ case "$cmd" in
       echo "Downloading inputs from commit $1."
       export AZTEC_CACHE_COMMIT=$1
       export DOWNLOAD_ONLY=1
-      # Since this path is most useful when not having done bootstrap,
+      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
       yarn --cwd ../../yarn-project/bb-prover generate
     fi
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
