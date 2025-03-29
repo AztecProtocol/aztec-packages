@@ -14,7 +14,8 @@ namespace bb::avm2::simulation {
 class AluInterface {
   public:
     virtual ~AluInterface() = default;
-    virtual void add(ContextInterface&, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) = 0;
+    // I'd like to return a ValueRefAndTag, but the MemoryValue& doesnt live long enough.
+    virtual FF add(const ValueRefAndTag& a, const ValueRefAndTag& b) = 0;
 };
 
 class Alu : public AluInterface {
@@ -23,8 +24,7 @@ class Alu : public AluInterface {
         : events(event_emitter)
     {}
 
-    // Operands are expected to be direct.
-    void add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr) override;
+    FF add(const ValueRefAndTag& a, const ValueRefAndTag& b) override;
 
   private:
     EventEmitterInterface<AluEvent>& events;

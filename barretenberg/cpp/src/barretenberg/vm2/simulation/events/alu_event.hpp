@@ -14,12 +14,16 @@ enum class AluOperation {
 
 struct AluEvent {
     AluOperation operation;
-    MemoryAddress a_addr;
-    MemoryAddress b_addr;
-    MemoryAddress dst_addr;
     MemoryValue a;
     MemoryValue b;
-    MemoryValue res;
+    MemoryValue c;
+    // Only need single tag info here (check this for MOV or CAST )
+    // For operations that have a specific output tag (e.g., EQ/LT), the output tag is unambiguous
+    // We still might prefer to include tags per operands to simply tracegen...
+    MemoryTag tag;
+    // To be used with deduplicating event emitters.
+    using Key = std::tuple<AluOperation, MemoryValue, MemoryValue, MemoryValue, MemoryTag>;
+    Key get_key() const { return { operation, a, b, c, tag }; }
 };
 
 } // namespace bb::avm2::simulation

@@ -19,6 +19,8 @@ constexpr size_t operand_columns = 4;
 
 } // namespace
 
+// TODO: Currently we accept the execution opcode, we need a way to map this to the actual selector for the circuit
+// we should be able to leverage the instruction specification table for this
 void ExecutionTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& orig_events, TraceContainer& trace)
 {
