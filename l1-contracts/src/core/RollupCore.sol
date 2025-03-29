@@ -2,8 +2,10 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
+import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
+  IRollup,
   IRollupCore,
   ITestRollup,
   CheatDepositArgs,
@@ -65,7 +67,7 @@ contract RollupCore is
   bool public checkBlob = true;
 
   constructor(
-    IFeeJuicePortal _fpcJuicePortal,
+    IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     address _governance,
@@ -85,14 +87,21 @@ contract RollupCore is
     RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.config.proofSubmissionWindow = _config.aztecProofSubmissionWindow;
-    rollupStore.config.feeAsset = _fpcJuicePortal.UNDERLYING();
-    rollupStore.config.feeAssetPortal = _fpcJuicePortal;
+    rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = new MockVerifier();
-    rollupStore.config.version = 1;
+    // @todo handle case where L1 forks and chainid is different
+    rollupStore.config.version =
+      uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))));
     rollupStore.config.inbox =
       IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
+
+    rollupStore.config.feeAssetPortal = IFeeJuicePortal(
+      new FeeJuicePortal(
+        IRollup(address(this)), _feeAsset, rollupStore.config.inbox, rollupStore.config.version
+      )
+    );
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
