@@ -64,7 +64,7 @@ describe('Synchronizer', () => {
       type: 'blocks-added',
       blocks: await timesParallel(5, randomPublishedL2Block),
     });
-    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', blockNumber: 3 });
+    await synchronizer.handleBlockStreamEvent({ type: 'chain-pruned', block: { number: 3, hash: '0x3' } });
 
     expect(removeNotesAfter).toHaveBeenCalledWith(3);
     expect(unnullifyNotesAfter).toHaveBeenCalledWith(3, 4);
