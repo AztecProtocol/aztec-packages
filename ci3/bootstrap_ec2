@@ -68,7 +68,7 @@ if [ -n "$existing_instance" ]; then
 fi
 
 # Request new instance.
-ip_sir=$(KEY_NAME=$key_name aws_request_instance $instance_name $cores $arch)
+ip_sir=$(KEY_NAME=$key_name NO_SPOT=${CI_NIGHTLY:-0} aws_request_instance $instance_name $cores $arch)
 IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
@@ -128,6 +128,7 @@ container_script=$(cat <<EOF
   source ci3/source_refname
   source ci3/source_redis
   ci_log_id=\$(log_ci_run)
+  export PARENT_LOG_URL=http://ci.aztec-labs.com/\$ci_log_id
 
   # Heartbeat.
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &

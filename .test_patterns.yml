@@ -52,7 +52,6 @@ tests:
     error_regex: "verified: false"
     owners:
       - *sergei
-
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
@@ -69,13 +68,13 @@ tests:
     skip: true
     owners:
       - *charlie
-
   # Sometimes see this on ARM. But not when run on it's own...
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
     owners:
       - *charlie
 
+  # e2e tests
   - regex: "simple e2e_p2p"
     error_regex: "could not listen on any available address"
     owners:
@@ -92,14 +91,9 @@ tests:
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-
   - regex: "simple e2e_fees/private_payments"
     owners:
       - *phil
-
-  - regex: "simple e2e_cheat_codes"
-    owners:
-      - *lasse
   - regex: "simple e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
@@ -116,7 +110,6 @@ tests:
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-
   - regex: "simple e2e_block_building"
     error_regex: "Cannot read properties of undefined"
     owners:
@@ -129,22 +122,10 @@ tests:
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "prover-client/src/test/bb_prover_parity.test.ts"
-    owners:
-      - *palla
-  - regex: "prover-client/src/proving_broker/broker_prover_facade.test.ts"
-    owners:
-      - *palla
-  - regex: "prover-client/src/orchestrator/orchestrator_errors.test.ts"
-    owners:
-      - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     error_regex: "Timeout: Failed to connect to"
-    owners:
-      - *sean
-  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     owners:
       - *sean
   - regex: "p2p/src/client/p2p_client.test.ts"
@@ -155,12 +136,6 @@ tests:
     error_regex: "Timeout waiting for worker"
     owners:
       - *sean
-  - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
-    owners:
-      - *lasse
-  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
-    owners:
-      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -196,23 +171,23 @@ tests:
 
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
-      - *leila
+      - *mitch
 
   - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     owners:
-      - *adam
+      - *mitch
 
   - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
     owners:
-      - *adam
+      - *mitch
 
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
-      - *adam
+      - *mitch
 
   - regex: "spartan/bootstrap.sh test-prod-deployment"
     owners:
-      - *adam
+      - *mitch
 
   # aztec-up
   - regex: "aztec-up/scripts/run_test.sh"
