@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-if [ $# -ne 2 || $# -ne 3 ]; then
+if [[ $# -ne 2 && $# -ne 3 ]]; then
   echo "Usage: $0 <input_folder> <output_folder> <max_jobs?>"
   exit 1
 fi

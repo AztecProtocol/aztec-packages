@@ -212,10 +212,6 @@ function bench {
 
   rm -rf bench-out && mkdir -p bench-out
 
-  # A bit pattern breaking, but the best code to instrument our private IVC flows exists in yarn-project,
-  # while the best code for benchmarking these IVC flows exists here.
-  ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-
   # Ultra honk.
   function ultra_honk_release {
     ./build/bin/ultra_honk_bench \
@@ -256,34 +252,6 @@ function bench {
         --benchmark_out=./bench-out/client_ivc_wasm.json \
         --benchmark_filter="ClientIVCBench/Full/6$"
   }
-  function client_ivc_flow {
-    set -eu
-    local flow=$1
-    local inputs_folder="$capture_ivc_folder/$flow"
-    local start=$(date +%s%N)
-    mkdir -p "bench-out/$flow-proof-files"
-    # TODO(AD) this should verify but doesn't!
-    if [ "$flow" == "amm-add-liquidity" ]; then
-      set +e
-    fi
-    ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$inputs_folder/acir.msgpack" -w "$inputs_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
-    set -e
-    echo "$flow has proven."
-    local end=$(date +%s%N)
-    local elapsed_ns=$(( end - start ))
-    local elapsed_ms=$(( elapsed_ns / 1000000 ))
-    cat > "./bench-out/$flow-ivc.json" <<EOF
-    {
-      "benchmarks": [
-      {
-        "name": "$flow-ivc-proof",
-        "time_unit": "ms",
-        "real_time": ${elapsed_ms}
-      }
-      ]
-    }
-EOF
-  }
 
   function run_benchmark {
     set -eu
@@ -293,7 +261,7 @@ EOF
     taskset -c $start_core-$end_core bash -c "$2"
   }
 
-  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm client_ivc_flow run_benchmark
+  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm run_benchmark
 
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
@@ -331,17 +299,20 @@ case "$cmd" in
     build
     test
     ;;
-  download_e2e_ivc_inputs)
+  e2e_ivc_bench)
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-    export AZTEC_CACHE_COMMIT=${1:-origin/master}
-
-    # Error if the inputs are not found in cache.
-    export DOWNLOAD_ONLY=${DOWNLOAD_ONLY:-1}
+    if [ -n "${1:-}" ]; then
+      echo "Downloading inputs from commit $1."
+      export AZTEC_CACHE_COMMIT=$1
+      export DOWNLOAD_ONLY=1
+      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
+      yarn --cwd ../../yarn-project/bb-prover generate
+    fi
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-    echo "Downloaded inputs for private flows to $capture_ivc_folder"
+    ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
     ;;
   "hash")
     echo $hash
