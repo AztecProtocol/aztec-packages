@@ -42,43 +42,88 @@ fi
 # Load the Docker image into kind
 flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
-function show_status_until_pxe_ready {
-  set +x   # don't spam with our commands
-  sleep 15 # let helm upgrade start
-  for i in {1..100}; do
-    echo "--- Pod status ---"
-    kubectl get pods -n "$namespace"
+# Simple function to check status and display logs
+function monitor_status_logs {
+  # Create a status monitoring process that pipes directly to /dev/tty
+  # This bypasses any output capturing/buffering from the parent script
+  (
+    # Disable strict mode inside this subshell
+    set +exuo pipefail
 
+    # Redirect all output to /dev/tty to force unbuffered output directly to terminal
+    exec > /dev/tty 2> /dev/tty
 
-    # Show pod events
-    echo "--- Recent Pod Events ---"
-    kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10
+    echo "==== Starting status monitor for namespace $namespace ===="
 
-    # Show pods
-    echo "--- Pod Status ---"
-    kubectl get pods -n "$namespace"
+    for i in {1..100}; do
+      echo -e "\n==== STATUS UPDATE ($i) ====\n"
+      echo "--- Pod status ---"
+      kubectl get pods -n "$namespace" || true
 
+      echo -e "\n--- Recent Pod Events ---"
+      kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10 || true
 
-    # Show logs from validator pods only
-    echo "--- Pod logs ---"
-    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
-      echo "Logs from $pod:"
-      kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
-      echo "-------------------"
+      echo -e "\n--- Pod logs ---"
+      for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+        echo -e "\nLogs from $pod:"
+        kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
+        echo "-------------------"
+      done
+
+      if kubectl wait pod -l app!=setup-l2-contracts -l app.kubernetes.io/instance="$helm_instance" --for=condition="Ready" -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
+        echo -e "\n==== All pods are ready! Looking for setup-l2-contracts information... ====\n"
+
+        # Check if there are any setup-l2-contracts pods currently existing
+        if kubectl get pods -n "$namespace" -l app=setup-l2-contracts -o name 2>/dev/null | grep -q "pod"; then
+          echo -e "\n=== setup-l2-contracts Logs (Active) ===\n"
+
+          # Find all setup-l2-contracts pods and show their logs
+          for l2_pod in $(kubectl get pods -n "$namespace" -l app=setup-l2-contracts -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || echo ""); do
+            echo -e "\nLogs from $l2_pod:"
+            kubectl logs --tail=50 -n "$namespace" $l2_pod 2>/dev/null || echo "Cannot get logs from $l2_pod"
+            echo -e "\n-------------------\n"
+
+            # Check pod status
+            echo "Status of $l2_pod:"
+            kubectl get pod $l2_pod -n "$namespace" -o wide || true
+            echo -e "\n-------------------\n"
+          done
+
+          # Check if setup-l2-contracts job is complete
+          echo "Status of setup-l2-contracts job:"
+          kubectl get job -l app=setup-l2-contracts -n "$namespace" || true
+        else
+          # Check completed pods in case the job has finished but got deleted due to hook-delete-policy
+          echo -e "\n=== Looking for completed setup-l2-contracts pods ===\n"
+
+          # Try to find logs from completed pods that might be in the logs
+          echo "Checking for setup-l2-contracts in events:"
+          kubectl get events -n "$namespace" | grep -i "setup-l2-contracts" || echo "No setup-l2-contracts events found"
+
+          echo -e "\nChecking if the job completed successfully:"
+          kubectl get jobs -n "$namespace" | grep -i "setup-l2-contracts" || echo "No setup-l2-contracts job found - it may have been deleted after successful completion due to hook-delete-policy"
+        fi
+
+        echo -e "\n==== All pods are ready! Stopping log monitor. ====\n"
+        break
+      fi
+
+      sleep 5
     done
+  ) &
 
-
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
-      break # we are up, stop showing status
-    fi
-
-  done
+  # Store PID for cleanup
+  status_monitor_pid=$!
 }
 
-show_status_until_pxe_ready &
+# Run the status monitoring function
+monitor_status_logs
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
+  trap - SIGTERM
+  kill $status_monitor_pid 2>/dev/null || true
+  kill $(jobs -p) 2>/dev/null || true
+  rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
