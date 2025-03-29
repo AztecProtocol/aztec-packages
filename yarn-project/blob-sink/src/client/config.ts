@@ -14,7 +14,7 @@ export interface BlobSinkConfig extends BlobSinkArchiveApiConfig {
   /**
    * List of URLs for L1 RPC Execution clients
    */
-  l1RpcUrls?: string[];
+  l1RpcUrls: string[];
 
   /**
    * The URL of the L1 consensus client
@@ -41,6 +41,7 @@ export const blobSinkConfigMapping: ConfigMappingsType<BlobSinkConfig> = {
     env: 'ETHEREUM_HOSTS',
     description: 'List of URLs for L1 RPC Execution clients',
     parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
   },
   l1ConsensusHostUrl: {
     env: 'L1_CONSENSUS_HOST_URL',

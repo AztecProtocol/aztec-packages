@@ -1,5 +1,5 @@
 import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresses';
-import type { ConfigMappingsType } from '@aztec/foundation/config';
+import { type ConfigMappingsType, safeParsePositiveInteger } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
 export { type AllowedElement, type SequencerConfig, SequencerConfigSchema } from '../interfaces/configs.js';
@@ -20,7 +20,7 @@ export const chainConfigMappings: ConfigMappingsType<ChainConfig> = {
   version: {
     env: 'VERSION',
     description: 'The version of the rollup.',
-    parseEnv: (val: string) => (Number.isSafeInteger(parseInt(val, 10)) ? parseInt(val, 10) : undefined),
+    parseEnv: (val: string) => safeParsePositiveInteger(val),
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',

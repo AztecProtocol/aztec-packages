@@ -30,7 +30,7 @@ export type BotConfig = {
   /** URL to the PXE for sending txs, or undefined if an in-proc PXE is used. */
   pxeUrl: string | undefined;
   /** Url of the ethereum host. */
-  l1RpcUrls: string[] | undefined;
+  l1RpcUrls: string[];
   /** The mnemonic for the account to bridge fee juice from L1. */
   l1Mnemonic: string | undefined;
   /** The private key for the account to bridge fee juice from L1. */
@@ -82,7 +82,7 @@ export const BotConfigSchema = z
     nodeUrl: z.string().optional(),
     nodeAdminUrl: z.string().optional(),
     pxeUrl: z.string().optional(),
-    l1RpcUrls: z.array(z.string()).optional(),
+    l1RpcUrls: z.array(z.string()),
     l1Mnemonic: z.string().optional(),
     l1PrivateKey: z.string().optional(),
     senderPrivateKey: schemas.Fr.optional(),
@@ -110,7 +110,6 @@ export const BotConfigSchema = z
     nodeUrl: undefined,
     nodeAdminUrl: undefined,
     pxeUrl: undefined,
-    l1RpcUrls: undefined,
     l1Mnemonic: undefined,
     l1PrivateKey: undefined,
     senderPrivateKey: undefined,

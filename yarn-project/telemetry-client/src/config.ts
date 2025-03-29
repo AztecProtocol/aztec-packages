@@ -13,17 +13,17 @@ export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientCo
   metricsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'The URL of the telemetry collector for metrics',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => (val ? new URL(val) : undefined),
   },
   tracesCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT',
     description: 'The URL of the telemetry collector for traces',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => (val ? new URL(val) : undefined),
   },
   logsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT',
     description: 'The URL of the telemetry collector for logs',
-    parseEnv: (val: string) => val && new URL(val),
+    parseEnv: (val: string) => (val ? new URL(val) : undefined),
   },
   otelCollectIntervalMs: {
     env: 'OTEL_COLLECT_INTERVAL_MS',

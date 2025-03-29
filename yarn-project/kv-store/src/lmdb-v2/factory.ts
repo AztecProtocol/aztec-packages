@@ -25,7 +25,7 @@ export async function createStore(
     const subDir = join(dataDirectory, name);
     await mkdir(subDir, { recursive: true });
 
-    const rollupAddress = l1Contracts ? l1Contracts.rollupAddress : EthAddress.ZERO;
+    const rollupAddress = l1Contracts.rollupAddress ?? EthAddress.ZERO;
 
     // Create a version manager
     const versionManager = new DatabaseVersionManager(schemaVersion, rollupAddress, subDir, dbDirectory =>

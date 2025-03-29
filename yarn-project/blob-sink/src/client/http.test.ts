@@ -1,24 +1,34 @@
 import { Blob, type BlobJson } from '@aztec/blob-lib';
 import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import http from 'http';
 import type { AddressInfo } from 'net';
 
+import { MemoryBlobStore } from '../blobstore/memory_blob_store.js';
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
 import { HttpBlobSinkClient } from './http.js';
 
 describe('HttpBlobSinkClient', () => {
   runBlobSinkClientTests(async () => {
-    const server = new BlobSinkServer({
-      port: 0,
-    });
+    const server = new BlobSinkServer(
+      {
+        l1RpcUrls: [],
+        rollupAddress: EthAddress.ZERO,
+        port: 0,
+        l1ChainId: 31337,
+      },
+      new MemoryBlobStore(),
+    );
     await server.start();
 
     const client = new HttpBlobSinkClient({
       blobSinkUrl: `http://localhost:${server.port}`,
+      l1RpcUrls: [],
+      l1ChainId: 31337,
     });
 
     return {
@@ -30,7 +40,7 @@ describe('HttpBlobSinkClient', () => {
   });
 
   it('should handle server connection errors gracefully', async () => {
-    const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
+    const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345', l1RpcUrls: [], l1ChainId: 31337 }); // Invalid port
     const blob = await Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
@@ -157,9 +167,15 @@ describe('HttpBlobSinkClient', () => {
 
     // When the consensus host is not responding, we should still be able to request blobs with the block hash
     it('should handle no consensus host', async () => {
-      blobSinkServer = new BlobSinkServer({
-        port: 0,
-      });
+      blobSinkServer = new BlobSinkServer(
+        {
+          port: 0,
+          l1RpcUrls: [],
+          rollupAddress: EthAddress.ZERO,
+          l1ChainId: 31337,
+        },
+        new MemoryBlobStore(),
+      );
       await blobSinkServer.start();
 
       const blobSinkSpy = jest.spyOn((blobSinkServer as any).blobStore, 'getBlobSidecars');
@@ -169,6 +185,7 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ChainId: 31337,
       });
 
       const success = await client.sendBlobsToBlobSink('0x1234', [testEncodedBlob]);
@@ -190,6 +207,7 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1ChainId: 31337,
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
@@ -203,6 +221,7 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1ChainId: 31337,
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
@@ -217,6 +236,7 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1ChainId: 31337,
       });
 
       // Add spy on the fetch method
@@ -240,7 +260,11 @@ describe('HttpBlobSinkClient', () => {
     });
 
     it('should fall back to archive client', async () => {
-      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `http://api.blobscan.com` });
+      const client = new TestHttpBlobSinkClient({
+        archiveApiUrl: `http://api.blobscan.com`,
+        l1RpcUrls: [],
+        l1ChainId: 31337,
+      });
       const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);

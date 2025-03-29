@@ -39,7 +39,7 @@ export const faucetConfigMapping: ConfigMappingsType<FaucetConfig> = {
   l1Assets: {
     env: 'FAUCET_L1_ASSETS',
     description: 'Which other L1 assets the faucet is able to drip',
-    defaultValue: '',
+    defaultValue: [],
     parseEnv(val): L1AssetConfig[] {
       const assetConfigs = val.split(',');
       return assetConfigs.flatMap(assetConfig => {

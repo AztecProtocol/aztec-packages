@@ -19,6 +19,7 @@ export const l1ReaderConfigMappings: ConfigMappingsType<L1ReaderConfig> = {
     env: 'ETHEREUM_HOSTS',
     description: 'The RPC Url of the ethereum host.',
     parseEnv: (val: string) => val.split(',').map(url => url.trim()),
+    defaultValue: [],
   },
   l1ChainId: {
     env: 'L1_CHAIN_ID',

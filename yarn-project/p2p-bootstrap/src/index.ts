@@ -1,3 +1,4 @@
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import { type BootnodeConfig, BootstrapNode } from '@aztec/p2p';
@@ -18,7 +19,18 @@ async function main(
   telemetryClient: TelemetryClient = getTelemetryClient(),
   logger = debugLogger,
 ) {
-  const store = await createStore('p2p-bootstrap', 1, config, logger);
+  const store = await createStore(
+    'p2p-bootstrap',
+    1,
+    {
+      dataStoreMapSizeKB: config.dataStoreMapSizeKB,
+      dataDirectory: config.dataDirectory,
+      l1Contracts: {
+        rollupAddress: EthAddress.ZERO,
+      },
+    },
+    logger,
+  );
 
   const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);

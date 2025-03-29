@@ -13,7 +13,8 @@ export type BlobSinkConfig = {
   port?: number;
   archiveApiUrl?: string;
 } & BlobSinkArchiveApiConfig &
-  Partial<Pick<L1ReaderConfig, 'l1RpcUrls'> & Pick<L1ContractAddresses, 'rollupAddress'>> &
+  Pick<L1ReaderConfig, 'l1RpcUrls'> &
+  Pick<L1ContractAddresses, 'rollupAddress'> &
   Partial<DataStoreConfig>;
 
 export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
@@ -22,10 +23,10 @@ export const blobSinkConfigMappings: ConfigMappingsType<BlobSinkConfig> = {
     description: 'The port to run the blob sink server on',
   },
 
+  ...dataConfigMappings,
   ...blobSinkArchiveApiConfigMappings,
   ...pickConfigMappings(l1ReaderConfigMappings, ['l1RpcUrls']),
   ...pickConfigMappings(l1ContractAddressesMapping, ['rollupAddress']),
-  ...dataConfigMappings,
 };
 
 /**

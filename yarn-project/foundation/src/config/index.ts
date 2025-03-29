@@ -2,14 +2,14 @@ import type { EnvVar } from './env_var.js';
 
 export { type EnvVar } from './env_var.js';
 
-export interface ConfigMapping {
+export interface ConfigMapping<T> {
   env?: EnvVar;
-  parseEnv?: (val: string) => any;
-  defaultValue?: any;
+  parseEnv?: (val: string) => T;
+  defaultValue?: T;
   printDefault?: (val: any) => string;
   description: string;
   isBoolean?: boolean;
-  nested?: Record<string, ConfigMapping>;
+  nested?: T extends object ? ConfigMappingsType<T> : undefined;
   fallback?: EnvVar[];
 }
 
@@ -17,7 +17,9 @@ export function isBooleanConfigValue<T>(obj: T, key: keyof T): boolean {
   return typeof obj[key] === 'boolean';
 }
 
-export type ConfigMappingsType<T> = Record<keyof T, ConfigMapping>;
+export type ConfigMappingsType<T> = {
+  [K in keyof T]: ConfigMapping<T[K]>;
+};
 
 /**
  * Shared utility function to get a value from environment variables with fallback support.
@@ -98,7 +100,7 @@ export function omitConfigMappings<T, K extends keyof T>(
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping<number>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => safeParseNumber(val, defaultVal),
     defaultValue: defaultVal,
@@ -110,7 +112,11 @@ export function numberConfigHelper(defaultVal: number): Pick<ConfigMapping, 'par
  * @param defaultVal - The default numerical value to use if the environment variable is not set or is invalid
  * @returns Object with parseEnv and default values for a numerical config value
  */
-export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'parseEnv' | 'defaultValue'> {
+export function bigintConfigHelper(defaultVal: bigint): Pick<ConfigMapping<bigint>, 'parseEnv' | 'defaultValue'>;
+export function bigintConfigHelper(): Pick<ConfigMapping<undefined>, 'parseEnv' | 'defaultValue'>;
+export function bigintConfigHelper(
+  defaultVal?: bigint,
+): Pick<ConfigMapping<bigint | undefined>, 'parseEnv' | 'defaultValue'> {
   return {
     parseEnv: (val: string) => {
       if (val === '') {
@@ -125,7 +131,7 @@ export function bigintConfigHelper(defaultVal?: bigint): Pick<ConfigMapping, 'pa
 /**
  * Generates parseEnv for an optional numerical config value.
  */
-export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
+export function optionalNumberConfigHelper(): Pick<ConfigMapping<number | undefined>, 'parseEnv'> {
   return {
     parseEnv: (val: string | undefined) => {
       if (val !== undefined && val.length > 0) {
@@ -144,7 +150,9 @@ export function optionalNumberConfigHelper(): Pick<ConfigMapping, 'parseEnv'> {
  */
 export function booleanConfigHelper(
   defaultVal = false,
-): Required<Pick<ConfigMapping, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }> {
+): Required<
+  Pick<ConfigMapping<boolean>, 'parseEnv' | 'defaultValue' | 'isBoolean'> & { parseVal: (val: string) => boolean }
+> {
   const parse = (val: string | boolean) => (typeof val === 'boolean' ? val : parseBooleanEnv(val));
   return {
     parseEnv: parse,
@@ -169,6 +177,24 @@ export function parseBooleanEnv(val: string | undefined): boolean {
 function safeParseNumber(value: string, defaultValue: number): number {
   const parsedValue = parseInt(value, 10);
   return Number.isSafeInteger(parsedValue) ? parsedValue : defaultValue;
+}
+
+/**
+ * Safely parses a positive integer from a string.
+ * If the value is not a number or is not a safe integer, the default value is returned.
+ * @param value - The string value to parse
+ * @param defaultValue - The default value to return
+ * @returns Either parsed value or default value
+ */
+export function safeParsePositiveInteger(value: string): number;
+export function safeParsePositiveInteger(value: string, defaultValue: number): number;
+export function safeParsePositiveInteger(value: string, defaultValue?: number): number | undefined {
+  // Check value has no non-numeric characters
+  if (!/^\d+$/.test(value)) {
+    throw new Error('Value must be a positive integer: ' + value);
+  }
+  const parsedValue = parseInt(value, 10);
+  return Number.isSafeInteger(parsedValue) && parsedValue > 0 ? parsedValue : defaultValue;
 }
 
 /**

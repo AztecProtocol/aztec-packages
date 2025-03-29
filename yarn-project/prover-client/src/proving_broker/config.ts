@@ -115,8 +115,10 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
     parseEnv: (val: string) =>
       val
         .split(',')
-        .map(v => ProvingRequestType[v as any])
-        .filter(v => typeof v === 'number'),
+        // need to cast V because it's a string and the reverse mapping the TS creates assumes you want to go from a number to its name
+        // and the value needs to be cast back to a value of the enum because of the reason (the reverse map goes from number to string, we don't want the string, but the value)
+        .map(v => ProvingRequestType[v as any] as unknown as ProvingRequestType | undefined)
+        .filter((v): v is ProvingRequestType => typeof v !== 'undefined'),
   },
   proverBrokerUrl: {
     env: 'PROVER_BROKER_HOST',
