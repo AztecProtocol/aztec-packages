@@ -54,9 +54,8 @@ export async function startNode(
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
 
-  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
 
-  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   // Deploy contracts if needed
@@ -73,7 +72,6 @@ export async function startNode(
     await deployContractsToL1(nodeConfig, account!, undefined, {
       assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
       salt: nodeSpecificOptions.deployAztecContractsSalt,
-      genesisBlockHash,
       genesisArchiveRoot,
     });
   }

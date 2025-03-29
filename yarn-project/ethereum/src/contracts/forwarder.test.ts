@@ -54,7 +54,6 @@ describe('Forwarder', () => {
       protocolContractTreeRoot,
       l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
 
     govProposerAddress = deployed.l1ContractAddresses.governanceProposerAddress;

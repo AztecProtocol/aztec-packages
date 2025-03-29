@@ -1,36 +1,39 @@
 use crate::{
-    abis::previous_rollup_data::PreviousRollupData,
+    abis::{block_root_rollup_data::BlockRootRollupData, previous_rollup_data::PreviousRollupData},
     merge::utils::validate_consecutive_rollups::validate_consecutive_rollups,
 };
-use parity_lib::root::root_rollup_parity_input::RootRollupParityInput;
-use types::{abis::sponge_blob::SpongeBlob, block_header::BlockHeader, proof::traits::Verifiable};
+use types::{
+    abis::{append_only_tree_snapshot::AppendOnlyTreeSnapshot, sponge_blob::SpongeBlob},
+    merkle_tree::membership::check_membership,
+    proof::traits::Verifiable,
+    traits::Hash,
+};
 
 pub struct BlockRootRollupInputsValidator<let NUM_ROLLUPS: u32, let N: u32> {
     previous_rollups: [PreviousRollupData; NUM_ROLLUPS],
     allowed_vk_indices: [u32; N],
-    l1_to_l2_roots: RootRollupParityInput,
-    previous_block_header: BlockHeader,
+    data: BlockRootRollupData,
 }
 
 impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUPS, N> {
     pub fn new(
         previous_rollups: [PreviousRollupData; NUM_ROLLUPS],
         allowed_vk_indices: [u32; N],
-        l1_to_l2_roots: RootRollupParityInput,
-        previous_block_header: BlockHeader,
+        data: BlockRootRollupData,
     ) -> Self {
-        BlockRootRollupInputsValidator {
-            previous_rollups,
-            allowed_vk_indices,
-            l1_to_l2_roots,
-            previous_block_header,
-        }
+        BlockRootRollupInputsValidator { previous_rollups, data, allowed_vk_indices }
     }
 
     pub fn validate(self) {
+        assert(NUM_ROLLUPS != 0);
+
         self.validate_root_parity_proof();
         self.validate_rollup_proofs();
         self.validate_first_rollup();
+
+        let previous_archive =
+            self.previous_rollups[0].base_or_merge_rollup_public_inputs.constants.last_archive;
+        self.validate_previous_block_header(previous_archive);
 
         if NUM_ROLLUPS == 1 {
             assert_eq(
@@ -48,18 +51,23 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         }
     }
 
-    pub fn validate_without_previous_rollups(self, is_padding: bool) {
+    pub fn validate_without_previous_rollups(
+        self,
+        is_padding: bool,
+        previous_archive: AppendOnlyTreeSnapshot,
+    ) {
         assert(NUM_ROLLUPS == 0);
 
         if !is_padding {
             self.validate_root_parity_proof();
+            self.validate_previous_block_header(previous_archive);
         }
     }
 
     fn validate_root_parity_proof(self) {
         if !dep::std::runtime::is_unconstrained() {
-            self.l1_to_l2_roots.verify();
-            self.l1_to_l2_roots.validate_in_vk_tree();
+            self.data.l1_to_l2_roots.verify();
+            self.data.l1_to_l2_roots.validate_in_vk_tree();
         }
     }
 
@@ -77,7 +85,7 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
 
         assert_eq(
             first_rollup.start,
-            self.previous_block_header.state.partial,
+            self.data.previous_block_header.state.partial,
             "the start state of the block's first tx does not match the state in previous header",
         );
 
@@ -87,6 +95,22 @@ impl<let NUM_ROLLUPS: u32, let N: u32> BlockRootRollupInputsValidator<NUM_ROLLUP
         assert(
             first_rollup.start_sponge_blob.eq(expected_sponge_blob),
             "block's first blob sponge was not empty",
+        );
+    }
+
+    fn validate_previous_block_header(self, previous_archive: AppendOnlyTreeSnapshot) {
+        // Makes sure the hash of the previous block header is the last leaf in the previous archive.
+        let previous_block_hash = self.data.previous_block_header.hash();
+        let last_leaf_index = previous_archive.next_available_leaf_index - 1;
+
+        assert(
+            check_membership(
+                previous_block_hash,
+                last_leaf_index as Field,
+                self.data.previous_archive_sibling_path,
+                previous_archive.root,
+            ),
+            "hash of the previous block header is not the last leaf in the archive tree",
         );
     }
 }

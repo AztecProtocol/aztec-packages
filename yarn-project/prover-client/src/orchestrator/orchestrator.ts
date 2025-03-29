@@ -52,6 +52,7 @@ import { inspect } from 'util';
 import {
   buildBaseRollupHints,
   buildHeaderAndBodyFromTxs,
+  getLastSiblingPath,
   getRootTreeSiblingPath,
   getSubtreeSiblingPath,
   getTreeSnapshot,
@@ -152,6 +153,7 @@ export class ProvingOrchestrator implements EpochProver {
 
     // Get archive snapshot before this block lands
     const lastArchive = await getTreeSnapshot(MerkleTreeId.ARCHIVE, db);
+    const lastArchiveSiblingPath = await getLastSiblingPath(MerkleTreeId.ARCHIVE, db);
     const newArchiveSiblingPath = await getRootTreeSiblingPath(MerkleTreeId.ARCHIVE, db);
 
     const blockProvingState = this.provingState!.startNewBlock(
@@ -160,6 +162,7 @@ export class ProvingOrchestrator implements EpochProver {
       l1ToL2MessageSubtreeSiblingPath,
       l1ToL2MessageTreeSnapshotAfterInsertion,
       lastArchive,
+      lastArchiveSiblingPath,
       newArchiveSiblingPath,
       previousBlockHeader,
     );
@@ -670,12 +673,21 @@ export class ProvingOrchestrator implements EpochProver {
       ),
       async result => {
         provingState.setBlockRootRollupProof(result);
-        const header = await provingState.buildHeaderFromProvingOutputs(logger);
+        const header = await provingState.buildHeaderFromProvingOutputs();
         if (!(await header.hash()).equals(await provingState.block!.header.hash())) {
           logger.error(
-            `Block header mismatch\nCircuit:${inspect(header)}\nComputed:${inspect(provingState.block!.header)}`,
+            `Block header mismatch.\nCircuit: ${inspect(header)}\nComputed: ${inspect(provingState.block!.header)}`,
           );
-          provingState.reject(`Block header hash mismatch`);
+          provingState.reject(`Block header hash mismatch.`);
+        }
+
+        const dbArchiveRoot = provingState.block!.archive.root;
+        const circuitArchiveRoot = result.inputs.newArchive.root;
+        if (!dbArchiveRoot.equals(circuitArchiveRoot)) {
+          logger.error(
+            `New archive root mismatch.\nCircuit: ${result.inputs.newArchive.root}\nComputed: ${dbArchiveRoot}`,
+          );
+          provingState.reject(`New archive root mismatch.`);
         }
 
         logger.debug(`Completed ${rollupType} proof for block ${provingState.block!.number}`);

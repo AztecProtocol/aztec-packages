@@ -43,7 +43,6 @@ describe('Governance', () => {
       protocolContractTreeRoot,
       l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
 
     governance = new GovernanceContract(

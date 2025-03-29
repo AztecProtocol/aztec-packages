@@ -18,7 +18,6 @@ describe('deploy_l1_contracts', () => {
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
   let genesisArchiveRoot: Fr;
-  let genesisBlockHash: Fr;
   let initialValidators: EthAddress[];
   let l2FeeJuiceAddress: Fr;
 
@@ -35,7 +34,6 @@ describe('deploy_l1_contracts', () => {
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
     genesisArchiveRoot = Fr.random();
-    genesisBlockHash = Fr.random();
     initialValidators = times(3, EthAddress.random);
     // Valid AztecAddress represented by its xCoord as a Fr
     l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
@@ -62,7 +60,6 @@ describe('deploy_l1_contracts', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot,
-      genesisBlockHash,
       l2FeeJuiceAddress,
       l1TxConfig: { checkIntervalMs: 100 },
       ...args,
