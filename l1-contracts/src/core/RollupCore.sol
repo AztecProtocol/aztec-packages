@@ -94,7 +94,9 @@ contract RollupCore is
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
     rollupStore.config.version = uint32(
-      uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))))
+      uint256(
+        keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
+      )
     );
     rollupStore.config.inbox =
       IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));

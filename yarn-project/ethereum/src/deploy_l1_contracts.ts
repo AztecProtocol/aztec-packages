@@ -628,6 +628,8 @@ export const deployRollup = async (
 
       txHashes.push(addRollupTxHash);
     }
+  } else {
+    logger.verbose(`Not the owner of the registry, skipping rollup addition`);
   }
 
   await deployer.waitForDeployments();
