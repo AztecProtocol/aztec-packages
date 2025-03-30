@@ -178,6 +178,18 @@ function get_owners {
       # Strip color codes from the log file.
       if sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"; then
         echo "$entry" | jq -r '.owners[]'
+      else
+        {
+          echo "${PIPESTATUS[@]}"
+          echo "FAILED TO MATCH ERROR REGEX."
+          cat $tmp_file | wc -l
+          sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | wc -l
+          echo "${PIPESTATUS[@]}"
+          cat $tmp_file | grep -qE "$error_regex"
+          echo "${PIPESTATUS[@]}"
+          sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"
+          echo "${PIPESTATUS[@]}"
+        } >&2
       fi
     else
       echo "$entry" | jq -r '.owners[]'

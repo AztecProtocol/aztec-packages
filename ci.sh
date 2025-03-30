@@ -71,32 +71,27 @@ function tail_live_instance {
 case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    export CI=1
     bootstrap_ec2
     ;;
   "ec2-no-cache")
-    # Same as ec2, but disable the build and test cache.
-    export CI=1
+    # Disable the build and test cache.
     export NO_CACHE=1
     export USE_TEST_CACHE=0
     bootstrap_ec2
     ;;
   "ec2-test")
-    # Same as ec2, but don't use the test cache.
-    export CI=1
+    # Can use the build cache, but don't use the test cache.
     export USE_TEST_CACHE=0
     bootstrap_ec2
     ;;
   "ec2-shell")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
-    export CI=1
     bootstrap_ec2 "false"
     ;;
   "ec2-grind")
     # Same as ec2-test but repeat it over arg1 instances.
     export DENOISE=1
-    export CI=1
     export CI_FULL=1
     export USE_TEST_CACHE=0
     num=${1:-5}

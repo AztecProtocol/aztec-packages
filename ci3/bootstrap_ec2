@@ -6,6 +6,9 @@ cmd=${1:-"./bootstrap.sh ci"}
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 
+# We're always "in CI" if we're running on a remote instance.
+export CI=1
+
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
