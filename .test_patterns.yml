@@ -53,6 +53,10 @@ tests:
     error_regex: "verified: false"
     owners:
       - *sergei
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Failed to fetch"
+    owners:
+      - *adam
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
@@ -95,6 +99,12 @@ tests:
   - regex: "simple e2e_fees/private_payments"
     owners:
       - *phil
+  # http://ci.aztec-labs.com/7a5104e136578d64
+  # The "loop that wastes 5m" thing.
+  - regex: "simple e2e_fees/failures"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *palla
   - regex: "simple e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
