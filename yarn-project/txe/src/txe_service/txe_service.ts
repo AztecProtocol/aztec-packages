@@ -1,11 +1,11 @@
-import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import type { TypedOracle } from '@aztec/simulator/client';
-import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -53,7 +53,7 @@ export class TXEService {
 
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
-    this.logger.debug('time traveling %s blocks', nBlocks);
+    this.logger.debug({ blocks: nBlocks }, 'Time traveling blocks');
 
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
@@ -85,7 +85,7 @@ export class TXEService {
     } else {
       await (this.typedOracle as TXE).addContractInstance(instance);
       await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
-      this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
+      this.logger.debug({ name: artifact.name, address: instance.address.toString() }, 'Deployed contract');
     }
 
     return toForeignCallResult([
@@ -111,7 +111,7 @@ export class TXEService {
     const publicDataWrites = await Promise.all(
       valuesFr.map(async (value, i) => {
         const storageSlot = startStorageSlotFr.add(new Fr(i));
-        this.logger.debug('Oracle storage write: slot=%s value=%s', storageSlot.toString(), value);
+        this.logger.debug({ slot: storageSlot.toString(), value: value.toString() }, 'Oracle storage write');
         return new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
       }),
     );
@@ -130,7 +130,7 @@ export class TXEService {
     await accountDataProvider.setAccount(completeAddress.address, completeAddress);
     const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
     await addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug('Created account %s', completeAddress.address);
+    this.logger.debug({ address: completeAddress.address.toString() }, 'Created account');
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -138,7 +138,7 @@ export class TXEService {
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
-    this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
+    this.logger.debug({ name: artifact.name, address: instance.address.toString() }, 'Deployed contract');
     await (this.typedOracle as TXE).addContractInstance(instance);
     await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
 
@@ -148,7 +148,7 @@ export class TXEService {
     await accountDataProvider.setAccount(completeAddress.address, completeAddress);
     const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
     await addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug('Created account %s', completeAddress.address);
+    this.logger.debug({ address: completeAddress.address.toString() }, 'Created account');
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -628,25 +628,6 @@ export class TXEService {
       Point.fromFields(fromArray(ephPk)),
     );
     return toForeignCallResult(secret.toFields().map(toSingle));
-  }
-
-  async storePrivateEventLog(
-    contractAddress: ForeignCallSingle,
-    recipient: ForeignCallSingle,
-    eventSelector: ForeignCallSingle,
-    logContent: ForeignCallArray,
-    txHash: ForeignCallSingle,
-    logIndexInTx: ForeignCallSingle,
-  ) {
-    await this.typedOracle.storePrivateEventLog(
-      AztecAddress.fromField(fromSingle(contractAddress)),
-      AztecAddress.fromField(fromSingle(recipient)),
-      EventSelector.fromField(fromSingle(eventSelector)),
-      fromArray(logContent),
-      new TxHash(fromSingle(txHash)),
-      fromSingle(logIndexInTx).toNumber(),
-    );
-    return toForeignCallResult([]);
   }
 
   // AVM opcodes
