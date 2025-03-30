@@ -1,4 +1,4 @@
-import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import { RollupContract, type ViemPublicClient, type ViemWalletClient } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -437,12 +437,15 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
    * @param l2Bridge - Address of the L2 bridge.
    * @param callerOnL1 - Caller address on L1.
    */
-  public getL2ToL1MessageLeaf(
+  public async getL2ToL1MessageLeaf(
     amount: bigint,
     recipient: EthAddress,
     l2Bridge: AztecAddress,
     callerOnL1: EthAddress = EthAddress.ZERO,
-  ): Fr {
+  ): Promise<Fr> {
+    const rollup = new RollupContract(this.publicClient, await this.outbox.read.ROLLUP());
+    const version = Number(await rollup.getVersion());
+
     const content = sha256ToField([
       Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),
       recipient.toBuffer32(),
@@ -451,7 +454,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     ]);
     const leaf = sha256ToField([
       l2Bridge.toBuffer(),
-      new Fr(1).toBuffer(), // aztec version
+      new Fr(version).toBuffer(), // aztec version
       EthAddress.fromString(this.portal.address).toBuffer32() ?? Buffer.alloc(32, 0),
       new Fr(this.publicClient.chain.id).toBuffer(), // chain id
       content.toBuffer(),

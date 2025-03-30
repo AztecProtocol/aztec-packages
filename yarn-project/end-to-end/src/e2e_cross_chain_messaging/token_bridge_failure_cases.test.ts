@@ -1,4 +1,5 @@
 import { EthAddress, Fr, L1Actor, L1ToL2Message, L2Actor } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 
 import { toFunctionSelector } from 'viem';
@@ -8,6 +9,7 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
   const t = new CrossChainMessagingTest('token_bridge_failure_cases');
+  let version: number = 1;
 
   let { crossChainTestHarness, ethAccount, l2Bridge, user1Wallet, user2Wallet, ownerAddress } = t;
 
@@ -19,6 +21,12 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
     ethAccount = crossChainTestHarness.ethAccount;
     l2Bridge = crossChainTestHarness.l2Bridge;
     ownerAddress = crossChainTestHarness.ownerAddress;
+
+    const rollup = new RollupContract(
+      crossChainTestHarness.publicClient,
+      crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
+    );
+    version = Number(await rollup.getVersion());
   }, 300_000);
 
   afterAll(async () => {
@@ -58,7 +66,7 @@ describe('e2e_cross_chain_messaging token_bridge_failure_cases', () => {
 
     const wrongMessage = new L1ToL2Message(
       new L1Actor(crossChainTestHarness.tokenPortalAddress, crossChainTestHarness.publicClient.chain.id),
-      new L2Actor(l2Bridge.address, 1),
+      new L2Actor(l2Bridge.address, version),
       wrongMessageContent,
       claim.claimSecretHash,
       new Fr(claim.messageLeafIndex),

@@ -36,7 +36,6 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 /**
  * @title Rollup
