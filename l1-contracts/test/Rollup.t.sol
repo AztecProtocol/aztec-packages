@@ -292,9 +292,6 @@ contract RollupTest is RollupBase {
   }
 
   function testNonZeroDaFee() public setUpFor("mixed_block_1") {
-    // @todo @lherskind why was this even here?
-    // registry.upgrade(address(0xbeef));
-
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
     bytes memory header = data.header;
