@@ -23,7 +23,6 @@ import {STFLib} from "./STFLib.sol";
 
 struct ProposeArgs {
   bytes32 archive;
-  bytes32 blockHash;
   OracleInput oracleInput;
   bytes header;
   bytes32[] txHashes;
@@ -107,11 +106,8 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    rollupStore.blocks[blockNumber] = BlockLog({
-      archive: _args.archive,
-      blockHash: _args.blockHash,
-      slotNumber: header.globalVariables.slotNumber
-    });
+    rollupStore.blocks[blockNumber] =
+      BlockLog({archive: _args.archive, slotNumber: header.globalVariables.slotNumber});
 
     FeeLib.writeFeeHeader(
       blockNumber,

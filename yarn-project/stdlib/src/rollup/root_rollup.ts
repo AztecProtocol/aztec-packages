@@ -103,8 +103,6 @@ export class RootRollupPublicInputs {
     /** Snapshot of archive tree before/after this rollup been processed */
     public previousArchive: AppendOnlyTreeSnapshot,
     public endArchive: AppendOnlyTreeSnapshot,
-    public previousBlockHash: Fr,
-    public endBlockHash: Fr,
     // This is a u64 in nr, but GlobalVariables contains this as a u64 and is mapped to ts as a field, so I'm doing the same here
     public endTimestamp: Fr,
     public endBlockNumber: Fr,
@@ -120,8 +118,6 @@ export class RootRollupPublicInputs {
     return [
       fields.previousArchive,
       fields.endArchive,
-      fields.previousBlockHash,
-      fields.endBlockHash,
       fields.endTimestamp,
       fields.endBlockNumber,
       fields.outHash,
@@ -158,8 +154,6 @@ export class RootRollupPublicInputs {
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
-      Fr.fromBuffer(reader),
       reader.readArray(AZTEC_MAX_EPOCH_DURATION, FeeRecipient),
       Fr.fromBuffer(reader),
       Fr.fromBuffer(reader),
@@ -191,8 +185,6 @@ export class RootRollupPublicInputs {
     return new RootRollupPublicInputs(
       AppendOnlyTreeSnapshot.random(),
       AppendOnlyTreeSnapshot.random(),
-      Fr.random(),
-      Fr.random(),
       Fr.random(),
       Fr.random(),
       Fr.random(),

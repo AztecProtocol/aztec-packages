@@ -26,7 +26,7 @@ export async function deployL1Contracts(
 
   const initialFundedAccounts = testAccounts ? await getInitialTestAccounts() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(
+  const { genesisArchiveRoot } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
   );
 
@@ -39,7 +39,6 @@ export async function deployL1Contracts(
     salt,
     initialValidators,
     genesisArchiveRoot,
-    genesisBlockHash,
     acceleratedTestDeployments,
     config,
     debugLogger,

@@ -50,7 +50,6 @@ describe('Registry', () => {
       protocolContractTreeRoot,
       l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
     deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress', 'feeAssetHandlerAddress');
@@ -117,7 +116,6 @@ describe('Registry', () => {
         protocolContractTreeRoot,
         l2FeeJuiceAddress,
         genesisArchiveRoot: Fr.random(),
-        genesisBlockHash: Fr.random(),
       },
       deployedAddresses.registryAddress,
       logger,
