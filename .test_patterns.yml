@@ -80,15 +80,12 @@ tests:
     error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/slashing"
-    skip: true
-    owners:
-      - *lasse
-  - regex: "simple e2e_p2p/reqresp"
+  - regex: "simple e2e_p2p"
     error_regex: "TimeoutError"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/upgrade_governance_proposer"
+  - regex: "simple e2e_p2p/slashing"
+    skip: true
     owners:
       - *lasse
   - regex: "simple e2e_p2p/validators_sentinel"
@@ -126,6 +123,10 @@ tests:
       - *palla
   - regex: "simple e2e_block_building"
     error_regex: "Could not retrieve body for block"
+    owners:
+      - *palla
+  - regex: "composed/integration_l1_publisher"
+    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
   - regex: "prover-client/src/test/bb_prover_parity.test.ts"
@@ -172,10 +173,6 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *alex
-  - regex: "ethereum/src/contracts/registry.test.ts"
-    error_regex: "lower than or equal to previous block's timestamp"
-    owners:
-      - *mitch
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
     owners:
@@ -186,12 +183,17 @@ tests:
       - *spyros
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh vite"
+  - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
   # kind tests
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+    owners:
+      - *mitch
+
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
       - *leila

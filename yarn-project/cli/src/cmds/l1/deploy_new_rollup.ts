@@ -29,7 +29,7 @@ export async function deployNewRollup(
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
   const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
 
-  const { payloadAddress, rollup } = await deployNewRollupContracts(
+  const { payloadAddress, rollup, slashFactoryAddress } = await deployNewRollupContracts(
     registryAddress,
     rpcUrls,
     chainId,
@@ -54,6 +54,7 @@ export async function deployNewRollup(
           initialValidators: initialValidators.map(a => a.toString()),
           genesisBlockHash: genesisBlockHash.toString(),
           genesisArchiveRoot: genesisArchiveRoot.toString(),
+          slashFactoryAddress: slashFactoryAddress.toString(),
         },
         null,
         2,
@@ -66,5 +67,6 @@ export async function deployNewRollup(
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
     log(`Genesis block hash: ${genesisBlockHash.toString()}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+    log(`Slash Factory Address: ${slashFactoryAddress.toString()}`);
   }
 }

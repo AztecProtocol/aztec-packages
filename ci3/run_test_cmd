@@ -98,8 +98,8 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       log_info=""
     fi
   else
-    # Extend lifetime of failed test logs.
-    publish_log $((CI_REDIS_EXPIRE * 6))
+    # Extend lifetime of failed test logs to 12 weeks.
+    publish_log $((60 * 60 * 24 * 7 * 12))
   fi
 fi
 
