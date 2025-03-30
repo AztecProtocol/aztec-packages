@@ -183,23 +183,22 @@ tests:
     error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
       - *mitch
-
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *mitch
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
       - *mitch
-
   - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     owners:
       - *mitch
-
   - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
     owners:
       - *mitch
-
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
       - *mitch
-
   - regex: "spartan/bootstrap.sh test-prod-deployment"
     owners:
       - *mitch
