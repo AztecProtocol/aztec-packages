@@ -88,6 +88,10 @@ tests:
     error_regex: "TimeoutError"
     owners:
       - *sean
+  - regex: "simple e2e_p2p/reex"
+    error_regex: "Received promise resolved instead of rejected"
+    owners:
+      - *sean
   - regex: "simple e2e_p2p/slashing"
     skip: true
     owners:
