@@ -53,7 +53,7 @@ export class TXEService {
 
   async advanceBlocksBy(blocks: ForeignCallSingle) {
     const nBlocks = fromSingle(blocks).toNumber();
-    this.logger.debug({ blocks: nBlocks }, 'Time traveling blocks');
+    this.logger.debug('time traveling %s blocks', nBlocks);
 
     for (let i = 0; i < nBlocks; i++) {
       const blockNumber = await this.typedOracle.getBlockNumber();
@@ -85,7 +85,7 @@ export class TXEService {
     } else {
       await (this.typedOracle as TXE).addContractInstance(instance);
       await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
-      this.logger.debug({ name: artifact.name, address: instance.address.toString() }, 'Deployed contract');
+      this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     }
 
     return toForeignCallResult([
@@ -111,14 +111,14 @@ export class TXEService {
     const publicDataWrites = await Promise.all(
       valuesFr.map(async (value, i) => {
         const storageSlot = startStorageSlotFr.add(new Fr(i));
-        this.logger.debug({ slot: storageSlot.toString(), value: value.toString() }, 'Oracle storage write');
+        this.logger.debug('Oracle storage write: slot=%s value=%s', storageSlot.toString(), value);
         return new PublicDataWrite(await computePublicDataTreeLeafSlot(contractAddressFr, storageSlot), value);
       }),
     );
 
     await (this.typedOracle as TXE).addPublicDataWrites(publicDataWrites);
 
-    return toForeignCallResult([toArray(publicDataWrites.map(write => write.value))]);
+    return toForeignCallResult([toArray(publicDataWrites.map((write: PublicDataWrite) => write.value))]);
   }
 
   async createAccount(secret: ForeignCallSingle) {
@@ -130,7 +130,7 @@ export class TXEService {
     await accountDataProvider.setAccount(completeAddress.address, completeAddress);
     const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
     await addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug({ address: completeAddress.address.toString() }, 'Created account');
+    this.logger.debug('Created account %s', completeAddress.address);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -138,7 +138,7 @@ export class TXEService {
   }
 
   async addAccount(artifact: ContractArtifact, instance: ContractInstanceWithAddress, secret: ForeignCallSingle) {
-    this.logger.debug({ name: artifact.name, address: instance.address.toString() }, 'Deployed contract');
+    this.logger.debug('Deployed %s at %s', artifact.name, instance.address);
     await (this.typedOracle as TXE).addContractInstance(instance);
     await (this.typedOracle as TXE).addContractArtifact(instance.currentContractClassId, artifact);
 
@@ -148,7 +148,7 @@ export class TXEService {
     await accountDataProvider.setAccount(completeAddress.address, completeAddress);
     const addressDataProvider = (this.typedOracle as TXE).getAddressDataProvider();
     await addressDataProvider.addCompleteAddress(completeAddress);
-    this.logger.debug({ address: completeAddress.address.toString() }, 'Created account');
+    this.logger.debug('Created account %s', completeAddress.address);
     return toForeignCallResult([
       toSingle(completeAddress.address),
       ...completeAddress.publicKeys.toFields().map(toSingle),
@@ -308,7 +308,7 @@ export class TXEService {
       fromSingle(status).toNumber(),
     );
     const noteLength = noteDatas?.[0]?.note.items.length ?? 0;
-    if (!noteDatas.every(({ note }) => noteLength === note.items.length)) {
+    if (!noteDatas.every(({ note }: { note: { items: unknown[] } }) => noteLength === note.items.length)) {
       throw new Error('Notes should all be the same length.');
     }
 
@@ -319,7 +319,7 @@ export class TXEService {
       isSettled: new Fr(0),
       isTransient: new Fr(1),
     };
-    const flattenData = noteDatas.flatMap(({ nonce, note, index }) => [
+    const flattenData = noteDatas.flatMap(({ nonce, note, index }: { nonce: Fr; note: { items: Fr[] }; index?: number }) => [
       nonce,
       index === undefined ? noteTypes.isTransient : noteTypes.isSettled,
       ...note.items,
