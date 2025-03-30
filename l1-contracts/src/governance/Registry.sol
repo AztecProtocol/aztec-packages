@@ -12,6 +12,7 @@ import {RewardDistributor, IRewardDistributor} from "./RewardDistributor.sol";
 struct RegistryStorage {
   mapping(uint256 version => IRollup rollup) versionToRollup;
   uint256[] versions;
+  address governance;
 }
 
 /**
@@ -28,6 +29,23 @@ contract Registry is IRegistry, Ownable {
     REWARD_DISTRIBUTOR = IRewardDistributor(
       address(new RewardDistributor(_rewardAsset, IRegistry(address(this)), _owner))
     );
+  }
+
+  function addRollup(IRollup _rollup) external override(IRegistry) onlyOwner {
+    uint256 version = _rollup.getVersion();
+    require(
+      address($.versionToRollup[version]) == address(0),
+      Errors.Registry__RollupAlreadyRegistered(address(_rollup))
+    );
+    $.versionToRollup[version] = _rollup;
+    $.versions.push(version);
+
+    emit InstanceAdded(address(_rollup), version);
+  }
+
+  function updateGovernance(address _governance) external override(IRegistry) onlyOwner {
+    $.governance = _governance;
+    emit GovernanceUpdated(_governance);
   }
 
   /**
@@ -58,22 +76,10 @@ contract Registry is IRegistry, Ownable {
    * @return The governance address
    */
   function getGovernance() external view override(IRegistry) returns (address) {
-    return owner();
+    return $.governance;
   }
 
   function getRewardDistributor() external view override(IRegistry) returns (IRewardDistributor) {
     return REWARD_DISTRIBUTOR;
-  }
-
-  function addRollup(IRollup _rollup) public override(IRegistry) onlyOwner {
-    uint256 version = _rollup.getVersion();
-    require(
-      address($.versionToRollup[version]) == address(0),
-      Errors.Registry__RollupAlreadyRegistered(address(_rollup))
-    );
-    $.versionToRollup[version] = _rollup;
-    $.versions.push(version);
-
-    emit InstanceAdded(address(_rollup), version);
   }
 }

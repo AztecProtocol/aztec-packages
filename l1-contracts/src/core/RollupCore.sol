@@ -36,6 +36,7 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
+import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 
 /**
  * @title Rollup
@@ -91,8 +92,10 @@ contract RollupCore is
     rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = new MockVerifier();
     // @todo handle case where L1 forks and chainid is different
-    rollupStore.config.version =
-      uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))));
+    // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
+    rollupStore.config.version = uint32(
+      uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))))
+    );
     rollupStore.config.inbox =
       IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));

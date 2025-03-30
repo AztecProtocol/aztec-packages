@@ -250,12 +250,21 @@ describe('spartan_upgrade_rollup_version', () => {
         ...newAddresses,
       });
 
+      const oldVersion = await new RollupContract(
+        l1PublicClient,
+        originalL1ContractAddresses.rollupAddress.toString(),
+      ).getVersion();
+      const newVersion = await new RollupContract(
+        l1PublicClient,
+        newCanonicalAddresses.rollupAddress.toString(),
+      ).getVersion();
+
       await expect(
-        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, 2),
+        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, oldVersion),
       ).resolves.toEqual(newCanonicalAddresses);
 
       await expect(
-        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, 1),
+        RegistryContract.collectAddresses(l1PublicClient, originalL1ContractAddresses.registryAddress, newVersion),
       ).resolves.toEqual(originalL1ContractAddresses);
 
       const oldRollupTips = await rollup.getTips();

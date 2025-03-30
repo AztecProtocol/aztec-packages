@@ -36,6 +36,7 @@ contract GovernanceProposerBase is Test {
     governanceProposer = new GovernanceProposer(registry, 667, 1000);
     governance = new FakeGovernance(address(governanceProposer));
 
+    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }
 }

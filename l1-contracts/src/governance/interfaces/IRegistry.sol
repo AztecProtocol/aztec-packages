@@ -6,13 +6,16 @@ import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributo
 
 interface IRegistry {
   event InstanceAdded(address indexed instance, uint256 indexed version);
+  event GovernanceUpdated(address indexed governance);
 
-  // docs:start:registry_upgrade
   function addRollup(IRollup _rollup) external;
-  // docs:end:registry_upgrade
+  function updateGovernance(address _governance) external;
+
+  // docs:start:registry_get_canonical_rollup
+  function getCanonicalRollup() external view returns (IRollup);
+  // docs:end:registry_get_canonical_rollup
 
   // docs:start:registry_get_rollup
-  function getCanonicalRollup() external view returns (IRollup);
   function getRollup(uint256 _chainId) external view returns (IRollup);
   // docs:end:registry_get_rollup
 

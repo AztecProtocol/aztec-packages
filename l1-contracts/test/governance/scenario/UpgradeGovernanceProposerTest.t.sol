@@ -82,7 +82,7 @@ contract UpgradeGovernanceProposerTest is TestBase {
     rollup.cheat__InitialiseValidatorSet(initialValidators);
 
     registry.addRollup(IRollup(address(rollup)));
-
+    registry.updateGovernance(address(governance));
     registry.transferOwnership(address(governance));
   }
 

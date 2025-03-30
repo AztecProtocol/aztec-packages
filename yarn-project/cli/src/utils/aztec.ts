@@ -107,7 +107,7 @@ export async function deployNewRollupContracts(
   const chain = createEthereumChain(rpcUrls, chainId);
   const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
 
-  const { payloadAddress, rollup, slashFactoryAddress } = await deployRollupForUpgrade(
+  const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
     clients,
     {
       salt,
@@ -124,7 +124,7 @@ export async function deployNewRollupContracts(
     config,
   );
 
-  return { payloadAddress, rollup, slashFactoryAddress };
+  return { rollup, slashFactoryAddress };
 }
 
 /**
