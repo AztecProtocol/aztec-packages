@@ -36,7 +36,6 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
-    skip: true
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
