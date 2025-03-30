@@ -165,8 +165,6 @@ EOF
 
 # Prints a list of test owners based on matching test name pattern, and optional error regex.
 function get_owners {
-  # Attempt to diagnose oddity where sometime owner isn't found.
-  set -x
   entries=$(yq e -o=json -r 'explode(.) | .tests[] | .regex as $pattern | select(strenv(test_cmd) | test($pattern))' .test_patterns.yml | jq -c .)
 
   # Iterate over each matching entry.
