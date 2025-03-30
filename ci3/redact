@@ -9,4 +9,4 @@ for var in $(compgen -e); do
     fi
   fi
 done
-sed "$sed_expr"
+sed -u "$sed_expr"
