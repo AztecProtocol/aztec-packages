@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+## [aztec.js] AztecNode.getVersion | PXE.getVersion | TXE.getVersion changed to getRollupVersion
+
+Anywhere getVersion has been used (cross chain messages and authwits) has been updated to rollupVersion.
+
 ## [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
 
 It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
