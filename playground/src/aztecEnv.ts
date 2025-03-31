@@ -35,8 +35,6 @@ export class WebLogger {
   private static updateIntervalMs = 1000;
   private static readonly MAX_LOGS_TO_KEEP = 200;
 
-  private pendingUpdate = true;
-
   private constructor() {}
 
   static create(setLogs: (logs: Log[]) => void) {
@@ -46,7 +44,6 @@ export class WebLogger {
         const instance = WebLogger.getInstance();
         const newLogs = instance.logs.slice(0, WebLogger.MAX_LOGS_TO_KEEP).sort((a, b) => b.timestamp - a.timestamp);
         setLogs(newLogs);
-        instance.pendingUpdate = false;
       }, WebLogger.updateIntervalMs);
     }
   }
@@ -80,7 +77,6 @@ export class WebLogger {
     data: any,
   ) {
     this.logs.unshift({ id: this.randomId(), type, prefix, message, data, timestamp: Date.now() });
-    this.pendingUpdate = true;
   }
 
   private randomId(): string {
