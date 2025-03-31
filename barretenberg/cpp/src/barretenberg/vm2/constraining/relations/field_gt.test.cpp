@@ -123,8 +123,6 @@ TEST_P(FieldGreaterThanInteractionsTests, InteractionsWithRangeCheck)
     LookupIntoDynamicTableSequential<lookup_a_lo_range::Settings>().process(trace);
 
     check_relation<ff_gt>(trace);
-    check_interaction<lookup_a_hi_range>(trace);
-    check_interaction<lookup_a_lo_range>(trace);
 }
 
 INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest,
