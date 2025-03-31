@@ -9,6 +9,7 @@ use protocol_types::{
 // are a temporary solution and putting it to `constants.nr` felt like cluttering it.
 pub(crate) global LOG_CAPSULE_ARRAY_BASE_SLOT: Field = 8240937;
 
+/// Represents a log as it is stored in the log capsule array to which the syncNotes oracle inserts found private log.
 #[derive(Deserialize, Serialize)]
 pub(crate) struct LogCapsule {
     pub log: BoundedVec<Field, PRIVATE_LOG_SIZE_IN_FIELDS>,

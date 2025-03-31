@@ -37,8 +37,8 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     contract_address: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
-    // We will eventually fetch tagged logs, decrypt and process them here, but for now we simply call the `syncNotes`
-    // oracle. This makes PXE synchronize tags, download logs and store the logs in capsules which are then retrieved
+    // We will eventually perform log discovery via tagging here, but for now we simply call the `syncNotes` oracle.
+    //This makes PXE synchronize tags, download logs and store the logs in log capsule array which are then retrieved
     // and processed here.
     sync_notes();
 
@@ -125,7 +125,6 @@ unconstrained fn process_log<Env>(
             log_capsule.log_index_in_tx,
         );
     } else {
-        // TODO(#11569): handle events
         debug_log_format(
             "Unknown log type id {0} (probably belonging to an event log)",
             [log_type_id as Field],

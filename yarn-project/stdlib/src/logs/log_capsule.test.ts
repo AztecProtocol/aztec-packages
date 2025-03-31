@@ -5,7 +5,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { LogCapsule } from './log_capsule.js';
 
 describe('LogCapsule', () => {
-  it('serializes correctly and matches Noir implementation', () => {
+  it('serialization matches snapshots and output of Noir serialization', () => {
     const log = [new Fr(1n), new Fr(2n), new Fr(3n)];
     const txHash = new Fr(123n);
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
