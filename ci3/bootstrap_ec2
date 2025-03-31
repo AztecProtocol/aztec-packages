@@ -6,6 +6,9 @@ cmd=${1:-"./bootstrap.sh ci"}
 arch=${ARCH:-amd64}
 NO_TERMINATE=${NO_TERMINATE:-0}
 
+# We're always "in CI" if we're running on a remote instance.
+export CI=1
+
 if [ "$arch" == "arm64" ]; then
   cores=64
   # Allow for 90 minutes as ARM has less cores.
@@ -128,25 +131,26 @@ container_script=$(cat <<EOF
   source ci3/source_refname
   source ci3/source_redis
   ci_log_id=\$(log_ci_run)
+  export PARENT_LOG_URL=http://ci.aztec-labs.com/\$ci_log_id
 
   # Heartbeat.
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
-  echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI_FULL=\$CI_FULL DRY_RUN=\${DRY_RUN:-0}"
-  if semver check "\$REF_NAME"; then
-    echo "Performing a release because \$REF_NAME is a semver."
-  fi
-
   function run {
+    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL DRY_RUN=\${DRY_RUN:-0}"
+    if semver check "\$REF_NAME"; then
+      echo "Performing a release because \$REF_NAME is a semver."
+    fi
+
     set +e
     set -x
     $cmd
     local code=\${PIPESTATUS[0]}
     set +x
-    sudo dmesg 2>&1 | ci3/cache_log 'dmesg'
-    sudo cat /tmp/netfile | ci3/cache_log 'netfile'
-    sudo cat /tmp/cpufile | ci3/cache_log 'cpufile'
-    sudo cat /tmp/memfile | ci3/cache_log 'memfile'
+    sudo dmesg 2>&1 | cache_log 'dmesg'
+    sudo cat /tmp/netfile | cache_log 'netfile'
+    sudo cat /tmp/cpufile | cache_log 'cpufile'
+    sudo cat /tmp/memfile | cache_log 'memfile'
     return \$code
   }
   export -f run
@@ -213,7 +217,8 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
     -v /dev/kmsg:/dev/kmsg \
-    -e USE_TEST_CACHE=1 \
+    -e NO_CACHE=${NO_CACHE:-} \
+    -e USE_TEST_CACHE=${USE_TEST_CACHE:-1} \
     -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$(id -u) \
