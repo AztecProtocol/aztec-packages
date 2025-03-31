@@ -4,9 +4,9 @@ import { type GlobalVariables, PublicCallRequestWithCalldata, TxExecutionPhase }
 import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import type { AvmPersistableStateManager } from '../avm/index.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
 import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
 
@@ -51,7 +51,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     }),
   )
   protected override async simulateEnqueuedCallInternal(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     callRequest: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,

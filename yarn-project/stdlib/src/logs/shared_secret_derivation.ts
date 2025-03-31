@@ -1,8 +1,7 @@
 import { Grumpkin } from '@aztec/foundation/crypto';
 import type { GrumpkinScalar, Point } from '@aztec/foundation/fields';
 
-import type { AztecAddress } from '../../aztec-address/index.js';
-import type { PublicKey } from '../../keys/public_key.js';
+import type { PublicKey } from '../keys/public_key.js';
 
 /**
  * Derive an Elliptic Curve Diffie-Hellman (ECDH) Shared Secret.
@@ -13,6 +12,9 @@ import type { PublicKey } from '../../keys/public_key.js';
  * @param publicKey - The public key used to derive shared secret.
  * @returns A derived shared secret.
  * @throws If the publicKey is zero.
+ *
+ * TODO(#12656): This function is kept around because of the getSharedSecret oracle. Nuke this once returning
+ * the app-siloed secret.
  */
 export async function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKey: PublicKey): Promise<Point> {
   if (publicKey.isZero()) {
@@ -22,14 +24,5 @@ export async function deriveEcdhSharedSecret(secretKey: GrumpkinScalar, publicKe
   }
   const curve = new Grumpkin();
   const sharedSecret = await curve.mul(publicKey, secretKey);
-  return sharedSecret;
-}
-
-export async function deriveEcdhSharedSecretUsingAztecAddress(
-  secretKey: GrumpkinScalar,
-  address: AztecAddress,
-): Promise<Point> {
-  const addressPoint = await address.toAddressPoint();
-  const sharedSecret = await deriveEcdhSharedSecret(secretKey, addressPoint);
   return sharedSecret;
 }

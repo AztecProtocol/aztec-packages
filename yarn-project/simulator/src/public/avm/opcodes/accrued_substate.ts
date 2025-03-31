@@ -1,7 +1,7 @@
+import { NullifierCollisionError } from '../../state_manager/nullifiers.js';
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import { NullifierCollisionError } from '../journal/nullifiers.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';

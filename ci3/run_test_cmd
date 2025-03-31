@@ -33,6 +33,7 @@ export VERBOSE=1
 tmp_file=/tmp/$key
 # Print test metadata header.
 cat <<EOF >$tmp_file
+Parent Log: ${PARENT_LOG_URL:-none}
 Command: $cmd
 Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
 Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
@@ -80,7 +81,7 @@ else
   timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 fi
 timeout_pid=$!
-trap "kill -- -$timeout_pid" SIGTERM SIGINT
+trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
 
@@ -124,7 +125,7 @@ function pass {
 
 # Show FAILED and exit with error code.
 function fail {
-  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
@@ -173,7 +174,8 @@ function get_owners {
     # If error_regex is present, check the log content.
     if [ -n "$error_regex" ]; then
       # Strip color codes from the log file.
-      if sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"; then
+      # Do *not* use a pipe here. grep -q will exit immediately on first match and break the pipe.
+      if grep -qE "$error_regex" <(sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$tmp_file"); then
         echo "$entry" | jq -r '.owners[]'
       fi
     else

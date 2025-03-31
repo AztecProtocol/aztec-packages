@@ -5,6 +5,7 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import { deployNewRollupContracts } from '../../utils/aztec.js';
+import { getSponsoredFPCAddress } from '../../utils/setup_contracts.js';
 
 export async function deployNewRollup(
   registryAddress: EthAddress,
@@ -15,6 +16,7 @@ export async function deployNewRollup(
   mnemonicIndex: number,
   salt: number | undefined,
   testAccounts: boolean,
+  sponsoredFPC: boolean,
   json: boolean,
   initialValidators: EthAddress[],
   log: LogFn,
@@ -22,8 +24,10 @@ export async function deployNewRollup(
 ) {
   const config = getL1ContractsConfigEnvVars();
 
-  const initialFundedAccounts = testAccounts ? await getInitialTestAccounts() : [];
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
+  const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
+  const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
+  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
 
   const { payloadAddress, rollup, slashFactoryAddress } = await deployNewRollupContracts(
     registryAddress,
@@ -46,6 +50,10 @@ export async function deployNewRollup(
         {
           payloadAddress: payloadAddress.toString(),
           rollupAddress: rollup.address,
+          initialFundedAccounts: initialFundedAccounts.map(a => a.toString()),
+          initialValidators: initialValidators.map(a => a.toString()),
+          genesisBlockHash: genesisBlockHash.toString(),
+          genesisArchiveRoot: genesisArchiveRoot.toString(),
           slashFactoryAddress: slashFactoryAddress.toString(),
         },
         null,
@@ -55,6 +63,10 @@ export async function deployNewRollup(
   } else {
     log(`Payload Address: ${payloadAddress.toString()}`);
     log(`Rollup Address: ${rollup.address}`);
+    log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+    log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
+    log(`Genesis block hash: ${genesisBlockHash.toString()}`);
+    log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
     log(`Slash Factory Address: ${slashFactoryAddress.toString()}`);
   }
 }

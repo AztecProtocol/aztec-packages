@@ -13,13 +13,13 @@ namespace bb {
  * @brief Prover class for the Goblin ECC op queue transcript merge protocol
  *
  */
-template <typename Flavor> class MergeProver_ {
-    using FF = typename Flavor::FF;
-    using Polynomial = typename Flavor::Polynomial;
-    using CommitmentKey = typename Flavor::CommitmentKey;
-    using Commitment = typename Flavor::Commitment;
-    using PCS = typename Flavor::PCS;
-    using Curve = typename Flavor::Curve;
+class MergeProver {
+    using Curve = curve::BN254;
+    using FF = Curve::ScalarField;
+    using Commitment = Curve::AffineElement;
+    using Polynomial = bb::Polynomial<FF>;
+    using CommitmentKey = bb::CommitmentKey<Curve>;
+    using PCS = KZG<Curve>;
     using OpeningClaim = ProverOpeningClaim<Curve>;
     using OpeningPair = bb::OpeningPair<Curve>;
     using Transcript = NativeTranscript;
@@ -29,15 +29,17 @@ template <typename Flavor> class MergeProver_ {
 
     std::shared_ptr<Transcript> transcript;
 
-    explicit MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
-                          std::shared_ptr<CommitmentKey> commitment_key = nullptr);
+    explicit MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue,
+                         std::shared_ptr<CommitmentKey> commitment_key = nullptr);
 
     BB_PROFILE MergeProof construct_proof();
 
   private:
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
-    static constexpr size_t NUM_WIRES = MegaFlavor::NUM_WIRES;
+    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
+    // MegaCircuitBuilder
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 };
 
 } // namespace bb

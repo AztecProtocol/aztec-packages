@@ -62,7 +62,7 @@ struct FastSettings {
 template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
 {
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
-    typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
     typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;

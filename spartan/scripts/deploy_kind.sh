@@ -42,52 +42,19 @@ fi
 # Load the Docker image into kind
 flock logs/kind-image.lock kind load docker-image aztecprotocol/aztec:$aztec_docker_tag
 
-function show_status_until_pxe_ready {
-  set +x   # don't spam with our commands
-  sleep 15 # let helm upgrade start
-  for i in {1..100}; do
-    echo "--- Pod status ---"
-    kubectl get pods -n "$namespace"
-
-
-    # Show pod events
-    echo "--- Recent Pod Events ---"
-    kubectl get events -n "$namespace" --sort-by='.lastTimestamp' | tail -10
-
-    # Show pods
-    echo "--- Pod Status ---"
-    kubectl get pods -n "$namespace"
-
-
-    # Show logs from validator pods only
-    echo "--- Pod logs ---"
-    for pod in $(kubectl get pods -n "$namespace" -o jsonpath='{.items[*].metadata.name}'); do
-      echo "Logs from $pod:"
-      kubectl logs --tail=10 -n "$namespace" --all-containers=true $pod 2>/dev/null || echo "Cannot get logs yet"
-      echo "-------------------"
-    done
-
-
-    if kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=20s >/dev/null 2>/dev/null; then
-      break # we are up, stop showing status
-    fi
-
-  done
-}
-
-show_status_until_pxe_ready &
+# Start the deployment monitor in background
+./monitor_k8s_deployment.sh "$namespace" "$helm_instance" "app!=setup-l2-contracts" &
+status_monitor_pid=$!
 
 function cleanup {
-  trap - SIGTERM && kill $(jobs -p) &>/dev/null && rm "$mnemonic_file" || true
+  trap - SIGTERM
+  kill $status_monitor_pid 2>/dev/null || true
+  kill $(jobs -p) 2>/dev/null || true
+  rm "$mnemonic_file" || true
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-# if we don't have a chaos values, remove any existing chaos experiments
-if [ -z "$chaos_values" ]; then
-  echo "Deleting existing network chaos experiments..."
-  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
-fi
-
+# Function to generate Helm overrides from comma-separated string
 function generate_overrides {
   local overrides="$1"
   if [ -n "$overrides" ]; then
@@ -99,6 +66,13 @@ function generate_overrides {
   fi
 }
 
+# if we don't have a chaos values, remove any existing chaos experiments
+if [ -z "$chaos_values" ]; then
+  echo "Deleting existing network chaos experiments..."
+  kubectl delete networkchaos --all --all-namespaces 2>/dev/null || true
+fi
+
+# Initialize Helm set arguments
 helm_set_args=(
   --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag"
 )
@@ -139,17 +113,17 @@ else
   ./generate_devnet_config.sh "$values_file"
 fi
 
-# Install the Helm chart
+# Clean up any existing deployment
 echo "Cleaning up any existing Helm releases..."
 helm uninstall "$helm_instance" -n "$namespace" 2>/dev/null || true
 kubectl delete clusterrole "$helm_instance"-aztec-network-node 2>/dev/null || true
 kubectl delete clusterrolebinding "$helm_instance"-aztec-network-node 2>/dev/null || true
 
+# Install the Helm chart
 helm upgrade --install "$helm_instance" ../aztec-network \
   --namespace "$namespace" \
   --create-namespace \
   "${helm_set_args[@]}" \
-  --set images.aztec.image="aztecprotocol/aztec:$aztec_docker_tag" \
   $(generate_overrides "$overrides") \
   -f "../aztec-network/values/$values_file" \
   -f "../aztec-network/resources/$resources_file" \
@@ -157,8 +131,10 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   --wait-for-jobs=true \
   --timeout="$install_timeout"
 
+# Wait for PXE pods to be ready
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
 
+# Configure network chaos if enabled
 if [ -n "$chaos_values" ]; then
   ../bootstrap.sh chaos-mesh
   ../bootstrap.sh network-shaping "$chaos_values"

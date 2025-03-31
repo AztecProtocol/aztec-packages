@@ -378,7 +378,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     }
 
     bool exponent_constant = exponent.is_constant();
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/446): optimize by allowing smaller expoonent
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/446): optimize by allowing smaller exponent
     std::vector<bool_t<Builder>> exponent_bits(32);
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
