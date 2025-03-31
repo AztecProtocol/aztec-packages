@@ -464,10 +464,18 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
-
 #### Debugging and profiling realistic ClientIVC flows
 
-To download realistic ClientIVC benchmark inputs from last master, use `./barretenberg/cpp/bootstrap.sh download_e2e_ivc_inputs` and run ClientIVC proving with --input runtime_stack on those inputs. By default, tries to pull from last master, but you can pass a historic commit as an argument.
+
+#### Running Realistic ClientIVC from barretenberg folder
+
+Realistic IVC inputs poses a problem as the only code to sequence them requires a full end to end run.
+One can run (for example, any master commit that has finished benchmarking can be used):
+`barretenberg/cpp/bootstrap.sh e2e_ivc_bench 88c0e046ccb8381910a4615ac6218dcdbf04d898`
+
+If one doesn't provide the commit this generate these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
+
+To use these inputs manually, just abort after input download and run ClientIVC proving with --input runtime_stack on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 

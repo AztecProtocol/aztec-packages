@@ -260,7 +260,7 @@ function bench {
     taskset -c $start_core-$end_core bash -c "$2"
   }
 
-  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm client_ivc_flow run_benchmark
+  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm run_benchmark
 
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
@@ -299,7 +299,7 @@ case "$cmd" in
     test
     ;;
   e2e_ivc_bench)
-    # Intend only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
+    # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
@@ -310,6 +310,7 @@ case "$cmd" in
       export AZTEC_CACHE_COMMIT=$1
       export DOWNLOAD_ONLY=1
       # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
+      # This generates the client IVC verification keys.
       yarn --cwd ../../yarn-project/bb-prover generate
     fi
     # Recreation of logic from bench.
