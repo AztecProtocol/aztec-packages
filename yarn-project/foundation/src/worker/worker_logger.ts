@@ -4,7 +4,6 @@ import { type DispatchMsg, TransportServer } from '../transport/index.js';
  * A logger implementation that forwards log messages via a transport server.
  * The logger maintains a fixed trace level and always enables logging.
  */
-
 export class WorkerLogger {
   constructor(private transportServer: TransportServer<DispatchMsg>) {}
 
