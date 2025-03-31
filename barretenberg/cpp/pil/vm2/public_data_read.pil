@@ -11,7 +11,7 @@ include "precomputed.pil";
 //  - if the low leaf slot is equal to the slot, that means that slot has been written before, and we assert that
 //    the low leaf value is equal to the value we are reading.
 //  - if the low leaf slot is not equal to the slot, we assert that the low leaf is indeed a valid low leaf for the
-//    requested slot, proving non existance of the slot in the tree. In that case we check value to be zero.
+//    requested slot, proving non existence of the slot in the tree. In that case we check value to be zero.
 // In order to validate that a leaf is a low leaf of the slot, we need to check that the low_leaf.slot is < slot
 // and that low_leaf.next_slot is > slot. However, we need to consider the case where next_slot is zero, which
 // means "infinity". The highest slot inserted in the tree will point to infinity as the "next_slot".
