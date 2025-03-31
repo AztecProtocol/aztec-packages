@@ -125,20 +125,6 @@ void TranslatorProver::execute_grand_product_computation_round()
  */
 void TranslatorProver::execute_relation_check_rounds()
 {
-    // // DEBUG: Print actual size, size, and virtual size of polynomials
-    // for (auto& interleaved_poly : key->proving_key->polynomials.get_unshifted()) {
-    //     // for (auto& interleaved_poly : key->proving_key->polynomials.get_all()) {
-    //     size_t last_non_zero_index = 0;
-    //     for (size_t i = 0; i < interleaved_poly.size(); i++) {
-    //         if (interleaved_poly[i] != 0) {
-    //             last_non_zero_index = i;
-    //         }
-    //     }
-    //     // printing the last non-zero index of each polynomial vs virtual size of polynomial
-    //     std::cout << "Actual size: " << last_non_zero_index + 1 << " vs size_: " << interleaved_poly.size()
-    //               << " vs virtual_size_: " << interleaved_poly.virtual_size() << std::endl;
-    // }
-
     using Sumcheck = SumcheckProver<Flavor>;
 
     auto sumcheck = Sumcheck(key->proving_key->circuit_size, transcript);

@@ -343,8 +343,6 @@ class TranslatorFlavor {
                                DerivedWitnessEntities<DataType>::get_all());
         };
 
-        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
-
         /**
          * @brief Get the entities constructed by interleaving.
          */
@@ -699,13 +697,6 @@ class TranslatorFlavor {
         // WORKTODO: this is a constructor used only in tests. We should get rid of it or make it a test-only method.
         ProvingKey(const size_t dyadic_circuit_size, const size_t actual_mini_circuit_size)
             : Base(dyadic_circuit_size, 0)
-            , polynomials(actual_mini_circuit_size)
-        {}
-
-        ProvingKey(const size_t dyadic_circuit_size,
-                   std::shared_ptr<CommitmentKey> commitment_key,
-                   const size_t actual_mini_circuit_size)
-            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
             , polynomials(actual_mini_circuit_size)
         {}
 
