@@ -56,18 +56,18 @@ export class Synchronizer implements L2BlockStreamEventHandler {
         break;
       }
       case 'chain-pruned': {
-        this.log.warn(`Pruning data after block ${event.blockNumber} due to reorg`);
+        this.log.warn(`Pruning data after block ${event.block.number} due to reorg`);
         // We first unnullify and then remove so that unnullified notes that were created after the block number end up deleted.
         const lastSynchedBlockNumber = await this.syncDataProvider.getBlockNumber();
-        await this.noteDataProvider.unnullifyNotesAfter(event.blockNumber, lastSynchedBlockNumber);
-        await this.noteDataProvider.removeNotesAfter(event.blockNumber);
+        await this.noteDataProvider.unnullifyNotesAfter(event.block.number, lastSynchedBlockNumber);
+        await this.noteDataProvider.removeNotesAfter(event.block.number);
         // Remove all note tagging indexes to force a full resync. This is suboptimal, but unless we track the
         // block number in which each index is used it's all we can do.
         await this.taggingDataProvider.resetNoteSyncData();
         // Update the header to the last block.
-        const newHeader = await this.node.getBlockHeader(event.blockNumber);
+        const newHeader = await this.node.getBlockHeader(event.block.number);
         if (!newHeader) {
-          this.log.error(`Block header not found for block number ${event.blockNumber} during chain prune`);
+          this.log.error(`Block header not found for block number ${event.block.number} during chain prune`);
         } else {
           await this.syncDataProvider.setHeader(newHeader);
         }
