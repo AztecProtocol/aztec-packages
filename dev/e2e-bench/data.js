@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743425828573,
+  "lastUpdate": 1743426123159,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "d92d8955753b0079ca884767fe26968dea9fc377",
-          "message": "fix: starting the sandbox with no pxe should still deploy initial test accounts (#13047)\n\nResolves #12950 without adding cheatcodes to advance a block.\n\nCo-authored-by: sklppy88 <esau@aztecprotocol.com>",
-          "timestamp": "2025-03-26T18:17:33+01:00",
-          "tree_id": "419974572e2be8f0daf3196155851a1415ca0911",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d92d8955753b0079ca884767fe26968dea9fc377"
-        },
-        "date": 1743011424176,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9228,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2346891717936472,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 142659,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 142869,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "codygunton@gmail.com",
+            "name": "Cody Gunton",
+            "username": "codygunton"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3a555ef27c0682e18cba1c73666477a57a334f8a",
+          "message": "feat: Increase CIVC depth with no rollup cost (#13106)\n\nDoubles the Translator capacity to allow for 17 (mocked) kernel\nexecutions. ECCVM capacity currently blocks doing 18. This is recorded\nin tests. The tests are slower than I would like, but my attempts to use\na smaller trace structure failed in a variety of ways.\n\nTo ensure Translator RAM costs doesn't blow up WASM we allocated and\ndeallocated the commitment key as necessary and tweaked\nProverPolynomials to only be initialised on the actual circuit size\n(this creates friction with ZK but will be handled in a follow-on).\n\n---------\n\nCo-authored-by: maramihali <mara@aztecprotocol.com>\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>",
+          "timestamp": "2025-03-31T13:20:38+01:00",
+          "tree_id": "60789987b6009dfd035fddbd674d5eacd101d93a",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3a555ef27c0682e18cba1c73666477a57a334f8a"
+        },
+        "date": 1743426121806,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9439,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24003713854607586,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 139833,
             "unit": "us"
           }
         ]
