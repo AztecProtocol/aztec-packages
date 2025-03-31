@@ -37,7 +37,6 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { EventMetadata } from '@aztec/stdlib/event';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
@@ -915,7 +914,6 @@ export class PXEService implements PXE {
   }
 
   async getPublicEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    const eventMetadata = new EventMetadata<T>(eventMetadataDef);
     const { logs } = await this.node.getPublicLogs({
       fromBlock: from,
       toBlock: from + limit,
@@ -924,10 +922,10 @@ export class PXEService implements PXE {
     const decodedEvents = logs
       .map(log => {
         // +1 for the event selector
-        const expectedLength = eventMetadata.fieldNames.length + 1;
+        const expectedLength = eventMetadataDef.fieldNames.length + 1;
         const logFields = log.log.log.slice(0, expectedLength);
         // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
-        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadata.eventSelector)) {
+        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadataDef.eventSelector)) {
           return undefined;
         }
         // If any of the remaining fields, are non-zero, the payload does match expected:
@@ -937,7 +935,7 @@ export class PXEService implements PXE {
           );
         }
 
-        return eventMetadata.decode(log.log);
+        return decodeFromAbi([eventMetadataDef.abiType], log.log.log) as T;
       })
       .filter(log => log !== undefined) as T[];
 
