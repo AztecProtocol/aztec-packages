@@ -1,6 +1,6 @@
 import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -11,6 +11,7 @@ import {
   type SimulationProvider,
 } from '@aztec/simulator/client';
 import {
+  EventSelector,
   type FunctionArtifact,
   type FunctionArtifactWithContractName,
   FunctionCall,
@@ -25,8 +26,14 @@ import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
+import {
+  IndexedTaggingSecret,
+  LogWithTxData,
+  PrivateLog,
+  TxScopedL2Log,
+  deriveEcdhSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -38,6 +45,7 @@ import type { CapsuleDataProvider } from '../storage/capsule_data_provider/capsu
 import type { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDao } from '../storage/note_data_provider/note_dao.js';
 import type { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import type { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { WINDOW_HALF_SIZE, getIndexedTaggingSecretsForTheWindow, getInitialIndexesMap } from './tagging_utils.js';
@@ -56,6 +64,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private log = createLogger('pxe:pxe_oracle_interface'),
   ) {}
 
@@ -324,10 +333,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
-    // Silo the secret so it can't be used to track other app's notes
-    const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
-    return appSecret;
+    return computeAppTaggingSecret(senderCompleteAddress, senderIvsk, recipient, contractAddress);
   }
 
   /**
@@ -353,10 +359,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       ...(await this.keyStore.getAccounts()),
     ].filter((address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)));
     const appTaggingSecrets = await Promise.all(
-      senders.map(async contact => {
-        const sharedSecret = await computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
-        return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-      }),
+      senders.map(contact =>
+        computeAppTaggingSecret(recipientCompleteAddress, recipientIvsk, contact, contractAddress),
+      ),
     );
     const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
@@ -608,6 +613,19 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
+      // TODO(#13155): Handle multiple found indexes for the same log.
+      let logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
+
+      // TODO(#13137): The following is a workaround to disable the logIndexInTx check for TXE tests as TXE currently
+      // returns nonsensical tx effects and the tx has is incremented from 0 up (so it never crosses a 1000).
+      if (scopedLog.txHash.toBigInt() < 1000n) {
+        logIndexInTx = randomInt(10);
+      }
+
+      if (logIndexInTx === -1) {
+        throw new Error(`Could not find log in tx effect for tx hash ${scopedLog.txHash}`);
+      }
+
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
         contractAddress,
@@ -615,6 +633,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         scopedLog.txHash,
         txEffect.data.noteHashes,
         txEffect.data.nullifiers[0],
+        logIndexInTx,
         recipient,
         simulator,
       );
@@ -649,10 +668,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // in time of the locally synced state.
     // Note that while this technically results in historical queries, we perform it at the latest locally synced block
     // number which *should* be recent enough to be available, even for non-archive nodes.
-    const syncedBlockNumber = (await this.syncDataProvider.getBlockNumber())!;
-    if (syncedBlockNumber === undefined) {
-      throw new Error(`Attempted to deliver a note with an unsynchronized PXE - this should never happen`);
-    }
+    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     // By computing siloed and unique note hashes ourselves we prevent contracts from interfering with the note storage
     // of other contracts, which would constitute a security breach.
@@ -784,6 +800,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     txHash: TxHash,
     noteHashes: Fr[],
     firstNullifier: Fr,
+    logIndexInTx: number,
     recipient: AztecAddress,
     simulator?: AcirSimulator,
   ) {
@@ -809,6 +826,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         txHash.toString(),
         toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
         firstNullifier,
+        logIndexInTx,
         recipient,
       ]),
       returnTypes: artifact.returnTypes,
@@ -846,6 +864,36 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     );
     const addressSecret = await computeAddressSecret(await recipientCompleteAddress.getPreaddress(), ivskM);
     return deriveEcdhSharedSecret(addressSecret, ephPk);
+  }
+
+  async storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+  ): Promise<void> {
+    const txReceipt = await this.aztecNode.getTxReceipt(txHash);
+    const blockNumber = txReceipt.blockNumber;
+    if (blockNumber === undefined) {
+      throw new Error(`Block number is undefined for tx ${txHash} in storePrivateEventLog`);
+    }
+    const historicalBlockNumber = await this.syncDataProvider.getBlockNumber();
+    if (blockNumber > historicalBlockNumber) {
+      throw new Error(
+        `Attempting to store private event log from a block newer than the historical block of the simulation. Log block number: ${blockNumber}, historical block number: ${historicalBlockNumber}`,
+      );
+    }
+    return this.privateEventDataProvider.storePrivateEventLog(
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+      logIndexInTx,
+      blockNumber,
+    );
   }
 }
 

@@ -13,7 +13,7 @@ set -exu
 
 mnemonic=$1
 funding_address=${2:-"0x33D525f5ac95c2BCf98b644738C7d5673480493A"}
-values_file=${3:-"ignition-testnet"}
+values_file=${3:-"ignition-testnet.yaml"}
 
 XDG_CONFIG_HOME=${XDG_CONFIG_HOME:-"$HOME/.config"}
 

@@ -12,8 +12,8 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
@@ -70,7 +70,6 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
-            AVM_TRACK_TIME("tracegen/precomputed/unary", precomputed_builder.process_unary(trace));
             AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
             AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
@@ -301,7 +300,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
             // Bytecode Decomposition
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
             // Instruction Fetching
@@ -356,7 +354,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_lo_range_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>(),
             // Merkle checks
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_settings>>());
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

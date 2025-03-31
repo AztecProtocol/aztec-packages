@@ -1,7 +1,13 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
-import { type L1ContractAddresses, l1ContractAddressesMapping } from '@aztec/ethereum';
+import {
+  type GenesisStateConfig,
+  type L1ContractAddresses,
+  genesisStateConfigMappings,
+  l1ContractAddressesMapping,
+} from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
@@ -27,15 +33,13 @@ export type AztecNodeConfig = ArchiverConfig &
   Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
   DataStoreConfig &
-  SentinelConfig & {
+  SentinelConfig &
+  SharedNodeConfig &
+  GenesisStateConfig & {
+    /** L1 contracts addresses */
+    l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
-    /** Whether to populate the genesis state with initial fee juice for the test accounts */
-    testAccounts: boolean;
-    /** Whether to populate the genesis state with initial fee juice for the sponsored FPC */
-    sponsoredFPC: boolean;
-  } & {
-    l1Contracts: L1ContractAddresses;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
@@ -47,6 +51,8 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
   ...sentinelConfigMappings,
+  ...sharedNodeConfigMappings,
+  ...genesisStateConfigMappings,
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
     nested: l1ContractAddressesMapping,
@@ -55,16 +61,6 @@ export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
     ...booleanConfigHelper(),
-  },
-  testAccounts: {
-    env: 'TEST_ACCOUNTS',
-    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
-    ...booleanConfigHelper(),
-  },
-  sponsoredFPC: {
-    env: 'SPONSORED_FPC',
-    description: 'Whether to populate the genesis state with initial fee juice for the sponsored FPC.',
-    ...booleanConfigHelper(false),
   },
 };
 

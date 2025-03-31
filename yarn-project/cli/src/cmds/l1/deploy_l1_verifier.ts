@@ -13,15 +13,9 @@ export async function deployUltraHonkVerifier(
   privateKey: string | undefined,
   mnemonic: string,
   pxeRpcUrl: string,
-  bbBinaryPath: string,
-  bbWorkingDirectory: string,
   log: LogFn,
   debugLogger: Logger,
 ) {
-  if (!bbBinaryPath || !bbWorkingDirectory) {
-    throw new InvalidOptionArgumentError('Missing path to bb binary and working directory');
-  }
-
   const { publicClient, walletClient } = createL1Clients(
     ethRpcUrls,
     privateKey ?? mnemonic,

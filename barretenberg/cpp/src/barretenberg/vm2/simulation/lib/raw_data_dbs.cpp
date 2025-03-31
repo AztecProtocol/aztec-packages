@@ -5,6 +5,7 @@
 #include <stdexcept>
 
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {
@@ -101,7 +102,11 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
           "\n * get_previous_value_index hints: ",
           hints.getPreviousValueIndexHints.size(),
           "\n * get_leaf_preimage hints_public_data_tree: ",
-          hints.getLeafPreimageHintsPublicDataTree.size());
+          hints.getLeafPreimageHintsPublicDataTree.size(),
+          "\n * get_leaf_preimage hints_nullifier_tree: ",
+          hints.getLeafPreimageHintsNullifierTree.size(),
+          "\n * get_leaf_value_hints: ",
+          hints.getLeafValueHints.size());
     debug("Initializing HintedRawMerkleDB with snapshots...",
           "\n * nullifierTree: ",
           tree_roots.nullifierTree.root,
@@ -148,6 +153,20 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
             /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
             /*nextVal=*/get_leaf_preimage_hint.nextValue,
         };
+    }
+
+    for (const auto& get_leaf_preimage_hint : hints.getLeafPreimageHintsNullifierTree) {
+        GetLeafPreimageKey key = { get_leaf_preimage_hint.hintKey, get_leaf_preimage_hint.index };
+        get_leaf_preimage_hints_nullifier_tree[key] = {
+            /*val=*/get_leaf_preimage_hint.leaf,
+            /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
+            /*nextVal=*/get_leaf_preimage_hint.nextValue,
+        };
+    }
+
+    for (const auto& get_leaf_value_hint : hints.getLeafValueHints) {
+        GetLeafValueKey key = { get_leaf_value_hint.hintKey, get_leaf_value_hint.treeId, get_leaf_value_hint.index };
+        get_leaf_value_hints[key] = get_leaf_value_hint.value;
     }
 }
 
@@ -207,6 +226,14 @@ crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexe
     return it->second;
 }
 
+FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(tree_id);
+    GetLeafValueKey key = { tree_info, tree_id, leaf_index };
+    auto it = get_leaf_value_hints.find(key);
+    return it == get_leaf_value_hints.end() ? 0 : it->second;
+}
+
 crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
     get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const
 {
@@ -215,6 +242,24 @@ crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> Hinte
     auto it = get_leaf_preimage_hints_public_data_tree.find(key);
     if (it == get_leaf_preimage_hints_public_data_tree.end()) {
         throw std::runtime_error(format("Leaf preimage (PUBLIC_DATA_TREE) not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", leaf_index: ",
+                                        leaf_index,
+                                        ")"));
+    }
+    return it->second;
+}
+
+crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> HintedRawMerkleDB::
+    get_leaf_preimage_nullifier_tree(crypto::merkle_tree::index_t leaf_index) const
+{
+    auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
+    GetLeafPreimageKey key = { tree_info, leaf_index };
+    auto it = get_leaf_preimage_hints_nullifier_tree.find(key);
+    if (it == get_leaf_preimage_hints_nullifier_tree.end()) {
+        throw std::runtime_error(format("Leaf preimage (NULLIFIER_TREE) not found for key (root: ",
                                         tree_info.root,
                                         ", size: ",
                                         tree_info.nextAvailableLeafIndex,

@@ -218,6 +218,17 @@ export class RollupContract {
     return result;
   }
 
+  async getEpochCommittee(epoch: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getEpochCommittee',
+      args: [epoch],
+    });
+
+    return result;
+  }
+
   getBlock(blockNumber: bigint) {
     return this.rollup.read.getBlock([blockNumber]);
   }
@@ -389,10 +400,6 @@ export class RollupContract {
 
   getAttesters() {
     return this.rollup.read.getAttesters();
-  }
-
-  getEpochCommittee(epoch: bigint) {
-    return this.rollup.read.getEpochCommittee([epoch]);
   }
 
   getInfo(address: Hex | EthAddress) {

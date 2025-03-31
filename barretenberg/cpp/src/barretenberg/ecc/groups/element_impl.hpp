@@ -69,9 +69,6 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator af
     Fq zz_inv = z_inv.sqr();
     Fq zzz_inv = zz_inv * z_inv;
     affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
-    if (is_point_at_infinity()) {
-        result.self_set_infinity();
-    }
     return result;
 }
 

@@ -27,8 +27,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using MergeProver = MergeProver_<Flavor>;
-    using MergeVerifier = MergeVerifier_<Flavor>;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -97,17 +95,12 @@ TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 TYPED_TEST(MegaHonkTests, MergeProofSizeCheck)
 {
     using Flavor = TypeParam;
-    using MergeProver = MergeProver_<Flavor>;
 
-    // Constuct an op queue and populate it with some arbitrary ops
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
-    auto builder = typename Flavor::CircuitBuilder{ op_queue };
+    auto builder = typename Flavor::CircuitBuilder{};
     GoblinMockCircuits::construct_simple_circuit(builder);
 
     // Construct a merge proof and ensure its size matches expectation; if not, the constant may need to be updated
-    MergeProver merge_prover{ op_queue };
+    MergeProver merge_prover{ builder.op_queue };
     auto merge_proof = merge_prover.construct_proof();
 
     EXPECT_EQ(merge_proof.size(), MERGE_PROOF_SIZE);
@@ -235,10 +228,7 @@ TYPED_TEST(MegaHonkTests, DynamicVirtualSizeIncrease)
 TYPED_TEST(MegaHonkTests, SingleCircuit)
 {
     using Flavor = TypeParam;
-    auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-    auto builder = typename Flavor::CircuitBuilder{ op_queue };
+    auto builder = typename Flavor::CircuitBuilder{};
 
     GoblinMockCircuits::construct_simple_circuit(builder);
 
@@ -247,7 +237,7 @@ TYPED_TEST(MegaHonkTests, SingleCircuit)
     EXPECT_TRUE(honk_verified);
 
     // Construct and verify Goblin ECC op queue Merge proof
-    auto merge_verified = this->construct_and_verify_merge_proof(op_queue);
+    auto merge_verified = this->construct_and_verify_merge_proof(builder.op_queue);
     EXPECT_TRUE(merge_verified);
 }
 
@@ -261,9 +251,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsMergeOnly)
     using Flavor = TypeParam;
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
@@ -288,9 +275,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkOnly)
 
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {
@@ -315,9 +299,6 @@ TYPED_TEST(MegaHonkTests, MultipleCircuitsHonkAndMerge)
 
     // Instantiate EccOpQueue. This will be shared across all circuits in the series
     auto op_queue = std::make_shared<bb::ECCOpQueue>();
-
-    GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-
     // Construct multiple test circuits that share an ECC op queue. Generate and verify a proof for each.
     size_t NUM_CIRCUITS = 3;
     for (size_t i = 0; i < NUM_CIRCUITS; ++i) {

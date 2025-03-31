@@ -62,7 +62,7 @@ struct FastSettings {
 template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
 {
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
-    typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
     typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
@@ -107,11 +107,10 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);
-    ExecutionComponentsProvider execution_components(
-        bytecode_manager, memory_emitter, context_stack_emitter, instruction_info_db);
+    ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
 
     Alu alu(alu_emitter);
-    Execution execution(alu, execution_components, instruction_info_db, execution_emitter);
+    Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);

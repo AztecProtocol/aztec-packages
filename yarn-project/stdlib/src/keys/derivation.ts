@@ -1,5 +1,5 @@
 import { GeneratorIndex } from '@aztec/constants';
-import { Grumpkin, poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
+import { Grumpkin, poseidon2Hash, poseidon2HashWithSeparator, sha512ToGrumpkinScalar } from '@aztec/foundation/crypto';
 import { Fq, Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 
 import { AztecAddress } from '../aztec-address/index.js';
@@ -123,11 +123,7 @@ export async function deriveKeys(secretKey: Fr) {
 }
 
 // Returns shared tagging secret computed with Diffie-Hellman key exchange.
-export async function computeTaggingSecretPoint(
-  knownAddress: CompleteAddress,
-  ivsk: Fq,
-  externalAddress: AztecAddress,
-) {
+async function computeTaggingSecretPoint(knownAddress: CompleteAddress, ivsk: Fq, externalAddress: AztecAddress) {
   const knownPreaddress = await computePreaddress(await knownAddress.publicKeys.hash(), knownAddress.partialAddress);
   // TODO: #8970 - Computation of address point from x coordinate might fail
   const externalAddressPoint = await externalAddress.toAddressPoint();
@@ -138,4 +134,14 @@ export async function computeTaggingSecretPoint(
   // Beware! h_a + ivsk_a (also known as the address secret) can lead to an address point with a negative y-coordinate, since there's two possible candidates
   // computeAddressSecret takes care of selecting the one that leads to a positive y-coordinate, which is the only valid address point
   return curve.mul(externalAddressPoint, await computeAddressSecret(knownPreaddress, ivsk));
+}
+
+export async function computeAppTaggingSecret(
+  knownAddress: CompleteAddress,
+  ivsk: Fq,
+  externalAddress: AztecAddress,
+  app: AztecAddress,
+) {
+  const taggingSecretPoint = await computeTaggingSecretPoint(knownAddress, ivsk, externalAddress);
+  return poseidon2Hash([taggingSecretPoint.x, taggingSecretPoint.y, app]);
 }
