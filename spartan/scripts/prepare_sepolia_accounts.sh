@@ -84,6 +84,9 @@ echo "Creating mnemonic..."
 cast wallet new-mnemonic --json >"$tmp_filename"
 MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
 
+echo "MNEMONIC:"
+echo "::add-mask::$MNEMONIC"
+
 # Cast has a limit of 255 accounts per mnemonic command
 # We'll need to derive accounts in batches
 echo "Deriving $total_accounts accounts from mnemonic..."
