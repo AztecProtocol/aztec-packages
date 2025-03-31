@@ -216,7 +216,7 @@ bool UltraHonkAPI::verify(const Flags& flags,
         return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "starknet") {
-        return _verify<UltraStarknetFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraStarknetFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     return false;
 }
