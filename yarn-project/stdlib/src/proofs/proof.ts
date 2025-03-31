@@ -3,7 +3,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
-import { assert } from 'console';
+import { strict as assert } from 'assert';
 
 const EMPTY_PROOF_SIZE = 42;
 
