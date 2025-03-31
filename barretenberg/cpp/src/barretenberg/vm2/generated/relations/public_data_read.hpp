@@ -14,6 +14,12 @@ template <typename FF_> class public_data_readImpl {
 
     static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 3, 3, 5, 3 };
 
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        const auto& new_term = in;
+        return (new_term.public_data_read_sel).is_zero();
+    }
+
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
                            const AllEntities& new_term,
