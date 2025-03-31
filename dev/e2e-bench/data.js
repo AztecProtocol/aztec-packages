@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743432716611,
+  "lastUpdate": 1743435865343,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "janbenes1234@gmail.com",
-            "name": "Jan Beneš",
-            "username": "benesjan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "20d734a11549d7a100d8f7e0ec64ca86d4cb73f8",
-          "message": "feat: 64 bit log type id, 64 bit log metadata (#12956)",
-          "timestamp": "2025-03-26T20:32:24-06:00",
-          "tree_id": "92987217b6b580a9f6bcd2098d3abb548eeec484",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/20d734a11549d7a100d8f7e0ec64ca86d4cb73f8"
-        },
-        "date": 1743044391481,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8468,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21534677398688495,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 104616,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 145264,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "5764343+charlielye@users.noreply.github.com",
+            "name": "Charlie Lye",
+            "username": "charlielye"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "260a057e65f3054643e64cb57d90f972de708a61",
+          "message": "fix: trying to fix EADDRINUSE (#13176)\n\n* Fix a bunch of `afterAll/afterEvery` mismatches that could lead to\n`EADDRINUSE` errors.\n* Force more networking binds (particularly in p2p tests) to loopback\n(`127.0.0.1`) to avoid potential `EADDRINUSE` or at least be more\nexplicit about what interface the error is happening on.\n* Force anvil back to `8545` and be explicit if you want a different\nport number. Again to make it easier to detect and diagnose improper\ncode.\n* `setup` function at least tears down anvil if it throws. It should\nprobably cleanup other things as well.",
+          "timestamp": "2025-03-31T16:15:04+01:00",
+          "tree_id": "6df7dbabbb5fc6bda34f36592e886a24ac43ba08",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/260a057e65f3054643e64cb57d90f972de708a61"
+        },
+        "date": 1743435863983,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9459,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24054513300221494,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 142661,
             "unit": "us"
           }
         ]
