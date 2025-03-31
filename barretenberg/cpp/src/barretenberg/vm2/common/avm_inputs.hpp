@@ -133,18 +133,16 @@ struct GetPreviousValueIndexHint {
     MSGPACK_FIELDS(hintKey, treeId, value, index, alreadyPresent);
 };
 
-template <typename Leaf> struct GetLeafPreimageHint {
+template <typename LeafPreimage_> struct GetLeafPreimageHint {
     AppendOnlyTreeSnapshot hintKey;
     // params (tree id will be implicit)
     uint64_t index;
     // return
-    Leaf leaf;
-    uint64_t nextIndex;
-    FF nextValue;
+    LeafPreimage_ leafPreimage;
 
-    bool operator==(const GetLeafPreimageHint<Leaf>& other) const = default;
+    bool operator==(const GetLeafPreimageHint<LeafPreimage_>& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, index, leaf, nextIndex, nextValue);
+    MSGPACK_FIELDS(hintKey, index, leafPreimage);
 };
 
 struct GetLeafValueHint {
@@ -186,8 +184,10 @@ struct ExecutionHints {
     // Merkle DB.
     std::vector<GetSiblingPathHint> getSiblingPathHints;
     std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
-    std::vector<GetLeafPreimageHint<crypto::merkle_tree::PublicDataLeafValue>> getLeafPreimageHintsPublicDataTree;
-    std::vector<GetLeafPreimageHint<crypto::merkle_tree::NullifierLeafValue>> getLeafPreimageHintsNullifierTree;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>>
+        getLeafPreimageHintsPublicDataTree;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>>
+        getLeafPreimageHintsNullifierTree;
     std::vector<GetLeafValueHint> getLeafValueHints;
 
     bool operator==(const ExecutionHints& other) const = default;

@@ -1000,12 +1000,21 @@ export function makeNullifierLeaf(seed = 0): NullifierLeaf {
 }
 
 /**
+ * Makes arbitrary nullifier leaf preimages.
+ * @param seed - The seed to use for generating the nullifier leaf preimage.
+ * @returns A nullifier leaf preimage.
+ */
+export function makeNullifierLeafPreimage(seed = 0): NullifierLeafPreimage {
+  return new NullifierLeafPreimage(makeNullifierLeaf(seed), new Fr(seed + 1), BigInt(seed + 2));
+}
+
+/**
  * Makes arbitrary public data tree leaf preimages.
  * @param seed - The seed to use for generating the public data tree leaf preimage.
  * @returns A public data tree leaf preimage.
  */
 export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPreimage {
-  return new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3));
+  return new PublicDataTreeLeafPreimage(makePublicDataTreeLeaf(seed), new Fr(seed + 2), BigInt(seed + 3));
 }
 
 /**
@@ -1016,7 +1025,7 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHints {
   const nullifierPredecessorPreimages = makeTuple(
     MAX_NULLIFIERS_PER_TX,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+    x => makeNullifierLeafPreimage(x),
     seed + 0x1000,
   );
 
@@ -1300,9 +1309,7 @@ export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPr
   return new AvmGetLeafPreimageHintPublicDataTree(
     makeAppendOnlyTreeSnapshot(seed),
     /*index=*/ index,
-    /*leaf=*/ makePublicDataTreeLeaf(seed + 3),
-    /*nextIndex=*/ index + 1n,
-    /*nextValue*/ new Fr(seed + 0x500),
+    /*leafPreimage=*/ makePublicDataTreeLeafPreimage(seed + 3),
   );
 }
 
@@ -1312,9 +1319,7 @@ export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPre
   return new AvmGetLeafPreimageHintNullifierTree(
     makeAppendOnlyTreeSnapshot(seed),
     /*index=*/ index,
-    /*leaf=*/ makeNullifierLeaf(seed + 3),
-    /*nextIndex=*/ index + 1n,
-    /*nextValue*/ new Fr(seed + 0x500),
+    /*leafPreimage=*/ makeNullifierLeafPreimage(seed + 3),
   );
 }
 
