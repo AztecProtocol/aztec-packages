@@ -8,6 +8,9 @@ namespace public_data_read;
     pol commit sel;
     sel * (1 - sel) = 0;
 
+    #[skippable_if]
+    sel = 0;
+
     // Inputs to the gadget
     pol commit value;
     pol commit slot;
@@ -23,7 +26,7 @@ namespace public_data_read;
 
     // ========= LOW LEAF MEMBERSHIP =========
     pol commit low_leaf_hash;
-    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit tree_height;
     sel * (tree_height - constants.PUBLIC_DATA_TREE_HEIGHT) = 0;
 
@@ -48,12 +51,13 @@ namespace public_data_read;
     pol commit slot_low_leaf_slot_diff_inv;
     pol SLOT_LOW_LEAF_SLOT_DIFF = slot - low_leaf_slot;
 
+    //  SLOT_LOW_LEAF_SLOT_DIFF == 0 <==> LEAF_EXISTS == 1
     #[EXISTS_FLAG_CHECK]
     sel * (SLOT_LOW_LEAF_SLOT_DIFF * (LEAF_EXISTS * (1 - slot_low_leaf_slot_diff_inv) + slot_low_leaf_slot_diff_inv) - 1 + LEAF_EXISTS) = 0;
 
-    // If doesn't exist, we need to validate that the slot is greater than the low leaf slot
+    // If the leaf doesn't exist, we need to validate that the slot is greater than the low leaf slot
 
-    // TODO: We need this temporarily while we dont allow for aliases in the lookup tuple
+    // TODO: We need this temporarily while we do not allow for aliases in the lookup tuple
     pol commit one;
     sel * (1 - one) = 0;
 
