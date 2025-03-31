@@ -15,7 +15,7 @@ if (NOT WASM)
     list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static)
 endif()
 
-if (NOT DISABLE_AZTEC_VM))
+if (NOT DISABLE_AZTEC_VM)
     list(APPEND DSL_DEPENDENCIES vm)
 endif()
 
