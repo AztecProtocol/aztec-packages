@@ -1,5 +1,5 @@
 #include <benchmark/benchmark.h>
-#include <sstream>
+#include <cstdlib>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -10,7 +10,7 @@
 
 namespace {
 // Benches the bb cli/main.cpp functionality by parsing MAIN_ARGS.
-void benchmark_bb_cli_user_provided(benchmark::State& state)
+void benchmark_bb_cli(benchmark::State& state)
 {
     // Get MAIN_ARGS from environment
     const char* main_args_env = std::getenv("MAIN_ARGS");
@@ -42,13 +42,13 @@ void benchmark_bb_cli_user_provided(benchmark::State& state)
 
         // Call the main function with the parsed arguments
         int result = bb::parse_and_run_cli_command(static_cast<int>(args.size()), argv.data());
-
-        // Use result to prevent compiler optimization
-        benchmark::DoNotOptimize(result);
+        if (result != 0) {
+            exit(result);
+        }
     }
 }
 
-BENCHMARK(benchmark_bb_cli_user_provided)->Iterations(1)->Unit(benchmark::kMillisecond);
+BENCHMARK(benchmark_bb_cli)->Iterations(1)->Unit(benchmark::kMillisecond);
 
 } // namespace
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 
-if [[ $# -ne 2 && $# -ne 3 ]]; then
-  echo "Usage: $0 <input_folder> <output_folder> <max_jobs?>"
+if [[ $# -ne 2 ]]; then
+  echo "Usage: $0 <bench_input_folder> <output_folder>"
   exit 1
 fi
 export input_folder="$1"
@@ -50,13 +50,16 @@ function client_ivc_flow {
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
   function bb_cli_bench {
-    # MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench
-    MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench
+    MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench || {
+      echo "bb_cli_bench failed with args: $*"
+      exit 1
+    }
   }
   bb_cli_bench prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
   echo "$flow has proven."
   local end=$(date +%s%N)
   dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
+  echo "$flow has verified."
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 ))
   cat > "./bench-out/ivc/$flow-ivc.json" <<EOF
@@ -82,15 +85,17 @@ function run_benchmark {
 
 export -f verify_ivc_flow client_ivc_flow run_benchmark
 
+# TODO this does not work with smaller core counts - we will soon have a benchmark-wide mechanism for this.
 num_cpus=$(get_num_cpus)
-max_jobs=$((num_cpus / HARDWARE_CONCURRENCY))
-jobs=${3:-$max_jobs}
-jobs=$(( $jobs < $max_jobs ? $jobs : $max_jobs ))
-echo "Using $jobs jobs."
-
+jobs=$((num_cpus / HARDWARE_CONCURRENCY))
 
 # Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
-parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: $(ls "$input_folder")
+if [ -n "${IVC_BENCH:-}" ]; then
+  # If IVC_BENCH is set, run only that benchmark.
+  run_benchmark 1 "client_ivc_flow $IVC_BENCH"
+else
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow {}"' ::: $(ls "$input_folder")
+fi
 
 mkdir -p "$output_folder"
 
