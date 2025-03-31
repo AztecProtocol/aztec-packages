@@ -36,6 +36,7 @@ import { mock } from 'jest-mock-extended';
 import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
@@ -57,7 +58,6 @@ import {
   resolveContractAssertionMessage,
 } from './fixtures/index.js';
 import { SimpleContractDataSource } from './fixtures/simple_contract_data_source.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,
@@ -555,7 +555,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let treesDB: PublicTreesDB;
     let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
-    let persistableState: AvmPersistableStateManager;
+    let persistableState: PublicPersistableStateManager;
 
     beforeAll(async () => {
       siloedNullifier0 = await siloNullifier(address, value0);
@@ -1093,7 +1093,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let treesDB: PublicTreesDB;
     let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
-    let persistableState: AvmPersistableStateManager;
+    let persistableState: PublicPersistableStateManager;
 
     let leafSlot0: Fr;
 

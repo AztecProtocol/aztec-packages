@@ -1,6 +1,7 @@
 import { Aes128 } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { applyStringFormatting, createLogger } from '@aztec/foundation/log';
+import type { EventSelector } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -9,7 +10,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader, Capsule } from '@aztec/stdlib/tx';
+import type { BlockHeader, Capsule, TxHash } from '@aztec/stdlib/tx';
 
 import { type NoteData, TypedOracle } from './acvm/index.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
@@ -375,5 +376,23 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
 
   public override getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.executionDataProvider.getSharedSecret(address, ephPk);
+  }
+
+  public override storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+  ): Promise<void> {
+    return this.executionDataProvider.storePrivateEventLog(
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+      logIndexInTx,
+    );
   }
 }

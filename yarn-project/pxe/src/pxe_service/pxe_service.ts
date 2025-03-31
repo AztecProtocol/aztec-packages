@@ -1,5 +1,5 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
@@ -20,6 +20,7 @@ import {
   FunctionCall,
   FunctionSelector,
   FunctionType,
+  decodeFromAbi,
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/stdlib/abi';
@@ -36,7 +37,7 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
+import { EventMetadata } from '@aztec/stdlib/event';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
@@ -49,7 +50,6 @@ import type {
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
 import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
@@ -82,6 +82,7 @@ import { AddressDataProvider } from '../storage/address_data_provider/address_da
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from '../synchronizer/index.js';
@@ -101,6 +102,7 @@ export class PXEService implements PXE {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private simulator: AcirSimulator,
     private packageVersion: string,
     private proverEnabled: boolean,
@@ -134,6 +136,7 @@ export class PXEService implements PXE {
     const packageVersion = getPackageInfo().version;
     const proverEnabled = !!config.proverEnabled;
     const addressDataProvider = new AddressDataProvider(store);
+    const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
@@ -160,6 +163,7 @@ export class PXEService implements PXE {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       log,
     );
     const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
@@ -175,6 +179,7 @@ export class PXEService implements PXE {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       simulator,
       packageVersion,
       proverEnabled,
@@ -880,72 +885,30 @@ export class PXEService implements PXE {
   }
 
   public async getPrivateEvents<T>(
+    contractAddress: AztecAddress,
     eventMetadataDef: EventMetadataDefinition,
     from: number,
-    limit: number,
-    // TODO (#9272): Make this better, we should be able to only pass an address now
-    vpks: Point[],
+    numBlocks: number,
+    recipients: AztecAddress[],
   ): Promise<T[]> {
-    const eventMetadata = new EventMetadata<T>(eventMetadataDef);
-    if (vpks.length === 0) {
-      throw new Error('Tried to get encrypted events without supplying any viewing public keys');
+    if (recipients.length === 0) {
+      throw new Error('Recipients are required to get private events');
     }
 
-    const blocks = await this.node.getBlocks(from, limit);
+    this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
-    const txEffects = blocks.flatMap(block => block.body.txEffects);
-    const privateLogs = txEffects.flatMap(txEffect => txEffect.privateLogs);
+    // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
+    await this.simulateUnconstrained('sync_notes', [], contractAddress);
 
-    const vsks = await Promise.all(
-      vpks.map(async vpk => {
-        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
-        let secretKey = await this.keyStore.getMasterSecretKey(vpk);
-        if (keyPrefix === 'iv') {
-          const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>
-            completeAddress.address.equals(account),
-          );
-          if (!registeredAccount) {
-            throw new Error('No registered account');
-          }
-
-          const preaddress = await registeredAccount.getPreaddress();
-
-          secretKey = await computeAddressSecret(preaddress, secretKey);
-        }
-
-        return secretKey;
-      }),
+    const events = await this.privateEventDataProvider.getPrivateEvents(
+      contractAddress,
+      from,
+      numBlocks,
+      recipients,
+      eventMetadataDef.eventSelector,
     );
 
-    const visibleEvents = (
-      await Promise.all(
-        privateLogs.map(async log => {
-          for (const sk of vsks) {
-            // TODO: Verify that the first field of the log is the tag siloed with contract address.
-            // Or use tags to query logs, like we do with notes.
-            const decryptedEvent = await L1EventPayload.decryptAsIncoming(log, sk);
-            if (decryptedEvent !== undefined) {
-              return [decryptedEvent];
-            }
-          }
-
-          return [];
-        }),
-      )
-    ).flat();
-
-    const decodedEvents = visibleEvents
-      .map(visibleEvent => {
-        if (visibleEvent === undefined) {
-          return undefined;
-        }
-        if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
-          return undefined;
-        }
-
-        return eventMetadata.decode(visibleEvent);
-      })
-      .filter(visibleEvent => visibleEvent !== undefined) as T[];
+    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
 
     return decodedEvents;
   }
