@@ -20,6 +20,6 @@ export interface AccountInterface extends EntrypointInterface, AuthWitnessProvid
   getChainId(): Fr;
 
   /** Returns the rollup version for this account */
-  getVersion(): Fr;
+  getRollupVersion(): Fr;
 }
 // docs:end:account-interface

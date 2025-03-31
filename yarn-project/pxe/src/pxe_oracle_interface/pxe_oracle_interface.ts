@@ -257,8 +257,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Fetches the current version.
    * @returns The version.
    */
-  public async getVersion(): Promise<number> {
-    return await this.aztecNode.getVersion();
+  public async getRollupVersion(): Promise<number> {
+    return await this.aztecNode.getRollupVersion();
   }
 
   public getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string> {

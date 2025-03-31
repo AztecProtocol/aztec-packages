@@ -581,7 +581,7 @@ export function makePrivateCircuitPublicInputs(seed = 0): PrivateCircuitPublicIn
 export function makeGlobalVariables(seed = 1, overrides: Partial<FieldsOf<GlobalVariables>> = {}): GlobalVariables {
   return GlobalVariables.from({
     chainId: new Fr(seed),
-    version: new Fr(seed + 1),
+    rollupVersion: new Fr(seed + 1),
     blockNumber: new Fr(seed + 2),
     slotNumber: new Fr(seed + 3),
     timestamp: new Fr(seed + 4),

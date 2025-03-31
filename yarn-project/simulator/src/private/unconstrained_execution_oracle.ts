@@ -43,8 +43,8 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     return Promise.resolve(this.executionDataProvider.getChainId().then(id => new Fr(id)));
   }
 
-  public override getVersion(): Promise<Fr> {
-    return Promise.resolve(this.executionDataProvider.getVersion().then(v => new Fr(v)));
+  public override getRollupVersion(): Promise<Fr> {
+    return Promise.resolve(this.executionDataProvider.getRollupVersion().then(v => new Fr(v)));
   }
 
   /**

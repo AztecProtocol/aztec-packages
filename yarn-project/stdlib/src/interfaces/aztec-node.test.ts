@@ -203,7 +203,7 @@ describe('AztecNodeApiSchema', () => {
   });
 
   it('getVersion', async () => {
-    const response = await context.client.getVersion();
+    const response = await context.client.getRollupVersion();
     expect(response).toBe(1);
   });
 
@@ -491,7 +491,7 @@ class MockAztecNode implements AztecNode {
   getNodeVersion(): Promise<string> {
     return Promise.resolve('1.0.0');
   }
-  getVersion(): Promise<number> {
+  getRollupVersion(): Promise<number> {
     return Promise.resolve(1);
   }
   getChainId(): Promise<number> {

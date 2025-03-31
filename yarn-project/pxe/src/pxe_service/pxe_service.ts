@@ -848,7 +848,7 @@ export class PXEService implements PXE {
   public async getNodeInfo(): Promise<NodeInfo> {
     const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
       this.node.getNodeVersion(),
-      this.node.getVersion(),
+      this.node.getRollupVersion(),
       this.node.getChainId(),
       this.node.getEncodedEnr(),
       this.node.getL1ContractAddresses(),

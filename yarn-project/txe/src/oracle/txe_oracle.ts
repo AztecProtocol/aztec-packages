@@ -230,8 +230,8 @@ export class TXE implements TypedOracle {
     return Promise.resolve(this.node.getChainId().then(id => new Fr(id)));
   }
 
-  getVersion(): Promise<Fr> {
-    return Promise.resolve(this.node.getVersion().then(v => new Fr(v)));
+  getRollupVersion(): Promise<Fr> {
+    return Promise.resolve(this.node.getRollupVersion().then(v => new Fr(v)));
   }
 
   getMsgSender() {
@@ -929,7 +929,7 @@ export class TXE implements TypedOracle {
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(await this.node.getChainId());
-    globalVariables.version = new Fr(await this.node.getVersion());
+    globalVariables.version = new Fr(await this.node.getRollupVersion());
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 

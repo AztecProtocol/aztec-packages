@@ -37,7 +37,7 @@ export abstract class BaseWallet implements Wallet {
 
   abstract getChainId(): Fr;
 
-  abstract getVersion(): Fr;
+  abstract getRollupVersion(): Fr;
 
   abstract createTxExecutionRequest(
     exec: ExecutionPayload,
