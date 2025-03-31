@@ -133,14 +133,21 @@ export class TXENode implements AztecNode {
    * Adds private logs to the txe node, given a block
    * @param blockNumber - The block number at which to add the private logs.
    * @param privateLogs - The privateLogs that contain the private logs to be added.
+   * @dev The logs must be in the same order as they are in the final tx effect.
    */
   addPrivateLogsByTags(blockNumber: number, privateLogs: PrivateLog[]) {
-    privateLogs.forEach(log => {
+    privateLogs.forEach((log, logIndexInTx) => {
       const tag = log.fields[0];
       this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        logIndexInTx,
+        blockNumber,
+        log,
+      );
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
@@ -152,14 +159,21 @@ export class TXENode implements AztecNode {
    * Adds public logs to the txe node, given a block
    * @param blockNumber - The block number at which to add the public logs.
    * @param publicLogs - The public logs to be added.
+   * @dev The logs must be in the same order as they are in the final tx effect.
    */
   addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
-    publicLogs.forEach(log => {
+    publicLogs.forEach((log, logIndexInTx) => {
       const tag = log.log[0];
       this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        logIndexInTx,
+        blockNumber,
+        log,
+      );
 
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);

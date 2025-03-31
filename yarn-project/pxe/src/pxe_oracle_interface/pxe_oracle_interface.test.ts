@@ -103,7 +103,7 @@ describe('PXEOracleInterface', () => {
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
         const blockNumber = 1;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -112,7 +112,7 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, PrivateLog.random(tag));
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, 0, PrivateLog.random(tag));
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -122,7 +122,7 @@ describe('PXEOracleInterface', () => {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
         const blockNumber = 2;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -135,7 +135,7 @@ describe('PXEOracleInterface', () => {
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
         const blockNumber = 3;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -406,7 +406,7 @@ describe('PXEOracleInterface', () => {
         typeof PUBLIC_LOG_DATA_SIZE_IN_FIELDS
       >;
       const log = new PublicLog(await AztecAddress.random(), logContent);
-      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, log);
+      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, 0, log);
 
       logs[tag.toString()] = [scopedLog];
       aztecNode.getLogsByTags.mockImplementation(tags => {
@@ -457,7 +457,7 @@ describe('PXEOracleInterface', () => {
     function mockTaggedLogs(numLogs: number) {
       return Array(numLogs)
         .fill(0)
-        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, PrivateLog.random(Fr.random())));
+        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, 0, PrivateLog.random(Fr.random())));
     }
 
     it('should call processLog on multiple logs', async () => {

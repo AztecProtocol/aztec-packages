@@ -1,6 +1,5 @@
 import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -27,13 +26,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
-import {
-  IndexedTaggingSecret,
-  LogWithTxData,
-  PrivateLog,
-  TxScopedL2Log,
-  deriveEcdhSharedSecret,
-} from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -613,19 +606,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
-      // TODO(#13155): Handle multiple found indexes for the same log.
-      let logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
-
-      // TODO(#13137): The following is a workaround to disable the logIndexInTx check for TXE tests as TXE currently
-      // returns nonsensical tx effects and the tx has is incremented from 0 up (so it never crosses a 1000).
-      if (scopedLog.txHash.toBigInt() < 1000n) {
-        logIndexInTx = randomInt(10);
-      }
-
-      if (logIndexInTx === -1) {
-        throw new Error(`Could not find log in tx effect for tx hash ${scopedLog.txHash}`);
-      }
-
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
         contractAddress,
@@ -633,7 +613,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         scopedLog.txHash,
         txEffect.data.noteHashes,
         txEffect.data.nullifiers[0],
-        logIndexInTx,
+        scopedLog.logIndexInTx,
         recipient,
         simulator,
       );
