@@ -65,7 +65,6 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              export LOG_LEVEL=debug
 
               TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
               TEST_ACCOUNTS_ARG=""
@@ -103,6 +102,8 @@ spec:
               value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
               value: "debug; info: aztec:simulator, json-rpc"
+            - name: LOG_JSON
+              value: "false"
             - name: NETWORK_PUBLIC
               value: "{{ .Values.network.public }}"
             - name: NAMESPACE
