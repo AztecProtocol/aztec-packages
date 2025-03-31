@@ -194,7 +194,7 @@ owners=$(get_owners)
 
 # To not fail a test, we at least need an owner to notify.
 if [ -z "$owners" ]; then
-  fail " (no owners found)"
+  fail
 else
   flake
 fi
