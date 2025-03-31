@@ -13,8 +13,6 @@ static constexpr uint32_t CONST_PG_LOG_N = 20;
 
 static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
-static constexpr uint32_t NUM_OP_QUEUE_COLUMNS = 4;
-
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1193): potentially reenable for better memory performance
 // static constexpr uint32_t MAX_LOOKUP_TABLES_SIZE = 80000;
 

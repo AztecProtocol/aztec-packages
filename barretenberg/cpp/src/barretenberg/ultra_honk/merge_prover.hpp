@@ -37,6 +37,9 @@ class MergeProver {
   private:
     std::shared_ptr<ECCOpQueue> op_queue;
     std::shared_ptr<CommitmentKey> pcs_commitment_key;
+    // Number of columns that jointly constitute the op_queue, should be the same as the number of wires in the
+    // MegaCircuitBuilder
+    static constexpr size_t NUM_WIRES = MegaExecutionTraceBlocks::NUM_WIRES;
 };
 
 } // namespace bb

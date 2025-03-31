@@ -1,5 +1,4 @@
 #include "merge_prover.hpp"
-#include "barretenberg/constants.hpp"
 #include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
 
 namespace bb {
@@ -34,9 +33,9 @@ MergeProver::MergeProof MergeProver::construct_proof()
     transcript = std::make_shared<Transcript>();
 
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
-    std::array<Polynomial, NUM_OP_QUEUE_COLUMNS> T_current = op_queue->construct_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_OP_QUEUE_COLUMNS> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
-    std::array<Polynomial, NUM_OP_QUEUE_COLUMNS> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
+    std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
+    std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
@@ -44,7 +43,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     transcript->send_to_verifier("subtable_size", static_cast<uint32_t>(current_subtable_size));
 
     // Compute/get commitments [t^{shift}], [T_prev], and [T] and add to transcript
-    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         // Compute commitments
         Commitment t_commitment = pcs_commitment_key->commit(t_current[idx]);
         Commitment T_prev_commitment = pcs_commitment_key->commit(T_prev[idx]);
@@ -63,19 +62,19 @@ MergeProver::MergeProof MergeProver::construct_proof()
     // Add univariate opening claims for each polynomial.
     std::vector<OpeningClaim> opening_claims;
     // Compute evaluation t(\kappa)
-    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation = t_current[idx].evaluate(kappa);
         transcript->send_to_verifier("t_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ std::move(t_current[idx]), { kappa, evaluation } });
     }
     // Compute evaluation T_prev(\kappa)
-    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation = T_prev[idx].evaluate(kappa);
         transcript->send_to_verifier("T_prev_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ T_prev[idx], { kappa, evaluation } });
     }
     // Compute evaluation T(\kappa)
-    for (size_t idx = 0; idx < NUM_OP_QUEUE_COLUMNS; ++idx) {
+    for (size_t idx = 0; idx < NUM_WIRES; ++idx) {
         FF evaluation = T_current[idx].evaluate(kappa);
         transcript->send_to_verifier("T_eval_" + std::to_string(idx), evaluation);
         opening_claims.emplace_back(OpeningClaim{ std::move(T_current[idx]), { kappa, evaluation } });

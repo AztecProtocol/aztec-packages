@@ -53,7 +53,7 @@ class GoblinMockCircuits {
     using RecursiveVerificationKey = RecursiveDeciderVerificationKey::VerificationKey;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
-    static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     struct KernelInput {
         HonkProof proof;
