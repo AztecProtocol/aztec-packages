@@ -370,10 +370,13 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
+concept IsUltraHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+template <typename T>
+concept IsUltraFlavor = IsUltraHonkFlavor<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra> || IsUltraFlavor<T>;
+
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
