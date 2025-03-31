@@ -304,6 +304,8 @@ class TranslatorFlavor {
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
+        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
+
         /**
          * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
          */
@@ -340,8 +342,6 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all(),
                                DerivedWitnessEntities<DataType>::get_all());
         };
-
-        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
 
         /**
          * @brief Get the entities constructed by interleaving.
@@ -603,15 +603,14 @@ class TranslatorFlavor {
          * @details Attempts to initialize polynomials efficiently by using the actual size of the mini circuit rather
          * than the fixed dydaic size.
          *
-         * @param actual_mini_circuit_size Actual number of rows in the mini circuit.
+         * @param actual_mini_circuit_size Actual number of rows in the Translator circuit.
          */
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
         ProverPolynomials(size_t actual_mini_circuit_size)
         {
             const size_t mini_circuit_size = TRANSLATOR_VM_FIXED_SIZE;
             const size_t circuit_size = TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE;
 
-            // WORKTODO: these are currently fully dense in the full circuit size but I'm guessing that doesnt need to
-            // be the case..
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
                                                        /*virtual_size*/ circuit_size,
@@ -696,9 +695,9 @@ class TranslatorFlavor {
 
         ProvingKey() = default;
         // WORKTODO: this is a constructor used only in tests. We should get rid of it or make it a test-only method.
-        ProvingKey(const size_t dyadic_circuit_size)
+        ProvingKey(const size_t dyadic_circuit_size, const size_t actual_mini_circuit_size)
             : Base(dyadic_circuit_size, 0)
-            , polynomials(this->circuit_size)
+            , polynomials(actual_mini_circuit_size)
         {}
 
         ProvingKey(const size_t dyadic_circuit_size,
