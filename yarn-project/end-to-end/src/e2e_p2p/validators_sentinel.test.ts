@@ -29,6 +29,7 @@ describe('e2e_p2p_validators_sentinel', () => {
       basePort: BOOT_NODE_UDP_PORT,
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
         minTxsPerBlock: 0,
         aztecEpochDuration: 48,
         validatorReexecute: false,
