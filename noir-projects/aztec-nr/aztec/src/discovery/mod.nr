@@ -14,7 +14,7 @@ global PRIVATE_LOG_EXPANDED_METADATA_LEN: u32 = 1;
 pub global MAX_LOG_CONTENT_LEN: u32 =
     PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - PRIVATE_LOG_EXPANDED_METADATA_LEN;
 
-use private_notes::MAX_NOTE_PACKED_LEN;
+use private_notes::MAX_LOG_CONTENT_LEN;
 
 pub struct NoteHashAndNullifier {
     /// The result of NoteHash::compute_note_hash
@@ -58,7 +58,7 @@ pub struct NoteHashAndNullifier {
 ///     };
 /// }
 /// ```
-type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_NOTE_PACKED_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* nonce */ Field) -> Option<NoteHashAndNullifier>;
+type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */BoundedVec<Field, MAX_LOG_CONTENT_LEN>, /* storage_slot */ Field, /* note_type_id */ Field, /* contract_address */ AztecAddress, /* nonce */ Field) -> Option<NoteHashAndNullifier>;
 
 /// Performs the message discovery process, in which private are downloaded and inspected to find new private notes,
 /// partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
