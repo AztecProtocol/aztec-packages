@@ -194,8 +194,7 @@ class ClientIVC {
         , goblin(bn254_commitment_key)
     {
         // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
-        // WORKTODO: I'm accounting for the Translator here because things were breaking otherwise but it may make sense
-        // to only account for the translator once we're actually IN the translator.
+        // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
         size_t commitment_key_size =
             std::max(trace_settings.dyadic_size(),
                      TranslatorFlavor::TRANSLATOR_VM_FIXED_SIZE * TranslatorFlavor::INTERLEAVING_GROUP_SIZE);

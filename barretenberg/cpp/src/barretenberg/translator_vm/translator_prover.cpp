@@ -148,15 +148,13 @@ void TranslatorProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
+    const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
     // // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
     // // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
     // //  until we enter the PCS round
-    // auto ck = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+    auto ck = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
 
-    // // create masking polynomials for sumcheck round univariates and auxiliary data
-    zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, key->proving_key->commitment_key);
-    // zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
+    zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
     sumcheck_output =
         sumcheck.prove(key->proving_key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
@@ -220,11 +218,10 @@ HonkProof TranslatorProver::construct_proof()
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
-    // WORKTODO: figure out how to make this work. (shouldn't be excluded in WASM!)
-    // // #ifndef __wasm__
-    // // Free the commitment key
-    // key->proving_key->commitment_key = nullptr;
-    // // #endif
+    // #ifndef __wasm__
+    // Free the commitment key
+    key->proving_key->commitment_key = nullptr;
+    // #endif
 
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
