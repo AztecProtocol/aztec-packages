@@ -387,7 +387,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const verificationKey = this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
     await this.verifyProof('RootRollupArtifact', proof);
-    // HACK: add the length of the aggregation object back to the number of public inputs
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Remove this hack.
     recursiveProof.binaryProof.numPublicInputs += AGGREGATION_OBJECT_LENGTH;
     return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
