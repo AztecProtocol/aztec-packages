@@ -16,6 +16,7 @@ pub(crate) struct LogCapsule {
     pub unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     pub first_nullifier_in_tx: Field,
     pub recipient: AztecAddress,
+    pub log_index_in_tx: Field,
 }
 
 mod test {
@@ -29,13 +30,14 @@ mod test {
         let unique_note_hashes = BoundedVec::from_array([4, 5]);
         let first_nullifier = 6;
         let recipient = AztecAddress::from_field(789);
-
+        let log_index_in_tx = 10;
         let capsule = LogCapsule {
             log,
             tx_hash,
             unique_note_hashes_in_tx: unique_note_hashes,
             first_nullifier_in_tx: first_nullifier,
             recipient,
+            log_index_in_tx,
         };
 
         let serialized = capsule.serialize();
@@ -129,6 +131,7 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000000,
             0x0000000000000000000000000000000000000000000000000000000000000002,
             0x0000000000000000000000000000000000000000000000000000000000000006,
+            0x0000000000000000000000000000000000000000000000000000000000000315,
             0x0000000000000000000000000000000000000000000000000000000000000315,
         ];
 

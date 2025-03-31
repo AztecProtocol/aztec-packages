@@ -11,8 +11,9 @@ describe('LogCapsule', () => {
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
     const recipient = AztecAddress.fromField(new Fr(789n));
+    const logIndexInTx = new Fr(10n);
 
-    const capsule = new LogCapsule(log, txHash, uniqueNoteHashes, firstNullifier, recipient);
+    const capsule = new LogCapsule(log, txHash, uniqueNoteHashes, firstNullifier, recipient, logIndexInTx);
     const serialized = capsule.toFields();
 
     // Test against snapshot

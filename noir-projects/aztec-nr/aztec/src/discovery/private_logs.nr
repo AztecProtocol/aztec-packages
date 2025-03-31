@@ -105,7 +105,12 @@ unconstrained fn process_log<Env>(
     } else if log_type_id == PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID {
         debug_log("Processing partial note private log");
 
-        process_partial_note_private_log(contract_address, log_capsule.recipient, log_metadata, log_content);
+        process_partial_note_private_log(
+            contract_address,
+            log_capsule.recipient,
+            log_metadata,
+            log_content,
+        );
     } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
         debug_log("Processing private event log");
 
@@ -114,11 +119,11 @@ unconstrained fn process_log<Env>(
 
         store_private_event_log(
             contract_address,
-            recipient,
+            log_capsule.recipient,
             event_selector,
             log_content,
-            tx_hash,
-            log_index_in_tx,
+            log_capsule.tx_hash,
+            log_capsule.log_index_in_tx,
         );
     } else {
         // TODO(#11569): handle events

@@ -13,6 +13,7 @@ export class LogCapsule {
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
     public recipient: AztecAddress,
+    public logIndexInTx: Fr,
   ) {}
 
   toFields(): Fr[] {
@@ -22,6 +23,7 @@ export class LogCapsule {
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
       this.recipient.toField(),
+      this.logIndexInTx,
     ];
   }
 }
