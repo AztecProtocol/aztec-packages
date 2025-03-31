@@ -27,10 +27,6 @@ for arg in "$@"; do
   fi
 done
 
-# For sanity when iterating on build scripts as bootstrap.sh scripts are in every .rebuild_patterns.
-if [ -n "${AZTEC_CACHE_NO_SCRIPTS:-}" ]; then
-  rebuild_patterns=$(echo "$rebuild_patterns" | grep -v '.sh')
-fi
 GREP_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$')
 # Concatenate patterns with '|' and double escape backslashes for AWK filter empty lines
 AWK_PATTERN=$(echo "$rebuild_patterns" | grep -v '^$' | sed 's/\\/\\\\/g' | tr '\n' '|' | sed 's/|$//')
@@ -48,9 +44,10 @@ diff="$({
 # Check for uncommitted files/changes.
 # Only use this check if AZTEC_CACHE_COMMIT is the default, otherwise the user is being explicit about using git history.
 if [ -n "$diff" ] && [ "$AZTEC_CACHE_COMMIT" == "HEAD" ]; then
-  # Fail. We shouldn't be writing files during the build.
+  # Fail. We shouldn't be changing files during the CI run.
   if [ "${CI:-0}" = 1 ]; then
-    echo_stderr "WARNING: Noticed changes to rebuild patterns: $diff"
+    echo_stderr "ERROR: Noticed changes to rebuild patterns: $diff"
+    exit 1
   fi
   # Signal to cache_upload and cache_download to not touch this file.
   echo "disabled-cache"
