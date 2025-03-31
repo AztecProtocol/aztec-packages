@@ -41,6 +41,7 @@ struct EventsContainer {
     EventEmitterInterface<FieldGreaterThanEvent>::Container field_gt;
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
     EventEmitterInterface<RangeCheckEvent>::Container range_check;
+    EventEmitterInterface<ContextStackEvent>::Container context_stack;
 };
 
 } // namespace bb::avm2::simulation

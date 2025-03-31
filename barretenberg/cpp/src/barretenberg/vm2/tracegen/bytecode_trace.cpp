@@ -17,17 +17,6 @@
 using Poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace bb::avm2::tracegen {
-namespace {
-
-// This returns a number whose first n bits are set to 1.
-uint64_t as_unary(uint32_t n)
-{
-    assert(n <= DECOMPOSE_WINDOW_SIZE);
-    uint64_t tmp = (static_cast<uint64_t>(1) << n) - 1;
-    return tmp;
-}
-
-} // namespace
 
 void BytecodeTraceBuilder::process_decomposition(
     const simulation::EventEmitterInterface<simulation::BytecodeDecompositionEvent>::Container& events,
@@ -42,7 +31,6 @@ void BytecodeTraceBuilder::process_decomposition(
         const auto& bytecode = *event.bytecode;
         const auto id = event.bytecode_id;
         auto bytecode_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? bytecode[i] : 0; };
-        auto bytecode_exists_at = [&bytecode](size_t i) -> uint8_t { return i < bytecode.size() ? 1 : 0; };
         const uint32_t bytecode_len = static_cast<uint32_t>(bytecode.size());
 
         for (uint32_t i = 0; i < bytecode_len; i++) {
@@ -65,7 +53,6 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_rem_min_one_inv, is_last ? 0 : FF(remaining - 1).invert() },
                     { C::bc_decomposition_abs_diff, abs_diff },
                     { C::bc_decomposition_bytes_to_read, bytes_to_read },
-                    { C::bc_decomposition_bytes_to_read_unary, as_unary(bytes_to_read) },
                     { C::bc_decomposition_sel_overflow_correction_needed, remaining < DECOMPOSE_WINDOW_SIZE ? 1 : 0 },
                     // Sliding window.
                     { C::bc_decomposition_bytes, bytecode_at(i) },
@@ -105,43 +92,6 @@ void BytecodeTraceBuilder::process_decomposition(
                     { C::bc_decomposition_bytes_pc_plus_34, bytecode_at(i + 34) },
                     { C::bc_decomposition_bytes_pc_plus_35, bytecode_at(i + 35) },
                     { C::bc_decomposition_bytes_pc_plus_36, bytecode_at(i + 36) },
-                    // Bytecode overflow selectors.
-                    { C::bc_decomposition_sel_pc_plus_1, bytecode_exists_at(i + 1) },
-                    { C::bc_decomposition_sel_pc_plus_2, bytecode_exists_at(i + 2) },
-                    { C::bc_decomposition_sel_pc_plus_3, bytecode_exists_at(i + 3) },
-                    { C::bc_decomposition_sel_pc_plus_4, bytecode_exists_at(i + 4) },
-                    { C::bc_decomposition_sel_pc_plus_5, bytecode_exists_at(i + 5) },
-                    { C::bc_decomposition_sel_pc_plus_6, bytecode_exists_at(i + 6) },
-                    { C::bc_decomposition_sel_pc_plus_7, bytecode_exists_at(i + 7) },
-                    { C::bc_decomposition_sel_pc_plus_8, bytecode_exists_at(i + 8) },
-                    { C::bc_decomposition_sel_pc_plus_9, bytecode_exists_at(i + 9) },
-                    { C::bc_decomposition_sel_pc_plus_10, bytecode_exists_at(i + 10) },
-                    { C::bc_decomposition_sel_pc_plus_11, bytecode_exists_at(i + 11) },
-                    { C::bc_decomposition_sel_pc_plus_12, bytecode_exists_at(i + 12) },
-                    { C::bc_decomposition_sel_pc_plus_13, bytecode_exists_at(i + 13) },
-                    { C::bc_decomposition_sel_pc_plus_14, bytecode_exists_at(i + 14) },
-                    { C::bc_decomposition_sel_pc_plus_15, bytecode_exists_at(i + 15) },
-                    { C::bc_decomposition_sel_pc_plus_16, bytecode_exists_at(i + 16) },
-                    { C::bc_decomposition_sel_pc_plus_17, bytecode_exists_at(i + 17) },
-                    { C::bc_decomposition_sel_pc_plus_18, bytecode_exists_at(i + 18) },
-                    { C::bc_decomposition_sel_pc_plus_19, bytecode_exists_at(i + 19) },
-                    { C::bc_decomposition_sel_pc_plus_20, bytecode_exists_at(i + 20) },
-                    { C::bc_decomposition_sel_pc_plus_21, bytecode_exists_at(i + 21) },
-                    { C::bc_decomposition_sel_pc_plus_22, bytecode_exists_at(i + 22) },
-                    { C::bc_decomposition_sel_pc_plus_23, bytecode_exists_at(i + 23) },
-                    { C::bc_decomposition_sel_pc_plus_24, bytecode_exists_at(i + 24) },
-                    { C::bc_decomposition_sel_pc_plus_25, bytecode_exists_at(i + 25) },
-                    { C::bc_decomposition_sel_pc_plus_26, bytecode_exists_at(i + 26) },
-                    { C::bc_decomposition_sel_pc_plus_27, bytecode_exists_at(i + 27) },
-                    { C::bc_decomposition_sel_pc_plus_28, bytecode_exists_at(i + 28) },
-                    { C::bc_decomposition_sel_pc_plus_29, bytecode_exists_at(i + 29) },
-                    { C::bc_decomposition_sel_pc_plus_30, bytecode_exists_at(i + 30) },
-                    { C::bc_decomposition_sel_pc_plus_31, bytecode_exists_at(i + 31) },
-                    { C::bc_decomposition_sel_pc_plus_32, bytecode_exists_at(i + 32) },
-                    { C::bc_decomposition_sel_pc_plus_33, bytecode_exists_at(i + 33) },
-                    { C::bc_decomposition_sel_pc_plus_34, bytecode_exists_at(i + 34) },
-                    { C::bc_decomposition_sel_pc_plus_35, bytecode_exists_at(i + 35) },
-                    { C::bc_decomposition_sel_pc_plus_36, bytecode_exists_at(i + 36) },
                 } });
         }
 
@@ -250,9 +200,9 @@ void BytecodeTraceBuilder::process_instruction_fetching(
     using simulation::BytecodeId;
     using simulation::InstructionFetchingEvent;
     using simulation::InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE;
-    using simulation::InstrDeserializationError::NO_ERROR;
     using simulation::InstrDeserializationError::OPCODE_OUT_OF_RANGE;
     using simulation::InstrDeserializationError::PC_OUT_OF_RANGE;
+    using simulation::InstrDeserializationError::TAG_OUT_OF_RANGE;
 
     // We start from row 1 because we need a row of zeroes for the shifts.
     uint32_t row = 1;
@@ -273,12 +223,29 @@ void BytecodeTraceBuilder::process_instruction_fetching(
         uint32_t size_in_bytes = 0;
         ExecutionOpCode exec_opcode = static_cast<ExecutionOpCode>(0);
         std::array<uint8_t, NUM_OP_DC_SELECTORS> op_dc_selectors{};
+        uint8_t has_tag = 0;
+        uint8_t tag_is_op2 = 0;
+        uint8_t tag_value = 0;
 
         if (wire_opcode_in_range) {
             const auto& wire_instr_spec = WIRE_INSTRUCTION_SPEC.at(static_cast<WireOpCode>(wire_opcode));
             size_in_bytes = wire_instr_spec.size_in_bytes;
             exec_opcode = wire_instr_spec.exec_opcode;
             op_dc_selectors = wire_instr_spec.op_dc_selectors;
+
+            if (wire_instr_spec.tag_operand_idx.has_value()) {
+                const auto tag_value_idx = wire_instr_spec.tag_operand_idx.value();
+                assert((tag_value_idx == 2 || tag_value_idx == 3) &&
+                       "Current constraints support only tag for operand index equal to 2 or 3");
+                has_tag = 1;
+
+                if (tag_value_idx == 2) {
+                    tag_is_op2 = 1;
+                    tag_value = static_cast<uint8_t>(get_operand(1)); // in instruction.operands, op2 has index 1
+                } else {
+                    tag_value = static_cast<uint8_t>(get_operand(2));
+                }
+            }
         }
 
         const uint32_t bytes_remaining =
@@ -352,6 +319,8 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       // From instruction table.
                       { C::instr_fetching_exec_opcode, static_cast<uint32_t>(exec_opcode) },
                       { C::instr_fetching_instr_size, size_in_bytes },
+                      { C::instr_fetching_sel_has_tag, has_tag },
+                      { C::instr_fetching_sel_tag_is_op2, tag_is_op2 },
 
                       // Fill operand decomposition selectors
                       { C::instr_fetching_sel_op_dc_0, op_dc_selectors.at(0) },
@@ -377,10 +346,11 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_pc_out_of_range, event.error == PC_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_opcode_out_of_range, event.error == OPCODE_OUT_OF_RANGE ? 1 : 0 },
                       { C::instr_fetching_instr_out_of_range, event.error == INSTRUCTION_OUT_OF_RANGE ? 1 : 0 },
-                      { C::instr_fetching_parsing_err, event.error != NO_ERROR ? 1 : 0 },
+                      { C::instr_fetching_tag_out_of_range, event.error == TAG_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_parsing_err, event.error.has_value() ? 1 : 0 },
 
                       // selector for lookups
-                      { C::instr_fetching_sel_opcode_defined, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
+                      { C::instr_fetching_sel_pc_in_range, event.error != PC_OUT_OF_RANGE ? 1 : 0 },
 
                       { C::instr_fetching_bytecode_size, bytecode_size },
                       { C::instr_fetching_bytes_to_read, bytes_to_read },
@@ -388,6 +358,7 @@ void BytecodeTraceBuilder::process_instruction_fetching(
                       { C::instr_fetching_pc_abs_diff, pc_abs_diff },
                       { C::instr_fetching_pc_size_in_bits,
                         AVM_PC_SIZE_IN_BITS }, // Remove when we support constants in lookups
+                      { C::instr_fetching_tag_value, tag_value },
                   } });
         row++;
     }

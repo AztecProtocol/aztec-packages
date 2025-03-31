@@ -19,6 +19,8 @@ constexpr size_t operand_columns = 4;
 
 } // namespace
 
+// TODO: Currently we accept the execution opcode, we need a way to map this to the actual selector for the circuit
+// we should be able to leverage the instruction specification table for this
 void ExecutionTraceBuilder::process(
     const simulation::EventEmitterInterface<simulation::ExecutionEvent>::Container& orig_events, TraceContainer& trace)
 {
@@ -51,7 +53,6 @@ void ExecutionTraceBuilder::process(
                       { C::execution_op2, static_cast<FF>(operands.at(1)) },
                       { C::execution_op3, static_cast<FF>(operands.at(2)) },
                       { C::execution_op4, static_cast<FF>(operands.at(3)) },
-                      { C::execution_pc, ex_event.pc },
                       { C::execution_bytecode_id, ex_event.bytecode_id },
                       { C::execution_rop1, static_cast<FF>(resolved_operands.at(0)) },
                       { C::execution_rop2, static_cast<FF>(resolved_operands.at(1)) },
@@ -81,6 +82,21 @@ void ExecutionTraceBuilder::process(
                 { C::execution_op3_after_relative, static_cast<FF>(operands_after_relative.at(2)) },
                 { C::execution_op4_after_relative, static_cast<FF>(operands_after_relative.at(3)) },
             } });
+
+        // Context
+        trace.set(row,
+                  { {
+                      { C::execution_context_id, ex_event.context_event.id },
+                      { C::execution_pc, ex_event.context_event.pc },
+                      { C::execution_is_static, ex_event.context_event.is_static },
+                      { C::execution_msg_sender, ex_event.context_event.msg_sender },
+                      { C::execution_contract_address, ex_event.context_event.contract_addr },
+                      { C::execution_parent_calldata_offset_addr, ex_event.context_event.parent_cd_addr },
+                      { C::execution_parent_calldata_size_addr, ex_event.context_event.parent_cd_size_addr },
+                      { C::execution_last_child_returndata_offset_addr, ex_event.context_event.last_child_rd_addr },
+                      { C::execution_last_child_returndata_size_addr, ex_event.context_event.last_child_rd_size_addr },
+                      { C::execution_last_child_success, ex_event.context_event.last_child_success },
+                  } });
 
         row++;
     }

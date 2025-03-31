@@ -26,7 +26,7 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     if (!key->is_accumulator) {
         run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
     index++;
 

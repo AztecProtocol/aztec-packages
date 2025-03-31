@@ -48,6 +48,7 @@ import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
+import type { ValidatorsStats } from '../validators/types.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -289,6 +290,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
+  it('getValidatorsStats', async () => {
+    const response = await context.client.getValidatorsStats();
+    expect(response).toBeDefined();
+  });
+
   it('simulatePublicCalls', async () => {
     const response = await context.client.simulatePublicCalls(await Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
@@ -359,6 +365,7 @@ class MockAztecNode implements AztecNode {
       finalized: { number: 1, hash: `0x01` },
     });
   }
+
   findLeavesIndexes(
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
@@ -555,6 +562,14 @@ class MockAztecNode implements AztecNode {
   }
   getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
+  }
+  getValidatorsStats(): Promise<ValidatorsStats> {
+    return Promise.resolve({
+      stats: {},
+      lastProcessedSlot: 20n,
+      initialSlot: 1n,
+      slotWindow: 10,
+    } satisfies ValidatorsStats);
   }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);

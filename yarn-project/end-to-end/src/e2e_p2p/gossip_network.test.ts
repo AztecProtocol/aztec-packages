@@ -48,6 +48,7 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
       },
     });
 

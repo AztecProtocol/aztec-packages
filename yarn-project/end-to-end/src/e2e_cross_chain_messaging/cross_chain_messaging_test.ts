@@ -132,7 +132,7 @@ export class CrossChainMessagingTest {
 
         this.logger.verbose(`L2 token deployed to: ${this.crossChainTestHarness.l2Token.address}`);
 
-        return this.toCrossChainContext();
+        return this.crossChainTestHarness.toCrossChainContext();
       },
       async crossChainContext => {
         this.l2Token = await TokenContract.at(crossChainContext.l2Token, this.user1Wallet);
@@ -177,28 +177,4 @@ export class CrossChainMessagingTest {
       },
     );
   }
-
-  toCrossChainContext(): CrossChainContext {
-    return {
-      l2Token: this.crossChainTestHarness.l2Token.address,
-      l2Bridge: this.crossChainTestHarness.l2Bridge.address,
-      tokenPortal: this.crossChainTestHarness.tokenPortalAddress,
-      underlying: this.crossChainTestHarness.underlyingERC20Address,
-      ethAccount: this.crossChainTestHarness.ethAccount,
-      ownerAddress: this.crossChainTestHarness.ownerAddress,
-      inbox: this.crossChainTestHarness.l1ContractAddresses.inboxAddress,
-      outbox: this.crossChainTestHarness.l1ContractAddresses.outboxAddress,
-    };
-  }
 }
-
-type CrossChainContext = {
-  l2Token: AztecAddress;
-  l2Bridge: AztecAddress;
-  tokenPortal: EthAddress;
-  underlying: EthAddress;
-  ethAccount: EthAddress;
-  ownerAddress: AztecAddress;
-  inbox: EthAddress;
-  outbox: EthAddress;
-};

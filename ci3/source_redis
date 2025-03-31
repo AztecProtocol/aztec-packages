@@ -18,7 +18,7 @@ if [ -z "${CI_REDIS_AVAILABLE:-}" ]; then
     # We have the build_instance_key.
     # Attempt to open a port to the remote redis cache via ssh through the bastion.
     echo_stderr "Opening port to remote redis..."
-    ssh -N -L 6379:ci-redis.lzka0i.0001.use2.cache.amazonaws.com:6379 \
+    ssh -N -L 6379:ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com:6379 \
       -o ControlMaster=auto -o ControlPath=/tmp/ssh_mux_%h_%p_%r -o ControlPersist=480m \
       -F $ci3/aws/build_instance_ssh_config ci-bastion.aztecprotocol.com true && true
     if nc -z $CI_REDIS 6379 &>/dev/null; then

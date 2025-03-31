@@ -51,8 +51,9 @@ To spare you a few keystrokes, you can use `./aztec-sequencer [start/stop/logs/u
 The user is prompted to enter some values which will map to corresponding ENV variables. Some are required:
 
 1. A Sepolia execution node RPC (for example on [alchemy](https://dashboard.alchemy.com/))
-2. An Ethereum private key
-3. `COINBASE` which is the Ethereum address associated with the private key
+2. A Sepolia beacon node RPC (for example from [drpc](https://drpc.org))
+3. An Ethereum private key
+4. `COINBASE` which is the Ethereum address associated with the private key
 
 On a first run, the script will generate a p2p private key and store it in `$DATA_DIR/var/lib/aztec/p2p-private-key`. If you wish to change your p2p private key, you can pass it on as a CLI arg using the flag `-pk` or update the `PEER_ID_PRIVATE_KEY` in the env file.
 

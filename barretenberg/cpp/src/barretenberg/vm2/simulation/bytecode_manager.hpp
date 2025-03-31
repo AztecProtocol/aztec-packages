@@ -39,7 +39,7 @@ class TxBytecodeManagerInterface {
 class TxBytecodeManager : public TxBytecodeManagerInterface {
   public:
     TxBytecodeManager(ContractDBInterface& contract_db,
-                      MerkleDBInterface& merkle_db,
+                      HighLevelMerkleDBInterface& merkle_db,
                       SiloingInterface& siloing,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
@@ -61,7 +61,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
 
   private:
     ContractDBInterface& contract_db;
-    MerkleDBInterface& merkle_db;
+    HighLevelMerkleDBInterface& merkle_db;
     SiloingInterface& siloing;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;

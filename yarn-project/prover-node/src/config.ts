@@ -1,12 +1,9 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import {
-  type ConfigMappingsType,
-  booleanConfigHelper,
-  getConfigFromMappings,
-  numberConfigHelper,
-} from '@aztec/foundation/config';
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
+import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
 import {
   type ProverAgentConfig,
@@ -33,10 +30,9 @@ export type ProverNodeConfig = ArchiverConfig &
   TxSenderConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
-  SpecificProverNodeConfig & {
-    /** Whether to populate the genesis state with initial fee juice for the test accounts */
-    testAccounts: boolean;
-  };
+  SharedNodeConfig &
+  SpecificProverNodeConfig &
+  GenesisStateConfig;
 
 type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
@@ -90,11 +86,8 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
-  testAccounts: {
-    env: 'TEST_ACCOUNTS',
-    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
-    ...booleanConfigHelper(false),
-  },
+  ...genesisStateConfigMappings,
+  ...sharedNodeConfigMappings,
 };
 
 export function getProverNodeConfigFromEnv(): ProverNodeConfig {

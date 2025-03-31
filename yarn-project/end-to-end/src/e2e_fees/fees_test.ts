@@ -168,7 +168,7 @@ export class FeesTest {
     await this.snapshotManager.snapshot(
       'initial_accounts',
       deployAccounts(this.numberOfAccounts, this.logger),
-      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig, deployL1ContractsValues }) => {
+      async ({ deployedAccounts }, { pxe, aztecNode, aztecNodeConfig }) => {
         this.pxe = pxe;
 
         this.aztecNode = aztecNode;
@@ -185,16 +185,6 @@ export class FeesTest {
         const canonicalFeeJuice = await getCanonicalFeeJuice();
         this.feeJuiceContract = await FeeJuiceContract.at(canonicalFeeJuice.address, this.aliceWallet);
         this.coinbase = EthAddress.random();
-
-        this.feeJuiceBridgeTestHarness = await FeeJuicePortalTestingHarnessFactory.create({
-          aztecNode,
-          aztecNodeAdmin: aztecNode,
-          pxeService: pxe,
-          publicClient: deployL1ContractsValues.publicClient,
-          walletClient: deployL1ContractsValues.walletClient,
-          wallet: this.aliceWallet,
-          logger: this.logger,
-        });
       },
     );
   }

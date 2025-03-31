@@ -48,12 +48,13 @@ function mockAttestationPool(): AttestationPool {
     deleteAttestationsForSlot: () => Promise.resolve(),
     deleteAttestationsForSlotAndProposal: () => Promise.resolve(),
     getAttestationsForSlot: () => Promise.resolve([]),
+    getAttestationsForSlotAndProposal: () => Promise.resolve([]),
   };
 }
 
 function mockEpochCache(): EpochCacheInterface {
   return {
-    getCommittee: () => Promise.resolve([] as EthAddress[]),
+    getCommittee: () => Promise.resolve({ committee: [], seed: 1n, epoch: 0n }),
     getProposerIndexEncoding: () => '0x' as `0x${string}`,
     getEpochAndSlotNow: () => ({ epoch: 0n, slot: 0n, ts: 0n }),
     computeProposerIndex: () => 0n,

@@ -1,19 +1,31 @@
-use crate::{oracle::message_discovery::sync_notes, utils::array};
+use crate::{
+    discovery::{
+        ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
+        partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
+        private_notes::process_private_note_log,
+    },
+    encrypted_logs::{
+        log_assembly_strategies::default_aes128::aes128::AES128,
+        log_encryption::LogEncryption,
+        log_type::{
+            PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_EVENT_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID,
+        },
+        metadata_packing::from_expanded_metadata,
+    },
+    oracle::{logs::store_private_event_log, message_discovery::sync_notes},
+    utils::array,
+};
 
-use dep::protocol_types::{
+use protocol_types::{
+    abis::event_selector::EventSelector,
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
+    traits::FromField,
 };
 
-use crate::discovery::{
-    ComputeNoteHashAndNullifier, MAX_LOG_CONTENT_LEN,
-    partial_notes::process_partial_note_private_log, PRIVATE_LOG_EXPANDED_METADATA_LEN,
-    private_notes::process_private_note_log,
-};
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::decrypt_log;
-// TODO(#12750): don't make this value assume we're using AES.
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
+// TODO(#12750): don't make these values assume we're using AES.
+use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
@@ -44,20 +56,22 @@ pub unconstrained fn do_process_log<Env>(
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
+    log_index_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
-    let log_plaintext = decrypt_log(log, recipient);
+    // The first field of the log is the tag, which we don't need right now, and the rest is all ciphertext.
+    let ciphertext = array::subbvec(log, 1);
+    let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
-    // currently just have two log types: 0 for private notes and 1 for partial notes. This will likely be expanded and
-    // improved upon in the future to also handle events, etc.
+    // have 3 log types: private note logs, partial note logs and event logs.
 
     let (log_type_id, log_metadata, log_content) = decode_log_plaintext(log_plaintext);
 
-    if log_type_id == 0 {
+    if log_type_id == PRIVATE_NOTE_LOG_TYPE_ID {
         debug_log("Processing private note log");
 
         process_private_note_log(
@@ -70,10 +84,24 @@ pub unconstrained fn do_process_log<Env>(
             log_metadata,
             log_content,
         );
-    } else if log_type_id == 1 {
+    } else if log_type_id == PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID {
         debug_log("Processing partial note private log");
 
         process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
+    } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
+        debug_log("Processing private event log");
+
+        // In the case of event logs, the log metadata is the event selector.
+        let event_selector = EventSelector::from_field(log_metadata as Field);
+
+        store_private_event_log(
+            contract_address,
+            recipient,
+            event_selector,
+            log_content,
+            tx_hash,
+            log_index_in_tx,
+        );
     } else {
         // TODO(#11569): handle events
         debug_log_format(
@@ -90,16 +118,16 @@ pub unconstrained fn do_process_log<Env>(
 ///  - an arbitrary number of fields following that called the 'log content'
 ///
 /// ```
-/// log_plainext: [ log_expanded_metadata, ...log_content ]
+/// log_plaintext: [ log_expanded_metadata, ...log_content ]
 /// ```
 ///
-/// The expanded metadata itself is (currently) interpreted as a u64, of which:
-///  - the upper 57 bits are the log type id
-///  - the remaining 7 bits are called the 'log metadata'
+/// The expanded metadata itself is (currently) interpreted as a u128, of which:
+///  - the upper 64 bits are the log type id
+///  - the lower 64 bits are called the 'log metadata'
 ///
 /// ```
-/// log_expanded_metadata: [  log_type_id   |  log_metadata ]
-///                        <--- 57 bits --->|<--- 7 bits --->
+/// log_expanded_metadata: [  log_type_id    |  log_metadata  ]
+///                        <---  64 bits --->|<--- 64 bits --->
 /// ```
 ///
 /// The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
@@ -122,10 +150,7 @@ unconstrained fn decode_log_plaintext(
 
     // See the documentation of this function for a description of the log layout
     let expanded_log_metadata = log_plaintext.get(0);
-
-    let log_type_id = ((expanded_log_metadata as u64) / 128);
-    let log_metadata = ((expanded_log_metadata as u64) % 128);
-
+    let (log_metadata, log_type_id) = from_expanded_metadata(expanded_log_metadata);
     let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
 
     (log_type_id, log_metadata, log_content)

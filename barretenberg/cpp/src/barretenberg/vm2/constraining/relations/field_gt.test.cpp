@@ -4,8 +4,8 @@
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm/avm/trace/gadgets/range_check.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_ff_gt.hpp"
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
@@ -121,8 +121,6 @@ TEST_P(InteractionsTests, InteractionsWithRangeCheck)
     LookupIntoDynamicTableSequential<lookup_a_lo_range::Settings>().process(trace);
 
     check_relation<ff_gt>(trace);
-    check_interaction<lookup_a_hi_range>(trace);
-    check_interaction<lookup_a_lo_range>(trace);
 }
 
 INSTANTIATE_TEST_SUITE_P(FieldGreaterThanConstrainingTest, InteractionsTests, ::testing::ValuesIn(comparison_tests));

@@ -7,6 +7,7 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from '../side_effect_errors.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -19,7 +20,6 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
 import type { Instruction } from './opcodes/instruction.js';
 import {
   INSTRUCTION_SET,
@@ -75,7 +75,7 @@ export class AvmSimulator {
   }
 
   public static async create(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     address: AztecAddress,
     sender: AztecAddress,
     transactionFee: Fr,
@@ -147,7 +147,6 @@ export class AvmSimulator {
     try {
       // Execute instruction pointed to by the current program counter
       // continuing until the machine state signifies a halt
-      let instrCounter = 0;
       while (!machineState.getHalted()) {
         // Get the instruction from cache, or deserialize for the first time
         let cachedInstruction = this.deserializedInstructionsCache.get(machineState.pc);
@@ -163,13 +162,11 @@ export class AvmSimulator {
         if (this.log.isLevelEnabled('trace')) {
           // Skip this entirely to avoid toStringing etc if trace is not enabled
           this.log.trace(
-            `[PC:${machineState.pc}] [IC:${instrCounter}] ${instruction.toString()} (gasLeft l2=${
+            `[PC:${machineState.pc}] [IC:${machineState.instrCounter}] ${instruction.toString()} (gasLeft l2=${
               machineState.l2GasLeft
             } da=${machineState.daGasLeft})`,
           );
         }
-        instrCounter++;
-
         machineState.nextPc = machineState.pc + bytesRead;
 
         // Execute the instruction.
@@ -180,6 +177,8 @@ export class AvmSimulator {
           // Increment PC if the instruction doesn't handle it itself
           machineState.pc += bytesRead;
         }
+
+        machineState.instrCounter++;
 
         // gas used by this instruction - used for profiling/tallying
         const gasUsed: Gas = {
@@ -197,13 +196,19 @@ export class AvmSimulator {
       const output = machineState.getOutput();
       const reverted = machineState.getReverted();
       const revertReason = reverted ? await revertReasonFromExplicitRevert(output, this.context) : undefined;
-      const results = new AvmContractCallResult(reverted, output, machineState.gasLeft, revertReason);
+      const results = new AvmContractCallResult(
+        reverted,
+        output,
+        machineState.gasLeft,
+        revertReason,
+        machineState.instrCounter,
+      );
       this.log.debug(`Context execution results: ${results.toString()}`);
       const totalGasUsed: Gas = {
         l2Gas: callStartGas.l2Gas - machineState.l2GasLeft,
         daGas: callStartGas.daGas - machineState.daGasLeft,
       };
-      this.log.debug(`Executed ${instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
+      this.log.debug(`Executed ${machineState.instrCounter} instructions and consumed ${totalGasUsed.l2Gas} L2 Gas`);
 
       this.tallyPrintFunction();
 
@@ -233,7 +238,13 @@ export class AvmSimulator {
       // Exceptional halts consume all allocated gas
       const noGasLeft = { l2Gas: 0, daGas: 0 };
       // Note: "exceptional halts" cannot return data, hence [].
-      const results = new AvmContractCallResult(/*reverted=*/ true, /*output=*/ [], noGasLeft, revertReason);
+      const results = new AvmContractCallResult(
+        /*reverted=*/ true,
+        /*output=*/ [],
+        noGasLeft,
+        revertReason,
+        machineState.instrCounter,
+      );
       this.log.debug(`Context execution results: ${results.toString()}`);
 
       this.tallyPrintFunction();

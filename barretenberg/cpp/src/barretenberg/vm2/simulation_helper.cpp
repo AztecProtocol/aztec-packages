@@ -62,7 +62,7 @@ struct FastSettings {
 template <typename S> EventsContainer AvmSimulationHelper::simulate_with_settings()
 {
     typename S::template DefaultEventEmitter<ExecutionEvent> execution_emitter;
-    typename S::template DefaultEventEmitter<AluEvent> alu_emitter;
+    typename S::template DefaultDeduplicatingEventEmitter<AluEvent> alu_emitter;
     typename S::template DefaultEventEmitter<BitwiseEvent> bitwise_emitter;
     typename S::template DefaultEventEmitter<MemoryEvent> memory_emitter;
     typename S::template DefaultEventEmitter<BytecodeRetrievalEvent> bytecode_retrieval_emitter;
@@ -81,6 +81,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<FieldGreaterThanEvent> field_gt_emitter;
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
+    typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
@@ -109,7 +110,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     ExecutionComponentsProvider execution_components(bytecode_manager, memory_emitter, instruction_info_db);
 
     Alu alu(alu_emitter);
-    Execution execution(alu, execution_components, instruction_info_db, execution_emitter);
+    Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
@@ -135,7 +136,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              to_radix_emitter.dump_events(),
              field_gt_emitter.dump_events(),
              merkle_check_emitter.dump_events(),
-             range_check_emitter.dump_events() };
+             range_check_emitter.dump_events(),
+             context_stack_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()
