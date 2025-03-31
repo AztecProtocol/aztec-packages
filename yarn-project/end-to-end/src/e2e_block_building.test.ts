@@ -33,7 +33,7 @@ import {
   PublicProcessorFactory,
   type PublicTreesDB,
   type PublicTxResult,
-  PublicTxSimulator,
+  TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -608,7 +608,7 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
 
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 
-class TestPublicTxSimulator extends PublicTxSimulator {
+class TestPublicTxSimulator extends TelemetryPublicTxSimulator {
   public override async simulate(tx: Tx): Promise<PublicTxResult> {
     await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
     return super.simulate(tx);
@@ -622,7 +622,7 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
-  ): PublicTxSimulator {
+  ) {
     return new TestPublicTxSimulator(
       treesDB,
       contractsDB,

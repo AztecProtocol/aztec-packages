@@ -24,6 +24,7 @@ names:
   - tom: &tom "U04LLT331NK"
   - sergei: &sergei "U05RR81391B"
   - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
 
 tests:
   # barretenberg
@@ -48,7 +49,14 @@ tests:
     error_regex: "Sumcheck verification failed."
     owners:
       - *luke
-
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
+    error_regex: "verified: false"
+    owners:
+      - *sergei
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Failed to fetch"
+    owners:
+      - *adam
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
@@ -65,40 +73,42 @@ tests:
     skip: true
     owners:
       - *charlie
-
   # Sometimes see this on ARM. But not when run on it's own...
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
     owners:
       - *charlie
 
+  # e2e tests
   - regex: "simple e2e_p2p"
     error_regex: "could not listen on any available address"
+    owners:
+      - *sean
+  - regex: "simple e2e_p2p"
+    error_regex: "TimeoutError"
+    owners:
+      - *sean
+  - regex: "simple e2e_p2p/reex"
+    error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
   - regex: "simple e2e_p2p/slashing"
     skip: true
     owners:
       - *lasse
-  - regex: "simple e2e_p2p/reqresp"
-    error_regex: "TimeoutError"
-    owners:
-      - *sean
-  - regex: "simple e2e_p2p/upgrade_governance_proposer"
-    owners:
-      - *lasse
   - regex: "simple e2e_p2p/validators_sentinel"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-
   - regex: "simple e2e_fees/private_payments"
     owners:
       - *phil
-
-  - regex: "simple e2e_cheat_codes"
+  # http://ci.aztec-labs.com/7a5104e136578d64
+  # The "loop that wastes 5m" thing.
+  - regex: "simple e2e_fees/failures"
+    error_regex: "Exceeded timeout"
     owners:
-      - *lasse
+      - *palla
   - regex: "simple e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
@@ -115,31 +125,22 @@ tests:
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-
   - regex: "simple e2e_block_building"
     error_regex: "Cannot read properties of undefined"
     owners:
-      - *palla
+      - *jan
   - regex: "simple e2e_block_building"
     error_regex: "Could not retrieve body for block"
     owners:
       - *palla
-  - regex: "prover-client/src/test/bb_prover_parity.test.ts"
-    owners:
-      - *palla
-  - regex: "prover-client/src/proving_broker/broker_prover_facade.test.ts"
-    owners:
-      - *palla
-  - regex: "prover-client/src/orchestrator/orchestrator_errors.test.ts"
+  - regex: "composed/integration_l1_publisher"
+    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
 
   # yarn-project tests
   - regex: "p2p/src/services/discv5/discv5_service.test.ts"
     error_regex: "Timeout: Failed to connect to"
-    owners:
-      - *sean
-  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
     owners:
       - *sean
   - regex: "p2p/src/client/p2p_client.test.ts"
@@ -150,12 +151,6 @@ tests:
     error_regex: "Timeout waiting for worker"
     owners:
       - *sean
-  - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
-    owners:
-      - *lasse
-  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
-    owners:
-      - *palla
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -168,10 +163,6 @@ tests:
     error_regex: "Failed to fetch dynamically imported module"
     owners:
       - *alex
-  - regex: "ethereum/src/contracts/registry.test.ts"
-    error_regex: "lower than or equal to previous block's timestamp"
-    owners:
-      - *mitch
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
     owners:
@@ -182,31 +173,35 @@ tests:
       - *spyros
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh vite"
+  - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
   # kind tests
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+    owners:
+      - *mitch
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *mitch
   - regex: "spartan/bootstrap.sh test-kind-4epochs"
     owners:
-      - *leila
-
+      - *mitch
   - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     owners:
-      - *adam
-
+      - *mitch
   - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
     owners:
-      - *adam
-
+      - *mitch
   - regex: "spartan/bootstrap.sh test-kind-transfer"
     owners:
-      - *adam
-
+      - *mitch
   - regex: "spartan/bootstrap.sh test-prod-deployment"
     owners:
-      - *adam
+      - *mitch
 
   # aztec-up
   - regex: "aztec-up/scripts/run_test.sh"
@@ -216,11 +211,7 @@ tests:
 
   # Slack testing.
   - regex: "nonsense to match"
-    owners:
-      - *charlie
-
-  - regex: "nonsense to match"
+    error_regex: "something else"
     owners:
       - *charlie
       - *adam
-    error_regex: "something else"

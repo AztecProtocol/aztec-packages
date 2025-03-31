@@ -36,7 +36,7 @@ field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     : context(parent_context)
 {
     additive_constant = value;
-    multiplicative_constant = bb::fr::zero();
+    multiplicative_constant = bb::fr::one();
     witness_index = IS_CONSTANT;
 }
 
@@ -105,7 +105,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     field_t<Builder> result(ctx);
     ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
 
-    if (witness_index == other.witness_index) {
+    if (witness_index == other.witness_index && witness_index != IS_CONSTANT) {
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant + other.multiplicative_constant;
         result.witness_index = witness_index;
@@ -149,7 +149,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator-(const f
 {
     field_t<Builder> rhs(other);
     rhs.additive_constant.self_neg();
-    rhs.multiplicative_constant.self_neg();
+    if (rhs.witness_index != IS_CONSTANT) {
+        rhs.multiplicative_constant.self_neg();
+    }
     return operator+(rhs);
 }
 
@@ -713,6 +715,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
         ASSERT(context != nullptr);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     } else {
+        ASSERT(this->multiplicative_constant == bb::fr::one());
         // A constant field_t's value is tracked wholly by its additive_constant member.
         return additive_constant;
     }
@@ -733,8 +736,7 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
     bool is_equal = (fa == fb);
     bb::fr fc = is_equal ? bb::fr::one() : fd.invert();
     bool_t result(ctx, is_equal);
-    auto result_witness = witness_t(ctx, is_equal);
-    result.witness_index = result_witness.witness_index;
+    result.witness_index = ctx->add_variable(is_equal);
     result.witness_bool = is_equal;
 
     field_t x(witness_t(ctx, fc));

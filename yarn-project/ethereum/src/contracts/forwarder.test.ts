@@ -135,4 +135,9 @@ describe('Forwarder', () => {
     expect(err).toBeInstanceOf(FormattedViemError);
     expect(err.message).toMatch(/GovernanceProposer__OnlyProposerCanVote/);
   });
+
+  it('gets expected address', () => {
+    const expected = ForwarderContract.expectedAddress('0x8048539a57619864fdcAE35282731809CD1f5E8D');
+    expect(expected).toBe('0xEB416A0f18CEf8Ce5C9dd4BceF4BeFfb771703c6');
+  });
 });

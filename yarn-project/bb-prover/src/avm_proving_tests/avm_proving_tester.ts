@@ -4,6 +4,7 @@ import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { makeAvmCircuitInputs } from '@aztec/stdlib/testing';
+import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state';
 
@@ -30,16 +31,18 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     private checkCircuitOnly: boolean,
     merkleTree: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
+    globals?: GlobalVariables,
   ) {
-    super(merkleTree, contractDataSource);
+    super(merkleTree, contractDataSource, globals);
   }
 
-  static override async create(checkCircuitOnly: boolean = false) {
+  // overriding parent class' create is a pain, so we use a different nam
+  static async new(checkCircuitOnly: boolean = false, globals?: GlobalVariables) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, merkleTrees, contractDataSource);
+    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, merkleTrees, contractDataSource, globals);
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
@@ -108,16 +111,17 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     private bbWorkingDirectory: string,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
+    globals?: GlobalVariables,
   ) {
-    super(merkleTrees, contractDataSource);
+    super(merkleTrees, contractDataSource, globals);
   }
 
-  static override async create() {
+  static async new(globals?: GlobalVariables) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    return new AvmProvingTesterV2(bbWorkingDirectory, contractDataSource, merkleTrees);
+    return new AvmProvingTesterV2(bbWorkingDirectory, contractDataSource, merkleTrees, globals);
   }
 
   async proveV2(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
