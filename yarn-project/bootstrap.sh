@@ -127,7 +127,12 @@ function test_cmds {
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
     [[ "$test" == prover-client/src/test/* ]] && continue
-    echo $hash yarn-project/scripts/run_test.sh $test
+    # Enable debug logging for a subset of unit tests that are causing trouble.
+    if [[ "$test" == p2p/src/client/p2p_client.test.ts ]]; then
+      echo "$hash LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
+    else
+      echo "$hash yarn-project/scripts/run_test.sh $test"
+    fi
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.
