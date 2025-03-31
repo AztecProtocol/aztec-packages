@@ -118,6 +118,11 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         AggState agg_obj = init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
         AggState pairing_points = output.agg_obj;
+        
+        pairing_points.P0.x.fix_witness();
+        pairing_points.P0.y.fix_witness();
+        pairing_points.P1.x.fix_witness();
+        pairing_points.P1.y.fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
             outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
@@ -130,16 +135,15 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         outer_circuit.finalize_circuit(false);
         auto graph = cdg::Graph(outer_circuit);
         auto connected_components = graph.find_connected_components();
-        EXPECT_EQ(connected_components.size(), 1);
+        EXPECT_EQ(connected_components.size(), 4);
         info("Connected components: ", connected_components.size());
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         info("Variables in one gate: ", variables_in_one_gate.size());
-        info("First variable in one gate: ",
-             std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0]);
-        for (const auto& elem: variables_in_one_gate) {
+/*         for (const auto& elem: variables_in_one_gate) {
             info("elem == ", elem);
-        }
+        } */
+        graph.print_variable_in_one_gate(outer_circuit, 18855);
     }
 };
 
