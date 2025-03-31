@@ -46,64 +46,13 @@ import {
   FeeJuicePortalTestingHarnessFactory,
   type GasBridgingTestHarness,
 } from '../../shared/gas_portal_test_harness.js';
+import { type ClientFlowsConfig, FULL_FLOWS_CONFIG, KEY_FLOWS_CONFIG } from './config.js';
 
 const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
 export type FeePaymentMethodGetter = (wallet: Wallet) => Promise<FeePaymentMethod>;
 export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc';
-
-export type ClientFlowConfig = {
-  accounts: AccountType[];
-  feePaymentMethods: BenchmarkingFeePaymentMethod[];
-  recursions?: number[];
-};
-
-type ClientFlows = 'deployments' | 'transfers' | 'bridging' | 'amm';
-
-type ClientFlowsConfig = {
-  [key in ClientFlows]: ClientFlowConfig;
-};
-
-const KEY_FLOWS_CONFIG: ClientFlowsConfig = {
-  deployments: {
-    accounts: ['ecdsar1', 'schnorr'],
-    feePaymentMethods: ['sponsored_fpc'],
-  },
-  amm: {
-    accounts: ['ecdsar1'],
-    feePaymentMethods: ['sponsored_fpc'],
-  },
-  bridging: {
-    accounts: ['ecdsar1'],
-    feePaymentMethods: ['sponsored_fpc'],
-  },
-  transfers: {
-    accounts: ['ecdsar1'],
-    feePaymentMethods: ['sponsored_fpc'],
-    recursions: [1],
-  },
-};
-
-const FULL_FLOWS_CONFIG: ClientFlowsConfig = {
-  deployments: {
-    accounts: ['ecdsar1', 'schnorr'],
-    feePaymentMethods: ['bridged_fee_juice', 'sponsored_fpc'],
-  },
-  amm: {
-    accounts: ['ecdsar1', 'schnorr'],
-    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
-  },
-  bridging: {
-    accounts: ['ecdsar1', 'schnorr'],
-    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
-  },
-  transfers: {
-    accounts: ['ecdsar1', 'schnorr'],
-    feePaymentMethods: ['sponsored_fpc', 'private_fpc'],
-    recursions: [0, 1, 2],
-  },
-};
 
 export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
