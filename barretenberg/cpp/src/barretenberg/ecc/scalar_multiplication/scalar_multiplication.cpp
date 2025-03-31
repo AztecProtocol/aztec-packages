@@ -581,7 +581,7 @@ typename Curve::AffineElement* reduce_buckets(affine_product_runtime_state<Curve
 template <typename Curve>
 uint32_t construct_addition_chains(affine_product_runtime_state<Curve>& state, bool empty_bucket_counts)
 {
-    PROFILE_THIS();
+    ZoneScoped; /* tracy profile */
 
     using Group = typename Curve::Group;
     // if this is the first call to `construct_addition_chains`, we need to count up our buckets
