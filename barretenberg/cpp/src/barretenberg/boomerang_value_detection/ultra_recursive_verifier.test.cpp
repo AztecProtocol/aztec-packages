@@ -140,10 +140,9 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 0);
         info("Variables in one gate: ", variables_in_one_gate.size());
-/*         for (const auto& elem: variables_in_one_gate) {
+        for (const auto& elem: variables_in_one_gate) {
             info("elem == ", elem);
-        } */
-        graph.print_variable_in_one_gate(outer_circuit, 18855);
+        }
     }
 };
 
