@@ -23,7 +23,6 @@ use crate::{
 use protocol_types::{
     abis::event_selector::EventSelector,
     address::AztecAddress,
-    constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
     traits::FromField,
 };

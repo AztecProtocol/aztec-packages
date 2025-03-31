@@ -11,7 +11,7 @@ describe('LogCapsule', () => {
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
     const recipient = AztecAddress.fromField(new Fr(789n));
-    const logIndexInTx = new Fr(10n);
+    const logIndexInTx = 10;
 
     const capsule = new LogCapsule(log, txHash, uniqueNoteHashes, firstNullifier, recipient, logIndexInTx);
     const serialized = capsule.toFields();
@@ -106,6 +106,7 @@ describe('LogCapsule', () => {
         "0x0000000000000000000000000000000000000000000000000000000000000002",
         "0x0000000000000000000000000000000000000000000000000000000000000006",
         "0x0000000000000000000000000000000000000000000000000000000000000315",
+        "0x000000000000000000000000000000000000000000000000000000000000000a",
       ]
     `);
 
