@@ -34,7 +34,7 @@ export async function setupL2Contracts(
   // Deploy Fee Juice
   const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
   log('setupL2Contracts: Setting up fee juice portal...');
-  //await setupCanonicalL2FeeJuice(pxe, feeJuicePortalAddress, log, waitOpts, waitForProvenOptions);
+  await setupCanonicalL2FeeJuice(pxe, feeJuicePortalAddress, log, waitOpts, waitForProvenOptions);
 
   let deployedAccounts: InitialAccountData[] = [];
   if (testAccounts) {
