@@ -8,9 +8,8 @@ pub contract Counter {
     // docs:start:imports
     use aztec::macros::{functions::{initializer, private}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
-    use aztec::protocol_types::{point::Point, traits::{FromField, ToField}};
+    use aztec::protocol_types::traits::{FromField, ToField};
     use easy_private_state::EasyPrivateUint;
-    use std::test::OracleMock;
     use value_note::{balance_utils, value_note::ValueNote};
     // docs:end:imports
 
@@ -157,10 +156,6 @@ pub contract Counter {
 
         // Checking that the note was discovered from private logs
         env.advance_block_by(1);
-
-        // let shared_secret = Point { x: 1, y: 2, is_infinite: false };
-        // let _ = OracleMock::mock("getSharedSecret").returns(shared_secret);
-
         sync_notes();
         env.impersonate(contract_address);
         let counter_slot = Counter::storage_layout().counters.slot;
