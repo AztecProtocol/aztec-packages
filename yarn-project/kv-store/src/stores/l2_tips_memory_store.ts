@@ -48,19 +48,26 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
         break;
       }
       case 'chain-pruned':
-        this.l2TipsStore.set('latest', event.blockNumber);
+        this.saveTag('latest', event.block);
         break;
       case 'chain-proven':
-        this.l2TipsStore.set('proven', event.blockNumber);
+        this.saveTag('proven', event.block);
         break;
       case 'chain-finalized':
-        this.l2TipsStore.set('finalized', event.blockNumber);
+        this.saveTag('finalized', event.block);
         for (const key of this.l2BlockHashesStore.keys()) {
-          if (key < event.blockNumber) {
+          if (key < event.block.number) {
             this.l2BlockHashesStore.delete(key);
           }
         }
         break;
+    }
+  }
+
+  private saveTag(name: L2BlockTag, block: L2BlockId) {
+    this.l2TipsStore.set(name, block.number);
+    if (block.hash) {
+      this.l2BlockHashesStore.set(block.number, block.hash);
     }
   }
 }

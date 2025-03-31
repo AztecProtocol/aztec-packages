@@ -38,6 +38,7 @@ describe('e2e_p2p_slashing', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        listenAddress: '127.0.0.1',
         aztecEpochDuration: 1,
         ethereumSlotDuration: 4,
         aztecSlotDuration: 12,

@@ -3,7 +3,7 @@
 #pragma once
 
 #include "barretenberg/vm2/common/standard_affine_point.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
 namespace bb::avm2 {
 

@@ -20,8 +20,6 @@ struct ColumnGroups {
     witness: Vec<String>,
     /// witness or commit columns in pil, with out the inverse columns
     witnesses_without_inverses: Vec<String>,
-    /// fixed + witness columns without lookup inverses
-    all_cols_without_inverses: Vec<String>,
     /// fixed + witness columns with lookup inverses
     all_cols: Vec<String>,
     /// Columns that will not be shifted
@@ -34,8 +32,6 @@ struct ColumnGroups {
     all_cols_with_shifts: Vec<String>,
     /// Inverses from lookups and permutations
     inverses: Vec<String>,
-    /// Public inputs (in source order)
-    public_inputs: Vec<(usize, String)>,
 }
 
 /// Analyzed to cpp
@@ -79,13 +75,11 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         witness,
         witnesses_without_inverses,
         all_cols,
-        all_cols_without_inverses,
         unshifted: _unshifted,
         to_be_shifted,
         shifted,
         all_cols_with_shifts,
         inverses,
-        public_inputs,
     } = get_all_col_names(analyzed, &permutations, &lookups);
 
     let lookup_and_perm_file_names = lookups
@@ -97,7 +91,7 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         .collect_vec();
 
     // ----------------------- Create the flavor files -----------------------
-    bb_files.create_flavor_hpp(
+    bb_files.create_flavor_variables_hpp(
         vm_name,
         &relations,
         &inverses,
@@ -112,20 +106,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(
         &all_cols_with_shifts,
     );
 
-    bb_files.create_flavor_cpp(
-        vm_name,
-        &relations,
-        &inverses,
-        &fixed,
-        &witness,
-        &witnesses_without_inverses,
-        &all_cols,
-        &to_be_shifted,
-        &shifted,
-        &all_cols_with_shifts,
-    );
-
-    bb_files.create_flavor_settings_hpp(vm_name);
     bb_files.create_columns_hpp(
         vm_name,
         &lookup_and_permutations_names,
@@ -202,8 +182,6 @@ fn get_all_col_names<F: FieldElement>(
     ]);
 
     // Group columns by properties
-    let all_cols_without_inverses =
-        flatten(&[constant.clone(), witnesses_without_inverses.clone()]);
     let all_cols = flatten(&[constant.clone(), witnesses_with_inverses.clone()]);
     let unshifted = flatten(&[constant.clone(), witnesses_with_inverses.clone()])
         .into_iter()
@@ -218,7 +196,6 @@ fn get_all_col_names<F: FieldElement>(
     ColumnGroups {
         fixed: constant,
         witness: witnesses_with_inverses,
-        all_cols_without_inverses: all_cols_without_inverses,
         witnesses_without_inverses: witnesses_without_inverses,
         all_cols: all_cols,
         unshifted: unshifted,
@@ -226,6 +203,5 @@ fn get_all_col_names<F: FieldElement>(
         shifted: shifted,
         all_cols_with_shifts: all_cols_with_shifts,
         inverses: inverses,
-        public_inputs: public.iter().cloned().enumerate().collect_vec(),
     }
 }

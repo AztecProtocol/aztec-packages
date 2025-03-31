@@ -33,6 +33,7 @@ export VERBOSE=1
 tmp_file=/tmp/$key
 # Print test metadata header.
 cat <<EOF >$tmp_file
+Parent Log: ${PARENT_LOG_URL:-none}
 Command: $cmd
 Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
 Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
@@ -80,7 +81,7 @@ else
   timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 fi
 timeout_pid=$!
-trap "kill -- -$timeout_pid" SIGTERM SIGINT
+trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
 
@@ -98,16 +99,18 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
       log_info=""
     fi
   else
-    # Extend lifetime of failed test logs.
-    publish_log $((CI_REDIS_EXPIRE * 6))
+    # Extend lifetime of failed test logs to 12 weeks.
+    publish_log $((60 * 60 * 24 * 7 * 12))
   fi
 fi
 
 function track_test {
+  local test_hash=$1
+  local line=$2
   if [ "$REF_NAME" != "master" ]; then
     return
   fi
-  redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$1")" &>/dev/null
+  redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
   # Keeps only the last 1000 lines.
   redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
 }
@@ -115,15 +118,16 @@ function track_test {
 # Show PASSED and early out on success.
 function pass {
   local line="${green}PASSED${reset}${log_info:-}: $test_cmd (${SECONDS}s)"
-  track_test "$line"
+  track_test $test_hash "$line"
   echo -e "$line"
   exit
 }
 
 # Show FAILED and exit with error code.
 function fail {
-  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
-  track_test "$line"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
+  track_test $test_hash "$line"
+  track_test "failed_tests" "$line"
   echo -e "$line"
   cat $tmp_file
   echo -e "$line"
@@ -133,7 +137,8 @@ function fail {
 # Show FLAKED and send slack message to test owner(s). Exit with success.
 function flake {
   local line="${purple}FLAKED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
-  track_test "$line"
+  track_test $test_hash "$line"
+  track_test "failed_tests" "$line"
   echo -e "$line"
 
   if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
@@ -169,7 +174,8 @@ function get_owners {
     # If error_regex is present, check the log content.
     if [ -n "$error_regex" ]; then
       # Strip color codes from the log file.
-      if sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"; then
+      # Do *not* use a pipe here. grep -q will exit immediately on first match and break the pipe.
+      if grep -qE "$error_regex" <(sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$tmp_file"); then
         echo "$entry" | jq -r '.owners[]'
       fi
     else

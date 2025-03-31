@@ -118,10 +118,11 @@ export async function createSandbox(config: Partial<SandboxConfig> = {}, userLog
   }
 
   const initialAccounts = await (async () => {
-    if (config.testAccounts) {
+    if (config.testAccounts === true || config.testAccounts === undefined) {
       if (aztecNodeConfig.p2pEnabled) {
         userLog(`Not setting up test accounts as we are connecting to a network`);
       } else {
+        userLog(`Setting up test accounts`);
         return await getInitialTestAccounts();
       }
     }

@@ -41,6 +41,8 @@ export enum WorldStateMessageType {
   COMMIT_CHECKPOINT,
   REVERT_CHECKPOINT,
 
+  COPY_STORES,
+
   CLOSE = 999,
 }
 
@@ -409,6 +411,11 @@ interface CreateForkResponse {
 
 interface DeleteForkRequest extends WithForkId {}
 
+interface CopyStoresRequest extends WithCanonicalForkId {
+  dstPath: string;
+  compact: boolean;
+}
+
 export type WorldStateRequestCategories = WithForkId | WithWorldStateRevision | WithCanonicalForkId;
 
 export function isWithForkId(body: WorldStateRequestCategories): body is WithForkId {
@@ -460,6 +467,8 @@ export type WorldStateRequest = {
   [WorldStateMessageType.COMMIT_CHECKPOINT]: WithForkId;
   [WorldStateMessageType.REVERT_CHECKPOINT]: WithForkId;
 
+  [WorldStateMessageType.COPY_STORES]: CopyStoresRequest;
+
   [WorldStateMessageType.CLOSE]: WithCanonicalForkId;
 };
 
@@ -499,6 +508,8 @@ export type WorldStateResponse = {
   [WorldStateMessageType.CREATE_CHECKPOINT]: void;
   [WorldStateMessageType.COMMIT_CHECKPOINT]: void;
   [WorldStateMessageType.REVERT_CHECKPOINT]: void;
+
+  [WorldStateMessageType.COPY_STORES]: void;
 
   [WorldStateMessageType.CLOSE]: void;
 };

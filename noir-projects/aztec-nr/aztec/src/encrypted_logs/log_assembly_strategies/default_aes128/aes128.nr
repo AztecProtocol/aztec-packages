@@ -249,7 +249,11 @@ mod test {
         test::helpers::test_environment::TestEnvironment,
     };
     use super::AES128;
-    use protocol_types::{address::AztecAddress, traits::FromField};
+    use protocol_types::{
+        address::AztecAddress,
+        indexed_tagging_secret::IndexedTaggingSecret,
+        traits::{Deserialize, FromField},
+    };
     use std::{embedded_curve_ops::EmbeddedCurveScalar, test::OracleMock};
 
     #[test]
@@ -271,7 +275,9 @@ mod test {
         let randomness = 0x0101010101010101010101010101010101010101010101010101010101010101;
         let _ = OracleMock::mock("getRandomField").returns(randomness).times(1000000);
 
-        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns([69420, 1337]);
+        let _ = OracleMock::mock("getIndexedTaggingSecretAsSender").returns(
+            IndexedTaggingSecret::deserialize([69420, 1337]),
+        );
         let _ = OracleMock::mock("incrementAppTaggingSecretIndexAsSender").returns(());
 
         // Encrypt the log

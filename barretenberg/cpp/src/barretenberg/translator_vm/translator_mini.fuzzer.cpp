@@ -36,7 +36,8 @@ extern "C" int LLVMFuzzerTestOneInput(const unsigned char* data, size_t size)
     Fr z_2 = Fr(*(uint256_t*)(buffer));
 
     bb::TranslatorCircuitBuilder::AccumulationInput single_accumulation_step =
-        bb::generate_witness_values(op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
+        bb::TranslatorCircuitBuilder::generate_witness_values(
+            op, p_x_lo, p_x_hi, p_y_lo, p_y_hi, z_1, z_2, previous_accumulator, v, x);
 
     auto circuit_builder = bb::TranslatorCircuitBuilder(v, x);
     circuit_builder.create_accumulation_gate(single_accumulation_step);
