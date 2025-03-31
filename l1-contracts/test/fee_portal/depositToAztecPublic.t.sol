@@ -66,9 +66,9 @@ contract DepositToAztecPublic is Test {
   }
 
   function test_GivenSufficientBalance() external {
-    // it should create a message for the newest version
+    // it should create a message for the inbox (and its rollup version)
     // it should transfer the tokens to the portal
-    // it should insert the message into the newest inbox
+    // it should insert the message into the inbox
     // it should emit a {DepositToAztecPublic} event
     // it should return the key
 
