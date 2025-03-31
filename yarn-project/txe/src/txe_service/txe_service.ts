@@ -473,8 +473,8 @@ export class TXEService {
     return toForeignCallResult([toSingle(await this.typedOracle.getChainId())]);
   }
 
-  async getVersion() {
-    return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
+  async getRollupVersion() {
+    return toForeignCallResult([toSingle(await this.typedOracle.getRollupVersion())]);
   }
 
   async getBlockHeader(blockNumber: ForeignCallSingle) {
@@ -718,7 +718,7 @@ export class TXEService {
   }
 
   async avmOpcodeVersion() {
-    const version = await (this.typedOracle as TXE).getVersion();
+    const version = await (this.typedOracle as TXE).getRollupVersion();
     return toForeignCallResult([toSingle(version)]);
   }
 

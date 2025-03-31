@@ -313,7 +313,7 @@ export class TXE implements TypedOracle {
     const stateReference = await snap.getStateReference();
     const inputs = PrivateContextInputs.empty();
     inputs.txContext.chainId = new Fr(await this.node.getChainId());
-    inputs.txContext.version = new Fr(await this.node.getVersion());
+    inputs.txContext.version = new Fr(await this.node.getRollupVersion());
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -929,7 +929,7 @@ export class TXE implements TypedOracle {
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(await this.node.getChainId());
-    globalVariables.version = new Fr(await this.node.getRollupVersion());
+    globalVariables.rollupVersion = new Fr(await this.node.getRollupVersion());
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 

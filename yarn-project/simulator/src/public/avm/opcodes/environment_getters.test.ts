@@ -15,7 +15,7 @@ const sender = await AztecAddress.random();
 describe('Environment getters', () => {
   const transactionFee = Fr.random();
   const chainId = Fr.random();
-  const version = Fr.random();
+  const rollupVersion = Fr.random();
   const blockNumber = Fr.random();
   const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
   const feePerDaGas = Fr.random();
@@ -24,7 +24,7 @@ describe('Environment getters', () => {
   const gasFees = new GasFees(feePerDaGas, feePerL2Gas);
   const globals = initGlobalVariables({
     chainId,
-    version,
+    rollupVersion,
     blockNumber,
     timestamp,
     gasFees,
@@ -63,7 +63,7 @@ describe('Environment getters', () => {
     [EnvironmentVariable.SENDER, sender.toField()],
     [EnvironmentVariable.TRANSACTIONFEE, transactionFee.toField()],
     [EnvironmentVariable.CHAINID, chainId.toField()],
-    [EnvironmentVariable.VERSION, version.toField()],
+    [EnvironmentVariable.VERSION, rollupVersion.toField()],
     [EnvironmentVariable.BLOCKNUMBER, blockNumber.toField()],
     [EnvironmentVariable.TIMESTAMP, timestamp.toField(), TypeTag.UINT64],
     [EnvironmentVariable.FEEPERDAGAS, feePerDaGas.toField()],

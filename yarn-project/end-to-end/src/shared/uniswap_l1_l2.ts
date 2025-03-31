@@ -627,7 +627,7 @@ export const uniswapL1L2TestSuite = (
             nonceForWETHTransferToPublicApproval,
           ),
         },
-        { chainId: ownerWallet.getChainId(), version: ownerWallet.getVersion() },
+        { chainId: ownerWallet.getChainId(), version: ownerWallet.getRollupVersion() },
       );
 
       await expect(

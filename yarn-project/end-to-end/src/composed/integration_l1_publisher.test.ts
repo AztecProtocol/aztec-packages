@@ -316,7 +316,7 @@ describe('L1Publisher integration', () => {
             slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
-            version: Number(block.header.globalVariables.version.toBigInt()),
+            version: Number(block.header.globalVariables.rollupVersion.toBigInt()),
             coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
             gasFees: {
