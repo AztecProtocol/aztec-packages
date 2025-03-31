@@ -5,5 +5,4 @@ export { PublicProcessor, PublicProcessorFactory } from './public_processor/publ
 export { SideEffectTrace } from './side_effect_trace.js';
 export { PublicTxSimulationTester } from './fixtures/index.js';
 export * from './avm/index.js';
-export * from './state_manager/index.js';
 export { getCallRequestsWithCalldataByPhase } from './utils.js';
