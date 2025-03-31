@@ -4,6 +4,14 @@ set -euo pipefail
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+reset_x=false
+
+# Set +x if it's currently enabled
+if [ -o xtrace ]; then
+  set +x
+  reset_x=true
+fi
+
 tmp_filename=$(mktemp)
 addresses_file=$(mktemp)
 
@@ -14,6 +22,9 @@ cleanup() {
   fi
   if [ -f "$addresses_file" ]; then
     rm -f "$addresses_file"
+  fi
+  if [ $reset_x = true ]; then
+    set -x
   fi
 }
 
