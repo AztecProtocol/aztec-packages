@@ -207,7 +207,7 @@ describe('e2e_token_contract burn', () => {
         const action = asset.withWallet(wallets[1]).methods.burn_private(accounts[0].address, amount, nonce);
         const messageHash = await computeAuthWitMessageHash(
           { caller: accounts[1].address, action },
-          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getRollupVersion() },
         );
 
         await expect(action.simulate()).rejects.toThrow(
@@ -225,7 +225,7 @@ describe('e2e_token_contract burn', () => {
         const action = asset.withWallet(wallets[2]).methods.burn_private(accounts[0].address, amount, nonce);
         const expectedMessageHash = await computeAuthWitMessageHash(
           { caller: accounts[2].address, action },
-          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getRollupVersion() },
         );
 
         const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });

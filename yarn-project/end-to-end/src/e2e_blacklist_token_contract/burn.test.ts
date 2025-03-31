@@ -212,7 +212,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const action = asset.withWallet(wallets[1]).methods.burn(wallets[0].getAddress(), amount, nonce);
         const messageHash = await computeAuthWitMessageHash(
           { caller: wallets[1].getAddress(), action },
-          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getRollupVersion() },
         );
 
         await expect(action.prove()).rejects.toThrow(`Unknown auth witness for message hash ${messageHash.toString()}`);
@@ -228,7 +228,7 @@ describe('e2e_blacklist_token_contract burn', () => {
         const action = asset.withWallet(wallets[2]).methods.burn(wallets[0].getAddress(), amount, nonce);
         const expectedMessageHash = await computeAuthWitMessageHash(
           { caller: wallets[2].getAddress(), action },
-          { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
+          { chainId: wallets[0].getChainId(), version: wallets[0].getRollupVersion() },
         );
 
         const witness = await wallets[0].createAuthWit({ caller: wallets[1].getAddress(), action });

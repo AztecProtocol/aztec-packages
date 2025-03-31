@@ -318,7 +318,11 @@ describe('e2e_crowdfunding_and_claim', () => {
       call.to,
       call.selector,
       entrypointHashedValues.hash,
-      new TxContext(donorWallets[1].getChainId(), donorWallets[1].getVersion(), GasSettings.default({ maxFeesPerGas })),
+      new TxContext(
+        donorWallets[1].getChainId(),
+        donorWallets[1].getRollupVersion(),
+        GasSettings.default({ maxFeesPerGas }),
+      ),
       [entrypointHashedValues],
       [],
       [],

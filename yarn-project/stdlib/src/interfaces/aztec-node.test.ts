@@ -201,7 +201,7 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBe('1.0.0');
   });
 
-  it('getVersion', async () => {
+  it('getRollupVersion', async () => {
     const response = await context.client.getRollupVersion();
     expect(response).toBe(1);
   });
