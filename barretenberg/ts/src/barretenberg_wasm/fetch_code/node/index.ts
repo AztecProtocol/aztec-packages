@@ -16,6 +16,7 @@ function getCurrentDir() {
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
   const path = wasmPath ?? getCurrentDir() + '/../../barretenberg-threads.wasm.gz';
+  // Default bb wasm is compressed, but user could point it to a non-compressed version
   const maybeCompressedData = await readFile(path);
   const buffer = new Uint8Array(maybeCompressedData);
   const isGzip =
