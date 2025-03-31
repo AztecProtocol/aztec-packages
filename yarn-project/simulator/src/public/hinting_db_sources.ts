@@ -12,6 +12,8 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmSequentialInsertHintNullifierTree,
+  AvmSequentialInsertHintPublicDataTree,
 } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -20,7 +22,9 @@ import {
   type IndexedTreeId,
   MerkleTreeId,
   type MerkleTreeLeafType,
+  NullifierLeaf,
   NullifierLeafPreimage,
+  PublicDataTreeLeaf,
   PublicDataTreeLeafPreimage,
   type SequentialInsertionResult,
   getTreeName,
@@ -180,6 +184,8 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   }
 
   // State modification.
+  // FIXME(fcarreiro): This is a horrible interface (in the merkle ops). It's receiving the leaves as buffers,
+  // from a leaf class that is NOT the one that will be used to write. Make this type safe.
   public override async sequentialInsert<TreeHeight extends number, ID extends IndexedTreeId>(
     treeId: ID,
     leaves: Buffer[],
@@ -199,6 +205,52 @@ export class HintingPublicTreesDB extends PublicTreesDB {
         afterState.root
       }, ${afterState.nextAvailableLeafIndex}.`,
     );
+
+    switch (treeId) {
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        this.hints.sequentialInsertHintsPublicDataTree.push(
+          new AvmSequentialInsertHintPublicDataTree(
+            beforeState,
+            afterState,
+            treeId,
+            PublicDataTreeLeaf.fromBuffer(leaves[0]),
+            {
+              leaf: result.lowLeavesWitnessData[0].leafPreimage as PublicDataTreeLeafPreimage,
+              index: result.lowLeavesWitnessData[0].index,
+              path: result.lowLeavesWitnessData[0].siblingPath.toFields(),
+            },
+            {
+              leaf: result.insertionWitnessData[0].leafPreimage as PublicDataTreeLeafPreimage,
+              index: result.insertionWitnessData[0].index,
+              path: result.insertionWitnessData[0].siblingPath.toFields(),
+            },
+          ),
+        );
+        break;
+      case MerkleTreeId.NULLIFIER_TREE:
+        this.hints.sequentialInsertHintsNullifierTree.push(
+          new AvmSequentialInsertHintNullifierTree(
+            beforeState,
+            afterState,
+            treeId,
+            NullifierLeaf.fromBuffer(leaves[0]),
+            {
+              leaf: result.lowLeavesWitnessData[0].leafPreimage as NullifierLeafPreimage,
+              index: result.lowLeavesWitnessData[0].index,
+              path: result.lowLeavesWitnessData[0].siblingPath.toFields(),
+            },
+            {
+              leaf: result.insertionWitnessData[0].leafPreimage as NullifierLeafPreimage,
+              index: result.insertionWitnessData[0].index,
+              path: result.insertionWitnessData[0].siblingPath.toFields(),
+            },
+          ),
+        );
+        break;
+      default:
+        throw new Error('sequentialInsert only supported for PublicDataTree and NullifierTree!');
+        break;
+    }
 
     return result;
   }

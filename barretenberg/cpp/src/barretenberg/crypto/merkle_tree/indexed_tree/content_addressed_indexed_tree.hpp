@@ -1,18 +1,5 @@
 #pragma once
-#include "../hash.hpp"
-#include "../hash_path.hpp"
-#include "../signal.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
-#include "barretenberg/crypto/merkle_tree/response.hpp"
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "indexed_leaf.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -30,6 +17,22 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 namespace bb::crypto::merkle_tree {
 
@@ -630,6 +633,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
             }
             TypedResponse<GetSiblingPathResponse> response;
             response.success = true;
+
             sibling_path_completion(response);
         }
     };
@@ -706,7 +710,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
 
     // We now kick off multiple workers to perform the low leaf updates
     // We create set of signals to coordinate the workers as the move up the tree
-    // We don';t want toflood the provided thread pool with jobs that can't be processed so we throttle the rate
+    // We don';t want to flood the provided thread pool with jobs that can't be processed so we throttle the rate
     // at which jobs are added to the thread pool. This enables other trees to utilise the same pool
     std::shared_ptr<std::vector<Signal>> signals = std::make_shared<std::vector<Signal>>();
     std::shared_ptr<Status> status = std::make_shared<Status>();
@@ -899,7 +903,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appe
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
     const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
-    const InsertionGenerationCallback& on_completion)
+    const InsertionGenerationCallback& completion)
 {
     execute_and_report<InsertionGenerationResponse>(
         [=, this](TypedResponse<InsertionGenerationResponse>& response) {
@@ -1064,7 +1068,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 }
             }
         },
-        on_completion);
+        completion);
 }
 
 template <typename Store, typename HashingPolicy>
