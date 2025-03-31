@@ -1,7 +1,7 @@
 import { Buffer } from 'buffer';
 
 import { randomBytes } from '../crypto/index.js';
-import { type LogFn, createDebugOnlyLogger } from '../log/index.js';
+import { type Logger, createLogger } from '../log/index.js';
 import { FifoMemoryQueue } from '../queue/index.js';
 import { getEmptyWasiSdk } from './empty_wasi_sdk.js';
 
@@ -48,7 +48,7 @@ export class WasmModule implements IWasmModule {
   private heap!: Uint8Array;
   private instance?: WebAssembly.Instance;
   private mutexQ = new FifoMemoryQueue<boolean>();
-  private debug: LogFn;
+  private logger: Logger;
 
   /**
    * Create a wasm module. Should be followed by await init();.
@@ -61,7 +61,7 @@ export class WasmModule implements IWasmModule {
     private importFn: (module: WasmModule) => any,
     loggerName = 'wasm',
   ) {
-    this.debug = createDebugOnlyLogger(loggerName);
+    this.logger = createLogger(loggerName);
     this.mutexQ.put(true);
   }
 
@@ -80,7 +80,7 @@ export class WasmModule implements IWasmModule {
    * @param maximum - 8192 maximum by default. 512mb.
    */
   public async init(initial = 31, maximum = 8192, initMethod: string | null = '_initialize') {
-    this.debug(
+    this.logger.debug(
       `initial mem: ${initial} pages, ${(initial * 2 ** 16) / (1024 * 1024)}mb. max mem: ${maximum} pages, ${
         (maximum * 2 ** 16) / (1024 * 1024)
       }mb`,
@@ -98,7 +98,7 @@ export class WasmModule implements IWasmModule {
     /* eslint-disable camelcase */
     const importObj = {
       wasi_snapshot_preview1: {
-        ...getEmptyWasiSdk(this.debug),
+        ...getEmptyWasiSdk(this.logger),
         random_get: (arr: number, length: number) => {
           arr = arr >>> 0;
           const heap = this.getMemory();
@@ -140,19 +140,25 @@ export class WasmModule implements IWasmModule {
    * @returns Logging function.
    */
   public getLogger() {
-    return this.debug;
+    return this.logger;
   }
 
   /**
    * Add a logger.
-   * @param logger - Function to call when logging.
+   * @param logger - Logger to call when logging.
    */
-  public addLogger(logger: LogFn) {
-    const oldDebug = this.debug;
-    this.debug = (msg: string) => {
-      logger(msg);
-      oldDebug(msg);
-    };
+  public addLogger(logger: Logger) {
+    const oldLogger = this.logger;
+    this.logger = createLogger(oldLogger.module);
+    // Copy all log levels from both loggers
+    Object.keys(oldLogger).forEach(level => {
+      if (typeof oldLogger[level as keyof Logger] === 'function') {
+        (this.logger as any)[level] = (msg: string, ...args: any[]) => {
+          (oldLogger as any)[level](msg, ...args);
+          (logger as any)[level](msg, ...args);
+        };
+      }
+    });
   }
 
   /**

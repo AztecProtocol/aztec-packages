@@ -2,6 +2,7 @@ import { parentPort } from 'worker_threads';
 
 import { type DispatchMsg, NodeListener, TransportServer } from '../../transport/index.js';
 import type { WasmModule } from '../../wasm/wasm_module.js';
+import { WorkerLogger } from '../worker_logger.js';
 
 if (!parentPort) {
   throw new Error('InvalidWorker');
@@ -24,7 +25,7 @@ export function startNodeModule(module: WasmModule) {
   };
   const transportListener = new NodeListener();
   const transportServer = new TransportServer<DispatchMsg>(transportListener, dispatch);
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  module.addLogger((...args: any[]) => transportServer.broadcast({ fn: 'emit', args: ['log', ...args] }));
+  const logger = new WorkerLogger(transportServer);
+  module.addLogger(logger);
   transportServer.start();
 }

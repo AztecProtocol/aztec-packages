@@ -1,4 +1,4 @@
-import { createDebugOnlyLogger } from '../log/index.js';
+import { createLogger } from '../log/index.js';
 
 /**
  * Dummy implementation of a necessary part of the wasi api:
@@ -7,7 +7,7 @@ import { createDebugOnlyLogger } from '../log/index.js';
  * TODO find a way to update off of wasi 12.
  */
 /* eslint-disable camelcase */
-export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_sdk')) => ({
+export const getEmptyWasiSdk = (logger = createLogger('wasm:empty_wasi_sdk')) => ({
   /**
    * Retrieves the current time from the system clock.
    * This function is a dummy implementation of the WASI API's `clock_time_get` method,
@@ -17,7 +17,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * is solely to satisfy the environment expectations and provide debugging information.
    */
   clock_time_get() {
-    debug('clock_time_get');
+    logger.debug('clock_time_get');
   },
   /**
    * Dummy implementation of WASI's environ_get function.
@@ -28,7 +28,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md#environ_get
    */
   environ_get() {
-    debug('environ_get');
+    logger.debug('environ_get');
   },
   /**
    * Retrieves the environment variable sizes from the WebAssembly environment.
@@ -36,7 +36,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * It does not have any actual functionality, but serves as a placeholder in the environment.
    */
   environ_sizes_get() {
-    debug('environ_sizes_get');
+    logger.debug('environ_sizes_get');
   },
   /**
    * Closes a file descriptor, releasing any resources associated with it.
@@ -47,7 +47,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @see https://github.com/WebAssembly/WASI/blob/main/phases/snapshot/docs.md
    */
   fd_close() {
-    debug('fd_close');
+    logger.debug('fd_close');
   },
   /**
    * A dummy implementation of the 'fd_read' function from the WASI API.
@@ -56,7 +56,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * but here it simply logs the invocation for debugging purposes.
    */
   fd_read() {
-    debug('fd_read');
+    logger.debug('fd_read');
   },
   /**
    * Handles the file descriptor write operation.
@@ -66,7 +66,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * It is used to write data from WebAssembly memory to a file descriptor.
    */
   fd_write() {
-    debug('fd_write');
+    logger.debug('fd_write');
   },
   /**
    * Perform a file seek operation on the given file descriptor to change its current position.
@@ -79,7 +79,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @returns The new position in the file after the seek operation has been performed.
    */
   fd_seek() {
-    debug('fd_seek');
+    logger.debug('fd_seek');
   },
   /**
    * This function is a dummy implementation of the 'fd_fdstat_get' function in the WebAssembly System Interface (WASI) API.
@@ -87,7 +87,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * The 'fd_fdstat_get' function is typically responsible for obtaining file descriptor status information.
    */
   fd_fdstat_get() {
-    debug('fd_fdstat_get');
+    logger.debug('fd_fdstat_get');
   },
   /**
    * Sets the file descriptor flags for a given file descriptor.
@@ -96,7 +96,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * This is provided since the environment expects this function to be present.
    */
   fd_fdstat_set_flags() {
-    debug('fd_fdstat_set_flags');
+    logger.debug('fd_fdstat_set_flags');
   },
   /**
    * Handles the `fd_prestat_get` function call for the dummy WebAssembly System Interface (WASI) implementation.
@@ -106,7 +106,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @returns A constant integer value indicating successful completion of the function call.
    */
   fd_prestat_get() {
-    debug('fd_prestat_get');
+    logger.debug('fd_prestat_get');
     return 8;
   },
   /**
@@ -117,7 +117,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @returns A constant number representing a dummy return value for the function call.
    */
   fd_prestat_dir_name() {
-    debug('fd_prestat_dir_name');
+    logger.debug('fd_prestat_dir_name');
     return 28;
   },
   /**
@@ -127,7 +127,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * actual file opening operation. It is mainly used for debugging purposes.
    */
   path_open() {
-    debug('path_open');
+    logger.debug('path_open');
   },
   /**
    * Retrieve file system information of the specified path.
@@ -137,7 +137,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @returns An object containing file statistics like size, permissions, etc.
    */
   path_filestat_get() {
-    debug('path_filestat_get');
+    logger.debug('path_filestat_get');
   },
   /**
    * Terminate the process normally, performing the regular cleanup for terminating programs.
@@ -149,7 +149,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @returns The exit status code.
    */
   proc_exit() {
-    debug('proc_exit');
+    logger.debug('proc_exit');
     return 52;
   },
   /**
@@ -160,7 +160,7 @@ export const getEmptyWasiSdk = (debug = createDebugOnlyLogger('wasm:empty_wasi_s
    * @returns A random number. In this implementation, always returns 1.
    */
   random_get() {
-    debug('random_get');
+    logger.debug('random_get');
     return 1;
   },
 });

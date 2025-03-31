@@ -1,5 +1,6 @@
 import { type DispatchMsg, TransportServer, WorkerListener } from '../../transport/index.js';
 import type { WasmModule } from '../../wasm/index.js';
+import { WorkerLogger } from '../worker_logger.js';
 
 /**
  * Start the transport server corresponding to this module.
@@ -18,7 +19,7 @@ export function startWebModule(module: WasmModule) {
   };
   const transportListener = new WorkerListener(self);
   const transportServer = new TransportServer<DispatchMsg>(transportListener, dispatch);
-  // eslint-disable-next-line @typescript-eslint/no-misused-promises
-  module.addLogger((...args: any[]) => transportServer.broadcast({ fn: 'emit', args: ['log', ...args] }));
+  const logger = new WorkerLogger(transportServer);
+  module.addLogger(logger);
   transportServer.start();
 }

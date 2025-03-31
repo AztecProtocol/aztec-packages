@@ -1,19 +1,20 @@
 import { jest } from '@jest/globals';
 
-import { createDebugOnlyLogger, enableLogs } from './debug.js';
+import { enableLogs } from './debug.js';
+import { type Logger, createLogger } from './index.js';
 import { LogHistory } from './log_history.js';
 
 jest.useFakeTimers({ doNotFake: ['performance'] });
 
 // We skip log history tests since this class is not used and it pollutes the logs in CI.
 describe.skip('log history', () => {
-  let debug: (msg: string) => void;
+  let logger: Logger;
   let logHistory: LogHistory;
   const timestamp = new Date().toISOString();
   const name = 'test:a';
 
   beforeEach(() => {
-    debug = createDebugOnlyLogger(name);
+    logger = createLogger(name);
     enableLogs(name);
     logHistory = new LogHistory();
   });
@@ -21,9 +22,9 @@ describe.skip('log history', () => {
   it('keeps debug logs', () => {
     logHistory.enable();
     expect(logHistory.getLogs()).toEqual([]);
-    debug('0');
-    debug('1');
-    debug('2');
+    logger.debug('0');
+    logger.debug('1');
+    logger.debug('2');
     expect(logHistory.getLogs()).toEqual([
       [timestamp, name, '0'],
       [timestamp, name, '1'],
@@ -32,19 +33,19 @@ describe.skip('log history', () => {
   });
 
   it('does not keep logs if not enabled', () => {
-    debug('0');
-    debug('1');
+    logger.debug('0');
+    logger.debug('1');
     expect(logHistory.getLogs()).toEqual([]);
   });
 
   it('returns last n logs', () => {
     logHistory.enable();
     expect(logHistory.getLogs()).toEqual([]);
-    debug('0');
-    debug('1');
-    debug('2');
-    debug('3');
-    debug('4');
+    logger.debug('0');
+    logger.debug('1');
+    logger.debug('2');
+    logger.debug('3');
+    logger.debug('4');
     expect(logHistory.getLogs(2)).toEqual([
       [timestamp, name, '3'],
       [timestamp, name, '4'],
@@ -54,14 +55,14 @@ describe.skip('log history', () => {
   it('only keeps logs with enabled namespace', () => {
     logHistory.enable();
     const name2 = 'test:b';
-    const debug2 = createDebugOnlyLogger(name2);
-    debug('0');
-    debug2('zero');
+    const logger2 = createLogger(name2);
+    logger.debug('0');
+    logger2.debug('zero');
     expect(logHistory.getLogs()).toEqual([[timestamp, name, '0']]);
 
     enableLogs(`${name},${name2}`);
-    debug('1');
-    debug2('one');
+    logger.debug('1');
+    logger2.debug('one');
     expect(logHistory.getLogs()).toEqual([
       [timestamp, name, '0'],
       [timestamp, name, '1'],
@@ -71,18 +72,18 @@ describe.skip('log history', () => {
 
   it('clears all logs', () => {
     logHistory.enable();
-    debug('0');
-    debug('1');
-    debug('2');
+    logger.debug('0');
+    logger.debug('1');
+    logger.debug('2');
     logHistory.clear();
     expect(logHistory.getLogs()).toEqual([]);
   });
 
   it('clears first n logs', () => {
     logHistory.enable();
-    debug('0');
-    debug('1');
-    debug('2');
+    logger.debug('0');
+    logger.debug('1');
+    logger.debug('2');
     logHistory.clear(2);
     expect(logHistory.getLogs()).toEqual([[timestamp, name, '2']]);
   });

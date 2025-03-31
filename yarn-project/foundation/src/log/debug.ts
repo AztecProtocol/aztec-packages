@@ -1,39 +1,7 @@
 import debug from 'debug';
 
-import type { LogFn } from './log_fn.js';
-
 let preLogHook: ((...args: any[]) => void) | undefined;
 let postLogHook: ((...args: any[]) => void) | undefined;
-
-/**
- * Process and handle the logging of messages through custom hooks and the given logger.
- * This function checks if the logger's namespace is enabled, executes any preLogHook functions, logs the message using the provided logger, and then executes any postLogHook functions.
- *
- * @param logger - The debug logger instance to be used for logging.
- * @param args - The arguments to be passed to the logger and any hook functions.
- */
-function theFunctionThroughWhichAllLogsPass(logger: any, ...args: any[]) {
-  if (!debug.enabled(logger.namespace)) {
-    return;
-  }
-  if (preLogHook) {
-    preLogHook(logger.namespace, ...args);
-  }
-  logger(...args);
-  if (postLogHook) {
-    postLogHook(logger.namespace, ...args);
-  }
-}
-
-/**
- * Return a logger, meant to be silent by default and verbose during debugging.
- * @param name - The module name of the logger.
- * @returns A callable log function.
- */
-export function createDebugOnlyLogger(name: string): LogFn {
-  const logger = debug(name);
-  return (...args: any[]) => theFunctionThroughWhichAllLogsPass(logger, ...args);
-}
 
 /**
  * Set a function to be called before each log message is handled by the debug logger.
