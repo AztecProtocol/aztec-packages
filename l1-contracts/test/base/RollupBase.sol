@@ -144,6 +144,17 @@ contract RollupBase is DecoderBase {
     return _header;
   }
 
+  function _updateHeaderInboxRoot(bytes memory _header, bytes32 _inboxRoot)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    assembly {
+      mstore(add(_header, add(0x20, 0x0064)), _inboxRoot)
+    }
+    return _header;
+  }
+
   function _updateHeaderTotalFees(bytes memory _header, uint256 _totalFees)
     internal
     pure
@@ -210,6 +221,9 @@ contract RollupBase is DecoderBase {
     vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+    header = _updateHeaderInboxRoot(
+      header, rollup.getInbox().getRoot(full.block.decodedHeader.globalVariables.blockNumber)
+    );
 
     {
       bytes32[] memory blobHashes = new bytes32[](1);
@@ -291,11 +305,12 @@ contract RollupBase is DecoderBase {
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
     inbox = Inbox(address(rollup.getInbox()));
+    uint256 version = rollup.getVersion();
 
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);
       inbox.sendL2Message(
-        DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
+        DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
       );
     }
   }

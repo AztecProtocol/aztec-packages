@@ -1,4 +1,4 @@
-import { RollupContract, type ViemPublicClient, type ViemWalletClient } from '@aztec/ethereum';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
 import { extractEvent } from '@aztec/ethereum/utils';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -443,8 +443,7 @@ export class L1TokenPortalManager extends L1ToL2TokenPortalManager {
     l2Bridge: AztecAddress,
     callerOnL1: EthAddress = EthAddress.ZERO,
   ): Promise<Fr> {
-    const rollup = new RollupContract(this.publicClient, await this.outbox.read.ROLLUP());
-    const version = Number(await rollup.getVersion());
+    const version = await this.outbox.read.VERSION();
 
     const content = sha256ToField([
       Buffer.from(toFunctionSelector('withdraw(address,uint256,address)').substring(2), 'hex'),

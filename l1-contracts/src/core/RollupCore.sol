@@ -92,19 +92,18 @@ contract RollupCore is
     rollupStore.config.epochProofVerifier = new MockVerifier();
     // @todo handle case where L1 forks and chainid is different
     // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
-    rollupStore.config.version = uint32(
+    uint256 version = uint32(
       uint256(
         keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
       )
     );
+    rollupStore.config.version = version;
     rollupStore.config.inbox =
-      IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
-    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
+      IInbox(address(new Inbox(address(this), version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
+    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), version)));
 
     rollupStore.config.feeAssetPortal = IFeeJuicePortal(
-      new FeeJuicePortal(
-        IRollup(address(this)), _feeAsset, rollupStore.config.inbox, rollupStore.config.version
-      )
+      new FeeJuicePortal(IRollup(address(this)), _feeAsset, rollupStore.config.inbox, version)
     );
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);

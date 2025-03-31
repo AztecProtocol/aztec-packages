@@ -4,13 +4,13 @@
 | 0                                                   | 0               |       |        |        |         |
 | Function Name                                       | min             | avg   | median | max    | # calls |
 | L2_TOKEN_ADDRESS                                    | 239             | 239   | 239    | 239    | 1       |
-| depositToAztecPublic                                | 28903           | 59172 | 34503  | 114111 | 3       |
+| depositToAztecPublic                                | 28903           | 59187 | 34503  | 114156 | 3       |
 | distributeFees                                      | 22005           | 33846 | 27856  | 51678  | 3       |
 | initialize                                          | 48985           | 48985 | 48985  | 48985  | 1566    |
 | src/core/Rollup.sol:Rollup contract |                 |         |         |          |         |
 |-------------------------------------|-----------------|---------|---------|----------|---------|
 | Deployment Cost                     | Deployment Size |         |         |          |         |
-| 8390184                             | 41017           |         |         |          |         |
+| 8451525                             | 41441           |         |         |          |         |
 | Function Name                       | min             | avg     | median  | max      | # calls |
 | archive                             | 605             | 605     | 605     | 605      | 2474    |
 | cheat__InitialiseValidatorSet       | 752181          | 4982899 | 752205  | 13526635 | 776     |
@@ -32,7 +32,7 @@
 | getFeeAssetPortal                   | 519             | 519     | 519     | 519      | 1567    |
 | getFeeHeader                        | 1457            | 1457    | 1457    | 1457     | 95      |
 | getHasSubmitted                     | 943             | 1193    | 943     | 2943     | 8       |
-| getInbox                            | 476             | 478     | 476     | 2476     | 4672    |
+| getInbox                            | 476             | 477     | 476     | 2476     | 7004    |
 | getInfo                             | 1533            | 1533    | 1533    | 1533     | 16      |
 | getManaBaseFeeAt                    | 6161            | 14959   | 14831   | 26831    | 2791    |
 | getOutbox                           | 496             | 498     | 496     | 2496     | 4670    |
@@ -47,8 +47,8 @@
 | getSpecificProverRewardsForEpoch    | 823             | 2131    | 1635    | 3635     | 5       |
 | getTargetCommitteeSize              | 462             | 462     | 462     | 462      | 1024    |
 | getTimestampForSlot                 | 887             | 888     | 887     | 4887     | 2657    |
-| getVersion                          | 493             | 1245    | 493     | 2493     | 5568    |
-| propose                             | 139402          | 354778  | 352912  | 601007   | 2601    |
+| getVersion                          | 493             | 1023    | 493     | 2493     | 7900    |
+| propose                             | 139414          | 354778  | 352912  | 601007   | 2601    |
 | prune                               | 25731           | 36205   | 37466   | 41951    | 6       |
 | setProvingCostPerMana               | 25915           | 25996   | 25915   | 28715    | 103     |
 | setupEpoch                          | 208152          | 1372793 | 1400090 | 1400090  | 262     |
@@ -58,19 +58,19 @@
 | Deployment Cost                                 | Deployment Size |       |        |       |         |
 | 0                                               | 0               |       |        |       |         |
 | Function Name                                   | min             | avg   | median | max   | # calls |
-| getRoot                                         | 802             | 2746  | 2776   | 2776  | 264     |
-| inProgress                                      | 304             | 304   | 304    | 304   | 3       |
-| sendL2Message                                   | 44403           | 54751 | 47796  | 95739 | 41504   |
+| getRoot                                         | 754             | 2158  | 2754   | 2754  | 2596    |
+| inProgress                                      | 282             | 282   | 282    | 282   | 3       |
+| sendL2Message                                   | 44484           | 54828 | 47877  | 95784 | 41504   |
 | totalMessagesInserted                           | 284             | 1284  | 1284   | 2284  | 2       |
 | src/core/messagebridge/Outbox.sol:Outbox contract |                 |       |        |       |         |
 |---------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                   | Deployment Size |       |        |       |         |
-| 586673                                            | 2646            |       |        |       |         |
+| 618184                                            | 2855            |       |        |       |         |
 | Function Name                                     | min             | avg   | median | max   | # calls |
-| consume                                           | 28894           | 71908 | 73116  | 73400 | 4142    |
+| consume                                           | 28894           | 72054 | 73183  | 73445 | 4109    |
 | getRootData                                       | 940             | 1343  | 1149   | 3217  | 2732    |
 | hasMessageBeenConsumedAtBlockAndIndex             | 591             | 2583  | 2591   | 2591  | 259     |
-| insert                                            | 22188           | 57511 | 68264  | 68264 | 1097    |
+| insert                                            | 22188           | 57505 | 68252  | 68264 | 1097    |
 | src/core/staking/Slasher.sol:Slasher contract |                 |        |        |        |         |
 |-----------------------------------------------|-----------------|--------|--------|--------|---------|
 | Deployment Cost                               | Deployment Size |        |        |        |         |
@@ -88,7 +88,7 @@
 | src/governance/CoinIssuer.sol:CoinIssuer contract |                 |       |        |       |         |
 |---------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                   | Deployment Size |       |        |       |         |
-| 326553                                            | 1465            |       |        |       |         |
+| 326433                                            | 1465            |       |        |       |         |
 | Function Name                                     | min             | avg   | median | max   | # calls |
 | RATE                                              | 239             | 239   | 239    | 239   | 768     |
 | mint                                              | 23901           | 43849 | 26631  | 81131 | 768     |
@@ -102,29 +102,29 @@
 | deposit                                           | 27965           | 171787 | 186596 | 188519 | 9729    |
 | dropProposal                                      | 23739           | 40533  | 33600  | 63600  | 2307    |
 | execute                                           | 26209           | 70507  | 71327  | 152243 | 3076    |
-| finaliseWithdraw                                  | 23757           | 45188  | 48283  | 65383  | 6058    |
+| finaliseWithdraw                                  | 23757           | 45261  | 48283  | 65383  | 6017    |
 | getConfiguration                                  | 1913            | 12163  | 19913  | 19913  | 5396    |
 | getProposal                                       | 3523            | 8023   | 3523   | 31523  | 10590   |
 | getProposalState                                  | 469             | 11470  | 13558  | 21242  | 23311   |
-| getWithdrawal                                     | 1075            | 1075   | 1075   | 1075   | 10174   |
+| getWithdrawal                                     | 1075            | 1075   | 1075   | 1075   | 10166   |
 | governanceProposer                                | 424             | 1418   | 424    | 2424   | 515     |
-| initiateWithdraw                                  | 30945           | 199305 | 211342 | 228958 | 7589    |
+| initiateWithdraw                                  | 30945           | 199174 | 211342 | 228958 | 7573    |
 | powerAt                                           | 1042            | 1412   | 1042   | 3029   | 4608    |
 | proposalCount                                     | 338             | 1714   | 2338   | 2338   | 1116    |
-| propose                                           | 23763           | 321927 | 320487 | 337587 | 606     |
-| proposeWithLock                                   | 26545           | 421002 | 422627 | 422627 | 257     |
-| totalPowerAt                                      | 612             | 1565   | 883    | 3568   | 6102    |
-| updateConfiguration                               | 23457           | 32909  | 24180  | 48186  | 6145    |
+| propose                                           | 23763           | 321926 | 320487 | 337587 | 606     |
+| proposeWithLock                                   | 26545           | 421004 | 422627 | 422627 | 257     |
+| totalPowerAt                                      | 612             | 1566   | 883    | 3568   | 6093    |
+| updateConfiguration                               | 23457           | 32910  | 24180  | 48186  | 6145    |
 | updateGovernanceProposer                          | 21705           | 27183  | 28016  | 28028  | 2048    |
 | vote                                              | 30670           | 87818  | 94478  | 94500  | 12289   |
-| withdrawalCount                                   | 383             | 391    | 383    | 2383   | 2517    |
+| withdrawalCount                                   | 383             | 391    | 383    | 2383   | 2508    |
 | src/governance/Registry.sol:Registry contract |                 |       |        |       |         |
 |-----------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                               | Deployment Size |       |        |       |         |
-| 845386                                        | 4070            |       |        |       |         |
+| 845410                                        | 4070            |       |        |       |         |
 | Function Name                                 | min             | avg   | median | max   | # calls |
 | addRollup                                     | 23721           | 90721 | 95470  | 97461 | 4151    |
-| getCanonicalRollup                            | 1016            | 6998  | 7016   | 7016  | 864776  |
+| getCanonicalRollup                            | 1016            | 6998  | 7016   | 7016  | 865880  |
 | getGovernance                                 | 309             | 2142  | 2309   | 2309  | 3086    |
 | getRewardDistributor                          | 267             | 267   | 267    | 267   | 2347    |
 | getRollup                                     | 592             | 592   | 592    | 592   | 1       |
@@ -134,15 +134,15 @@
 | src/governance/RewardDistributor.sol:RewardDistributor contract |                 |       |        |       |         |
 |-----------------------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                                 | Deployment Size |       |        |       |         |
-| 475903                                                          | 2290            |       |        |       |         |
+| 475915                                                          | 2290            |       |        |       |         |
 | Function Name                                                   | min             | avg   | median | max   | # calls |
-| BLOCK_REWARD                                                    | 238             | 238   | 238    | 238   | 379     |
+| BLOCK_REWARD                                                    | 238             | 238   | 238    | 238   | 381     |
 | canonicalRollup                                                 | 10158           | 10158 | 10158  | 10158 | 863     |
-| claim                                                           | 33152           | 49023 | 38911  | 67336 | 513     |
+| claim                                                           | 33152           | 49042 | 38911  | 67336 | 513     |
 | src/governance/proposer/GovernanceProposer.sol:GovernanceProposer contract |                 |       |        |        |         |
 |----------------------------------------------------------------------------|-----------------|-------|--------|--------|---------|
 | Deployment Cost                                                            | Deployment Size |       |        |        |         |
-| 639733                                                                     | 3152            |       |        |        |         |
+| 639721                                                                     | 3152            |       |        |        |         |
 | Function Name                                                              | min             | avg   | median | max    | # calls |
 | LIFETIME_IN_ROUNDS                                                         | 216             | 216   | 216    | 216    | 512     |
 | M                                                                          | 261             | 261   | 261    | 261    | 4868    |
@@ -153,11 +153,11 @@
 | getExecutor                                                                | 3397            | 3397  | 3397   | 3397   | 256     |
 | getInstance                                                                | 951             | 951   | 951    | 951    | 256     |
 | rounds                                                                     | 865             | 865   | 865    | 865    | 522     |
-| vote                                                                       | 34436           | 54804 | 54739  | 130727 | 858331  |
+| vote                                                                       | 34436           | 54804 | 54739  | 130727 | 859435  |
 | yeaCount                                                                   | 851             | 851   | 851    | 851    | 16      |
 | src/periphery/Forwarder.sol:Forwarder contract |                 |        |        |         |         |
 |------------------------------------------------|-----------------|--------|--------|---------|---------|
 | Deployment Cost                                | Deployment Size |        |        |         |         |
 | 358690                                         | 1553            |        |        |         |         |
 | Function Name                                  | min             | avg    | median | max     | # calls |
-| forward                                        | 24936           | 133123 | 28924  | 1908753 | 614     |
+| forward                                        | 24936           | 133124 | 28924  | 1908717 | 614     |

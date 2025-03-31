@@ -1,7 +1,7 @@
 | src/core/Rollup.sol:Rollup contract |                 |          |          |          |         |
 |-------------------------------------|-----------------|----------|----------|----------|---------|
 | Deployment Cost                     | Deployment Size |          |          |          |         |
-| 8390184                             | 41017           |          |          |          |         |
+| 8451525                             | 41441           |          |          |          |         |
 | Function Name                       | min             | avg      | median   | max      | # calls |
 | cheat__InitialiseValidatorSet       | 13526635        | 13526635 | 13526635 | 13526635 | 1       |
 | getBlock                            | 1230            | 1230     | 1230     | 1230     | 12      |
@@ -25,4 +25,4 @@
 | Deployment Cost                                | Deployment Size |        |        |         |         |
 | 358690                                         | 1553            |        |        |         |         |
 | Function Name                                  | min             | avg    | median | max     | # calls |
-| forward                                        | 627264          | 677581 | 638351 | 1908753 | 100     |
+| forward                                        | 627336          | 677587 | 638357 | 1908717 | 100     |
