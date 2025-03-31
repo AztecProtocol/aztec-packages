@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743448394565,
+  "lastUpdate": 1743448396881,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "0e602556e2874309162f66a53d1afaf0d8546c9e",
-          "message": "feat: remove unary trick in decomposition and constraints polishing (#13080)\n\nBenchmarks after this PR:\n\n```\n-------------------------------------------------------------------------------\nBenchmark                                     Time             CPU   Iterations\n-------------------------------------------------------------------------------\nbc_decomposition_acc                       7.34 us         7.33 us        96151\nbc_decomposition_interactions_acc         0.704 us        0.704 us       987128\nbc_hashing_acc                            0.905 us        0.905 us       769096\nbc_hashing_interactions_acc                1.39 us         1.39 us       505947\ninstr_fetching_acc                         8.69 us         8.69 us        81451\ninstr_fetching_interactions_acc            5.90 us         5.89 us       119592\n```\nBenchmarks before this PR:\n\n```\nbc_decomposition_acc                       13.3 us         13.3 us        55869\nbc_decomposition_interactions_acc          1.36 us         1.36 us       508241\nbc_hashing_acc                            0.827 us        0.827 us       810309\nbc_hashing_interactions_acc                1.52 us         1.52 us       427220\ninstr_fetching_acc                         8.84 us         8.84 us        81336\ninstr_fetching_interactions_acc            5.84 us         5.83 us       119965\n```",
-          "timestamp": "2025-03-28T09:01:18Z",
-          "tree_id": "212b5a5a73678c30ee7cac38381978581d27ee20",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e602556e2874309162f66a53d1afaf0d8546c9e"
-        },
-        "date": 1743152925338,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 39634,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 27647,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 11789,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14873,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 15398,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3012,6 +2958,60 @@ window.BENCHMARK_DATA = {
             "value": "2209.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cb1a857e210638f734e19f95d01284dabbd26f17",
+          "message": "chore: convenient way to run app ivc from bb (#13158)\n\nOne can now run (for example, any master commit that has finished\nbenchmarking can be used):\n`barretenberg/cpp/bootstrap.sh e2e_ivc_bench\n88c0e046ccb8381910a4615ac6218dcdbf04d898`\n\nAlso bundled: \n- error in CI if we edit cache contents and try to cache upload\n- bench cleanup and bash typo fix\n- remove AZTEC_CACHE_NO_SCRIPTS as it has gotchas",
+          "timestamp": "2025-03-31T18:53:51Z",
+          "tree_id": "97166afc550d8f2f1a56372108234a8cce406153",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cb1a857e210638f734e19f95d01284dabbd26f17"
+        },
+        "date": 1743448396203,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 27136,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18436,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8822,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10385,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 11275,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
