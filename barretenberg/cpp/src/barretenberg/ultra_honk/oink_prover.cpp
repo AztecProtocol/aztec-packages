@@ -79,7 +79,6 @@ template <IsUltraFlavor Flavor> void OinkProver<Flavor>::execute_preamble_round(
     const auto pub_inputs_offset = static_cast<uint32_t>(proving_key->proving_key.pub_inputs_offset);
 
     transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
-    info("circuit size  sent to verifier ", circuit_size);
     transcript->add_to_hash_buffer(domain_separator + "public_input_size", num_public_inputs);
     transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
