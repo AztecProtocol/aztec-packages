@@ -39,9 +39,9 @@ namespace bb::avm {
  *
  * The Ultra-arithmetized circuit C_U is responsible for recursive verification of {\pi_M, \pi_G}, i.e. it contains both
  * a Mega and a Goblin recursive verifier. The output of this recursive verification is a pairing check accumulator and
- * an IPA claim accumulator. To ensure proper transfer the AVM verifier inputs {\pi, pub_inputs, VK}_{AVM} between the
- * Mega and Ultra circuits, we utilize a hash consistency check. The representation of these inputs in C_M is hashed and
- * the result h_M is propagated via the public inputs (i.e. it will be contained in \pi_M.pub_inputs). Then, C_U
+ * an IPA claim accumulator. To ensure proper transfer of the AVM verifier inputs {\pi, pub_inputs, VK}_{AVM} between
+ * the Mega and Ultra circuits, we utilize a hash consistency check. The representation of these inputs in C_M is hashed
+ * and the result h_M is propagated via the public inputs (i.e. it will be contained in \pi_M.pub_inputs). Then, C_U
  * computes the hash h_U of its own representation of the same data and performs the check h_U = \pi_M.pub_inputs.h_M.
  *
  * @note The Mega circuit must be constrained to be a genuine AVM verifier circuit. This is done by fixing the VK(s)
@@ -99,7 +99,7 @@ class AvmGoblinRecursiveVerifier {
         using GoblinRecursiveVerifier = stdlib::recursion::honk::GoblinRecursiveVerifier;
         using GoblinRecursiveVerifierOutput = stdlib::recursion::honk::GoblinRecursiveVerifierOutput;
 
-        // STEP 1: To establish consistency of the the proof, public inputs and VK for the AVM between the inner (Mega)
+        // STEP 1: To establish consistency of the proof, public inputs and VK for the AVM between the inner (Mega)
         // circuit and the outer (Ultra) circuit, each circuit computes a hash of these components and consistency is
         // checked on the result. The corresponding hash buffers are constructed here.
 
