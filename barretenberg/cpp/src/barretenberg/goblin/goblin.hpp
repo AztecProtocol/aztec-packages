@@ -36,7 +36,6 @@ class GoblinProver {
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
 
-    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = MergeProver::MergeProof;
 
@@ -172,7 +171,6 @@ class GoblinVerifier {
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
     using Builder = MegaCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;
