@@ -341,6 +341,8 @@ class TranslatorFlavor {
                                DerivedWitnessEntities<DataType>::get_all());
         };
 
+        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
+
         /**
          * @brief Get the entities constructed by interleaving.
          */
@@ -595,39 +597,61 @@ class TranslatorFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
-        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
-        ProverPolynomials(size_t mini_circuit_size)
+
+        /**
+         * @brief ProverPolynomials constructor
+         * @details Attempts to initialize polynomials efficiently by using the actual size of the mini circuit rather
+         * than the fixed dydaic size.
+         *
+         * @param actual_mini_circuit_size Actual number of rows in the mini circuit.
+         */
+        ProverPolynomials(size_t actual_mini_circuit_size)
         {
-            size_t circuit_size = mini_circuit_size * INTERLEAVING_GROUP_SIZE;
+            const size_t mini_circuit_size = TRANSLATOR_VM_FIXED_SIZE;
+            const size_t circuit_size = TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE;
+
+            // WORKTODO: these are currently fully dense in the full circuit size but I'm guessing that doesnt need to
+            // be the case..
             for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
-                                                       /*largest possible index*/ circuit_size,
+                                                       /*virtual_size*/ circuit_size,
                                                        1 };
             }
 
-            for (auto& interleaved : get_interleaved()) {
-                interleaved = Polynomial{ /*size*/ circuit_size, circuit_size };
-            }
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
 
-            // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
-            // circuit
-            for (auto& poly : get_to_be_shifted()) {
-                if (poly.is_empty()) {
-                    poly = Polynomial{ /*size*/ mini_circuit_size - 1,
-                                       /*virtual_size*/ circuit_size,
-                                       /*start_index*/ 1 };
-                }
+            // Initialize to be shifted wires based on actual size of the mini circuit
+            for (auto& poly : get_wires_to_be_shifted()) {
+                poly = Polynomial{ /*size*/ actual_mini_circuit_size - 1,
+                                   /*virtual_size*/ circuit_size,
+                                   /*start_index*/ 1 };
             }
 
+            // Initialize interleaved polys based on actual mini circuit size times number of polys to be interleaved
+            const size_t actual_circuit_size = actual_mini_circuit_size * INTERLEAVING_GROUP_SIZE;
+            for (auto& poly : get_interleaved()) {
+                poly = Polynomial{ actual_circuit_size, circuit_size };
+            }
+
+            // Initialize some one-off polys with special structure
+            lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
+            lagrange_second = Polynomial{ /*size*/ 2, /*virtual_size*/ circuit_size };
+            lagrange_even_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
+            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
+
+            // WORKTODO: why does limiting this to actual_mini_circuit_size not work?
+            op = Polynomial{ circuit_size }; // Polynomial{ actual_mini_circuit_size, circuit_size };
+
+            // Catch-all for the rest of the polynomials
+            // WORKTODO: determine what exactly falls in here and be more specific (just the remaining precomputed?)
             for (auto& poly : get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
+                if (poly.is_empty()) { // Only set those polys which were not already set above
                     poly = Polynomial{ circuit_size };
                 }
             }
+            // Set all shifted polynomials based on their unshifted counterpart
             set_shifted();
         }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
@@ -671,9 +695,17 @@ class TranslatorFlavor {
         using Base::Base;
 
         ProvingKey() = default;
-        ProvingKey(const size_t dyadic_circuit_size, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
+        // WORKTODO: this is a constructor used only in tests. We should get rid of it or make it a test-only method.
+        ProvingKey(const size_t dyadic_circuit_size)
+            : Base(dyadic_circuit_size, 0)
             , polynomials(this->circuit_size)
+        {}
+
+        ProvingKey(const size_t dyadic_circuit_size,
+                   std::shared_ptr<CommitmentKey> commitment_key,
+                   const size_t actual_mini_circuit_size)
+            : Base(dyadic_circuit_size, 0, std::move(commitment_key))
+            , polynomials(actual_mini_circuit_size)
         {}
     };
 

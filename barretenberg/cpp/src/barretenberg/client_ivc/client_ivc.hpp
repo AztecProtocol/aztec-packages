@@ -191,11 +191,17 @@ class ClientIVC {
     ClientIVC(TraceSettings trace_settings = {})
         : trace_usage_tracker(trace_settings)
         , trace_settings(trace_settings)
-        , bn254_commitment_key(trace_settings.structure.has_value()
-                                   ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
-                                   : nullptr)
         , goblin(bn254_commitment_key)
-    {}
+    {
+        // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
+        // WORKTODO: I'm accounting for the Translator here because things were breaking otherwise but it may make sense
+        // to only account for the translator once we're actually IN the translator.
+        size_t commitment_key_size =
+            std::max(trace_settings.dyadic_size(),
+                     TranslatorFlavor::TRANSLATOR_VM_FIXED_SIZE * TranslatorFlavor::INTERLEAVING_GROUP_SIZE);
+        info("BN254 commitment key size: ", commitment_key_size);
+        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
+    }
 
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});

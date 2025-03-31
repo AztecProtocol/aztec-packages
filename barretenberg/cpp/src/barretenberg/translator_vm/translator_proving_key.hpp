@@ -3,6 +3,7 @@
 
 #include "barretenberg/translator_vm/translator_flavor.hpp"
 namespace bb {
+// WORKTODO: This class likely should not exist. Any reason not to use the ProvingKey in the flavor?
 class TranslatorProvingKey {
   public:
     using Flavor = TranslatorFlavor;
@@ -38,10 +39,13 @@ class TranslatorProvingKey {
     {
         PROFILE_THIS_NAME("TranslatorProvingKey(TranslatorCircuit&)");
 
+        // WORKTODO: the methods below just set the constant values TRANSLATOR_VM_FIXED_SIZE and
+        // TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE
         compute_mini_circuit_dyadic_size(circuit);
         compute_dyadic_circuit_size();
-        proving_key = std::make_shared<ProvingKey>(dyadic_circuit_size, std::move(commitment_key));
-        proving_key->polynomials = Flavor::ProverPolynomials(mini_circuit_dyadic_size);
+
+        proving_key = std::make_shared<ProvingKey>(
+            dyadic_circuit_size, std::move(commitment_key), /*actual_mini_circuit_size=*/circuit.num_gates);
 
         // Populate the wire polynomials from the wire vectors in the circuit
         for (auto [wire_poly_, wire_] : zip_view(proving_key->polynomials.get_wires(), circuit.wires)) {
