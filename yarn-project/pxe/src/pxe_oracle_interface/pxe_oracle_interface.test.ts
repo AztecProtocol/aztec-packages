@@ -59,6 +59,11 @@ describe('PXEOracleInterface', () => {
 
   let pxeOracleInterface: PXEOracleInterface;
 
+  // The block number of the first log to be emitted.
+  const MIN_BLOCK_NUMBER_OF_A_LOG = 1;
+  // The block number of the last log to be emitted.
+  const MAX_BLOCK_NUMBER_OF_A_LOG = 3;
+
   beforeEach(async () => {
     const store = await openTmpStore('test');
     aztecNode = mock<AztecNode>();
@@ -75,8 +80,8 @@ describe('PXEOracleInterface', () => {
     simulationProvider = new WASMSimulator();
 
     // PXEOracleInterface.syncTaggedLogs(...) function syncs logs up to the block number up to which PXE synced. We set
-    // as sufficiently high sync number here to not interfere with the tests.
-    await setSyncedBlockNumber(100);
+    // the synced block number to that of the last emitted log to receive all the logs by default.
+    await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
 
     pxeOracleInterface = new PXEOracleInterface(
       aztecNode,
@@ -107,8 +112,7 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
-        const blockNumber = 1;
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, MIN_BLOCK_NUMBER_OF_A_LOG, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -139,8 +143,7 @@ describe('PXEOracleInterface', () => {
         const partialAddress = Fr.random();
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
-        const blockNumber = 3;
-        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, MAX_BLOCK_NUMBER_OF_A_LOG, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -407,15 +410,16 @@ describe('PXEOracleInterface', () => {
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(2);
     });
 
-    it('should not sync tagged logs with a blockNumber > maxBlockNumber', async () => {
-      const maxBlockNumber = 1;
-      await setSyncedBlockNumber(maxBlockNumber);
+    it('should not sync tagged logs with a blockNumber larger than the block number to which PXE is synced', async () => {
+      // We set the block number to which PXE is synced to a block number in which only the first batch of logs was
+      // emitted and then we check that we receive logs only from this batch.
+      await setSyncedBlockNumber(MIN_BLOCK_NUMBER_OF_A_LOG);
 
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress);
 
-      // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
+      // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > MIN_BLOCK_NUMBER_OF_A_LOG
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS + 1);
     });
 
