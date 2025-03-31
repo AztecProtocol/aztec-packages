@@ -65,7 +65,9 @@ export class Proof {
   }
 
   public withoutPublicInputs(): Buffer {
-    assert(!this.isEmpty(), 'Calling withoutPublicInputs() on an empty proof - is that intentional?'); // Hopefully we don't call this function if its not empty.
+    if (this.isEmpty()) {
+      return this.buffer;
+    }
     // We are indexing to this particular size because we are assuming the proof buffer looks like:
     // [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, binary proof]
     const proofStart = this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset;
