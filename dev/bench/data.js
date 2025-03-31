@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743373837691,
+  "lastUpdate": 1743379543317,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a64d1dc9d7b0071f4cde2a4213f76c881a6fbe3f",
-          "message": "chore: remove addition of dummy ops in mock circuit producer (#13003)\n\nEvery call to `prove_merge` checks whether the ecc_op block is empty and\nadds dummy ops if required to avoid issues. Therefore, there is no need\nto add dummy ops when creating mock circuits. This isolates the addition\nof dummy gates to two places: at builder finalisation and when necessary\nin `prove_merge`.",
-          "timestamp": "2025-03-27T13:47:32Z",
-          "tree_id": "48ea72add036f1a865bdbb9a7f7dae47063ac281",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a64d1dc9d7b0071f4cde2a4213f76c881a6fbe3f"
-        },
-        "date": 1743085370919,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 34108,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 22047,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 10819,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 13210,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 13546,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3012,6 +2958,84 @@ window.BENCHMARK_DATA = {
             "value": 15309,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5a4f2acf8a30ebaa488eb6e2fd3f3783afb91f45",
+          "message": "chore: use testnet optimized trace (#13135)\n\nUpdate the structured trace utilized by the CIVC API\n(E2E_FULL_TEST_STRUCTURE) to the one that minimally encompasses the five\nkey transactions targeted for testnet 1. The total structured size is\nnow $242,024$, just shy of $2^{18}$. These are:\n\n```\ndeploy_ecdsar1+sponsored_fpc\ndeploy_ecdsar1+sponsored_fpc\necdsar1+amm_add_liquidity_1_recursions+sponsored_fpc\necdsar1+token_bridge_claim_private+sponsored_fpc\necdsar1+transfer_1_recursions+sponsored_fpc\n```",
+          "timestamp": "2025-03-30T16:24:58-07:00",
+          "tree_id": "9de386e36afa698f19529895055b274804787635",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5a4f2acf8a30ebaa488eb6e2fd3f3783afb91f45"
+        },
+        "date": 1743379535716,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 16385.25136499993,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13357.21209 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 118117379525.79999,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 1599263512,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 217228591,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19339.57310599999,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16555.763430000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 50961.618256999995,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 50961614000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 3904.1105829996923,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3106.3781280000003 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 9739.034712000002,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 9739036000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2209.31",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
