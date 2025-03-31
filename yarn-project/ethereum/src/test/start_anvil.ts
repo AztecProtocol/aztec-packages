@@ -9,6 +9,7 @@ import { dirname, resolve } from 'path';
  */
 export async function startAnvil(
   opts: {
+    port?: number;
     l1BlockTime?: number;
   } = {},
 ): Promise<{ anvil: Anvil; rpcUrl: string; stop: () => Promise<void> }> {
@@ -23,7 +24,7 @@ export async function startAnvil(
       const anvil = createAnvil({
         anvilBinary,
         host: '127.0.0.1',
-        port: 8545,
+        port: opts.port ?? 8545,
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,
       });

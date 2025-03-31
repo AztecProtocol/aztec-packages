@@ -108,7 +108,6 @@ function test_cmds {
     else
       echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     fi
-
   done
 
   # Enable real proofs in prover-client integration tests only on CI full

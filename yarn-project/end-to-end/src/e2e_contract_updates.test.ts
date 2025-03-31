@@ -89,7 +89,7 @@ describe('e2e_contract_updates', () => {
     }
   };
 
-  afterAll(() => teardown());
+  afterEach(() => teardown());
 
   it('should update the contract', async () => {
     expect(await contract.methods.get_private_value().simulate()).toEqual(1n);
