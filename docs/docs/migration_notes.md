@@ -10,7 +10,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## [aztec.js] AztecNode.getVersion | PXE.getVersion | TXE.getVersion changed to getRollupVersion
 
-Anywhere getVersion has been used (cross chain messages and authwits) has been updated to rollupVersion.
+Anywhere getVersion has been used (cross chain messages and authwits) has been updated to getRollupVersion.
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
 
