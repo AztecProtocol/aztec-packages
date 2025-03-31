@@ -301,11 +301,9 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
 
 TYPED_TEST(UltraTranscriptTests, StructureTest)
 {
-    /*
-        using Flavor = TypeParam;
-        using FF = Flavor::FF;
-        using Commitment = Flavor::Commitment;
-    */
+    using Flavor = TypeParam;
+    using FF = Flavor::FF;
+    using Commitment = Flavor::Commitment;
     // Construct a simple circuit of size n = 8 (i.e. the minimum circuit size)
     auto builder = typename TestFixture::Builder();
     if constexpr (IsAnyOf<TypeParam, UltraRollupFlavor>) {
@@ -324,22 +322,20 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
 
     // try deserializing and serializing with no changes and check proof is still valid
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-    /*
-        prover.transcript->serialize_full_transcript();
-        EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
+    prover.transcript->serialize_full_transcript();
+    EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
-        Commitment one_group_val = Commitment::one();
-        FF rand_val = FF::random_element();
-        prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
-        EXPECT_TRUE(verifier.verify_proof(
-            prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
+    Commitment one_group_val = Commitment::one();
+    FF rand_val = FF::random_element();
+    prover.transcript->z_perm_comm = one_group_val * rand_val; // choose random object to modify
+    EXPECT_TRUE(verifier.verify_proof(
+        prover.export_proof())); // we have not serialized it back to the proof so it should still be fine
 
-        prover.transcript->serialize_full_transcript();
-        EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
+    prover.transcript->serialize_full_transcript();
+    EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
-        prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
-        EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
-    */
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
+    EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
 
 TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
