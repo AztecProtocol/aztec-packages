@@ -322,9 +322,9 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     typename TestFixture::Verifier verifier(verification_key);
     EXPECT_TRUE(verifier.verify_proof(proof));
 
+    // try deserializing and serializing with no changes and check proof is still valid
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     /*
-        // try deserializing and serializing with no changes and check proof is still valid
-        prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
         prover.transcript->serialize_full_transcript();
         EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
