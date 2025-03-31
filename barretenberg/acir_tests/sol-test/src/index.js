@@ -216,6 +216,7 @@ const killAnvil = () => {
   console.log(testName, " complete");
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1316): Clean this code up. We are trying to use this logic for three different flows: bb plonk, bb honk, and bbjs honk, and all three have different setups.
 try {
   const proofPath = getEnvVar("PROOF");
 
@@ -224,14 +225,14 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
 
-  let publicInputsAsFieldsPath;
+  let publicInputsAsFieldsPath; // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
   try {
     publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
   } catch (e) {
     // noop
   }
   var publicInputs;
-  let proofAsFieldsPath;
+  let proofAsFieldsPath; // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
   try {
     proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
   } catch (e) {
@@ -241,6 +242,7 @@ try {
   let extraPublicInputs = [];
   if (proofAsFieldsPath) {
     const proofAsFields = readFileSync(proofAsFieldsPath);
+    // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
     [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
       JSON.parse(proofAsFields.toString())
     );
@@ -257,11 +259,10 @@ try {
 
     publicInputs = innerPublicInputs.concat(extraPublicInputs);
   } else {
+    // for plonk, the extraPublicInputs are all of the public inputs
     publicInputs = extraPublicInputs;
   }
 
-  console.log("numExtraPublicInputs: ", numExtraPublicInputs);
-  console.log("Proof length: ", proofStr.length);
   proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
