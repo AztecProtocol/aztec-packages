@@ -10,7 +10,7 @@ import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { TreeInfo } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
-import { GlobalVariables, type ProcessedTx, Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -155,19 +155,6 @@ describe('public_processor', () => {
 
       expect(processed).toEqual([]);
       expect(failed.length).toBe(1);
-    });
-
-    it('does not send a transaction to the prover if post validation fails', async function () {
-      const tx = await mockPrivateOnlyTx();
-
-      const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
-      txValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['Invalid'] });
-
-      const [processed, failed] = await processor.process([tx], {}, { postprocessValidator: txValidator });
-
-      expect(processed).toEqual([]);
-      expect(failed.length).toBe(1);
-      expect(failed[0].tx).toEqual(tx);
     });
 
     // Flakey timing test that's totally dependent on system load/architecture etc.

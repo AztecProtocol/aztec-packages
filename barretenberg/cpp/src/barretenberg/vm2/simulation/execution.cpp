@@ -15,7 +15,11 @@ namespace bb::avm2::simulation {
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
-    alu.add(context, a_addr, b_addr, dst_addr);
+    auto& memory = context.get_memory();
+    ValueRefAndTag a = memory.get(a_addr);
+    ValueRefAndTag b = memory.get(b_addr);
+    FF c = alu.add(a, b);
+    memory.set(dst_addr, c, a.tag);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.

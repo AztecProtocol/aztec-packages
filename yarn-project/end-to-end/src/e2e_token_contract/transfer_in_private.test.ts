@@ -109,7 +109,7 @@ describe('e2e_token_contract transfer private', () => {
         { caller: accounts[1].address, action },
         {
           chainId: wallets[0].getChainId(),
-          version: wallets[0].getVersion(),
+          version: wallets[0].getRollupVersion(),
         },
       );
 
@@ -132,7 +132,7 @@ describe('e2e_token_contract transfer private', () => {
         { caller: accounts[2].address, action },
         {
           chainId: wallets[0].getChainId(),
-          version: wallets[0].getVersion(),
+          version: wallets[0].getRollupVersion(),
         },
       );
 

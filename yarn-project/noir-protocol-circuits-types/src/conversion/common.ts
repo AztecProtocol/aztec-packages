@@ -508,7 +508,7 @@ export function mapVerificationKeyToNoir<N extends number>(
 export function mapGlobalVariablesToNoir(globalVariables: GlobalVariables): GlobalVariablesNoir {
   return {
     chain_id: mapFieldToNoir(globalVariables.chainId),
-    version: mapFieldToNoir(globalVariables.version),
+    version: mapFieldToNoir(globalVariables.rollupVersion),
     block_number: mapFieldToNoir(globalVariables.blockNumber),
     slot_number: mapFieldToNoir(globalVariables.slotNumber),
     timestamp: mapFieldToNoir(globalVariables.timestamp),

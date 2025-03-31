@@ -27,8 +27,6 @@ template <typename Flavor> class MegaHonkTests : public ::testing::Test {
     using FF = Curve::ScalarField;
     using Point = Curve::AffineElement;
     using CommitmentKey = bb::CommitmentKey<Curve>;
-    using MergeProver = MergeProver_<Flavor>;
-    using MergeVerifier = MergeVerifier_<Flavor>;
     using Prover = UltraProver_<Flavor>;
     using Verifier = UltraVerifier_<Flavor>;
     using VerificationKey = typename Flavor::VerificationKey;
@@ -97,7 +95,6 @@ TYPED_TEST_SUITE(MegaHonkTests, FlavorTypes);
 TYPED_TEST(MegaHonkTests, MergeProofSizeCheck)
 {
     using Flavor = TypeParam;
-    using MergeProver = MergeProver_<Flavor>;
 
     auto builder = typename Flavor::CircuitBuilder{};
     GoblinMockCircuits::construct_simple_circuit(builder);

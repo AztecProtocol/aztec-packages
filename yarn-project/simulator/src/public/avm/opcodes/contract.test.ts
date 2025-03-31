@@ -4,10 +4,10 @@ import { SerializableContractInstance } from '@aztec/stdlib/contract';
 
 import { mock } from 'jest-mock-extended';
 
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
 import { initContext } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
@@ -17,7 +17,7 @@ describe('Contract opcodes', () => {
   let contractClassId: Fr;
   let initializationHash: Fr;
 
-  let persistableState: jest.Mocked<AvmPersistableStateManager>;
+  let persistableState: jest.Mocked<PublicPersistableStateManager>;
   let context: AvmContext;
 
   beforeEach(async () => {
@@ -26,7 +26,7 @@ describe('Contract opcodes', () => {
     deployer = contractInstance.deployer;
     contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
-    persistableState = mock<AvmPersistableStateManager>();
+    persistableState = mock<PublicPersistableStateManager>();
     context = initContext({ persistableState });
   });
 

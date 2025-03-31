@@ -7,17 +7,21 @@ use crate::{
     encrypted_logs::{
         log_assembly_strategies::default_aes128::aes128::AES128,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        log_type::{
+            PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_EVENT_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID,
+        },
         metadata_packing::from_expanded_metadata,
     },
-    oracle::message_discovery::sync_notes,
+    oracle::{logs::store_private_event_log, message_discovery::sync_notes},
     utils::array,
 };
 
 use protocol_types::{
+    abis::event_selector::EventSelector,
     address::AztecAddress,
     constants::{MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS},
     debug_log::{debug_log, debug_log_format},
+    traits::FromField,
 };
 
 // TODO(#12750): don't make these values assume we're using AES.
@@ -52,14 +56,14 @@ pub unconstrained fn do_process_log<Env>(
     tx_hash: Field,
     unique_note_hashes_in_tx: BoundedVec<Field, MAX_NOTE_HASHES_PER_TX>,
     first_nullifier_in_tx: Field,
+    log_index_in_tx: Field,
     recipient: AztecAddress,
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     debug_log_format("Processing log with tag {0}", [log.get(0)]);
 
-    // The tag is ignored for now.
+    // The first field of the log is the tag, which we don't need right now, and the rest is all ciphertext.
     let ciphertext = array::subbvec(log, 1);
-
     let log_plaintext = AES128::decrypt_log(ciphertext, recipient);
 
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
@@ -84,6 +88,20 @@ pub unconstrained fn do_process_log<Env>(
         debug_log("Processing partial note private log");
 
         process_partial_note_private_log(contract_address, recipient, log_metadata, log_content);
+    } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
+        debug_log("Processing private event log");
+
+        // In the case of event logs, the log metadata is the event selector.
+        let event_selector = EventSelector::from_field(log_metadata as Field);
+
+        store_private_event_log(
+            contract_address,
+            recipient,
+            event_selector,
+            log_content,
+            tx_hash,
+            log_index_in_tx,
+        );
     } else {
         // TODO(#11569): handle events
         debug_log_format(

@@ -36,6 +36,7 @@ import { mock } from 'jest-mock-extended';
 import { SideEffectTrace } from '../../public/side_effect_trace.js';
 import type { PublicSideEffectTraceInterface } from '../../public/side_effect_trace_interface.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import type { AvmContext } from './avm_context.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type MemoryValue, TypeTag, type Uint8, type Uint64 } from './avm_memory_types.js';
@@ -57,7 +58,6 @@ import {
   resolveContractAssertionMessage,
 } from './fixtures/index.js';
 import { SimpleContractDataSource } from './fixtures/simple_contract_data_source.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
 import {
   Add,
   CalldataCopy,
@@ -474,7 +474,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
     const transactionFee = Fr.random();
     const chainId = Fr.random();
-    const version = Fr.random();
+    const rollupVersion = Fr.random();
     const blockNumber = Fr.random();
     const timestamp = new Fr(randomInt(100000)); // cap timestamp since must fit in u64
     const feePerDaGas = Fr.random();
@@ -487,7 +487,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       const globals = initGlobalVariables({
         chainId,
-        version,
+        rollupVersion,
         blockNumber,
         timestamp,
         gasFees,
@@ -509,7 +509,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       ['sender', () => sender.toField(), 'get_sender'],
       ['transactionFee', () => transactionFee.toField(), 'get_transaction_fee'],
       ['chainId', () => chainId.toField(), 'get_chain_id'],
-      ['version', () => version.toField(), 'get_version'],
+      ['version', () => rollupVersion.toField(), 'get_version'],
       ['blockNumber', () => blockNumber.toField(), 'get_block_number'],
       ['timestamp', () => timestamp.toField(), 'get_timestamp'],
       ['feePerDaGas', () => feePerDaGas.toField(), 'get_fee_per_da_gas'],
@@ -555,7 +555,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let treesDB: PublicTreesDB;
     let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
-    let persistableState: AvmPersistableStateManager;
+    let persistableState: PublicPersistableStateManager;
 
     beforeAll(async () => {
       siloedNullifier0 = await siloNullifier(address, value0);
@@ -1093,7 +1093,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     let treesDB: PublicTreesDB;
     let contractsDB: PublicContractsDB;
     let trace: PublicSideEffectTraceInterface;
-    let persistableState: AvmPersistableStateManager;
+    let persistableState: PublicPersistableStateManager;
 
     let leafSlot0: Fr;
 

@@ -32,7 +32,7 @@ export class DefaultDappInterface extends DefaultAccountInterface {
   static createFromUserWallet(wallet: AccountWallet, dappAddress: AztecAddress): DefaultDappInterface {
     return new DefaultDappInterface(wallet, wallet.getCompleteAddress(), dappAddress, {
       l1ChainId: wallet.getChainId().toNumber(),
-      rollupVersion: wallet.getVersion().toNumber(),
+      rollupVersion: wallet.getRollupVersion().toNumber(),
     });
   }
 }

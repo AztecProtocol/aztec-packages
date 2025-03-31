@@ -35,7 +35,7 @@ async function createPXEService(): Promise<PXE> {
 
   // Setup the relevant mocks
   node.getBlockNumber.mockResolvedValue(2);
-  node.getVersion.mockResolvedValue(1);
+  node.getRollupVersion.mockResolvedValue(1);
   node.getChainId.mockResolvedValue(1);
   const mockedContracts: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),

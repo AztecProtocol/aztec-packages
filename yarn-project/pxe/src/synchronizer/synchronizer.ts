@@ -1,4 +1,3 @@
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { L2TipsKVStore } from '@aztec/kv-store/stores';
 import { L2BlockStream, type L2BlockStreamEvent, type L2BlockStreamEventHandler } from '@aztec/stdlib/block';
@@ -10,13 +9,11 @@ import type { SyncDataProvider } from '../storage/sync_data_provider/sync_data_p
 import type { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 
 /**
- * The Synchronizer class manages the synchronization with the aztec node, allowing PXE to retrieve the
- * latest block header and handle reorgs.
- * It provides methods to trigger a sync and get the block number we are syncec to
- * details, and fetch transactions by hash.
+ * The Synchronizer class orchestrates synchronization between the PXE and Aztec node, maintaining an up-to-date
+ * view of the L2 chain state. It handles block header retrieval, chain reorganizations, and provides an interface
+ * for querying sync status.
  */
 export class Synchronizer implements L2BlockStreamEventHandler {
-  private initialSyncBlockNumber = INITIAL_L2_BLOCK_NUM - 1;
   private log: Logger;
   private isSyncing: Promise<void> | undefined;
   protected readonly blockStream: L2BlockStream;
@@ -80,7 +77,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
   }
 
   /**
-   * Syncs PXE and the node by dowloading the metadata of the latest blocks, allowing simulations to use
+   * Syncs PXE and the node by downloading the metadata of the latest blocks, allowing simulations to use
    * recent data (e.g. notes), and handling any reorgs that might have occurred.
    */
   public async sync() {
@@ -115,7 +112,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     await this.blockStream.sync();
   }
 
-  public async getSynchedBlockNumber() {
-    return (await this.syncDataProvider.getBlockNumber()) ?? this.initialSyncBlockNumber;
+  public getSynchedBlockNumber() {
+    return this.syncDataProvider.getBlockNumber();
   }
 }

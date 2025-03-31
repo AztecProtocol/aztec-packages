@@ -1,5 +1,6 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
+import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
@@ -30,7 +31,8 @@ export type ProverNodeConfig = ArchiverConfig &
   DataStoreConfig &
   ProverCoordinationConfig &
   SharedNodeConfig &
-  SpecificProverNodeConfig;
+  SpecificProverNodeConfig &
+  GenesisStateConfig;
 
 type SpecificProverNodeConfig = {
   proverNodeMaxPendingJobs: number;
@@ -84,6 +86,7 @@ export const proverNodeConfigMappings: ConfigMappingsType<ProverNodeConfig> = {
   ...getTxSenderConfigMappings('PROVER'),
   ...proverCoordinationConfigMappings,
   ...specificProverNodeConfigMappings,
+  ...genesisStateConfigMappings,
   ...sharedNodeConfigMappings,
 };
 

@@ -25,9 +25,10 @@ import { strict as assert } from 'assert';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
-import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
+import { AvmSimulator } from '../avm/index.js';
 import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { NullifierCollisionError } from '../state_manager/nullifiers.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -313,7 +314,7 @@ export class PublicTxSimulator {
    * @returns The result of execution.
    */
   protected async simulateEnqueuedCallInternal(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     { request, calldata }: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,

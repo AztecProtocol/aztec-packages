@@ -11,7 +11,7 @@ import {
   getContract,
 } from 'viem';
 
-import { deployL1Contract } from '../deploy_l1_contracts.js';
+import { deployL1Contract, getExpectedAddress } from '../deploy_l1_contracts.js';
 import type { L1BlobInputs, L1GasConfig, L1TxRequest, L1TxUtils } from '../l1_tx_utils.js';
 import type { L1Clients, ViemPublicClient, ViemWalletClient } from '../types.js';
 import { RollupContract } from './rollup.js';
@@ -21,6 +21,11 @@ export class ForwarderContract {
 
   constructor(public readonly client: L1Clients['publicClient'], address: Hex, public readonly rollupAddress: Hex) {
     this.forwarder = getContract({ address, abi: ForwarderAbi, client });
+  }
+
+  static expectedAddress(owner: Hex) {
+    const { address } = getExpectedAddress(ForwarderAbi, ForwarderBytecode, [owner], owner);
+    return address;
   }
 
   static async create(

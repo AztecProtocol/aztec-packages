@@ -31,7 +31,7 @@ function getValue(e: EnvironmentVariable, ctx: AvmContext) {
     case EnvironmentVariable.CHAINID:
       return new Field(ctx.environment.globals.chainId);
     case EnvironmentVariable.VERSION:
-      return new Field(ctx.environment.globals.version);
+      return new Field(ctx.environment.globals.rollupVersion);
     case EnvironmentVariable.BLOCKNUMBER:
       return new Field(ctx.environment.globals.blockNumber);
     case EnvironmentVariable.TIMESTAMP:

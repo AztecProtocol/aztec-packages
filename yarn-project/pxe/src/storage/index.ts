@@ -6,3 +6,4 @@ export * from './sync_data_provider/index.js';
 export * from './tagging_data_provider/index.js';
 export * from './data_provider.js';
 export * from './metadata.js';
+export * from './private_event_data_provider/private_event_data_provider.js';

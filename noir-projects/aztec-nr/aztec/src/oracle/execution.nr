@@ -9,7 +9,7 @@ unconstrained fn get_block_number_oracle() -> u32 {}
 #[oracle(getChainId)]
 unconstrained fn get_chain_id_oracle() -> Field {}
 
-#[oracle(getVersion)]
+#[oracle(getRollupVersion)]
 unconstrained fn get_version_oracle() -> Field {}
 
 pub unconstrained fn get_contract_address() -> AztecAddress {

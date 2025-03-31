@@ -328,18 +328,18 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
                                             .overflow = 0 };
 
 /**
- * @brief Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
+ * @brief Structuring tailored to the full e2e TS test (Currently optimized for five key testnet transactions)
  */
 static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
                                                          .busread = 6000,
-                                                         .lookup = 200000,
-                                                         .pub_inputs = 4000,
-                                                         .arithmetic = 200000,
-                                                         .delta_range = 25000,
-                                                         .elliptic = 80000,
-                                                         .aux = 100000,
-                                                         .poseidon2_external = 45192,
-                                                         .poseidon2_internal = 258000,
+                                                         .lookup = 15000,
+                                                         .pub_inputs = 5000,
+                                                         .arithmetic = 56000,
+                                                         .delta_range = 18000,
+                                                         .elliptic = 6000,
+                                                         .aux = 26000,
+                                                         .poseidon2_external = 17000,
+                                                         .poseidon2_internal = 92000,
                                                          .overflow = 0 };
 
 template <typename T>

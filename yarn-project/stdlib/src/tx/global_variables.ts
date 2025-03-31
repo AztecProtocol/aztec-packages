@@ -20,7 +20,7 @@ export class GlobalVariables {
     /** ChainId for the L2 block. */
     public chainId: Fr,
     /** Version for the L2 block. */
-    public version: Fr,
+    public rollupVersion: Fr,
     /** Block number of the L2 block. */
     public blockNumber: Fr,
     /** Slot number of the L2 block */
@@ -39,7 +39,7 @@ export class GlobalVariables {
     return z
       .object({
         chainId: schemas.Fr,
-        version: schemas.Fr,
+        rollupVersion: schemas.Fr,
         blockNumber: schemas.Fr,
         slotNumber: schemas.Fr,
         timestamp: schemas.Fr,
@@ -64,7 +64,7 @@ export class GlobalVariables {
       slotNumber: Fr.ZERO,
       timestamp: Fr.ZERO,
       chainId: Fr.ZERO,
-      version: Fr.ZERO,
+      rollupVersion: Fr.ZERO,
       coinbase: EthAddress.ZERO,
       feeRecipient: AztecAddress.ZERO,
       gasFees: GasFees.empty(),
@@ -105,7 +105,7 @@ export class GlobalVariables {
     // Note: The order here must match the order in the HeaderLib solidity library.
     return [
       fields.chainId,
-      fields.version,
+      fields.rollupVersion,
       fields.blockNumber,
       fields.slotNumber,
       fields.timestamp,
@@ -150,7 +150,7 @@ export class GlobalVariables {
   isEmpty(): boolean {
     return (
       this.chainId.isZero() &&
-      this.version.isZero() &&
+      this.rollupVersion.isZero() &&
       this.blockNumber.isZero() &&
       this.slotNumber.isZero() &&
       this.timestamp.isZero() &&
@@ -163,7 +163,7 @@ export class GlobalVariables {
   toInspect() {
     return {
       chainId: this.chainId.toNumber(),
-      version: this.version.toNumber(),
+      rollupVersion: this.rollupVersion.toNumber(),
       blockNumber: this.blockNumber.toNumber(),
       slotNumber: this.slotNumber.toNumber(),
       timestamp: this.timestamp.toNumber(),
@@ -181,7 +181,7 @@ export class GlobalVariables {
   public equals(other: this): boolean {
     return (
       this.chainId.equals(other.chainId) &&
-      this.version.equals(other.version) &&
+      this.rollupVersion.equals(other.rollupVersion) &&
       this.blockNumber.equals(other.blockNumber) &&
       this.slotNumber.equals(other.slotNumber) &&
       this.timestamp.equals(other.timestamp) &&

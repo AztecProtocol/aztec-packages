@@ -156,9 +156,9 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
 
-    // The commitment key is initialised with the number of points determined by the trace_settings' dyadic size. If a
-    // circuit overflows past the dyadic size the commitment key will not have enough points so we need to increase it
-    if (proving_key->proving_key.circuit_size > trace_settings.dyadic_size()) {
+    // If the current circuit overflows past the current size of the commitment key, reinitialize accordingly.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1319)
+    if (proving_key->proving_key.circuit_size > bn254_commitment_key->dyadic_size) {
         bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(proving_key->proving_key.circuit_size);
         goblin.commitment_key = bn254_commitment_key;
     }

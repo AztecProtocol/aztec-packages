@@ -32,7 +32,7 @@ using namespace bb;
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t> const& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
-                         std::function<T(std::vector<uint8_t>)> decode_binpack)
+                         std::function<T(std::vector<uint8_t>)> decode_bincode)
 {
     // We can't rely on exceptions to try to deserialize binpack, falling back to
     // msgpack if it fails, because exceptions are (or were) not supported in Wasm
@@ -67,12 +67,12 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
                 }
             }
         }
-        // `buf[0] == 0` would indicate bincode starting with a format byte,
+        // `buf[0] == 1` would indicate bincode starting with a format byte,
         // but if it's a coincidence and it fails to parse then we can't recover
         // from it, so let's just acknowledge that for now we don't want to
         // exercise this code path and treat the whole data as bincode.
     }
-    return decode_binpack(buf);
+    return decode_bincode(buf);
 }
 
 /**

@@ -46,7 +46,13 @@ class ExecutionSimulationTest : public ::testing::Test {
 
 TEST_F(ExecutionSimulationTest, Add)
 {
-    EXPECT_CALL(alu, add(Ref(context), 4, 5, 6));
+    ValueRefAndTag a = { .value = 4, .tag = MemoryTag::U32 };
+    ValueRefAndTag b = { .value = 5, .tag = MemoryTag::U32 };
+
+    EXPECT_CALL(context, get_memory);
+    EXPECT_CALL(memory, get).Times(2).WillOnce(Return(a)).WillOnce(Return(b));
+    EXPECT_CALL(alu, add(a, b)).WillOnce(Return(9));
+    EXPECT_CALL(memory, set(6, FF(9), MemoryTag::U32));
     execution.add(context, 4, 5, 6);
 }
 

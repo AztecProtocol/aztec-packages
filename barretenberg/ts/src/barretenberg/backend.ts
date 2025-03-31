@@ -288,7 +288,7 @@ export class UltraHonkBackend {
   async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
     await this.instantiate();
     const vkBuf =
-      vk ?? (await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive));
+      vk ?? (await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode, this.circuitOptions.recursive));
     return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
   }
 

@@ -17,7 +17,7 @@ export class DefaultAccountInterface implements AccountInterface {
   protected entrypoint: EntrypointInterface;
 
   private chainId: Fr;
-  private version: Fr;
+  private rollupVersion: Fr;
 
   constructor(
     private authWitnessProvider: AuthWitnessProvider,
@@ -31,7 +31,7 @@ export class DefaultAccountInterface implements AccountInterface {
       nodeInfo.rollupVersion,
     );
     this.chainId = new Fr(nodeInfo.l1ChainId);
-    this.version = new Fr(nodeInfo.rollupVersion);
+    this.rollupVersion = new Fr(nodeInfo.rollupVersion);
   }
 
   createTxExecutionRequest(
@@ -58,7 +58,7 @@ export class DefaultAccountInterface implements AccountInterface {
     return this.chainId;
   }
 
-  getVersion(): Fr {
-    return this.version;
+  getRollupVersion(): Fr {
+    return this.rollupVersion;
   }
 }

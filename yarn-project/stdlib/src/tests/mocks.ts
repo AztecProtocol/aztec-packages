@@ -73,6 +73,7 @@ export const mockTx = async (
   {
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+    numberOfRevertibleNullifiers = 0,
     hasPublicTeardownCallRequest = false,
     publicCalldataSize = 2,
     feePayer,
@@ -80,6 +81,7 @@ export const mockTx = async (
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
+    numberOfRevertibleNullifiers?: number;
     hasPublicTeardownCallRequest?: boolean;
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
@@ -122,6 +124,11 @@ export const mockTx = async (
       .pushNullifier(firstNullifier.value)
       .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
+
+    for (let i = 0; i < numberOfRevertibleNullifiers; i++) {
+      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), 0, Fr.ZERO);
+      revertibleBuilder.pushNullifier(revertibleNullifier.value);
+    }
 
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
       .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))

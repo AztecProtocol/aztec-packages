@@ -1,11 +1,11 @@
-import { type ContractInstanceWithAddress, Fr, Point } from '@aztec/aztec.js';
+import { type ContractInstanceWithAddress, Fr, Point, TxHash } from '@aztec/aztec.js';
 import { DEPLOYER_CONTRACT_ADDRESS } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { ProtocolContract } from '@aztec/protocol-contracts';
 import { enrichPublicSimulationError } from '@aztec/pxe/server';
 import type { TypedOracle } from '@aztec/simulator/client';
-import { type ContractArtifact, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { type ContractArtifact, EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { computePartialAddress } from '@aztec/stdlib/contract';
@@ -473,8 +473,8 @@ export class TXEService {
     return toForeignCallResult([toSingle(await this.typedOracle.getChainId())]);
   }
 
-  async getVersion() {
-    return toForeignCallResult([toSingle(await this.typedOracle.getVersion())]);
+  async getRollupVersion() {
+    return toForeignCallResult([toSingle(await this.typedOracle.getRollupVersion())]);
   }
 
   async getBlockHeader(blockNumber: ForeignCallSingle) {
@@ -630,6 +630,25 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
+  async storePrivateEventLog(
+    contractAddress: ForeignCallSingle,
+    recipient: ForeignCallSingle,
+    eventSelector: ForeignCallSingle,
+    logContent: ForeignCallArray,
+    txHash: ForeignCallSingle,
+    logIndexInTx: ForeignCallSingle,
+  ) {
+    await this.typedOracle.storePrivateEventLog(
+      AztecAddress.fromField(fromSingle(contractAddress)),
+      AztecAddress.fromField(fromSingle(recipient)),
+      EventSelector.fromField(fromSingle(eventSelector)),
+      fromArray(logContent),
+      new TxHash(fromSingle(txHash)),
+      fromSingle(logIndexInTx).toNumber(),
+    );
+    return toForeignCallResult([]);
+  }
+
   // AVM opcodes
 
   avmOpcodeEmitUnencryptedLog(_message: ForeignCallArray) {
@@ -718,7 +737,7 @@ export class TXEService {
   }
 
   async avmOpcodeVersion() {
-    const version = await (this.typedOracle as TXE).getVersion();
+    const version = await (this.typedOracle as TXE).getRollupVersion();
     return toForeignCallResult([toSingle(version)]);
   }
 

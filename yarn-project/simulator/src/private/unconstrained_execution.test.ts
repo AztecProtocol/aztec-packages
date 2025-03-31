@@ -24,7 +24,7 @@ describe('Unconstrained Execution test suite', () => {
 
     executionDataProvider.getBlockNumber.mockResolvedValue(42);
     executionDataProvider.getChainId.mockResolvedValue(1);
-    executionDataProvider.getVersion.mockResolvedValue(1);
+    executionDataProvider.getRollupVersion.mockResolvedValue(1);
 
     acirSimulator = new AcirSimulator(executionDataProvider, simulationProvider);
   });

@@ -102,6 +102,7 @@
     "enrs",
     "entrypoints",
     "erc",
+    "ecdsasecp",
     "falsey",
     "fargate",
     "Fieldable",

@@ -157,7 +157,7 @@ jobs:
 
       - name: Publish to GitHub
         uses: softprops/action-gh-release@v1
-        if: ${{ inputs.publish || github.event_name == 'schedule' }}
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
         with:
           tag_name: ${{ inputs.ref_name || inputs.tag || github.ref_name }}
           prerelease: true

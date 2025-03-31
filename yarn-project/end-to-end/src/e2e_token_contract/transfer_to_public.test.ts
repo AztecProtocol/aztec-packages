@@ -110,7 +110,7 @@ describe('e2e_token_contract transfer_to_public', () => {
         .methods.transfer_to_public(accounts[0].address, accounts[1].address, amount, nonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: accounts[2].address, action },
-        { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
+        { chainId: wallets[0].getChainId(), version: wallets[0].getRollupVersion() },
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly

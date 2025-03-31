@@ -102,7 +102,7 @@ describe('LightBlockBuilder', () => {
       prefilledPublicData,
     );
 
-    globalVariables = makeGlobalVariables(1, { chainId: Fr.ZERO, version: Fr.ZERO });
+    globalVariables = makeGlobalVariables(1, { chainId: Fr.ZERO, rollupVersion: Fr.ZERO });
     l1ToL2Messages = times(7, i => new Fr(i + 1));
     fork = await db.fork();
     expectsFork = await db.fork();

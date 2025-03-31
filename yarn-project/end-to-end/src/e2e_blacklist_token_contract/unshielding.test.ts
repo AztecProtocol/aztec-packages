@@ -112,7 +112,7 @@ describe('e2e_blacklist_token_contract unshielding', () => {
         .methods.unshield(wallets[0].getAddress(), wallets[1].getAddress(), amount, nonce);
       const expectedMessageHash = await computeAuthWitMessageHash(
         { caller: wallets[2].getAddress(), action },
-        { chainId: wallets[0].getChainId(), version: wallets[0].getVersion() },
+        { chainId: wallets[0].getChainId(), version: wallets[0].getRollupVersion() },
       );
 
       // Both wallets are connected to same node and PXE so we could just insert directly

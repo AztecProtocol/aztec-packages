@@ -23,6 +23,7 @@ import {
   ContractDataProvider,
   NoteDataProvider,
   PXEOracleInterface,
+  PrivateEventDataProvider,
   SyncDataProvider,
   TaggingDataProvider,
   enrichPublicSimulationError,
@@ -52,6 +53,7 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
+  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   type NoteSelector,
@@ -152,6 +154,7 @@ export class TXE implements TypedOracle {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private executionCache: HashedValuesCache,
     private contractAddress: AztecAddress,
@@ -174,6 +177,7 @@ export class TXE implements TypedOracle {
       this.syncDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
+      this.privateEventDataProvider,
       this.logger,
     );
   }
@@ -184,6 +188,7 @@ export class TXE implements TypedOracle {
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
+    const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
@@ -208,6 +213,7 @@ export class TXE implements TypedOracle {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       accountDataProvider,
       executionCache,
       await AztecAddress.random(),
@@ -230,8 +236,8 @@ export class TXE implements TypedOracle {
     return Promise.resolve(this.node.getChainId().then(id => new Fr(id)));
   }
 
-  getVersion(): Promise<Fr> {
-    return Promise.resolve(this.node.getVersion().then(v => new Fr(v)));
+  getRollupVersion(): Promise<Fr> {
+    return Promise.resolve(this.node.getRollupVersion().then(v => new Fr(v)));
   }
 
   getMsgSender() {
@@ -313,7 +319,7 @@ export class TXE implements TypedOracle {
     const stateReference = await snap.getStateReference();
     const inputs = PrivateContextInputs.empty();
     inputs.txContext.chainId = new Fr(await this.node.getChainId());
-    inputs.txContext.version = new Fr(await this.node.getVersion());
+    inputs.txContext.version = new Fr(await this.node.getRollupVersion());
     inputs.historicalHeader.globalVariables.blockNumber = new Fr(blockNumber);
     inputs.historicalHeader.state = stateReference;
     inputs.historicalHeader.lastArchive.root = Fr.fromBuffer(
@@ -929,7 +935,7 @@ export class TXE implements TypedOracle {
 
     const globalVariables = GlobalVariables.empty();
     globalVariables.chainId = new Fr(await this.node.getChainId());
-    globalVariables.version = new Fr(await this.node.getVersion());
+    globalVariables.rollupVersion = new Fr(await this.node.getRollupVersion());
     globalVariables.blockNumber = new Fr(this.blockNumber);
     globalVariables.gasFees = new GasFees(1, 1);
 
@@ -1254,5 +1260,23 @@ export class TXE implements TypedOracle {
 
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
+  }
+
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+  ): Promise<void> {
+    return this.pxeOracleInterface.storePrivateEventLog(
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+      logIndexInTx,
+    );
   }
 }
