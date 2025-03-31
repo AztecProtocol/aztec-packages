@@ -314,14 +314,13 @@ function deserializeLeafValue(leaf: SerializedLeafValue): Fr | NullifierLeaf | P
 function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
   if ('slot' in leaf.value) {
     return new PublicDataTreeLeafPreimage(
-      Fr.fromBuffer(leaf.value.slot),
-      Fr.fromBuffer(leaf.value.value),
+      new PublicDataTreeLeaf(Fr.fromBuffer(leaf.value.slot), Fr.fromBuffer(leaf.value.value)),
       Fr.fromBuffer(leaf.nextValue),
       BigInt(leaf.nextIndex),
     );
   } else if ('value' in leaf.value) {
     return new NullifierLeafPreimage(
-      Fr.fromBuffer(leaf.value.value),
+      new NullifierLeaf(Fr.fromBuffer(leaf.value.value)),
       Fr.fromBuffer(leaf.nextValue),
       BigInt(leaf.nextIndex),
     );

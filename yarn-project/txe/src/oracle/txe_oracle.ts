@@ -677,7 +677,7 @@ export class TXE implements TypedOracle {
           MerkleTreeId.PUBLIC_DATA_TREE,
           lowLeafResult.index,
         )) as PublicDataTreeLeafPreimage;
-        value = preimage.value;
+        value = preimage.value.value;
       }
       this.logger.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
       values.push(value);

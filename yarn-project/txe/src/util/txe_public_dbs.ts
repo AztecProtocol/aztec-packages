@@ -24,7 +24,7 @@ export class TXEPublicTreesDB extends PublicTreesDB {
         MerkleTreeId.PUBLIC_DATA_TREE,
         lowLeafResult.index,
       )) as PublicDataTreeLeafPreimage;
-      value = preimage.value;
+      value = preimage.value.value;
     }
     return value;
   }

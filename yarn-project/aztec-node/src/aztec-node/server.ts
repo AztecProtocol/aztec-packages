@@ -908,7 +908,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       MerkleTreeId.PUBLIC_DATA_TREE,
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
-    return preimage.value;
+    return preimage.value.value;
   }
 
   /**

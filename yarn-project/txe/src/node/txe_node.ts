@@ -581,7 +581,7 @@ export class TXENode implements AztecNode {
       MerkleTreeId.PUBLIC_DATA_TREE,
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
-    return preimage.value;
+    return preimage.value.value;
   }
 
   /**
