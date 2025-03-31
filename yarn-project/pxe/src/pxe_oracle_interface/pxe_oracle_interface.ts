@@ -1,6 +1,6 @@
 import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { poseidon2Hash, randomInt } from '@aztec/foundation/crypto';
+import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -26,7 +26,7 @@ import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { computeAddressSecret, computeTaggingSecretPoint } from '@aztec/stdlib/keys';
+import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
   LogWithTxData,
@@ -333,10 +333,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
     const senderCompleteAddress = await this.getCompleteAddress(sender);
     const senderIvsk = await this.keyStore.getMasterIncomingViewingSecretKey(sender);
-    const secretPoint = await computeTaggingSecretPoint(senderCompleteAddress, senderIvsk, recipient);
-    // Silo the secret so it can't be used to track other app's notes
-    const appSecret = poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
-    return appSecret;
+    return computeAppTaggingSecret(senderCompleteAddress, senderIvsk, recipient, contractAddress);
   }
 
   /**
@@ -362,10 +359,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       ...(await this.keyStore.getAccounts()),
     ].filter((address, index, self) => index === self.findIndex(otherAddress => otherAddress.equals(address)));
     const appTaggingSecrets = await Promise.all(
-      senders.map(async contact => {
-        const sharedSecret = await computeTaggingSecretPoint(recipientCompleteAddress, recipientIvsk, contact);
-        return poseidon2Hash([sharedSecret.x, sharedSecret.y, contractAddress]);
-      }),
+      senders.map(contact =>
+        computeAppTaggingSecret(recipientCompleteAddress, recipientIvsk, contact, contractAddress),
+      ),
     );
     const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
