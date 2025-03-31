@@ -4,6 +4,19 @@ include "poseidon2_hash.pil";
 include "constants_gen.pil";
 include "precomputed.pil";
 
+// This gadget checks reads in the public data tree. The public data tree is an indexed tree where leaves
+// have slot and value. Slot is the "key" and value is the stored data. When we read from the public data tree,
+// we assume that a slot that has not been written before has value zero.
+// For this we perform a low leaf membership proof and:
+//  - if the low leaf slot is equal to the slot, that means that slot has been written before, and we assert that
+//    the low leaf value is equal to the value we are reading.
+//  - if the low leaf slot is not equal to the slot, we assert that the low leaf is indeed the low leaf for the
+//    requested slot, proving non existance of the slot in the tree. In that case we check value to be zero.
+//
+// Usage:
+// sel { value, leaf_slot, public_data_tree_root }
+// in public_data_read.sel { public_data_read.value, public_data_read.slot, public_data_read.root };
+//
 namespace public_data_read;
     pol commit sel;
     sel * (1 - sel) = 0;
