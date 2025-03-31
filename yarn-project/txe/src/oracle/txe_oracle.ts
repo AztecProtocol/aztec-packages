@@ -732,6 +732,8 @@ export class TXE implements TypedOracle {
     }
 
     txEffect.publicDataWrites = this.publicDataWrites;
+    txEffect.privateLogs = this.privateLogs;
+    txEffect.publicLogs = this.publicLogs;
 
     const body = new Body([txEffect]);
 
@@ -771,9 +773,7 @@ export class TXE implements TypedOracle {
       }
     }
 
-    await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
-    this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
-    this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
+    await this.node.processTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
 
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
