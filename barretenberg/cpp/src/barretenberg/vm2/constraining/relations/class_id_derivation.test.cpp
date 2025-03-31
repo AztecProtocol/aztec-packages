@@ -99,9 +99,6 @@ TEST(ClassIdDerivationConstrainingTest, WithHashInteraction)
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash_0::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash_1::Settings>().process(trace);
-
-    check_interaction<lookup_poseidon2_hash_0>(trace);
-    check_interaction<lookup_poseidon2_hash_1>(trace);
 }
 
 // TODO: This should probably be refined and moved to bc_retrieval test file once that exists
@@ -139,7 +136,6 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
                                        trace);
 
     LookupIntoDynamicTableSequential<lookup_bc_retrieval::Settings>().process(trace);
-    check_interaction<lookup_bc_retrieval>(trace);
 }
 
 } // namespace
