@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743426417036,
+  "lastUpdate": 1743431582825,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "da6d02178f2cb61e56e8f9e702aba574f8b03cee",
-          "message": "chore: remove dummy ops in decider pk (#13049)\n\nWe used to not serialise and deserialise infinity points in the\ntranscript properly until\n[this](https://github.com/AztecProtocol/aztec-packages/pull/7709). More\nprecisely, it was possible to get to\n[this](https://github.com/AztecProtocol/aztec-packages/blob/mm/handle-merge/barretenberg/cpp/src/barretenberg/ecc/groups/element_impl.hpp#L68)\npoint in the projective to affine constructor (used when operating with\nzero commitments) because the transcript was not setting the infinity\nflag in situations when `z=0`. This was leading to intermmitent issues\nthat resulted in us adding dummy ecc ops [this\nPR](https://github.com/AztecProtocol/aztec-packages/pull/5174/files). We\nshould now be able to remove these dummy ops.",
-          "timestamp": "2025-03-26T21:34:50Z",
-          "tree_id": "6186a6d282b6d2750c826f05901df49f79f70c81",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/da6d02178f2cb61e56e8f9e702aba574f8b03cee"
-        },
-        "date": 1743027418081,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9646,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2453188863405708,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 135721,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 139426,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "mara@aztecprotocol.com",
+            "name": "maramihali",
+            "username": "maramihali"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cf5e21753f10258d2953e22f3c8281f1b604e26f",
+          "message": "chore: remove templating by flavor in merge protocol (#13098)\n\nThe merge protocol never benefited from the structures that are part of\nFlavor so it makes sense to remove the templating.",
+          "timestamp": "2025-03-31T13:52:12Z",
+          "tree_id": "ff059ecbd78614f115e86a691ef26feb59a76421",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cf5e21753f10258d2953e22f3c8281f1b604e26f"
+        },
+        "date": 1743431581530,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9645,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24529030352712738,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 138735,
             "unit": "us"
           }
         ]
