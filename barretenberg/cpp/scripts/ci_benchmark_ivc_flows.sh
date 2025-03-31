@@ -50,7 +50,8 @@ function client_ivc_flow {
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
   function bb_cli_bench {
-    MAIN_ARGS="$*" ./build-op-count-time/bb_cli_bench
+    # MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench
+    MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench
   }
   bb_cli_bench prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
   echo "$flow has proven."

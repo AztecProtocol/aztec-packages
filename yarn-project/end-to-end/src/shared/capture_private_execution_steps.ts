@@ -22,24 +22,14 @@ const logger = createLogger('e2e:capture-private-execution-steps');
 // Longer term we won't use this hacked together msgpack format
 // Leaving duplicated as this eventually bb will provide a serialization
 // helper for passing to a generic msgpack RPC endpoint.
-async function _createClientIvcProofFiles(
-  directory: string,
-  executionSteps: PrivateExecutionStep[],
-  rawWitnesses: boolean = false,
-) {
+async function _createClientIvcProofFiles(directory: string, executionSteps: PrivateExecutionStep[]) {
   const acirPath = path.join(directory, 'acir.msgpack');
   const witnessPath = path.join(directory, 'witnesses.msgpack');
   await fs.writeFile(acirPath, encode(executionSteps.map(map => map.bytecode)));
   await fs.writeFile(witnessPath, encode(executionSteps.map(map => serializeWitness(map.witness))));
-  let rawWitnessesPath;
-  if (rawWitnesses) {
-    rawWitnessesPath = path.join(directory, 'witnesses.json');
-    await fs.writeFile(rawWitnessesPath, JSON.stringify(executionSteps.map(step => Object.fromEntries(step.witness))));
-  }
   return {
     acirPath,
     witnessPath,
-    rawWitnessesPath,
   };
 }
 
@@ -74,7 +64,14 @@ export async function capturePrivateExecutionStepsIfEnvSet(
         2,
       ),
     );
-    await _createClientIvcProofFiles(resultsDirectory, result.executionSteps, profileMode === 'full');
+    await _createClientIvcProofFiles(resultsDirectory, result.executionSteps);
+    if (profileMode === 'full') {
+      // In full mode, we write the raw witnesses in a more human-readable format.
+      await fs.writeFile(
+        path.join(resultsDirectory, 'witnesses.json'),
+        JSON.stringify(result.executionSteps.map(step => Object.fromEntries(step.witness))),
+      );
+    }
     logger.info(`Wrote private execution steps to ${resultsDirectory}`);
   }
 }

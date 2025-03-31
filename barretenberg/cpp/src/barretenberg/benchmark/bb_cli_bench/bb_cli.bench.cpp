@@ -6,6 +6,7 @@
 
 #include "barretenberg/bb/cli.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
+#include "barretenberg/common/std_string.hpp"
 
 namespace {
 // Benches the bb cli/main.cpp functionality by parsing MAIN_ARGS.
@@ -18,15 +19,10 @@ void benchmark_bb_cli_user_provided(benchmark::State& state)
     }
 
     // Parse the space-delimited arguments
-    std::string args_str(main_args_env);
-    std::istringstream args_stream(args_str);
-    std::vector<std::string> args;
-    std::string arg;
+    std::vector<std::string> args = bb::detail::split(main_args_env, ' ');
 
-    // Parse into vector of strings
-    while (args_stream >> arg) {
-        args.push_back(arg);
-    }
+    // Add the program name to the arguments
+    args.insert(args.begin(), "bb");
 
     if (args.empty()) {
         throw std::runtime_error("MAIN_ARGS must contain at least one argument");

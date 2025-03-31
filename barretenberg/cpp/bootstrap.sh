@@ -303,6 +303,7 @@ case "$cmd" in
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
+    build_preset op-count-time --target bb_cli_bench
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then
       echo "Downloading inputs from commit $1."
@@ -311,7 +312,6 @@ case "$cmd" in
       # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
       yarn --cwd ../../yarn-project/bb-prover generate
     fi
-    build_preset op-count-time --target bb_cli_bench
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
     ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
