@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743439279014,
+  "lastUpdate": 1743439283397,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "27f1eca25c4c5849d32541b5ad1d3068d5d1911a",
-          "message": "chore: Speed up and deflake sentinel test (#13078)\n\nThe sentinel e2e test was [sometimes\nfailing](http://ci.aztec-labs.com/0534e1b01190d6fd) since not enough\nblocks were mined in time. We believe this was because the offline\nvalidator was being picked up as proposer, so multiple slots end up\nbeing missed.\n\nThis PR fixes it by bumping timeout and reducing the number of blocks we\nmine. We used to mine so many to make sure that each validator was\npicked at least one as proposer, so no matter which one we inspected, we\ncould assert there was at least one block proposed in its stats. We now\njust look for one with proposals and assert on it.",
-          "timestamp": "2025-03-27T13:16:06Z",
-          "tree_id": "7ca9c4170f282f039dcdd51e437430b16cc181f3",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/27f1eca25c4c5849d32541b5ad1d3068d5d1911a"
-        },
-        "date": 1743083076199,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9386,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23870022951027067,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 135342,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 157822,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "229515fc89ec8b82375fd3ea0de58c2db96ad582",
+          "message": "fix: Handle proven chain events referring to unseen blocks (#13144)\n\nThe L2BlockStream works by comparing a local and a remote block source.\nFor simplicity, we had created an L2TipsStore that keeps track of\n\"local\" block tips seen, either in memory or storage.\n\nHowever, when using the in-memory one, if the block stream reported a\nproven block number that the tips store hadn't seen, the tip store would\nthrow due to not having its block hash when it tried to retrieve it\nlater.\n\nThis fixes it by emitting the block hash along with the number from all\nblock stream events, and storing them in the tips store.\n\nFixes #13142",
+          "timestamp": "2025-03-31T13:11:54-03:00",
+          "tree_id": "fa55b52bdcab2b579c5af96d1f67e2dce7be5c54",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/229515fc89ec8b82375fd3ea0de58c2db96ad582"
+        },
+        "date": 1743439282272,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9359,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23800219057216201,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 136606,
             "unit": "us"
           }
         ]
