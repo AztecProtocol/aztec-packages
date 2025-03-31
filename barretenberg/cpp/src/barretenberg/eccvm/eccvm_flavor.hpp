@@ -910,7 +910,6 @@ class ECCVMFlavor {
      */
     class Transcript : public NativeTranscript {
       public:
-        uint32_t circuit_size;
         Commitment transcript_add_comm;
         Commitment transcript_mul_comm;
         Commitment transcript_eq_comm;
@@ -1040,8 +1039,7 @@ class ECCVMFlavor {
         {
             // take current proof and put them into the struct
             size_t num_frs_read = 0;
-            circuit_size = NativeTranscript::template deserialize_from_buffer<uint32_t>(NativeTranscript::proof_data,
-                                                                                        num_frs_read);
+
             transcript_add_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
                 NativeTranscript::proof_data, num_frs_read);
             transcript_mul_comm = NativeTranscript::template deserialize_from_buffer<Commitment>(
@@ -1287,8 +1285,6 @@ class ECCVMFlavor {
             size_t old_proof_length = NativeTranscript::proof_data.size();
 
             NativeTranscript::proof_data.clear();
-
-            NativeTranscript::template serialize_to_buffer(circuit_size, NativeTranscript::proof_data);
 
             NativeTranscript::template serialize_to_buffer(transcript_add_comm, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(transcript_mul_comm, NativeTranscript::proof_data);
