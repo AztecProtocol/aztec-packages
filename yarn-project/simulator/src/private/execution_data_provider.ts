@@ -189,10 +189,10 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   getChainId(): Promise<number>;
 
   /**
-   * Fetches the current chain id.
-   * @returns The chain id.
+   * Fetches the current rollup version.
+   * @returns The rollup version.
    */
-  getVersion(): Promise<number>;
+  getRollupVersion(): Promise<number>;
 
   /**
    * Returns the tagging secret for a given sender and recipient pair. For this to work, the ivsk_m of the sender must be known.

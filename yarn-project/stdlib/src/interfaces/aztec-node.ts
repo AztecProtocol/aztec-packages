@@ -253,7 +253,7 @@ export interface AztecNode
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  getVersion(): Promise<number>;
+  getRollupVersion(): Promise<number>;
 
   /**
    * Method to fetch the chain id of the base-layer for the rollup.
@@ -486,7 +486,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getNodeVersion: z.function().returns(z.string()),
 
-  getVersion: z.function().returns(z.number()),
+  getRollupVersion: z.function().returns(z.number()),
 
   getChainId: z.function().returns(z.number()),
 

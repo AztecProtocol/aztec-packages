@@ -39,8 +39,8 @@ export class Oracle {
     return [toACVMField(await this.typedOracle.getContractAddress())];
   }
 
-  async getVersion(): Promise<ACVMField[]> {
-    return [toACVMField(await this.typedOracle.getVersion())];
+  async getRollupVersion(): Promise<ACVMField[]> {
+    return [toACVMField(await this.typedOracle.getRollupVersion())];
   }
 
   async getChainId(): Promise<ACVMField[]> {

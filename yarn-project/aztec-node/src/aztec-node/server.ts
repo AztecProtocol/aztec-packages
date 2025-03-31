@@ -110,7 +110,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
     protected readonly l1ChainId: number,
-    protected readonly version: number,
+    protected readonly rollupVersion: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private telemetry: TelemetryClient = getTelemetryClient(),
@@ -277,7 +277,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async getNodeInfo(): Promise<NodeInfo> {
     const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
       this.getNodeVersion(),
-      this.getVersion(),
+      this.getRollupVersion(),
       this.getChainId(),
       this.getEncodedEnr(),
       this.getL1ContractAddresses(),
@@ -351,8 +351,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  public getVersion(): Promise<number> {
-    return Promise.resolve(this.version);
+  public getRollupVersion(): Promise<number> {
+    return Promise.resolve(this.rollupVersion);
   }
 
   /**

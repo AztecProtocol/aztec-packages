@@ -35,8 +35,8 @@ export class SignerlessWallet extends BaseWallet {
     throw new Error('SignerlessWallet: Method getChainId not implemented.');
   }
 
-  getVersion(): Fr {
-    throw new Error('SignerlessWallet: Method getVersion not implemented.');
+  getRollupVersion(): Fr {
+    throw new Error('SignerlessWallet: Method getRollupVersion not implemented.');
   }
 
   getPublicKeysHash(): Fr {

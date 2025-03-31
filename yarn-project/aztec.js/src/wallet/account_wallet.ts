@@ -38,8 +38,8 @@ export class AccountWallet extends BaseWallet {
     return this.account.getChainId();
   }
 
-  getVersion(): Fr {
-    return this.account.getVersion();
+  getRollupVersion(): Fr {
+    return this.account.getRollupVersion();
   }
 
   /**
@@ -120,7 +120,7 @@ export class AccountWallet extends BaseWallet {
    */
   private getMessageHash(intent: IntentInnerHash | IntentAction): Promise<Fr> {
     const chainId = this.getChainId();
-    const version = this.getVersion();
+    const version = this.getRollupVersion();
     return computeAuthWitMessageHash(intent, { chainId, version });
   }
 

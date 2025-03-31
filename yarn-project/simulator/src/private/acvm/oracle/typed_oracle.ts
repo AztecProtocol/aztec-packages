@@ -67,8 +67,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getChainId'));
   }
 
-  getVersion(): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('getVersion'));
+  getRollupVersion(): Promise<Fr> {
+    return Promise.reject(new OracleMethodNotAvailableError('getRollupVersion'));
   }
 
   getKeyValidationRequest(_pkMHash: Fr): Promise<KeyValidationRequest> {

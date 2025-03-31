@@ -63,7 +63,7 @@ export class TXENode implements AztecNode {
 
   constructor(
     private blockNumber: number,
-    private version: number,
+    private rollupVersion: number,
     private chainId: number,
     private nativeWorldStateService: NativeWorldStateService,
     private baseFork: MerkleTreeWriteOperations,
@@ -443,8 +443,8 @@ export class TXENode implements AztecNode {
    * Method to fetch the version of the rollup the node is connected to.
    * @returns The rollup version.
    */
-  getVersion(): Promise<number> {
-    return Promise.resolve(this.version);
+  getRollupVersion(): Promise<number> {
+    return Promise.resolve(this.rollupVersion);
   }
 
   /**
