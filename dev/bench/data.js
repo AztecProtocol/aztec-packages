@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743439072570,
+  "lastUpdate": 1743439276420,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "75146596+Sarkoxed@users.noreply.github.com",
-            "name": "Sarkoxed",
-            "username": "Sarkoxed"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "69f426e2e2bcef09c6a4f42300e92f4ded24e9f0",
-          "message": "fix: cycle_group fuzzer (#12921)\n\nThis pr fixes several issues in `cycle_group`, `cycle_group fuzzer` and\n`field_t`. And prepares the repo for automated fuzzing\n\n## CMake\n\n- Added new definition for `SHOW_INFORMATION` for debugging the fuzzer\noutputs\n- Removed `coverage` options from clang, since it's no longer supported\n\n## Field\n\n- switched a bunch of zeros to ones in `field_t` `const` initializations\nto make the behavior of constants uniform across all the methods\n- `operator-()` and `operator-(other)` no longer change the\nmultiplicative constant of a `const`\n- `operator+(other)` no longer adds the corresponding multiplicative\nconstants of two consts\n- Consequently assert equal now behaves better and creates less gates on\naverage\n\n- added the regression tests on the bug\n\n## Cycle Group\n\nI decided to get rid of `is_standard` parameter in constructors. Now it\nfully depends on the input values.\n\n`set_point_at_infinity` - major changes in this method. Now all the edge\ncases are handled. I hope\nAlso, from now on it's explicitly checked that we don't set the point at\ninfinity to not infinity, since this behavior is undefined.\n\n`operator+`, `operator-`. Got rid of the blank `cycle_group\nresult(ctx)`. It caused too many problems. Now the result is properly\nconstructed from coordinates and `is_infinty`.\n\n\n## Cycle Group Fuzzer\n\n- Got rid of the old `SHOW_INFORMATION` macros to make uniform builds in\nautomated setting\n- changed the `set_inf` method to work under new restrictions\n\n---------\n\nCo-authored-by: Innokentii Sennovskii <isennovskiy@gmail.com>",
-          "timestamp": "2025-03-27T23:43:35+03:00",
-          "tree_id": "a902eb4965590d832125ce2bd30a6d6963890e61",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/69f426e2e2bcef09c6a4f42300e92f4ded24e9f0"
-        },
-        "date": 1743108688609,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 16680.24922199993,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14895.434302 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 118126788329.9,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1452723638,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 208285057,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 17889.94706100016,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15486.324605 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 46585.932436,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 46585933000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3133.678574000214,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 2951.470995 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 7986.230005999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 7986230000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2337.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3010,6 +2932,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 11011,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1c2291a344e7528a04d1bf6081f29a9678ecded5",
+          "message": "fix: Race condition while unwinding blocks (#13148)\n\nWe hit [the following error](http://ci.aztec-labs.com/54d28d81fcad1e9b)\nin CI:\n\n```\n19:05:17   ● e2e_block_building › reorgs › detects an upcoming reorg and builds a block for the correct slot\n19:05:17 \n19:05:17     Could not retrieve body for block 4 0x139a9efee631a725b0ed6bc428460ceedb98bd2502ef13eeaa65123fd0cd98f9\n19:05:17 \n19:05:17       124 |         const blockBodyBuffer = await this.#blockBodies.getAsync(blockHash);\n19:05:17       125 |         if (blockBodyBuffer === undefined) {\n19:05:17     > 126 |             throw new Error(`Could not retrieve body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`);\n19:05:17           |                   ^\n19:05:17       127 |         }\n19:05:17       128 |         const body = Body.fromBuffer(blockBodyBuffer);\n19:05:17       129 |         const block = new L2Block(archive, header, body);\n19:05:17 \n19:05:17       at BlockStore.getBlockFromBlockStorage (../../archiver/dest/archiver/kv_archiver_store/block_store.js:126:19)\n19:05:17       at BlockStore.getSettledTxReceipt (../../archiver/dest/archiver/kv_archiver_store/block_store.js:165:23)\n19:05:17       at AztecNodeService.getTxReceipt (../../aztec-node/dest/aztec-node/server.js:357:34)\n19:05:17       at e2e_block_building.test.ts:567:22\n19:05:17       at retryUntil (../../foundation/dest/retry/index.js:84:24)\n19:05:17       at Object.<anonymous> (e2e_block_building.test.ts:566:7)\n```\n\nApparently this happens because we try calling `getTxReceipt` **during**\na block unwind (ie reorg) operation, the new test `does not fail if the\nblock is unwound while requesting a tx` could reproduce it consistently.\nThis is odd, since the only way that can happen is if the block body has\nbeen deleted but not the header. And these operations happen within the\nsame write tx in `unwindBlocks`.\n\nEither way, this fixes it by ignoring missing block bodies as if the\nentire block were missing.",
+          "timestamp": "2025-03-31T13:11:48-03:00",
+          "tree_id": "90e71803774ed6a9d44f4d4fa424c8711105ba10",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c2291a344e7528a04d1bf6081f29a9678ecded5"
+        },
+        "date": 1743439268375,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 26718,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 17989,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8727,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10409,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 10925,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
