@@ -624,10 +624,10 @@ template <typename Flavor> class SumcheckVerifierRound {
         }
 
         if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the
-            // assert_equal below fails because we are comparing a constant against a non-constant value and the
-            // non-constant value is in relaxed form. This happens at the first round when target_total_sum is initially
-            // set to 0.
+            // https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the assert_equal
+            // below fails because we are comparing a constant against a non-constant value and the non-constant
+            // value is in relaxed form. This happens at the first round when target_total_sum is initially set to
+            // 0.
             total_sum.self_reduce();
         }
         target_total_sum.assert_equal(total_sum);
@@ -690,7 +690,7 @@ template <typename Flavor> class SumcheckVerifierRound {
     }
     /**
      * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in
-     * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be handled by more flexible padded size
+     * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be deprecated by more flexible padded size
      * handling in Sumcheck and Flavor Provers/Verifiers.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1310): Recursive Protogalaxy issues
      *
@@ -698,13 +698,22 @@ template <typename Flavor> class SumcheckVerifierRound {
      */
     void pad_gate_challenges(std::vector<FF>& gate_challenges)
     {
-        if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
-            FF zero{ 0 };
-            if constexpr (IsRecursiveFlavor<Flavor>) {
-                zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
-            }
-            for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-                gate_challenges.emplace_back(zero);
+        // Needed to avoid redundant padding in Translator
+        static constexpr bool is_translator = IsAnyOf<Flavor,
+                                                      TranslatorFlavor,
+                                                      TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                                      TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
+                                                      TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+
+        if constexpr (!is_translator) {
+            if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
+                FF zero{ 0 };
+                if constexpr (IsRecursiveFlavor<Flavor>) {
+                    zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
+                }
+                for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+                    gate_challenges.emplace_back(zero);
+                }
             }
         }
     }
