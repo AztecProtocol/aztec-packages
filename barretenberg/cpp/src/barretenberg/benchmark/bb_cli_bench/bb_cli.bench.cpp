@@ -1,5 +1,6 @@
 #include <benchmark/benchmark.h>
 #include <cstdlib>
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -9,6 +10,21 @@
 #include "barretenberg/common/std_string.hpp"
 
 namespace {
+// This is used to suppress the default output of Google Benchmark.
+// This is useful to run this benchmark without altering the stdout result of our simulated bb cli command.
+// We instead use the `--benchmark_out` flag to output the results to a file.
+class ConsoleNoOutputReporter : public benchmark::BenchmarkReporter {
+  public:
+    // We return `true` here to indicate "keep running" if there are multiple benchmark suites.
+    bool ReportContext(const Context&) override { return true; }
+
+    // Called once for each run. We just do nothing here.
+    void ReportRuns(const std::vector<Run>&) override {}
+
+    // Called at the end. Also do nothing.
+    void Finalize() override {}
+};
+
 // Benches the bb cli/main.cpp functionality by parsing MAIN_ARGS.
 void benchmark_bb_cli(benchmark::State& state)
 {
@@ -52,4 +68,14 @@ BENCHMARK(benchmark_bb_cli)->Iterations(1)->Unit(benchmark::kMillisecond);
 
 } // namespace
 
-BENCHMARK_MAIN();
+int main(int argc, char** argv)
+{
+    ::benchmark ::Initialize(&argc, argv);
+    if (::benchmark ::ReportUnrecognizedArguments(argc, argv)) {
+        return 1;
+    }
+    auto report = std::make_unique<ConsoleNoOutputReporter>();
+    ::benchmark ::RunSpecifiedBenchmarks(report.get());
+    ::benchmark ::Shutdown();
+    return 0;
+}

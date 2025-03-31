@@ -95,12 +95,6 @@ void print_subcommand_options(const CLI::App* sub)
  */
 int parse_and_run_cli_command(int argc, char* argv[])
 {
-    {
-        // print all args with quotes around them
-        for (int i = 0; i < argc; ++i) {
-            info("  ", i, ": ", argv[i]);
-        }
-    }
     const std::string name = "Barretenberg\nYour favo(u)rite zkSNARK library written in C++, a perfectly good "
                              "computer programming language.";
 

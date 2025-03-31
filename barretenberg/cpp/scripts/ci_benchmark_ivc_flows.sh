@@ -29,7 +29,6 @@ function verify_ivc_flow {
   ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  echo_stderr "Public verify."
   ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
@@ -50,7 +49,7 @@ function client_ivc_flow {
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
   function bb_cli_bench {
-    MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench || {
+    MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench --benchmark_out=bench-out/$flow-proof-files/op-counts.json --benchmark_out_format=json || {
       echo "bb_cli_bench failed with args: $*"
       exit 1
     }
