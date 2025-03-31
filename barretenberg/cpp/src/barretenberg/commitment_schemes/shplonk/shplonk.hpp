@@ -475,7 +475,7 @@ static std::vector<Fr> compute_shplonk_batching_challenge_powers(const Fr& shplo
     std::vector<Fr> result;
     result.reserve(num_powers);
     result.emplace_back(Fr{ 1 });
-    for (size_t idx = 1; idx < num_powers; idx++) {
+    for (size_t idx = 1; idx < num_powers - 1; idx++) {
         result.emplace_back(result[idx - 1] * shplonk_batching_challenge);
     }
     return result;
