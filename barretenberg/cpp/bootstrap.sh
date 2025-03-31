@@ -135,14 +135,14 @@ function build_release {
 
   cp build/bin/bb build-release/bb
   inject_version build-release/bb
-  tar -czf build-release/barretenberg-$arch-linux.zst -C build-release --remove-files bb
+  tar -czf build-release/barretenberg-$arch-linux.tar.gz -C build-release --remove-files bb
 
   # Only release wasms built on amd64.
   if [ "$arch" == "amd64" ]; then
-    tar -czf build-release/barretenberg-wasm.zst -C build-wasm/bin barretenberg.wasm
-    tar -czf build-release/barretenberg-debug-wasm.zst -C build-wasm/bin barretenberg-debug.wasm
-    tar -czf build-release/barretenberg-threads-wasm.zst -C build-wasm-threads/bin barretenberg.wasm
-    tar -czf build-release/barretenberg-threads-debug-wasm.zst -C build-wasm-threads/bin barretenberg-debug.wasm
+    tar -czf build-release/barretenberg-wasm.tar.gz -C build-wasm/bin barretenberg.wasm
+    tar -czf build-release/barretenberg-debug-wasm.tar.gz -C build-wasm/bin barretenberg-debug.wasm
+    tar -czf build-release/barretenberg-threads-wasm.tar.gz -C build-wasm-threads/bin barretenberg.wasm
+    tar -czf build-release/barretenberg-threads-debug-wasm.tar.gz -C build-wasm-threads/bin barretenberg-debug.wasm
   fi
 }
 

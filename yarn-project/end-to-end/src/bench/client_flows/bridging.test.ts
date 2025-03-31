@@ -1,17 +1,18 @@
-import { AccountWallet, PrivateFeePaymentMethod, type SimulateMethodOptions } from '@aztec/aztec.js';
+import { AccountWallet, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
 import type { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
-import { type AccountType, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
 jest.setTimeout(300_000);
 
-describe('Client flows benchmarking', () => {
+describe('Bridging benchmark', () => {
   const t = new ClientFlowsBenchmark('bridging');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
@@ -19,20 +20,26 @@ describe('Client flows benchmarking', () => {
   let bananaFPC: FPCContract;
   // BananaCoin Token contract, which we want to use to pay for the bridging
   let bananaCoin: TokenContract;
+  // Sponsored FPC contract
+  let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.bridging;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyDeployBananaTokenSnapshot();
     await t.applyFPCSetupSnapshot();
-    ({ bananaFPC, bananaCoin, adminWallet } = await t.setup());
+    await t.applyDeploySponsoredFPCSnapshot();
+    ({ bananaFPC, bananaCoin, adminWallet, sponsoredFPC } = await t.setup());
   });
 
   afterAll(async () => {
     await t.teardown();
   });
 
-  bridgingBenchmark('ecdsar1');
-  bridgingBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    bridgingBenchmark(accountType);
+  }
 
   function bridgingBenchmark(accountType: AccountType) {
     return describe(`Bridging benchmark for ${accountType}`, () => {
@@ -53,57 +60,64 @@ describe('Client flows benchmarking', () => {
         // Register both FPC and BananCoin on the user's PXE so we can simulate and prove
         await benchysWallet.registerContract(bananaFPC);
         await benchysWallet.registerContract(bananaCoin);
+        // Register the sponsored FPC on the user's PXE so we can simulate and prove
+        await benchysWallet.registerContract(sponsoredFPC);
       });
 
-      it(`${accountType} contract bridges tokens from L1 claiming privately, pays using private FPC`, async () => {
-        // Generate a claim secret using pedersen
-        const l1TokenBalance = 1000000n;
-        const bridgeAmount = 100n;
+      function privateClaimTest(benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod) {
+        return it(`${accountType} contract bridges tokens from L1 claiming privately, pays using ${benchmarkingPaymentMethod}`, async () => {
+          // Generate a claim secret using pedersen
+          const l1TokenBalance = 1000000n;
+          const bridgeAmount = 100n;
 
-        // 1. Mint tokens on L1
-        await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
+          // 1. Mint tokens on L1
+          await crossChainTestHarness.mintTokensOnL1(l1TokenBalance);
 
-        // 2. Deposit tokens to the TokenPortal
-        const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
-        await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
+          // 2. Deposit tokens to the TokenPortal
+          const claim = await crossChainTestHarness.sendTokensToPortalPrivate(bridgeAmount);
+          await crossChainTestHarness.makeMessageConsumable(claim.messageHash);
 
-        // 3. Consume L1 -> L2 message and mint private tokens on L2, paying via FPC
-        const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, benchysWallet);
-        const options: SimulateMethodOptions = { fee: { paymentMethod } };
+          // 3. Consume L1 -> L2 message and mint private tokens on L2
+          const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
+          const options: SimulateMethodOptions = {
+            fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+          };
 
-        const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
-        const claimInteraction = crossChainTestHarness.l2Bridge.methods.claim_private(
-          recipient,
-          claimAmount,
-          secretForL2MessageConsumption,
-          messageLeafIndex,
-        );
+          const { recipient, claimAmount, claimSecret: secretForL2MessageConsumption, messageLeafIndex } = claim;
+          const claimInteraction = crossChainTestHarness.l2Bridge.methods.claim_private(
+            recipient,
+            claimAmount,
+            secretForL2MessageConsumption,
+            messageLeafIndex,
+          );
 
-        await capturePrivateExecutionStepsIfEnvSet(
-          `${accountType}+token_bridge_claim_private+pay_private_fpc`,
-          claimInteraction,
-          options,
-          1 + // Account entrypoint
-            1 + // Kernel init
-            2 + // FPC entrypoint + kernel inner
-            2 + // BananaCoin transfer_to_public + kernel inner
-            2 + // Account verify_private_authwit + kernel inner
-            2 + // BananaCoin prepare_private_balance_increase + kernel inner
-            2 + // TokenBridge claim_private + kernel inner
-            2 + // BridgedAsset mint_to_private + kernel inner
-            1 + // Kernel reset
-            1, // Kernel tail
-        );
+          await capturePrivateExecutionStepsIfEnvSet(
+            `${accountType}+token_bridge_claim_private+${benchmarkingPaymentMethod}`,
+            claimInteraction,
+            options,
+            1 + // Account entrypoint
+              1 + // Kernel init
+              paymentMethod.circuits + // Payment method circuits
+              2 + // TokenBridge claim_private + kernel inner
+              2 + // BridgedAsset mint_to_private + kernel inner
+              1 + // Kernel reset
+              1, // Kernel tail
+          );
 
-        // Ensure we paid a fee
-        const tx = await claimInteraction.send(options).wait();
-        expect(tx.transactionFee!).toBeGreaterThan(0n);
+          // Ensure we paid a fee
+          const tx = await claimInteraction.send(options).wait();
+          expect(tx.transactionFee!).toBeGreaterThan(0n);
 
-        // 4. Check the balance
+          // 4. Check the balance
 
-        const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
-        expect(balance).toBe(bridgeAmount);
-      });
+          const balance = await crossChainTestHarness.getL2PrivateBalanceOf(benchysWallet.getAddress());
+          expect(balance).toBe(bridgeAmount);
+        });
+      }
+
+      for (const paymentMethod of config.feePaymentMethods) {
+        privateClaimTest(paymentMethod);
+      }
     });
   }
 });

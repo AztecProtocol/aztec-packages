@@ -37,7 +37,11 @@ describe('e2e_p2p_reex', () => {
       basePort: bootNodeUdpPort,
       // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
       metricsPort: shouldCollectMetrics(),
-      initialConfig: { enforceTimeTable: true, txTimeoutMs: 30_000 },
+      initialConfig: {
+        enforceTimeTable: true,
+        txTimeoutMs: 30_000,
+        listenAddress: '127.0.0.1',
+      },
     });
 
     t.logger.info('Setup account');

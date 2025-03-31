@@ -21,16 +21,20 @@ static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 // The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
 // evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift
 static constexpr uint32_t MASKING_OFFSET = 4;
+
 // For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
 static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
+
 // The SmallSubgroupIPA is a sub-protocol used in several Flavors, to prove claimed inner product, the Prover sends 4
 // extra evaluations
 static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
 
 static constexpr uint32_t MERGE_PROOF_SIZE = 65; // used to ensure mock proofs are generated correctly
+
 // There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
 // ECCVM and Translator
 static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
+
 // Upper bound on the number of claims produced GeminiProver:
 // - Each fold polynomial is opened at two points, the number of resulting claims is bounded by 2*CONST_PROOF_SIZE_LOG_N
 // - The interleaving trick needed for Translator adds 2 extra claims

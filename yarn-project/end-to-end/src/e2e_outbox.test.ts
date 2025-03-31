@@ -43,7 +43,7 @@ describe('E2E Outbox Tests', () => {
     contract = receipt.contract;
   });
 
-  afterAll(() => teardown());
+  afterEach(() => teardown());
 
   it('Inserts a new transaction with two out messages, and verifies sibling paths of both the new messages', async () => {
     // recipient2 = msg.sender, so we can consume it later

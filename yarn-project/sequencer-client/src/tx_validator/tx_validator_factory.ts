@@ -19,7 +19,7 @@ import type {
   MerkleTreeReadOperations,
 } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { ArchiveCache } from './archive_cache.js';
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
@@ -63,14 +63,13 @@ export function createValidatorForAcceptingTxs(
   return new AggregateTxValidator(...validators);
 }
 
-export function createValidatorsForBlockBuilding(
+export function createValidatorForBlockBuilding(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
 ): {
   preprocessValidator: TxValidator<Tx>;
-  postprocessValidator: TxValidator<ProcessedTx>;
   nullifierCache: NullifierCache;
 } {
   const nullifierCache = new NullifierCache(db);
@@ -86,7 +85,6 @@ export function createValidatorsForBlockBuilding(
       globalVariables,
       setupAllowList,
     ),
-    postprocessValidator: postprocessValidator(nullifierCache),
     nullifierCache,
   };
 }
@@ -127,8 +125,4 @@ function preprocessValidator(
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );
-}
-
-function postprocessValidator(nullifierCache: NullifierCache): TxValidator<ProcessedTx> {
-  return new DoubleSpendTxValidator(nullifierCache);
 }
