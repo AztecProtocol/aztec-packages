@@ -328,12 +328,12 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
                                             .overflow = 0 };
 
 /**
- * @brief Structuring tailored to the full e2e TS test (TO BE UPDATED ACCORDINGLY)
+ * @brief Structuring tailored to the full e2e TS test (Currently optimized for five key testnet transactions)
  */
 static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
-                                                         .busread = 5000,
+                                                         .busread = 6000,
                                                          .lookup = 15000,
-                                                         .pub_inputs = 2000,
+                                                         .pub_inputs = 5000,
                                                          .arithmetic = 56000,
                                                          .delta_range = 18000,
                                                          .elliptic = 6000,

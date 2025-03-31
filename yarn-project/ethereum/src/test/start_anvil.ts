@@ -22,6 +22,7 @@ export async function startAnvil(
     async () => {
       const anvil = createAnvil({
         anvilBinary,
+        host: '127.0.0.1',
         port: 0,
         blockTime: opts.l1BlockTime,
         stopTimeout: 1000,

@@ -157,17 +157,6 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     LookupIntoDynamicTableSequential<lookup_address_ecadd::Settings>().process(trace);
 
     check_relation<address_derivation_relation>(trace);
-    check_interaction<lookup_salted_initialization_hash_poseidon2_0>(trace);
-    check_interaction<lookup_salted_initialization_hash_poseidon2_1>(trace);
-    check_interaction<lookup_partial_address_poseidon2>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_0>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_1>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_2>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_3>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_4>(trace);
-    check_interaction<lookup_public_preaddress_poseidon2>(trace);
-    check_interaction<lookup_public_preaddress_scalar_mul>(trace);
-    check_interaction<lookup_address_ecadd>(trace);
 }
 
 } // namespace

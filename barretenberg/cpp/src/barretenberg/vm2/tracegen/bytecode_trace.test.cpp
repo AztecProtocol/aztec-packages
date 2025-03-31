@@ -61,7 +61,6 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 4),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 4),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, (1 << 4) - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
     EXPECT_THAT(trace.as_rows()[2],
@@ -76,7 +75,6 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 3),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 3),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, (1 << 3) - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
     EXPECT_THAT(trace.as_rows()[3],
@@ -90,7 +88,6 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 2),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 2),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, (1 << 2) - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
     EXPECT_THAT(trace.as_rows()[4],
@@ -103,7 +100,6 @@ TEST(BytecodeTraceGenTest, BasicShortLength)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 1),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 
@@ -144,7 +140,6 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 0),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, 8),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, (uint64_t(1) << DECOMPOSE_WINDOW_SIZE) - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
     // We are interested to inspect the boundary aroud bytes_remaining == windows size
@@ -158,21 +153,18 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 0),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, 0),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, (uint64_t(1) << DECOMPOSE_WINDOW_SIZE) - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
-    EXPECT_THAT(
-        trace.as_rows()[10],
-        AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
-              ROW_FIELD_EQ(R, bc_decomposition_id, 7),
-              ROW_FIELD_EQ(R, bc_decomposition_bytes, first_byte + 9),
-              ROW_FIELD_EQ(R, bc_decomposition_pc, 9),
-              ROW_FIELD_EQ(R, bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE - 1),
-              ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
-              ROW_FIELD_EQ(R, bc_decomposition_abs_diff, 1),
-              ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE - 1),
-              ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, (uint64_t(1) << (DECOMPOSE_WINDOW_SIZE - 1)) - 1),
-              ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
+    EXPECT_THAT(trace.as_rows()[10],
+                AllOf(ROW_FIELD_EQ(R, bc_decomposition_sel, 1),
+                      ROW_FIELD_EQ(R, bc_decomposition_id, 7),
+                      ROW_FIELD_EQ(R, bc_decomposition_bytes, first_byte + 9),
+                      ROW_FIELD_EQ(R, bc_decomposition_pc, 9),
+                      ROW_FIELD_EQ(R, bc_decomposition_bytes_remaining, DECOMPOSE_WINDOW_SIZE - 1),
+                      ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
+                      ROW_FIELD_EQ(R, bc_decomposition_abs_diff, 1),
+                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, DECOMPOSE_WINDOW_SIZE - 1),
+                      ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 0)));
 
     // Last row
     EXPECT_THAT(trace.as_rows()[bytecode_size],
@@ -184,7 +176,6 @@ TEST(BytecodeTraceGenTest, BasicLongerThanWindowSize)
                       ROW_FIELD_EQ(R, bc_decomposition_sel_overflow_correction_needed, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_abs_diff, DECOMPOSE_WINDOW_SIZE - 1),
                       ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read, 1),
-                      ROW_FIELD_EQ(R, bc_decomposition_bytes_to_read_unary, 1),
                       ROW_FIELD_EQ(R, bc_decomposition_last_of_contract, 1)));
 }
 

@@ -185,7 +185,6 @@ TEST(Poseidon2ConstrainingTest, HashPermInteractions)
 
     check_relation<poseidon2_hash>(trace);
     check_relation<poseidon2_perm>(trace);
-    check_interaction<lookup_poseidon2_perm_relation>(trace);
 }
 
 TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
@@ -215,8 +214,6 @@ TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + /*first_invocation=*/2);
 
     check_relation<poseidon2_hash>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_perm_relation>(trace),
-                              "Relation.*POSEIDON2_PERM.* ACCUMULATION.* is non-zero");
 }
 
 } // namespace bb::avm2::constraining

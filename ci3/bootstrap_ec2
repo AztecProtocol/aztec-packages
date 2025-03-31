@@ -214,7 +214,7 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -v /tmp:/tmp \
     -v /dev/kmsg:/dev/kmsg \
     -e USE_TEST_CACHE=1 \
-    -e CI_REDIS='ci-redis.lzka0i.0001.use2.cache.amazonaws.com' \
+    -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \
     -e SSH_CONNECTION=' ' \
     -e LOCAL_USER_ID=\$(id -u) \
     -e LOCAL_GROUP_ID=\$(id -g) \
