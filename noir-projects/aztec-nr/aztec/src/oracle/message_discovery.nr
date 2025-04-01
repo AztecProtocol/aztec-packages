@@ -4,8 +4,8 @@ use dep::protocol_types::{
     constants::{MAX_NOTE_HASHES_PER_TX, PUBLIC_LOG_DATA_SIZE_IN_FIELDS},
 };
 
-/// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them
-/// available for later querying via the `get_notes` oracle.
+/// Finds new private logs that may have been sent to all registered accounts in PXE in the current contract and makes
+/// them available for later processing in Noir by storing them in a log capsule array.
 pub unconstrained fn sync_notes(log_capsule_array_base_slot: Field) {
     sync_notes_oracle(log_capsule_array_base_slot);
 }
