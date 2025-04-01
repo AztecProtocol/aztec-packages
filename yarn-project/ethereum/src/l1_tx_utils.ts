@@ -19,6 +19,7 @@ import {
   type ContractFunctionExecutionError,
   type GetTransactionReturnType,
   type Hex,
+  InvalidParamsRpcError,
   MethodNotFoundRpcError,
   MethodNotSupportedRpcError,
   type StateOverride,
@@ -764,7 +765,12 @@ export class L1TxUtils {
       }
       return result[0].gasUsed;
     } catch (err) {
-      if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
+      if (
+        err instanceof MethodNotFoundRpcError ||
+        err instanceof MethodNotSupportedRpcError ||
+        // Nethermind nodes return `error code -32602: Invalid params, data: "Incorrect parameters count, expected: 3, actual: 4"
+        err instanceof InvalidParamsRpcError
+      ) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
