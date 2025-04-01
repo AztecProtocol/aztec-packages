@@ -32,18 +32,12 @@ describe('Logs', () => {
     it('emits multiple events as private logs and decodes them', async () => {
       const preimages = makeTuple(5, makeTuple.bind(undefined, 4, Fr.random)) as Tuple<Tuple<Fr, 4>, 5>;
 
-      // TODO(benesjan): Sending the txs is sequence here instead of in parallel as they were sent before because
-      // with the processing of events in Aztec.nr this revealed a bug in log processing.
-      // const txs = await Promise.all(
-      //   preimages.map(preimage =>
-      //     testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
-      //   ),
-      // );
-      const txs = [];
-      for (const preimage of preimages) {
-        const tx = await testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait();
-        txs.push(tx);
-      }
+      const txs = await Promise.all(
+        preimages.map(preimage =>
+          testLogContract.methods.emit_encrypted_events(wallets[1].getAddress(), preimage).send().wait(),
+        ),
+      );
+
       const firstBlockNumber = Math.min(...txs.map(tx => tx.blockNumber!));
       const lastBlockNumber = Math.max(...txs.map(tx => tx.blockNumber!));
       const numBlocks = lastBlockNumber - firstBlockNumber + 1;

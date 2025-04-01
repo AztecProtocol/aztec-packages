@@ -103,7 +103,7 @@ describe('PXEOracleInterface', () => {
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
         const blockNumber = 1;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -112,7 +112,7 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, PrivateLog.random(tag));
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, 0, PrivateLog.random(tag));
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -122,7 +122,7 @@ describe('PXEOracleInterface', () => {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
         const blockNumber = 2;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -135,7 +135,7 @@ describe('PXEOracleInterface', () => {
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
         const blockNumber = 3;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -181,7 +181,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
       // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
@@ -202,14 +202,25 @@ describe('PXEOracleInterface', () => {
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      // An array of direction-less secrets for each sender-recipient pair
       const secrets = await Promise.all(
         senders.map(sender =>
           computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
         ),
       );
 
-      const indexesAsSender = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      // We only get the tagging secret at index `index` for each sender because each sender only needs to track
+      // their own tagging secret with the recipient. The secrets array contains all sender-recipient pairs, so
+      // secrets[index] corresponds to the tagging secret between sender[index] and the recipient.
+      const getTaggingSecretsIndexesAsSenderForSenders = () =>
+        Promise.all(
+          senders.map((sender, index) =>
+            taggingDataProvider.getTaggingSecretsIndexesAsSender([secrets[index]], sender.completeAddress.address),
+          ),
+        );
+
+      const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
+      expect(indexesAsSender).toStrictEqual([[0], [0], [0], [0], [0], [0], [0], [0], [0], [0]]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
@@ -221,8 +232,8 @@ describe('PXEOracleInterface', () => {
         );
       }
 
-      let indexesAsSenderAfterSync = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      let indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
+      expect(indexesAsSenderAfterSync).toStrictEqual([[1], [1], [1], [1], [1], [2], [2], [2], [2], [2]]);
 
       // Only 1 window is obtained for each sender
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
@@ -240,8 +251,8 @@ describe('PXEOracleInterface', () => {
         );
       }
 
-      indexesAsSenderAfterSync = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSenderAfterSync).toStrictEqual([12, 12, 12, 12, 12, 13, 13, 13, 13, 13]);
+      indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
+      expect(indexesAsSenderAfterSync).toStrictEqual([[12], [12], [12], [12], [12], [13], [13], [13], [13], [13]]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
@@ -264,7 +275,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 6 = offset + 1
       // Last 5 senders should have index 7 = offset + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
@@ -289,6 +300,7 @@ describe('PXEOracleInterface', () => {
       // Increase our indexes to 2
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         secrets.map(secret => new IndexedTaggingSecret(secret, 2)),
+        recipient.address,
       );
 
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -300,7 +312,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 2 since they were built using the same tag
       // Next 4 senders should also have index 2 = tagIndex + 1
       // Last 5 senders should have index 3 = tagIndex + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
@@ -324,8 +336,10 @@ describe('PXEOracleInterface', () => {
 
       // We set the indexes to WINDOW_HALF_SIZE + 1 so that it's outside the window and for this reason no updates
       // should be triggered.
+      const index = WINDOW_HALF_SIZE + 1;
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
-        secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 1)),
+        secrets.map(secret => new IndexedTaggingSecret(secret, index)),
+        recipient.address,
       );
 
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -334,10 +348,10 @@ describe('PXEOracleInterface', () => {
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
 
       // Indexes should remain where we set them (window_size + 1)
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([11, 11, 11, 11, 11, 11, 11, 11, 11, 11]);
+      expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
 
       // We should have called the node once and that is only for the first window
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
@@ -357,6 +371,7 @@ describe('PXEOracleInterface', () => {
 
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 2)),
+        recipient.address,
       );
 
       let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -377,7 +392,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
       // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
@@ -406,7 +421,7 @@ describe('PXEOracleInterface', () => {
         typeof PUBLIC_LOG_DATA_SIZE_IN_FIELDS
       >;
       const log = new PublicLog(await AztecAddress.random(), logContent);
-      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, log);
+      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, 0, log);
 
       logs[tag.toString()] = [scopedLog];
       aztecNode.getLogsByTags.mockImplementation(tags => {
@@ -457,7 +472,7 @@ describe('PXEOracleInterface', () => {
     function mockTaggedLogs(numLogs: number) {
       return Array(numLogs)
         .fill(0)
-        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, PrivateLog.random(Fr.random())));
+        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, 0, PrivateLog.random(Fr.random())));
     }
 
     it('should call processLog on multiple logs', async () => {

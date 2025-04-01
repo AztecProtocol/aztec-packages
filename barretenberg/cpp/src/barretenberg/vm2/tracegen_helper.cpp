@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_read.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
@@ -42,6 +43,7 @@
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -267,6 +269,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
                     clear_events(events.range_check);
                 },
+                [&]() {
+                    PublicDataTreeReadTraceBuilder public_data_tree_read_trace_builder;
+                    AVM_TRACK_TIME("tracegen/public_data_read",
+                                   public_data_tree_read_trace_builder.process(events.public_data_read_events, trace));
+                    clear_events(events.public_data_read_events);
+                },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
     }
@@ -355,7 +363,15 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>(),
             // Merkle checks
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>());
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>(),
+            // Public data read
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_0_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_1_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_membership_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_slot_validation_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_next_slot_validation_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

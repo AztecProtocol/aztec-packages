@@ -134,7 +134,7 @@ export class TXE implements TypedOracle {
 
   private committedBlocks = new Set<number>();
 
-  private VERSION = 1;
+  private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
 
   private node: TXENode;
@@ -163,7 +163,7 @@ export class TXE implements TypedOracle {
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
-    this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
+    this.node = new TXENode(this.blockNumber, this.ROLLUP_VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
 
@@ -732,6 +732,8 @@ export class TXE implements TypedOracle {
     }
 
     txEffect.publicDataWrites = this.publicDataWrites;
+    txEffect.privateLogs = this.privateLogs;
+    txEffect.publicLogs = this.publicLogs;
 
     const body = new Body([txEffect]);
 
@@ -771,9 +773,7 @@ export class TXE implements TypedOracle {
       }
     }
 
-    await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
-    this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
-    this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
+    await this.node.processTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
 
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
