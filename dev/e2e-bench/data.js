@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743469444991,
+  "lastUpdate": 1743482202107,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "e1f2bddb4c1a21aeb1c058da2c8002863cff3e24",
-          "message": "chore(avm): remove codegen (all but flavor) (#13079)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.",
-          "timestamp": "2025-03-27T15:33:20Z",
-          "tree_id": "aa7358f1bbfa4a37559270678d8d1ce70ea22587",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e1f2bddb4c1a21aeb1c058da2c8002863cff3e24"
-        },
-        "date": 1743091295198,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9265,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23563037605429865,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 143863,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 145333,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "baea4b30a8faec0055366f606799d0d96c4d192c",
+          "message": "feat: Zw/goblin avm tests (#12904)\n\nIntroduces a new class `AvmGoblinRecursiveVerifier` that manages the\nGoblinized AVM recursive verification algorithm. The algorithm involves\nthe construction of two circuits. The first is a Mega-arithmetized AVM\nrecursive verifier. The second is an Ultra circuit that recursively\nverifies the proof of the first (which consists of a Mega proof plus a\nGoblin proof). The output of the algorithm is equivalent to a that of a\nRollup Honk recursive verifier: a pairing point accumulator plus an IPA\nclaim/proof (stemming from recursive verification of the ECCVM). See the\nclass description for a more detailed description of the algorithm.\n\nCurrently the algorithm is tested in a standalone test only and is not\nyet integrated into ACIR. E.g. at this stage a noir program with a\nverify_proof call of type AVM will still generate a vanilla Ultra\nrecursive verifier.\n\nNote: This work is incomplete in a number of ways, the most significant\nof which I've documented in several sub-issues under this umbrella\n[issue](https://github.com/AztecProtocol/barretenberg/issues/1303).\n\n---------\n\nCo-authored-by: zac-williamson <blorktronics@gmail.com>",
+          "timestamp": "2025-03-31T20:55:34-07:00",
+          "tree_id": "ba496788d37763d9048349c4ee2f6d94fa59923b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/baea4b30a8faec0055366f606799d0d96c4d192c"
+        },
+        "date": 1743482201133,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9483,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24117225149249447,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 141521,
             "unit": "us"
           }
         ]
