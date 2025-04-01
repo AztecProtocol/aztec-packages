@@ -77,6 +77,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
 
     // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
+    // WORKTODO: This logic should be hidden in AggregationObject
     AggregationObject nested_agg_obj;
     size_t idx = 0;
     std::array<typename Curve::Group, 2> nested_pairing_points;
