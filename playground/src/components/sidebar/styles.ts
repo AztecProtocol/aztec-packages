@@ -5,9 +5,9 @@ export const container = css({
   flexDirection: 'column',
   height: '100%',
   width: '100%',
-  backgroundColor: 'var(--mui-palette-primary-light)',
-  overflow: 'hidden',
-  padding: '0 0.5rem',
+  backgroundColor: '#E9E9E9',
+  overflow: 'auto',
+  padding: '0 20px',
   textAlign: 'center',
 });
 
@@ -16,6 +16,9 @@ export const select = css({
   flexDirection: 'row',
   width: '100%',
   margin: '0.5rem 0rem',
+  '@media (max-width: 400px)': {
+    flexDirection: 'column',
+  },
 });
 
 export const header = css({
@@ -34,9 +37,61 @@ export const buttonContainer = css({
 
 export const sectionHeader = css({
   marginTop: '1.5rem',
+  fontFamily: "'Space Grotesk', sans-serif",
+  fontWeight: 600,
+  fontSize: '17px',
+  color: '#000000',
 });
 
 export const nestedContainer = css({
-  marginTop: '1.5rem', 
+  marginTop: '1.5rem',
   transition: 'opacity 0.3s ease',
-}); 
+});
+
+export const actionButton = css({
+  width: '230px',
+  height: '56px',
+  borderRadius: '12px',
+  backgroundColor: '#CDD1D5',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '20px 32px',
+  margin: '15px auto',
+  fontFamily: "'Inter', sans-serif",
+  fontWeight: 600,
+  fontSize: '17px',
+  lineHeight: '16px',
+  color: '#000000',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#BCC0C4',
+  },
+  '@media (max-width: 400px)': {
+    width: '100%',
+  },
+});
+
+export const primaryButton = css({
+  width: '230px',
+  height: '56px',
+  borderRadius: '12px',
+  backgroundColor: '#9894FF',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '20px 32px',
+  margin: '15px auto',
+  fontFamily: "'Inter', sans-serif",
+  fontWeight: 600,
+  fontSize: '17px',
+  lineHeight: '16px',
+  color: '#FFFFFF',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8985FF',
+  },
+  '@media (max-width: 400px)': {
+    width: '100%',
+  },
+});

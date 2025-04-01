@@ -11,7 +11,7 @@ import CodeIcon from '@mui/icons-material/Code';
 import ContactsIcon from '@mui/icons-material/Contacts';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { CopyToClipboardButton } from '../../common/copyToClipboardButton';
-import { select, nestedContainer } from '../styles';
+import { select, nestedContainer, primaryButton } from '../styles';
 import { formatFrAsString } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../types';
 import type { AliasedItem } from '../types';
@@ -47,35 +47,35 @@ export function ContractSelector({
 
   const handleContractChange = (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
-    
-    if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING || 
-        contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN || 
+
+    if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING ||
+        contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ||
         contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
       setContract(
-        null, 
-        setSelectedPredefinedContract, 
-        setCurrentContractAddress, 
+        null,
+        setSelectedPredefinedContract,
+        setCurrentContractAddress,
         setShowContractInterface,
         contractValue
       );
       return;
     }
-    
+
     if (contractValue === '') {
       return;
     }
-    
+
     setContract(
-      contractValue, 
-      setSelectedPredefinedContract, 
-      setCurrentContractAddress, 
+      contractValue,
+      setSelectedPredefinedContract,
+      setCurrentContractAddress,
       setShowContractInterface
     );
   };
 
   const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
     if (!wallet || !walletDB) return;
-    
+
     if (sender && alias) {
       await wallet.registerSender(sender);
       await walletDB.storeAlias('accounts', alias, Buffer.from(sender.toString()));
@@ -90,7 +90,14 @@ export function ContractSelector({
 
   return (
     <div css={nestedContainer} style={{ opacity: wallet ? 1 : 0.5 }}>
-      <Typography variant="overline">Contracts</Typography>
+      <Typography variant="overline" sx={{
+        fontFamily: '"Space Grotesk", sans-serif',
+        fontWeight: 600,
+        fontSize: '17px',
+        color: '#000000'
+      }}>
+        Contracts
+      </Typography>
       <FormControl css={select}>
         <InputLabel>Contracts</InputLabel>
         <Select
@@ -134,17 +141,19 @@ export function ContractSelector({
           data={currentContractAddress?.toString()}
         />
       </FormControl>
-      <Button
-        variant="contained"
-        color="secondary"
-        onClick={handleShowContractInterface}
-        endIcon={<CodeIcon />}
-        disabled={!wallet}
-        sx={{ mt: 1, width: '100%' }}
+
+      <div
+        css={primaryButton}
+        onClick={wallet ? handleShowContractInterface : undefined}
+        style={{
+          opacity: wallet ? 1 : 0.6,
+          cursor: wallet ? 'pointer' : 'not-allowed'
+        }}
       >
-        Go
-      </Button>
+        Select Contract
+      </div>
+
       <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
     </div>
   );
-} 
+}

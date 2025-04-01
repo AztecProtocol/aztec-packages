@@ -6,7 +6,7 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import type { Network } from '../types';
-import { select } from '../styles';
+import { select, sectionHeader } from '../styles';
 import { connectToNetwork } from '../utils/networkHelpers';
 import { AddNetworksDialog } from './addNetworkDialog';
 
@@ -75,6 +75,17 @@ export function NetworkSelector({
 
   return (
     <>
+      <Typography variant="overline" sx={{
+        fontFamily: '"Space Grotesk", sans-serif',
+        fontWeight: 600,
+        fontSize: '17px',
+        color: '#000000',
+        marginTop: '1.5rem',
+        display: 'block'
+      }}>
+        Connect to Network
+      </Typography>
+
       <FormControl css={select}>
         <InputLabel>Network</InputLabel>
         <Select
@@ -101,4 +112,4 @@ export function NetworkSelector({
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
     </>
   );
-} 
+}

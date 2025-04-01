@@ -25,7 +25,7 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
-import { SponsoredFeePaymentMethod } from '../../../utils/fees/sponsored_fee_payment_method';
+import { SponsoredFeePaymentMethod } from '../../../utils/fees';
 
 const creationForm = css({
   display: 'flex',
@@ -119,13 +119,27 @@ export function DeployContractDialog({
       // Add specific detection for SignerlessWallet issues
       const walletType = wallet.constructor.name;
       logDeployment(`Wallet Type: ${walletType}`);
-      
+
       if (walletType.includes('Signerless') || walletType === 'EcdsaKAccountWallet') {
         logDeployment('⚠️ Warning: Using a wallet type that might not fully support deployment');
         logDeployment('⚠️ Will try to work around limitations if possible');
       }
 
-      // First, register the contract class with PXE to fix the "No artifact found" error
+      // First, ensure the SponsoredFPC contract is deployed if using sponsored fees
+      if (useSponsoredFees) {
+        try {
+          logDeployment('🔄 Ensuring SponsoredFPC contract is registered with PXE...');
+          // Import and use the function to register SponsoredFPC if needed
+          const { registerSponsoredFPC } = await import('../../../utils/fees');
+          await registerSponsoredFPC(pxe, wallet, node);
+          logDeployment('✅ SponsoredFPC contract is available and registered with PXE');
+        } catch (fpcError) {
+          logDeployment(`⚠️ Error with SponsoredFPC setup: ${fpcError.message}`);
+          logDeployment('⚠️ Continuing with deployment, but sponsored fees might not work');
+        }
+      }
+
+      // Register the contract class with PXE
       logDeployment('🔄 1/5: Registering contract class with PXE...');
 
       // Try registration with retries
@@ -197,13 +211,15 @@ export function DeployContractDialog({
 
       // Configure deployment options with fee payment method if using sponsored fees
       let deploymentOptions = {};
-      
+
       if (useSponsoredFees) {
         try {
           logDeployment('🔄 Setting up sponsored fee payment...');
+
+          // Create a new sponsored fee payment method
           const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
-          logDeployment('✅ Sponsored payment method created');
-          
+          logDeployment(`✅ Sponsored payment method created with FPC address: ${sponsoredPaymentMethod.paymentContract.toString()}`);
+
           deploymentOptions = {
             fee: {
               paymentMethod: sponsoredPaymentMethod
@@ -247,29 +263,29 @@ export function DeployContractDialog({
               logDeployment('⚠️ SignerlessWallet error detected - this wallet type has limited capabilities');
               logDeployment('⚠️ Contract might be deployed successfully, but confirmation is unavailable');
               logDeployment('⚠️ Will attempt to retrieve deployed contract by address...');
-              
+
               // Wait a bit to ensure the transaction is processed
               await new Promise(resolve => setTimeout(resolve, 5000));
-              
+
               try {
                 // Try to use transaction hash to find contract address (approach 1)
                 const txHash = sentTx.hash;
                 logDeployment(`⚠️ Transaction hash: ${txHash.toString()}`);
-                
+
                 // Fallback to checking recent contracts (approach 2)
                 logDeployment('⚠️ Checking recent contracts...');
                 // This would require additional code to check for recently deployed contracts
-                
+
                 logDeployment('⚠️ Unable to automatically confirm deployment due to wallet limitations');
                 logDeployment('⚠️ Please try using the Register button to add your contract by address.');
-                
+
                 // Break out of the loop - we can't confirm with this wallet
                 break;
               } catch (fallbackError) {
                 logDeployment(`⚠️ Fallback resolution failed: ${fallbackError.message}`);
               }
             }
-            
+
             // Check if it's a database error
             else if (waitError.message && (
                 waitError.message.includes('IDBKeyRange') ||
@@ -308,14 +324,14 @@ export function DeployContractDialog({
     } catch (error) {
       console.error('=== DEPLOYMENT ERROR ===');
       console.error(error);
-      
+
       // Show the error to the user
       alert(`Deployment failed: ${error.message}`);
-      
+
       // Also log a summary of deployment messages to help debug the issue
       console.log('=== DEPLOYMENT LOG SUMMARY ===');
       deploymentStatusMessages.forEach(msg => console.log(msg));
-      
+
       onClose();
     } finally {
       setDeploying(false);
@@ -381,7 +397,7 @@ export function DeployContractDialog({
                 ))}
               </FormGroup>
             )}
-            
+
             <FormControl component="fieldset" sx={{ mt: 2 }}>
               <FormGroup>
                 <FormControlLabel
@@ -397,7 +413,7 @@ export function DeployContractDialog({
               </FormGroup>
               <FormHelperText>Enable fee sponsorship for deployment</FormHelperText>
             </FormControl>
-            
+
             <Button disabled={alias === ''} onClick={deploy}>
               Deploy
             </Button>

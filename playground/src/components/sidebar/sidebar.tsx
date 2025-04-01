@@ -19,6 +19,7 @@ import type { Network, AliasedItem } from './types';
 import { NETWORKS } from './constants';
 import { container, header } from './styles';
 import { PREDEFINED_CONTRACTS } from './types';
+import { registerSponsoredFPC } from '../../utils/fees';
 
 export function SidebarComponent() {
   const {
@@ -37,10 +38,11 @@ export function SidebarComponent() {
     nodeURL,
     isPXEInitialized,
     pxe,
+    node,
     setSelectedPredefinedContract,
     setShowContractInterface,
   } = useContext(AztecContext);
-  
+
   const [changingNetworks, setChangingNetworks] = useState(false);
   const [accounts, setAccounts] = useState<AliasedItem[]>([]);
   const [contracts, setContracts] = useState<AliasedItem[]>([]);
@@ -56,12 +58,12 @@ export function SidebarComponent() {
       setIsConnecting(true);
       const defaultNetwork = NETWORKS[0].nodeURL;
       connectToNetwork(
-        defaultNetwork, 
-        setNodeURL, 
-        setPXEInitialized, 
-        setAztecNode, 
-        setPXE, 
-        setWalletDB, 
+        defaultNetwork,
+        setNodeURL,
+        setPXEInitialized,
+        setAztecNode,
+        setPXE,
+        setWalletDB,
         setLogs
       )
         .then(() => setIsConnecting(false))
@@ -93,7 +95,7 @@ export function SidebarComponent() {
     const refreshAccounts = async () => {
       try {
         if (!walletDB || !pxe) return;
-        
+
         const { ourAccounts } = await getAccountsAndSenders(walletDB, pxe);
         // Make sure accounts are properly formatted
         const formattedAccounts = ourAccounts.map(account => {
@@ -103,24 +105,24 @@ export function SidebarComponent() {
           }
           return account;
         });
-        
+
         setAccounts(formattedAccounts);
-        
+
         // If we have accounts but none selected, select the first one
         if (formattedAccounts.length > 0 && !wallet) {
           const firstAccount = formattedAccounts[0];
-          
+
           // Manually call the account selection function with the account value
           try {
             const accountAddress = AztecAddress.fromString(firstAccount.value);
-            
+
             // Get the signing key
             const signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
             if (!signingPrivateKey) {
               console.error('No signing key for account:', accountAddress.toString());
               return;
             }
-            
+
             // Create wallet
             const newWallet = await createWalletForAccount(pxe, accountAddress, signingPrivateKey);
             setWallet(newWallet);
@@ -132,7 +134,7 @@ export function SidebarComponent() {
         console.error('Error refreshing accounts:', error);
       }
     };
-    
+
     if (walletDB && pxe && isPXEInitialized) {
       refreshAccounts();
     }
@@ -307,16 +309,52 @@ export function SidebarComponent() {
     setShowContractInterface(true);
   };
 
+  /**
+   * Attempts to register the SponsoredFPC contract with the PXE
+   * This ensures it's available for fee payments in all transactions
+   */
+  const initSponsoredFPC = async () => {
+    if (!pxe || !wallet || !node || !isPXEInitialized) {
+      console.log('Cannot initialize SponsoredFPC: Missing required dependencies');
+      return;
+    }
+
+    try {
+      console.log('Initializing SponsoredFPC contract...');
+      await registerSponsoredFPC(pxe, wallet, node);
+      console.log('SponsoredFPC contract initialization complete');
+    } catch (error) {
+      console.error('Error initializing SponsoredFPC contract:', error);
+      // Don't block further operations if this fails
+    }
+  };
+
+  // Initialize SponsoredFPC contract when wallet, pxe and node are all available
+  useEffect(() => {
+    if (pxe && wallet && node && isPXEInitialized) {
+      initSponsoredFPC();
+    }
+  }, [pxe, wallet, node, isPXEInitialized]);
+
   return (
     <div css={container}>
-      <div css={header}>
-        <Typography variant="h1" sx={{ fontSize: '50px', padding: 0, marginTop: '0.5rem' }}>
-          Playground
-        </Typography>
-      </div>
-      
+      <Typography
+        variant="h1"
+        sx={{
+          fontSize: '32px',
+          fontWeight: 500,
+          fontFamily: '"Space Grotesk", sans-serif',
+          letterSpacing: '0.03em',
+          color: '#2D2D2D',
+          textAlign: 'center',
+          margin: '10px 0 20px'
+        }}
+      >
+        PLAYGROUND
+      </Typography>
+
       {/* Network Selector */}
-      <NetworkSelector 
+      <NetworkSelector
         networks={networks}
         currentNodeURL={nodeURL}
         onNetworksChange={setNetworks}
@@ -328,9 +366,9 @@ export function SidebarComponent() {
         setLogs={setLogs}
         setChangingNetworks={setChangingNetworks}
       />
-      
+
       {/* Account Selector */}
-      <AccountSelector 
+      <AccountSelector
         accounts={accounts}
         currentWallet={wallet}
         isPXEInitialized={isPXEInitialized}
@@ -347,9 +385,9 @@ export function SidebarComponent() {
           }
         }}
       />
-      
+
       {/* Contract Selector */}
-      <ContractSelector 
+      <ContractSelector
         contracts={contracts}
         currentContractAddress={currentContractAddress}
         selectedPredefinedContract={selectedPredefinedContract}
@@ -366,7 +404,7 @@ export function SidebarComponent() {
           }
         }}
       />
-      
+
       <div css={{ flex: '1 0 auto', margin: 'auto' }} />
       <Typography variant="overline">Transactions</Typography>
       <Divider />

@@ -10,7 +10,7 @@ import { CreateAccountDialog } from './createAccountDialog';
 import { CopyToClipboardButton } from '../../common/copyToClipboardButton';
 import { AztecAddress, Fr, AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import type { AliasedItem } from '../types';
-import { select, buttonContainer } from '../styles';
+import { select, buttonContainer, actionButton } from '../styles';
 import { formatFrAsString } from '../../../utils/conversion';
 import { createWalletForAccount } from '../utils/accountHelpers';
 import type { WalletDB } from '../../../utils/storage';
@@ -44,7 +44,7 @@ export function AccountSelector({
   const handleAccountChange = async (event: SelectChangeEvent) => {
     if (!pxe || !walletDB) return;
     if (event.target.value === '') return;
-    
+
     try {
       const accountAddress = AztecAddress.fromString(event.target.value);
       const accountData = await walletDB.retrieveAccount(accountAddress);
@@ -65,7 +65,7 @@ export function AccountSelector({
 
   const handleAccountCreation = async (account?: AccountWalletWithSecretKey, salt?: Fr, alias?: string) => {
     if (!walletDB) return;
-    
+
     if (account && salt && alias) {
       try {
         // In account creation dialog, we need to make sure to get the signing private key
@@ -105,16 +105,28 @@ export function AccountSelector({
 
   return (
     <>
+      <Typography variant="overline" sx={{
+        fontFamily: '"Space Grotesk", sans-serif',
+        fontWeight: 600,
+        fontSize: '17px',
+        color: '#000000',
+        marginTop: '1.5rem',
+        display: 'block'
+      }}>
+        Connect to Network
+      </Typography>
+
       <div style={{ position: 'relative' }}>
-        <Button
-          variant="contained"
-          onClick={() => setOpenCreateAccountDialog(true)}
-          startIcon={<AddIcon />}
-          css={buttonContainer}
-          disabled={!isPXEInitialized || changingNetworks || isConnecting}
+        <div
+          css={actionButton}
+          onClick={() => !(!isPXEInitialized || changingNetworks || isConnecting) && setOpenCreateAccountDialog(true)}
+          style={{
+            opacity: (!isPXEInitialized || changingNetworks || isConnecting) ? 0.6 : 1,
+            cursor: (!isPXEInitialized || changingNetworks || isConnecting) ? 'not-allowed' : 'pointer'
+          }}
         >
           Create Account
-        </Button>
+        </div>
         {(!isPXEInitialized || changingNetworks || isConnecting) && (
           <Typography
             variant="caption"
@@ -131,7 +143,7 @@ export function AccountSelector({
           </Typography>
         )}
       </div>
-      
+
       {pxe && isPXEInitialized ? (
         <>
           <FormControl css={select} sx={{ marginTop: '1.5rem' }}>
@@ -157,8 +169,8 @@ export function AccountSelector({
           </FormControl>
         </>
       ) : null}
-      
+
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </>
   );
-} 
+}

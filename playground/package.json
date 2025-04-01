@@ -18,6 +18,8 @@
   "dependencies": {
     "@aztec/accounts": "link:../yarn-project/accounts",
     "@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@aztec/constants": "link:../yarn-project/constants",
+    "@aztec/entrypoints": "link:../yarn-project/entrypoints",
     "@aztec/foundation": "link:../yarn-project/foundation",
     "@aztec/kv-store": "link:../yarn-project/kv-store",
     "@aztec/noir-contracts.js": "link:../yarn-project/noir-contracts.js",
@@ -25,7 +27,9 @@
     "@aztec/stdlib": "link:../yarn-project/stdlib",
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
+    "@fontsource/inter": "^5.2.5",
     "@fontsource/roboto": "^5.1.1",
+    "@fontsource/space-grotesk": "^5.2.6",
     "@mui/icons-material": "^6.3.1",
     "@mui/material": "^6.3.1",
     "@mui/styles": "^6.3.1",

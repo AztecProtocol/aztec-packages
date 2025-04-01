@@ -108,4 +108,4 @@ export const AztecProvider = ({ children }) => {
       {children}
     </AztecContext.Provider>
   );
-}; 
+};
