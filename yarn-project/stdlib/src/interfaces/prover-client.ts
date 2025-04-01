@@ -56,7 +56,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   proverId: {
     env: 'PROVER_ID',
     parseEnv: (val?: string) => parseProverId(val),
-    description: 'Identifier of the prover. Defaults to the address used for submitting proofs if not set.',
+    description: 'Hex value that identifies the prover. Defaults to the address used for submitting proofs if not set.',
   },
   proverTestDelayType: {
     env: 'PROVER_TEST_DELAY_TYPE',
