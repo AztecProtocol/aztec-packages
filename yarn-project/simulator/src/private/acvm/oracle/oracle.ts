@@ -372,8 +372,8 @@ export class Oracle {
     return [];
   }
 
-  async syncNotes([logCapsuleArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
-    await this.typedOracle.syncNotes(Fr.fromString(logCapsuleArrayBaseSlot));
+  async syncNotes([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.syncNotes(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 

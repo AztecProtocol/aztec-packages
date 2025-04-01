@@ -2,9 +2,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress } from '../aztec-address/index.js';
-import { LogCapsule } from './log_capsule.js';
+import { PendingTaggedLog } from './pending_tagged_log.js';
 
-describe('LogCapsule', () => {
+describe('PendingTaggedLog', () => {
   it('serialization matches snapshots and output of Noir serialization', () => {
     const log = [new Fr(1n), new Fr(2n), new Fr(3n)];
     const txHash = new Fr(123n);
@@ -13,8 +13,8 @@ describe('LogCapsule', () => {
     const recipient = AztecAddress.fromField(new Fr(789n));
     const logIndexInTx = 10;
 
-    const capsule = new LogCapsule(log, txHash, uniqueNoteHashes, firstNullifier, recipient, logIndexInTx);
-    const serialized = capsule.toFields();
+    const pendingLog = new PendingTaggedLog(log, txHash, uniqueNoteHashes, firstNullifier, recipient, logIndexInTx);
+    const serialized = pendingLog.toFields();
 
     // Test against snapshot
     expect(serialized.map(f => f.toString())).toMatchInlineSnapshot(`
@@ -113,8 +113,8 @@ describe('LogCapsule', () => {
     // Run with AZTEC_GENERATE_TEST_DATA=1 to update noir test data
     const fieldArrayStr = `[${serialized.map(f => f.toString()).join(',')}]`;
     updateInlineTestData(
-      'noir-projects/aztec-nr/aztec/src/discovery/log_capsule.nr',
-      'serialized_log_capsule_from_typescript',
+      'noir-projects/aztec-nr/aztec/src/discovery/pending_tagged_log.nr',
+      'serialized_pending_tagged_log_from_typescript',
       fieldArrayStr,
     );
   });

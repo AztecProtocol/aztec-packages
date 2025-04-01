@@ -3,7 +3,7 @@ export * from './indexed_tagging_secret.js';
 export * from './contract_class_log.js';
 export * from './public_log.js';
 export * from './private_log.js';
-export * from './log_capsule.js';
+export * from './pending_tagged_log.js';
 export * from './log_id.js';
 export * from './log_filter.js';
 export * from './extended_public_log.js';

@@ -19,8 +19,8 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
-  LogCapsule,
   LogWithTxData,
+  PendingTaggedLog,
   TxScopedL2Log,
   deriveEcdhSharedSecret,
 } from '@aztec/stdlib/logs';
@@ -431,11 +431,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
    * in CapsuleArray ready for a later retrieval in Aztec.nr.
    * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param logCapsuleArrayBaseSlot - The base slot of the log capsule array in which found logs will be stored.
+   * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged logs capsule array in which
+   * found logs will be stored.
    * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
    * synced.
    */
-  public async syncTaggedLogs(contractAddress: AztecAddress, logCapsuleArrayBaseSlot: Fr, scopes?: AztecAddress[]) {
+  public async syncTaggedLogs(
+    contractAddress: AztecAddress,
+    pendingTaggedLogArrayBaseSlot: Fr,
+    scopes?: AztecAddress[],
+  ) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
@@ -500,9 +505,9 @@ export class PXEOracleInterface implements ExecutionDataProvider {
             const filteredLogsByBlockNumber = filteredLogsByTag.filter(l => l.blockNumber <= maxBlockNumber);
 
             // We store the logs in capsules (to later be obtained in Noir)
-            await this.#storeLogsCapsules(
+            await this.#storePendingTaggedLogs(
               contractAddress,
-              logCapsuleArrayBaseSlot,
+              pendingTaggedLogArrayBaseSlot,
               recipient,
               filteredLogsByBlockNumber,
             );
@@ -576,14 +581,14 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  async #storeLogsCapsules(
+  async #storePendingTaggedLogs(
     contractAddress: AztecAddress,
     capsuleArrayBaseSlot: Fr,
     recipient: AztecAddress,
     logs: TxScopedL2Log[],
   ) {
-    // Build all capsules upfront with their tx effects
-    const logsCapsules = await Promise.all(
+    // Build all pending tagged logs upfront with their tx effects
+    const pendingTaggedLogs = await Promise.all(
       logs.map(async scopedLog => {
         // TODO(#9789): get these effects along with the log
         const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
@@ -591,7 +596,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
         }
 
-        const logCapsule = new LogCapsule(
+        const pendingTaggedLog = new PendingTaggedLog(
           scopedLog.log.toFields(),
           scopedLog.txHash.hash,
           txEffect.data.noteHashes,
@@ -600,11 +605,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           scopedLog.logIndexInTx,
         );
 
-        return logCapsule.toFields();
+        return pendingTaggedLog.toFields();
       }),
     );
 
-    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, logsCapsules);
+    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
   public async deliverNote(

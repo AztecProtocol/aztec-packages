@@ -149,7 +149,7 @@ describe('PXEOracleInterface', () => {
     }
 
     // Set to a random value in this test we don't care about Noir loading the logs from the capsule array.
-    const LOG_CAPSULE_ARRAY_BASE_SLOT = Fr.random();
+    const PENDING_TAGGED_LOG_ARRAY_BASE_SLOT = Fr.random();
 
     beforeEach(async () => {
       // Set up the address book
@@ -170,12 +170,12 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // We expect to have all logs intended for the recipient synced (and hence stored in the capsule for later
       // processing), one per sender + 1 with a duplicated tag for the first sender + half of the logs for the second
       // index
-      await expectLogCapsuleArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
@@ -267,11 +267,11 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs with a sender index offset', async () => {
       const tagIndex = 5;
       await generateMockLogs(tagIndex);
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
       // one + half of the logs for the second index
-      await expectLogCapsuleArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
@@ -312,11 +312,11 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
       // since the window starts at Math.max(0, 2 - window_size) = 0
-      await expectLogCapsuleArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1 + NUM_SENDERS / 2);
 
       // First sender should have 2 logs, but keep index 2 since they were built using the same tag
       // Next 4 senders should also have index 2 = tagIndex + 1
@@ -351,11 +351,11 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should
       // be skipped
-      await expectLogCapsuleArrayLengthToBe(contractAddress, NUM_SENDERS / 2);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS / 2);
 
       // Indexes should remain where we set them (window_size + 1)
       const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
@@ -384,10 +384,10 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // No logs should be synced (and hence no capsules stored) since we start from index 2 = 12 - window_size
-      await expectLogCapsuleArrayLengthToBe(contractAddress, 0);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, 0);
 
       // Since no logs were synced, window edge hash not been pushed and for this reason we should have called
       // the node only once for the initial window
@@ -398,7 +398,7 @@ describe('PXEOracleInterface', () => {
       // Wipe the database
       await taggingDataProvider.resetNoteSyncData();
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
@@ -420,10 +420,10 @@ describe('PXEOracleInterface', () => {
 
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
-      await expectLogCapsuleArrayLengthToBe(contractAddress, NUM_SENDERS + 1);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, NUM_SENDERS + 1);
     });
 
     it('should not sync public tagged logs', async () => {
@@ -442,15 +442,15 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
-      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
       // We expect the above log to be discarded, and so none to be synced
-      await expectLogCapsuleArrayLengthToBe(contractAddress, 0);
+      await expectPendingTaggedLogArrayLengthToBe(contractAddress, 0);
     });
 
-    const expectLogCapsuleArrayLengthToBe = async (contractAddress: AztecAddress, expectedLength: number) => {
+    const expectPendingTaggedLogArrayLengthToBe = async (contractAddress: AztecAddress, expectedLength: number) => {
       // Capsule array length is stored in the array base slot.
-      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
       if (expectedLength === 0 && capsule === null) {
         // If expected length is 0 we are fine with the capsule not existing since the array might not have been
         // initialized yet.

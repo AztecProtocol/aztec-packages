@@ -4,10 +4,10 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '../aztec-address/index.js';
 
 /**
- * Represents a log capsule as it is stored in the log capsule array to which the syncNotes oracle inserts found private
- * log. A TS version of `log_capsule.nr`.
+ * Represents a pending tagged log as it is stored in the pending tagged log array to which the syncNotes oracle
+ * inserts found private logs. A TS version of `pending_tagged_log.nr`.
  */
-export class LogCapsule {
+export class PendingTaggedLog {
   constructor(
     public log: Fr[],
     public txHash: Fr,
