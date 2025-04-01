@@ -352,6 +352,23 @@ describe('AVM simulator: transpiled Noir contracts', () => {
     expect(results.output).toEqual(expectedResult);
   });
 
+  it('conditional move operations', async () => {
+    const calldata: Fr[] = [new Fr(27), new Fr(28), new Fr(1)];
+
+    const bytecode = getAvmTestContractBytecode('conditional_move');
+
+    let context = initContext({ env: initExecutionEnvironment({ calldata }) });
+    let results = await new AvmSimulator(context).executeBytecode(bytecode);
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(27)]);
+
+    calldata[2] = new Fr(0);
+    context = initContext({ env: initExecutionEnvironment({ calldata }) });
+    results = await new AvmSimulator(context).executeBytecode(bytecode);
+    expect(results.reverted).toBe(false);
+    expect(results.output).toEqual([new Fr(28)]);
+  });
+
   describe('U128 addition and overflows', () => {
     it('U128 addition', async () => {
       const calldata: Fr[] = [
