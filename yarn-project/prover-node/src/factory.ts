@@ -12,7 +12,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import type { ProverNodeConfig } from './config.js';
+import { type ProverNodeConfig, resolveConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
@@ -20,7 +20,7 @@ import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
-  config: ProverNodeConfig & DataStoreConfig,
+  userConfig: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
     log?: Logger;
@@ -35,6 +35,7 @@ export async function createProverNode(
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
 ) {
+  const config = resolveConfig(userConfig);
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
   const log = deps.log ?? createLogger('prover-node');

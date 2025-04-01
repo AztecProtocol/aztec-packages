@@ -51,10 +51,10 @@ contract SlashingScenario is TestBase {
     }
 
     testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    Registry registry = new Registry(address(this), testERC20);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup({
-      _fpcJuicePortal: new MockFeeJuicePortal(),
+      _feeAsset: testERC20,
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
       _governance: address(this),

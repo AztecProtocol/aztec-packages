@@ -66,7 +66,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('deploy-new-rollup')
-    .description('Deploys a new rollup contract and a payload to upgrade the registry with it.')
+    .description('Deploys a new rollup contract and adds it to the registry (if you are the owner).')
     .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
