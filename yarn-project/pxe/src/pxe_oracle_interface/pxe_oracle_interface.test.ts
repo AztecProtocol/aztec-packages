@@ -148,6 +148,7 @@ describe('PXEOracleInterface', () => {
       });
     }
 
+    // Set to a random value in this test we don't care about Noir loading the logs from the capsule array.
     const LOG_CAPSULE_ARRAY_BASE_SLOT = Fr.random();
 
     beforeEach(async () => {

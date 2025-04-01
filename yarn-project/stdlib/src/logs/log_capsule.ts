@@ -3,6 +3,10 @@ import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 
+/**
+ * Represents a log capsule as it is stored in the log capsule array to which the syncNotes oracle inserts found private
+ * log. A TS version of `log_capsule.nr`.
+ */
 export class LogCapsule {
   constructor(
     public log: Fr[],
