@@ -338,9 +338,7 @@ class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
-namespace avm {
-class AvmFlavor;
-}
+
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
@@ -348,6 +346,7 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
+template <typename BuilderType> class Avm2RecursiveFlavor_;
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -407,7 +406,8 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                         TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
                                         AvmRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<MegaCircuitBuilder>>;
+                                        AvmRecursiveFlavor_<MegaCircuitBuilder>,
+                                        Avm2RecursiveFlavor_<UltraCircuitBuilder>>;
 
 // These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
