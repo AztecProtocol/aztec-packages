@@ -5,18 +5,12 @@ tags: [contracts]
 ---
 
 Events in Aztec work similarly to Ethereum events in the sense that they are a way for contracts to communicate with the outside world.
-They are emitted by contracts and stored inside each instance of an AztecNode.
 
-:::info
-Aztec events are currently represented as raw data and are not ABI encoded.
-ABI encoded events are a feature that will be added in the future.
-:::
+Events are structured pieces of data that can be emitted privately, from private functions, or publicly, from public functions. They include metadata about the event type, so people can query events to look for specific information.
 
-Unlike on Ethereum, there are 2 types of events supported by Aztec: [encrypted](#encrypted-events) and [unencrypted](#unencrypted-events).
+There are also public logs, which are similar to events, but are unstructured data.
 
-## Encrypted Events
-
-### Call emit
+## Private Events
 
 To emit encrypted logs you can import the `encode_and_encrypt_event` or `encode_and_encrypt_event_unconstrained` functions and pass them into the `emit` function. An example can be seen in the reference token contract's transfer function:
 
@@ -35,9 +29,15 @@ You can find the implementation of event logging [here](https://github.com/Aztec
 
 Contracts created using aztec-nr will try to discover newly created events by searching for logs emitted for any of the accounts registered inside PXE, decrypting their contents and notifying PXE of any events found. This process is automatic and occurs whenever a contract function is invoked.
 
+## Public Events
+
+You can emit public events by calling the `emit` function on the event type that you would like to emit. For example:
+
+#include_code emit_public /noir-projects/noir-contracts/contracts/test_log_contract/src/main.nr rust
+
 ## Public Logs
 
-Public logs are logs which can be read by anyone. They can be emitted **only** by public functions.
+Public logs are unstructured data which can be read by anyone. They can be emitted **only** by public functions.
 
 ### Call emit_public_log
 
