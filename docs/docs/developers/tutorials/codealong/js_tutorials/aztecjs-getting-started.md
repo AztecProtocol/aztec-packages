@@ -108,7 +108,7 @@ A successful run should show something like this:
   token Aztec Sandbox Info  {
   token   sandboxVersion: '#include_aztec_short_version',
   token   chainId: 31337,
-  token   protocolVersion: 1,
+  token   rollupVersion: 1,
   token   l1ContractAddresses: {
   token     rollupAddress: EthAddress {
   token       buffer: <Buffer cf 7e d3 ac ca 5a 46 7e 9e 70 4c 70 3e 8d 87 f6 34 fb 0f c9>

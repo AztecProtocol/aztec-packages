@@ -17,7 +17,7 @@ const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testben
 
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
-  version: 1,
+  rollupVersion: 1,
   l1Contracts: {
     rollupAddress: EthAddress.random(),
   },
