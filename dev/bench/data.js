@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743482196510,
+  "lastUpdate": 1743482199357,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "f87d5e30f06f84fea17928490283075019980851",
-          "message": "refactor: metric attributes (#13126)\n\nDisallow attributes in metrics that could lead to high cardinality at\ncompile time.\n\n\n![image](https://github.com/user-attachments/assets/1bf57ecc-6530-4779-8582-bae47b90c6c9)\n\n\nFix #13063",
-          "timestamp": "2025-03-28T12:38:07Z",
-          "tree_id": "e824edc41ade9f62bcd7cf28390e070bca4171d6",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/f87d5e30f06f84fea17928490283075019980851"
-        },
-        "date": 1743167181744,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 39547,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 27084,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 11762,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 14521,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 15414,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3036,6 +2982,60 @@ window.BENCHMARK_DATA = {
             "value": "2209.31",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "baea4b30a8faec0055366f606799d0d96c4d192c",
+          "message": "feat: Zw/goblin avm tests (#12904)\n\nIntroduces a new class `AvmGoblinRecursiveVerifier` that manages the\nGoblinized AVM recursive verification algorithm. The algorithm involves\nthe construction of two circuits. The first is a Mega-arithmetized AVM\nrecursive verifier. The second is an Ultra circuit that recursively\nverifies the proof of the first (which consists of a Mega proof plus a\nGoblin proof). The output of the algorithm is equivalent to a that of a\nRollup Honk recursive verifier: a pairing point accumulator plus an IPA\nclaim/proof (stemming from recursive verification of the ECCVM). See the\nclass description for a more detailed description of the algorithm.\n\nCurrently the algorithm is tested in a standalone test only and is not\nyet integrated into ACIR. E.g. at this stage a noir program with a\nverify_proof call of type AVM will still generate a vanilla Ultra\nrecursive verifier.\n\nNote: This work is incomplete in a number of ways, the most significant\nof which I've documented in several sub-issues under this umbrella\n[issue](https://github.com/AztecProtocol/barretenberg/issues/1303).\n\n---------\n\nCo-authored-by: zac-williamson <blorktronics@gmail.com>",
+          "timestamp": "2025-03-31T20:55:34-07:00",
+          "tree_id": "ba496788d37763d9048349c4ee2f6d94fa59923b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/baea4b30a8faec0055366f606799d0d96c4d192c"
+        },
+        "date": 1743482198307,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 27053,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18127,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8862,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10451,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 11001,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
