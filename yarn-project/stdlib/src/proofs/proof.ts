@@ -3,6 +3,8 @@ import { Fr } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
+import { strict as assert } from 'assert';
+
 const EMPTY_PROOF_SIZE = 42;
 
 /**
@@ -17,6 +19,7 @@ export class Proof {
 
   // Honk proofs start with a 4 byte length prefix
   // the proof metadata starts immediately after
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Get rid of if possible.
   private readonly metadataOffset = 4;
 
   constructor(
@@ -62,19 +65,50 @@ export class Proof {
   }
 
   public withoutPublicInputs(): Buffer {
-    return Buffer.concat([this.buffer.subarray(this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs)]);
+    if (this.isEmpty()) {
+      return this.buffer;
+    }
+    // We are indexing to this particular size because we are assuming the proof buffer looks like:
+    // [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, binary proof]
+    const proofStart = this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset;
+    assert(this.buffer.length >= proofStart, 'Proof buffer is not appropriately sized to call withoutPublicInputs()');
+    return this.buffer.subarray(proofStart);
   }
 
+  // This function assumes that the proof will contain an aggregation object and look something like:
+  // [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, aggregation object, rest of proof]
+  // We are extracting the binary public inputs and reading them as Frs, and also extracting the aggregation object.
   public extractPublicInputs(): Fr[] {
+    if (this.isEmpty()) {
+      // return array of this.numPublicInputs 0s
+      return new Array(this.numPublicInputs).fill(Fr.zero());
+    }
+    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
+    const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const reader = BufferReader.asReader(
-      this.buffer.subarray(this.metadataOffset, this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs),
+      this.buffer.subarray(this.metadataOffset, this.metadataOffset + Fr.SIZE_IN_BYTES * numInnerPublicInputs),
     );
-    return reader.readArray(this.numPublicInputs, Fr);
+    let publicInputs = reader.readArray(numInnerPublicInputs, Fr);
+    // concatenate Fr[] with aggregation object
+    publicInputs = publicInputs.concat(this.extractAggregationObject());
+    return publicInputs;
   }
 
   public extractAggregationObject(): Fr[] {
-    const publicInputs = this.extractPublicInputs();
-    return publicInputs.slice(-1 * AGGREGATION_OBJECT_LENGTH);
+    if (this.isEmpty()) {
+      // return array of 16 0s
+      return new Array(16).fill(Fr.zero());
+    }
+    assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
+    const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    // The aggregation object is currently stored after the initial inner public inputs and after the 4 byte proof metadata.
+    const reader = BufferReader.asReader(
+      this.buffer.subarray(
+        this.metadataOffset + Fr.SIZE_IN_BYTES * numInnerPublicInputs + this.metadataOffset,
+        this.metadataOffset + Fr.SIZE_IN_BYTES * this.numPublicInputs + this.metadataOffset,
+      ),
+    );
+    return reader.readArray(AGGREGATION_OBJECT_LENGTH, Fr);
   }
 
   /**

@@ -171,6 +171,10 @@ tests:
     error_regex: "✕ calculates correct gas prices for initial attempt"
     owners:
       - *spyros
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "✕ keeps the jobs in progress while it is alive"
+    owners:
+      - *alex
 
   # boxes
   - regex: "boxes/scripts/run_test.sh"
