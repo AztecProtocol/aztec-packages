@@ -197,7 +197,6 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   echo Installing and starting sysdig...
   sudo apt-get update &>/dev/null
   sudo apt-get install -y sysdig &>/dev/null
-  sudo sysdig -p '%evt.time %proc.cmdline %evt.dir %evt.type %evt.args' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
   sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
   netfile_pid=\$!
   # Capture cpu load.
