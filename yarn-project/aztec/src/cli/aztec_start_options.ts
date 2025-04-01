@@ -63,6 +63,7 @@ export const universalOptions = [
   'p2pEnabled',
   'dataDirectory',
   'dataStoreMapSizeKb',
+  'rollupVersion',
 ];
 
 export const NETWORK_FLAG = 'network';
@@ -75,6 +76,13 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
+    },
+    {
+      flag: '--rollup-version <value>',
+      description: 'Rollup version of the Rollup. (optional, if not set defaults to version from the rollup-address)',
+      envVar: 'ROLLUP_VERSION',
+      defaultValue: 1,
+      parseVal: val => parseInt(val, 10),
     },
   ],
   SANDBOX: [
