@@ -102,6 +102,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    */
   private blockReceivedCallback: (block: BlockProposal) => Promise<BlockAttestation | undefined>;
 
+  private gossipSubEventHandler: (e: CustomEvent<GossipsubMessage>) => void;
+
   constructor(
     private clientType: T,
     private config: P2PConfig,
@@ -138,6 +140,8 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     this.attestationValidator = new AttestationValidator(epochCache);
     this.blockProposalValidator = new BlockProposalValidator(epochCache);
+
+    this.gossipSubEventHandler = this.handleGossipSubEvent.bind(this);
 
     this.blockReceivedCallback = async (block: BlockProposal): Promise<BlockAttestation | undefined> => {
       this.logger.debug(
@@ -329,7 +333,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     };
 
     // add GossipSub listener
-    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
+    this.node.services.pubsub.addEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
 
     // Start running promise for peer discovery
     this.discoveryRunningPromise = new RunningPromise(
@@ -360,7 +364,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    */
   public async stop() {
     // Remove gossip sub listener
-    this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.handleGossipSubEvent.bind(this));
+    this.node.services.pubsub.removeEventListener(GossipSubEvent.MESSAGE, this.gossipSubEventHandler);
 
     // Stop peer manager
     this.logger.debug('Stopping peer manager...');
