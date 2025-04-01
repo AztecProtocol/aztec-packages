@@ -117,9 +117,14 @@ const witness = await wallet.createAuthWit({ caller, action });
 ++await wallet.lookupValidity(wallet.getAddress(), { caller, action }, witness);
 ```
 
+## 0.80.0
+
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
+
+
+## 0.79.0
 
 ### [aztec.js] Changes to `BatchCall` and `BaseContractInteraction`
 
