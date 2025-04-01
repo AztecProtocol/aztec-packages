@@ -34,6 +34,7 @@ describe('aztec node', () => {
   let feePayer: AztecAddress;
 
   const chainId = new Fr(12345);
+  const rollupVersion = new Fr(1);
 
   const mockTxForRollup = async (seed: number) => {
     return await mockTx(seed, {
@@ -117,7 +118,7 @@ describe('aztec node', () => {
       undefined,
       undefined,
       12345,
-      1,
+      rollupVersion.toNumber(),
       globalVariablesBuilder,
       new TestCircuitVerifier(),
     );
@@ -128,6 +129,7 @@ describe('aztec node', () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
       txs.forEach(tx => {
         tx.data.constants.txContext.chainId = chainId;
+        tx.data.constants.txContext.version = rollupVersion;
       });
       const doubleSpendTx = txs[0];
       const doubleSpendWithExistingTx = txs[1];
