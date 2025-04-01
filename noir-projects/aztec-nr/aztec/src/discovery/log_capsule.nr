@@ -5,9 +5,7 @@ use protocol_types::{
     traits::{Deserialize, Serialize},
 };
 
-// Base slot for the log capsule array. This value is copied over to `log_capsule.ts` so if you change this, you need
-// to change it there as well. I did not place the value to `protocol_types/constants.nr` because this log capsules
-// are a temporary solution and putting it to `constants.nr` felt like cluttering it.
+// Base slot for the log capsule array to which the syncNotes oracle inserts found private logs.
 pub(crate) global LOG_CAPSULE_ARRAY_BASE_SLOT: Field =
     sha256_to_field("AZTEC_NR::LOG_CAPSULE_ARRAY_BASE_SLOT".as_bytes());
 
