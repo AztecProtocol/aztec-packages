@@ -112,6 +112,7 @@ export class ClientFlowsBenchmark {
         forWallet: this.getSponsoredFPCPaymentMethodForWallet.bind(this),
         circuits: 2, // Sponsored FPC sponsor_unconditionally + kernel inner
       },
+      // eslint-disable-next-line camelcase
       fee_juice: {
         forWallet: this.getFeeJuicePaymentMethodForWallet.bind(this),
         circuits: 0,
