@@ -266,7 +266,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             !constraint_system.avm_recursion_constraints.empty()) {
             ASSERT(metadata.honk_recursion != 0);
             builder.add_pairing_point_accumulator(current_aggregation_object);
-        } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
+        } else if (metadata.honk_recursion != 0) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             builder.add_pairing_point_accumulator(current_aggregation_object);
