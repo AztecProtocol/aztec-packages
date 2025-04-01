@@ -27,6 +27,7 @@
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/simulation/events/update_check.hpp"
 #include "barretenberg/vm2/simulation/execution.hpp"
 #include "barretenberg/vm2/simulation/execution_components.hpp"
 #include "barretenberg/vm2/simulation/field_gt.hpp"
@@ -39,6 +40,7 @@
 #include "barretenberg/vm2/simulation/siloing.hpp"
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
+#include "barretenberg/vm2/simulation/update_check.hpp"
 
 namespace bb::avm2 {
 
@@ -84,6 +86,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
     typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
     typename S::template DefaultEventEmitter<PublicDataTreeReadEvent> public_data_read_emitter;
+    typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
 
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
@@ -99,6 +102,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
     MerkleDB merkle_db(raw_merkle_db, public_data_tree_check);
+    UpdateCheck update_check(poseidon2, merkle_db, /* TODO */ 27, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
@@ -141,7 +145,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              merkle_check_emitter.dump_events(),
              range_check_emitter.dump_events(),
              context_stack_emitter.dump_events(),
-             public_data_read_emitter.dump_events() };
+             public_data_read_emitter.dump_events(),
+             update_check_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()

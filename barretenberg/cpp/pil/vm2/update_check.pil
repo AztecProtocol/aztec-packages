@@ -1,0 +1,109 @@
+include "poseidon2_hash.pil";
+include "range_check.pil";
+include "public_data_read.pil";
+
+namespace update_check;
+    pol commit sel;
+    sel * (1 - sel) = 0;
+
+    #[skippable_if]
+    sel = 0;
+
+    // Inputs to update check
+    pol commit address;
+    pol commit current_class_id;
+    pol commit original_class_id;
+    pol commit public_data_tree_root;
+    pol commit blocknumber;
+
+
+    // ======== SHARED MUTABLE HASH CONSTRAINING ========
+
+    pol commit update_hash;
+    pol commit update_hash_inv;
+    pol commit hash_not_zero;
+    hash_not_zero * (1 - hash_not_zero) = 0;
+
+    sel * (update_hash * ((1 - hash_not_zero) * (1 - update_hash_inv) + update_hash_inv) - 1 + (1 - hash_not_zero)) = 0;
+
+    pol commit update_delay;
+    pol commit update_pre_class;
+    pol commit update_post_class;
+    pol commit update_block_of_change;
+
+    #[UPDATE_HASH_POSEIDON2_0]
+    hash_not_zero { update_delay, update_pre_class, update_post_class, update_hash }
+    in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[UPDATE_HASH_POSEIDON2_1]
+    hash_not_zero { update_block_of_change, precomputed.zero, precomputed.zero, update_hash}
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    // If update hash is zero, then all of the update values are zero
+    sel * (1 - hash_not_zero) * update_delay = 0;
+    sel * (1 - hash_not_zero) * update_pre_class = 0;
+    sel * (1 - hash_not_zero) * update_post_class = 0;
+    sel * (1 - hash_not_zero) * update_block_of_change = 0;
+
+
+    // ======== SHARED MUTABLE HASH READ ========
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit updated_class_ids_slot;
+    sel * (constants.UPDATED_CLASS_IDS_SLOT - updated_class_ids_slot) = 0;
+
+    pol commit shared_mutable_slot;
+
+    #[SHARED_MUTABLE_SLOT_POSEIDON2]
+    sel { updated_class_ids_slot, address, precomputed.zero, shared_mutable_slot }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    pol commit shared_mutable_hash_slot;
+    sel * (shared_mutable_slot + constants.UPDATES_SHARED_MUTABLE_VALUES_LEN - shared_mutable_hash_slot) = 0;
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit public_leaf_index_domain_separator;
+    sel * (constants.GENERATOR_INDEX__PUBLIC_LEAF_INDEX - public_leaf_index_domain_separator) = 0;
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit deployer_protocol_contract_address;
+    sel * (constants.DEPLOYER_CONTRACT_ADDRESS - deployer_protocol_contract_address) = 0;
+
+    pol commit shared_mutable_leaf_slot;
+
+    #[SHARED_MUTABLE_LEAF_SLOT_POSEIDON2]
+    sel { public_leaf_index_domain_separator, deployer_protocol_contract_address, shared_mutable_hash_slot, shared_mutable_leaf_slot }
+    in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
+
+    #[UPDATE_HASH_PUBLIC_DATA_READ]
+    sel { update_hash, shared_mutable_leaf_slot, public_data_tree_root }
+    in public_data_read.sel { public_data_read.value, public_data_read.slot, public_data_read.root };
+
+    // ======== CLASS ID CHECK ========
+    pol commit blocknumber_is_lt_block_of_change;
+    pol commit block_of_change_subtraction;
+    pol BLOCKNUMBER_LT_BLOCK_OF_CHANGE = update_block_of_change - 1 - blocknumber;
+    pol BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =  blocknumber - update_block_of_change;
+    sel * ((BLOCKNUMBER_LT_BLOCK_OF_CHANGE - BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) * blocknumber_is_lt_block_of_change + BLOCKNUMBER_GTE_BLOCK_OF_CHANGE - block_of_change_subtraction) = 0;
+
+    // TODO: Remove this as a column when we can lookup with constants
+    pol commit blocknumber_bit_size;
+    sel * (32 - blocknumber_bit_size) = 0;
+
+    #[BLOCK_OF_CHANGE_CMP_RANGE]
+    sel { block_of_change_subtraction, blocknumber_bit_size }
+    in range_check.sel { range_check.value, range_check.rng_chk_bits };
+
+    pol commit update_pre_class_is_zero;
+    pol commit update_pre_class_inv;
+    sel * (update_pre_class * (update_pre_class_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_is_zero) = 0;
+
+    pol commit update_post_class_is_zero;
+    pol commit update_post_class_inv;
+    sel * (update_post_class * (update_post_class_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_is_zero) = 0;
+
+    // If update hasn't applied yet, then the class id should be the pre class id || original_class_id
+    blocknumber_is_lt_block_of_change * (original_class_id - update_pre_class) * update_pre_class_is_zero + update_pre_class - current_class_id = 0;
+
+    // Else, the post || original_class_id
+    (1 - blocknumber_is_lt_block_of_change) * (original_class_id - update_post_class) * update_post_class_is_zero + update_post_class - current_class_id = 0;
