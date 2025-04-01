@@ -711,13 +711,9 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
 
-    std::vector<uint32_t> get_used_witnesses() const {
-        return used_witnesses;
-    }
+    std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
 
-    void update_used_witnesses(uint32_t var_idx) {
-        used_witnesses.emplace_back(var_idx);
-    }
+    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
 
     /**x
      * @brief Print the number and composition of gates in the circuit

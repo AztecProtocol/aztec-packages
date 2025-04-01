@@ -576,9 +576,11 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
                     connect_all_variables_in_vector(ultra_circuit_constructor, gate_variables);
                 }
             }
-            auto elliptic_gate_variables = get_elliptic_gate_connected_component(ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
+            auto elliptic_gate_variables = get_elliptic_gate_connected_component(
+                ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
             connect_all_variables_in_vector(ultra_circuit_constructor, elliptic_gate_variables);
-            auto lookup_gate_variables = get_plookup_gate_connected_component(ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
+            auto lookup_gate_variables =
+                get_plookup_gate_connected_component(ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
             connect_all_variables_in_vector(ultra_circuit_constructor, lookup_gate_variables);
             auto poseidon2_gate_variables = get_poseido2s_gate_connected_component(
                 ultra_circuit_constructor, gate_idx, blk_idx, block_data[blk_idx]);
@@ -596,9 +598,8 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
                     connect_all_variables_in_vector(ultra_circuit_constructor, sorted_variables);
                     sorted_variables.clear();
                 } else {
-                    sorted_variables.insert(sorted_variables.end(),
-                                            delta_range_gate_variables.begin(),
-                                            delta_range_gate_variables.end());
+                    sorted_variables.insert(
+                        sorted_variables.end(), delta_range_gate_variables.begin(), delta_range_gate_variables.end());
                 }
             }
         }
@@ -618,7 +619,7 @@ template <typename FF> Graph_<FF>::Graph_(bb::UltraCircuitBuilder& ultra_circuit
         for (const auto& ram_array : ram_arrays) {
             std::vector<uint32_t> variable_indices =
                 this->get_ram_table_connected_component(ultra_circuit_constructor, ram_array);
-            this->connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices, /*is_sorted_variables=*/false);
+            this->connect_all_variables_in_vector(ultra_circuit_constructor, variable_indices);
         }
     }
 }
@@ -648,8 +649,10 @@ bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_c
 }
 
 /**
- * @brief this method adds connection between 2 variables, if they are in one gate, they are not constraint variables,
- * and they have different indexes
+ * @brief this method connects 2 variables if they are in one gate and
+ * 1) have different indices,
+ * 2) not constraint variables,
+ * 3) their indices != 0
  * @tparam FF
  * @param ultra_circuit_builder
  * @param variables_vector
@@ -683,7 +686,6 @@ void Graph_<FF>::connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_
         this->add_new_edge(filtered_variables_vector[i], filtered_variables_vector[i + 1]);
     }
 }
-
 
 /**
  * @brief this method creates an edge between two variables in graph. All needed checks in a function above
@@ -1153,7 +1155,7 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     for (const auto& elem : this->fixed_variables) {
         this->variables_in_one_gate.erase(elem);
     }
-    for (const auto& elem: ultra_circuit_builder.get_used_witnesses()) {
+    for (const auto& elem : ultra_circuit_builder.get_used_witnesses()) {
         this->variables_in_one_gate.erase(elem);
     }
     this->remove_record_witness_variables(ultra_circuit_builder);

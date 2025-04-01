@@ -206,7 +206,7 @@ class CircuitSimulatorBN254 {
     }
     void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
 
-    std::vector<uint32_t> get_used_witnesses() {return used_witnesses;}
+    std::vector<uint32_t> get_used_witnesses() { return used_witnesses; }
     void update_used_witnesses([[maybe_unused]] uint32_t var_idx){};
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;

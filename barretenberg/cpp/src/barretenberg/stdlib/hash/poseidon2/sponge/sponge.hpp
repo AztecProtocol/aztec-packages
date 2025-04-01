@@ -75,7 +75,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
             output[i] = state[i];
         }
         // variables with indices from rate to size of state - 1 won't be used anymore
-        // after permutation. But they aren't dangerous and needed to put in used witnesses  
+        // after permutation. But they aren't dangerous and needed to put in used witnesses
         if constexpr (IsUltraBuilder<Builder>) {
             for (size_t i = rate; i < t; i++) {
                 builder->update_used_witnesses(state[i].witness_index);
@@ -156,7 +156,7 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
         }
-        // the same situation as with the state 
+        // the same situation as with the state
         if constexpr (IsUltraBuilder<Builder>) {
             for (const auto& elem : sponge.cache) {
                 if (elem.witness_index != IS_CONSTANT) {
