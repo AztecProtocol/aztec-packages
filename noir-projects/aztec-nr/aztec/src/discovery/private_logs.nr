@@ -46,19 +46,16 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     let logs = CapsuleArray::<LogCapsule>::at(contract_address, LOG_CAPSULE_ARRAY_BASE_SLOT);
     let len = logs.len();
 
-    for i in 0..len {
+    // We iterate over the logs in reverse order to avoid shifting elements.
+    let mut i = len;
+    while i > 0 {
         let log = logs.get(i);
 
         // Process each log
         process_log(contract_address, compute_note_hash_and_nullifier, log);
-    }
 
-    // TODO: Introduce array.pop() or array.wipe()?
-    // Delete the logs from capsules, starting from the end to avoid shifting elements
-    let mut i = len;
-    while i > 0 {
-        i -= 1;
         logs.remove(i);
+        i -= 1;
     }
 }
 
