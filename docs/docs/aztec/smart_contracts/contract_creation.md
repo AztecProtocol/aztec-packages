@@ -26,6 +26,10 @@ A contract class includes:
 
 A contract class is registered by calling a private `register` function in a canonical `ContractClassRegisterer` contract, which emits a Registration Nullifier. This process guarantees that the public bytecode for a contract class is publicly available, which is required for deploying contract instances.
 
+Contract class registration can be skipped if there are no public functions in the contract class, and the contract will still be usable privately. However, the contract class must be registered if it contains public functions, as these functions need to be publicly verifiable.
+
+If you have a contract with public functions, you must either register the contract class to deploy or a contract, or skip the public deployment step, in which case only the private functions will be callable.
+
 ## Contract Instances
 
 A contract instance is a concrete deployment of a contract class. It always references a contract class, which determines what code it executes when called. A contract instance has both private and public state, as well as an address that serves as its identifier.
