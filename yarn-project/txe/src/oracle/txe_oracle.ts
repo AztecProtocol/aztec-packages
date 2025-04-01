@@ -134,7 +134,7 @@ export class TXE implements TypedOracle {
 
   private committedBlocks = new Set<number>();
 
-  private VERSION = 1;
+  private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
 
   private node: TXENode;
@@ -163,7 +163,7 @@ export class TXE implements TypedOracle {
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
-    this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
+    this.node = new TXENode(this.blockNumber, this.ROLLUP_VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
 

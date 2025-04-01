@@ -778,8 +778,8 @@ export async function getSponsoredFPCAddress() {
  * Deploy a sponsored FPC contract to a running instance.
  */
 export async function setupSponsoredFPC(pxe: PXE) {
-  const { l1ChainId: chainId, protocolVersion } = await pxe.getNodeInfo();
-  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, protocolVersion));
+  const { l1ChainId: chainId, rollupVersion } = await pxe.getNodeInfo();
+  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
 
   // Make the contract pay for the deployment fee itself
   const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
