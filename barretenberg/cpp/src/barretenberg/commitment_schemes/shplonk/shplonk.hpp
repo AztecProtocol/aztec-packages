@@ -44,7 +44,8 @@ template <typename Curve> class ShplonkProver_ {
                                                const Fr& nu,
                                                std::span<Fr> gemini_fold_pos_evaluations,
                                                std::span<const ProverOpeningClaim<Curve>> libra_opening_claims,
-                                               std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims)
+                                               std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims,
+                                               std::span<const ProverOpeningClaim<Curve>> interleaving_claims)
     {
         // Find n, the maximum size of all polynomials fⱼ(X)
         size_t max_poly_size{ 0 };
@@ -63,8 +64,22 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial tmp(max_poly_size);
 
         Fr current_nu = Fr::one();
+        // Const size here
+        for (const auto& claim : libra_opening_claims) {
+            update_batched_quotient(Q, claim, current_nu);
+        }
+
+        // Const size here, only ECCVM
+        for (const auto& claim : sumcheck_round_claims) {
+            update_batched_quotient(Q, claim, current_nu);
+        }
+
+        for (const auto& claim : interleaving_claims) {
+            update_batched_quotient(Q, claim, current_nu);
+        }
 
         size_t fold_idx = 0;
+        // no need for padding
         for (const auto& claim : opening_claims) {
 
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
@@ -78,47 +93,24 @@ template <typename Curve> class ShplonkProver_ {
             }
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            tmp.factor_roots(claim.opening_pair.challenge);
-            // Add the claim quotient to the batched quotient polynomial
-            Q.add_scaled(tmp, current_nu);
-            current_nu *= nu;
-        }
-        // We use the same batching challenge for Gemini and Libra opening claims. The number of the claims
-        // batched before adding Libra commitments and evaluations is bounded by 2 * CONST_PROOF_SIZE_LOG_N + 2, where
-        // 2 * CONST_PROOF_SIZE_LOG_N is the number of fold claims including the dummy ones, and +2 is reserved for
-        // interleaving.
-        if (!libra_opening_claims.empty()) {
-            current_nu = nu.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
+            update_batched_quotient(Q, claim, current_nu)
         }
 
-        for (const auto& claim : libra_opening_claims) {
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            tmp.factor_roots(claim.opening_pair.challenge);
-
-            // Add the claim quotient to the batched quotient polynomial
-            Q.add_scaled(tmp, current_nu);
-            current_nu *= nu;
-        }
-
-        for (const auto& claim : sumcheck_round_claims) {
-
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            tmp.factor_roots(claim.opening_pair.challenge);
-
-            // Add the claim quotient to the batched quotient polynomial
-            Q.add_scaled(tmp, current_nu);
-            current_nu *= nu;
-        }
         // Return batched quotient polynomial Q(X)
         return Q;
     };
 
+    void update_batched_quotient(Polynomial& Q, const Claim& current_claim, Fr& current_nu)
+    {
+        // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
+        tmp = current_claim.polynomial;
+        tmp.at(0) = tmp[0] - current_claim.opening_pair.evaluation;
+        tmp.factor_roots(current_claim.opening_pair.challenge);
+
+        // Add the claim quotient to the batched quotient polynomial
+        Q.add_scaled(tmp, current_nu);
+        current_nu *= nu;
+    }
     /**
      * @brief Compute partially evaluated batched quotient polynomial difference Q(X) - Q_z(X)
      *
@@ -136,8 +128,9 @@ template <typename Curve> class ShplonkProver_ {
         const Fr& nu_challenge,
         const Fr& z_challenge,
         std::span<Fr> gemini_fold_pos_evaluations,
-        std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
-        std::span<const ProverOpeningClaim<Curve>> sumcheck_opening_claims = {})
+        std::span<const ProverOpeningClaim<Curve>> libra_opening_claims,
+        std::span<const ProverOpeningClaim<Curve>> sumcheck_opening_claims,
+        std::span<const ProverOpeningClaim<Curve>> interleaving_claims)
     {
         const size_t num_opening_claims = opening_claims.size();
 
@@ -160,6 +153,10 @@ template <typename Curve> class ShplonkProver_ {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
 
+        for (const auto& claim : interleaving_claims) {
+            inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+        }
+
         Fr::batch_invert(inverse_vanishing_evals);
 
         // G(X) = Q(X) - Q_z(X) = Q(X) - ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ ),
@@ -170,6 +167,18 @@ template <typename Curve> class ShplonkProver_ {
         Fr current_nu = Fr::one();
         Polynomial tmp(G.size());
         size_t idx = 0;
+
+        for (const auto& claim : libra_opening_claims) {
+            update_partially_evaluated_quotient(G, claim, current_nu, inverse_vanishing_evals[idx++]);
+        }
+
+        for (const auto& claim : sumcheck_opening_claims) {
+            update_partially_evaluated_quotient(G, claim, current_nu, inverse_vanishing_evals[idx++]);
+        }
+
+        for (const auto& claim : interleaving_claims) {
+            update_partially_evaluated_quotient(G, claim, current_nu, inverse_vanishing_evals[idx]);
+        }
 
         size_t fold_idx = 0;
         for (const auto& claim : opening_claims) {
@@ -185,47 +194,28 @@ template <typename Curve> class ShplonkProver_ {
                 idx++;
             }
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
-
-            // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-            G.add_scaled(tmp, -scaling_factor);
-
-            current_nu *= nu_challenge;
-            idx++;
+            update_partially_evaluated_quotient(G, claim, current_nu, inverse_vanishing_evals[idx++]);
         }
 
-        // Take into account the constant proof size in Gemini
-        if (!libra_opening_claims.empty()) {
-            current_nu = nu_challenge.pow(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
-        }
-
-        for (const auto& claim : libra_opening_claims) {
-            // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
-
-            // Add the claim quotient to the batched quotient polynomial
-            G.add_scaled(tmp, -scaling_factor);
-            idx++;
-            current_nu *= nu_challenge;
-        }
-
-        for (const auto& claim : sumcheck_opening_claims) {
-            tmp = claim.polynomial;
-            tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
-            Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
-
-            // Add the claim quotient to the batched quotient polynomial
-            G.add_scaled(tmp, -scaling_factor);
-            idx++;
-            current_nu *= nu_challenge;
-        }
         // Return opening pair (z, 0) and polynomial G(X) = Q(X) - Q_z(X)
         return { .polynomial = G, .opening_pair = { .challenge = z_challenge, .evaluation = Fr::zero() } };
     };
+
+    void update_partially_evaluated_quotient(Polynomial& G,
+                                             ProverOpeningClaim<Curve>& current_claim,
+                                             Fr& current_nu,
+                                             Fr& current_inverse_vanishing_eval)
+    {
+        // The polynomial from claim will never be used again, so we can move
+        tmp = std::move(current_claim.polynomial);
+        tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
+        Fr scaling_factor = current_nu * current_inverse_vanishing_eval; // = νʲ / (z − xⱼ )
+
+        // G -= νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
+        G.add_scaled(tmp, -scaling_factor);
+
+        current_nu *= nu_challenge;
+    }
     /**
      * @brief Compute evaluations of fold polynomials Fold_i at r^{2^i} for i>0.
      * TODO(https://github.com/AztecProtocol/barretenberg/issues/1223): Reconsider minor performance/memory
@@ -266,6 +256,7 @@ template <typename Curve> class ShplonkProver_ {
                                            const std::shared_ptr<Transcript>& transcript,
                                            std::span<const ProverOpeningClaim<Curve>> libra_opening_claims = {},
                                            std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims = {},
+                                           std::span<const ProverOpeningClaim<Curve>> interleaving_claims,
                                            const size_t virtual_log_n = 0)
     {
         const Fr nu = transcript->template get_challenge<Fr>("Shplonk:nu");
@@ -278,7 +269,8 @@ template <typename Curve> class ShplonkProver_ {
                                                          nu,
                                                          gemini_fold_pos_evaluations,
                                                          libra_opening_claims,
-                                                         sumcheck_round_claims);
+                                                         sumcheck_round_claims,
+                                                         interleaving_claims);
         auto batched_quotient_commitment = commitment_key->commit(batched_quotient);
         transcript->send_to_verifier("Shplonk:Q", batched_quotient_commitment);
         const Fr z = transcript->template get_challenge<Fr>("Shplonk:z");
@@ -290,7 +282,8 @@ template <typename Curve> class ShplonkProver_ {
                                                             z,
                                                             gemini_fold_pos_evaluations,
                                                             libra_opening_claims,
-                                                            sumcheck_round_claims);
+                                                            sumcheck_round_claims,
+                                                            interleaving_claims);
     }
 };
 

@@ -112,23 +112,30 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
         }
     }
 
-    // If running Gemini for the Translator VM polynomials, A₀(r) = A₀₊(r) + P₊(rˢ) and A₀(-r) = A₀₋(-r) + P₋(rˢ)
-    // where s is the size of the interleaved group assumed even. The prover sends P₊(rˢ) and P₋(rˢ) to the verifier
-    // so it can reconstruct the evaluation of A₀(r) and A₀(-r) respectively
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1282)
-    if (polynomial_batcher.has_interleaved()) {
-        auto [P_pos, P_neg] = polynomial_batcher.compute_partially_evaluated_interleaved_polynomial(r_challenge);
-        Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
-        Fr P_pos_eval = P_pos.evaluate(r_pow);
-        Fr P_neg_eval = P_neg.evaluate(r_pow);
-        claims.emplace_back(Claim{ std::move(P_pos), { r_pow, P_pos_eval } });
-        transcript->send_to_verifier("Gemini:P_pos", P_pos_eval);
-        claims.emplace_back(Claim{ std::move(P_neg), { r_pow, P_neg_eval } });
-        transcript->send_to_verifier("Gemini:P_neg", P_neg_eval);
-    }
-
     return claims;
 };
+
+template <typename Curve>
+std::array<typename GeminiProver_<Curve>::Claim, NUM_INTERLEAVING_CLAIMS> GeminiProver_<
+    Curve>::compute_interleaving_claims(PolynomialBatcher& polynomial_batcher,
+                                        const Fr r_challenge,
+                                        const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
+                                        const std::shared_ptr<Transcript>& transcript, )
+{
+    std::array<Claim, NUM_INTERLEAVING_CLAIMS> interleaving_claims;
+
+    auto [P_pos, P_neg] = polynomial_batcher.compute_partially_evaluated_interleaved_polynomial(r_challenge);
+
+    Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
+    Fr P_pos_eval = P_pos.evaluate(r_pow);
+    Fr P_neg_eval = P_neg.evaluate(r_pow);
+    claims[0] = Claim{ std::move(P_pos), { r_pow, P_pos_eval } };
+    transcript->send_to_verifier("Gemini:P_pos", P_pos_eval);
+    claims[1] = Claim{ std::move(P_neg), { r_pow, P_neg_eval } };
+    transcript->send_to_verifier("Gemini:P_neg", P_neg_eval);
+
+    return interleaving_claims;
+}
 
 /**
  * @brief Computes d-1 fold polynomials Fold_i, i = 1, ..., d-1

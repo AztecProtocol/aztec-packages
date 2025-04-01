@@ -48,7 +48,7 @@ template <typename Curve> class ShpleminiProver_ {
         std::vector<OpeningClaim> libra_opening_claims;
 
         if (has_zk) {
-            const auto gemini_r = opening_claims[0].opening_pair.challenge;
+            const Fr& gemini_r = opening_claims[0].opening_pair.challenge;
             libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
@@ -60,8 +60,21 @@ template <typename Curve> class ShpleminiProver_ {
                 circuit_size, multilinear_challenge, sumcheck_round_univariates, sumcheck_round_evaluations);
         }
 
-        return ShplonkProver::prove(
-            commitment_key, opening_claims, transcript, libra_opening_claims, sumcheck_round_claims, virtual_log_n);
+        // Only used in Translator
+        std::array<OpeningClaim, NUM_INTERLEAVING_CLAIMS> interleaving_claims;
+        if (polynomial_batcher.interleaved) {
+            const Fr& gemini_r = opening_claims[0].opening_pair.challenge;
+            interleaving_claims =
+                GeminiProver::compute_interleaving_claims(polynomial_batcher, gemini_r, commitment_key, transcript);
+        }
+
+        return ShplonkProver::prove(commitment_key,
+                                    opening_claims,
+                                    transcript,
+                                    libra_opening_claims,
+                                    sumcheck_round_claims,
+                                    interleaving_claims,
+                                    virtual_log_n);
     };
 
     /**
