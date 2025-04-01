@@ -6,7 +6,6 @@ import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
-import type { ProverClient } from '@aztec/prover-client';
 import {
   type ProverAgentConfig,
   type ProverBrokerConfig,
