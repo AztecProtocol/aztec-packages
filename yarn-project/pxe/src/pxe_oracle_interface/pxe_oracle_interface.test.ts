@@ -16,7 +16,7 @@ import {
   PublicLog,
   TxScopedL2Log,
 } from '@aztec/stdlib/logs';
-import { TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -450,6 +450,14 @@ describe('PXEOracleInterface', () => {
       await expectLogCapsuleArrayLengthToBe(contractAddress, 0);
     });
   });
+
+  const setSyncedBlockNumber = (blockNumber: number) => {
+    return syncDataProvider.setHeader(
+      BlockHeader.empty({
+        globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
+      }),
+    );
+  };
 
   const expectLogCapsuleArrayLengthToBe = async (contractAddress: AztecAddress, expectedLength: number) => {
     // Capsule array length is stored in the array base slot.
