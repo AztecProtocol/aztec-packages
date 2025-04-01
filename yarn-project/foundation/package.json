@@ -40,7 +40,6 @@
     "./transport": "./dest/transport/index.js",
     "./trees": "./dest/trees/index.js",
     "./wasm": "./dest/wasm/index.js",
-    "./worker": "./dest/worker/index.js",
     "./bigint-buffer": "./dest/bigint-buffer/index.js",
     "./types": "./dest/types/index.js",
     "./schemas": "./dest/schemas/index.js",
