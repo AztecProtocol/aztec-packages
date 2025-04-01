@@ -6,12 +6,12 @@ use dep::protocol_types::{
 
 /// Finds new notes that may have been sent to all registered accounts in PXE in the current contract and makes them
 /// available for later querying via the `get_notes` oracle.
-pub unconstrained fn sync_notes() {
-    sync_notes_oracle();
+pub unconstrained fn sync_notes(log_capsule_array_base_slot: Field) {
+    sync_notes_oracle(log_capsule_array_base_slot);
 }
 
 #[oracle(syncNotes)]
-unconstrained fn sync_notes_oracle() {}
+unconstrained fn sync_notes_oracle(log_capsule_array_base_slot: Field) {}
 
 /// Informs PXE of a note's existence so that it can later be retrieved by the `getNotes` oracle. The note will be
 /// scoped to `contract_address`, meaning other contracts will not be able to access it unless authorized.

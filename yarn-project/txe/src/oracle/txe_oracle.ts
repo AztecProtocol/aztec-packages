@@ -1081,8 +1081,8 @@ export class TXE implements TypedOracle {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async syncNotes() {
-    await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, undefined);
+  async syncNotes(logCapsuleArrayBaseSlot: Fr) {
+    await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, logCapsuleArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
 

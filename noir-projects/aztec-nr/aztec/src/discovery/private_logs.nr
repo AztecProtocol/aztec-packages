@@ -40,7 +40,7 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     // We will eventually perform log discovery via tagging here, but for now we simply call the `syncNotes` oracle.
     //This makes PXE synchronize tags, download logs and store the logs in log capsule array which are then retrieved
     // and processed here.
-    sync_notes();
+    sync_notes(LOG_CAPSULE_ARRAY_BASE_SLOT);
 
     // Get logs from capsules
     let logs = CapsuleArray::<LogCapsule>::at(contract_address, LOG_CAPSULE_ARRAY_BASE_SLOT);

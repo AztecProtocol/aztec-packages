@@ -3,9 +3,6 @@ import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
 
-// Copied over from `log_capsule.nr`
-export const LOG_CAPSULE_ARRAY_BASE_SLOT = new Fr(8240937);
-
 export class LogCapsule {
   constructor(
     public log: Fr[],

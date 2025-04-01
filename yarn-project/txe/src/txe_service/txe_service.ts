@@ -516,8 +516,8 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes() {
-    await this.typedOracle.syncNotes();
+  async syncNotes(logCapsuleArrayBaseSlot: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(fromSingle(logCapsuleArrayBaseSlot));
     return toForeignCallResult([]);
   }
 

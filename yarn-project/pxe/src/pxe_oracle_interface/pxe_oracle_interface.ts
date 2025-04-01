@@ -19,7 +19,6 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
 import {
   IndexedTaggingSecret,
-  LOG_CAPSULE_ARRAY_BASE_SLOT,
   LogCapsule,
   LogWithTxData,
   TxScopedL2Log,
@@ -432,10 +431,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
    * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
    * in CapsuleArray ready for a later retrieval in Aztec.nr
    * @param contractAddress - The address of the contract that the logs are tagged for
+   * @param logCapsuleArrayBaseSlot - The base slot of the log capsule array
    * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
    * synced.
    */
-  public async syncTaggedLogs(contractAddress: AztecAddress, scopes?: AztecAddress[]) {
+  public async syncTaggedLogs(contractAddress: AztecAddress, logCapsuleArrayBaseSlot: Fr, scopes?: AztecAddress[]) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
 
     const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
@@ -500,7 +500,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
             const filteredLogsByBlockNumber = filteredLogsByTag.filter(l => l.blockNumber <= maxBlockNumber);
 
             // We store the logs in capsules (to later be obtained in Noir)
-            await this.#storeLogsCapsules(contractAddress, recipient, filteredLogsByBlockNumber);
+            await this.#storeLogsCapsules(
+              contractAddress,
+              logCapsuleArrayBaseSlot,
+              recipient,
+              filteredLogsByBlockNumber,
+            );
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
@@ -571,7 +576,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  async #storeLogsCapsules(contractAddress: AztecAddress, recipient: AztecAddress, logs: TxScopedL2Log[]) {
+  async #storeLogsCapsules(
+    contractAddress: AztecAddress,
+    capsuleArrayBaseSlot: Fr,
+    recipient: AztecAddress,
+    logs: TxScopedL2Log[],
+  ) {
     // Build all capsules upfront with their tx effects
     const logsCapsules = await Promise.all(
       logs.map(async scopedLog => {
@@ -593,7 +603,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       }),
     );
 
-    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT, logsCapsules);
+    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, logsCapsules);
   }
 
   public async deliverNote(

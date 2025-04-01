@@ -9,13 +9,7 @@ import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
-import {
-  IndexedTaggingSecret,
-  LOG_CAPSULE_ARRAY_BASE_SLOT,
-  PrivateLog,
-  PublicLog,
-  TxScopedL2Log,
-} from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -102,6 +96,7 @@ describe('PXEOracleInterface', () => {
 
   describe('sync tagged logs', () => {
     const NUM_SENDERS = 10;
+
     let senders: { completeAddress: CompleteAddress; ivsk: Fq; secretKey: Fr }[];
 
     async function generateMockLogs(tagIndex: number) {
@@ -153,6 +148,8 @@ describe('PXEOracleInterface', () => {
       });
     }
 
+    const LOG_CAPSULE_ARRAY_BASE_SLOT = Fr.random();
+
     beforeEach(async () => {
       // Set up the address book
       senders = await timesParallel(NUM_SENDERS, async index => {
@@ -172,7 +169,7 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs', async () => {
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // We expect to have all logs intended for the recipient synced (and hence stored in the capsule for later
       // processing), one per sender + 1 with a duplicated tag for the first sender + half of the logs for the second
@@ -269,7 +266,7 @@ describe('PXEOracleInterface', () => {
     it('should sync tagged logs with a sender index offset', async () => {
       const tagIndex = 5;
       await generateMockLogs(tagIndex);
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // We expect to have all logs intended for the recipient, one per sender + 1 with a duplicated tag for the first
       // one + half of the logs for the second index
@@ -314,7 +311,7 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // Even if our index as recipient is higher than what the sender sent, we should be able to find the logs
       // since the window starts at Math.max(0, 2 - window_size) = 0
@@ -353,7 +350,7 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // Only half of the logs should be synced since we start from index 1 = (11 - window_size), the other half should
       // be skipped
@@ -386,7 +383,7 @@ describe('PXEOracleInterface', () => {
         recipient.address,
       );
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // No logs should be synced (and hence no capsules stored) since we start from index 2 = 12 - window_size
       await expectLogCapsuleArrayLengthToBe(contractAddress, 0);
@@ -400,7 +397,7 @@ describe('PXEOracleInterface', () => {
       // Wipe the database
       await taggingDataProvider.resetNoteSyncData();
 
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
@@ -422,7 +419,7 @@ describe('PXEOracleInterface', () => {
 
       const tagIndex = 0;
       await generateMockLogs(tagIndex);
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // Only NUM_SENDERS + 1 logs should be synched, since the rest have blockNumber > 1
       await expectLogCapsuleArrayLengthToBe(contractAddress, NUM_SENDERS + 1);
@@ -444,11 +441,24 @@ describe('PXEOracleInterface', () => {
       aztecNode.getLogsByTags.mockImplementation(tags => {
         return Promise.resolve(tags.map(tag => logs[tag.toString()] ?? []));
       });
-      await pxeOracleInterface.syncTaggedLogs(contractAddress);
+      await pxeOracleInterface.syncTaggedLogs(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
 
       // We expect the above log to be discarded, and so none to be synced
       await expectLogCapsuleArrayLengthToBe(contractAddress, 0);
     });
+
+    const expectLogCapsuleArrayLengthToBe = async (contractAddress: AztecAddress, expectedLength: number) => {
+      // Capsule array length is stored in the array base slot.
+      const capsule = await capsuleDataProvider.loadCapsule(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
+      if (expectedLength === 0 && capsule === null) {
+        // If expected length is 0 we are fine with the capsule not existing since the array might not have been
+        // initialized yet.
+        return;
+      }
+      expect(capsule).toBeDefined();
+      expect(capsule!.length).toBe(1);
+      expect(capsule![0].toNumber()).toBe(expectedLength);
+    };
   });
 
   const setSyncedBlockNumber = (blockNumber: number) => {
@@ -457,18 +467,5 @@ describe('PXEOracleInterface', () => {
         globalVariables: GlobalVariables.empty({ blockNumber: new Fr(blockNumber) }),
       }),
     );
-  };
-
-  const expectLogCapsuleArrayLengthToBe = async (contractAddress: AztecAddress, expectedLength: number) => {
-    // Capsule array length is stored in the array base slot.
-    const capsule = await capsuleDataProvider.loadCapsule(contractAddress, LOG_CAPSULE_ARRAY_BASE_SLOT);
-    if (expectedLength === 0 && capsule === null) {
-      // If expected length is 0 we are fine with the capsule not existing since the array might not have been
-      // initialized yet.
-      return;
-    }
-    expect(capsule).toBeDefined();
-    expect(capsule!.length).toBe(1);
-    expect(capsule![0].toNumber()).toBe(expectedLength);
   };
 });

@@ -229,11 +229,12 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
    * in CapsuleArray ready for a later retrieval in Aztec.nr
    * @param contractAddress - The address of the contract that the logs are tagged for
+   * @param logCapsuleArrayBaseSlot - The base slot of the log capsule array
    * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
    * synced.
    * @returns A map of recipient addresses to a list of encrypted logs.
    */
-  syncTaggedLogs(contractAddress: AztecAddress, scopes?: AztecAddress[]): Promise<void>;
+  syncTaggedLogs(contractAddress: AztecAddress, logCapsuleArrayBaseSlot: Fr, scopes?: AztecAddress[]): Promise<void>;
 
   /**
    * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
