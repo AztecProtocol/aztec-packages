@@ -4,6 +4,7 @@ import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
+import { trySnapshotSync } from '@aztec/node-lib/actions';
 import { createProverClient } from '@aztec/prover-client';
 import { createAndStartProvingBroker } from '@aztec/prover-client/broker';
 import type { ProverCoordination, ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
@@ -11,7 +12,7 @@ import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
-import type { ProverNodeConfig } from './config.js';
+import { type ProverNodeConfig, resolveConfig } from './config.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
 import { createProverCoordination } from './prover-coordination/factory.js';
 import { ProverNodePublisher } from './prover-node-publisher.js';
@@ -19,7 +20,7 @@ import { ProverNode, type ProverNodeOptions } from './prover-node.js';
 
 /** Creates a new prover node given a config. */
 export async function createProverNode(
-  config: ProverNodeConfig & DataStoreConfig,
+  userConfig: ProverNodeConfig & DataStoreConfig,
   deps: {
     telemetry?: TelemetryClient;
     log?: Logger;
@@ -34,9 +35,13 @@ export async function createProverNode(
     prefilledPublicData?: PublicDataTreeLeaf[];
   } = {},
 ) {
+  const config = resolveConfig(userConfig);
   const telemetry = deps.telemetry ?? getTelemetryClient();
   const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
   const log = deps.log ?? createLogger('prover-node');
+
+  await trySnapshotSync(config, log);
+
   const archiver = deps.archiver ?? (await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry));
   log.verbose(`Created archiver and synced to block ${await archiver.getBlockNumber()}`);
 

@@ -16,6 +16,7 @@ import type { ProofStore } from './proof_store.js';
 
 const INPUTS_PATH = 'inputs';
 
+// REFACTOR(#13067): Use the stdlib/file-store instead of referencing google-cloud-storage directly.
 export class GoogleCloudStorageProofStore implements ProofStore {
   private readonly storage: Storage;
 

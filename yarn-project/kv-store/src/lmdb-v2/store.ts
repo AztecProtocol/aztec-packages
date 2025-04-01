@@ -3,7 +3,7 @@ import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
-import { rm } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize } from '../interfaces/common.js';
@@ -82,6 +82,11 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return db;
   }
 
+  public async backupTo(dstPath: string, compact = true) {
+    await mkdir(dstPath, { recursive: true });
+    await this.channel.sendMessage(LMDBMessageType.COPY_STORE, { dstPath, compact });
+  }
+
   public getReadTx(): ReadTransaction {
     if (!this.open) {
       throw new Error('Store is closed');
@@ -153,10 +158,6 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   clear(): Promise<void> {
     return Promise.resolve();
-  }
-
-  fork(): Promise<AztecAsyncKVStore> {
-    throw new Error('Not implemented');
   }
 
   async delete(): Promise<void> {

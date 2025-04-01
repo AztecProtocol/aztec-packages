@@ -27,6 +27,7 @@ contract ConstructorTest is StakingAssetHandlerBase {
     uint256 _depositsPerMint,
     address[] memory _canAddValidator
   ) external {
+    vm.assume(_owner != address(0));
     _depositsPerMint = bound(_depositsPerMint, 1, 1000);
     // it sets the owner
     // it sets the staking asset

@@ -125,7 +125,7 @@ export function LogPanel() {
           </StyledBox>
           <StyledBox sx={{ px: 0.5, height: '100%', overflow: 'auto' }}>
             {logs.map((log, index) => (
-              <div key={`${log.timestamp}-${log.message}`} css={logContainer}>
+              <div key={log.id} css={logContainer}>
                 <div css={logPrefix}>
                   <Typography variant="subtitle2">{log.prefix}:&nbsp;</Typography>
                 </div>

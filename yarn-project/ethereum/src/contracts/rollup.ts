@@ -140,6 +140,11 @@ export class RollupContract {
     return this.rollup.read.getManaLimit();
   }
 
+  @memoize
+  getVersion() {
+    return this.rollup.read.getVersion();
+  }
+
   getSlasher() {
     return this.rollup.read.getSlasher();
   }
@@ -218,6 +223,17 @@ export class RollupContract {
     return result;
   }
 
+  async getEpochCommittee(epoch: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getEpochCommittee',
+      args: [epoch],
+    });
+
+    return result;
+  }
+
   getBlock(blockNumber: bigint) {
     return this.rollup.read.getBlock([blockNumber]);
   }
@@ -263,6 +279,10 @@ export class RollupContract {
       stakingAssetAddress,
       rewardDistributorAddress,
     };
+  }
+
+  public async getFeeJuicePortal() {
+    return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
   }
 
   public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
@@ -349,10 +369,6 @@ export class RollupContract {
     return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
   }
 
-  getVersion() {
-    return this.rollup.read.getVersion();
-  }
-
   getSlotAt(timestamp: bigint) {
     return this.rollup.read.getSlotAt([timestamp]);
   }
@@ -389,10 +405,6 @@ export class RollupContract {
 
   getAttesters() {
     return this.rollup.read.getAttesters();
-  }
-
-  getEpochCommittee(epoch: bigint) {
-    return this.rollup.read.getEpochCommittee([epoch]);
   }
 
   getInfo(address: Hex | EthAddress) {

@@ -70,6 +70,9 @@ abstract class ExternalCall extends Instruction {
     // Track the success status directly
     context.machineState.nestedCallSuccess = success;
 
+    // Account for all instructions executed in the nested call
+    context.machineState.instrCounter += nestedCallResults.totalInstructions;
+
     // If the nested call reverted, we try to save the reason and the revert data.
     // This will be used by the caller to try to reconstruct the call stack.
     // This is only a heuristic and may not always work. It is intended to work

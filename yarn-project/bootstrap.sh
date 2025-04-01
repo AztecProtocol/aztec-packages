@@ -105,10 +105,12 @@ function test_cmds {
     if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
       echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+    elif [[ "$test" == p2p/src/client/p2p_client.test.ts ]]; then
+      # Add debug logging for tests that require a bit more info
+      echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
     else
       echo "$hash ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     fi
-
   done
 
   # Enable real proofs in prover-client integration tests only on CI full
@@ -128,7 +130,8 @@ function test_cmds {
   # prover-node|p2p|ethereum|aztec: Isolated using docker above.
   for test in !(end-to-end|kv-store|prover-node|p2p|ethereum|aztec|noir-bb-bench)/src/**/*.test.ts; do
     [[ "$test" == prover-client/src/test/* ]] && continue
-    echo $hash yarn-project/scripts/run_test.sh $test
+    # Enable debug logging for a subset of unit tests that are causing trouble.
+    echo "$hash yarn-project/scripts/run_test.sh $test"
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.

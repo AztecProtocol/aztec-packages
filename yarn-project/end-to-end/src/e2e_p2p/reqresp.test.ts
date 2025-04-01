@@ -32,6 +32,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
       },
     });
     await t.setupAccount();

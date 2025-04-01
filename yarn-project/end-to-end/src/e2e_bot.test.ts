@@ -12,7 +12,9 @@ describe('e2e_bot', () => {
 
   beforeAll(async () => {
     const initialFundedAccounts = await getInitialTestAccounts();
-    ({ teardown, pxe } = await setup(1, { initialFundedAccounts }));
+    ({ teardown, pxe } = await setup(1, {
+      initialFundedAccounts,
+    }));
   });
 
   afterAll(() => teardown());
@@ -85,7 +87,7 @@ describe('e2e_bot', () => {
 
     it('swaps tokens from the bot', async () => {
       const balancesBefore = await bot.getBalances();
-      await expect(bot.run()).resolves.toBeUndefined();
+      await expect(bot.run()).resolves.toBeDefined();
       const balancesAfter = await bot.getBalances();
       expect(balancesAfter.senderPrivate.token0).toBeLessThan(balancesBefore.senderPrivate.token0);
       expect(balancesAfter.senderPrivate.token1).toBeGreaterThan(balancesBefore.senderPrivate.token1);

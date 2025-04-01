@@ -12,10 +12,7 @@ pub struct CapsuleArray<T> {
     base_slot: Field,
 }
 
-impl<T, let N: u32> CapsuleArray<T>
-where
-    T: Serialize<N> + Deserialize<N>,
-{
+impl<T> CapsuleArray<T> {
     /// Returns a CapsuleArray connected to a contract's capsules at a base slot. Array elements are stored in
     /// contiguous slots following the base slot, so there should be sufficient space between array base slots to
     /// accommodate elements. A reasonable strategy is to make the base slot a hash of a unique value.
@@ -30,7 +27,10 @@ where
     }
 
     /// Stores a value at the end of the array.
-    pub unconstrained fn push(self, value: T) {
+    pub unconstrained fn push<let N: u32>(self, value: T)
+    where
+        T: Serialize<N>,
+    {
         let current_length = self.len();
 
         // The slot corresponding to the index `current_length` is the first slot immediately after the end of the
@@ -43,7 +43,10 @@ where
     }
 
     /// Retrieves the value stored in the array at `index`. Throws if the index is out of bounds.
-    pub unconstrained fn get(self, index: u32) -> T {
+    pub unconstrained fn get<let N: u32>(self, index: u32) -> T
+    where
+        T: Deserialize<N>,
+    {
         assert(index < self.len(), "Attempted to read past the length of a CapsuleArray");
 
         capsules::load(self.contract_address, self.slot_at(index)).unwrap()

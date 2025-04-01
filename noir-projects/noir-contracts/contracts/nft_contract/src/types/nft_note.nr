@@ -1,6 +1,8 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    encrypted_logs::log_assembly_strategies::default_aes128,
+    encrypted_logs::{
+        log_assembly_strategies::default_aes128, log_type::PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID,
+    },
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     note::note_interface::{NoteHash, NoteType},
@@ -113,7 +115,7 @@ impl NFTNote {
     /// Each partial note should only be used once, since otherwise multiple notes would be linked together and known to
     /// belong to the same owner.
     ///
-    /// As part of the partial note cration process, a log will be sent to `recipient` from `sender` so that they can
+    /// As part of the partial note creation process, a log will be sent to `recipient` from `sender` so that they can
     /// discover the note. `recipient` will typically be the same as `owner`.
     pub fn partial(
         owner: AztecAddress,
@@ -144,12 +146,7 @@ impl NFTNote {
             public_log_tag: commitment,
         };
 
-        // TODO: we're abusing the note encoding scheme by computing the log for a fake note type with such a note type
-        // id that the recipient will realize that these are the private fields of a partial note. Ideally we'd not rely
-        // on this crude mechanism and we'd instead compute it as a proper event log. However, given the current state
-        // of the log library it's far easier to do it this way.
-        let encrypted_log = default_aes128::note::compute_log(
-            *context,
+        let encrypted_log = default_aes128::note::compute_partial_note_log(
             private_log_content,
             storage_slot,
             recipient,
@@ -194,15 +191,13 @@ struct PrivateNFTPartialNotePrivateLogContent {
 
 impl NoteType for PrivateNFTPartialNotePrivateLogContent {
     fn get_id() -> Field {
-        // We abuse the fact that note type ids are 7 bits long to use the 8th bit indicate the log corresponds to a
-        // partial note. Ideally we'd use proper events with selectors, but those are not handled well at the moment.
-        NFTNote::get_id() + 128
+        NFTNote::get_id()
     }
 }
 
 /// A partial instance of a NFTNote. This value represents a private commitment to the owner, randomness and storage
 /// slot, but the token id field has not yet been set. A partial note can be completed in public with the `complete`
-/// function (revealing the tolken id to the public), resulting in a NFTNote that can be used like any other one (except
+/// function (revealing the token id to the public), resulting in a NFTNote that can be used like any other one (except
 /// of course that its token id is known).
 #[derive(Packable, Serialize, Deserialize)]
 pub struct PartialNFTNote {
@@ -312,7 +307,7 @@ mod test {
             partial_note.compute_note_completion_log(token_id)[0],
         );
 
-        // Then we exctract all fields except the first of both logs (i.e. the public log tag), and combine them to
+        // Then we extract all fields except the first of both logs (i.e. the public log tag), and combine them to
         // produce the note's packed representation. This requires that the members of the intermediate structs are in
         // the same order as in NFTNote.
         let private_log_without_public_tag: [_; 2] = subarray(private_log_content.pack(), 1);
