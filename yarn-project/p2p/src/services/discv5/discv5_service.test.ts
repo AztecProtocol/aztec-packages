@@ -41,7 +41,7 @@ describe('Discv5Service', () => {
   const baseConfig: BootnodeConfig = {
     p2pIp: '127.0.0.1',
     p2pPort: basePort + 100,
-    listenAddress: '0.0.0.0',
+    listenAddress: '127.0.0.1',
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],

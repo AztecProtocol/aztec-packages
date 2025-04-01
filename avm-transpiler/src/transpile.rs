@@ -322,6 +322,48 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     destination.to_usize() as u32,
                 ));
             }
+            BrilligOpcode::ConditionalMov { destination, source_a, source_b, condition } => {
+                // Move source_a to destination, if condition is true jump to the next brillig opcode, else move source_b to destination
+                avm_instrs.push(generate_mov_instruction(
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_a)
+                            .direct_operand(destination)
+                            .build(),
+                    ),
+                    source_a.to_usize() as u32,
+                    destination.to_usize() as u32,
+                ));
+
+                unresolved_jumps.insert(
+                    UnresolvedPCLocation {
+                        instruction_index: avm_instrs.len(),
+                        immediate_index: 0,
+                    },
+                    Label::BrilligPC { pc: brillig_pcs_to_avm_pcs.len() as u32 }, // We want to jump to the next brillig opcode
+                );
+
+                avm_instrs.push(AvmInstruction {
+                    opcode: AvmOpcode::JUMPI_32,
+                    indirect: Some(
+                        AddressingModeBuilder::default().direct_operand(condition).build(),
+                    ),
+                    operands: vec![make_operand(16, &condition.to_usize())],
+                    immediates: vec![make_unresolved_pc()],
+                    ..Default::default()
+                });
+
+                avm_instrs.push(generate_mov_instruction(
+                    Some(
+                        AddressingModeBuilder::default()
+                            .direct_operand(source_b)
+                            .direct_operand(destination)
+                            .build(),
+                    ),
+                    source_b.to_usize() as u32,
+                    destination.to_usize() as u32,
+                ));
+            }
             BrilligOpcode::Load { destination, source_pointer } => {
                 avm_instrs.push(generate_mov_instruction(
                     Some(

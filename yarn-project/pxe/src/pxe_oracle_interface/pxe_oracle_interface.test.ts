@@ -1,6 +1,5 @@
 import { PUBLIC_LOG_DATA_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { poseidon2Hash } from '@aztec/foundation/crypto';
 import { Fq, Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { KeyStore } from '@aztec/key-store';
@@ -11,7 +10,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
-import { computeAddress, computeTaggingSecretPoint, deriveKeys } from '@aztec/stdlib/keys';
+import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { randomContractArtifact, randomContractInstanceWithAddress } from '@aztec/stdlib/testing';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -23,6 +22,7 @@ import { AddressDataProvider } from '../storage/address_data_provider/address_da
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { PXEOracleInterface } from './pxe_oracle_interface.js';
@@ -36,16 +36,16 @@ async function computeSiloedTagForIndex(
   contractAddress: AztecAddress,
   index: number,
 ) {
-  const secretPoint = await computeTaggingSecretPoint(sender.completeAddress, sender.ivsk, recipient);
-  const appSecret = await poseidon2Hash([secretPoint.x, secretPoint.y, contractAddress]);
-  const tag = await poseidon2Hash([appSecret, recipient, index]);
-  return poseidon2Hash([contractAddress, tag]);
+  const appSecret = await computeAppTaggingSecret(sender.completeAddress, sender.ivsk, recipient, contractAddress);
+  const indexedTaggingSecret = new IndexedTaggingSecret(appSecret, index);
+  return indexedTaggingSecret.computeSiloedTag(recipient, contractAddress);
 }
 
 describe('PXEOracleInterface', () => {
   let aztecNode: MockProxy<AztecNode>;
 
   let addressDataProvider: AddressDataProvider;
+  let privateEventDataProvider: PrivateEventDataProvider;
   let contractDataProvider: ContractDataProvider;
   let noteDataProvider: NoteDataProvider;
   let syncDataProvider: SyncDataProvider;
@@ -66,6 +66,7 @@ describe('PXEOracleInterface', () => {
     jest.spyOn(contractDataProvider, 'getDebugContractName').mockImplementation(() => Promise.resolve('TestContract'));
 
     addressDataProvider = new AddressDataProvider(store);
+    privateEventDataProvider = new PrivateEventDataProvider(store);
     noteDataProvider = await NoteDataProvider.create(store);
     syncDataProvider = new SyncDataProvider(store);
     taggingDataProvider = new TaggingDataProvider(store);
@@ -82,6 +83,7 @@ describe('PXEOracleInterface', () => {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
     ); // Set up contract address
     contractAddress = await AztecAddress.random();
     // Set up recipient account
@@ -101,7 +103,7 @@ describe('PXEOracleInterface', () => {
       for (const sender of senders) {
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex);
         const blockNumber = 1;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS
@@ -110,7 +112,7 @@ describe('PXEOracleInterface', () => {
       // Compute the tag as sender (knowledge of preaddress and ivsk)
       const firstSender = senders[0];
       const tag = await computeSiloedTagForIndex(firstSender, recipient.address, contractAddress, tagIndex);
-      const log = new TxScopedL2Log(TxHash.random(), 1, 0, PrivateLog.random(tag));
+      const log = new TxScopedL2Log(TxHash.random(), 1, 0, 0, PrivateLog.random(tag));
       logs[tag.toString()].push(log);
       // Accumulated logs intended for recipient: NUM_SENDERS + 1
 
@@ -120,7 +122,7 @@ describe('PXEOracleInterface', () => {
         const sender = senders[i];
         const tag = await computeSiloedTagForIndex(sender, recipient.address, contractAddress, tagIndex + 1);
         const blockNumber = 2;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -133,7 +135,7 @@ describe('PXEOracleInterface', () => {
         const randomRecipient = await computeAddress(keys.publicKeys, partialAddress);
         const tag = await computeSiloedTagForIndex(sender, randomRecipient, contractAddress, tagIndex);
         const blockNumber = 3;
-        const log = new TxScopedL2Log(TxHash.random(), 0, blockNumber, PrivateLog.random(tag));
+        const log = new TxScopedL2Log(TxHash.random(), 0, 0, blockNumber, PrivateLog.random(tag));
         logs[tag.toString()] = [log];
       }
       // Accumulated logs intended for recipient: NUM_SENDERS + 1 + NUM_SENDERS / 2
@@ -171,20 +173,15 @@ describe('PXEOracleInterface', () => {
 
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
       // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
@@ -205,19 +202,25 @@ describe('PXEOracleInterface', () => {
 
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
+      // An array of direction-less secrets for each sender-recipient pair
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
-      const indexesAsSender = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSender).toStrictEqual([0, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+      // We only get the tagging secret at index `index` for each sender because each sender only needs to track
+      // their own tagging secret with the recipient. The secrets array contains all sender-recipient pairs, so
+      // secrets[index] corresponds to the tagging secret between sender[index] and the recipient.
+      const getTaggingSecretsIndexesAsSenderForSenders = () =>
+        Promise.all(
+          senders.map((sender, index) =>
+            taggingDataProvider.getTaggingSecretsIndexesAsSender([secrets[index]], sender.completeAddress.address),
+          ),
+        );
+
+      const indexesAsSender = await getTaggingSecretsIndexesAsSenderForSenders();
+      expect(indexesAsSender).toStrictEqual([[0], [0], [0], [0], [0], [0], [0], [0], [0], [0]]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(0);
 
@@ -229,8 +232,8 @@ describe('PXEOracleInterface', () => {
         );
       }
 
-      let indexesAsSenderAfterSync = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSenderAfterSync).toStrictEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
+      let indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
+      expect(indexesAsSenderAfterSync).toStrictEqual([[1], [1], [1], [1], [1], [2], [2], [2], [2], [2]]);
 
       // Only 1 window is obtained for each sender
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS);
@@ -248,8 +251,8 @@ describe('PXEOracleInterface', () => {
         );
       }
 
-      indexesAsSenderAfterSync = await taggingDataProvider.getTaggingSecretsIndexesAsSender(secrets);
-      expect(indexesAsSenderAfterSync).toStrictEqual([12, 12, 12, 12, 12, 13, 13, 13, 13, 13]);
+      indexesAsSenderAfterSync = await getTaggingSecretsIndexesAsSenderForSenders();
+      expect(indexesAsSenderAfterSync).toStrictEqual([[12], [12], [12], [12], [12], [13], [13], [13], [13], [13]]);
 
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(NUM_SENDERS * 2);
     });
@@ -264,20 +267,15 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to ensure indexes are updated
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 6 = offset + 1
       // Last 5 senders should have index 7 = offset + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([6, 6, 6, 6, 6, 7, 7, 7, 7, 7]);
@@ -294,19 +292,15 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // Increase our indexes to 2
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         secrets.map(secret => new IndexedTaggingSecret(secret, 2)),
+        recipient.address,
       );
 
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -318,7 +312,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 2 since they were built using the same tag
       // Next 4 senders should also have index 2 = tagIndex + 1
       // Last 5 senders should have index 3 = tagIndex + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([2, 2, 2, 2, 2, 3, 3, 3, 3, 3]);
@@ -335,20 +329,17 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       // We set the indexes to WINDOW_HALF_SIZE + 1 so that it's outside the window and for this reason no updates
       // should be triggered.
+      const index = WINDOW_HALF_SIZE + 1;
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
-        secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 1)),
+        secrets.map(secret => new IndexedTaggingSecret(secret, index)),
+        recipient.address,
       );
 
       const syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -357,10 +348,10 @@ describe('PXEOracleInterface', () => {
       expect(syncedLogs.get(recipient.address.toString())).toHaveLength(NUM_SENDERS / 2);
 
       // Indexes should remain where we set them (window_size + 1)
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
-      expect(indexes).toEqual([11, 11, 11, 11, 11, 11, 11, 11, 11, 11]);
+      expect(indexes).toEqual([index, index, index, index, index, index, index, index, index, index]);
 
       // We should have called the node once and that is only for the first window
       expect(aztecNode.getLogsByTags.mock.calls.length).toBe(1);
@@ -373,18 +364,14 @@ describe('PXEOracleInterface', () => {
       // Recompute the secrets (as recipient) to update indexes
       const ivsk = await keyStore.getMasterIncomingViewingSecretKey(recipient.address);
       const secrets = await Promise.all(
-        senders.map(async sender => {
-          const firstSenderSecretPoint = await computeTaggingSecretPoint(
-            recipient,
-            ivsk,
-            sender.completeAddress.address,
-          );
-          return poseidon2Hash([firstSenderSecretPoint.x, firstSenderSecretPoint.y, contractAddress]);
-        }),
+        senders.map(sender =>
+          computeAppTaggingSecret(recipient, ivsk, sender.completeAddress.address, contractAddress),
+        ),
       );
 
       await taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         secrets.map(secret => new IndexedTaggingSecret(secret, WINDOW_HALF_SIZE + 2)),
+        recipient.address,
       );
 
       let syncedLogs = await pxeOracleInterface.syncTaggedLogs(contractAddress, 3);
@@ -405,7 +392,7 @@ describe('PXEOracleInterface', () => {
       // First sender should have 2 logs, but keep index 1 since they were built using the same tag
       // Next 4 senders should also have index 1 = offset + 1
       // Last 5 senders should have index 2 = offset + 2
-      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets);
+      const indexes = await taggingDataProvider.getTaggingSecretsIndexesAsRecipient(secrets, recipient.address);
 
       expect(indexes).toHaveLength(NUM_SENDERS);
       expect(indexes).toEqual([1, 1, 1, 1, 1, 2, 2, 2, 2, 2]);
@@ -434,7 +421,7 @@ describe('PXEOracleInterface', () => {
         typeof PUBLIC_LOG_DATA_SIZE_IN_FIELDS
       >;
       const log = new PublicLog(await AztecAddress.random(), logContent);
-      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, log);
+      const scopedLog = new TxScopedL2Log(TxHash.random(), 1, 0, 0, log);
 
       logs[tag.toString()] = [scopedLog];
       aztecNode.getLogsByTags.mockImplementation(tags => {
@@ -480,20 +467,25 @@ describe('PXEOracleInterface', () => {
       simulator.runUnconstrained.mockImplementation(() => Promise.resolve({}));
 
       runUnconstrainedSpy = jest.spyOn(simulator, 'runUnconstrained');
-
-      aztecNode.getTxEffect.mockResolvedValue(randomInBlock(await TxEffect.random()));
     });
 
     function mockTaggedLogs(numLogs: number) {
       return Array(numLogs)
         .fill(0)
-        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, PrivateLog.random(Fr.random())));
+        .map(() => new TxScopedL2Log(TxHash.random(), 0, 0, 0, PrivateLog.random(Fr.random())));
     }
 
     it('should call processLog on multiple logs', async () => {
       const numLogs = 3;
 
       const taggedLogs = mockTaggedLogs(numLogs);
+
+      // Mock getTxEffect to return a TxEffect containing the private logs
+      aztecNode.getTxEffect.mockImplementation(async () => {
+        const txEffect = await TxEffect.random();
+        txEffect.privateLogs = taggedLogs.map(log => log.log as PrivateLog);
+        return randomInBlock(txEffect);
+      });
 
       await pxeOracleInterface.processTaggedLogs(contractAddress, taggedLogs, recipient.address, simulator);
 

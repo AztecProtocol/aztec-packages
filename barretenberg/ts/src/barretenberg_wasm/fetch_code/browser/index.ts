@@ -16,6 +16,7 @@ export async function fetchCode(multithreaded: boolean, wasmPath?: string) {
       : (await import(/* webpackIgnore: true */ './barretenberg.js')).default;
   }
   const res = await fetch(url);
+  // Default bb wasm is compressed, but user could point it to a non-compressed version
   const maybeCompressedData = await res.arrayBuffer();
   const buffer = new Uint8Array(maybeCompressedData);
   const isGzip =
