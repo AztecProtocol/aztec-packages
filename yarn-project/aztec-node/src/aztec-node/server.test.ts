@@ -166,6 +166,7 @@ describe('aztec node', () => {
     it('tests that the node correctly validates chain id', async () => {
       const tx = await mockTxForRollup(0x10000);
       tx.data.constants.txContext.chainId = chainId;
+      tx.data.constants.txContext.version = rollupVersion;
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
@@ -175,10 +176,24 @@ describe('aztec node', () => {
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect chain id'] });
     });
 
+    it('tests that the node correctly validates rollup version', async () => {
+      const tx = await mockTxForRollup(0x10000);
+      tx.data.constants.txContext.chainId = chainId;
+      tx.data.constants.txContext.version = rollupVersion;
+
+      expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
+
+      // We make the chain id on the tx not equal to the configured chain id
+      tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
+
+      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect rollup version'] });
+    });
+
     it('tests that the node correctly validates max block numbers', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
       txs.forEach(tx => {
         tx.data.constants.txContext.chainId = chainId;
+        tx.data.constants.txContext.version = rollupVersion;
       });
 
       const noMaxBlockNumberMetadata = txs[0];
