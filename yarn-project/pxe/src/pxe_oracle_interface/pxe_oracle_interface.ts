@@ -293,7 +293,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     await this.syncTaggedLogsAsSender(contractAddress, sender, recipient);
 
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret], sender);
 
     return new IndexedTaggingSecret(appTaggingSecret, index);
   }
@@ -319,8 +319,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       contractAddress,
     });
 
-    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([secret]);
-    await this.taggingDataProvider.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
+    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([secret], sender);
+    await this.taggingDataProvider.setTaggingSecretsIndexesAsSender(
+      [new IndexedTaggingSecret(secret, index + 1)],
+      sender,
+    );
   }
 
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
@@ -356,7 +359,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         computeAppTaggingSecret(recipientCompleteAddress, recipientIvsk, contact, contractAddress),
       ),
     );
-    const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
+    const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets, recipient);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
@@ -373,7 +376,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     recipient: AztecAddress,
   ): Promise<void> {
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const [oldIndex] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [oldIndex] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret], sender);
 
     // This algorithm works such that:
     // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
@@ -411,9 +414,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     if (currentIndex !== oldIndex) {
-      await this.taggingDataProvider.setTaggingSecretsIndexesAsSender([
-        new IndexedTaggingSecret(appTaggingSecret, currentIndex),
-      ]);
+      await this.taggingDataProvider.setTaggingSecretsIndexesAsSender(
+        [new IndexedTaggingSecret(appTaggingSecret, currentIndex)],
+        sender,
+      );
 
       this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
         sender,
@@ -576,6 +580,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         Object.entries(newLargestIndexMapToStore).map(
           ([appTaggingSecret, index]) => new IndexedTaggingSecret(Fr.fromHexString(appTaggingSecret), index),
         ),
+        recipient,
       );
     }
     return logsMap;
