@@ -39,9 +39,8 @@ NUM_PUBLIC_INPUTS=$((PROOF_FIELDS_LENGTH - UH_PROOF_FIELDS_LENGTH))
 jq ".[:$NUM_PUBLIC_INPUTS]" $output_dir/proof_fields.json > $output_dir/public_inputs_fields.json
 
 # Remove public inputs from the proof (first NUM_PUBLIC_INPUTS*32 bytes)
-# Also remove the first 4 bytes, which is the proof length in fields
 proof_hex=$(cat $output_dir/proof | xxd -p)
-echo -n ${proof_hex:$((NUM_PUBLIC_INPUTS * 64 + 8))} | xxd -r -p > $output_dir/proof
+echo -n ${proof_hex:$((NUM_PUBLIC_INPUTS * 64))} | xxd -r -p > $output_dir/proof
 
 # Verify the proof with bb.js classes
 node ../../bbjs-test verify \

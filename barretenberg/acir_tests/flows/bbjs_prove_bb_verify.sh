@@ -28,9 +28,6 @@ NUM_PUBLIC_INPUTS=$(cat $output_dir/public_inputs_fields.json | jq 'length')
 UH_PROOF_FIELDS_LENGTH=440
 PROOF_LENGTH_IN_FIELDS=$((UH_PROOF_FIELDS_LENGTH))
 PI_LENGTH_IN_FIELDS=$((NUM_PUBLIC_INPUTS))
-# First 4 bytes is PROOF_AND_PI_LENGTH_IN_FIELDS
-proof_header=$(printf "%08x" $PROOF_LENGTH_IN_FIELDS)
-pi_header=$(printf "%08x" $PI_LENGTH_IN_FIELDS)
 
 proof_bytes=$(cat $output_dir/proof | xxd -p)
 public_inputs=$(cat $output_dir/public_inputs_fields.json | jq -r '.[]')
@@ -41,8 +38,8 @@ for input in $public_inputs; do
 done
 
 # Combine proof header and the proof to a single file
-echo -n $proof_header$proof_bytes | xxd -r -p > $output_dir/proof
-echo -n $pi_header$public_inputs_bytes | xxd -r -p > $output_dir/public_inputs
+echo -n $proof_bytes | xxd -r -p > $output_dir/proof
+echo -n $public_inputs_bytes | xxd -r -p > $output_dir/public_inputs
 echo "$BIN verify \
   --scheme ultra_honk \
   -k $output_dir/vk \
