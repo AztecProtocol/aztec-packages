@@ -988,6 +988,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       blockNumber,
       l1ChainId: this.l1ChainId,
+      rollupVersion: this.version,
       setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
       skipFeeEnforcement,
