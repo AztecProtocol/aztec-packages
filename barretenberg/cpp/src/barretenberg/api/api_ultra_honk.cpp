@@ -108,14 +108,14 @@ bool _verify(const bool honk_recursion_2,
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
-    auto public_inputs = from_buffer<std::vector<bb::fr>>(read_file(public_inputs_path));
-    auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
-    // concatenate public inputs and proof
-    std::vector<fr> complete_proof = public_inputs;
-    complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+    auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
+    auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
+    // concatenate public inputs and proof
+    std::vector<fr> complete_proof = public_inputs;
+    complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
     std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
     if (honk_recursion_2) {
