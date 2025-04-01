@@ -226,7 +226,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       worldStateSynchronizer,
       sequencer,
       ethereumChain.chainInfo.id,
-      config.version,
+      config.rollupVersion,
       new GlobalVariableBuilder(config),
       proofVerifier,
       telemetry,
@@ -275,20 +275,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-      await Promise.all([
-        this.getNodeVersion(),
-        this.getVersion(),
-        this.getChainId(),
-        this.getEncodedEnr(),
-        this.getL1ContractAddresses(),
-        this.getProtocolContractAddresses(),
-      ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.getNodeVersion(),
+      this.getVersion(),
+      this.getChainId(),
+      this.getEncodedEnr(),
+      this.getL1ContractAddresses(),
+      this.getProtocolContractAddresses(),
+    ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
-      protocolVersion,
+      rollupVersion,
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,

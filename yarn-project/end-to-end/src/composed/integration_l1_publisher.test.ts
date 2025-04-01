@@ -253,7 +253,7 @@ describe('L1Publisher integration', () => {
     makeBloatedProcessedTx({
       header: prevHeader,
       chainId: fr(chainId),
-      version: fr(config.version),
+      version: fr(config.rollupVersion),
       vkTreeRoot: getVKTreeRoot(),
       gasSettings: GasSettings.default({ maxFeesPerGas: baseFee }),
       protocolContractTreeRoot,
@@ -314,7 +314,7 @@ describe('L1Publisher integration', () => {
             slotNumber: `0x${block.header.globalVariables.slotNumber.toBuffer().toString('hex').padStart(64, '0')}`,
             chainId: Number(block.header.globalVariables.chainId.toBigInt()),
             timestamp: Number(block.header.globalVariables.timestamp.toBigInt()),
-            version: Number(block.header.globalVariables.version.toBigInt()),
+            version: Number(block.header.globalVariables.rollupVersion.toBigInt()),
             coinbase: `0x${block.header.globalVariables.coinbase.toBuffer().toString('hex').padStart(40, '0')}`,
             feeRecipient: `0x${block.header.globalVariables.feeRecipient.toBuffer().toString('hex').padStart(64, '0')}`,
             gasFees: {
@@ -422,7 +422,7 @@ describe('L1Publisher integration', () => {
 
         const globalVariables = new GlobalVariables(
           new Fr(chainId),
-          new Fr(config.version),
+          new Fr(config.rollupVersion),
           new Fr(1 + i),
           new Fr(slot),
           new Fr(timestamp),
@@ -559,7 +559,7 @@ describe('L1Publisher integration', () => {
       const timestamp = await rollup.getTimestampForSlot(slot);
       const globalVariables = new GlobalVariables(
         new Fr(chainId),
-        new Fr(config.version),
+        new Fr(config.rollupVersion),
         new Fr(1),
         new Fr(slot),
         new Fr(timestamp),

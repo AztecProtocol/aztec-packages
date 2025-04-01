@@ -188,7 +188,7 @@ export class PXEService implements PXE {
 
     await pxeService.#registerProtocolContracts();
     const info = await pxeService.getNodeInfo();
-    log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
+    log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxeService;
   }
 
@@ -846,20 +846,19 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-      await Promise.all([
-        this.node.getNodeVersion(),
-        this.node.getVersion(),
-        this.node.getChainId(),
-        this.node.getEncodedEnr(),
-        this.node.getL1ContractAddresses(),
-        this.node.getProtocolContractAddresses(),
-      ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.node.getNodeVersion(),
+      this.node.getVersion(),
+      this.node.getChainId(),
+      this.node.getEncodedEnr(),
+      this.node.getL1ContractAddresses(),
+      this.node.getProtocolContractAddresses(),
+    ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
-      protocolVersion,
+      rollupVersion,
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
