@@ -288,13 +288,13 @@ interface WithLeafIndex {
 
 export type SerializedLeafValue =
   | Buffer // Fr
-  | { value: Buffer } // NullifierLeaf
+  | { nullifier: Buffer } // NullifierLeaf
   | { value: Buffer; slot: Buffer }; // PublicDataTreeLeaf
 
 export type SerializedIndexedLeaf = {
-  value: Exclude<SerializedLeafValue, Buffer>;
+  leaf: Exclude<SerializedLeafValue, Buffer>;
   nextIndex: bigint | number;
-  nextValue: Buffer; // Fr
+  nextKey: Buffer; // Fr
 };
 
 interface WithLeafValues {

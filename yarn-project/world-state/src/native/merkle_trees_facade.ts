@@ -295,7 +295,7 @@ export function serializeLeaf(leaf: Fr | NullifierLeaf | PublicDataTreeLeaf): Se
   if (leaf instanceof Fr) {
     return leaf.toBuffer();
   } else if (leaf instanceof NullifierLeaf) {
-    return { value: leaf.nullifier.toBuffer() };
+    return { nullifier: leaf.nullifier.toBuffer() };
   } else {
     return { value: leaf.value.toBuffer(), slot: leaf.slot.toBuffer() };
   }
@@ -307,22 +307,22 @@ function deserializeLeafValue(leaf: SerializedLeafValue): Fr | NullifierLeaf | P
   } else if ('slot' in leaf) {
     return new PublicDataTreeLeaf(Fr.fromBuffer(leaf.slot), Fr.fromBuffer(leaf.value));
   } else {
-    return new NullifierLeaf(Fr.fromBuffer(leaf.value));
+    return new NullifierLeaf(Fr.fromBuffer(leaf.nullifier));
   }
 }
 
-function deserializeIndexedLeaf(leaf: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
-  if ('slot' in leaf.value) {
+function deserializeIndexedLeaf(leafPreimage: SerializedIndexedLeaf): IndexedTreeLeafPreimage {
+  if ('slot' in leafPreimage.leaf) {
     return new PublicDataTreeLeafPreimage(
-      new PublicDataTreeLeaf(Fr.fromBuffer(leaf.value.slot), Fr.fromBuffer(leaf.value.value)),
-      Fr.fromBuffer(leaf.nextValue),
-      BigInt(leaf.nextIndex),
+      new PublicDataTreeLeaf(Fr.fromBuffer(leafPreimage.leaf.slot), Fr.fromBuffer(leafPreimage.leaf.value)),
+      Fr.fromBuffer(leafPreimage.nextKey),
+      BigInt(leafPreimage.nextIndex),
     );
-  } else if ('value' in leaf.value) {
+  } else if ('nullifier' in leafPreimage.leaf) {
     return new NullifierLeafPreimage(
-      new NullifierLeaf(Fr.fromBuffer(leaf.value.value)),
-      Fr.fromBuffer(leaf.nextValue),
-      BigInt(leaf.nextIndex),
+      new NullifierLeaf(Fr.fromBuffer(leafPreimage.leaf.nullifier)),
+      Fr.fromBuffer(leafPreimage.nextKey),
+      BigInt(leafPreimage.nextIndex),
     );
   } else {
     throw new Error('Invalid leaf type');

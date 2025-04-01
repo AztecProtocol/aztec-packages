@@ -67,8 +67,8 @@ export class PublicDataWitness {
       new Fr(this.index).toString() as string,
       new Fr(this.leafPreimage.leaf.slot).toString() as string,
       new Fr(this.leafPreimage.leaf.value).toString() as string,
-      new Fr(this.leafPreimage.nextIndex).toString() as string,
       new Fr(this.leafPreimage.nextKey).toString() as string,
+      new Fr(this.leafPreimage.nextIndex).toString() as string,
       this.siblingPath.toFields().map(fr => fr.toString()) as string[],
     ];
   }
