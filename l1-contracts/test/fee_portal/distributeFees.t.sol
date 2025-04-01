@@ -14,6 +14,7 @@ import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract DistributeFees is Test {
   using Hash for DataStructures.L1ToL2Msg;
@@ -26,16 +27,12 @@ contract DistributeFees is Test {
   RewardDistributor internal rewardDistributor;
 
   function setUp() public {
-    registry = new Registry(OWNER);
     token = new TestERC20("test", "TEST", address(this));
-    feeJuicePortal =
-      new FeeJuicePortal(address(registry), address(token), bytes32(Constants.FEE_JUICE_ADDRESS));
-    token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
+    registry = new Registry(OWNER, token);
 
-    rewardDistributor = new RewardDistributor(token, registry, address(this));
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup(
-      feeJuicePortal,
+      token,
       rewardDistributor,
       token,
       address(this),
@@ -43,8 +40,12 @@ contract DistributeFees is Test {
       TestConstants.getRollupConfigInput()
     );
 
+    feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
+    token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    feeJuicePortal.initialize();
+
     vm.prank(OWNER);
-    registry.upgrade(address(rollup));
+    registry.addRollup(IRollup(address(rollup)));
   }
 
   function test_RevertGiven_TheCallerIsNotTheCanonicalRollup() external {
@@ -71,32 +72,13 @@ contract DistributeFees is Test {
     feeJuicePortal.distributeFees(address(this), Constants.FEE_JUICE_INITIAL_MINT + 1);
   }
 
-  function test_GivenSufficientBalance(uint256 _numberOfRollups)
-    external
-    givenTheCallerIsTheCanonicalRollup
-  {
+  function test_GivenSufficientBalance() external givenTheCallerIsTheCanonicalRollup {
     // it should transfer the tokens to the recipient
     // it should emit a {FeesDistributed} event
 
-    uint256 numberOfRollups = bound(_numberOfRollups, 1, 5);
-    for (uint256 i = 0; i < numberOfRollups; i++) {
-      Rollup freshRollup = new Rollup(
-        feeJuicePortal,
-        rewardDistributor,
-        token,
-        address(this),
-        TestConstants.getGenesisState(),
-        TestConstants.getRollupConfigInput()
-      );
-      vm.prank(OWNER);
-      registry.upgrade(address(freshRollup));
-    }
-
     assertEq(token.balanceOf(address(this)), 0);
 
-    assertNotEq(registry.getRollup(), address(rollup));
-
-    vm.prank(registry.getRollup());
+    vm.prank(address(rollup));
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));
     emit IFeeJuicePortal.FeesDistributed(address(this), Constants.FEE_JUICE_INITIAL_MINT);
     feeJuicePortal.distributeFees(address(this), Constants.FEE_JUICE_INITIAL_MINT);

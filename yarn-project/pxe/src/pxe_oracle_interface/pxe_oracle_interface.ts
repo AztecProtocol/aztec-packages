@@ -1,6 +1,5 @@
 import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
@@ -27,13 +26,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
-import {
-  IndexedTaggingSecret,
-  LogWithTxData,
-  PrivateLog,
-  TxScopedL2Log,
-  deriveEcdhSharedSecret,
-} from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -300,7 +293,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     await this.syncTaggedLogsAsSender(contractAddress, sender, recipient);
 
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret], sender);
 
     return new IndexedTaggingSecret(appTaggingSecret, index);
   }
@@ -326,8 +319,11 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       contractAddress,
     });
 
-    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([secret]);
-    await this.taggingDataProvider.setTaggingSecretsIndexesAsSender([new IndexedTaggingSecret(secret, index + 1)]);
+    const [index] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([secret], sender);
+    await this.taggingDataProvider.setTaggingSecretsIndexesAsSender(
+      [new IndexedTaggingSecret(secret, index + 1)],
+      sender,
+    );
   }
 
   async #calculateAppTaggingSecret(contractAddress: AztecAddress, sender: AztecAddress, recipient: AztecAddress) {
@@ -363,7 +359,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         computeAppTaggingSecret(recipientCompleteAddress, recipientIvsk, contact, contractAddress),
       ),
     );
-    const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets);
+    const indexes = await this.taggingDataProvider.getTaggingSecretsIndexesAsRecipient(appTaggingSecrets, recipient);
     return appTaggingSecrets.map((secret, i) => new IndexedTaggingSecret(secret, indexes[i]));
   }
 
@@ -380,7 +376,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     recipient: AztecAddress,
   ): Promise<void> {
     const appTaggingSecret = await this.#calculateAppTaggingSecret(contractAddress, sender, recipient);
-    const [oldIndex] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret]);
+    const [oldIndex] = await this.taggingDataProvider.getTaggingSecretsIndexesAsSender([appTaggingSecret], sender);
 
     // This algorithm works such that:
     // 1. If we find minimum consecutive empty logs in a window of logs we set the index to the index of the last log
@@ -418,9 +414,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     if (currentIndex !== oldIndex) {
-      await this.taggingDataProvider.setTaggingSecretsIndexesAsSender([
-        new IndexedTaggingSecret(appTaggingSecret, currentIndex),
-      ]);
+      await this.taggingDataProvider.setTaggingSecretsIndexesAsSender(
+        [new IndexedTaggingSecret(appTaggingSecret, currentIndex)],
+        sender,
+      );
 
       this.log.debug(`Syncing logs for sender ${sender} at contract ${contractName}(${contractAddress})`, {
         sender,
@@ -583,6 +580,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         Object.entries(newLargestIndexMapToStore).map(
           ([appTaggingSecret, index]) => new IndexedTaggingSecret(Fr.fromHexString(appTaggingSecret), index),
         ),
+        recipient,
       );
     }
     return logsMap;
@@ -613,19 +611,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
       }
 
-      // TODO(#13155): Handle multiple found indexes for the same log.
-      let logIndexInTx = txEffect.data.privateLogs.findIndex(log => log.equals(scopedLog.log as PrivateLog));
-
-      // TODO(#13137): The following is a workaround to disable the logIndexInTx check for TXE tests as TXE currently
-      // returns nonsensical tx effects and the tx has is incremented from 0 up (so it never crosses a 1000).
-      if (scopedLog.txHash.toBigInt() < 1000n) {
-        logIndexInTx = randomInt(10);
-      }
-
-      if (logIndexInTx === -1) {
-        throw new Error(`Could not find log in tx effect for tx hash ${scopedLog.txHash}`);
-      }
-
       // This will trigger calls to the deliverNote oracle
       await this.callProcessLog(
         contractAddress,
@@ -633,7 +618,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         scopedLog.txHash,
         txEffect.data.noteHashes,
         txEffect.data.nullifiers[0],
-        logIndexInTx,
+        scopedLog.logIndexInTx,
         recipient,
         simulator,
       );

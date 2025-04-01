@@ -25,15 +25,15 @@ pub struct SharedMutableValues<T, let INITIAL_DELAY: u32> {
     pub sdc: ScheduledDelayChange<INITIAL_DELAY>,
 }
 
-impl<T, let INITIAL_DELAY: u32, let N: u32> SharedMutableValues<T, INITIAL_DELAY>
-where
-    T: Packable<N>,
-{
+impl<T, let INITIAL_DELAY: u32> SharedMutableValues<T, INITIAL_DELAY> {
     pub fn new(svc: ScheduledValueChange<T>, sdc: ScheduledDelayChange<INITIAL_DELAY>) -> Self {
         SharedMutableValues { svc, sdc }
     }
 
-    pub fn unpack_value_change(packed: [Field; 2 * N + 1]) -> ScheduledValueChange<T> {
+    pub fn unpack_value_change<let N: u32>(packed: [Field; 2 * N + 1]) -> ScheduledValueChange<T>
+    where
+        T: Packable<N>,
+    {
         let svc_pre_packed = arrays::subarray(packed, 1);
         let svc_post_packed = arrays::subarray(packed, N + 1);
         ScheduledValueChange::new(
