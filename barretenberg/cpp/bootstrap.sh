@@ -30,8 +30,7 @@ function inject_version {
 function build_preset() {
   local preset=$1
   shift
-  rm -f build-$preset/CMakeCache.txt
-  cmake --preset "$preset"
+  cmake --fresh --preset "$preset"
   cmake --build --preset "$preset" "$@"
 }
 
@@ -40,7 +39,6 @@ function build_native {
   set -eu
   if ! cache_download barretenberg-release-$hash.zst; then
     ./format.sh check
-    # doesn't fit build-$preset pattern, delete this manually
     build_preset $native_preset --target bb
     cache_upload barretenberg-release-$hash.zst build/bin
   fi
@@ -50,8 +48,6 @@ function build_nodejs_module {
   set -eu
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
   if ! cache_download barretenberg-release-nodejs-module-$hash.zst; then
-    # doesn't fit build-$preset pattern, delete this manually
-    rm -f build-pic/CMakeCache.txt
     build_preset $pic_preset --target nodejs_module
     cache_upload barretenberg-release-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
   fi

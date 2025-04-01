@@ -825,7 +825,9 @@ int parse_and_run_cli_command(int argc, char* argv[])
             return 1;
         }
     } catch (std::runtime_error const& err) {
+#ifndef BB_NO_EXCEPTIONS
         std::cerr << err.what() << std::endl;
+#endif
         return 1;
     }
     return 0;

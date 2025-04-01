@@ -6,6 +6,8 @@
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "libdeflate.h"
 #include <stdexcept>
@@ -49,7 +51,7 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
             continue;
         }
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            throw std::invalid_argument("bad gzip data in bb main");
+            THROW std::invalid_argument("bad gzip data in bb main");
         }
         content.resize(actual_size);
         break;
@@ -67,13 +69,13 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     std::ifstream fin;
     fin.open(filename, std::ios::ate | std::ios::binary);
     if (!fin.is_open()) {
-        throw std::invalid_argument("file not found");
+        THROW std::invalid_argument("file not found");
     }
     if (fin.tellg() == -1) {
-        throw std::invalid_argument("something went wrong");
+        THROW std::invalid_argument("something went wrong");
     }
 
-    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
+    size_t fsize = static_cast<size_t>(fin.tellg());
     fin.seekg(0, std::ios_base::beg);
 
     T result;
@@ -261,7 +263,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     // and it is mysterious if this transaction fails later in the lifecycle.
     // The files are still written in case they are needed to investigate this failure.
     if (!ivc->verify(proof)) {
-        throw std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+        THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
     }
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string

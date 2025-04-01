@@ -100,6 +100,17 @@
       }
     },
     {
+      "name": "clang16-no-exceptions",
+      "displayName": "Build with Clang-16",
+      "description": "Build with globally installed Clang-16",
+      "inherits": "default",
+      "environment": {
+        "CC": "clang-16",
+        "CXX": "clang++-16",
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
+      }
+    },
+    {
       "name": "clang16-pic",
       "displayName": "Release build with Position Independent Code",
       "description": "Build with globally installed Clang-16 using Position Independent Code",
@@ -181,16 +192,6 @@
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
         "CMAKE_CXX_FLAGS": "-DTRACY_HACK_GATES_AS_MEMORY"
-      }
-    },
-    {
-      "name": "wasm-tracy",
-      "displayName": "WASM build with tracy",
-      "description": "WASM build with tracy",
-      "inherits": "clang16",
-      "binaryDir": "build-wasm-tracy",
-      "cacheVariables": {
-        "ENABLE_TRACY": "ON"
       }
     },
     {
@@ -436,7 +437,8 @@
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
         "MULTITHREADING": "OFF",
-        "DISABLE_AZTEC_VM": "ON"
+        "DISABLE_AZTEC_VM": "ON",
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
     {

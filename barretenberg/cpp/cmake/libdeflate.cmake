@@ -4,7 +4,8 @@ include(FetchContent)
 # we need this to find where the libdeflate header files are for inclusion.
 set(LIBDEFLATE_INCLUDE "${CMAKE_BINARY_DIR}/_deps/libdeflate-src/")
 
-set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+set(LIBDEFLATE_BUILD_SHARED_LIB OFF CACHE BOOL "Don't build shared libdeflate library")
+set(LIBDEFLATE_BUILD_GZIP OFF CACHE BOOL "Don't build libdeflate gzip program")
 
 FetchContent_Declare(
   libdeflate

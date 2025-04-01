@@ -3,9 +3,8 @@ set(API_DEPENDENCIES
     ultra_vanilla_client_ivc
     dsl)
 
-if (NOT WASM)
+# if (NOT WASM)
     list(APPEND API_DEPENDENCIES libdeflate::libdeflate_static)
-endif()
-
+# endif()
 
 barretenberg_module(api ${API_DEPENDENCIES})

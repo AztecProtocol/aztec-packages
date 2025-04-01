@@ -8,6 +8,7 @@
 #include "barretenberg/bb/cli.hpp"
 #include "barretenberg/common/op_count_google_bench.hpp"
 #include "barretenberg/common/std_string.hpp"
+#include "barretenberg/common/throw_or_abort.hpp"
 
 namespace {
 // This is used to suppress the default output of Google Benchmark.
@@ -31,7 +32,7 @@ void benchmark_bb_cli(benchmark::State& state)
     // Get MAIN_ARGS from environment
     const char* main_args_env = std::getenv("MAIN_ARGS");
     if (main_args_env == nullptr) {
-        throw std::runtime_error("Environment variable MAIN_ARGS must be set");
+        throw_or_abort("Environment variable MAIN_ARGS must be set");
     }
 
     // Parse the space-delimited arguments
@@ -41,7 +42,7 @@ void benchmark_bb_cli(benchmark::State& state)
     args.insert(args.begin(), "bb");
 
     if (args.empty()) {
-        throw std::runtime_error("MAIN_ARGS must contain at least one argument");
+        throw_or_abort("MAIN_ARGS must contain at least one argument");
     }
 
     // Convert to C-style argc/argv

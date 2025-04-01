@@ -5,6 +5,7 @@
 // - bind the input as a coded msgpack array of all the arguments (using template metamagic)
 // - bind the return value to an out buffer, where the caller must free the memory
 
+#include "barretenberg/common/try_catch_shim.hpp"
 #include "msgpack_impl/check_memory_span.hpp"
 #include "msgpack_impl/concepts.hpp"
 #include "msgpack_impl/func_traits.hpp"
