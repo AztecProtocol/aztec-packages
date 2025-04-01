@@ -13,42 +13,42 @@ export class Set extends Instruction {
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
     OperandType.UINT8, // dstOffset
-    OperandType.UINT8, // tag
+    OperandType.TAG, // tag
     OperandType.UINT8, // const (value)
   ];
   public static readonly wireFormat16: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
     OperandType.UINT16, // dstOffset
-    OperandType.UINT8, // tag
+    OperandType.TAG, // tag
     OperandType.UINT16, // const (value)
   ];
   public static readonly wireFormat32: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
     OperandType.UINT16, // dstOffset
-    OperandType.UINT8, // tag
+    OperandType.TAG, // tag
     OperandType.UINT32, // const (value)
   ];
   public static readonly wireFormat64: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
     OperandType.UINT16, // dstOffset
-    OperandType.UINT8, // tag
+    OperandType.TAG, // tag
     OperandType.UINT64, // const (value)
   ];
   public static readonly wireFormat128: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
     OperandType.UINT16, // dstOffset
-    OperandType.UINT8, // tag
+    OperandType.TAG, // tag
     OperandType.UINT128, // const (value)
   ];
   public static readonly wireFormatFF: OperandType[] = [
     OperandType.UINT8, // opcode
     OperandType.UINT8, // indirect
     OperandType.UINT16, // dstOffset
-    OperandType.UINT8, // tag
+    OperandType.TAG, // tag
     OperandType.FF, // const (value)
   ];
 
@@ -59,7 +59,6 @@ export class Set extends Instruction {
     private value: bigint | number,
   ) {
     super();
-    TaggedMemory.checkIsValidTag(inTag);
   }
 
   public async execute(context: AvmContext): Promise<void> {
@@ -85,19 +84,18 @@ export class Cast extends Instruction {
     OperandType.UINT8,
     OperandType.UINT8,
     OperandType.UINT8,
-    OperandType.UINT8,
+    OperandType.TAG,
   ];
   static readonly wireFormat16 = [
     OperandType.UINT8,
     OperandType.UINT8,
     OperandType.UINT16,
     OperandType.UINT16,
-    OperandType.UINT8,
+    OperandType.TAG,
   ];
 
   constructor(private indirect: number, private srcOffset: number, private dstOffset: number, private dstTag: number) {
     super();
-    TaggedMemory.checkIsValidTag(dstTag);
   }
 
   public async execute(context: AvmContext): Promise<void> {

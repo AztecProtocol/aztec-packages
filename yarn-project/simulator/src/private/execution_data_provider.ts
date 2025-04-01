@@ -1,5 +1,10 @@
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import type {
+  EventSelector,
+  FunctionArtifact,
+  FunctionArtifactWithContractName,
+  FunctionSelector,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -7,7 +12,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
@@ -83,7 +88,10 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param selector - The corresponding function selector.
    * @returns A Promise that resolves to a FunctionArtifact object.
    */
-  getFunctionArtifact(contractAddress: AztecAddress, selector: FunctionSelector): Promise<FunctionArtifact>;
+  getFunctionArtifact(
+    contractAddress: AztecAddress,
+    selector: FunctionSelector,
+  ): Promise<FunctionArtifactWithContractName>;
 
   /**
    * Generates a stable function name for debug purposes.
@@ -322,4 +330,22 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @returns The secret for the given address.
    */
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
+
+  /**
+   * Stores an event log in the database.
+   * @param contractAddress - The address of the contract that emitted the log.
+   * @param recipient - The address of the recipient.
+   * @param eventSelector - The event selector of the event.
+   * @param logContent - The content of the private event log.
+   * @param txHash - The hash of the transaction that emitted the log.
+   * @param logIndexInTx - The index of the log within the transaction.
+   */
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+  ): Promise<void>;
 }

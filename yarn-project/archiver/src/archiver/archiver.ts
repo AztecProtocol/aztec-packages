@@ -86,6 +86,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
   private l1BlockNumber: bigint | undefined;
   private l1Timestamp: bigint | undefined;
+  private initialSyncComplete: boolean = false;
 
   public readonly tracer: Tracer;
 
@@ -280,6 +281,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // but the corresponding blocks have not been processed (see #12631).
     this.l1Timestamp = currentL1Timestamp;
     this.l1BlockNumber = currentL1BlockNumber;
+    this.initialSyncComplete = true;
 
     if (initialRun) {
       this.log.info(`Initial archiver sync to L1 block ${currentL1BlockNumber} complete.`, {
@@ -293,7 +295,15 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   /** Queries the rollup contract on whether a prune can be executed on the immediatenext L1 block. */
   private async canPrune(currentL1BlockNumber: bigint, currentL1Timestamp: bigint) {
     const time = (currentL1Timestamp ?? 0n) + BigInt(this.l1constants.ethereumSlotDuration);
-    return await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
+    const result = await this.rollup.canPruneAtTime(time, { blockNumber: currentL1BlockNumber });
+    if (result) {
+      this.log.debug(`Rollup contract allows pruning at L1 block ${currentL1BlockNumber} time ${time}`, {
+        currentL1Timestamp,
+        pruneTime: time,
+        currentL1BlockNumber,
+      });
+    }
+    return result;
   }
 
   /** Checks if there'd be a reorg for the next block submission and start pruning now. */
@@ -542,6 +552,18 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return { provenBlockNumber };
   }
 
+  /** Resumes the archiver after a stop. */
+  public resume() {
+    if (!this.runningPromise) {
+      throw new Error(`Archiver was never started`);
+    }
+    if (this.runningPromise.isRunning()) {
+      this.log.warn(`Archiver already running`);
+    }
+    this.log.info(`Restarting archiver`);
+    this.runningPromise.start();
+  }
+
   /**
    * Stops the archiver.
    * @returns A promise signalling completion of the stop process.
@@ -552,6 +574,10 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
 
     this.log.info('Stopped.');
     return Promise.resolve();
+  }
+
+  public backupTo(destPath: string): Promise<string> {
+    return this.dataStore.backupTo(destPath);
   }
 
   public getL1Constants(): Promise<L1RollupConstants> {
@@ -652,6 +678,11 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     // TODO(palla/reorg): Is the above a safe assumption?
     const leeway = 1n;
     return l1Timestamp + leeway >= endTimestamp;
+  }
+
+  /** Returns whether the archiver has completed an initial sync run successfully. */
+  public isInitialSyncComplete(): boolean {
+    return this.initialSyncComplete;
   }
 
   /**
@@ -805,8 +836,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
 
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
 
   async getL2Tips(): Promise<L2Tips> {
@@ -874,6 +905,8 @@ class ArchiverStoreHelper
       | 'addContractInstanceUpdates'
       | 'deleteContractInstanceUpdates'
       | 'addFunctions'
+      | 'backupTo'
+      | 'close'
     >
 {
   #log = createLogger('archiver:block-helper');
@@ -1137,8 +1170,8 @@ class ArchiverStoreHelper
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void> {
     return this.store.registerContractFunctionSignatures(address, signatures);
   }
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
-    return this.store.getContractFunctionName(address, selector);
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+    return this.store.getDebugFunctionName(address, selector);
   }
   getTotalL1ToL2MessageCount(): Promise<bigint> {
     return this.store.getTotalL1ToL2MessageCount();

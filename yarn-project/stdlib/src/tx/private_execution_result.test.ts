@@ -9,7 +9,6 @@ import {
   collectNoteHashNullifierCounterMap,
   getFinalMinRevertibleSideEffectCounter,
 } from './private_execution_result.js';
-import { PublicExecutionRequest } from './public_execution_request.js';
 
 function emptyCallExecutionResult(): PrivateCallExecutionResult {
   return new PrivateCallExecutionResult(
@@ -23,13 +22,11 @@ function emptyCallExecutionResult(): PrivateCallExecutionResult {
     [],
     [],
     [],
-    PublicExecutionRequest.empty(),
-    [],
   );
 }
 
 function emptyExecutionResult(): PrivateExecutionResult {
-  return new PrivateExecutionResult(emptyCallExecutionResult(), Fr.zero());
+  return new PrivateExecutionResult(emptyCallExecutionResult(), Fr.zero(), []);
 }
 
 describe('execution_result', () => {

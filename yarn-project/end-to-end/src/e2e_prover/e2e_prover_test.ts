@@ -39,7 +39,7 @@ import {
   deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex, setupPXEService } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress, setupPXEService } from '../fixtures/utils.js';
 import { TokenSimulator } from '../simulators/token_simulator.js';
 
 const { E2E_DATA_PATH: dataPath } = process.env;
@@ -295,7 +295,10 @@ export class FullProverTest {
       txGatheringIntervalMs: 1000,
       txGatheringMaxParallelRequests: 100,
     };
-    const { prefilledPublicData } = await getGenesisValues(this.context.initialFundedAccounts.map(a => a.address));
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const { prefilledPublicData } = await getGenesisValues(
+      this.context.initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
+    );
     this.proverNode = await createProverNode(
       proverConfig,
       {

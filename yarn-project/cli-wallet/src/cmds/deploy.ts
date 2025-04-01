@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, ContractDeployer, type DeployMethod, Fr, type PXE } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr, type PXE } from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getInitializer } from '@aztec/stdlib/abi';
@@ -44,8 +44,8 @@ export async function deploy(
   }
 
   const deploy = deployer.deploy(...args);
-  const deployOpts: Parameters<DeployMethod['send']>[0] = {
-    ...(await feeOpts.toSendOpts(wallet)),
+  const deployOpts: DeployOptions = {
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
     contractAddressSalt: salt,
     universalDeploy,
     skipClassRegistration,

@@ -51,12 +51,10 @@ spec:
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
 
-              {{- if .Values.network.public }}
-              # If the network is public, we need to use the boot node URL
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- if .Values.pxe.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.pxe.nodeUrl }}
               {{- else }}
-              # If the network is not public, we can use the validator URL
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
 
               until curl --head --silent ${AZTEC_NODE_URL}/status; do
@@ -79,12 +77,10 @@ spec:
             - |
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              {{- if .Values.network.public }}
-              # If the network is public, we need to use the boot node URL
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
+              {{- if .Values.pxe.nodeUrl }}
+              export AZTEC_NODE_URL={{ .Values.pxe.nodeUrl }}
               {{- else }}
-              # If the network is not public, we can use the validator URL
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe
@@ -127,7 +123,7 @@ spec:
                 - |
                   curl -s -X POST -H 'content-type: application/json' \
                   -d '{"jsonrpc":"2.0","method":"pxe_getNodeInfo","params":[],"id":67}' \
-                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"protocolVersion":1'
+                  127.0.0.1:{{ .Values.pxe.service.nodePort }} | grep -q '"rollupVersion":1'
             initialDelaySeconds: {{ .Values.pxe.readinessProbe.initialDelaySeconds }}
             periodSeconds: {{ .Values.pxe.readinessProbe.periodSeconds }}
             timeoutSeconds: {{ .Values.pxe.readinessProbe.timeoutSeconds }}

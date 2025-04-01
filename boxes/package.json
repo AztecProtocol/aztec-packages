@@ -31,7 +31,6 @@
     "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
   },
   "dependencies": {
-    "@iarna/toml": "^2.2.5",
     "@inquirer/confirm": "^3.0.0",
     "@inquirer/input": "^2.0.0",
     "@inquirer/select": "^2.0.0",
@@ -42,8 +41,5 @@
     "pino-pretty": "^10.3.1",
     "tiged": "^2.12.6",
     "vitest": "^2.0.5"
-  },
-  "devDependencies": {
-    "@playwright/test": "1.49.0"
   }
 }

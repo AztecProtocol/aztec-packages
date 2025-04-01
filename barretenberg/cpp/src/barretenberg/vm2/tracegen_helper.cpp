@@ -12,8 +12,8 @@
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/map.hpp"
+#include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_address_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_decomposition.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
@@ -22,6 +22,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_read.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
@@ -32,6 +33,7 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 #include "barretenberg/vm2/tracegen/ecc_trace.hpp"
 #include "barretenberg/vm2/tracegen/execution_trace.hpp"
+#include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/interaction_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_into_bitwise.hpp"
@@ -41,6 +43,7 @@
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -69,7 +72,6 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
             AVM_TRACK_TIME("tracegen/precomputed/range_8", precomputed_builder.process_sel_range_8(trace));
             AVM_TRACK_TIME("tracegen/precomputed/range_16", precomputed_builder.process_sel_range_16(trace));
             AVM_TRACK_TIME("tracegen/precomputed/power_of_2", precomputed_builder.process_power_of_2(trace));
-            AVM_TRACK_TIME("tracegen/precomputed/unary", precomputed_builder.process_unary(trace));
             AVM_TRACK_TIME("tracegen/precomputed/sha256_round_constants",
                            precomputed_builder.process_sha256_round_constants(trace));
             AVM_TRACK_TIME("tracegen/precomputed/integral_tag_length",
@@ -80,6 +82,8 @@ auto build_precomputed_columns_jobs(TraceContainer& trace)
                            precomputed_builder.process_to_radix_safe_limbs(trace));
             AVM_TRACK_TIME("tracegen/precomputed/to_radix_p_decompositions",
                            precomputed_builder.process_to_radix_p_decompositions(trace));
+            AVM_TRACK_TIME("tracegen/precomputed/memory_tag_ranges",
+                           precomputed_builder.process_memory_tag_range(trace));
         },
     };
 }
@@ -251,6 +255,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.to_radix);
                 },
                 [&]() {
+                    FieldGreaterThanTraceBuilder field_gt_builder;
+                    AVM_TRACK_TIME("tracegen/field_gt", field_gt_builder.process(events.field_gt, trace));
+                    clear_events(events.field_gt);
+                },
+                [&]() {
                     MerkleCheckTraceBuilder merkle_check_builder;
                     AVM_TRACK_TIME("tracegen/merkle_check", merkle_check_builder.process(events.merkle_check, trace));
                     clear_events(events.merkle_check);
@@ -259,6 +268,12 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     RangeCheckTraceBuilder range_check_builder;
                     AVM_TRACK_TIME("tracegen/range_check", range_check_builder.process(events.range_check, trace));
                     clear_events(events.range_check);
+                },
+                [&]() {
+                    PublicDataTreeReadTraceBuilder public_data_tree_read_trace_builder;
+                    AVM_TRACK_TIME("tracegen/public_data_read",
+                                   public_data_tree_read_trace_builder.process(events.public_data_read_events, trace));
+                    clear_events(events.public_data_read_events);
                 },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -293,7 +308,6 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_bytecode_hash_is_correct_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
             // Bytecode Decomposition
-            std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_to_read_as_unary_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
             // Instruction Fetching
@@ -305,6 +319,7 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_bytecode_size_from_bc_dec_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_wire_instruction_info_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_instr_abs_diff_positive_settings>>(),
+            std::make_unique<LookupIntoIndexedByClk<lookup_instr_fetching_tag_value_validation_settings>>(),
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_instr_fetching_pc_abs_diff_positive_settings>>(),
             // Class Id Derivation
             std::make_unique<
@@ -343,8 +358,20 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_scalar_mul_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>(),
+            // Field GT
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_lo_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>(),
             // Merkle checks
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_settings>>());
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>(),
+            // Public data read
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_0_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_1_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_membership_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_slot_validation_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_next_slot_validation_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

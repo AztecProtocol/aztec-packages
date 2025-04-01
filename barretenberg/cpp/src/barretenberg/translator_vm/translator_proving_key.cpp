@@ -42,7 +42,7 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
 
         // Copy into appropriate position in the interleaved polynomial
         // We offset by start_index() as the first 0 is not physically represented for shiftable values
-        for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
+        for (size_t k = group[j].start_index(); k < group[j].end_index(); k++) {
             current_target.at(k * num_polys_in_group + j) = group[j][k];
         }
     };
@@ -52,40 +52,47 @@ void TranslatorProvingKey::compute_interleaved_polynomials()
 /**
  * @brief Compute denominator polynomials for Translator's range constraint permutation
  *
- * @details  We need to prove that all the range constraint wires indeed have values within the given range (unless
- * changed ∈  [0 , 2¹⁴ - 1]. To do this, we use several virtual interleaved wires, each of which represents a subset
- * or original wires (interleaved_range_constraints_<i>). We also generate several new polynomials of the same length
- * as interleaved ones. These polynomials have values within range, but they are also constrained by the
- * TranslatorFlavor's DeltaRangeConstraint relation, which ensures that sequential values differ by not more than
- * 3, the last value is the maximum and the first value is zero (zero at the start allows us not to dance around
- * shifts).
+ * @details  We need to prove that all the range constraint wires in the groups indeed have values within the given
+ * range [0 , 2¹⁴ -1]. To do this, we use several virtual interleaved wires, each of which represents a subset of
+ * the original wires (the virtual wires are interleaved_range_constraints_<i>). We also generate several new
+ * polynomials of the same length as the interleaved ones (ordered_range_constraints_<i> which, as the name suggests,
+ * are sorted in non-descending order). To show the interleaved range constraints have values within the appropriate
+ * range, we in fact use the ordered range constraints, on which TranslatorFlavor's DeltaRangeConstraint relation
+ * operates. The relation ensures that sequential values differ by no more than 3, the last value is the maximum and the
+ * first value is zero (zero at the start allows us not to dance around shifts). Then, we run the
+ * TranslatorPermutationRelation on interleaved_range_constraint_<i> and ordered_range_constraint_<i> to show that they
+ * contain the same values which implies that the small wires in the groups are indeed within the correct range.
  *
- * Ideally, we could simply rearrange the values in interleaved_.._0 ,..., interleaved_.._3 and get denominator
- * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is
+ * Ideally, we could simply rearrange the values in interleaved_.._0 ,..., interleaved_.._3 and get 4 denominator
+ * polynomials (ordered_constraints), but we could get the worst case scenario: each value in the polynomials is the
  * maximum value. What can we do in that case? We still have to add (max_range/3)+1 values  to each of the ordered
- * wires for the sort constraint to hold.  So we also need a and extra denominator to store k ⋅ ( max_range / 3 + 1 )
+ * wires for the sort constraint to hold.  So we also need an extra denominator to store k ⋅ ( max_range / 3 + 1 )
  * values that couldn't go in + ( max_range / 3 +  1 ) connecting values. To counteract the extra ( k + 1 ) ⋅
  * ⋅ (max_range / 3 + 1 ) values needed for denominator sort constraints we need a polynomial in the numerator. So we
  * can construct a proof when ( k + 1 ) ⋅ ( max_range/ 3 + 1 ) < interleaved size
  *
- * @tparam Flavor
- * @param proving_key
+ * @param masking if operating in zero-knowledge the real sizes of the polynomial should be adjusted to make space for
+ * the random values.
  */
-void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials()
+void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomials(bool masking)
 {
     // Get constants
-    constexpr auto sort_step = Flavor::SORT_STEP;
-    constexpr auto num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
-    const auto full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    constexpr size_t sort_step = Flavor::SORT_STEP;
+    constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
-    // The value we have to end polynomials with
+    const size_t full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
+    const size_t mini_masking_offset = masking ? MASKING_OFFSET : 0;
+    const size_t full_masking_offset = masking ? mini_masking_offset * Flavor::INTERLEAVING_GROUP_SIZE : 0;
+    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+
+    // The value we have to end polynomials with, 2¹⁴ - 1
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
 
     // Number of elements needed to go from 0 to MAX_VALUE with our step
     constexpr size_t sorted_elements_count = (max_value / sort_step) + 1 + (max_value % sort_step == 0 ? 0 : 1);
 
     // Check if we can construct these polynomials
-    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < full_circuit_size);
+    ASSERT((num_interleaved_wires + 1) * sorted_elements_count < real_circuit_size);
 
     // First use integers (easier to sort)
     std::vector<size_t> sorted_elements(sorted_elements_count);
@@ -96,41 +103,39 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         sorted_elements[i] = (sorted_elements_count - 1 - i) * sort_step;
     }
 
-    std::vector<std::vector<uint32_t>> ordered_vectors_uint(num_interleaved_wires);
     RefArray ordered_constraint_polynomials{ proving_key->polynomials.ordered_range_constraints_0,
                                              proving_key->polynomials.ordered_range_constraints_1,
                                              proving_key->polynomials.ordered_range_constraints_2,
                                              proving_key->polynomials.ordered_range_constraints_3 };
-    std::vector<size_t> extra_denominator_uint(full_circuit_size);
+    std::vector<size_t> extra_denominator_uint(real_circuit_size);
 
-    // Get information which polynomials need to be interleaved
     auto to_be_interleaved_groups = proving_key->polynomials.get_groups_to_be_interleaved();
 
-    // A function that transfers elements from each of the polynomials in the chosen interleaved group in the uint
-    // ordered polynomials
+    // Given the polynomials in group_i, transfer their elements, sorted in non-descending order, into the corresponding
+    // ordered_range_constraint_i up to the given capacity and the remaining elements to the last range constraint.
+    // Sorting is done by converting the elements to uint for efficiency.
     auto ordering_function = [&](size_t i) {
-        // Get the group and the main target vector
         auto group = to_be_interleaved_groups[i];
-        auto& current_vector = ordered_vectors_uint[i];
-        current_vector.resize(full_circuit_size);
+        std::vector<uint32_t> ordered_vectors_uint(real_circuit_size);
 
-        // Calculate how much space there is for values from the original polynomials
-        auto free_space_before_runway = full_circuit_size - sorted_elements_count;
+        // Calculate how much space there is for values from the group polynomials given we also need to append the
+        // additional steps
+        auto free_space_before_runway = real_circuit_size - sorted_elements_count;
 
-        // Calculate the offset of this group's overflowing elements in the extra denominator polynomial
+        // Calculate the starting index of this group's overflowing elements in the extra denominator polynomial
         size_t extra_denominator_offset = i * sorted_elements_count;
 
         // Go through each polynomial in the interleaved group
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * mini_circuit_dyadic_size;
+            auto current_offset = j * (mini_circuit_dyadic_size - mini_masking_offset);
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].size(); k++) {
+            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_masking_offset; k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {
-                    current_vector[current_offset + k] = static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
+                    ordered_vectors_uint[current_offset + k] = static_cast<uint32_t>(uint256_t(group[j][k]).data[0]);
 
                     // Or in the extra one if there is no space left
                 } else {
@@ -140,36 +145,40 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
                 }
             }
         }
-        // Copy the steps into the target polynomial
-        auto starting_write_offset = current_vector.begin();
-        std::advance(starting_write_offset, free_space_before_runway);
-        std::copy(sorted_elements.cbegin(), sorted_elements.cend(), starting_write_offset);
+        // Advance the iterator past the last written element in the range constraint polynomial and complete it with
+        // sorted steps
+        auto ordered_vector_it = ordered_vectors_uint.begin();
+        std::advance(ordered_vector_it, free_space_before_runway);
+        std::copy(sorted_elements.cbegin(), sorted_elements.cend(), ordered_vector_it);
 
-        // Sort the polynomial in nondescending order. We sort using vector with size_t elements for 2 reasons:
+        // Sort the polynomial in nondescending order. We sort using the size_t vector for 2 reasons:
         // 1. It is faster to sort size_t
         // 2. Comparison operators for finite fields are operating on internal form, so we'd have to convert them
         // from Montgomery
-        std::sort(current_vector.begin(), current_vector.end());
+        std::sort(ordered_vectors_uint.begin(), ordered_vectors_uint.end());
+        ASSERT(ordered_vectors_uint.size() == real_circuit_size);
         // Copy the values into the actual polynomial
-        ordered_constraint_polynomials[i].copy_vector(current_vector);
+        ordered_constraint_polynomials[i].copy_vector(ordered_vectors_uint);
     };
 
     // Construct the first 4 polynomials
     parallel_for(num_interleaved_wires, ordering_function);
-    ordered_vectors_uint.clear();
 
-    auto sorted_element_insertion_offset = extra_denominator_uint.begin();
-    std::advance(sorted_element_insertion_offset, num_interleaved_wires * sorted_elements_count);
+    // Advance the iterator into the extra range constraint past the last written element
+    auto extra_denominator_it = extra_denominator_uint.begin();
+    std::advance(extra_denominator_it, num_interleaved_wires * sorted_elements_count);
 
-    // Add steps to the extra denominator polynomial
-    std::copy(sorted_elements.cbegin(), sorted_elements.cend(), sorted_element_insertion_offset);
+    // Add steps to the extra denominator polynomial to fill it
+    std::copy(sorted_elements.cbegin(), sorted_elements.cend(), extra_denominator_it);
 
+    ASSERT(extra_denominator_uint.size() == real_circuit_size);
     // Sort it
 #ifdef NO_PAR_ALGOS
     std::sort(extra_denominator_uint.begin(), extra_denominator_uint.end());
 #else
     std::sort(std::execution::par_unseq, extra_denominator_uint.begin(), extra_denominator_uint.end());
 #endif
+    ASSERT(extra_denominator_uint.size() == real_circuit_size);
 
     // Copy the values into the actual polynomial
     proving_key->polynomials.ordered_range_constraints_4.copy_vector(extra_denominator_uint);
@@ -187,17 +196,18 @@ void TranslatorProvingKey::compute_lagrange_polynomials()
 }
 
 /**
- * @brief Compute the extra numerator for Goblin range constraint argument
+ * @brief Compute the extra numerator for the grand product polynomial.
  *
  * @details Goblin proves that several polynomials contain only values in a certain range through 2
  * relations: 1) A grand product which ignores positions of elements (TranslatorPermutationRelation) 2) A
- * relation enforcing a certain ordering on the elements of the given polynomial
+ * relation enforcing a certain ordering on the elements of given polynomials
  * (TranslatorDeltaRangeConstraintRelation)
  *
- * We take the values from 4 polynomials, and spread them into 5 polynomials + add all the steps from
- * MAX_VALUE to 0. We order these polynomials and use them in the denominator of the grand product, at the
- * same time checking that they go from MAX_VALUE to 0. To counteract the added steps we also generate an
- * extra range constraint numerator, which contains 5 MAX_VALUE, 5 (MAX_VALUE-STEP),... values
+ * We take the values from 4 polynomials (interleaved_range_constraint_<i>), and spread them into 5 polynomials to be
+ * sorted (ordered_range_constraint_<i>), adding all the steps from MAX_VALUE to 0 in each ordered range constraint to
+ * complete them. The latter polynomials will be in the numerator of the grand product, the former in the numerator. To
+ * make up for the added steps in the numerator, an additional polynomial needs to be generated which contains 5
+ * MAX_VALUE, 5 (MAX_VALUE-STEP),... values.
  *
  */
 void TranslatorProvingKey::compute_extra_range_constraint_numerator()
@@ -226,7 +236,7 @@ void TranslatorProvingKey::compute_extra_range_constraint_numerator()
             extra_range_constraint_numerator.at(shift + i * (Flavor::NUM_INTERLEAVED_WIRES + 1)) = sorted_elements[i];
         }
     };
-    // Fill polynomials with a sequence, where each element is repeatedNUM_INTERLEAVED_WIRES+1 times
+    // Fill polynomials with a sequence, where each element is repeated NUM_INTERLEAVED_WIRES+1 times
     parallel_for(Flavor::NUM_INTERLEAVED_WIRES + 1, fill_with_shift);
 }
 } // namespace bb

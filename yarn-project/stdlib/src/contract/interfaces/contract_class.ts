@@ -19,9 +19,6 @@ export interface ContractClass {
   artifactHash: Fr;
   /** List of individual private functions, constructors included. */
   privateFunctions: PrivateFunction[];
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Remove public functions.
-  /** Contains the public_dispatch function (and only that) if there's any public code in the contract. */
-  publicFunctions: PublicFunction[];
   /** Bytecode for the public_dispatch function, or empty. */
   packedBytecode: Buffer;
 }
@@ -48,19 +45,6 @@ export interface ExecutablePrivateFunction extends PrivateFunction {
 const ExecutablePrivateFunctionSchema = PrivateFunctionSchema.and(
   z.object({ bytecode: schemas.Buffer }),
 ) satisfies ZodFor<ExecutablePrivateFunction>;
-
-/** Public function definition within a contract class. */
-export interface PublicFunction {
-  /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
-  selector: FunctionSelector;
-  /** Public bytecode. */
-  bytecode: Buffer;
-}
-
-export const PublicFunctionSchema = z.object({
-  selector: FunctionSelector.schema,
-  bytecode: schemas.Buffer,
-}) satisfies ZodFor<PublicFunction>;
 
 /** Unconstrained function definition. */
 export interface UnconstrainedFunction {
@@ -124,7 +108,6 @@ export const ContractClassSchema = z.object({
   version: z.literal(VERSION),
   artifactHash: schemas.Fr,
   privateFunctions: z.array(PrivateFunctionSchema),
-  publicFunctions: z.array(PublicFunctionSchema),
   packedBytecode: schemas.Buffer,
 }) satisfies ZodFor<ContractClass>;
 
@@ -151,7 +134,8 @@ export type ContractClassPublic = {
   unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[];
 } & Pick<ContractClassCommitments, 'id' | 'privateFunctionsRoot'> &
   Omit<ContractClass, 'privateFunctions'>;
-export type ContractClassWithCommitment = ContractClassPublic &
+
+export type ContractClassPublicWithCommitment = ContractClassPublic &
   Pick<ContractClassCommitments, 'publicBytecodeCommitment'>;
 
 export const ContractClassPublicSchema = z

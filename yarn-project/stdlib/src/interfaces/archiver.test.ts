@@ -182,12 +182,12 @@ describe('ArchiverApiSchema', () => {
     });
   });
 
-  it('getContractFunctionName', async () => {
+  it('getDebugFunctionName', async () => {
     const selector = await FunctionSelector.fromNameAndParameters(
       artifact.functions[0].name,
       artifact.functions[0].parameters,
     );
-    const result = await context.client.getContractFunctionName(await AztecAddress.random(), selector);
+    const result = await context.client.getDebugFunctionName(await AztecAddress.random(), selector);
     expect(result).toEqual(artifact.functions[0].name);
   });
 
@@ -335,7 +335,7 @@ class MockArchiver implements ArchiverApi {
     const contractClass = await getContractClassFromArtifact(this.artifact);
     return computePublicBytecodeCommitment(contractClass.packedBytecode);
   }
-  async getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
     expect(selector).toBeInstanceOf(FunctionSelector);
     const functionsAndSelectors = await Promise.all(

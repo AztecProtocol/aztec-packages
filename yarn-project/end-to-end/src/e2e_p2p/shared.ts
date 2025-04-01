@@ -47,6 +47,7 @@ export const createPXEServiceAndSubmitTransactions = async (
   fundedAccount: InitialAccountData,
 ): Promise<NodeContext> => {
   const rpcConfig = getRpcConfig();
+  rpcConfig.proverEnabled = false;
   const pxeService = await createPXEService(node, rpcConfig, true);
 
   const account = await getSchnorrAccount(

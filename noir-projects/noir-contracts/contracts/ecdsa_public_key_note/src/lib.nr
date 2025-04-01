@@ -9,6 +9,7 @@ use dep::aztec::protocol_types::traits::{FromField, ToField};
 // Stores an ECDSA public key composed of two 32-byte elements
 // TODO: Do we need to include a nonce, in case we want to read/nullify/recreate with the same pubkey value?
 #[note]
+#[derive(Eq)]
 pub struct EcdsaPublicKeyNote {
     x: [u8; 32],
     y: [u8; 32],

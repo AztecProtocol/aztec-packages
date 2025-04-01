@@ -29,6 +29,11 @@ telemetry:
   useGcloudLogging: true
   excludeMetrics: ""
 
+snapshots:
+  uploadLocation:
+  syncUrl:
+  frequency:
+
 images:
   aztec:
     image: aztecprotocol/aztec
@@ -51,6 +56,8 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
+    rollupAddress: "" # only needed for blob sink
+    feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
@@ -59,6 +66,7 @@ aztec:
 
   l1Salt: "" # leave empty for random salt
   testAccounts: true
+  sponsoredFPC: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
 
@@ -113,6 +121,7 @@ fullNode:
   service:
     p2pPort: 40400
     nodePort: 8080
+    adminPort: 8880
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
@@ -211,6 +220,7 @@ proverNode:
 
 pxe:
   enabled: true
+  nodeUrl: ""
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -221,6 +231,7 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  resources: {}
 
 bot:
   enabled: true
@@ -250,6 +261,7 @@ bot:
   gke:
     spotEnabled: true
   maxOldSpaceSize: "4608"
+  resources: {}
 
 ethereum:
   acceleratedTestDeployments: false

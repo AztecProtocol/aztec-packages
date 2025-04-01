@@ -1,16 +1,12 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type AztecNode, BatchCall, INITIAL_L2_BLOCK_NUM, type SentTx, type WaitOpts } from '@aztec/aztec.js';
 import { mean, stdDev, times } from '@aztec/foundation/collection';
-import { randomInt } from '@aztec/foundation/crypto';
 import { BenchmarkingContract } from '@aztec/noir-contracts.js/Benchmarking';
 import { type PXEService, type PXEServiceConfig, createPXEService } from '@aztec/pxe/server';
 import type { MetricsType } from '@aztec/telemetry-client';
 import type { BenchmarkDataPoint, BenchmarkMetricsType, BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
 
 import { writeFileSync } from 'fs';
-import { mkdirpSync } from 'fs-extra';
-import { globSync } from 'glob';
-import { join } from 'path';
 
 import { type EndToEndContext, type SetupOptions, setup } from '../fixtures/utils.js';
 
@@ -95,30 +91,6 @@ function getMetricValues(points: BenchmarkDataPoint[]) {
 }
 
 /**
- * Creates and returns a directory with the current job name and a random number.
- * @param index - Index to merge into the dir path.
- * @returns A path to a created dir.
- */
-export function makeDataDirectory(index: number) {
-  const testName = expect.getState().currentTestName!.split(' ')[0].replaceAll('/', '_');
-  const db = join('data', testName, index.toString(), `${randomInt(99)}`);
-  mkdirpSync(db);
-  return db;
-}
-
-/**
- * Returns the size in disk of a folder.
- * @param path - Path to the folder.
- * @returns Size in bytes.
- */
-export function getFolderSize(path: string): number {
-  return globSync('**', { stat: true, cwd: path, nodir: true, withFileTypes: true }).reduce(
-    (accum, file) => accum + (file as any as { /** Size */ size: number }).size,
-    0,
-  );
-}
-
-/**
  * Returns a call to the benchmark contract. Each call has a private execution (account entrypoint),
  * a nested private call (create_note), a public call (increment_balance), and a nested public
  * call (broadcast). These include emitting one private note and one public log, two storage
@@ -188,7 +160,7 @@ export async function createNewPXE(
   startingBlock: number = INITIAL_L2_BLOCK_NUM,
 ): Promise<PXEService> {
   const l1Contracts = await node.getL1ContractAddresses();
-  const { l1ChainId, protocolVersion } = await node.getNodeInfo();
+  const { l1ChainId, rollupVersion } = await node.getNodeInfo();
   const pxeConfig = {
     l2StartingBlock: startingBlock,
     l2BlockPollingIntervalMS: 100,
@@ -196,7 +168,7 @@ export async function createNewPXE(
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts,
     l1ChainId,
-    version: protocolVersion,
+    rollupVersion,
   } as PXEServiceConfig;
   const pxe = await createPXEService(node, pxeConfig);
   await pxe.registerContract(contract);

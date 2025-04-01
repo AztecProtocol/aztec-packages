@@ -5,7 +5,7 @@ sidebar_position: 0
 
 import Image from "@theme/IdealImage";
 
-In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter. This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase the awesome stuff Aztec is capable of.
+In this guide, we will create our first Aztec.nr smart contract. We will build a simple private counter, where you can keep your own private counter - so no one knows what ID you are at or when you increment! This contract will get you started with the basic setup and syntax of Aztec.nr, but doesn't showcase all of the awesome stuff Aztec is capable of.
 
 ## Prerequisites
 
@@ -83,7 +83,7 @@ Write this within your contract at the top:
 
 `value_note`
 
-Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of an amount of tokens associated with a nullifier key (that can be owned by an owner), while encrypting the amount. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, eg a balance - or, in our case, a counter.
+Notes are fundamental to how Aztec manages privacy. A note is a privacy-preserving representation of some arbitrary information. A commitment to a note is stored on-chain, it is associated with a nullifier key (that can be owned by an owner) so it can be spent, and encrypted note information is often emitted on-chain for later retrieval. In this contract, we are using the `value_note` library. This is a type of note interface for storing a single Field, e.g. a balance - or, in our case, a counter.
 
 We are also using `balance_utils` from this import, a useful library that allows us to utilize value notes as if they are simple balances.
 
@@ -101,7 +101,7 @@ Add this below the imports. It declares the storage variables for our contract. 
 
 Now we’ve got a mechanism for storing our private state, we can start using it to ensure the privacy of balances.
 
-Let’s create a constructor method to run on deployment that assigns an initial supply of tokens to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
+Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
 #include_code constructor /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr rust
 

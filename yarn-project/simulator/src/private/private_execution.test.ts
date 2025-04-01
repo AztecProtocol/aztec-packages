@@ -3,7 +3,6 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
@@ -54,11 +53,8 @@ import { makeHeader } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
-  CallContext,
-  CountedPublicExecutionRequest,
   HashedValues,
   PartialStateReference,
-  PublicExecutionRequest,
   StateReference,
   TxContext,
   TxExecutionRequest,
@@ -147,7 +143,7 @@ describe('Private Execution test suite', () => {
     const selector = await FunctionSelector.fromNameAndParameters(functionName, functionArtifact.parameters);
     await mockContractInstance(artifact, contractAddress);
 
-    const hashedArguments = await HashedValues.fromValues(encodeArguments(functionArtifact, args));
+    const hashedArguments = await HashedValues.fromArgs(encodeArguments(functionArtifact, args));
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: hashedArguments.hash,
@@ -853,20 +849,9 @@ describe('Private Execution test suite', () => {
         args,
       });
 
-      const request = new CountedPublicExecutionRequest(
-        PublicExecutionRequest.from({
-          args: [childSelector.toField(), new Fr(42n)],
-          callContext: CallContext.from({
-            msgSender: parentAddress,
-            contractAddress: childAddress,
-            functionSelector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-            isStaticCall: false,
-          }),
-        }),
-        2, // sideEffectCounter
-      );
+      const childCalldata = await HashedValues.fromCalldata([childSelector.toField(), new Fr(42n)]);
 
-      expect(result.entrypoint.enqueuedPublicFunctionCalls).toEqual([request]);
+      expect(result.publicFunctionCalldata).toEqual([childCalldata]);
     });
     it('should be ok for parent to enqueue calls with <= max total args', async () => {
       // This function recurses and calls itself, so we need to mock retrieval of its own contract instance (parent)
@@ -915,17 +900,13 @@ describe('Private Execution test suite', () => {
 
   describe('setting teardown function', () => {
     it('should be able to set a teardown function', async () => {
-      // All public functions get wrapped in a public_dispatch function
-      const publicDispatch = getFunctionArtifactByName(TestContractArtifact, 'public_dispatch');
-      const { entrypoint: result } = await runSimulator({
+      const { entrypoint: result, publicFunctionCalldata } = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'test_setting_teardown',
       });
-      expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
-      expect(result.publicTeardownFunctionCall.callContext.functionSelector).toEqual(
-        await FunctionSelector.fromNameAndParameters(publicDispatch.name, publicDispatch.parameters),
-      );
-      expect(result.publicTeardownFunctionCall.args[0]).toEqual(
+      expect(result.publicInputs.publicTeardownCallRequest.isEmpty()).toBe(false);
+      expect(result.publicInputs.publicTeardownCallRequest.calldataHash).toEqual(publicFunctionCalldata[0].hash);
+      expect(publicFunctionCalldata[0].values[0]).toEqual(
         (await FunctionSelector.fromNameAndParameters('dummy_public_call', [])).toField(),
       );
     });

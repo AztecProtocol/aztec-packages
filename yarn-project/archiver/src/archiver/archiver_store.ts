@@ -238,10 +238,16 @@ export interface ArchiverDataStore {
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**
    * Estimates the size of the store in bytes.
    */
   estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+
+  /** Backups the archiver db to the target folder. Returns the path to the db file. */
+  backupTo(path: string): Promise<string>;
+
+  /** Closes the underlying data store. */
+  close(): Promise<void>;
 }

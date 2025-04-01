@@ -55,15 +55,15 @@ function test_cmds {
   fi
   # Note: commands that start with 'timeout ...' override the default timeout.
   # TODO figure out why these take long sometimes.
-  echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-smoke"
-  # if [ "$CI_FULL" -eq 1 ]; then
+  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  if [ "$CI_FULL" -eq 1 ]; then
     # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
-  # fi
+    echo "$hash ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
+  fi
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
@@ -121,8 +121,9 @@ case "$cmd" in
     $cmd
     ;;
   "test-kind-smoke")
+    OVERRIDES="telemetry.enabled=false,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/smoke.test.ts ci-smoke.yaml smoke${NAME_POSTFIX:-}
+      ./scripts/test_kind.sh src/spartan/smoke.test.ts 1-validators.yaml smoke${NAME_POSTFIX:-}
     ;;
   "test-kind-4epochs")
     # TODO(#12163) reenable bot once not conflicting with transfer
@@ -160,7 +161,7 @@ case "$cmd" in
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
   "test-cli-upgrade-with-lock")
-    OVERRIDES="telemetry.enabled=false" \
+    OVERRIDES="telemetry.enabled=false,network.setupL2Contracts=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;

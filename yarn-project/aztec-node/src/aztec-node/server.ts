@@ -1,4 +1,4 @@
-import { createArchiver } from '@aztec/archiver';
+import { Archiver, createArchiver } from '@aztec/archiver';
 import { BBCircuitVerifier, TestCircuitVerifier } from '@aztec/bb-prover';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import {
@@ -10,7 +10,7 @@ import {
   type PUBLIC_DATA_TREE_HEIGHT,
 } from '@aztec/constants';
 import { EpochCache } from '@aztec/epoch-cache';
-import { type L1ContractAddresses, createEthereumChain } from '@aztec/ethereum';
+import { type L1ContractAddresses, RegistryContract, createEthereumChain } from '@aztec/ethereum';
 import { compactArray } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
@@ -20,7 +20,9 @@ import { DateProvider, Timer } from '@aztec/foundation/timer';
 import { SiblingPath } from '@aztec/foundation/trees';
 import type { AztecKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb';
+import { RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
+import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
 import { type P2P, createP2PClient } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
@@ -74,6 +76,7 @@ import {
   TxStatus,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
+import type { ValidatorsStats } from '@aztec/stdlib/validators';
 import {
   Attributes,
   type TelemetryClient,
@@ -85,6 +88,10 @@ import {
 import { createValidatorClient } from '@aztec/validator-client';
 import { createWorldStateSynchronizer } from '@aztec/world-state';
 
+import { createPublicClient, fallback, getContract, http } from 'viem';
+
+import { createSentinel } from '../sentinel/factory.js';
+import { Sentinel } from '../sentinel/sentinel.js';
 import { type AztecNodeConfig, getPackageVersion } from './config.js';
 import { NodeMetrics } from './node_metrics.js';
 
@@ -94,6 +101,9 @@ import { NodeMetrics } from './node_metrics.js';
 export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   private packageVersion: string;
   private metrics: NodeMetrics;
+
+  // Prevent two snapshot operations to happen simultaneously
+  private isUploadingSnapshot = false;
 
   // Serial queue to ensure that we only send one tx at a time
   private txQueue: SerialQueue = new SerialQueue();
@@ -109,6 +119,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     protected readonly l1ToL2MessageSource: L1ToL2MessageSource,
     protected readonly worldStateSynchronizer: WorldStateSynchronizer,
     protected readonly sequencer: SequencerClient | undefined,
+    protected readonly validatorsSentinel: Sentinel | undefined,
     protected readonly l1ChainId: number,
     protected readonly version: number,
     protected readonly globalVariableBuilder: GlobalVariableBuilder,
@@ -157,12 +168,47 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const dateProvider = deps.dateProvider ?? new DateProvider();
     const blobSinkClient = deps.blobSinkClient ?? createBlobSinkClient(config);
     const ethereumChain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
-    //validate that the actual chain id matches that specified in configuration
+
+    // validate that the actual chain id matches that specified in configuration
     if (config.l1ChainId !== ethereumChain.chainInfo.id) {
       throw new Error(
         `RPC URL configured for chain id ${ethereumChain.chainInfo.id} but expected id ${config.l1ChainId}`,
       );
     }
+
+    const publicClient = createPublicClient({
+      chain: ethereumChain.chainInfo,
+      transport: fallback(config.l1RpcUrls.map(url => http(url))),
+      pollingInterval: config.viemPollingIntervalMS,
+    });
+
+    const l1ContractsAddresses = await RegistryContract.collectAddresses(
+      publicClient,
+      config.l1Contracts.registryAddress,
+      config.rollupVersion ?? 'canonical',
+    );
+
+    // Overwrite the passed in vars.
+    config.l1Contracts = { ...config.l1Contracts, ...l1ContractsAddresses };
+
+    const rollup = getContract({
+      address: l1ContractsAddresses.rollupAddress.toString(),
+      abi: RollupAbi,
+      client: publicClient,
+    });
+
+    const rollupVersionFromRollup = Number(await rollup.read.getVersion());
+
+    config.rollupVersion ??= rollupVersionFromRollup;
+
+    if (config.rollupVersion !== rollupVersionFromRollup) {
+      log.warn(
+        `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
+      );
+    }
+
+    // attempt snapshot sync if possible
+    await trySnapshotSync(config, log);
 
     const archiver = await createArchiver(config, blobSinkClient, { blockUntilSync: true }, telemetry);
 
@@ -199,6 +245,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
+    const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
+    await validatorsSentinel?.start();
+
     // now create the sequencer
     const sequencer = config.disableValidator
       ? undefined
@@ -225,8 +274,9 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       archiver,
       worldStateSynchronizer,
       sequencer,
+      validatorsSentinel,
       ethereumChain.chainInfo.id,
-      config.version,
+      config.rollupVersion,
       new GlobalVariableBuilder(config),
       proofVerifier,
       telemetry,
@@ -275,20 +325,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-      await Promise.all([
-        this.getNodeVersion(),
-        this.getVersion(),
-        this.getChainId(),
-        this.getEncodedEnr(),
-        this.getL1ContractAddresses(),
-        this.getProtocolContractAddresses(),
-      ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.getNodeVersion(),
+      this.getVersion(),
+      this.getChainId(),
+      this.getEncodedEnr(),
+      this.getL1ContractAddresses(),
+      this.getProtocolContractAddresses(),
+    ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
-      protocolVersion,
+      rollupVersion,
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
@@ -471,6 +520,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   public async stop() {
     this.log.info(`Stopping`);
     await this.txQueue.end();
+    await this.validatorsSentinel?.stop();
     await this.sequencer?.stop();
     await this.p2pClient.stop();
     await this.worldStateSynchronizer.stop();
@@ -975,6 +1025,47 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       throw new Error(`Sequencer is not initialized`);
     }
     this.sequencer.flush();
+    return Promise.resolve();
+  }
+
+  public getValidatorsStats(): Promise<ValidatorsStats> {
+    return this.validatorsSentinel?.computeStats() ?? Promise.resolve({ stats: {}, slotWindow: 0 });
+  }
+
+  public async startSnapshotUpload(location: string): Promise<void> {
+    // Note that we are forcefully casting the blocksource as an archiver
+    // We break support for archiver running remotely to the node
+    const archiver = this.blockSource as Archiver;
+    if (!('backupTo' in archiver)) {
+      throw new Error('Archiver implementation does not support backups. Cannot generate snapshot.');
+    }
+
+    // Test that the archiver has done an initial sync.
+    if (!archiver.isInitialSyncComplete()) {
+      throw new Error(`Archiver initial sync not complete. Cannot start snapshot.`);
+    }
+
+    // And it has an L2 block hash
+    const l2BlockHash = await archiver.getL2Tips().then(tips => tips.latest.hash);
+    if (!l2BlockHash) {
+      throw new Error(`Archiver has no latest L2 block hash downloaded. Cannot start snapshot.`);
+    }
+
+    if (this.isUploadingSnapshot) {
+      throw new Error(`Snapshot upload already in progress. Cannot start another one until complete.`);
+    }
+
+    // Do not wait for the upload to be complete to return to the caller, but flag that an operation is in progress
+    this.isUploadingSnapshot = true;
+    void uploadSnapshot(location, this.blockSource as Archiver, this.worldStateSynchronizer, this.config, this.log)
+      .then(() => {
+        this.isUploadingSnapshot = false;
+      })
+      .catch(err => {
+        this.isUploadingSnapshot = false;
+        this.log.error(`Error uploading snapshot: ${err}`);
+      });
+
     return Promise.resolve();
   }
 

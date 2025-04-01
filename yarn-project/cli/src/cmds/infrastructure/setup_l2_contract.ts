@@ -4,11 +4,12 @@ import { jsonStringify } from '@aztec/foundation/json-rpc';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import { setupCanonicalL2FeeJuice } from '../misc/setup_contracts.js';
+import { setupCanonicalL2FeeJuice, setupSponsoredFPC } from '../../utils/setup_contracts.js';
 
 export async function setupL2Contracts(
   rpcUrl: string,
   testAccounts: boolean,
+  sponsoredFPC: boolean,
   json: boolean,
   skipProofWait: boolean,
   log: LogFn,
@@ -40,6 +41,11 @@ export async function setupL2Contracts(
     log('setupL2Contracts: Deploying test accounts...');
     deployedAccounts = await getInitialTestAccounts();
     await deployFundedSchnorrAccounts(pxe, deployedAccounts, waitOpts);
+  }
+
+  if (sponsoredFPC) {
+    log('setupL2Contracts: Setting up sponsored FPC...');
+    await setupSponsoredFPC(pxe, log, waitOpts, waitForProvenOptions);
   }
 
   if (json) {

@@ -3,6 +3,7 @@ import { Fr, type FunctionSelector, type PXE, type Wallet, toBigIntBE } from '@a
 import { serializeToBuffer } from '@aztec/foundation/serialize';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
+import { computeCalldataHash } from '@aztec/stdlib/hash';
 
 import { jest } from '@jest/globals';
 
@@ -71,23 +72,18 @@ describe('e2e_ordering', () => {
           await tx.send().wait();
 
           // There are two enqueued calls
-          const enqueuedPublicCalls = tx.enqueuedPublicFunctionCalls;
+          const enqueuedPublicCalls = tx.getPublicCallRequestsWithCalldata();
           expect(enqueuedPublicCalls.length).toEqual(2);
 
-          // The call stack items in the output of the kernel proof match the tx enqueuedPublicFunctionCalls
-          const areForCallRequests = await Promise.all(
-            enqueuedPublicCalls.map((c, i) =>
-              c.isForCallRequest(tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests[i]),
+          // The calldataHashes are derived from the calldata.
+          await Promise.all(
+            enqueuedPublicCalls.map(async ({ request, calldata }) =>
+              expect(request.calldataHash).toEqual(await computeCalldataHash(calldata)),
             ),
           );
-          areForCallRequests.forEach(isForCallRequest => {
-            expect(isForCallRequest).toBe(true);
-          });
 
           // The enqueued public calls are in the expected order based on the argument they set (stack is reversed!)
-          // args[1] is used instead of args[0] because public functions are routed through the public dispatch
-          // function and args[0] is the target function selector.
-          expect(enqueuedPublicCalls.map(c => c.args[1].toBigInt())).toEqual([...expectedOrder].reverse());
+          expect(enqueuedPublicCalls.map(c => c.args[0].toBigInt())).toEqual([...expectedOrder].reverse());
 
           // Logs are emitted in the expected order
           await expectLogsFromLastBlockToBe(expectedOrder);

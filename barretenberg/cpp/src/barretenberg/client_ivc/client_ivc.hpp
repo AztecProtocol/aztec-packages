@@ -70,6 +70,62 @@ class ClientIVC {
 
         size_t size() const { return mega_proof.size() + goblin_proof.size(); }
 
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1299): The following msgpack methods are generic
+        // and should leverage some kind of shared msgpack utility.
+        msgpack::sbuffer to_msgpack_buffer() const
+        {
+            msgpack::sbuffer buffer;
+            msgpack::pack(buffer, *this);
+            return buffer;
+        }
+
+        class DeserializationError : public std::runtime_error {
+          public:
+            DeserializationError(const std::string& msg)
+                : std::runtime_error(std::string("Client IVC Proof deserialization error: ") + msg)
+            {}
+        };
+
+        static Proof from_msgpack_buffer(const msgpack::sbuffer& buffer)
+        {
+            msgpack::object_handle oh = msgpack::unpack(buffer.data(), buffer.size());
+            msgpack::object obj = oh.get();
+            Proof proof;
+            obj.convert(proof);
+            return proof;
+        }
+
+        void to_file_msgpack(const std::string& filename) const
+        {
+            msgpack::sbuffer buffer = to_msgpack_buffer();
+            std::ofstream ofs(filename, std::ios::binary);
+            if (!ofs.is_open()) {
+                throw_or_abort("Failed to open file for writing.");
+            }
+            ofs.write(buffer.data(), static_cast<std::streamsize>(buffer.size()));
+            ofs.close();
+        }
+
+        static Proof from_file_msgpack(const std::string& filename)
+        {
+            std::ifstream ifs(filename, std::ios::binary);
+            if (!ifs.is_open()) {
+                throw_or_abort("Failed to open file for reading.");
+            }
+
+            ifs.seekg(0, std::ios::end);
+            size_t file_size = static_cast<size_t>(ifs.tellg());
+            ifs.seekg(0, std::ios::beg);
+
+            std::vector<char> buffer(file_size);
+            ifs.read(buffer.data(), static_cast<std::streamsize>(file_size));
+            ifs.close();
+            msgpack::sbuffer msgpack_buffer;
+            msgpack_buffer.write(buffer.data(), file_size);
+
+            return Proof::from_msgpack_buffer(msgpack_buffer);
+        }
+
         MSGPACK_FIELDS(mega_proof, goblin_proof);
     };
 
@@ -135,11 +191,16 @@ class ClientIVC {
     ClientIVC(TraceSettings trace_settings = {})
         : trace_usage_tracker(trace_settings)
         , trace_settings(trace_settings)
-        , bn254_commitment_key(trace_settings.structure.has_value()
-                                   ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
-                                   : nullptr)
         , goblin(bn254_commitment_key)
-    {}
+    {
+        // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
+        // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
+        size_t commitment_key_size =
+            std::max(trace_settings.dyadic_size(),
+                     TranslatorFlavor::TRANSLATOR_VM_FIXED_SIZE * TranslatorFlavor::INTERLEAVING_GROUP_SIZE);
+        info("BN254 commitment key size: ", commitment_key_size);
+        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
+    }
 
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});

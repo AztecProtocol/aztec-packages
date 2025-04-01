@@ -3,19 +3,20 @@ import { Semaphore, SerialQueue } from '@aztec/foundation/queue';
 import { MsgpackChannel, NativeLMDBStore } from '@aztec/native';
 
 import { AsyncLocalStorage } from 'async_hooks';
-import { rm } from 'fs/promises';
+import { mkdir, rm } from 'fs/promises';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
-import type { AztecAsyncMap, AztecAsyncMultiMap } from '../interfaces/map.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { AztecAsyncSet } from '../interfaces/set.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecAsyncKVStore } from '../interfaces/store.js';
 // eslint-disable-next-line import/no-cycle
 import { LMDBArray } from './array.js';
 // eslint-disable-next-line import/no-cycle
-import { LMDBMap, LMDBMultiMap } from './map.js';
+import { LMDBMap } from './map.js';
 import {
   Database,
   type LMDBMessageChannel,
@@ -23,6 +24,7 @@ import {
   type LMDBRequestBody,
   type LMDBResponseBody,
 } from './message.js';
+import { LMDBMultiMap } from './multi_map.js';
 import { ReadTransaction } from './read_transaction.js';
 // eslint-disable-next-line import/no-cycle
 import { LMDBSingleValue } from './singleton.js';
@@ -78,6 +80,11 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     const db = new AztecLMDBStoreV2(dataDir, dbMapSizeKb, maxReaders, log, cleanup);
     await db.start();
     return db;
+  }
+
+  public async backupTo(dstPath: string, compact = true) {
+    await mkdir(dstPath, { recursive: true });
+    await this.channel.sendMessage(LMDBMessageType.COPY_STORE, { dstPath, compact });
   }
 
   public getReadTx(): ReadTransaction {
@@ -151,10 +158,6 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
 
   clear(): Promise<void> {
     return Promise.resolve();
-  }
-
-  fork(): Promise<AztecAsyncKVStore> {
-    throw new Error('Not implemented');
   }
 
   async delete(): Promise<void> {

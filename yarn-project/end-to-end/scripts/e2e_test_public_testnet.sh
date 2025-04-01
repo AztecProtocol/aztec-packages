@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # TODO needs porting to ci3
 
 # Usage: ./e2e_test_public_testnet.sh <test>

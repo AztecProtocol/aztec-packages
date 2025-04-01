@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Set your GitHub repository info and token if needed
 GH_OWNER="aztecprotocol"
 GH_REPO="aztec-packages"

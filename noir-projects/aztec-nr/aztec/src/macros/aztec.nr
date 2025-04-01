@@ -272,6 +272,7 @@ comptime fn generate_process_log() -> Quoted {
                 tx_hash: Field,
                 unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
                 first_nullifier_in_tx: Field,
+                log_index_in_tx: Field,
                 recipient: aztec::protocol_types::address::AztecAddress,
             ) {
                 // Because this unconstrained function is injected after the contract is processed by the macros, it'll
@@ -288,6 +289,7 @@ comptime fn generate_process_log() -> Quoted {
                     tx_hash,
                     unique_note_hashes_in_tx,
                     first_nullifier_in_tx,
+                    log_index_in_tx,
                     recipient,
                     _compute_note_hash_and_nullifier,
                 );
@@ -302,6 +304,7 @@ comptime fn generate_process_log() -> Quoted {
                 _tx_hash: Field,
                 _unique_note_hashes_in_tx: BoundedVec<Field, dep::aztec::protocol_types::constants::MAX_NOTE_HASHES_PER_TX>,
                 _first_nullifier_in_tx: Field,
+                _log_index_in_tx: Field,
                 _recipient: aztec::protocol_types::address::AztecAddress,
             ) {
                 panic(f"This contract does not use private notes")

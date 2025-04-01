@@ -10,6 +10,8 @@
 #include "barretenberg/dsl/acir_format/proof_surgeon.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_contract.hpp"
 #include "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include "barretenberg/ultra_vanilla_client_ivc/ultra_vanilla_client_ivc.hpp"
 
@@ -57,33 +59,61 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-ProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
-                            const std::filesystem::path& bytecode_path,
-                            const std::filesystem::path& witness_path)
+PubInputsProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
+                                     const std::filesystem::path& bytecode_path,
+                                     const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
-    return { HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
+    return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-ProofAndKey<VK> _prove(const bool compute_vk,
-                       const bool init_kzg_accumulator,
-                       const std::filesystem::path& bytecode_path,
-                       const std::filesystem::path& witness_path)
+PubInputsProofAndKey<VK> _prove(const bool compute_vk,
+                                const bool init_kzg_accumulator,
+                                const std::filesystem::path& bytecode_path,
+                                const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
-    return { prover.construct_proof(), compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
+    HonkProof concat_pi_and_proof = prover.construct_proof();
+    size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
+    if (init_kzg_accumulator) {
+        ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
+        num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
+    }
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        ASSERT(num_inner_public_inputs >= IPA_CLAIM_SIZE);
+        num_inner_public_inputs -= IPA_CLAIM_SIZE;
+    }
+    // We split the inner public inputs, which are stored at the front of the proof, from the rest of the proof. Now,
+    // the "proof" refers to everything except the inner public inputs.
+    PublicInputsAndProof public_inputs_and_proof{
+        PublicInputsVector(concat_pi_and_proof.begin(),
+                           concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
+        HonkProof(concat_pi_and_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs),
+                  concat_pi_and_proof.end())
+    };
+    return { public_inputs_and_proof.public_inputs,
+             public_inputs_and_proof.proof,
+             compute_vk ? std::make_shared<VK>(prover.proving_key->proving_key) : nullptr };
 }
 
 template <typename Flavor>
-bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_path, const std::filesystem::path& vk_path)
+bool _verify(const bool honk_recursion_2,
+             const std::filesystem::path& public_inputs_path,
+             const std::filesystem::path& proof_path,
+             const std::filesystem::path& vk_path)
 {
     using VerificationKey = typename Flavor::VerificationKey;
     using Verifier = UltraVerifier_<Flavor>;
 
     auto g2_data = get_bn254_g2_data(CRS_PATH);
     srs::init_crs_factory({}, g2_data);
+    auto public_inputs = from_buffer<std::vector<bb::fr>>(read_file(public_inputs_path));
     auto proof = from_buffer<std::vector<bb::fr>>(read_file(proof_path));
+    // concatenate public inputs and proof
+    std::vector<fr> complete_proof = public_inputs;
+    complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
+
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
@@ -100,14 +130,15 @@ bool _verify(const bool honk_recursion_2, const std::filesystem::path& proof_pat
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
-        ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
+        ASSERT(complete_proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
         const std::ptrdiff_t honk_proof_with_pub_inputs_length =
             static_cast<std::ptrdiff_t>(HONK_PROOF_LENGTH + num_public_inputs);
-        auto ipa_proof = HonkProof(proof.begin() + honk_proof_with_pub_inputs_length, proof.end());
-        auto tube_honk_proof = HonkProof(proof.begin(), proof.begin() + honk_proof_with_pub_inputs_length);
-        verified = verifier.verify_proof(proof, ipa_proof);
+        auto ipa_proof = HonkProof(complete_proof.begin() + honk_proof_with_pub_inputs_length, complete_proof.end());
+        auto tube_honk_proof =
+            HonkProof(complete_proof.begin(), complete_proof.begin() + honk_proof_with_pub_inputs_length);
+        verified = verifier.verify_proof(complete_proof, ipa_proof);
     } else {
-        verified = verifier.verify_proof(proof);
+        verified = verifier.verify_proof(complete_proof);
     }
 
     if (verified) {
@@ -152,21 +183,22 @@ void UltraHonkAPI::prove(const Flags& flags,
 }
 
 bool UltraHonkAPI::verify(const Flags& flags,
+                          const std::filesystem::path& public_inputs_path,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {
     const bool ipa_accumulation = flags.ipa_accumulation;
     if (ipa_accumulation) {
-        return _verify<UltraRollupFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraRollupFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     if (flags.zk) {
-        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraKeccakZKFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "poseidon2") {
-        return _verify<UltraFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     if (flags.oracle_hash_type == "keccak") {
-        return _verify<UltraKeccakFlavor>(ipa_accumulation, proof_path, vk_path);
+        return _verify<UltraKeccakFlavor>(ipa_accumulation, public_inputs_path, proof_path, vk_path);
     }
     return false;
 }

@@ -1,5 +1,3 @@
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
-import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { resolveAssertionMessageFromRevertData, resolveOpcodeLocations } from '@aztec/simulator/client';
 import { FunctionSelector } from '@aztec/stdlib/abi';
@@ -66,24 +64,20 @@ export async function enrichPublicSimulationError(
 ) {
   const callStack = err.getCallStack();
   const originalFailingFunction = callStack[callStack.length - 1];
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Properly fix this.
-  // To be able to resolve the assertion message, we need to use the information from the public dispatch function,
-  // no matter what the call stack selector points to (since we've modified it to point to the target function).
-  // We should remove this because the AVM (or public protocol) shouldn't be aware of the public dispatch calling convention.
 
-  const artifact = await contractDataProvider.getFunctionArtifact(
-    originalFailingFunction.contractAddress,
-    FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-  );
+  const artifact = await contractDataProvider.getPublicFunctionArtifact(originalFailingFunction.contractAddress);
+  if (!artifact) {
+    throw new Error(
+      `Artifact not found when enriching public simulation error. Contract address: ${originalFailingFunction.contractAddress}.`,
+    );
+  }
+
   const assertionMessage = resolveAssertionMessageFromRevertData(err.revertData, artifact);
   if (assertionMessage) {
     err.setOriginalMessage(err.getOriginalMessage() + `${assertionMessage}`);
   }
 
-  const debugInfo = await contractDataProvider.getFunctionDebugMetadata(
-    originalFailingFunction.contractAddress,
-    FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-  );
+  const debugInfo = await contractDataProvider.getPublicFunctionDebugMetadata(originalFailingFunction.contractAddress);
 
   const noirCallStack = err.getNoirCallStack();
   if (debugInfo) {

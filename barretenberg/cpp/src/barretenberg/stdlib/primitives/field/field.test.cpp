@@ -118,6 +118,46 @@ template <typename Builder> class stdlib_field : public testing::Test {
         bool_ct b_false = bool_ct(one * field_ct(0));
         EXPECT_FALSE(b_false.get_value());
     }
+
+    /**
+     * @brief Test that conditional assign doesn't produce a new witness
+     *
+     */
+    static void test_conditional_assign_regression()
+    {
+        Builder builder = Builder();
+
+        field_ct x(2);
+        field_ct y(2);
+        field_ct z(1);
+        field_ct alpha = x.madd(y, -z);
+        field_ct beta(3);
+        field_ct zeta = field_ct::conditional_assign(bool_ct(witness_ct(&builder, false)), alpha, beta);
+
+        EXPECT_TRUE(zeta.is_constant());
+    }
+
+    /**
+     * @brief Test that multiplicative_constant of constants is no longer affected
+     * by any arithimetic operation
+     *
+     */
+    static void test_multiplicative_constant_regression()
+    {
+        Builder builder = Builder();
+
+        field_ct a(1);
+        field_ct b(1);
+        EXPECT_TRUE(a.multiplicative_constant == bb::fr::one());
+        EXPECT_TRUE(b.multiplicative_constant == bb::fr::one());
+        auto c = a + b;
+        EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
+        c = a - b;
+        EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
+        c = -c;
+        EXPECT_TRUE(c.multiplicative_constant == bb::fr::one());
+    }
+
     /**
      * @brief Demonstrate current behavior of assert_equal.
      */
@@ -1104,6 +1144,14 @@ TYPED_TEST(stdlib_field, test_constructor_from_witness)
 TYPED_TEST(stdlib_field, test_create_range_constraint)
 {
     TestFixture::create_range_constraint();
+}
+TYPED_TEST(stdlib_field, test_conditional_assign_regression)
+{
+    TestFixture::test_conditional_assign_regression();
+}
+TYPED_TEST(stdlib_field, test_multiplicative_constant_regression)
+{
+    TestFixture::test_multiplicative_constant_regression();
 }
 TYPED_TEST(stdlib_field, test_assert_equal)
 {

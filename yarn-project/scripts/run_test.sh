@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This runs an individual test from the dest folder.
 # It's the script used by ./bootstrap.sh test_cmds.
 # It means we can return a concise, easy to read, easy to run command for reproducing a test run.
@@ -30,7 +30,8 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
     -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
     -e LOG_LEVEL \
     aztecprotocol/build:3.0 \
-      node ../node_modules/.bin/jest --forceExit --runInBand $test
+      node ../node_modules/.bin/jest --forceExit --runInBand $test &
+  wait $!
 else
   export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
   cd ../$dir

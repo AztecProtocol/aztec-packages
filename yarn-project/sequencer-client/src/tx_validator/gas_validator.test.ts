@@ -1,4 +1,3 @@
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import type { Writeable } from '@aztec/foundation/types';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
@@ -73,8 +72,8 @@ describe('GasTxValidator', () => {
     const selector = await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)');
     await patchNonRevertibleFn(tx, 0, {
       address: ProtocolContractAddress.FeeJuice,
-      selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-      args: [selector.toField(), payer.toField(), new Fr(1n)],
+      selector,
+      args: [payer.toField(), new Fr(1n)],
       msgSender: ProtocolContractAddress.FeeJuice,
     });
     await expectValid(tx);

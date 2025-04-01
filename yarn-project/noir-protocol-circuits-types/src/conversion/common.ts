@@ -466,9 +466,8 @@ export function mapPublicCallRequestFromNoir(request: PublicCallRequestNoir) {
   return new PublicCallRequest(
     mapAztecAddressFromNoir(request.msg_sender),
     mapAztecAddressFromNoir(request.contract_address),
-    mapFunctionSelectorFromNoir(request.function_selector),
     request.is_static_call,
-    mapFieldFromNoir(request.args_hash),
+    mapFieldFromNoir(request.calldata_hash),
   );
 }
 
@@ -476,9 +475,8 @@ export function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCa
   return {
     msg_sender: mapAztecAddressToNoir(request.msgSender),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
-    function_selector: mapFunctionSelectorToNoir(request.functionSelector),
     is_static_call: request.isStaticCall,
-    args_hash: mapFieldToNoir(request.argsHash),
+    calldata_hash: mapFieldToNoir(request.calldataHash),
   };
 }
 

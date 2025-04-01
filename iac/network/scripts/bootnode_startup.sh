@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -101,13 +101,13 @@ IMAGE=aztec
 LOG_LEVEL=verbose
 
 cat <<EOF > /home/$SSH_USER/tag.sh
-#!/bin/bash
+#!/usr/bin/env bash
 export TAG=$TAG
 EOF
 chmod +x /home/$SSH_USER/tag.sh
 
 cat << 'EOF' > /home/$SSH_USER/start.sh
-#!/bin/bash
+#!/usr/bin/env bash
 source ./tag.sh
 echo "Starting bootnode container..."
 JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)

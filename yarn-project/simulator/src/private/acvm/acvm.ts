@@ -32,6 +32,11 @@ export interface ACIRExecutionResult {
 
 /**
  * The function call that executes an ACIR.
+ * @param acir - The ACIR circuit bytecode to execute.
+ * @param initialWitness - The initial witness map defining all of the inputs to `circuit`.
+ * @param callback - A callback to process any foreign calls from the circuit.
+ * @returns The solved witness calculated by executing the circuit on the provided inputs, as well as the return
+ * witness indices as specified by the circuit.
  */
 export async function acvm(
   acir: Buffer,

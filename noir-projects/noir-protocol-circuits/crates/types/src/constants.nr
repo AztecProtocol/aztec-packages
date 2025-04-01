@@ -4,7 +4,7 @@ pub global MAX_FIELD_VALUE: Field =
     21888242871839275222246405745257275088548364400416034343698204186575808495616;
 pub global ARGS_LENGTH: u32 = 16;
 // WARNING: do not change without consulting AVM which this constant affects
-pub global MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
+pub global MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS: u32 = 16_000;
 /**
  * Convention for constant array lengths are mainly divided in 2 classes:
  *  - FUNCTION CALL
@@ -271,9 +271,8 @@ pub global PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH: u32 =
 pub global PRIVATE_CALL_REQUEST_LENGTH: u32 = CALL_CONTEXT_LENGTH + 4;
 pub global PUBLIC_CALL_REQUEST_LENGTH: u32 = AZTEC_ADDRESS_LENGTH /* msg_sender */
     + AZTEC_ADDRESS_LENGTH /* contract_address */
-    + 1 /* function_selector */
     + 1 /* is_static_call */
-    + 1 /* args_hash */;
+    + 1 /* calldata_hash */;
 pub global COUNTED_PUBLIC_CALL_REQUEST_LENGTH: u32 = PUBLIC_CALL_REQUEST_LENGTH + 1;
 pub global PUBLIC_INNER_CALL_REQUEST_LENGTH: u32 =
     PUBLIC_CALL_STACK_ITEM_COMPRESSED_LENGTH + 1 /* counter */;
@@ -546,8 +545,7 @@ pub global GENERATOR_INDEX__TX_NULLIFIER: u32 = 32;
 pub global GENERATOR_INDEX__TX_REQUEST: u32 = 33;
 pub global GENERATOR_INDEX__SIGNATURE_PAYLOAD: u32 = 34;
 pub global GENERATOR_INDEX__VK: u32 = 41;
-pub global GENERATOR_INDEX__PRIVATE_CIRCUIT_PUBLIC_INPUTS: u32 = 42;
-pub global GENERATOR_INDEX__PUBLIC_CIRCUIT_PUBLIC_INPUTS: u32 = 43;
+pub global GENERATOR_INDEX__PUBLIC_CALLDATA: u32 = 43;
 pub global GENERATOR_INDEX__FUNCTION_ARGS: u32 = 44;
 pub global GENERATOR_INDEX__AUTHWIT_INNER: u32 = 45;
 pub global GENERATOR_INDEX__AUTHWIT_OUTER: u32 = 46;

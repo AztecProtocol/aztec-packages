@@ -19,7 +19,7 @@ export async function foreignCallHandler(name: string, args: ForeignCallInput[])
     // TODO(#10323): this was added to save simulation time (~1min in ACVM, ~3mins in wasm -> 500ms).
     // The use of bignum adds a lot of unconstrained code which overloads limits when simulating.
     // If/when simulation times of unconstrained are improved, remove this.
-    // Create and evaulate our blobs:
+    // Create and evaluate our blobs:
     const paddedBlobsAsFr: Fr[] = args[0].map((field: string) => Fr.fromString(field));
     const kzgCommitments = args[1].map((field: string) => Fr.fromString(field));
     const spongeBlob = SpongeBlob.fromFields(

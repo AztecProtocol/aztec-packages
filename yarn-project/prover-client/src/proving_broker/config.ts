@@ -125,7 +125,7 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
   realProofs: {
     env: 'PROVER_REAL_PROOFS',
     description: 'Whether to construct real proofs',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   proverTestDelayType: {
     env: 'PROVER_TEST_DELAY_TYPE',

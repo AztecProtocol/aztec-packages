@@ -10,7 +10,6 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
     let unit = get_type::<()>();
 
     let ifs = functions.map(|function: FunctionDefinition| {
-        let name = function.name();
         let parameters = function.parameters();
         let return_type = function.return_type();
 
@@ -56,6 +55,8 @@ pub comptime fn generate_public_dispatch(m: Module) -> Quoted {
         }
 
         let args = args.join(quote { , });
+        // name of the function is assigned just before the call so debug metadata doesn't span most of this macro when figuring out where the call comes from.
+        let name = function.name();
         let call = quote { $name($args) };
 
         let return_code = if return_type == unit {

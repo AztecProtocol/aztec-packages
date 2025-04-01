@@ -1,5 +1,4 @@
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionSelector } from '@aztec/stdlib/abi';
 import { computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 
@@ -7,10 +6,10 @@ import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1, Uint32 } from '../avm_memory_types.js';
 import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { encodeToBytecode } from '../serialization/bytecode_serialization.js';
 import { Opcode } from '../serialization/instruction_serialization.js';
 import {
@@ -31,7 +30,7 @@ describe('External Calls', () => {
   let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
 
   beforeEach(() => {
     treesDB = mock<PublicTreesDB>();
@@ -124,10 +123,7 @@ describe('External Calls', () => {
         new CalldataCopy(/*indirect=*/ 0, /*csOffsetAddress=*/ 0, /*copySizeOffset=*/ 1, /*dstOffset=*/ 3),
         new Return(/*indirect=*/ 0, /*retOffset=*/ 3, /*sizeOffset=*/ 2),
       ]);
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
@@ -180,10 +176,7 @@ describe('External Calls', () => {
       ]);
       mockGetNullifierIndex(treesDB, addr);
 
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);
@@ -261,10 +254,7 @@ describe('External Calls', () => {
       const otherContextInstructionsBytecode = encodeToBytecode(otherContextInstructions);
       mockGetNullifierIndex(treesDB, addr.toFr());
 
-      const contractClass = await makeContractClassPublic(0, {
-        bytecode: otherContextInstructionsBytecode,
-        selector: FunctionSelector.random(),
-      });
+      const contractClass = await makeContractClassPublic(0, otherContextInstructionsBytecode);
       mockGetContractClass(contractsDB, contractClass);
       mockGetBytecodeCommitment(contractsDB, await computePublicBytecodeCommitment(contractClass.packedBytecode));
       const contractInstance = await makeContractInstanceFromClassId(contractClass.id);

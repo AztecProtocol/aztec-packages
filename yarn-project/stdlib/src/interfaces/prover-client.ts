@@ -51,7 +51,7 @@ export const proverConfigMappings: ConfigMappingsType<ProverConfig> = {
   realProofs: {
     env: 'PROVER_REAL_PROOFS',
     description: 'Whether to construct real proofs',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(true),
   },
   proverId: {
     env: 'PROVER_ID',

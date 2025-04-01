@@ -5,7 +5,7 @@ use dep::aztec::macros::aztec;
 pub contract Parent {
     use dep::aztec::{context::gas::GasOpts, macros::functions::{private, public}};
     use dep::aztec::prelude::{AztecAddress, FunctionSelector};
-    use dep::aztec::protocol_types::constants::MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS;
+    use dep::aztec::protocol_types::constants::MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS;
     use aztec::protocol_types::traits::ToField;
     // Private function to call another private function in the target_contract using the provided selector
     #[private]
@@ -58,11 +58,13 @@ pub contract Parent {
     }
 
     #[public]
-    fn public_call_with_max_over_n_args(_args: [Field; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / 10]) {}
+    fn public_call_with_max_over_n_args(
+        _args: [Field; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10],
+    ) {}
 
     #[private]
     fn enqueue_call_to_child_with_many_args_and_recurse(remaining_recursions: u32) {
-        let args = [0; MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / 10];
+        let args = [0; MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 10];
         // +1 for function selector brings us to max
         Parent::at(context.this_address()).public_call_with_max_over_n_args(args).enqueue(
             &mut context,

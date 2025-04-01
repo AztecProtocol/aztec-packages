@@ -48,6 +48,7 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
       },
     });
 
@@ -124,7 +125,7 @@ describe('e2e_p2p_network', () => {
     const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
     const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
     const payload = ConsensusPayload.fromBlock(block.block);
-    const attestations = block.signatures.map(sig => new BlockAttestation(payload, sig));
+    const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
     const signers = await Promise.all(attestations.map(att => att.getSender().then(s => s.toString())));
     t.logger.info(`Attestation signers`, { signers });
 

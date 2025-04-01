@@ -206,6 +206,9 @@ export class EpochsTestContext {
 
   /** Verifies whether the given block number is found on the aztec node. */
   public async verifyHistoricBlock(blockNumber: L2BlockNumber, expectedSuccess: boolean) {
+    // We use `findLeavesIndexes` here, but could use any function that queries the world-state
+    // at a particular block, so we know whether that historic block is available or has been
+    // pruned. Note that `getBlock` would not work here, since it only hits the archiver.
     const result = await this.context.aztecNode
       .findLeavesIndexes(blockNumber, MerkleTreeId.NULLIFIER_TREE, [Fr.ZERO])
       .then(_ => true)

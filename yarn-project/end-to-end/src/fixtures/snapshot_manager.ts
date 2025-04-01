@@ -49,7 +49,13 @@ import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
-import { type SetupOptions, createAndSyncProverNode, getLogger, getPrivateKeyFromIndex } from './utils.js';
+import {
+  type SetupOptions,
+  createAndSyncProverNode,
+  getLogger,
+  getPrivateKeyFromIndex,
+  getSponsoredFPCAddress,
+} from './utils.js';
 import { getEndToEndTestTelemetryClient } from './with_telemetry_utils.js';
 
 export type SubsystemsContext = {
@@ -300,6 +306,9 @@ async function setupFromFresh(
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+  // Only enable proving if specifically requested.
+  aztecNodeConfig.realProofs = !!opts.realProofs;
+  aztecNodeConfig.listenAddress = '127.0.0.1';
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -309,7 +318,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -336,8 +345,9 @@ async function setupFromFresh(
   }
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
+  const sponsoredFPCAddress = await getSponsoredFPCAddress();
   const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
+    initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
 
@@ -433,6 +443,8 @@ async function setupFromFresh(
   logger.verbose('Creating pxe...');
   const pxeConfig = getPXEServiceConfig();
   pxeConfig.dataDirectory = statePath ?? path.join(directoryToCleanup, randomBytes(8).toString('hex'));
+  // Only enable proving if specifically requested.
+  pxeConfig.proverEnabled = !!opts.realProofs;
   const pxe = await createPXEService(aztecNode, pxeConfig);
 
   const cheatCodes = await CheatCodes.create(aztecNodeConfig.l1RpcUrls, pxe);
@@ -479,6 +491,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   aztecNodeConfig.dataDirectory = statePath;
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  aztecNodeConfig.listenAddress = '127.0.0.1';
 
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];

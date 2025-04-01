@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Usage: ./test_kind.sh <test> <values_file=default.yaml>
 # The <test> file is located in yarn-project/end-to-end/src/spartan.

@@ -35,7 +35,7 @@ import type {
   SequencerConfig,
   WorldStateSyncStatus,
 } from '@aztec/stdlib/interfaces/server';
-import { type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { type LogFilter, type PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import {
   MerkleTreeId,
   type NullifierMembershipWitness,
@@ -51,6 +51,7 @@ import {
   TxReceipt,
   type TxValidationResult,
 } from '@aztec/stdlib/tx';
+import type { ValidatorsStats } from '@aztec/stdlib/validators';
 import type { NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
@@ -97,12 +98,12 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Sets a tx effect and receipt for a given block number.
+   * Processes a tx effect and receipt for a given block number.
    * @param blockNumber - The block number that this tx effect resides.
    * @param txHash - The transaction hash of the transaction.
    * @param effect - The tx effect to set.
    */
-  async setTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
+  async processTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
     // We are not creating real blocks on which membership proofs can be constructed - we instead define its hash as
     // simply the hash of the block number.
     const blockHash = await poseidon2Hash([blockNumber]);
@@ -126,44 +127,45 @@ export class TXENode implements AztecNode {
         blockNumber,
       ),
     );
-  }
 
-  /**
-   * Adds private logs to the txe node, given a block
-   * @param blockNumber - The block number at which to add the private logs.
-   * @param privateLogs - The privateLogs that contain the private logs to be added.
-   */
-  addPrivateLogsByTags(blockNumber: number, privateLogs: PrivateLog[]) {
-    privateLogs.forEach(log => {
+    // Store the private logs
+    effect.privateLogs.forEach((log, logIndexInTx) => {
       const tag = log.fields[0];
       this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        logIndexInTx,
+        blockNumber,
+        log,
+      );
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
 
-    this.#noteIndex += privateLogs.length;
-  }
+    this.#noteIndex += effect.privateLogs.length;
 
-  /**
-   * Adds public logs to the txe node, given a block
-   * @param blockNumber - The block number at which to add the public logs.
-   * @param publicLogs - The public logs to be added.
-   */
-  addPublicLogsByTags(blockNumber: number, publicLogs: PublicLog[]) {
-    publicLogs.forEach(log => {
+    // Store the public logs
+    effect.publicLogs.forEach((log, logIndexInTx) => {
       const tag = log.log[0];
       this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
-      const scopedLog = new TxScopedL2Log(new TxHash(new Fr(blockNumber)), this.#noteIndex, blockNumber, log);
+      const scopedLog = new TxScopedL2Log(
+        new TxHash(new Fr(blockNumber)),
+        this.#noteIndex,
+        logIndexInTx,
+        blockNumber,
+        log,
+      );
 
       currentLogs.push(scopedLog);
       this.#logsByTags.set(tag.toString(), currentLogs);
     });
   }
+
   /**
    * Gets all logs that match any of the received tags (i.e. logs with their first field equal to a tag).
    * @param tags - The tags to filter the logs by.
@@ -678,5 +680,9 @@ export class TXENode implements AztecNode {
    */
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
     throw new Error('TXE Node method getWorldStateSyncStatus not implemented');
+  }
+
+  getValidatorsStats(): Promise<ValidatorsStats> {
+    throw new Error('TXE Node method getValidatorsStats not implemented');
   }
 }

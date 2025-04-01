@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -exu
 
@@ -20,7 +20,9 @@ set -exu
 #   --registry 0x29f815e32efdef19883cf2b92a766b7aebadd326 \
 #   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
 #   --deposit-amount 200000000000000000000000 \
-#   --mint
+#   --mint \
+#   --test-accounts \
+#   --sponsored-fpc
 #
 # where:
 #  - aztec-docker-tag is the tag of the aztec docker image to use.
@@ -28,6 +30,8 @@ set -exu
 #  - address is the address that corresponds to whatever mnemonic/private key you are using.
 #  - deposit-amount is optional, and if provided, will deposit the specified amount of governance tokens to the address.
 #  - mint is optional, and if provided, will mint the governance tokens to the address before depositing.
+#  - test-accounts is optional, and if provided, will initialise the genesis state with funded test accounts.
+#  - sponsored-fpc is optional, and if provided, will initialise the genesis state with a funded FPC.
 #
 # It can also be used locally by providing an --aztec-bin argument to the path of the aztec binary.
 # For example, --aztec-bin /usr/src/yarn-project/aztec/dest/bin/index.js
@@ -40,6 +44,8 @@ set -exu
 #   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
 #   --deposit-amount 10000000000000000 \
 #   --mint
+#  --test-accounts \
+#  --sponsored-fpc
 
 # First set from environment variables if they exist
 DEPOSIT_AMOUNT=""
@@ -48,6 +54,8 @@ SALT=$((RANDOM % 1000000))
 # The default path to the aztec binary within the docker image
 AZTEC_BIN="/usr/src/yarn-project/aztec/dest/bin/index.js"
 AZTEC_DOCKER_IMAGE=""
+TEST_ACCOUNTS=""
+SPONSORED_FPC=""
 
 # Parse command line arguments (these will override env vars if provided)
 while [[ $# -gt 0 ]]; do
@@ -80,6 +88,14 @@ while [[ $# -gt 0 ]]; do
       MINT="--mint"
       shift 1
       ;;
+    --test-accounts)
+      TEST_ACCOUNTS="--test-accounts"
+      shift 1
+      ;;
+    --sponsored-fpc)
+      SPONSORED_FPC="--sponsored-fpc"
+      shift 1
+      ;;
     *)
       echo "Unknown parameter: $1"
       exit 1
@@ -106,7 +122,7 @@ cleanup() {
 
 # if aztec-docker-tag is set, use it
 if [ -n "$AZTEC_DOCKER_IMAGE" ]; then
-  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE $AZTEC_BIN"
+  EXE="docker run --rm --network=host --env-file .env.tmp $AZTEC_DOCKER_IMAGE node --no-warnings $AZTEC_BIN"
   # Check if the image exists locally before pulling it
   if ! docker images $AZTEC_DOCKER_IMAGE -q; then
     echo "Pulling docker image $AZTEC_DOCKER_IMAGE"
@@ -126,7 +142,9 @@ if [ -n "$DEPOSIT_AMOUNT" ]; then
   $EXE deposit-governance-tokens -r $REGISTRY --recipient $MY_ADDR -a $DEPOSIT_AMOUNT $MINT
 fi
 
-PAYLOAD=$($EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json --test-accounts | jq -r '.payloadAddress')
+OUTPUT=$($EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC)
+
+PAYLOAD=$(echo $OUTPUT | jq -r '.payloadAddress')
 
 PROPOSAL_ID=$($EXE propose-with-lock -r $REGISTRY --payload-address $PAYLOAD --json | jq -r '.proposalId')
 

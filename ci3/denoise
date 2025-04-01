@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 source $ci3/source_redis
 
@@ -39,10 +39,11 @@ function publish_log {
   fi
 
   {
+    echo "Parent Log: ${PARENT_LOG_URL:-none}"
     echo "Command: $cmd"
-    echo "   Date: $(date)"
-    echo " Status: $status"
-    echo "   Took: ${time}"
+    echo "Date: $(date)"
+    echo "Status: $status"
+    echo "Took: ${time}"
     echo
 
     cat $outfile
@@ -68,7 +69,7 @@ fi
 set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
-bash -c "$cmd" 2>&1 | while IFS= read -r line; do
+PARENT_LOG_URL=$url bash -c "$cmd" 2>&1 | redact | while IFS= read -r line; do
   ((dot_count++))
   [ $realtime -eq 1 ] && printf "."
   if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then

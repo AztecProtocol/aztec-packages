@@ -97,7 +97,6 @@ export class ProverNodePublisher {
     const ctx = { epochNumber, fromBlock, toBlock };
     if (!this.interrupted) {
       const timer = new Timer();
-
       // Validate epoch proof range and hashes are correct before submitting
       await this.validateEpochProofSubmission(args);
 
@@ -150,15 +149,17 @@ export class ProverNodePublisher {
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
-    if (proven !== BigInt(fromBlock) - 1n) {
+    // Don't publish if proven is beyond our toBlock, pointless to do so
+    if (proven > BigInt(toBlock)) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as proven block is ${proven}`);
     }
+    // toBlock can't be greater than pending
     if (toBlock > pending) {
       throw new Error(`Cannot submit epoch proof for ${fromBlock}-${toBlock} as pending block is ${pending}`);
     }
 
     // Check the block hash and archive for the immediate block before the epoch
-    const blockLog = await this.rollupContract.getBlock(proven);
+    const blockLog = await this.rollupContract.getBlock(BigInt(fromBlock - 1));
     if (publicInputs.previousArchive.root.toString() !== blockLog.archive) {
       throw new Error(
         `Previous archive root mismatch: ${publicInputs.previousArchive.root.toString()} !== ${blockLog.archive}`,

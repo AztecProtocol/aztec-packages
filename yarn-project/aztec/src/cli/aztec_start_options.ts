@@ -65,11 +65,13 @@ export const universalOptions = [
   'dataStoreMapSizeKb',
 ];
 
+export const NETWORK_FLAG = 'network';
+
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   NETWORK: [
     {
-      flag: '--network <value>',
+      flag: `--${NETWORK_FLAG} <value>`,
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
@@ -83,13 +85,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.testAccounts',
-      description: 'Deploy test accounts on sandbox start',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
-    },
-    {
-      flag: '--sandbox.noPXE',
+      flag: '--sandbox.noPXE [value]',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),
@@ -268,15 +264,22 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: val => parseInt(val, 10),
     },
     {
-      flag: '--node.testAccounts',
-      description: 'Populate genesis state with initial fee juice for test accounts',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(),
+      flag: '--node.syncMode <value>',
+      description:
+        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+      defaultValue: 'snapshot',
+      envVar: 'SYNC_MODE',
+    },
+    {
+      flag: '--node.snapshotsUrl <value>',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
+      defaultValue: undefined,
+      envVar: 'SYNC_SNAPSHOTS_URL',
     },
   ],
   'P2P SUBSYSTEM': [
     {
-      flag: '--p2p-enabled',
+      flag: '--p2p-enabled [value]',
       description: 'Enable P2P subsystem',
       envVar: 'P2P_ENABLED',
       ...booleanConfigHelper(),

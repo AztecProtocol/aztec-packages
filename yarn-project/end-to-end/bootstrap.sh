@@ -50,6 +50,7 @@ function test_cmds {
   echo "$prefix simple e2e_deploy_contract/deploy_method"
   echo "$prefix simple e2e_deploy_contract/legacy"
   echo "$prefix simple e2e_deploy_contract/private_initialization"
+  echo "$prefix simple e2e_double_spend"
   echo "$prefix simple e2e_epochs/epochs_empty_blocks"
   echo "$prefix simple e2e_epochs/epochs_multi_proof"
   echo "$prefix simple e2e_epochs/epochs_proof_fails"
@@ -92,6 +93,7 @@ function test_cmds {
   echo "$prefix simple e2e_p2p/reex"
   echo "$prefix simple e2e_p2p/slashing"
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
+  echo "$prefix simple e2e_p2p/validators_sentinel"
 
   echo "$prefix simple e2e_pending_note_hashes_contract"
   echo "$prefix simple e2e_private_voting_contract"
@@ -112,6 +114,12 @@ function test_cmds {
   echo "$prefix simple e2e_token_contract/transfer_to_private"
   echo "$prefix simple e2e_token_contract/transfer_to_public"
   echo "$prefix simple e2e_token_contract/transfer.test"
+
+  # other
+  echo "$prefix simple e2e_sequencer_config"
+
+  # circuit_recorder sub-tests
+  echo "$prefix simple e2e_circuit_recorder"
 
   # compose-based tests (use running sandbox)
   echo "$prefix compose composed/docs_examples"

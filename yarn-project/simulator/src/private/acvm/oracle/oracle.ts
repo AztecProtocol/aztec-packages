@@ -1,8 +1,9 @@
 import { Fr, Point } from '@aztec/foundation/fields';
-import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ACVMField } from '../acvm_types.js';
 import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
@@ -21,9 +22,9 @@ export class Oracle {
   }
 
   // Since the argument is a slice, noir automatically adds a length field to oracle call.
-  async storeInExecutionCache(_length: ACVMField[], values: ACVMField[]): Promise<ACVMField[]> {
-    const hash = await this.typedOracle.storeInExecutionCache(values.map(Fr.fromString));
-    return [toACVMField(hash)];
+  storeInExecutionCache(_length: ACVMField[], values: ACVMField[], [hash]: ACVMField[]): Promise<ACVMField[]> {
+    this.typedOracle.storeInExecutionCache(values.map(Fr.fromString), Fr.fromString(hash));
+    return Promise.resolve([]);
   }
 
   async loadFromExecutionCache([returnsHash]: ACVMField[]): Promise<ACVMField[][]> {
@@ -320,38 +321,34 @@ export class Oracle {
     return [[endSideEffectCounter, returnsHash].map(toACVMField)];
   }
 
-  async enqueuePublicFunctionCall(
+  async notifyEnqueuedPublicFunctionCall(
     [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
+    [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const newArgsHash = await this.typedOracle.enqueuePublicFunctionCall(
+    await this.typedOracle.notifyEnqueuedPublicFunctionCall(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(Fr.fromString(functionSelector)),
-      Fr.fromString(argsHash),
+      Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
       Fr.fromString(isStaticCall).toBool(),
     );
-    return [toACVMField(newArgsHash)];
+    return [];
   }
 
-  async setPublicTeardownFunctionCall(
+  async notifySetPublicTeardownFunctionCall(
     [contractAddress]: ACVMField[],
-    [functionSelector]: ACVMField[],
-    [argsHash]: ACVMField[],
+    [calldataHash]: ACVMField[],
     [sideEffectCounter]: ACVMField[],
     [isStaticCall]: ACVMField[],
   ): Promise<ACVMField[]> {
-    const newArgsHash = await this.typedOracle.setPublicTeardownFunctionCall(
+    await this.typedOracle.notifySetPublicTeardownFunctionCall(
       AztecAddress.fromString(contractAddress),
-      FunctionSelector.fromField(Fr.fromString(functionSelector)),
-      Fr.fromString(argsHash),
+      Fr.fromString(calldataHash),
       Fr.fromString(sideEffectCounter).toNumber(),
       Fr.fromString(isStaticCall).toBool(),
     );
-    return [toACVMField(newArgsHash)];
+    return [];
   }
 
   notifySetMinRevertibleSideEffectCounter([minRevertibleSideEffectCounter]: ACVMField[]): Promise<ACVMField[]> {
@@ -359,12 +356,12 @@ export class Oracle {
     return Promise.resolve([]);
   }
 
-  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[][]> {
+  async getIndexedTaggingSecretAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
     const taggingSecret = await this.typedOracle.getIndexedTaggingSecretAsSender(
       AztecAddress.fromString(sender),
       AztecAddress.fromString(recipient),
     );
-    return [taggingSecret.toFields().map(toACVMField)];
+    return taggingSecret.toFields().map(toACVMField);
   }
 
   async incrementAppTaggingSecretIndexAsSender([sender]: ACVMField[], [recipient]: ACVMField[]): Promise<ACVMField[]> {
@@ -493,5 +490,25 @@ export class Oracle {
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
     );
     return secret.toFields().map(toACVMField);
+  }
+
+  async storePrivateEventLog(
+    [contractAddress]: ACVMField[],
+    [recipient]: ACVMField[],
+    [eventSelector]: ACVMField[],
+    logContentBVecStorage: ACVMField[],
+    [logContentLength]: ACVMField[],
+    [txHash]: ACVMField[],
+    [logIndexInTx]: ACVMField[],
+  ) {
+    await this.typedOracle.storePrivateEventLog(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(recipient)),
+      EventSelector.fromField(Fr.fromString(eventSelector)),
+      fromBoundedVec(logContentBVecStorage, logContentLength),
+      new TxHash(Fr.fromString(txHash)),
+      Fr.fromString(logIndexInTx).toNumber(),
+    );
+    return [];
   }
 }

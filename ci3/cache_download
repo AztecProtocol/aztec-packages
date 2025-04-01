@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # DO NOT output to stdout. This script is used in contexts where stdout is processed.
 NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 

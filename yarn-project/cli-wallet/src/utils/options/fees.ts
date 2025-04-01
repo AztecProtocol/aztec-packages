@@ -15,7 +15,6 @@ import { Option } from 'commander';
 
 import type { WalletDB } from '../../storage/wallet_db.js';
 import { createOrRetrieveAccount } from '../accounts.js';
-import { SponsoredFeePaymentMethod } from '../sponsored_fee_payment.js';
 import { aliasedAddressParser } from './options.js';
 
 export type CliFeeArgs = {
@@ -325,6 +324,8 @@ export function parsePaymentMethod(
       }
       case 'fpc-sponsored': {
         const sponsor = getFpc();
+        log(`Using sponsored fee payment with sponsor ${sponsor}`);
+        const { SponsoredFeePaymentMethod } = await import('@aztec/aztec.js/fee/testing');
         return new SponsoredFeePaymentMethod(sponsor);
       }
       case undefined:

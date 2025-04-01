@@ -201,3 +201,16 @@ export function stdDev(values: number[]) {
   }
   return Math.sqrt(variance(values)!);
 }
+
+/** Counts how many items from the beginning of the array match the given predicate. */
+export function countWhile<T>(collection: T[], predicate: (x: T) => boolean): number {
+  let count = 0;
+  for (const item of collection) {
+    if (predicate(item)) {
+      count++;
+    } else {
+      break;
+    }
+  }
+  return count;
+}

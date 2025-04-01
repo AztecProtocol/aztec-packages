@@ -5,8 +5,8 @@
 
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/bitwise.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bitwise.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
@@ -350,8 +350,6 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
     LookupIntoIndexedByClk<lookup_bitwise_integral_tag_length::Settings>().process(trace);
 
     check_relation<bitwise>(trace);
-    check_interaction<lookup_bitwise_byte_operations>(trace);
-    check_interaction<lookup_bitwise_integral_tag_length>(trace);
 }
 
 } // namespace

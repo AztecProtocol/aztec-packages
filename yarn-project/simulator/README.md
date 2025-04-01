@@ -47,3 +47,9 @@ Same steps as any other library. They are detailed [here](../README.md#developme
 ### Testing
 
 Same steps as any other library. They are detailed [here](../README.md#tests)
+
+### Benchmarking
+
+```
+LOG_LEVEL=info yarn test src/public/public_tx_simulator/apps_tests/bench.test.ts
+```

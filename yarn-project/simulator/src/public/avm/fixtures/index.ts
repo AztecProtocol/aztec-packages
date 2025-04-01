@@ -1,8 +1,4 @@
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
+import { DEPLOYER_CONTRACT_ADDRESS, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContract } from '@aztec/noir-contracts.js/AvmGadgetsTest';
@@ -32,26 +28,26 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
+import { NullifierManager } from '../../state_manager/nullifiers.js';
+import { PublicStorage } from '../../state_manager/public_storage.js';
+import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import type { AvmRevertReason } from '../errors.js';
-import { AvmPersistableStateManager } from '../journal/journal.js';
-import { NullifierManager } from '../journal/nullifiers.js';
-import { PublicStorage } from '../journal/public_storage.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 /**
  * Create a new AVM context with default values.
  */
 export function initContext(overrides?: {
-  persistableState?: AvmPersistableStateManager;
+  persistableState?: PublicPersistableStateManager;
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
@@ -74,9 +70,9 @@ export function initPersistableStateManager(overrides?: {
   doMerkleOperations?: boolean;
   firstNullifier?: Fr;
   blockNumber?: number;
-}): AvmPersistableStateManager {
+}): PublicPersistableStateManager {
   const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
-  return new AvmPersistableStateManager(
+  return new PublicPersistableStateManager(
     treesDB,
     overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
@@ -165,13 +161,18 @@ export function getFunctionSelector(
 export function getContractFunctionArtifact(
   functionName: string,
   contractArtifact: ContractArtifact,
-): FunctionArtifact | FunctionAbi | undefined {
-  const artifact = contractArtifact.functions.find(f => f.name === functionName)!;
-  if (!artifact) {
-    const abi = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName);
-    return abi || undefined;
-  }
-  return artifact;
+): FunctionArtifact | undefined {
+  return contractArtifact.functions.find(f => f.name === functionName);
+}
+
+export function getContractFunctionAbi(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): FunctionAbi | undefined {
+  return (
+    contractArtifact.functions.find(f => f.name === functionName) ??
+    contractArtifact.nonDispatchPublicFunctions.find(f => f.name === functionName)
+  );
 }
 
 export function resolveContractAssertionMessage(
@@ -279,12 +280,9 @@ export async function createContractClassAndInstance(
 }> {
   const bytecode = (getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact) as FunctionArtifact)!
     .bytecode;
-  const contractClass = await makeContractClassPublic(
-    seed,
-    /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-  );
+  const contractClass = await makeContractClassPublic(seed, bytecode);
 
-  const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
+  const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
   const { publicKeys } = await deriveKeys(Fr.random());
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
   const contractInstance =

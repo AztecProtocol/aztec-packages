@@ -11,7 +11,6 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createSandbox } from '../sandbox/index.js';
 import { github, splash } from '../splash.js';
-import { enrichEnvironmentWithChainConfig } from './chain_l2_config.js';
 import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
@@ -27,6 +26,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     const cliVersion = getCliVersion();
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
     const nodeOptions = extractNamespacedOptions(options, 'node');
+    sandboxOptions.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
@@ -37,6 +37,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         l1Salt: nodeOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
+        realProofs: false,
       },
       userLog,
     );
@@ -50,10 +51,6 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       userLog(`Not exposing PXE API through JSON-RPC server`);
     }
   } else {
-    // If a network is specified, enrich the environment with the chain config
-    if (options.network) {
-      await enrichEnvironmentWithChainConfig(options.network);
-    }
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
       ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));

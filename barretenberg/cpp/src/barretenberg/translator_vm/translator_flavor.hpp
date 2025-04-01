@@ -40,10 +40,13 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
+
     // A minicircuit of such size allows for 10 rounds of folding (i.e. 20 circuits).
     // Lowest possible size for the translator circuit (this sets the mini_circuit_size)
+    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // they become too small.
     static constexpr size_t MINIMUM_MINI_CIRCUIT_SIZE = 2048;
-    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 8192;
+    static constexpr size_t TRANSLATOR_VM_FIXED_SIZE = 16384;
     static_assert(TRANSLATOR_VM_FIXED_SIZE >= MINIMUM_MINI_CIRCUIT_SIZE);
 
     // The size of the circuit which is filled with non-zero values for most polynomials. Most relations (everything
@@ -65,7 +68,7 @@ class TranslatorFlavor {
     // Number of wires
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
 
-    // The step in the DeltaRangeConstraint relation
+    // The step in the DeltaRangeConstraint relation i.e. the maximum difference between two consecutive values
     static constexpr size_t SORT_STEP = 3;
 
     // The bitness of the range constraint
@@ -81,10 +84,10 @@ class TranslatorFlavor {
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We
     // often need containers of this size to hold related data, so we choose a name more agnostic than
     // `NUM_POLYNOMIALS`. Note: this number does not include the individual sorted list polynomials.
-    static constexpr size_t NUM_ALL_ENTITIES = 184;
+    static constexpr size_t NUM_ALL_ENTITIES = 186;
     // The number of polynomials precomputed to describe a circuit and to aid a prover in constructing a satisfying
     // assignment of witnesses. We again choose a neutral name.
-    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 7;
+    static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 9;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = 91;
     static constexpr size_t NUM_WIRES_NON_SHIFTED = 1;
@@ -149,11 +152,14 @@ class TranslatorFlavor {
                               ordered_extra_range_constraints_numerator, // column 0
                               lagrange_first,                            // column 1
                               lagrange_last,                             // column 2
-                              // TODO(#758): Check if one of these can be replaced by shifts
-                              lagrange_odd_in_minicircuit,             // column 3
-                              lagrange_even_in_minicircuit,            // column 4
-                              lagrange_second,                         // column 5
-                              lagrange_second_to_last_in_minicircuit); // column 6
+                              // TODO(https://github.com/AztecProtocol/barretenberg/issues/758): Check if one of these
+                              // can be replaced by shifts
+                              lagrange_odd_in_minicircuit,            // column 3
+                              lagrange_even_in_minicircuit,           // column 4
+                              lagrange_second,                        // column 5
+                              lagrange_second_to_last_in_minicircuit, // column 6
+                              lagrange_masking,                       // column 7
+                              lagrange_real_last);                    // column 8
     };
 
     template <typename DataType> class InterleavedRangeConstraints {
@@ -288,14 +294,21 @@ class TranslatorFlavor {
                                 DerivedWitnessEntities<DataType>,
                                 InterleavedRangeConstraints<DataType>)
 
-        // Used when populating wire polynomials directly from circuit data
+        /**
+         * @brief Entities constructed from circuit data.
+         *
+         */
         auto get_wires()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
                                WireToBeShiftedEntities<DataType>::get_all());
         };
 
-        // Used when computing commitments to wires + ordered range constraints during proof construction
+        auto get_wires_to_be_shifted() { return WireToBeShiftedEntities<DataType>::get_all(); };
+
+        /**
+         * @brief Witness Entities to which the prover commits and do not require challenges (i.e. not derived).
+         */
         auto get_wires_and_ordered_range_constraints()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -303,8 +316,9 @@ class TranslatorFlavor {
                                OrderedRangeConstraints<DataType>::get_all());
         };
 
-        // everything but InterleavedRangeConstraints (used for Shplemini input since interleaved handled separately)
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+        /**
+         * @brief Witness Entities on which Shplemini operates in the default manner.
+         */
         auto get_unshifted_without_interleaved()
         {
             return concatenate(WireNonshiftedEntities<DataType>::get_all(),
@@ -321,6 +335,7 @@ class TranslatorFlavor {
                                DerivedWitnessEntities<DataType>::get_all(),
                                InterleavedRangeConstraints<DataType>::get_all());
         }
+
         auto get_to_be_shifted()
         {
             return concatenate(WireToBeShiftedEntities<DataType>::get_all(),
@@ -329,16 +344,13 @@ class TranslatorFlavor {
         };
 
         /**
-         * @brief Get the polynomials that need to be constructed from other polynomials by interleaving
-         *
-         * @return auto
+         * @brief Get the entities constructed by interleaving.
          */
         auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); }
 
         /**
-         * @brief Get the entities interleaved for the permutation relation
+         * @brief Get the entities interleaved for the permutation relation.
          *
-         * @return std::vector<auto>
          */
         std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
         {
@@ -513,10 +525,9 @@ class TranslatorFlavor {
                               z_perm_shift)                                       // column 85
     };
 
-  public:
     /**
      * @brief A base class labelling all entities (for instance, all of the polynomials used by the prover during
-     * sumcheck) in this Honk variant along with particular subsets of interest
+     * sumcheck) in this Honk variant along with particular subsets of interest.
      * @details Used to build containers for: the prover's polynomial during sumcheck; the sumcheck's folded
      * polynomials; the univariates consturcted during during sumcheck; the evaluations produced by sumcheck.
      *
@@ -532,48 +543,28 @@ class TranslatorFlavor {
         auto get_precomputed() const { return PrecomputedEntities<DataType>::get_all(); };
 
         /**
-         * @brief Get entities interleaved for the permutation relation
-         *
-         */
-        std::vector<RefVector<DataType>> get_groups_to_be_interleaved()
-        {
-            return WitnessEntities<DataType>::get_groups_to_be_interleaved();
-        }
-        /**
          * @brief Getter for entities constructed by interleaving
          */
         auto get_interleaved() { return InterleavedRangeConstraints<DataType>::get_all(); };
-        /**
-         * @brief Get the polynomials from the grand product denominator
-         *
-         * @return auto
-         */
-        auto get_ordered_constraints()
-        {
-            return RefArray{ this->ordered_range_constraints_0,
-                             this->ordered_range_constraints_1,
-                             this->ordered_range_constraints_2,
-                             this->ordered_range_constraints_3,
-                             this->ordered_range_constraints_4 };
-        };
 
-        // Gemini-specific getters.
+        /**
+         * @brief Getter for the ordered entities used in computing the denominator of the grand product in the
+         * permutation relation.
+         */
+        auto get_ordered_range_constraints() { return OrderedRangeConstraints<DataType>::get_all(); };
+
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_unshifted());
         }
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/810)
+
         auto get_unshifted_without_interleaved()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(),
                                WitnessEntities<DataType>::get_unshifted_without_interleaved());
         }
-        // get_to_be_shifted is inherited
+
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
-        auto get_wires_and_ordered_range_constraints()
-        {
-            return WitnessEntities<DataType>::get_wires_and_ordered_range_constraints();
-        };
 
         friend std::ostream& operator<<(std::ostream& os, const AllEntities& a)
         {
@@ -606,38 +597,60 @@ class TranslatorFlavor {
       public:
         // Define all operations as default, except copy construction/assignment
         ProverPolynomials() = default;
-        // Constructor to init all unshifted polys to the zero polynomial and set the shifted poly data
-        ProverPolynomials(size_t mini_circuit_size)
+
+        /**
+         * @brief ProverPolynomials constructor
+         * @details Attempts to initialize polynomials efficiently by using the actual size of the mini circuit rather
+         * than the fixed dydaic size.
+         *
+         * @param actual_mini_circuit_size Actual number of rows in the Translator circuit.
+         */
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1318)
+        ProverPolynomials(size_t actual_mini_circuit_size)
         {
-            size_t circuit_size = mini_circuit_size * INTERLEAVING_GROUP_SIZE;
-            for (auto& ordered_range_constraint : get_ordered_constraints()) {
+            const size_t mini_circuit_size = TRANSLATOR_VM_FIXED_SIZE;
+            const size_t circuit_size = TRANSLATOR_VM_FIXED_SIZE * INTERLEAVING_GROUP_SIZE;
+
+            for (auto& ordered_range_constraint : get_ordered_range_constraints()) {
                 ordered_range_constraint = Polynomial{ /*size*/ circuit_size - 1,
-                                                       /*largest possible index*/ circuit_size,
+                                                       /*virtual_size*/ circuit_size,
                                                        1 };
             }
 
-            for (auto& interleaved : get_interleaved()) {
-                interleaved = Polynomial{ /*size*/ circuit_size, circuit_size };
-            }
             z_perm = Polynomial{ /*size*/ circuit_size - 1,
                                  /*virtual_size*/ circuit_size,
                                  /*start_index*/ 1 };
-            // All to_be_shifted witnesses except the ordered range constraints and z_perm are only non-zero in the mini
-            // circuit
-            for (auto& poly : get_to_be_shifted()) {
-                if (poly.is_empty()) {
-                    poly = Polynomial{ /*size*/ mini_circuit_size - 1,
-                                       /*virtual_size*/ circuit_size,
-                                       /*start_index*/ 1 };
-                }
+
+            // Initialize to be shifted wires based on actual size of the mini circuit
+            for (auto& poly : get_wires_to_be_shifted()) {
+                poly = Polynomial{ /*size*/ actual_mini_circuit_size - 1,
+                                   /*virtual_size*/ circuit_size,
+                                   /*start_index*/ 1 };
             }
 
+            // Initialize interleaved polys based on actual mini circuit size times number of polys to be interleaved
+            const size_t actual_circuit_size = actual_mini_circuit_size * INTERLEAVING_GROUP_SIZE;
+            for (auto& poly : get_interleaved()) {
+                poly = Polynomial{ actual_circuit_size, circuit_size };
+            }
+
+            // Initialize some one-off polys with special structure
+            lagrange_first = Polynomial{ /*size*/ 1, /*virtual_size*/ circuit_size };
+            lagrange_second = Polynomial{ /*size*/ 2, /*virtual_size*/ circuit_size };
+            lagrange_even_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
+            lagrange_odd_in_minicircuit = Polynomial{ /*size*/ mini_circuit_size, /*virtual_size*/ circuit_size };
+
+            // WORKTODO: why does limiting this to actual_mini_circuit_size not work?
+            op = Polynomial{ circuit_size }; // Polynomial{ actual_mini_circuit_size, circuit_size };
+
+            // Catch-all for the rest of the polynomials
+            // WORKTODO: determine what exactly falls in here and be more specific (just the remaining precomputed?)
             for (auto& poly : get_unshifted()) {
-                if (poly.is_empty()) {
-                    // Not set above
+                if (poly.is_empty()) { // Only set those polys which were not already set above
                     poly = Polynomial{ circuit_size };
                 }
             }
+            // Set all shifted polynomials based on their unshifted counterpart
             set_shifted();
         }
         ProverPolynomials& operator=(const ProverPolynomials&) = delete;
@@ -681,9 +694,17 @@ class TranslatorFlavor {
         using Base::Base;
 
         ProvingKey() = default;
-        ProvingKey(const size_t dyadic_circuit_size, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
+        // WORKTODO: this is a constructor used only in tests. We should get rid of it or make it a test-only method.
+        ProvingKey(const size_t dyadic_circuit_size, const size_t actual_mini_circuit_size)
+            : Base(dyadic_circuit_size, 0)
+            , polynomials(actual_mini_circuit_size)
+        {}
+
+        ProvingKey(const size_t dyadic_circuit_size,
+                   std::shared_ptr<CommitmentKey> commitment_key,
+                   const size_t actual_mini_circuit_size)
             : Base(dyadic_circuit_size, 0, std::move(commitment_key))
-            , polynomials(this->circuit_size)
+            , polynomials(actual_mini_circuit_size)
         {}
     };
 
@@ -725,7 +746,9 @@ class TranslatorFlavor {
                        lagrange_odd_in_minicircuit,
                        lagrange_even_in_minicircuit,
                        lagrange_second,
-                       lagrange_second_to_last_in_minicircuit);
+                       lagrange_second_to_last_in_minicircuit,
+                       lagrange_masking,
+                       lagrange_real_last);
     };
 
     /**
@@ -866,6 +889,8 @@ class TranslatorFlavor {
             this->lagrange_second = "__LAGRANGE_SECOND";
             this->lagrange_second_to_last_in_minicircuit = "__LAGRANGE_SECOND_TO_LAST_IN_MINICIRCUIT";
             this->ordered_extra_range_constraints_numerator = "__ORDERED_EXTRA_RANGE_CONSTRAINTS_NUMERATOR";
+            this->lagrange_masking = "__LAGRANGE_MASKING";
+            this->lagrange_real_last = "__LAGRANGE_REAL_LAST";
         };
     };
 
@@ -882,6 +907,8 @@ class TranslatorFlavor {
             this->lagrange_second_to_last_in_minicircuit = verification_key->lagrange_second_to_last_in_minicircuit;
             this->ordered_extra_range_constraints_numerator =
                 verification_key->ordered_extra_range_constraints_numerator;
+            this->lagrange_masking = verification_key->lagrange_masking;
+            this->lagrange_real_last = verification_key->lagrange_real_last;
         }
     };
     using VerifierCommitments = VerifierCommitments_<Commitment, VerificationKey>;

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # If the given command succeeds, only stdout is output.
 # If the given command fails, both stdout and stderr are output.
 # As stdout is output as normal, the caller can redirect to /dev/null if they want to silence that also.

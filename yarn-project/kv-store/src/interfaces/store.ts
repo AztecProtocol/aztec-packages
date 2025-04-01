@@ -1,14 +1,8 @@
 import type { AztecArray, AztecAsyncArray } from './array.js';
 import type { Key, StoreSize } from './common.js';
 import type { AztecAsyncCounter, AztecCounter } from './counter.js';
-import type {
-  AztecAsyncMap,
-  AztecAsyncMultiMap,
-  AztecMap,
-  AztecMapWithSize,
-  AztecMultiMap,
-  AztecMultiMapWithSize,
-} from './map.js';
+import type { AztecAsyncMap, AztecMap } from './map.js';
+import type { AztecAsyncMultiMap, AztecMultiMap } from './multi_map.js';
 import type { AztecAsyncSet, AztecSet } from './set.js';
 import type { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 
@@ -35,20 +29,6 @@ export interface AztecKVStore {
    * @returns The multi-map
    */
   openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V>;
-
-  /**
-   * Creates a new multi-map with size.
-   * @param name - The name of the multi-map
-   * @returns The multi-map
-   */
-  openMultiMapWithSize<K extends Key, V>(name: string): AztecMultiMapWithSize<K, V>;
-
-  /**
-   * Creates a new map with size.
-   * @param name - The name of the map
-   * @returns The map
-   */
-  openMapWithSize<K extends Key, V>(name: string): AztecMapWithSize<K, V>;
 
   /**
    * Creates a new array.
@@ -80,11 +60,6 @@ export interface AztecKVStore {
    * Clears all entries in the store
    */
   clear(): Promise<void>;
-
-  /**
-   * Forks the store.
-   */
-  fork(): Promise<AztecKVStore>;
 
   /**
    * Deletes the store
@@ -150,28 +125,18 @@ export interface AztecAsyncKVStore {
    */
   transactionAsync<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
 
-  /**
-   * Clears all entries in the store
-   */
+  /** Clears all entries in the store */
   clear(): Promise<void>;
 
-  /**
-   * Forks the store.
-   */
-  fork(): Promise<AztecAsyncKVStore>;
-
-  /**
-   * Deletes the store
-   */
+  /** Deletes the store */
   delete(): Promise<void>;
 
-  /**
-   * Estimates the size of the store in bytes.
-   */
+  /** Estimates the size of the store in bytes. */
   estimateSize(): Promise<StoreSize>;
 
-  /**
-   * Closes the store
-   */
+  /** Closes the store */
   close(): Promise<void>;
+
+  /** Backups the store to the target folder.*/
+  backupTo(dstPath: string, compact?: boolean): Promise<void>;
 }

@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { DEFAULT_BLOCK_NUMBER } from '@aztec/simulator/public/fixtures';
+import { defaultGlobals } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { ScheduledDelayChange, ScheduledValueChange, SharedMutableValuesWithHash } from '@aztec/stdlib/shared-mutable';
@@ -43,7 +43,8 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
-      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+      const globals = defaultGlobals();
+      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
 
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
@@ -59,7 +60,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.originalContractClassId,
         avmTestContractInstance.currentContractClassId,
-        DEFAULT_BLOCK_NUMBER,
+        globals.blockNumber.toNumber(),
       );
 
       await tester.simProveVerify(
@@ -80,8 +81,8 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
     async () => {
       // Contract was not originally the avmTestContract
       const originalClassId = new Fr(27);
-
-      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+      const globals = defaultGlobals();
+      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -96,7 +97,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.originalContractClassId,
         avmTestContractInstance.currentContractClassId,
-        DEFAULT_BLOCK_NUMBER + 1,
+        globals.blockNumber.toNumber() + 1,
       );
 
       await expect(
@@ -120,7 +121,8 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const newClassId = new Fr(27);
 
-      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+      const globals = defaultGlobals();
+      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -134,7 +136,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.currentContractClassId,
         newClassId,
-        DEFAULT_BLOCK_NUMBER + 1,
+        globals.blockNumber.toNumber() + 1,
       );
 
       await tester.simProveVerify(
@@ -156,7 +158,8 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
       // Contract was not originally the avmTestContract
       const newClassId = new Fr(27);
 
-      const tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+      const globals = defaultGlobals();
+      const tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true, globals);
       avmTestContractInstance = await tester.registerAndDeployContract(
         /*constructorArgs=*/ [],
         sender,
@@ -170,7 +173,7 @@ describe.skip('AVM WitGen & Circuit - contract updates', () => {
         avmTestContractInstance.address,
         avmTestContractInstance.currentContractClassId,
         newClassId,
-        DEFAULT_BLOCK_NUMBER - 1,
+        globals.blockNumber.toNumber() - 1,
       );
 
       await expect(

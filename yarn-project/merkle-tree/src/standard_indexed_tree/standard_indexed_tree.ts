@@ -60,7 +60,7 @@ export const noopDeserializer: FromBuffer<Buffer> = {
  * Standard implementation of an indexed tree.
  */
 export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree {
-  #snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);
+  #snapshotBuilder: IndexedTreeSnapshotBuilder;
 
   protected cachedLeafPreimages: { [key: string]: IndexedTreeLeafPreimage } = {};
   protected leaves: AztecMap<ReturnType<typeof buildDbKeyForPreimage>, Buffer>;
@@ -79,6 +79,7 @@ export class StandardIndexedTree extends TreeBase<Buffer> implements IndexedTree
     super(store, hasher, name, depth, size, noopDeserializer, root);
     this.leaves = store.openMap(`tree_${name}_leaves`);
     this.leafIndex = store.openMap(`tree_${name}_leaf_index`);
+    this.#snapshotBuilder = new IndexedTreeSnapshotBuilder(this.store, this, this.leafPreimageFactory);
   }
 
   /**
