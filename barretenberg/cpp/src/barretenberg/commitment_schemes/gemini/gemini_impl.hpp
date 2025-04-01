@@ -116,11 +116,11 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 };
 
 template <typename Curve>
+template <typename Transcript>
 std::array<typename GeminiProver_<Curve>::Claim, NUM_INTERLEAVING_CLAIMS> GeminiProver_<
     Curve>::compute_interleaving_claims(PolynomialBatcher& polynomial_batcher,
                                         const Fr r_challenge,
-                                        const std::shared_ptr<CommitmentKey<Curve>>& commitment_key,
-                                        const std::shared_ptr<Transcript>& transcript, )
+                                        const std::shared_ptr<Transcript>& transcript)
 {
     std::array<Claim, NUM_INTERLEAVING_CLAIMS> interleaving_claims;
 
@@ -129,9 +129,9 @@ std::array<typename GeminiProver_<Curve>::Claim, NUM_INTERLEAVING_CLAIMS> Gemini
     Fr r_pow = r_challenge.pow(polynomial_batcher.get_group_size());
     Fr P_pos_eval = P_pos.evaluate(r_pow);
     Fr P_neg_eval = P_neg.evaluate(r_pow);
-    claims[0] = Claim{ std::move(P_pos), { r_pow, P_pos_eval } };
+    interleaving_claims[0] = Claim{ std::move(P_pos), { r_pow, P_pos_eval } };
     transcript->send_to_verifier("Gemini:P_pos", P_pos_eval);
-    claims[1] = Claim{ std::move(P_neg), { r_pow, P_neg_eval } };
+    interleaving_claims[1] = Claim{ std::move(P_neg), { r_pow, P_neg_eval } };
     transcript->send_to_verifier("Gemini:P_neg", P_neg_eval);
 
     return interleaving_claims;

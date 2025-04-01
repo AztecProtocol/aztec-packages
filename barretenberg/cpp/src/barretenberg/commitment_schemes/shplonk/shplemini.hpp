@@ -48,7 +48,7 @@ template <typename Curve> class ShpleminiProver_ {
         std::vector<OpeningClaim> libra_opening_claims;
 
         if (has_zk) {
-            const Fr& gemini_r = opening_claims[0].opening_pair.challenge;
+            const FF& gemini_r = opening_claims[0].opening_pair.challenge;
             libra_opening_claims = compute_libra_opening_claims(gemini_r, libra_polynomials, transcript);
         }
 
@@ -63,7 +63,7 @@ template <typename Curve> class ShpleminiProver_ {
         // Only used in Translator
         std::array<OpeningClaim, NUM_INTERLEAVING_CLAIMS> interleaving_claims;
         if (polynomial_batcher.interleaved) {
-            const Fr& gemini_r = opening_claims[0].opening_pair.challenge;
+            const FF& gemini_r = opening_claims[0].opening_pair.challenge;
             interleaving_claims =
                 GeminiProver::compute_interleaving_claims(polynomial_batcher, gemini_r, commitment_key, transcript);
         }
@@ -142,6 +142,27 @@ template <typename Curve> class ShpleminiProver_ {
         return sumcheck_round_claims;
     }
 };
+
+template <typename Curve> ShpleminiVerifierState
+{
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    // Interleaving members
+    Fr p_pos;
+    Fr p_neg;
+    Fr interleaving_vanishing_eval;
+
+    Fr gemini_batching_challenge;
+    Fr gemini_evaluation_challenge;
+
+    Fr gemini_batching_challenge_power{ 1 };
+    Fr shplonk_batching_challenge_power;
+    std::vector<Fr> scalars;
+    std::vector<Commitment> commitments;
+    Fr constant_term_accumulator;
+    size_t virtual_log_n;
+    size_t log_n;
+}
 /**
  * \brief An efficient verifier for the evaluation proofs of multilinear polynomials and their shifts.
  *
@@ -193,7 +214,6 @@ template <typename Curve> class ShpleminiProver_ {
  * claims is reduced by \f$ 5 \f$.
  *
  */
-
 template <typename Curve> class ShpleminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -222,6 +242,7 @@ template <typename Curve> class ShpleminiVerifier_ {
 
     {
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
+        const bool has_interleaving = claim_batcher.interleaved;
 
         // Extract log_circuit_size
         size_t log_circuit_size{ 0 };
@@ -259,8 +280,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             GeminiVerifier::get_gemini_evaluations(virtual_log_n, transcript);
 
         // Get evaluations of partially evaluated batched interleaved polynomials P₊(rˢ) and P₋((-r)ˢ)
-        Fr p_pos = Fr(0);
-        Fr p_neg = Fr(0);
+        Fr p_pos;
+        Fr p_neg;
         if (claim_batcher.interleaved) {
             p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_pos");
             p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_neg");
@@ -303,9 +324,11 @@ template <typename Curve> class ShpleminiVerifier_ {
         std::vector<Fr> scalars;
         if constexpr (Curve::is_stdlib_type) {
             auto builder = shplonk_batching_challenge.get_context();
-            scalars.emplace_back(Fr(builder, 1));
+            Fr one = Fr(builder, 1);
+            one.convert_constant_to_fixed_witness();
+            scalars.push_back(one);
         } else {
-            scalars.emplace_back(Fr(1));
+            scalars.push_back(Fr(1));
         }
 
         // Compute 1/(z − r), 1/(z + r), 1/(z - r²),  1/(z + r²), … , 1/(z - r²⁽ⁿ⁻¹⁾), 1/(z + r²⁽ⁿ⁻¹⁾)
@@ -313,10 +336,13 @@ template <typename Curve> class ShpleminiVerifier_ {
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
             shplonk_evaluation_challenge, gemini_eval_challenge_powers);
         // Compute the Shplonk denominator for the interleaved opening claims 1/(z − r^s) where s is the group size
-        const Fr interleaving_vanishing_eval =
-            (shplonk_evaluation_challenge -
-             gemini_evaluation_challenge.pow(claim_batcher.get_groups_to_be_interleaved_size()))
-                .invert();
+        Fr interleaving_vanishing_eval;
+        if (has_interleaving) {
+            interleaving_vanishing_eval =
+                (shplonk_evaluation_challenge -
+                 gemini_evaluation_challenge.pow(claim_batcher.get_groups_to_be_interleaved_size()))
+                    .invert();
+        }
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
@@ -329,23 +355,20 @@ template <typename Curve> class ShpleminiVerifier_ {
         if (has_zk) {
             commitments.emplace_back(hiding_polynomial_commitment);
             scalars.emplace_back(-claim_batcher.get_unshifted_batch_scalar()); // corresponds to ρ⁰
+
+            // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
+            gemini_batching_challenge_power *= gemini_batching_challenge;
         }
 
         // Place the commitments to prover polynomials in the commitments vector. Compute the evaluation of the
         // batched multilinear polynomial. Populate the vector of scalars for the final batch mul
 
-        Fr gemini_batching_challenge_power = Fr(1);
-        if (has_zk) {
-            // ρ⁰ is used to batch the hiding polynomial which has already been added to the commitments vector
-            gemini_batching_challenge_power *= gemini_batching_challenge;
-        }
-
         // Compute the Shplonk batching power for the interleaved claims. This is \nu^{n+1} where n is the
         // log_circuit_size as the interleaved claims are sent after the rest of Gemini fold claims. Add the evaluations
         // of (P₊(rˢ) ⋅ ν^{n+1}) / (z − r^s) and (P₋(rˢ) ⋅ ν^{n+2})/(z − r^s) to the constant term accumulator
-        Fr shplonk_batching_pos = Fr{ 0 };
-        Fr shplonk_batching_neg = Fr{ 0 };
-        if (claim_batcher.interleaved) {
+        Fr shplonk_batching_pos;
+        Fr shplonk_batching_neg;
+        if (has_interleaving) {
             // Currently, the prover places the Interleaving claims before the Gemini dummy claims.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving.
             const size_t interleaved_pos_index = 2 * log_circuit_size;
@@ -356,24 +379,33 @@ template <typename Curve> class ShpleminiVerifier_ {
                                          p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
         }
         // Update the commitments and scalars vectors as well as the batched evaluation given the present batches
-        claim_batcher.update_batch_mul_inputs_and_batched_evaluation(commitments,
-                                                                     scalars,
-                                                                     batched_evaluation,
+        claim_batcher.update_batch_mul_inputs_and_batched_evaluation(batched_evaluation,
                                                                      gemini_batching_challenge,
                                                                      gemini_batching_challenge_power,
                                                                      shplonk_batching_pos,
                                                                      shplonk_batching_neg);
 
+        remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
+
+        // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
+        // ShpleminiVerifier, otherwise this argument is set to be empty
+        if (has_zk) {
+            add_zk_data(libra_commitments, libra_evaluations, verifier_state);
+
+            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
+                libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
+        }
+
+        // Currently, only used in ECCVM
+        if (committed_sumcheck) {
+            batch_sumcheck_round_claims(multivariate_challenge, sumcheck_round_commitments, sumcheck_round_evaluations);
+        }
+
         // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., n-1 from the batched evaluation of the multilinear polynomials and Aᵢ(−r²ⁱ)
         // for i = 0, ..., n-1.
         // In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
-        const std::vector<Fr> gemini_fold_pos_evaluations =
-            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_circuit_size,
-                                                                 batched_evaluation,
-                                                                 multivariate_challenge,
-                                                                 gemini_eval_challenge_powers,
-                                                                 gemini_fold_neg_evaluations,
-                                                                 p_neg);
+        const std::vector<Fr> gemini_fold_pos_evaluations = GeminiVerifier_<Curve>::compute_fold_pos_evaluations(
+            gemini_eval_challenge_powers, gemini_fold_neg_evaluations);
 
         // Place the commitments to Gemini fold polynomials Aᵢ in the vector of batch_mul commitments, compute the
         // contributions from Aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars for
@@ -383,51 +415,20 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                  gemini_fold_neg_evaluations,
                                                  gemini_fold_pos_evaluations,
                                                  inverse_vanishing_evals,
-                                                 shplonk_batching_challenge_powers,
-                                                 commitments,
-                                                 scalars,
                                                  constant_term_accumulator);
         const Fr full_a_0_pos = gemini_fold_pos_evaluations[0];
         // Retrieve  the contribution without P₊(r^s)
-        Fr a_0_pos = full_a_0_pos - p_pos;
+        Fr a_0_pos = full_a_0_pos;
+
+        if (claim_batcher.interleaved) {
+            a_0_pos -= p_pos;
+        }
         // Add contributions from A₀₊(r) and  A₀₋(-r) to constant_term_accumulator:
         //  Add  A₀₊(r)/(z−r) to the constant term accumulator
         constant_term_accumulator += a_0_pos * inverse_vanishing_evals[0];
         // Add  A₀₋(-r)/(z+r) to the constant term accumulator
         constant_term_accumulator +=
             gemini_fold_neg_evaluations[0] * shplonk_batching_challenge * inverse_vanishing_evals[1];
-
-        remove_repeated_commitments(commitments, scalars, repeated_commitments, has_zk);
-
-        // For ZK flavors, the sumcheck output contains the evaluations of Libra univariates that submitted to the
-        // ShpleminiVerifier, otherwise this argument is set to be empty
-        if (has_zk) {
-            add_zk_data(virtual_log_n,
-                        commitments,
-                        scalars,
-                        constant_term_accumulator,
-                        libra_commitments,
-                        libra_evaluations,
-                        gemini_evaluation_challenge,
-                        shplonk_batching_challenge_powers,
-                        shplonk_evaluation_challenge);
-
-            *consistency_checked = SmallSubgroupIPAVerifier<Curve>::check_libra_evaluations_consistency(
-                libra_evaluations, gemini_evaluation_challenge, multivariate_challenge, libra_univariate_evaluation);
-        }
-
-        // Currently, only used in ECCVM
-        if (committed_sumcheck) {
-            batch_sumcheck_round_claims(log_circuit_size,
-                                        commitments,
-                                        scalars,
-                                        constant_term_accumulator,
-                                        multivariate_challenge,
-                                        shplonk_batching_challenge_powers,
-                                        shplonk_evaluation_challenge,
-                                        sumcheck_round_commitments,
-                                        sumcheck_round_evaluations);
-        }
 
         // Finalize the batch opening claim
         commitments.emplace_back(g1_identity);
