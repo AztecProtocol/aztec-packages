@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743513398076,
+  "lastUpdate": 1743515535748,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1e77efb31fd8f22496eebb7b575952b9ebc14b27",
-          "message": "feat: Prover node snapshot sync (#13097)\n\nBuilds on #12927",
-          "timestamp": "2025-03-27T19:50:54Z",
-          "tree_id": "b97552f7fe638a264b37b82a55eff7e925a1ab0b",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1e77efb31fd8f22496eebb7b575952b9ebc14b27"
-        },
-        "date": 1743105462796,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8509,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21639761590418605,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 105642,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 142317,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "6b94555f1b58c6a43a703b998476d196ec3248cf",
+          "message": "fix: Transpile cmov (#13194)\n\nCMOV codegen was restored by the noir team getting some improvements in\nbytecode size. We can transpile it to 3 instructions.",
+          "timestamp": "2025-04-01T15:23:20+02:00",
+          "tree_id": "edce38aa1bf772255988f6c611c481effa652adc",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/6b94555f1b58c6a43a703b998476d196ec3248cf"
+        },
+        "date": 1743515534546,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9285,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2361224351495635,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137526,
             "unit": "us"
           }
         ]
