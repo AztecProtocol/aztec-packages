@@ -585,6 +585,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // Build all capsules upfront with their tx effects
     const logsCapsules = await Promise.all(
       logs.map(async scopedLog => {
+        // TODO(#9789): get these effects along with the log
         const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
         if (!txEffect) {
           throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);

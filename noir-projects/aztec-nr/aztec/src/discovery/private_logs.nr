@@ -38,7 +38,7 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     compute_note_hash_and_nullifier: ComputeNoteHashAndNullifier<Env>,
 ) {
     // We will eventually perform log discovery via tagging here, but for now we simply call the `syncNotes` oracle.
-    //This makes PXE synchronize tags, download logs and store the logs in log capsule array which are then retrieved
+    // This makes PXE synchronize tags, download logs and store the logs in log capsule array which are then retrieved
     // and processed here.
     sync_notes(LOG_CAPSULE_ARRAY_BASE_SLOT);
 
