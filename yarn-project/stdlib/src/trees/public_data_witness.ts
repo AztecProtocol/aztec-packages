@@ -50,10 +50,10 @@ export class PublicDataWitness {
   public toFields(): Fr[] {
     return [
       new Fr(this.index),
-      new Fr(this.leafPreimage.value.slot),
-      new Fr(this.leafPreimage.value.value),
+      new Fr(this.leafPreimage.leaf.slot),
+      new Fr(this.leafPreimage.leaf.value),
       new Fr(this.leafPreimage.nextIndex),
-      new Fr(this.leafPreimage.nextValue),
+      new Fr(this.leafPreimage.nextKey),
       ...this.siblingPath.toFields(),
     ];
   }
@@ -65,10 +65,10 @@ export class PublicDataWitness {
     // TODO(#12874): remove the stupid as string conversion by modifying ForeignCallOutput type in acvm.js
     return [
       new Fr(this.index).toString() as string,
-      new Fr(this.leafPreimage.value.slot).toString() as string,
-      new Fr(this.leafPreimage.value.value).toString() as string,
-      new Fr(this.leafPreimage.nextValue).toString() as string,
+      new Fr(this.leafPreimage.leaf.slot).toString() as string,
+      new Fr(this.leafPreimage.leaf.value).toString() as string,
       new Fr(this.leafPreimage.nextIndex).toString() as string,
+      new Fr(this.leafPreimage.nextKey).toString() as string,
       this.siblingPath.toFields().map(fr => fr.toString()) as string[],
     ];
   }

@@ -599,8 +599,8 @@ export function mapNullifierLeafPreimageToNoir(
   nullifierLeafPreimage: NullifierLeafPreimage,
 ): NullifierLeafPreimageNoir {
   return {
-    nullifier: mapFieldToNoir(nullifierLeafPreimage.value.value),
-    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextValue),
+    nullifier: mapFieldToNoir(nullifierLeafPreimage.leaf.nullifier),
+    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextKey),
     next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
   };
 }
@@ -610,9 +610,9 @@ export function mapNullifierLeafPreimageToNoir(
  */
 export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPreimage): PublicDataTreeLeafPreimageNoir {
   return {
-    slot: mapFieldToNoir(preimage.value.slot),
-    value: mapFieldToNoir(preimage.value.value),
-    next_slot: mapFieldToNoir(preimage.nextValue),
+    slot: mapFieldToNoir(preimage.leaf.slot),
+    value: mapFieldToNoir(preimage.leaf.value),
+    next_slot: mapFieldToNoir(preimage.nextKey),
     next_index: mapNumberToNoir(Number(preimage.nextIndex)),
   };
 }

@@ -295,7 +295,7 @@ export function serializeLeaf(leaf: Fr | NullifierLeaf | PublicDataTreeLeaf): Se
   if (leaf instanceof Fr) {
     return leaf.toBuffer();
   } else if (leaf instanceof NullifierLeaf) {
-    return { value: leaf.value.toBuffer() };
+    return { value: leaf.nullifier.toBuffer() };
   } else {
     return { value: leaf.value.toBuffer(), slot: leaf.slot.toBuffer() };
   }

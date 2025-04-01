@@ -13,13 +13,13 @@ import { z } from 'zod';
 export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   constructor(
     /**
-     * The value of the leaf
+     * The leaf (slot, value).
      */
-    public value: PublicDataTreeLeaf,
+    public leaf: PublicDataTreeLeaf,
     /**
-     * Next value inside the indexed tree's linked list.
+     * Next key (slot) inside the indexed tree's linked list.
      */
-    public nextValue: Fr,
+    public nextKey: Fr,
     /**
      * Index of the next leaf in the indexed tree's linked list.
      */
@@ -29,19 +29,19 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   static get schema() {
     return z
       .object({
-        value: PublicDataTreeLeaf.schema,
-        nextValue: schemas.Fr,
+        leaf: PublicDataTreeLeaf.schema,
+        nextKey: schemas.Fr,
         nextIndex: schemas.BigInt,
       })
-      .transform(({ value, nextValue, nextIndex }) => new PublicDataTreeLeafPreimage(value, nextValue, nextIndex));
+      .transform(({ leaf, nextKey, nextIndex }) => new PublicDataTreeLeafPreimage(leaf, nextKey, nextIndex));
   }
 
   getKey(): bigint {
-    return this.value.getKey();
+    return this.leaf.getKey();
   }
 
   getNextKey(): bigint {
-    return this.nextValue.toBigInt();
+    return this.nextKey.toBigInt();
   }
 
   getNextIndex(): bigint {
@@ -49,7 +49,7 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   asLeaf(): PublicDataTreeLeaf {
-    return this.value;
+    return this.leaf;
   }
 
   toBuffer(): Buffer {
@@ -58,14 +58,14 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
 
   toHashInputs(): Buffer[] {
     return [
-      ...this.value.toHashInputs(),
+      ...this.leaf.toHashInputs(),
       Buffer.from(toBufferBE(this.nextIndex, 32)),
-      Buffer.from(this.nextValue.toBuffer()),
+      Buffer.from(this.nextKey.toBuffer()),
     ];
   }
 
   clone(): PublicDataTreeLeafPreimage {
-    return new PublicDataTreeLeafPreimage(this.value.clone(), this.nextValue, this.nextIndex);
+    return new PublicDataTreeLeafPreimage(this.leaf.clone(), this.nextKey, this.nextIndex);
   }
 
   static random() {

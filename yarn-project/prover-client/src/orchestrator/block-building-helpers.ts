@@ -234,8 +234,8 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
     throw new Error(`Cannot find the leaf preimage for public data tree at index ${index}.`);
   }
 
-  const exists = leafPreimage.value.slot.toBigInt() === leafSlot;
-  const value = exists ? leafPreimage.value.value : Fr.ZERO;
+  const exists = leafPreimage.leaf.slot.toBigInt() === leafSlot;
+  const value = exists ? leafPreimage.leaf.value : Fr.ZERO;
 
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
