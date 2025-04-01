@@ -78,11 +78,6 @@ describe('PXEOracleInterface', () => {
     capsuleDataProvider = new CapsuleDataProvider(store);
     keyStore = new KeyStore(store);
     simulationProvider = new WASMSimulator();
-
-    // PXEOracleInterface.syncTaggedLogs(...) function syncs logs up to the block number up to which PXE synced. We set
-    // the synced block number to that of the last emitted log to receive all the logs by default.
-    await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
-
     pxeOracleInterface = new PXEOracleInterface(
       aztecNode,
       keyStore,
@@ -99,6 +94,10 @@ describe('PXEOracleInterface', () => {
     // Set up recipient account
     recipient = await keyStore.addAccount(new Fr(69), Fr.random());
     await addressDataProvider.addCompleteAddress(recipient);
+
+    // PXEOracleInterface.syncTaggedLogs(...) function syncs logs up to the block number up to which PXE synced. We set
+    // the synced block number to that of the last emitted log to receive all the logs by default.
+    await setSyncedBlockNumber(MAX_BLOCK_NUMBER_OF_A_LOG);
   });
 
   describe('sync tagged logs', () => {
