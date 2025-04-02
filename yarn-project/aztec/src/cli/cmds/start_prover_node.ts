@@ -74,6 +74,7 @@ export async function startProverNode(
       proverConfig.l1Contracts.registryAddress,
       proverConfig.l1RpcUrls,
       proverConfig.l1ChainId,
+      proverConfig.rollupVersion,
     );
     proverConfig.l1Contracts = addresses;
     proverConfig = { ...proverConfig, ...config };
