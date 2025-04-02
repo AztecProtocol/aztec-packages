@@ -56,9 +56,9 @@ pub comptime fn public(f: FunctionDefinition) -> Quoted {
     }
 }
 
-/// Utility functions are standalone unconstrained functions that cannot be called from within a contract. They are
-/// typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify
-/// internal contract-related state of PXE (e,g, processing logs in Aztec.nr during sync).
+/// Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
+/// They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to
+/// modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
 pub comptime fn utility(f: FunctionDefinition) {
     transform_utility(f);
 }
