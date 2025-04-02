@@ -266,7 +266,6 @@ function bench {
     ultra_honk_wasm \
     client_ivc_17_in_20_release \
     client_ivc_release \
-    client_ivc_op_count \
     client_ivc_op_count_time \
     client_ivc_wasm
 }
