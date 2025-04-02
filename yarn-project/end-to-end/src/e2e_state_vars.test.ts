@@ -36,7 +36,7 @@ describe('e2e_state_vars', () => {
     });
 
     it('initialize and read PublicImmutable', async () => {
-      // Initializes the public immutable and then reads the value using an unconstrained function
+      // Initializes the public immutable and then reads the value using an utility function
       // checking the return values:
 
       await contract.methods.initialize_public_immutable(1).send().wait();
@@ -47,7 +47,7 @@ describe('e2e_state_vars', () => {
     });
 
     it('private read of PublicImmutable', async () => {
-      // Reads the value using an unconstrained function checking the return values with:
+      // Reads the value using a utility function checking the return values with:
       // 1. A constrained private function that reads it directly
       // 2. A constrained private function that calls another private function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
@@ -64,7 +64,7 @@ describe('e2e_state_vars', () => {
     });
 
     it('public read of PublicImmutable', async () => {
-      // Reads the value using an unconstrained function checking the return values with:
+      // Reads the value using a utility function checking the return values with:
       // 1. A constrained public function that reads it directly
       // 2. A constrained public function that calls another public function that reads.
       //    The indirect, adds 1 to the point to ensure that we are returning the correct value.
@@ -82,7 +82,7 @@ describe('e2e_state_vars', () => {
     });
 
     it('public multiread of PublicImmutable', async () => {
-      // Reads the value using an unconstrained function checking the return values with:
+      // Reads the value using a utility function checking the return values with:
       // 1. A constrained public function that reads 5 times directly (going beyond the previous 4 Field return value)
 
       const a = await contract.methods.get_public_immutable_constrained_public_multiple().simulate();

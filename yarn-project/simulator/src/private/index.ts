@@ -1,5 +1,4 @@
 export { AcirSimulator } from './simulator.js';
-export { UtilityExecutionOracle as UnconstrainedExecutionOracle } from './utility_execution_oracle.js';
 export {
   type ExecutionDataProvider,
   ContractClassNotFoundError,

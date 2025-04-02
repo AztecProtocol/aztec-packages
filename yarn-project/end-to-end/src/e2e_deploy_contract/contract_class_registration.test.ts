@@ -16,7 +16,7 @@ import {
 } from '@aztec/aztec.js';
 import {
   broadcastPrivateFunction,
-  broadcastUnconstrainedFunction,
+  broadcastUtilityFunction,
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
@@ -101,16 +101,16 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(fetchedFunction.selector).toEqual(selector);
     });
 
-    it('broadcasts an unconstrained function', async () => {
-      const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
+    it('broadcasts an utility function', async () => {
+      const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UTILITY)!;
       const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
-      const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
+      const tx = await (await broadcastUtilityFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
-      writeTestData('yarn-project/protocol-contracts/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
+      writeTestData('yarn-project/protocol-contracts/fixtures/UtilityFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
-      const fetchedFunction = fetchedClass!.unconstrainedFunctions[0]!;
+      const fetchedFunction = fetchedClass!.utilityFunctions[0]!;
       expect(fetchedFunction).toBeDefined();
       expect(fetchedFunction.selector).toEqual(selector);
     });
