@@ -5,24 +5,22 @@
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
-#include "barretenberg/vm2/simulation/events/alu_event.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
 #include <gtest/gtest.h>
 
-namespace bb::avm2::tracegen {
-
-using namespace bb;
+namespace bb::avm2::constraining {
 
 class AvmRecursiveTests : public ::testing::Test {
   public:
-    using RecursiveFlavor = Avm2RecursiveFlavor_<UltraCircuitBuilder>;
+    using RecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
 
     using InnerFlavor = typename RecursiveFlavor::NativeFlavor;
     using InnerProver = AvmProvingHelper;
@@ -39,70 +37,69 @@ class AvmRecursiveTests : public ::testing::Test {
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
+    using TraceContainer = tracegen::TraceContainer;
+
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
-
-    // Generate an extremely simple avm trace
-    TraceContainer generate_avm_circuit()
-    {
-        AvmTraceGenHelper trace_gen_helper;
-
-        return trace_gen_helper.generate_trace({
-            .alu = { { .operation = simulation::AluOperation::ADD, .a = 1, .b = 2, .c = 3, .tag = MemoryTag::U16 }, },
-        });
-    }
 };
 
 TEST_F(AvmRecursiveTests, recursion)
 {
     // TODO: Do we define another environment variable for long running tests?
-    if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
+    if (std::getenv("AVM_SLOW_TESTS") == nullptr) {
         GTEST_SKIP();
     }
 
-    TraceContainer trace = generate_avm_circuit();
+    auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
 
     InnerProver prover;
     const auto [proof, vk_data] = prover.prove(std::move(trace));
-    const std::shared_ptr<InnerFlavor::VerificationKey> verification_key = prover.create_verification_key(vk_data);
+    const auto verification_key = prover.create_verification_key(vk_data);
     InnerVerifier verifier(verification_key);
 
-    // Trivial public inputs wrapping "reverted" boolean value.
-    const std::vector<std::vector<FF>> public_inputs = { { 0 } };
+    const auto public_inputs_cols = public_inputs.to_columns();
 
-    const bool verified = verifier.verify_proof(proof, public_inputs);
+    const bool verified = verifier.verify_proof(proof, public_inputs_cols);
 
     ASSERT_TRUE(verified) << "native proof verification failed";
 
     // Create the outer verifier, to verify the proof
     OuterBuilder outer_circuit;
-    RecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
+    RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
     auto agg_object =
         stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
 
-    auto agg_output = recursive_verifier.verify_proof(proof, public_inputs, agg_object);
+    auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
 
     bool agg_output_valid =
         verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
 
+    // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
+    // be aggregated with others.
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
-    ASSERT_FALSE(outer_circuit.failed()) << "Outer circuit has failed.";
 
+    // Check that no failure flag was raised in the recursive verifier circuit
+    ASSERT_FALSE(outer_circuit.failed()) << outer_circuit.err();
+
+    // Check that the circuit is valid.
     bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
     ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
     auto manifest = verifier.transcript->get_manifest();
     auto recursive_manifest = recursive_verifier.transcript->get_manifest();
 
-    EXPECT_EQ(manifest.size(), recursive_manifest.size());
+    // We sanity check that the recursive manifest matches its counterpart one.
+    ASSERT_EQ(manifest.size(), recursive_manifest.size());
     for (size_t i = 0; i < recursive_manifest.size(); ++i) {
         EXPECT_EQ(recursive_manifest[i], manifest[i]);
     }
 
+    // We sanity check that the recursive verifier key (precomputed columns) matches its counterpart one.
     for (const auto [key_el, rec_key_el] : zip_view(verifier.key->get_all(), recursive_verifier.key->get_all())) {
         EXPECT_EQ(key_el, rec_key_el.get_value());
     }
 
+    // Sanity checks on circuit_size and num_public_inputs match.
     EXPECT_EQ(verifier.key->circuit_size, static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
     EXPECT_EQ(verifier.key->num_public_inputs,
               static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
@@ -121,4 +118,4 @@ TEST_F(AvmRecursiveTests, recursion)
     EXPECT_TRUE(ultra_verifier.verify_proof(outer_proof)) << "outer/recursion proof verification failed";
 }
 
-} // namespace bb::avm2::tracegen
+} // namespace bb::avm2::constraining

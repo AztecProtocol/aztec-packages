@@ -1,13 +1,15 @@
 #pragma once
+
+#include <cstdint>
+
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/stdlib/transcript/transcript.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
-#include <cstdint>
 
-namespace bb {
+namespace bb::avm2 {
 
-template <typename BuilderType> class Avm2RecursiveFlavor_ {
+template <typename BuilderType> class AvmRecursiveFlavor_ {
   public:
     using CircuitBuilder = BuilderType;
     using Curve = stdlib::bn254<CircuitBuilder>;
@@ -103,4 +105,4 @@ template <typename BuilderType> class Avm2RecursiveFlavor_ {
     using Transcript = BaseTranscript<stdlib::recursion::honk::StdlibTranscriptParams<CircuitBuilder>>;
 };
 
-} // namespace bb
+} // namespace bb::avm2

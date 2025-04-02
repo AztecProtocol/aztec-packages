@@ -1,5 +1,9 @@
 #include "recursive_verifier.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <memory>
+
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
@@ -7,21 +11,18 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 #include "barretenberg/vm/aztec_constants.hpp"
-#include <algorithm>
-#include <cstddef>
-#include <memory>
 
 namespace bb::avm2 {
 
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(
-    Builder* builder, const std::shared_ptr<NativeVerificationKey>& native_verification_key)
-    : key(std::make_shared<VerificationKey>(builder, native_verification_key))
+    Builder& builder, const std::shared_ptr<NativeVerificationKey>& native_verification_key)
+    : key(std::make_shared<VerificationKey>(&builder, native_verification_key))
     , builder(builder)
 {}
 
 template <typename Flavor>
-AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder* builder, const std::shared_ptr<VerificationKey>& vkey)
+AvmRecursiveVerifier_<Flavor>::AvmRecursiveVerifier_(Builder& builder, const std::shared_ptr<VerificationKey>& vkey)
     : key(vkey)
     , builder(builder)
 {}
@@ -49,7 +50,7 @@ template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const std::vector<std::vector<fr>>& public_inputs_vec_nt, AggregationObject agg_obj)
 {
-    StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(builder, proof);
+    StdlibProof<Builder> stdlib_proof = convert_native_proof_to_stdlib(&builder, proof);
 
     std::vector<std::vector<FF>> public_inputs_ct;
     public_inputs_ct.reserve(public_inputs_vec_nt.size());
@@ -58,7 +59,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         std::vector<FF> vec_ct;
         vec_ct.reserve(vec.size());
         for (const auto& el : vec) {
-            vec_ct.push_back(stdlib::witness_t<Builder>(builder, el));
+            vec_ct.push_back(stdlib::witness_t<Builder>(&builder, el));
         }
         public_inputs_ct.push_back(vec_ct);
     }
@@ -139,7 +140,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim = Shplemini::compute_batch_opening_claim(
-        circuit_size, claim_batcher, output.challenge, Commitment::one(builder), transcript);
+        circuit_size, claim_batcher, output.challenge, Commitment::one(&builder), transcript);
 
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
@@ -147,11 +148,13 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     pairing_points[1] = pairing_points[1].normalize();
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
-        Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
+        Curve::ScalarField::from_witness_index(&builder, builder.add_variable(42));
     agg_obj.aggregate(pairing_points, recursion_separator);
     return agg_obj;
 }
 
-template class AvmRecursiveVerifier_<Avm2RecursiveFlavor_<UltraCircuitBuilder>>;
+// TODO: Once Goblinized version is mature, we can remove this one and we only to template
+// with MegaCircuitBuilder and therefore we can remove the templat in AvmRecursiveVerifier_.
+template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
 
 } // namespace bb::avm2
