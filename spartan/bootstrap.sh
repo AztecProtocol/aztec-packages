@@ -63,6 +63,7 @@ function test_cmds {
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
     echo "$hash ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
+    echo "$hash ./spartan/bootstrap.sh test-cli-add-validators"
   fi
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
