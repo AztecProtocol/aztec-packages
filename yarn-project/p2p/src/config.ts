@@ -160,7 +160,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    */
   peerPenaltyValues: number[];
 
-  /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
+  /**
+   *  Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged.
+   */
   archivedTxLimit: number;
 
   /**
@@ -175,6 +177,16 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Which calls are allowed in the public setup phase of a tx. */
   txPublicSetupAllowList: AllowedElement[];
+
+  /**
+   * The maximum number of pending txs to keep in the tx pool before evicting lower priority ones.
+   */
+  maxTxPoolCount: number;
+
+  /**
+   * The maximum cumulative tx size of pending txs before evicting lower priority txs.
+   */
+  maxTxPoolSize: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -353,6 +365,21 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The list of functions calls allowed to run in setup',
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+  },
+  // TODO: should P2P_MAX_TX_POOL_COUNT/P2P_MAX_TX_POOL_SIZE be configurable or a global constant?
+  // TODO: what should we do if the value is 0? Should we allow unbounded mempools?
+  maxTxPoolCount: {
+    env: 'P2P_MAX_TX_POOL_COUNT',
+    description:
+      'The maximum number of pending txs to keep in the tx pool before evicting lower priority ones. If set to 0, the tx pool will not have a maximum limit.',
+    ...numberConfigHelper(100),
+  },
+  maxTxPoolSize: {
+    env: 'P2P_MAX_TX_POOL_SIZE',
+    description:
+      'The maximum cumulative tx size of pending txs before evicting lower priority txs. If set to 0, the tx pool will not have a maximum size limit.',
+    // TODO: what to use as default?
+    ...numberConfigHelper(10_000),
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

@@ -1,9 +1,10 @@
+import { MIN_TX_GAS_LIMIT } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { GasFees } from '@aztec/stdlib/gas';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
 import {
   TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
@@ -27,10 +28,14 @@ export class GasTxValidator implements TxValidator<Tx> {
   }
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
+    const gasLimitValidation = this.#validateMinGasLimit(tx);
+    if (gasLimitValidation.result === 'invalid') {
+      return Promise.resolve(gasLimitValidation);
+    }
     if (await this.#shouldSkip(tx)) {
       return Promise.resolve({ result: 'skipped', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] });
     }
-    return this.#validateTxFee(tx);
+    return this.validateTxFee(tx);
   }
 
   /**
@@ -57,7 +62,24 @@ export class GasTxValidator implements TxValidator<Tx> {
     return notEnoughMaxFees;
   }
 
-  async #validateTxFee(tx: Tx): Promise<TxValidationResult> {
+  /**
+   * Check whether the tx's gas limit is above the minimum amount.
+   */
+  #validateMinGasLimit(tx: Tx): TxValidationResult {
+    const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
+    const minGasLimits = new Gas(MIN_TX_GAS_LIMIT, MIN_TX_GAS_LIMIT);
+
+    if (minGasLimits.gtAny(gasLimits)) {
+      this.#log.warn(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
+        gasLimits,
+        minGasLimits,
+      });
+      return { result: 'invalid', reason: ['Insufficient minimum gas limit'] };
+    }
+    return { result: 'valid' };
+  }
+
+  public async validateTxFee(tx: Tx): Promise<TxValidationResult> {
     const feePayer = tx.data.feePayer;
 
     // Compute the maximum fee that this tx may pay, based on its gasLimits and maxFeePerGas
