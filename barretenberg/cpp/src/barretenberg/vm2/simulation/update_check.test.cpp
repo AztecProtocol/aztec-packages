@@ -58,7 +58,9 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(0)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
 
-    ON_CALL(poseidon2, hash(_)).WillByDefault([&](const std::vector<FF>& input) { return poseidon2::hash(input); });
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([&](const std::vector<FF>& input) {
+        return poseidon2::hash(input);
+    });
 
     update_check.check_current_class_id(derived_address, instance);
 
@@ -197,8 +199,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
-    ON_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillByDefault([&](world_state::MerkleTreeId, const FF& leaf_slot) {
+    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
+        .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
             for (size_t i = 0; i < update_preimage_slots.size(); ++i) {
                 if (leaf_slot == update_preimage_slots[i]) {
                     return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(i));
@@ -207,14 +209,17 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
             throw std::runtime_error("Leaf not found");
         });
 
-    ON_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_)).WillByDefault([&](const uint64_t& index) {
-        return PublicDataTreeLeafPreimage(
-            PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, update_preimage[index]), 0, 0);
+    EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
+        .WillRepeatedly([&](const uint64_t& index) {
+            return PublicDataTreeLeafPreimage(
+                PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, update_preimage[index]), 0, 0);
+        });
+
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([&](const std::vector<FF>& input) {
+        return poseidon2::hash(input);
     });
 
-    ON_CALL(poseidon2, hash(_)).WillByDefault([&](const std::vector<FF>& input) { return poseidon2::hash(input); });
-
-    ON_CALL(range_check, assert_range(_, _)).WillByDefault([&](const uint128_t& value, const uint8_t& range) {
+    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly([&](const uint128_t& value, const uint8_t& range) {
         if (range > 128) {
             throw std::runtime_error("Range checks aren't supported for bit-sizes > 128");
         }
@@ -276,16 +281,19 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(merkle_db, as_unconstrained()).WillRepeatedly(ReturnRef(mock_low_level_merkle_db));
 
-    ON_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillByDefault([&](world_state::MerkleTreeId, const FF& leaf_slot) {
+    EXPECT_CALL(mock_low_level_merkle_db, get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
+        .WillRepeatedly([&](world_state::MerkleTreeId, const FF& leaf_slot) {
             return GetLowIndexedLeafResponse(true, static_cast<uint64_t>(leaf_slot - shared_mutable_leaf_slot));
         });
 
-    ON_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_)).WillByDefault([&](const uint64_t& index) {
-        return PublicDataTreeLeafPreimage(PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, 0), 0, 0);
-    });
+    EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
+        .WillRepeatedly([&](const uint64_t& index) {
+            return PublicDataTreeLeafPreimage(PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, 0), 0, 0);
+        });
 
-    ON_CALL(poseidon2, hash(_)).WillByDefault([&](const std::vector<FF>& input) { return poseidon2::hash(input); });
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([&](const std::vector<FF>& input) {
+        return poseidon2::hash(input);
+    });
 
     EXPECT_THROW_WITH_MESSAGE(update_check.check_current_class_id(derived_address, instance),
                               "Stored hash does not match preimage hash");
