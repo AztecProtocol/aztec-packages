@@ -302,8 +302,8 @@ case "$cmd" in
 
     # build the benchmarked benches
     parallel --line-buffered --tag -v denoise ::: \
-      build_preset $native_preset --target bb_cli_bench \
-      build_preset wasm-threads --target bb_cli_bench
+      "build_preset $native_preset --target bb_cli_bench" \
+      "build_preset wasm-threads --target bb_cli_bench"
 
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then
