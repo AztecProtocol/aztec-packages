@@ -8,7 +8,7 @@ ExternalProject_Add(
     msgpack-c
     PREFIX ${MSGPACK_PREFIX}
     GIT_REPOSITORY "https://github.com/AztecProtocol/msgpack-c.git"
-    GIT_TAG fa91cdd4d8f9585317603f6999374abb56c47587
+    GIT_TAG 5ee9a1c8c325658b29867829677c7eb79c433a98
     CONFIGURE_COMMAND ""  # No configure step
     BUILD_COMMAND ""      # No build step
     INSTALL_COMMAND ""    # No install step
