@@ -1,13 +1,12 @@
 import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr, type PXE } from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { getInitializer } from '@aztec/stdlib/abi';
+import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
 import { PublicKeys } from '@aztec/stdlib/keys';
 
 import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 
 export async function deploy(
-  client: PXE,
   wallet: AccountWalletWithSecretKey,
   artifactPath: string,
   json: boolean,
@@ -27,7 +26,8 @@ export async function deploy(
 ) {
   salt ??= Fr.random();
   const contractArtifact = await getContractArtifact(artifactPath, log);
-  const constructorArtifact = getInitializer(contractArtifact, initializer);
+  const hasInitializer = getAllFunctionAbis(contractArtifact).some(fn => fn.isInitializer);
+  const constructorArtifact = hasInitializer ? getInitializer(contractArtifact, initializer) : undefined;
 
   // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
