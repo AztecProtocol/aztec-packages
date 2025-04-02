@@ -20,8 +20,9 @@ import {
 import {Rollup} from "@aztec/core/Rollup.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
-import {RollupBase, IInstance} from "./base/RollupBase.sol";
+import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -69,19 +70,15 @@ contract MultiProofTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this));
-    feeJuicePortal = new FeeJuicePortal(
-      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
-    );
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    registry = new Registry(address(this), IERC20(address(testERC20)));
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup = IInstance(
       address(
         new Rollup(
-          feeJuicePortal,
+          testERC20,
           rewardDistributor,
           testERC20,
           address(this),
@@ -91,7 +88,12 @@ contract MultiProofTest is RollupBase {
       )
     );
 
-    registry.upgrade(address(rollup));
+    feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
+
+    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    feeJuicePortal.initialize();
+
+    registry.addRollup(IRollup(address(rollup)));
 
     _;
   }

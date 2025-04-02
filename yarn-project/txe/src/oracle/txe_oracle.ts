@@ -23,6 +23,7 @@ import {
   ContractDataProvider,
   NoteDataProvider,
   PXEOracleInterface,
+  PrivateEventDataProvider,
   SyncDataProvider,
   TaggingDataProvider,
   enrichPublicSimulationError,
@@ -52,6 +53,7 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
+  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   type NoteSelector,
@@ -132,7 +134,7 @@ export class TXE implements TypedOracle {
 
   private committedBlocks = new Set<number>();
 
-  private VERSION = 1;
+  private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
 
   private node: TXENode;
@@ -152,6 +154,7 @@ export class TXE implements TypedOracle {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private executionCache: HashedValuesCache,
     private contractAddress: AztecAddress,
@@ -160,7 +163,7 @@ export class TXE implements TypedOracle {
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
-    this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
+    this.node = new TXENode(this.blockNumber, this.ROLLUP_VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
 
@@ -174,6 +177,7 @@ export class TXE implements TypedOracle {
       this.syncDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
+      this.privateEventDataProvider,
       this.logger,
     );
   }
@@ -184,6 +188,7 @@ export class TXE implements TypedOracle {
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
+    const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
@@ -208,6 +213,7 @@ export class TXE implements TypedOracle {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       accountDataProvider,
       executionCache,
       await AztecAddress.random(),
@@ -726,6 +732,8 @@ export class TXE implements TypedOracle {
     }
 
     txEffect.publicDataWrites = this.publicDataWrites;
+    txEffect.privateLogs = this.privateLogs;
+    txEffect.publicLogs = this.publicLogs;
 
     const body = new Body([txEffect]);
 
@@ -765,9 +773,7 @@ export class TXE implements TypedOracle {
       }
     }
 
-    await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
-    this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
-    this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
+    await this.node.processTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
 
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -1077,11 +1083,7 @@ export class TXE implements TypedOracle {
   }
 
   async syncNotes() {
-    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(
-      this.contractAddress,
-      await this.getBlockNumber(),
-      undefined,
-    );
+    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, undefined);
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.pxeOracleInterface.processTaggedLogs(
@@ -1254,5 +1256,23 @@ export class TXE implements TypedOracle {
 
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
+  }
+
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+  ): Promise<void> {
+    return this.pxeOracleInterface.storePrivateEventLog(
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+      logIndexInTx,
+    );
   }
 }

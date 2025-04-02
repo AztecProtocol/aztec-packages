@@ -581,8 +581,6 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
     LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
 
-    check_interaction<lookup_poseidon2_read_hash>(trace);
-    check_interaction<lookup_poseidon2_write_hash>(trace);
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
@@ -590,10 +588,7 @@ TEST(MerkleCheckConstrainingTest, ReadWithInteractions)
 
     EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
                               "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* Could not find tuple in destination");
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_read_hash>(trace),
-                              "Relation.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2.* ACCUMULATION.* is non-zero");
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
-    check_interaction<lookup_poseidon2_write_hash>(trace);
 }
 
 TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
@@ -626,8 +621,6 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
 
-    check_interaction<lookup_poseidon2_read_hash>(trace);
-    check_interaction<lookup_poseidon2_write_hash>(trace);
     check_relation<merkle_check>(trace);
 
     // Negative test - now corrupt the trace and verify it fails
@@ -637,14 +630,10 @@ TEST(MerkleCheckConstrainingTest, WriteWithInteractions)
     EXPECT_THROW_WITH_MESSAGE(
         LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace),
         "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_READ.* Could not find tuple in destination");
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_read_hash>(trace),
-                              "Relation.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_READ.* ACCUMULATION.* is non-zero");
 
-    EXPECT_THROW_WITH_MESSAGE(
-        LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace),
-        "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* Could not find tuple in destination");
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_write_hash>(trace),
-                              "Relation.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* ACCUMULATION.* is non-zero");
+    EXPECT_THROW_WITH_MESSAGE(LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace),
+                              "Failed.*LOOKUP_MERKLE_CHECK_MERKLE_POSEIDON2_WRITE.* Could not find tuple in "
+                              "destination");
 }
 
 TEST(MerkleCheckConstrainingTest, MultipleWithTracegen)
@@ -738,8 +727,6 @@ TEST(MerkleCheckConstrainingTest, MultipleWithInteractions)
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_read_hash::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_write_hash::Settings>().process(trace);
-    check_interaction<lookup_poseidon2_read_hash>(trace);
-    check_interaction<lookup_poseidon2_write_hash>(trace);
 
     check_relation<merkle_check>(trace);
 }

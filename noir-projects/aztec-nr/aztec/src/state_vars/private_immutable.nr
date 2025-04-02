@@ -82,9 +82,9 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:get_note
 }
 
-impl<Note, let N: u32> PrivateImmutable<Note, UnconstrainedContext>
+impl<Note> PrivateImmutable<Note, UnconstrainedContext>
 where
-    Note: NoteType + NoteHash + Packable<N> + Eq,
+    Note: NoteType + NoteHash + Eq,
 {
     // docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
@@ -95,7 +95,10 @@ where
 
     // view_note does not actually use the context, but it calls oracles that are only available in private
     // docs:start:view_note
-    pub unconstrained fn view_note(self) -> Note {
+    pub unconstrained fn view_note<let N: u32>(self) -> Note
+    where
+        Note: Packable<N>,
+    {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)
     }

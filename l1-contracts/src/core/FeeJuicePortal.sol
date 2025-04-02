@@ -9,28 +9,26 @@ import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 contract FeeJuicePortal is IFeeJuicePortal {
   using SafeERC20 for IERC20;
 
-  IRegistry public immutable REGISTRY;
+  bytes32 public constant L2_TOKEN_ADDRESS = bytes32(Constants.FEE_JUICE_ADDRESS);
+
+  IRollup public immutable ROLLUP;
+  IInbox public immutable INBOX;
   IERC20 public immutable UNDERLYING;
-  bytes32 public immutable L2_TOKEN_ADDRESS;
+  uint256 public immutable VERSION;
 
   bool public initialized;
 
-  constructor(address _registry, address _underlying, bytes32 _l2TokenAddress) {
-    require(
-      _registry != address(0) && _underlying != address(0) && _l2TokenAddress != 0,
-      Errors.FeeJuicePortal__InvalidInitialization()
-    );
-
-    REGISTRY = IRegistry(_registry);
-    UNDERLYING = IERC20(_underlying);
-    L2_TOKEN_ADDRESS = _l2TokenAddress;
+  constructor(IRollup _rollup, IERC20 _underlying, IInbox _inbox, uint256 _version) {
+    ROLLUP = _rollup;
+    INBOX = _inbox;
+    UNDERLYING = _underlying;
+    VERSION = _version;
   }
 
   /**
@@ -66,10 +64,7 @@ contract FeeJuicePortal is IFeeJuicePortal {
     returns (bytes32, uint256)
   {
     // Preamble
-    address rollup = canonicalRollup();
-    uint256 version = REGISTRY.getVersionFor(rollup);
-    IInbox inbox = IRollup(rollup).getInbox();
-    DataStructures.L2Actor memory actor = DataStructures.L2Actor(L2_TOKEN_ADDRESS, version);
+    DataStructures.L2Actor memory actor = DataStructures.L2Actor(L2_TOKEN_ADDRESS, VERSION);
 
     // Hash the message content to be reconstructed in the receiving contract
     bytes32 contentHash =
@@ -79,7 +74,7 @@ contract FeeJuicePortal is IFeeJuicePortal {
     UNDERLYING.safeTransferFrom(msg.sender, address(this), _amount);
 
     // Send message to rollup
-    (bytes32 key, uint256 index) = inbox.sendL2Message(actor, contentHash, _secretHash);
+    (bytes32 key, uint256 index) = INBOX.sendL2Message(actor, contentHash, _secretHash);
 
     emit DepositToAztecPublic(_to, _amount, _secretHash, key, index);
 
@@ -97,13 +92,9 @@ contract FeeJuicePortal is IFeeJuicePortal {
    * @param _amount - The amount to pay them
    */
   function distributeFees(address _to, uint256 _amount) external override(IFeeJuicePortal) {
-    require(msg.sender == canonicalRollup(), Errors.FeeJuicePortal__Unauthorized());
+    require(msg.sender == address(ROLLUP), Errors.FeeJuicePortal__Unauthorized());
     UNDERLYING.safeTransfer(_to, _amount);
 
     emit FeesDistributed(_to, _amount);
-  }
-
-  function canonicalRollup() public view override(IFeeJuicePortal) returns (address) {
-    return REGISTRY.getRollup();
   }
 }

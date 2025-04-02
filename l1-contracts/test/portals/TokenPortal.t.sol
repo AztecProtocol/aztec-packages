@@ -3,7 +3,7 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "@aztec/core/Rollup.sol";
+import {IRollup, Rollup} from "@aztec/core/Rollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
@@ -60,11 +60,11 @@ contract TokenPortalTest is Test {
   uint256 internal l2BlockNumber = 69;
 
   function setUp() public {
-    registry = new Registry(address(this));
     testERC20 = new TestERC20("test", "TEST", address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    registry = new Registry(address(this), testERC20);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup(
-      new MockFeeJuicePortal(),
+      testERC20,
       rewardDistributor,
       testERC20,
       address(this),
@@ -74,7 +74,7 @@ contract TokenPortalTest is Test {
     inbox = rollup.getInbox();
     outbox = rollup.getOutbox();
 
-    registry.upgrade(address(rollup));
+    registry.addRollup(IRollup(address(rollup)));
 
     tokenPortal = new TokenPortal();
     tokenPortal.initialize(address(registry), address(testERC20), l2TokenAddress);
@@ -95,7 +95,7 @@ contract TokenPortalTest is Test {
     // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
-      recipient: DataStructures.L2Actor(l2TokenAddress, 1),
+      recipient: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
       content: Hash.sha256ToField(abi.encodeWithSignature("mint_to_private(uint256)", amount)),
       secretHash: secretHashForL2MessageConsumption,
       index: _index
@@ -111,7 +111,7 @@ contract TokenPortalTest is Test {
     // it has nothing to do with calling the function.
     return DataStructures.L1ToL2Msg({
       sender: DataStructures.L1Actor(address(tokenPortal), block.chainid),
-      recipient: DataStructures.L2Actor(l2TokenAddress, 1),
+      recipient: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("mint_to_public(bytes32,uint256)", to, amount)
       ),
@@ -182,7 +182,7 @@ contract TokenPortalTest is Test {
     // it has nothing to do with calling the function.
     bytes32 l2ToL1Message = Hash.sha256ToField(
       DataStructures.L2ToL1Msg({
-        sender: DataStructures.L2Actor({actor: l2TokenAddress, version: 1}),
+        sender: DataStructures.L2Actor({actor: l2TokenAddress, version: rollup.getVersion()}),
         recipient: DataStructures.L1Actor({actor: address(tokenPortal), chainId: block.chainid}),
         content: Hash.sha256ToField(
           abi.encodeWithSignature(

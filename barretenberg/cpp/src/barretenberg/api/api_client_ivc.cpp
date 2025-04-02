@@ -123,7 +123,9 @@ void write_standalone_vk(const std::string& output_data_type,
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
     Prover prover{ proving_key };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
+    PubInputsProofAndKey<VerificationKey> to_write{
+        PublicInputsVector{}, HonkProof{}, std::make_shared<VerificationKey>(prover.proving_key->proving_key)
+    };
 
     write(to_write, output_data_type, "vk", output_path);
 }
@@ -283,6 +285,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
+                          [[maybe_unused]] const std::filesystem::path& public_inputs_path,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {

@@ -16,8 +16,8 @@ import {
   initExecutionEnvironment,
   resolveContractAssertionMessage,
 } from '../../avm/fixtures/index.js';
-import { AvmPersistableStateManager } from '../../avm/journal/journal.js';
 import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
+import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import { BaseAvmSimulationTester } from './base_avm_simulation_tester.js';
 import { SimpleContractDataSource } from './simple_contract_data_source.js';
@@ -34,7 +34,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
   constructor(
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    private stateManager: AvmPersistableStateManager,
+    private stateManager: PublicPersistableStateManager,
   ) {
     super(contractDataSource, merkleTrees);
   }
@@ -47,7 +47,7 @@ export class AvmSimulationTester extends BaseAvmSimulationTester {
     const trace = new SideEffectTrace();
     const firstNullifier = new Fr(420000);
 
-    const stateManager = AvmPersistableStateManager.create(
+    const stateManager = PublicPersistableStateManager.create(
       treesDB,
       contractsDB,
       trace,

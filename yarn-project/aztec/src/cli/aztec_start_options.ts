@@ -65,11 +65,13 @@ export const universalOptions = [
   'dataStoreMapSizeKb',
 ];
 
+export const NETWORK_FLAG = 'network';
+
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   NETWORK: [
     {
-      flag: '--network <value>',
+      flag: `--${NETWORK_FLAG} <value>`,
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
@@ -81,12 +83,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec Sandbox',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--sandbox.testAccounts [value]',
-      description: 'Deploy test accounts on sandbox start',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(),
     },
     {
       flag: '--sandbox.noPXE [value]',
@@ -266,12 +262,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: 100,
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
-    },
-    {
-      flag: '--node.testAccounts [value]',
-      description: 'Populate genesis state with initial fee juice for test accounts',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(),
     },
     {
       flag: '--node.syncMode <value>',
