@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743628089235,
+  "lastUpdate": 1743636819897,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "c5f998439ca29956a62466d202974e85ab58b7c0",
-          "message": "feat: add ecdsa non ssh account to cli wallet (#13085)\n\nAfter the addition of ecdsa non-ssh by @Thunkar, this simply adds it to\nbe useable in the cli wallet.\n\nCo-authored-by: sklppy88 <esau@aztecprotocol.com>",
-          "timestamp": "2025-03-28T18:07:44+01:00",
-          "tree_id": "8cca3cbcd796d4dbafbe36a886d784fa3487b553",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c5f998439ca29956a62466d202974e85ab58b7c0"
-        },
-        "date": 1743183623631,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8561,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21772878396296869,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 110829,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 141023,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "critesjosh@gmail.com",
+            "name": "josh crites",
+            "username": "critesjosh"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "49aabfb3df5806e3174d62a1248c46fa3c39e85c",
+          "message": "fix(docs): Register FPC docs, contract deployment, events (#13222)\n\n- adds snippets to tell people to register FPCs before using them\n- adds a contract deployment summary cc @jzaki may be relevant for\ncontract upgrades section\n- closes https://github.com/AztecProtocol/aztec-packages/issues/12906\n- adds glossary and call types pages back to the sidebar",
+          "timestamp": "2025-04-02T22:59:59Z",
+          "tree_id": "608c0f93016dbf245e1b491f25b832e8ca648a86",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/49aabfb3df5806e3174d62a1248c46fa3c39e85c"
+        },
+        "date": 1743636818846,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9415,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23944754662043732,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137641,
             "unit": "us"
           }
         ]
