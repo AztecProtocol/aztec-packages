@@ -70,7 +70,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 template <typename Flavor>
 AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::verify_proof(
     const StdlibProof<Builder>& stdlib_proof,
-    [[maybe_unused]] const std::vector<std::vector<FF>>& public_inputs,
+    const std::vector<std::vector<FF>>& public_inputs,
     AggregationObject agg_obj)
 {
     using Curve = typename Flavor::Curve;
