@@ -63,11 +63,8 @@ sel {
 // TODO: Probably some latch is also needed.
 // TODO: Selector needs to be guarded by error flag.
 #[UPDATE_CHECK]
-sel {
-  address, current_class_id, original_class_id, public_data_tree_root, block_number
-} in update_check.sel {
-  update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number
-};
+sel { address, current_class_id, original_class_id, public_data_tree_root, block_number }
+in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
 
 // Observe the folowing also connects the current_class_id of the instance to the class members.
 // TODO: Probably some latch is also needed.

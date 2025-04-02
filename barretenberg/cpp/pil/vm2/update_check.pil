@@ -3,6 +3,27 @@ include "range_check.pil";
 include "public_data_read.pil";
 include "constants_gen.pil";
 
+// Validates current class id taking into account contract updates.
+// Contract updates are written to the public data tree using the `shared mutable` structure.
+// The shared mutable structure looks like this:
+// +-------+---------------------+-----------------------+-----------------------+-------------------------+
+// | slot  | shared_mutable_slot | shared_mutable_slot+1 | shared_mutable_slot+2 |  shared_mutable_slot+3  |
+// +-------+---------------------+-----------------------+-----------------------+-------------------------+
+// | value | metadata            | pre                   | post                  | hash(metadata,pre,post) |
+// +-------+---------------------+-----------------------+-----------------------+-------------------------+
+// The metadata field includes some information about the delay that we don't care about in the AVM,
+// but the block of change is the last 32 bits of the metadata.
+//
+// This gadget reads the shared mutable hash, and requires the metadata, pre and post to be passed as hints.
+// NOTE: if hash is zero, then the shared mutable has never been written to. In that case no update applies (current_class_id = original_class_id)
+// Once we constrain the read, we truncate the metadata to 32 bits and compare it with the block number.
+// If the block number is less than the block of change, then the update is a future update.
+// NOTE: zeroes can appear in pre and post. In those cases, zero means original_class_id.
+//
+// Usage:
+// sel { address, current_class_id, original_class_id, public_data_tree_root, block_number }
+// in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
+//
 namespace update_check;
     pol commit sel;
     sel * (1 - sel) = 0;
