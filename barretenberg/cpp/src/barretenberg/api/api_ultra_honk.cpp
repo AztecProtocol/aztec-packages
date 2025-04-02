@@ -34,7 +34,7 @@ Circuit _compute_circuit(const std::string& bytecode_path,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    const acir_format::ProgramMetadata metadata{ .recursive = init_kzg_accumulator, .honk_recursion = honk_recursion };
+    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
 
     if (!witness_path.empty()) {
@@ -235,7 +235,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count(bytecode_path, flags.recursive, flags.honk_recursion, flags.include_gates_per_opcode);
+    gate_count(bytecode_path, /*useless=*/, flags.honk_recursion, flags.include_gates_per_opcode);
 }
 
 void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
@@ -273,7 +273,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
         ipa_accumulation = true;
     }
-    const acir_format::ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
+    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program;
     program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);
