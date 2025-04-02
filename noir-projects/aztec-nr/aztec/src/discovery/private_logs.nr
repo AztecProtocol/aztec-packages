@@ -50,13 +50,14 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     // We iterate over the logs in reverse order to avoid shifting elements.
     let mut i = len;
     while i > 0 {
-        let log = logs.get(i);
+        i -= 1;
 
-        // Process each log
+        // Get and process each log
+        let log = logs.get(i);
         process_log(contract_address, compute_note_hash_and_nullifier, log);
 
+        // Remove the log from the capsule array
         logs.remove(i);
-        i -= 1;
     }
 }
 
