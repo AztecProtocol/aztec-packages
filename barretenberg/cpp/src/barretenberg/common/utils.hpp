@@ -35,13 +35,19 @@ template <typename... Ts> struct HashableTuple : public std::tuple<Ts...> {
 
 } // namespace bb::utils
 
-// Define hash function so that they can be used as keys in maps.
-// See https://en.cppreference.com/w/cpp/utility/hash.
-template <typename... Ts> struct std::hash<bb::utils::HashableTuple<Ts...>> {
-    std::size_t operator()(const bb::utils::HashableTuple<Ts...>& st) const noexcept { return st.hash(); }
-};
-
 // Needed for HashableTuple to work as a tuple.
 template <typename... Ts> struct std::tuple_size<bb::utils::HashableTuple<Ts...>> {
     static constexpr size_t value = sizeof...(Ts);
+};
+
+// Define std::hash for any type that has a hash() method. This includes HashableTuple.
+template <typename T>
+concept Hashable = requires(const T& t) {
+    {
+        t.hash()
+    } -> std::same_as<std::size_t>;
+};
+
+template <Hashable T> struct std::hash<T> {
+    std::size_t operator()(const T& t) const noexcept { return t.hash(); }
 };

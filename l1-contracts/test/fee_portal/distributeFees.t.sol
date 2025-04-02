@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -41,8 +41,6 @@ contract DistributeFees is Test {
     );
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-    token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
 
     vm.prank(OWNER);
     registry.addRollup(IRollup(address(rollup)));
@@ -63,13 +61,10 @@ contract DistributeFees is Test {
     vm.prank(address(rollup));
     vm.expectRevert(
       abi.encodeWithSelector(
-        IERC20Errors.ERC20InsufficientBalance.selector,
-        address(feeJuicePortal),
-        Constants.FEE_JUICE_INITIAL_MINT,
-        Constants.FEE_JUICE_INITIAL_MINT + 1
+        IERC20Errors.ERC20InsufficientBalance.selector, address(feeJuicePortal), 0, 0 + 1
       )
     );
-    feeJuicePortal.distributeFees(address(this), Constants.FEE_JUICE_INITIAL_MINT + 1);
+    feeJuicePortal.distributeFees(address(this), 1);
   }
 
   function test_GivenSufficientBalance() external givenTheCallerIsTheCanonicalRollup {
@@ -78,11 +73,15 @@ contract DistributeFees is Test {
 
     assertEq(token.balanceOf(address(this)), 0);
 
+    uint256 initialBalance = 10e18;
+
+    deal(address(token), address(feeJuicePortal), initialBalance);
+
     vm.prank(address(rollup));
     vm.expectEmit(true, true, true, true, address(feeJuicePortal));
-    emit IFeeJuicePortal.FeesDistributed(address(this), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.distributeFees(address(this), Constants.FEE_JUICE_INITIAL_MINT);
+    emit IFeeJuicePortal.FeesDistributed(address(this), initialBalance);
+    feeJuicePortal.distributeFees(address(this), initialBalance);
 
-    assertEq(token.balanceOf(address(this)), Constants.FEE_JUICE_INITIAL_MINT);
+    assertEq(token.balanceOf(address(this)), initialBalance);
   }
 }

@@ -27,7 +27,7 @@ export async function deployNewRollup(
   const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
+  const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
   const { rollup, slashFactoryAddress } = await deployNewRollupContracts(
     registryAddress,
@@ -40,6 +40,7 @@ export async function deployNewRollup(
     initialValidators,
     genesisArchiveRoot,
     genesisBlockHash,
+    fundingNeeded,
     config,
     debugLogger,
   );
