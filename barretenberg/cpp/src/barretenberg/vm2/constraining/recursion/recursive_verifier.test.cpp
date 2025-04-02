@@ -66,7 +66,10 @@ TEST_F(AvmRecursiveTests, recursion)
     const std::shared_ptr<InnerFlavor::VerificationKey> verification_key = prover.create_verification_key(vk_data);
     InnerVerifier verifier(verification_key);
 
-    const bool verified = verifier.verify_proof(proof, { { 0 } }); // Empty public inputs.
+    // Trivial public inputs wrapping "reverted" boolean value.
+    const std::vector<std::vector<FF>> public_inputs = { { 0 } };
+
+    const bool verified = verifier.verify_proof(proof, public_inputs);
 
     ASSERT_TRUE(verified) << "native proof verification failed";
 
@@ -77,7 +80,7 @@ TEST_F(AvmRecursiveTests, recursion)
     auto agg_object =
         stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
 
-    auto agg_output = recursive_verifier.verify_proof(proof, {}, agg_object);
+    auto agg_output = recursive_verifier.verify_proof(proof, public_inputs, agg_object);
 
     bool agg_output_valid =
         verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
