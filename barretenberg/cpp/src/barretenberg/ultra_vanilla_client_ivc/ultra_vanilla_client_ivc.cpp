@@ -14,15 +14,15 @@ void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit, const size_t st
 {
     if (step == 0) {
         info("internal ivc step 0");
-        accumulator_indices = stdlib::recursion::init_default_agg_obj_indices(circuit);
+        aggregation_object = AggregationObject::construct_default(circuit);
     } else {
         info("internal ivc step ", step);
         accumulate(circuit, previous_proof, previous_vk);
-        accumulator_indices = accumulator.get_witness_indices();
+        aggregation_object = accumulator;
     }
     if (init_kzg_accumulator) {
         info("calling add_pairing_point_accumulator");
-        circuit.add_pairing_point_accumulator(accumulator_indices);
+        aggregation_object.set_public();
     }
     vinfo("set accumulator indices");
 }

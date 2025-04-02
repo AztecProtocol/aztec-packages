@@ -92,12 +92,7 @@ template <typename Builder_> struct aggregation_state {
     {
         P0 = P0.reduce();
         P1 = P1.reduce();
-        PairingPointAccumulatorIndices proof_witness_indices = get_witness_indices();
-
-        auto* context = P0.get_context();
-
-        CircuitChecker::check(*context);
-        context->add_pairing_point_accumulator(proof_witness_indices);
+        this->set_public();
     }
 
     uint32_t set_public()
