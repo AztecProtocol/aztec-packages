@@ -15,7 +15,7 @@ Utility functions are standalone unconstrained functions that cannot be called f
 They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
 These function were originally referred to as top-level unconstrained.
 
-Now all the contract functions has to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
+Now all the contract functions have to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
 For this reason you need to apply #[utility] macro to functions which were originally macro-free:
 
 ```diff
