@@ -8,8 +8,9 @@ import 'jest-extended';
 import os from 'os';
 import path from 'path';
 
+import { SHORTENED_BLOCK_TIME_CONFIG } from '../fixtures/fixtures.js';
 import { createNode, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG } from './p2p_network.js';
+import { P2PNetworkTest } from './p2p_network.js';
 
 const NUM_NODES = 4;
 const NUM_VALIDATORS = NUM_NODES + 1; // We create an extra validator, who will not have a running node
