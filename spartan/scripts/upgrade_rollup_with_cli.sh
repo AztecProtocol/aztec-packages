@@ -15,7 +15,7 @@ set -exu
 # L1_CHAIN_ID=1337 \
 # ETHEREUM_HOST=http://localhost:8545 \
 # MNEMONIC="test test test test test test test test test test test junk" \
-# ./upgrade_rollup_with_lock.sh \
+# ./upgrade_rollup_with_cli.sh \
 #   --aztec-docker-image aztecprotocol/aztec:c5e2b43044862882a68de47cac07b7116e74e51e \
 #   --registry 0x29f815e32efdef19883cf2b92a766b7aebadd326 \
 #   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
@@ -38,7 +38,7 @@ set -exu
 
 # export AZTEC_BIN=/home/mitch/aztec-clones/alpha/yarn-project/aztec/dest/bin/index.js
 # L1_CHAIN_ID=1337 \
-# ./spartan/scripts/upgrade_rollup_with_lock.sh \
+# ./spartan/scripts/upgrade_rollup_with_cli.sh \
 #   --aztec-bin $AZTEC_BIN \
 #   --registry 0x29f815e32efdef19883cf2b92a766b7aebadd326 \
 #   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
@@ -135,19 +135,4 @@ else
   EXE="node --no-warnings $AZTEC_BIN"
 fi
 
-
-# if DEPOSIT_AMOUNT is set, we deposit governance tokens
-if [ -n "$DEPOSIT_AMOUNT" ]; then
-  echo "Depositing $DEPOSIT_AMOUNT governance tokens to $MY_ADDR"
-  $EXE deposit-governance-tokens -r $REGISTRY --recipient $MY_ADDR -a $DEPOSIT_AMOUNT $MINT
-fi
-
-OUTPUT=$($EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC)
-
-PAYLOAD=$(echo $OUTPUT | jq -r '.payloadAddress')
-
-PROPOSAL_ID=$($EXE propose-with-lock -r $REGISTRY --payload-address $PAYLOAD --json | jq -r '.proposalId')
-
-$EXE vote-on-governance-proposal --proposal-id $PROPOSAL_ID --in-favor true --wait true -r $REGISTRY
-
-$EXE execute-governance-proposal --proposal-id $PROPOSAL_ID --wait true -r $REGISTRY
+$EXE deploy-new-rollup -r $REGISTRY --salt $SALT --json $TEST_ACCOUNTS $SPONSORED_FPC

@@ -74,7 +74,7 @@ describe('upgrade via cli', () => {
       const oldNumberOfVersions = await registry.getNumberOfVersions();
 
       const exitCode = await runProjectScript(
-        'spartan/scripts/upgrade_rollup_with_lock.sh',
+        'spartan/scripts/upgrade_rollup_with_cli.sh',
         [
           '--aztec-bin',
           getAztecBin(),

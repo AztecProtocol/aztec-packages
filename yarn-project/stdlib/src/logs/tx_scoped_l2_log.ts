@@ -18,6 +18,11 @@ export class TxScopedL2Log {
      */
     public dataStartIndexForTx: number,
     /*
+     * The index of the log in the transaction. Note that public and private logs are in separate arrays in the tx
+     * effect and for this reason these indices are independent (a private and public log can have the same index).
+     */
+    public logIndexInTx: number,
+    /*
      * The block this log is included in
      */
     public blockNumber: number,
@@ -36,12 +41,13 @@ export class TxScopedL2Log {
       .object({
         txHash: TxHash.schema,
         dataStartIndexForTx: z.number(),
+        logIndexInTx: z.number(),
         blockNumber: z.number(),
         log: z.union([PrivateLog.schema, PublicLog.schema]),
       })
       .transform(
-        ({ txHash, dataStartIndexForTx, blockNumber, log }) =>
-          new TxScopedL2Log(txHash, dataStartIndexForTx, blockNumber, log),
+        ({ txHash, dataStartIndexForTx, logIndexInTx, blockNumber, log }) =>
+          new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, log),
       );
   }
 
@@ -50,6 +56,7 @@ export class TxScopedL2Log {
     return Buffer.concat([
       this.txHash.toBuffer(),
       numToUInt32BE(this.dataStartIndexForTx),
+      numToUInt32BE(this.logIndexInTx),
       numToUInt32BE(this.blockNumber),
       boolToBuffer(isFromPublic),
       this.log.toBuffer(),
@@ -60,23 +67,25 @@ export class TxScopedL2Log {
     const reader = BufferReader.asReader(buffer);
     const txHash = reader.readObject(TxHash);
     const dataStartIndexForTx = reader.readNumber();
+    const logIndexInTx = reader.readNumber();
     const blockNumber = reader.readNumber();
     const isFromPublic = reader.readBoolean();
     const log = isFromPublic ? PublicLog.fromBuffer(reader) : PrivateLog.fromBuffer(reader);
 
-    return new TxScopedL2Log(txHash, dataStartIndexForTx, blockNumber, log);
+    return new TxScopedL2Log(txHash, dataStartIndexForTx, logIndexInTx, blockNumber, log);
   }
 
   static async random() {
     const isFromPublic = Math.random() < 0.5;
     const log = isFromPublic ? await PublicLog.random() : PrivateLog.random();
-    return new TxScopedL2Log(TxHash.random(), 1, 1, log);
+    return new TxScopedL2Log(TxHash.random(), 1, 1, 1, log);
   }
 
   equals(other: TxScopedL2Log) {
     return (
       this.txHash.equals(other.txHash) &&
       this.dataStartIndexForTx === other.dataStartIndexForTx &&
+      this.logIndexInTx === other.logIndexInTx &&
       this.blockNumber === other.blockNumber &&
       ((this.log instanceof PublicLog && other.log instanceof PublicLog) ||
         (this.log instanceof PrivateLog && other.log instanceof PrivateLog)) &&

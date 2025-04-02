@@ -520,6 +520,8 @@ PairingPointAccumulatorIndices process_avm_recursion_constraints(
     // Add recursion constraints
     size_t idx = 0;
     for (auto& constraint : constraint_system.avm_recursion_constraints) {
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1303): Utilize the version of this method that
+        // employs the Goblinized AVM recursive verifier.
         current_aggregation_object = create_avm_recursion_constraints(
             builder, constraint, current_aggregation_object, has_valid_witness_assignments);
 

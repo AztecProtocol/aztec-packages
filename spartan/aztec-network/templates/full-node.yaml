@@ -160,6 +160,8 @@ spec:
               value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: SYNC_SNAPSHOTS_URL
               value: "{{ .Values.snapshots.syncUrl }}"
+            - name: SENTINEL_ENABLED
+              value: "{{ .Values.fullNode.sentinelEnabled }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
