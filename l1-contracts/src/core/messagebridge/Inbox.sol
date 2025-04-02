@@ -20,6 +20,7 @@ contract Inbox is IInbox {
   using FrontierLib for FrontierLib.Tree;
 
   address public immutable ROLLUP;
+  uint256 public immutable VERSION;
 
   uint256 internal immutable HEIGHT;
   uint256 internal immutable SIZE;
@@ -37,8 +38,9 @@ contract Inbox is IInbox {
   // as it can more easily figure out if it can just skip looking for events for a time period.
   uint256 public totalMessagesInserted = 0;
 
-  constructor(address _rollup, uint256 _height) {
+  constructor(address _rollup, uint256 _version, uint256 _height) {
     ROLLUP = _rollup;
+    VERSION = _version;
 
     HEIGHT = _height;
     SIZE = 2 ** _height;
@@ -66,6 +68,9 @@ contract Inbox is IInbox {
     require(
       uint256(_recipient.actor) <= Constants.MAX_FIELD_VALUE,
       Errors.Inbox__ActorTooLarge(_recipient.actor)
+    );
+    require(
+      _recipient.version == VERSION, Errors.Inbox__VersionMismatch(_recipient.version, VERSION)
     );
     require(uint256(_content) <= Constants.MAX_FIELD_VALUE, Errors.Inbox__ContentTooLarge(_content));
     require(

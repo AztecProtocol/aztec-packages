@@ -42,7 +42,7 @@ FF MerkleDB::storage_read(const FF& leaf_slot) const
     auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
     auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
 
-    FF value = present ? preimage.value.value : 0;
+    FF value = present ? preimage.leaf.value : 0;
 
     public_data_tree_check.assert_read(leaf_slot, value, preimage, index, path, get_tree_roots().publicDataTree.root);
 

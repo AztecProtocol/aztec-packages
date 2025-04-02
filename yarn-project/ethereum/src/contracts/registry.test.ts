@@ -7,13 +7,13 @@ import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
 import { DefaultL1ContractsConfig } from '../config.js';
-import { createL1Clients, deployL1Contracts, deployRollupForUpgrade } from '../deploy_l1_contracts.js';
+import { L1Deployer, createL1Clients, deployL1Contracts, deployRollup } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import { defaultL1TxUtilsConfig } from '../l1_tx_utils.js';
 import { startAnvil } from '../test/start_anvil.js';
-import { createGovernanceProposal, executeGovernanceProposal } from '../test/upgrade_utils.js';
 import type { L1Clients } from '../types.js';
 import { RegistryContract } from './registry.js';
+import { RollupContract } from './rollup.js';
 
 const originalVersionSalt = 42;
 
@@ -30,6 +30,7 @@ describe('Registry', () => {
   let walletClient: L1Clients['walletClient'];
   let registry: RegistryContract;
   let deployedAddresses: L1ContractAddresses;
+  let deployedVersion: number;
 
   beforeAll(async () => {
     logger = createLogger('ethereum:test:registry');
@@ -53,8 +54,16 @@ describe('Registry', () => {
       genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
-    deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress', 'feeAssetHandlerAddress');
+    deployedAddresses = omit(
+      deployed.l1ContractAddresses,
+      'slashFactoryAddress',
+      'feeAssetHandlerAddress',
+      'stakingAssetHandlerAddress',
+    );
     registry = new RegistryContract(publicClient, deployedAddresses.registryAddress);
+
+    const rollup = new RollupContract(publicClient, deployedAddresses.rollupAddress);
+    deployedVersion = Number(await rollup.getVersion());
   });
 
   afterAll(async () => {
@@ -72,13 +81,13 @@ describe('Registry', () => {
       expect(address).toEqual(rollupAddress);
     }
     {
-      const address = await registry.getRollupAddress(1);
+      const address = await registry.getRollupAddress(deployedVersion);
       expect(address).toEqual(rollupAddress);
     }
   });
 
   it('handles non-existent versions', async () => {
-    await expect(registry.getRollupAddress(2)).rejects.toThrow('Rollup address is undefined');
+    await expect(registry.getRollupAddress(2n)).rejects.toThrow('Rollup address is undefined');
   });
 
   it('collects addresses', async () => {
@@ -87,29 +96,34 @@ describe('Registry', () => {
     ).resolves.toEqual(deployedAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 1),
+      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, deployedVersion),
     ).resolves.toEqual(deployedAddresses);
 
     // Version 2 does not exist
 
-    await expect(RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 2)).rejects.toThrow(
-      'Rollup address is undefined',
-    );
+    await expect(
+      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 2n),
+    ).rejects.toThrow('Rollup address is undefined');
   });
 
   it('adds a version to the registry', async () => {
-    const addresses = await RegistryContract.collectAddresses(
-      publicClient,
-      deployedAddresses.registryAddress,
-      'canonical',
-    );
     const newVersionSalt = originalVersionSalt + 1;
 
-    const { rollup: newRollup, payloadAddress } = await deployRollupForUpgrade(
+    const deployer = new L1Deployer(
+      walletClient,
+      publicClient,
+      newVersionSalt,
+      undefined,
+      logger,
+      defaultL1TxUtilsConfig,
+    );
+
+    const { rollup: newRollup } = await deployRollup(
       {
         walletClient,
         publicClient,
       },
+      deployer,
       {
         ...DefaultL1ContractsConfig,
         salt: newVersionSalt,
@@ -119,27 +133,7 @@ describe('Registry', () => {
         genesisArchiveRoot: Fr.random(),
         genesisBlockHash: Fr.random(),
       },
-      deployedAddresses.registryAddress,
-      logger,
-      defaultL1TxUtilsConfig,
-    );
-
-    const { governance, voteAmount, proposalId } = await createGovernanceProposal(
-      payloadAddress.toString(),
-      addresses,
-      privateKey,
-      publicClient,
-      logger,
-    );
-
-    await executeGovernanceProposal(
-      proposalId,
-      governance,
-      voteAmount,
-      privateKey,
-      publicClient,
-      walletClient,
-      [rpcUrl],
+      deployedAddresses,
       logger,
     );
 
@@ -157,11 +151,11 @@ describe('Registry', () => {
     });
 
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 2),
+      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, await newRollup.getVersion()),
     ).resolves.toEqual(newCanonicalAddresses);
 
     await expect(
-      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, 1),
+      RegistryContract.collectAddresses(publicClient, deployedAddresses.registryAddress, deployedVersion),
     ).resolves.toEqual(deployedAddresses);
   });
 });

@@ -677,7 +677,7 @@ export class TXE implements TypedOracle {
           MerkleTreeId.PUBLIC_DATA_TREE,
           lowLeafResult.index,
         )) as PublicDataTreeLeafPreimage;
-        value = preimage.value;
+        value = preimage.leaf.value;
       }
       this.logger.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
       values.push(value);
@@ -1083,11 +1083,7 @@ export class TXE implements TypedOracle {
   }
 
   async syncNotes() {
-    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(
-      this.contractAddress,
-      await this.getBlockNumber(),
-      undefined,
-    );
+    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, undefined);
 
     for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
       await this.pxeOracleInterface.processTaggedLogs(
@@ -1218,7 +1214,7 @@ export class TXE implements TypedOracle {
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return preimage.value;
+    return preimage.leaf.value;
   }
 
   storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {

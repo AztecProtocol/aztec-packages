@@ -1,4 +1,4 @@
-import type { EthAddress, PXE } from '@aztec/aztec.js';
+import { EthAddress, type PXE } from '@aztec/aztec.js';
 import {
   type ContractArtifact,
   type FunctionAbi,
@@ -6,7 +6,12 @@ import {
   getAllFunctionAbis,
   loadContractArtifact,
 } from '@aztec/aztec.js/abi';
-import type { DeployL1ContractsReturnType, L1ContractsConfig, RollupContract } from '@aztec/ethereum';
+import {
+  type DeployL1ContractsReturnType,
+  type L1ContractsConfig,
+  RegistryContract,
+  RollupContract,
+} from '@aztec/ethereum';
 import type { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
@@ -96,7 +101,7 @@ export async function deployNewRollupContracts(
   genesisBlockHash: Fr,
   config: L1ContractsConfig,
   logger: Logger,
-): Promise<{ payloadAddress: EthAddress; rollup: RollupContract; slashFactoryAddress: EthAddress }> {
+): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
   const { createEthereumChain, deployRollupForUpgrade, createL1Clients } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
   const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
@@ -107,7 +112,14 @@ export async function deployNewRollupContracts(
   const chain = createEthereumChain(rpcUrls, chainId);
   const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
 
-  const { payloadAddress, rollup, slashFactoryAddress } = await deployRollupForUpgrade(
+  if (!initialValidators || initialValidators.length === 0) {
+    const registry = new RegistryContract(clients.publicClient, registryAddress);
+    const rollup = new RollupContract(clients.publicClient, await registry.getCanonicalAddress());
+    initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
+    logger.info('Initializing new rollup with old attesters', { initialValidators });
+  }
+
+  const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
     clients,
     {
       salt,
@@ -124,7 +136,7 @@ export async function deployNewRollupContracts(
     config,
   );
 
-  return { payloadAddress, rollup, slashFactoryAddress };
+  return { rollup, slashFactoryAddress };
 }
 
 /**

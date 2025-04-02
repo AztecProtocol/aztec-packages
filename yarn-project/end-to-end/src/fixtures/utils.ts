@@ -363,6 +363,8 @@ export async function setup(
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
     config.realProofs = !!opts.realProofs;
+    // Only enforce the time table if requested
+    config.enforceTimeTable = !!opts.enforceTimeTable;
 
     const logger = getLogger();
 

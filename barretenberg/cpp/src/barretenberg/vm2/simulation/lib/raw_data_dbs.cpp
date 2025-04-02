@@ -148,20 +148,12 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
 
     for (const auto& get_leaf_preimage_hint : hints.getLeafPreimageHintsPublicDataTree) {
         GetLeafPreimageKey key = { get_leaf_preimage_hint.hintKey, get_leaf_preimage_hint.index };
-        get_leaf_preimage_hints_public_data_tree[key] = {
-            /*val=*/get_leaf_preimage_hint.leaf,
-            /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
-            /*nextVal=*/get_leaf_preimage_hint.nextValue,
-        };
+        get_leaf_preimage_hints_public_data_tree[key] = get_leaf_preimage_hint.leafPreimage;
     }
 
     for (const auto& get_leaf_preimage_hint : hints.getLeafPreimageHintsNullifierTree) {
         GetLeafPreimageKey key = { get_leaf_preimage_hint.hintKey, get_leaf_preimage_hint.index };
-        get_leaf_preimage_hints_nullifier_tree[key] = {
-            /*val=*/get_leaf_preimage_hint.leaf,
-            /*nextIdx=*/get_leaf_preimage_hint.nextIndex,
-            /*nextVal=*/get_leaf_preimage_hint.nextValue,
-        };
+        get_leaf_preimage_hints_nullifier_tree[key] = get_leaf_preimage_hint.leafPreimage;
     }
 
     for (const auto& get_leaf_value_hint : hints.getLeafValueHints) {

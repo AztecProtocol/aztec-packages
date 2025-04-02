@@ -27,7 +27,7 @@ contract GovernanceProposer is IGovernanceProposer, EmpireBase {
   }
 
   function getInstance() public view override(EmpireBase, IGovernanceProposer) returns (address) {
-    return REGISTRY.getRollup();
+    return address(REGISTRY.getCanonicalRollup());
   }
 
   function _execute(IPayload _proposal) internal override(EmpireBase) returns (bool) {
