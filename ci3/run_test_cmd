@@ -142,7 +142,7 @@ function flake {
   track_test "failed_tests" "$line"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
     return
   fi
 

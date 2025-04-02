@@ -190,26 +190,15 @@ tests:
   - regex: "spartan/bootstrap.sh test-kind-smoke"
     error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
-      - *mitch
-  - regex: "spartan/bootstrap.sh test-kind-smoke"
+      - *alex
+  - regex: "spartan/bootstrap.sh"
     error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *mitch
-  - regex: "spartan/bootstrap.sh test-kind-4epochs"
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "cp: cannot create regular file"
     owners:
-      - *mitch
-  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    owners:
-      - *mitch
-  - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
-    owners:
-      - *mitch
-  - regex: "spartan/bootstrap.sh test-kind-transfer"
-    owners:
-      - *mitch
-  - regex: "spartan/bootstrap.sh test-prod-deployment"
-    owners:
-      - *mitch
+      - *alex
 
   # aztec-up
   - regex: "aztec-up/scripts/run_test.sh"
