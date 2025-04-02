@@ -4,57 +4,24 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_update_check.hpp"
 #include "barretenberg/vm2/generated/relations/update_check.hpp"
-#include "barretenberg/vm2/simulation/concrete_dbs.hpp"
-#include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
 #include "barretenberg/vm2/simulation/events/update_check.hpp"
-#include "barretenberg/vm2/simulation/field_gt.hpp"
-#include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_dbs.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
-#include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
-#include "barretenberg/vm2/simulation/update_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-#include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
-#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
-#include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
-#include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
 namespace bb::avm2::constraining {
 namespace {
 
-using ::testing::_;
-using ::testing::NiceMock;
-using ::testing::Return;
-using ::testing::ReturnRef;
 using ::testing::TestWithParam;
 
-using simulation::compute_contract_address;
-using simulation::EventEmitter;
-using simulation::MerkleDB;
-using simulation::MockFieldGreaterThan;
-using simulation::MockLowLevelMerkleDB;
-using simulation::MockMerkleCheck;
-using simulation::NoopEventEmitter;
-using simulation::Poseidon2;
-using simulation::Poseidon2HashEvent;
-using simulation::Poseidon2PermutationEvent;
-using simulation::PublicDataTreeCheck;
 using simulation::PublicDataTreeLeafPreimage;
-using simulation::PublicDataTreeReadEvent;
-using simulation::RangeCheck;
-using simulation::RangeCheckEvent;
-using simulation::UpdateCheck;
 using simulation::UpdateCheckEvent;
 
 using tracegen::TestTraceContainer;
