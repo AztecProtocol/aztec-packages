@@ -86,6 +86,7 @@ export async function startNode(
       nodeConfig.l1Contracts.registryAddress,
       nodeConfig.l1RpcUrls,
       nodeConfig.l1ChainId,
+      nodeConfig.rollupVersion,
     );
 
     // TODO(#12272): will clean this up.

@@ -860,8 +860,14 @@ export const deployL1Contracts = async (
     txUtilsConfig,
   );
 
-  const { feeAssetAddress, feeAssetHandlerAddress, stakingAssetAddress, registryAddress, rewardDistributorAddress } =
-    await deploySharedContracts(clients, deployer, args, logger);
+  const {
+    feeAssetAddress,
+    feeAssetHandlerAddress,
+    stakingAssetAddress,
+    stakingAssetHandlerAddress,
+    registryAddress,
+    rewardDistributorAddress,
+  } = await deploySharedContracts(clients, deployer, args, logger);
   const { rollup, slashFactoryAddress } = await deployRollup(
     clients,
     deployer,
@@ -913,6 +919,7 @@ export const deployL1Contracts = async (
       ...l1Contracts,
       slashFactoryAddress,
       feeAssetHandlerAddress,
+      stakingAssetHandlerAddress,
     },
   };
 };

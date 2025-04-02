@@ -18,18 +18,12 @@ set -exu
 # ./upgrade_rollup_with_cli.sh \
 #   --aztec-docker-image aztecprotocol/aztec:c5e2b43044862882a68de47cac07b7116e74e51e \
 #   --registry 0x29f815e32efdef19883cf2b92a766b7aebadd326 \
-#   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
-#   --deposit-amount 200000000000000000000000 \
-#   --mint \
 #   --test-accounts \
 #   --sponsored-fpc
 #
 # where:
 #  - aztec-docker-tag is the tag of the aztec docker image to use.
 #  - registry is the address of the registry contract.
-#  - address is the address that corresponds to whatever mnemonic/private key you are using.
-#  - deposit-amount is optional, and if provided, will deposit the specified amount of governance tokens to the address.
-#  - mint is optional, and if provided, will mint the governance tokens to the address before depositing.
 #  - test-accounts is optional, and if provided, will initialise the genesis state with funded test accounts.
 #  - sponsored-fpc is optional, and if provided, will initialise the genesis state with a funded FPC.
 #
@@ -41,15 +35,10 @@ set -exu
 # ./spartan/scripts/upgrade_rollup_with_cli.sh \
 #   --aztec-bin $AZTEC_BIN \
 #   --registry 0x29f815e32efdef19883cf2b92a766b7aebadd326 \
-#   --address 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266 \
-#   --deposit-amount 10000000000000000 \
-#   --mint
 #  --test-accounts \
 #  --sponsored-fpc
 
 # First set from environment variables if they exist
-DEPOSIT_AMOUNT=""
-MINT=""
 SALT=$((RANDOM % 1000000))
 # The default path to the aztec binary within the docker image
 AZTEC_BIN="/usr/src/yarn-project/aztec/dest/bin/index.js"
@@ -68,10 +57,6 @@ while [[ $# -gt 0 ]]; do
       AZTEC_BIN="$2"
       shift 2
       ;;
-    --deposit-amount)
-      DEPOSIT_AMOUNT="$2"
-      shift 2
-      ;;
     --salt)
       SALT="$2"
       shift 2
@@ -80,13 +65,9 @@ while [[ $# -gt 0 ]]; do
       REGISTRY="$2"
       shift 2
       ;;
-    --address)
-      MY_ADDR="$2"
+    --l1-chain-id)
+      L1_CHAIN_ID="$2"
       shift 2
-      ;;
-    --mint)
-      MINT="--mint"
-      shift 1
       ;;
     --test-accounts)
       TEST_ACCOUNTS="--test-accounts"
@@ -106,11 +87,6 @@ done
 # Validate required arguments
 if [ -z "$REGISTRY" ]; then
     echo "Error: --registry argument is required"
-    exit 1
-fi
-
-if [ -z "$MY_ADDR" ]; then
-    echo "Error: --address argument is required"
     exit 1
 fi
 
