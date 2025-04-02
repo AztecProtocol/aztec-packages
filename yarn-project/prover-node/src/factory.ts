@@ -33,6 +33,7 @@ export async function createProverNode(
   } = {},
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
+    genesisArchiveTreeRoot?: Fr;
   } = {},
 ) {
   const config = resolveConfig(userConfig);
@@ -50,6 +51,7 @@ export async function createProverNode(
     worldStateConfig,
     archiver,
     options.prefilledPublicData,
+    options.genesisArchiveTreeRoot,
     telemetry,
   );
   await worldStateSynchronizer.start();
