@@ -147,6 +147,19 @@ template <typename Leaf> struct GetLeafPreimageHint {
     MSGPACK_FIELDS(hintKey, index, leaf, nextIndex, nextValue);
 };
 
+struct GetLeafValueHint {
+    AppendOnlyTreeSnapshot hintKey;
+    // params
+    world_state::MerkleTreeId treeId;
+    uint64_t index;
+    // return
+    FF value;
+
+    bool operator==(const GetLeafValueHint& other) const = default;
+
+    MSGPACK_FIELDS(hintKey, treeId, index, value);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -174,6 +187,8 @@ struct ExecutionHints {
     std::vector<GetSiblingPathHint> getSiblingPathHints;
     std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
     std::vector<GetLeafPreimageHint<crypto::merkle_tree::PublicDataLeafValue>> getLeafPreimageHintsPublicDataTree;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::NullifierLeafValue>> getLeafPreimageHintsNullifierTree;
+    std::vector<GetLeafValueHint> getLeafValueHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -183,7 +198,9 @@ struct ExecutionHints {
                    bytecodeCommitments,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,
-                   getLeafPreimageHintsPublicDataTree);
+                   getLeafPreimageHintsPublicDataTree,
+                   getLeafPreimageHintsNullifierTree,
+                   getLeafValueHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////

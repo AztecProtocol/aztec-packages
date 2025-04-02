@@ -290,11 +290,6 @@
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON"
-      },
-      "environment": {
-        "CFLAGS": "-fsanitize-coverage=indirect-calls,trace-pc-guard",
-        "CXXFLAGS": "-fsanitize-coverage=indirect-calls,trace-pc-guard",
-        "LDFLAGS": "-fsanitize-coverage=indirect-calls,trace-pc-guard"
       }
     },
     {
@@ -304,14 +299,10 @@
       "inherits": "clang16-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
+        "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
-      },
-      "environment": {
-        "CFLAGS": "-fsanitize-coverage=func",
-        "CXXFLAGS": "-fsanitize-coverage=func",
-        "LDFLAGS": "-fsanitize-coverage=func"
       }
     },
     {

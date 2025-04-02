@@ -9,6 +9,7 @@ import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { NullifierLeaf } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
@@ -186,7 +187,33 @@ function AvmGetLeafPreimageHintFactory<T extends IndexedTreeLeaf>(klass: {
   };
 }
 
+// Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
 export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeaf) {}
+export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeaf) {}
+
+// Hint for MerkleTreeDB.getLeafValue.
+// Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
+export class AvmGetLeafValueHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly index: bigint,
+    // return
+    public readonly value: Fr,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        index: schemas.BigInt,
+        value: schemas.Fr,
+      })
+      .transform(({ hintKey, treeId, index, value }) => new AvmGetLeafValueHint(hintKey, treeId, index, value));
+  }
+}
 
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
@@ -225,6 +252,8 @@ export class AvmExecutionHints {
     public readonly getSiblingPathHints: AvmGetSiblingPathHint[] = [],
     public readonly getPreviousValueIndexHints: AvmGetPreviousValueIndexHint[] = [],
     public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
+    public readonly getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree[] = [],
+    public readonly getLeafValueHints: AvmGetLeafValueHint[] = [],
   ) {}
 
   static empty() {
@@ -241,6 +270,8 @@ export class AvmExecutionHints {
         getSiblingPathHints: AvmGetSiblingPathHint.schema.array(),
         getPreviousValueIndexHints: AvmGetPreviousValueIndexHint.schema.array(),
         getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
+        getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree.schema.array(),
+        getLeafValueHints: AvmGetLeafValueHint.schema.array(),
       })
       .transform(
         ({
@@ -251,6 +282,8 @@ export class AvmExecutionHints {
           getSiblingPathHints,
           getPreviousValueIndexHints,
           getLeafPreimageHintsPublicDataTree,
+          getLeafPreimageHintsNullifierTree,
+          getLeafValueHints,
         }) =>
           new AvmExecutionHints(
             enqueuedCalls,
@@ -260,6 +293,8 @@ export class AvmExecutionHints {
             getSiblingPathHints,
             getPreviousValueIndexHints,
             getLeafPreimageHintsPublicDataTree,
+            getLeafPreimageHintsNullifierTree,
+            getLeafValueHints,
           ),
       );
   }

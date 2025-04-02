@@ -2,6 +2,7 @@
 
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
@@ -40,7 +41,10 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
                                                           crypto::merkle_tree::index_t leaf_index) const override;
     crypto::merkle_tree::GetLowIndexedLeafResponse get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
                                                                         const FF& value) const override;
+    FF get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const override;
     crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> get_leaf_preimage_public_data_tree(
+        crypto::merkle_tree::index_t leaf_index) const override;
+    crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> get_leaf_preimage_nullifier_tree(
         crypto::merkle_tree::index_t leaf_index) const override;
 
   private:
@@ -55,6 +59,11 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     using GetLeafPreimageKey = utils::HashableTuple<AppendOnlyTreeSnapshot, crypto::merkle_tree::index_t>;
     unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>
         get_leaf_preimage_hints_public_data_tree;
+    unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>
+        get_leaf_preimage_hints_nullifier_tree;
+    using GetLeafValueKey =
+        utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
+    unordered_flat_map<GetLeafValueKey, FF> get_leaf_value_hints;
 
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };

@@ -8,7 +8,18 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-## [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
+### [aztec.js] AztecNode.getPrivateEvents API change
+
+The `getPrivateEvents` method signature has changed to require an address of a contract that emitted the event and use recipient addresses instead of viewing public keys:
+
+```diff
+- const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, 1, 1, [recipient.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey()]);
++ const events = await wallet.getPrivateEvents<Transfer>(token.address, TokenContract.events.Transfer, 1, 1, [recipient.getAddress()]);
+```
+
+## 0.82.0
+
+### [aztec.js] AztecNode.findLeavesIndexes returns indexes with block metadata
 
 It's common that we need block metadata of a block in which leaves where inserted when querying indexes of these tree leaves.
 For this reason we now return that information along with the indexes.
@@ -16,11 +27,11 @@ This allows us to reduce the number of individual AztecNode queries.
 
 Along this change `findNullifiersIndexesWithBlock` and `findBlockNumbersForIndexes` functions wer removed as all its uses can now be replaced with the newly modified `findLeavesIndexes` function.
 
-## [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
+### [aztec.js] AztecNode.getPublicDataTreeWitness renamed as AztecNode.getPublicDataWitness
 
 This change was done to have consistent naming across codebase.
 
-## [aztec.js] Wallet interface and Authwit management
+### [aztec.js] Wallet interface and Authwit management
 
 The `Wallet` interface in `aztec.js` is undergoing transformations, trying to be friendlier to wallet builders and reducing the surface of its API. This means `Wallet` no longer extends `PXE`, and instead just implements a subset of the methods of the former. This is NOT going to be its final form, but paves the way towards better interfaces and starts to clarify what the responsibilities of the wallet are:
 
@@ -106,9 +117,14 @@ const witness = await wallet.createAuthWit({ caller, action });
 ++await wallet.lookupValidity(wallet.getAddress(), { caller, action }, witness);
 ```
 
+## 0.80.0
+
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
+
+
+## 0.79.0
 
 ### [aztec.js] Changes to `BatchCall` and `BaseContractInteraction`
 

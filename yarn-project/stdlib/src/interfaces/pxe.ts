@@ -1,5 +1,5 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
 import { SiblingPath } from '@aztec/foundation/trees';
 
@@ -129,7 +129,7 @@ export interface PXE {
 
   /**
    * Proves the private portion of a simulated transaction, ready to send to the network
-   * (where valiators prove the public portion).
+   * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
@@ -313,7 +313,7 @@ export interface PXE {
 
   /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
-   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * L1 chain identifier, rollup version, and L1 address of the rollup contract.
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
@@ -354,13 +354,20 @@ export interface PXE {
 
   /**
    * Returns the private events given search parameters.
+   * @param contractAddress - The address of the contract to get events from.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
-   * @param limit - The amount of blocks to search.
-   * @param vpks - The incoming viewing public keys that can decrypt the log.
+   * @param numBlocks - The amount of blocks to search.
+   * @param recipients - The addresses that decrypted the logs.
    * @returns - The deserialized events.
    */
-  getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>;
+  getPrivateEvents<T>(
+    contractAddress: AztecAddress,
+    eventMetadata: EventMetadataDefinition,
+    from: number,
+    numBlocks: number,
+    recipients: AztecAddress[],
+  ): Promise<T[]>;
 
   /**
    * Returns the public events given search parameters.
@@ -505,7 +512,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
   getPrivateEvents: z
     .function()
-    .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))
+    .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
     .returns(z.array(AbiDecodedSchema)),
   getPublicEvents: z
     .function()
