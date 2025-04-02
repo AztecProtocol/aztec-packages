@@ -4,9 +4,6 @@ aztec:
   epochDuration: 4
   proofSubmissionWindow: 128
 
-ethereum:
-  blockTime: 4
-
 bootNode:
   resources:
     requests:
@@ -47,30 +44,7 @@ bot:
 
 ethereum:
   acceleratedTestDeployments: true
-  execution:
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "200m"
-      limits:
-        memory: "2Gi"
-        cpu: "200m"
-  beacon:
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "200m"
-      limits:
-        memory: "2Gi"
-        cpu: "200m"
-  validator:
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "200m"
-      limits:
-        memory: "2Gi"
-        cpu: "200m"
+  blockTime: 4
 
 proverAgent:
   resources:

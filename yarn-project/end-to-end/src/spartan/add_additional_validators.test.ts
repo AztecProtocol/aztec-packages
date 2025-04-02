@@ -1,12 +1,25 @@
-import { type PXE, createCompatibleClient } from '@aztec/aztec.js';
+import { type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
 import { type ViemWalletClient, createEthereumChain, createL1Clients } from '@aztec/ethereum';
+import type { EnvVar } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
 
 import type { ChildProcess } from 'child_process';
 import { type Account, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
 import { parseEther } from 'viem/utils';
 
-import { execHelmCommand, getChartDir, isK8sConfig, runAztecBin, setupEnvironment, startPortForward } from './utils.js';
+import {
+  execHelmCommand,
+  getChartDir,
+  isK8sConfig,
+  kubectlRun,
+  readFromValuesFile,
+  runAztecBin,
+  runAztecBinWithOutput,
+  runProjectScript,
+  setupEnvironment,
+  startPortForward,
+  waitForResourceByLabel,
+} from './utils.js';
 
 const config = setupEnvironment(process.env);
 
@@ -93,25 +106,162 @@ describe('add additional validators', () => {
    * Deploy the additional validators using the helm chart
    * @param keys - The private keys of the validators to deploy
    */
-  const deployAdditionalValidators = async (keys: string[], enr: string, registryAddress: string) => {
-    await execHelmCommand({
-      instanceName: 'add-val',
-      namespace: config.NAMESPACE,
-      helmChartDir: getChartDir(config.SPARTAN_DIR, 'add-validators'),
-      values: {
-        'aztec.image': `aztecprotocol/aztec:${config.AZTEC_DOCKER_TAG}`,
-        'network.bootNodes': enr,
-        'network.l1ExecutionUrl': `http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545`,
-        'network.l1ConsensusUrl': `http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052`,
-        'network.registryAddress': registryAddress,
-        'validator.privateKeys': keys,
-        'validator.replicas': keys.length,
-      },
-      valuesFile: undefined,
-      timeout: '15m',
-    });
+  const deployAdditionalValidators = async (
+    validatorAddresses: string[],
+    keys: string[],
+    enr: string,
+    registryAddress: string,
+    extraEnv: Partial<Record<EnvVar, string>>,
+  ) => {
+    const validatorContainers = [];
+    for (let i = 0; i < validatorAddresses.length; i++) {
+      const validator = await deployAdditionalValidator(
+        i,
+        validatorAddresses[i],
+        keys[i],
+        enr,
+        registryAddress,
+        extraEnv,
+      );
+      validatorContainers.push(validator);
+    }
+    return validatorContainers;
   };
 
+  const deployAdditionalValidator = async (
+    index: number,
+    validatorAddress: string,
+    key: string,
+    enr: string,
+    registryAddress: string,
+    extraEnv: Partial<Record<EnvVar, string>>,
+  ) => {
+    return await kubectlRun(
+      // Container name
+      `additional-validator-${index}`,
+      // Namespace
+      config.NAMESPACE,
+      // Image tag
+      `aztecprotocol/aztec:${config.AZTEC_DOCKER_TAG}`,
+      // Environment variables
+      {
+        // TODO: include in config
+        ...extraEnv,
+        ETHEREUM_SLOT_DURATION: config.ETHEREUM_SLOT_DURATION.toString(),
+        AZTEC_EPOCH_DURATION: config.AZTEC_EPOCH_DURATION.toString(),
+        AZTEC_SLOT_DURATION: config.AZTEC_SLOT_DURATION.toString(),
+        AZTEC_PROOF_SUBMISSION_WINDOW: config.AZTEC_PROOF_SUBMISSION_WINDOW.toString(),
+        L1_CHAIN_ID: '1337',
+      },
+      // Command to run
+      'node',
+      // Command arguments
+      [
+        '--no-warnings',
+        '/usr/src/yarn-project/aztec/dest/bin/index.js',
+        'start',
+        '--node',
+        '--archiver',
+        '--sequencer',
+        '--l1-rpc-urls',
+        `http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545`,
+        '--l1-consensus-host-url',
+        `http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052`,
+        '--sequencer.validatorPrivateKey',
+        key,
+        // TODO: make default to the validator address???
+        '--sequencer.coinbase',
+        validatorAddress,
+        '--p2p.bootstrapNodes',
+        enr,
+        '--registry-address',
+        registryAddress,
+      ],
+    );
+  };
+
+  /**
+   * Wait for the validators to be in the committee
+   *
+   * Will return true if the validators are found in the committee
+   * Will log if the validators are found in the validators set
+   *
+   * @param accounts - The accounts of the validators to wait for
+   * @param rollupAddress - The address of the rollup
+   */
+  const waitForValidatorsToBeInCommittee = async (validatorAddresses: string[], rollupAddress: string) => {
+    // TODO: add a timeout
+    while (true) {
+      // Run the aztec info cli command to see if the validators are in the set or committee
+      const { exitCode, output } = await runAztecBinWithOutput(
+        ['debug-rollup', '--rollup', rollupAddress, '--l1-rpc-urls', ETHEREUM_HOSTS],
+        debugLogger,
+      );
+
+      if (exitCode !== 0) {
+        debugLogger.error(`Error running aztec info command`, {
+          output,
+        });
+      }
+
+      // Extract validators and committee from output
+      const validatorsMatch = output.match(/Validators: (.*)/);
+      const committeeMatch = output.match(/Committee: (.*)/);
+
+      if (!validatorsMatch || !committeeMatch) {
+        continue;
+      }
+
+      const validators = validatorsMatch[1].split(', ').map(addr => addr.toLowerCase());
+      const committee = committeeMatch[1].split(', ').map(addr => addr.toLowerCase());
+
+      // Check if our validators are in the validators list
+      for (const validatorAddress of validatorAddresses) {
+        if (validators.includes(validatorAddress)) {
+          debugLogger.info(`Validator ${validatorAddress} is in the validators set`);
+        }
+      }
+
+      // Check if both validators are in the committee
+      const allInCommittee = validatorAddresses.every(validatorAddress => committee.includes(validatorAddress));
+
+      if (allInCommittee) {
+        debugLogger.info('All validators are in the committee');
+        return true;
+      }
+
+      // Wait a bit before checking again
+      await sleep(5000);
+    }
+  };
+
+  const waitForValidatorsToProduceBlocks = async (validatorAddresses: string[], rollupAddress: string) => {
+    // TODO: add a timeout
+    // Call get block, check if the coinbase is one of the validators
+    const successfulProposers = new Set<string>();
+    while (true) {
+      // Get the latest block
+      const block = await pxe.getBlock(-1);
+      if (!block) {
+        await sleep(5000);
+        continue;
+      }
+
+      for (const validatorAddress of validatorAddresses) {
+        if (block.header.globalVariables.coinbase.toString().toLowerCase() === validatorAddress) {
+          successfulProposers.add(validatorAddress);
+        }
+      }
+
+      if (successfulProposers.size === validatorAddresses.length) {
+        debugLogger.info('All validators have produced a block');
+        return true;
+      }
+
+      // Wait a bit before checking again
+      await sleep(5000);
+    }
+  };
   it(
     'should be able to add additional validators',
     async () => {
@@ -119,7 +269,17 @@ describe('add additional validators', () => {
       if (!info.enr) {
         throw new Error('No ENR found for the boot node');
       }
+      const enr = info.enr.slice(4); // remove enr: prefix
+      const rollupAddress = info.l1ContractAddresses.rollupAddress.toString();
       const chain = createEthereumChain([ETHEREUM_HOSTS], 1337);
+
+      const testAccounts = readFromValuesFile('aztec-network', config.VALUES_FILE, 'aztec.testAccounts');
+      const sponsoredFPC = readFromValuesFile('aztec-network', config.VALUES_FILE, 'aztec.sponsoredFPC');
+
+      const extraEnv: Partial<Record<EnvVar, string>> = {
+        TEST_ACCOUNTS: testAccounts!.toString(),
+        SPONSORED_FPC: sponsoredFPC!.toString(),
+      };
 
       // Get the L1 client to interact with the registry contract
       const l1Clients = createL1Clients([ETHEREUM_HOSTS], config.L1_ACCOUNT_MNEMONIC, chain.chainInfo);
@@ -142,7 +302,20 @@ describe('add additional validators', () => {
       }
 
       debugLogger.info(`Deploying additional validators`);
-      await deployAdditionalValidators(keys, info.enr, info.l1ContractAddresses.registryAddress.toString());
+      const validatorAddresses = accounts.map(a => a.address.toString().toLowerCase());
+      await deployAdditionalValidators(
+        validatorAddresses,
+        keys,
+        enr,
+        info.l1ContractAddresses.registryAddress.toString(),
+        extraEnv,
+      );
+
+      // Check that all of the validators now exist in the committee
+      await waitForValidatorsToBeInCommittee(validatorAddresses, rollupAddress);
+
+      // Wait for those validators to produce a block
+      await waitForValidatorsToProduceBlocks(validatorAddresses, rollupAddress);
     },
     6 * config.AZTEC_PROOF_SUBMISSION_WINDOW * config.AZTEC_SLOT_DURATION * 1000,
   );
