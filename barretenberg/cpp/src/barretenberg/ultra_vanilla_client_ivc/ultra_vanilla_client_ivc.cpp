@@ -21,7 +21,7 @@ void UltraVanillaClientIVC::handle_accumulator(Circuit& circuit, const size_t st
         aggregation_object = accumulator;
     }
     if (init_kzg_accumulator) {
-        info("calling add_pairing_point_accumulator");
+        info("calling aggregation_object.set_public()");
         aggregation_object.set_public();
     }
     vinfo("set accumulator indices");

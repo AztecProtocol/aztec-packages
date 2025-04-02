@@ -6,9 +6,6 @@
 
 namespace bb::stdlib::recursion {
 
-// WORKTODO: Somthing like this: base_builder.add_pairing_point_accumulator(output.agg_obj.get_witness_indices());
-// Should be replaced with: output.agg_obj.set_public();
-
 /**
  * Aggregation state contains the following:
  *   (P0, P1): the aggregated elements storing the verification results of proofs in the past
