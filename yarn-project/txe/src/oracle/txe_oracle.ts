@@ -170,7 +170,6 @@ export class TXE implements TypedOracle {
     this.pxeOracleInterface = new PXEOracleInterface(
       this.node,
       this.keyStore,
-      this.simulationProvider,
       this.contractDataProvider,
       this.noteDataProvider,
       this.capsuleDataProvider,
@@ -1082,16 +1081,8 @@ export class TXE implements TypedOracle {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async syncNotes() {
-    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, undefined);
-
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.pxeOracleInterface.processTaggedLogs(
-        this.contractAddress,
-        taggedLogs,
-        AztecAddress.fromString(recipient),
-      );
-    }
+  async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+    await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
 
