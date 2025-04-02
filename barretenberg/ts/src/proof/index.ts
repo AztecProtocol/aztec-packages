@@ -39,10 +39,7 @@ export function splitHonkProof(
 }
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
-  // Append proofWithPublicInputs size in fields
-  const proofSize = numToUInt32BE((publicInputs.length + proof.length) / fieldByteSize);
-
-  const proofWithPublicInputs = Uint8Array.from([...proofSize, ...publicInputs, ...proof]);
+  const proofWithPublicInputs = Uint8Array.from([...publicInputs, ...proof]);
   return proofWithPublicInputs;
 }
 
