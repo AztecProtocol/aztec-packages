@@ -294,12 +294,13 @@ case "$cmd" in
     build
     test
     ;;
-  e2e_ivc_bench)
+  bench_ivc)
     # Intended only for dev usage. For CI usage, we run yarn-project/end-to-end/bootstrap.sh bench.
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
-    build_preset op-count-time --target bb_cli_bench
+    # build_preset op-count-time --target bb_cli_bench
+    build_preset wasm-threads --target bb_cli_bench
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then
       echo "Downloading inputs from commit $1."

@@ -49,7 +49,8 @@ function client_ivc_flow {
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
   function bb_cli_bench {
-    MAIN_ARGS="$*" build-op-count-time/bin/bb_cli_bench --benchmark_out=bench-out/$flow-proof-files/op-counts.json --benchmark_out_format=json || {
+    export MAIN_ARGS="$*"
+    /usr/bin/time -f "Peak memory usage: %M KB" wasmtime run --env HARDWARE_CONCURRENCY=16 --env WASM_BACKTRACE_DETAILS=1 --env HOME --dir=$HOME/.bb-crs --dir=$HOME/.bb-crs/monomial --dir="$flow_folder" --dir=bench-out/$flow-proof-files --env MAIN_ARGS -Wthreads=y -Sthreads=y ./build-wasm-threads/bin/bb_cli_bench --benchmark_out=bench-out/$flow-proof-files/op-counts.json --benchmark_out_format=json 2> bench-out/$flow-proof-files/memory.txt || {
       echo "bb_cli_bench failed with args: $*"
       exit 1
     }

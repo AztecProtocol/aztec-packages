@@ -471,7 +471,7 @@ Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect 
 
 Realistic IVC inputs poses a problem as the only code to sequence them requires a full end to end run.
 One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
-`barretenberg/cpp/bootstrap.sh e2e_ivc_bench origin/master~3`
+`barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
 
 If one doesn't provide the commit this generate these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
 
