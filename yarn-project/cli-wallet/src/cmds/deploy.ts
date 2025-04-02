@@ -1,4 +1,4 @@
-import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr, type PXE } from '@aztec/aztec.js';
+import { type AccountWalletWithSecretKey, ContractDeployer, type DeployOptions, Fr } from '@aztec/aztec.js';
 import { encodeArgs, getContractArtifact } from '@aztec/cli/utils';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { getAllFunctionAbis, getInitializer } from '@aztec/stdlib/abi';
