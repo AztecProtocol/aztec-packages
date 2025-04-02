@@ -2,6 +2,7 @@
 #include "../../primitives/field/field.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 
 namespace bb::stdlib::recursion {
 
@@ -13,9 +14,10 @@ namespace bb::stdlib::recursion {
  *   (P0, P1): the aggregated elements storing the verification results of proofs in the past
  *   has_data: indicates if this aggregation state contain past (P0, P1)
  */
-template <typename Curve> struct aggregation_state {
+template <typename Builder_> struct aggregation_state {
+    using Builder = Builder_;
+    using Curve = bn254<Builder>;
     using Group = typename Curve::Group;
-    using Builder = typename Curve::Builder;
     using Fr = typename Curve::ScalarField;
     Group P0;
     Group P1;
@@ -49,8 +51,6 @@ template <typename Curve> struct aggregation_state {
 
     void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
     {
-        using Builder = typename Curve::Builder;
-
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
             // WORKTODO: can we improve efficiency in terms of number of ecc ops here?
             P0 += other.P0 * recursion_separator;
@@ -113,7 +113,7 @@ template <typename Curve> struct aggregation_state {
         return start_idx;
     }
 
-    static aggregation_state<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    static aggregation_state<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
         std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
@@ -125,13 +125,12 @@ template <typename Curve> struct aggregation_state {
 
     static void add_default_pairing_points_to_public_inputs(Builder& builder)
     {
-        aggregation_state<Curve> agg_obj = construct_default(builder);
+        aggregation_state<Builder> agg_obj = construct_default(builder);
         agg_obj.set_public();
     }
 
-    static aggregation_state<Curve> construct_default(typename Curve::Builder& builder)
+    static aggregation_state<Builder> construct_default(typename Curve::Builder& builder)
     {
-        using Group = typename Curve::Group;
         using BaseField = typename Curve::BaseField;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
         // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
@@ -143,12 +142,12 @@ template <typename Curve> struct aggregation_state {
         BaseField y0 = BaseField::from_witness(&builder, y0_val);
         BaseField x1 = BaseField::from_witness(&builder, x1_val);
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
-        // aggregation_state<Curve> agg_obj{ Group(x0, y0), Group(x1, y1) };
+        // aggregation_state<Builder> agg_obj{ Group(x0, y0), Group(x1, y1) };
         return { Group(x0, y0), Group(x1, y1) };
     }
 };
 
-template <typename Curve> void read(uint8_t const*& it, aggregation_state<Curve>& as)
+template <typename Builder> void read(uint8_t const*& it, aggregation_state<Builder>& as)
 {
     using serialize::read;
 
@@ -157,7 +156,7 @@ template <typename Curve> void read(uint8_t const*& it, aggregation_state<Curve>
     read(it, as.has_data);
 };
 
-template <typename Curve> void write(std::vector<uint8_t>& buf, aggregation_state<Curve> const& as)
+template <typename Builder> void write(std::vector<uint8_t>& buf, aggregation_state<Builder> const& as)
 {
     using serialize::write;
 
@@ -181,11 +180,11 @@ template <typename NCT> std::ostream& operator<<(std::ostream& os, aggregation_s
  * @tparam Curve
  * @param builder
  * @param witness_indices
- * @return aggregation_state<Curve>
+ * @return aggregation_state<Builder>
  */
 template <typename Builder, typename Curve>
-aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
-                                                            const PairingPointAccumulatorIndices& witness_indices)
+aggregation_state<Builder> convert_witness_indices_to_agg_obj(Builder& builder,
+                                                              const PairingPointAccumulatorIndices& witness_indices)
 {
     using Group = typename Curve::Group;
     std::array<typename Curve::BaseField, 4> aggregation_elements;
@@ -198,7 +197,7 @@ aggregation_state<Curve> convert_witness_indices_to_agg_obj(Builder& builder,
         aggregation_elements[i].assert_is_in_field();
     }
 
-    aggregation_state<Curve> agg_obj;
+    aggregation_state<Builder> agg_obj;
     agg_obj.P0 = Group(aggregation_elements[0], aggregation_elements[1]);
     agg_obj.P1 = Group(aggregation_elements[2], aggregation_elements[3]);
     return agg_obj;
@@ -248,7 +247,7 @@ template <typename Builder> PairingPointAccumulatorIndices init_default_agg_obj_
  * @tparam Curve
  */
 template <typename Builder, typename Curve>
-aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
+aggregation_state<Builder> init_default_aggregation_state(Builder& builder)
     requires(!IsSimulator<Builder>)
 {
     PairingPointAccumulatorIndices agg_obj_indices = init_default_agg_obj_indices(builder);
@@ -261,10 +260,10 @@ aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
  * @tparam Builder
  * @tparam Curve
  * @param builder
- * @return aggregation_state<Curve>
+ * @return aggregation_state<Builder>
  */
 template <typename Builder, typename Curve>
-aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
+aggregation_state<Builder> init_default_aggregation_state(Builder& builder)
     requires IsSimulator<Builder>
 {
     using Group = typename Curve::Group;
@@ -279,7 +278,7 @@ aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
     BaseField y0(&builder, y0_val);
     BaseField x1(&builder, x1_val);
     BaseField y1(&builder, y1_val);
-    aggregation_state<Curve> agg_obj{ Group(x0, y0), Group(x1, y1) };
+    aggregation_state<Builder> agg_obj{ Group(x0, y0), Group(x1, y1) };
     // agg_obj.P0 = Group(x0, y0);
     // agg_obj.P1 = Group(x1, y1);
     return agg_obj;

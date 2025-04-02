@@ -11,7 +11,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
     auto stdlib_mega_vk = std::make_shared<RecursiveVerificationKey>(builder.get(), ivc_verification_key.mega);
 
     // Dummy aggregation object until we do proper aggregation
-    aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
+    aggregation_state<Builder> agg_obj =
         init_default_aggregation_state<Builder, typename RecursiveFlavor::Curve>(*builder);
 
     // Perform recursive decider verification

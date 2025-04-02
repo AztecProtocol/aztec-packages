@@ -20,7 +20,7 @@ namespace acir_format {
 using namespace bb;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
+using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
 using VmPublicInputs = avm_trace::VmPublicInputs_<field_ct>;
 
 namespace {

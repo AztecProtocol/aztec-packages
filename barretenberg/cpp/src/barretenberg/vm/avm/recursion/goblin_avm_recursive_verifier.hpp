@@ -54,7 +54,7 @@ class AvmGoblinRecursiveVerifier {
     using MegaBuilder = MegaCircuitBuilder;
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraBuilder>;
 
-    using AggregationObject = bb::stdlib::recursion::aggregation_state<stdlib::bn254<UltraBuilder>>;
+    using AggregationObject = bb::stdlib::recursion::aggregation_state<UltraBuilder>;
 
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<UltraBuilder>>;
     using UltraFF = UltraRollupRecursiveFlavor::Curve::ScalarField;
@@ -67,7 +67,7 @@ class AvmGoblinRecursiveVerifier {
     struct RecursiveAvmGoblinOutput {
         std::vector<UltraFF> ipa_proof;
         OpeningClaim<stdlib::grumpkin<UltraBuilder>> ipa_claim;
-        stdlib::recursion::aggregation_state<stdlib::bn254<UltraBuilder>> aggregation_object;
+        stdlib::recursion::aggregation_state<UltraBuilder> aggregation_object;
     };
 
     std::vector<UltraFF> outer_key_fields;

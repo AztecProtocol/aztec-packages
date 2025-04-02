@@ -149,7 +149,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Construct the AVM recursive verifier
     AvmRecursiveVerifier verifier(&outer_circuit, outer_key_fields);
-    stdlib::recursion::aggregation_state<Curve> agg_obj =
+    stdlib::recursion::aggregation_state<OuterBuilder> agg_obj =
         stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
     auto verifier_output = verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
 

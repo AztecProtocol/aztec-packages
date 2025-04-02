@@ -57,7 +57,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         std::conditional_t<is_ultra_to_ultra, recursive_settings, ultra_to_standard_recursive_settings>;
 
     struct circuit_outputs {
-        recursion::aggregation_state<outer_curve> aggregation_state;
+        recursion::aggregation_state<OuterBuilder> aggregation_state;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
@@ -268,7 +268,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         plonk::transcript::Manifest recursive_manifest =
             InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        stdlib::recursion::aggregation_state<outer_curve> output =
+        stdlib::recursion::aggregation_state<OuterBuilder> output =
             stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 

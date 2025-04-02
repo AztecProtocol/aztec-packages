@@ -48,7 +48,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
-    using PublicAggState = PublicInputComponent<aggregation_state<Curve>>;
+    using PublicAggState = PublicInputComponent<aggregation_state<Builder>>;
 
     Output output;
     StdlibProof<Builder> honk_proof;

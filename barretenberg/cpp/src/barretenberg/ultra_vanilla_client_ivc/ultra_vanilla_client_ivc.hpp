@@ -56,7 +56,7 @@ class UltraVanillaClientIVC {
     using RecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
     using Curve = stdlib::bn254<Circuit>;
-    using Accumulator = stdlib::recursion::aggregation_state<Curve>;
+    using Accumulator = stdlib::recursion::aggregation_state<Circuit>;
 
     /**
      * @brief Append a recursive verifier and update the accumulator.

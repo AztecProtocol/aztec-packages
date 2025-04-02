@@ -19,7 +19,7 @@ using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
+using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
 
 namespace {
 /**

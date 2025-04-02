@@ -44,7 +44,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using AggState = aggregation_state<typename RecursiveFlavor::Curve>;
+    using AggState = aggregation_state<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -55,7 +55,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      */
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
-        using AggState = aggregation_state<bn254<InnerBuilder>>;
+        using AggState = aggregation_state<InnerBuilder>;
         using fr = typename InnerCurve::ScalarFieldNative;
 
         InnerBuilder builder;

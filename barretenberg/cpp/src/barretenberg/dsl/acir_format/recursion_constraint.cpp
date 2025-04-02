@@ -17,7 +17,7 @@ using verification_key_ct = stdlib::recursion::verification_key<bn254>;
 using field_ct = stdlib::field_t<Builder>;
 using Composer = plonk::UltraComposer;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = stdlib::recursion::aggregation_state<bn254>;
+using aggregation_state_ct = stdlib::recursion::aggregation_state<Builder>;
 
 using namespace plonk;
 

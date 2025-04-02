@@ -38,7 +38,7 @@ class RecursiveCircuit {
     using VerifierOfInnerProof = plonk::UltraVerifier;
 
     struct circuit_outputs {
-        stdlib::recursion::aggregation_state<outer_curve> aggregation_state;
+        stdlib::recursion::aggregation_state<Builder> aggregation_state;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
