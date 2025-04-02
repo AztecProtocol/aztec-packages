@@ -8,7 +8,7 @@ pub contract EasyPrivateVoting {
     // docs:start:imports
     use dep::aztec::{
         keys::getters::get_public_keys,
-        macros::{functions::{initializer, internal, private, public}, storage::storage},
+        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
     };
     use dep::aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
     use dep::aztec::protocol_types::traits::{Hash, ToField};
@@ -68,6 +68,7 @@ pub contract EasyPrivateVoting {
     }
     // docs:end:end_vote
     // docs:start:get_vote
+    #[utility]
     unconstrained fn get_vote(candidate: Field) -> pub Field {
         storage.tally.at(candidate).read()
     }

@@ -17,7 +17,7 @@ pub contract NFT {
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{
             events::event,
-            functions::{initializer, internal, private, public, view},
+            functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
         note::{constants::MAX_NOTES_PER_PAGE, note_interface::NoteProperties},
@@ -343,6 +343,7 @@ pub contract NFT {
     /// reached. Starts getting the notes from page with index `page_index`. Zero values in the array are placeholder
     /// values for non-existing notes.
     // docs:start:get_private_nfts
+    #[utility]
     unconstrained fn get_private_nfts(
         owner: AztecAddress,
         page_index: u32,
