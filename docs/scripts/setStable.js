@@ -44,6 +44,7 @@ async function main() {
     .sort((a, b) => b.localeCompare(a));
   const regularVersions = stables
     .filter((v) => !v.includes("-alpha-testnet"))
+    .filter((v) => !v.includes("-nightly"))
     .sort((a, b) => b.localeCompare(a));
 
   // Take the latest of each
