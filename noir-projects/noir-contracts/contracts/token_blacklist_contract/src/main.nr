@@ -23,7 +23,10 @@ pub contract TokenBlacklist {
             encode_and_encrypt_note, encode_and_encrypt_note_unconstrained,
         },
         hash::compute_secret_hash,
-        macros::{functions::{initializer, internal, private, public, view}, storage::storage},
+        macros::{
+            functions::{initializer, internal, private, public, utility, view},
+            storage::storage,
+        },
         prelude::{AztecAddress, Map, NoteGetterOptions, PrivateSet, PublicMutable, SharedMutable},
         utils::comparison::Comparator,
     };
@@ -293,12 +296,13 @@ pub contract TokenBlacklist {
         storage.total_supply.write(new_supply);
     }
 
-    /// Unconstrained ///
+    #[utility]
     unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
         storage.balances.balance_of(owner).to_field()
     }
 
     // docs:start:deliver_note_contract_method
+    #[utility]
     unconstrained fn deliver_transparent_note(
         contract_address: AztecAddress,
         amount: u128,

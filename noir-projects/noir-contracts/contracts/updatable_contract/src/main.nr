@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract Updatable {
     use aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
-    use aztec::macros::{functions::{initializer, private, public}, storage::storage};
+    use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{
@@ -55,10 +55,12 @@ contract Updatable {
         ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS).get_update_delay().view(&mut context)
     }
 
+    #[utility]
     unconstrained fn get_private_value() -> pub Field {
         storage.private_value.view_note().value
     }
 
+    #[utility]
     unconstrained fn get_public_value() -> pub Field {
         storage.public_value.read()
     }
