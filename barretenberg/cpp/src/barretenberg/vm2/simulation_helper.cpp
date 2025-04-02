@@ -1,5 +1,7 @@
 #include "barretenberg/vm2/simulation_helper.hpp"
 
+#include <cstdint>
+
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
@@ -41,7 +43,6 @@
 #include "barretenberg/vm2/simulation/to_radix.hpp"
 #include "barretenberg/vm2/simulation/tx_execution.hpp"
 #include "barretenberg/vm2/simulation/update_check.hpp"
-#include <cstdint>
 
 namespace bb::avm2 {
 
