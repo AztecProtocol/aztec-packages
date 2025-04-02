@@ -542,13 +542,12 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static std::vector<Fr> compute_fold_pos_evaluations(
-        const size_t log_n,
-        const Fr& batched_evaluation,
-        std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
-        std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
-        std::span<const Fr> fold_neg_evals,
-        Fr p_neg = Fr(0))
+    static std::vector<Fr> compute_fold_pos_evaluations(const size_t log_n,
+                                                        const Fr& batched_evaluation,
+                                                        std::span<const Fr> evaluation_point, // virtual_log_n
+                                                        std::span<const Fr> challenge_powers, // virtual_log_n
+                                                        std::span<const Fr> fold_neg_evals,
+                                                        Fr p_neg = Fr(0))
     {
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 

@@ -53,6 +53,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(this->n);
 
+    ShpleminiVerifierState<Curve> verifier_state;
+
     // Generate mock challenges
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
@@ -134,8 +136,7 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
         inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
 
     rho_power = Fr{ 1 };
-    mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(
-        commitments, scalars, verifier_batched_evaluation, rho, rho_power);
+    mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(verifier_state);
 
     // Final pairing check
     GroupElement shplemini_result = batch_mul_native(commitments, scalars);
@@ -240,21 +241,13 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
                                                              r_squares,
                                                              prover_evaluations,
                                                              expected_constant_term_accumulator);
-    std::vector<Commitment> commitments;
-    std::vector<Fr> scalars;
+    ShpleminiVerifierState<Curve> verifier_state;
 
-    ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
-                                                                prover_commitments,
-                                                                prover_evaluations,
-                                                                gemini_fold_pos_evaluations,
-                                                                inverse_vanishing_evals,
-                                                                shplonk_batching_challenge_powers,
-                                                                commitments,
-                                                                scalars,
-                                                                expected_constant_term_accumulator);
+    ShpleminiVerifier::batch_gemini_claims_received_from_prover(
+        verifier_state, prover_commitments, prover_evaluations, gemini_fold_pos_evaluations, inverse_vanishing_evals);
 
     // Compute the group element using the output of Shplemini method
-    GroupElement shplemini_result = batch_mul_native(commitments, scalars);
+    GroupElement shplemini_result = batch_mul_native(verifier_state.commitments, verifier_state.scalars);
 
     EXPECT_EQ(shplemini_result, expected_result);
 }

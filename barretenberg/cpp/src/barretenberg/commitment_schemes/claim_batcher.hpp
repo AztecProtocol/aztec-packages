@@ -5,6 +5,33 @@
 
 namespace bb {
 
+template <typename Curve> struct ShpleminiVerifierState {
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    // Interleaving members
+    Fr p_pos;
+    Fr p_neg;
+    Fr interleaving_vanishing_eval;
+
+    Fr batched_evaluation;
+
+    Fr gemini_batching_challenge;
+    Fr gemini_evaluation_challenge;
+
+    Fr gemini_batching_challenge_power{ 1 };
+
+    Fr shplonk_batching_challenge;
+    Fr shplonk_batching_challenge_power;
+    Fr shplonk_evaluation_challenge;
+
+    std::span<const Fr> multilinear_challenge;
+    std::vector<Fr> scalars;
+    std::vector<Commitment> commitments;
+    Fr constant_term_accumulator;
+    size_t virtual_log_n;
+    size_t log_n;
+};
+
 /**
  * @brief Logic to support batching opening claims for unshifted and shifted polynomials in Shplemini
  * @details Stores references to the commitments/evaluations of unshifted and shifted polynomials to be batched
@@ -125,13 +152,17 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param rho_power current power of \rho used in the batching scalar
      * @param shplonk_batching_challenge_power
      */
-    void update_batch_mul_inputs_and_batched_evaluation(std::vector<Commitment>& commitments,
-                                                        std::vector<Fr>& scalars,
-                                                        Fr& batched_evaluation,
-                                                        const Fr& rho,
-                                                        Fr& rho_power,
-                                                        const Fr& shplonk_batching_challenge)
+    void update_batch_mul_inputs_and_batched_evaluation(ShpleminiVerifierState<Curve>& verifier_state)
     {
+        // Unpack verifier_state
+        std::vector<Fr>& scalars = verifier_state.scalars;
+        std::vector<Commitment>& commitments = verifier_state.commitments;
+        Fr& batched_evaluation = verifier_state.batched_evaluation;
+        const Fr& rho = verifier_state.gemini_batching_challenge;
+        const Fr& shplonk_batching_challenge = verifier_state.shplonk_batching_challenge;
+
+        Fr& rho_power = verifier_state.gemini_batching_challenge_power;
+
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
         auto aggregate_claim_data_and_update_batched_evaluation = [&](const Batch& batch, Fr& rho_power) {
