@@ -123,16 +123,14 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param batched_evaluation running batched evaluation of the committed multilinear polynomials
      * @param rho multivariate batching challenge \rho
      * @param rho_power current power of \rho used in the batching scalar
-     * @param shplonk_batching_pos and @param shplonk_batching_neg consecutive powers of the Shplonk batching
-     * challenge ν for the interleaved contributions
+     * @param shplonk_batching_challenge_power
      */
     void update_batch_mul_inputs_and_batched_evaluation(std::vector<Commitment>& commitments,
                                                         std::vector<Fr>& scalars,
                                                         Fr& batched_evaluation,
                                                         const Fr& rho,
                                                         Fr& rho_power,
-                                                        Fr shplonk_batching_pos = { 0 },
-                                                        Fr shplonk_batching_neg = { 0 })
+                                                        const Fr& shplonk_batching_challenge)
     {
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
@@ -167,13 +165,13 @@ template <typename Curve> struct ClaimBatcher_ {
             size_t group_idx = 0;
             for (auto group : interleaved->commitments_groups) {
                 for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
-                    // The j-th commitment in group i is multiplied by ρ^{k+m+i} and ν^{n+1} \cdot r^j + ν^{n+2} ⋅(-r)^j
-                    //  where k is the number of unshifted, m is number of shifted and n is the log_circuit_size
+                    // The j-th commitment in group i is multiplied by ρ^{k+m+i} and 1 \cdot r^j + ν \cdot (-r)^j
+                    //  where k is the number of unshifted, m is number of shifted and  is the log_circuit_size
                     //  (assuming to right-shifted-by-k commitments in this example)
                     commitments.emplace_back(std::move(group[i]));
-                    scalars.emplace_back(-rho_power * interleaved->shplonk_denominator *
-                                         (shplonk_batching_pos * interleaved->scalars_pos[i] +
-                                          shplonk_batching_neg * interleaved->scalars_neg[i]));
+                    scalars.emplace_back(
+                        -rho_power * interleaved->shplonk_denominator *
+                        (interleaved->scalars_pos[i] + shplonk_batching_challenge * interleaved->scalars_neg[i]));
                 }
                 batched_evaluation += interleaved->evaluations[group_idx] * rho_power;
                 rho_power *= rho;
