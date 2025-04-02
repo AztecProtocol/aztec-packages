@@ -157,7 +157,7 @@ describe('add additional validators', () => {
       // Command arguments
       [
         '-c',
-        `export POD_IP=$(hostname -i) && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --l1-rpc-urls http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545 --l1-consensus-host-url http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052 --sequencer.validatorPrivateKey ${key} --sequencer.coinbase ${validatorAddress} --p2p-enabled true --p2p.p2pIp $POD_IP --p2p.bootstrapNodes ${enr} --registry-address ${registryAddress}`,
+        `export POD_IP=$(hostname -i) && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --l1-rpc-urls http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545 --l1-consensus-host-urls http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052 --sequencer.validatorPrivateKey ${key} --sequencer.coinbase ${validatorAddress} --p2p-enabled true --p2p.p2pIp $POD_IP --p2p.bootstrapNodes ${enr} --registry-address ${registryAddress}`,
       ],
     );
   };
