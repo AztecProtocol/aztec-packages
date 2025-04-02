@@ -8,6 +8,23 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## 0.83.0
 
+### [Aztec.nr] #[utility] functions
+
+We've introduced a new type of contract function macro called #[utility].
+Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
+They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
+These function were originally referred to as top-level unconstrained.
+
+Now all the contract functions has to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
+For this reason you need to apply #[utility] macro to functions which were originally macro-free:
+
+```diff
++    #[utility]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> pub u128 {
+        storage.balances.at(owner).balance_of()
+    }
+```
+
 ### [aztec.js] AztecNode.getPrivateEvents API change
 
 The `getPrivateEvents` method signature has changed to require an address of a contract that emitted the event and use recipient addresses instead of viewing public keys:
