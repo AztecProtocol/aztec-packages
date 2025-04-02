@@ -54,7 +54,7 @@ class AvmRecursiveTests : public ::testing::Test {
 
 TEST_F(AvmRecursiveTests, recursion)
 {
-    // TODO: Do we still want to use this env variable?
+    // TODO: Do we define another environment variable for long running tests?
     if (std::getenv("AVM_ENABLE_FULL_PROVING") == nullptr) {
         GTEST_SKIP();
     }
@@ -99,7 +99,7 @@ TEST_F(AvmRecursiveTests, recursion)
         EXPECT_EQ(recursive_manifest[i], manifest[i]);
     }
 
-    for (auto const [key_el, rec_key_el] : zip_view(verifier.key->get_all(), recursive_verifier.key->get_all())) {
+    for (const auto [key_el, rec_key_el] : zip_view(verifier.key->get_all(), recursive_verifier.key->get_all())) {
         EXPECT_EQ(key_el, rec_key_el.get_value());
     }
 
