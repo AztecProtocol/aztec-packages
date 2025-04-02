@@ -98,7 +98,7 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
 }
 
 template <typename Flavor>
-bool _verify(const bool honk_recursion_2,
+bool _verify(const bool ipa_accumulation,
              const std::filesystem::path& public_inputs_path,
              const std::filesystem::path& proof_path,
              const std::filesystem::path& vk_path)
@@ -118,7 +118,7 @@ bool _verify(const bool honk_recursion_2,
     complete_proof.insert(complete_proof.end(), proof.begin(), proof.end());
 
     std::shared_ptr<VerifierCommitmentKey<curve::Grumpkin>> ipa_verification_key;
-    if (honk_recursion_2) {
+    if (ipa_accumulation) {
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
         ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
     }
@@ -126,7 +126,7 @@ bool _verify(const bool honk_recursion_2,
     Verifier verifier{ vk, ipa_verification_key };
 
     bool verified;
-    if (honk_recursion_2) {
+    if (ipa_accumulation) {
         const size_t HONK_PROOF_LENGTH = Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
         const size_t num_public_inputs = static_cast<size_t>(vk->num_public_inputs);
         // The extra calculation is for the IPA proof length.
