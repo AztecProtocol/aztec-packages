@@ -98,8 +98,12 @@ template <typename Builder_> struct aggregation_state {
         P1.set_public();
 
         Builder* ctx = P0.get_context();
-        // WORKTODO: eventually set a PublicComponentKey probably
-        ctx->pairing_point_accumulator_public_input_indices[0] = start_idx;
+        // WORKTODO: eventually set a PublicComponentKey probably. For most things its sufficient to simply set the
+        // first index below but while the VK stores all of them it seems to cause problems not to set the others.
+        uint32_t pub_idx = start_idx;
+        for (uint32_t& idx : ctx->pairing_point_accumulator_public_input_indices) {
+            idx = pub_idx++;
+        }
         ctx->contains_pairing_point_accumulator = true;
 
         return start_idx;
