@@ -138,6 +138,8 @@ export ETHEREUM_SLOT_DURATION="$ethereum_slot_duration"
 export AZTEC_SLOT_DURATION="$aztec_slot_duration"
 export AZTEC_EPOCH_DURATION="$aztec_epoch_duration"
 export AZTEC_PROOF_SUBMISSION_WINDOW="$aztec_proof_submission_window"
+export AZTEC_DOCKER_TAG="$aztec_docker_tag"
+export VALUES_FILE="$values_file"
 set +x
 export L1_ACCOUNT_MNEMONIC="$l1_account_mnemonic"
 set -x
