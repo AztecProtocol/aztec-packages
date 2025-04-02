@@ -26,7 +26,7 @@ contract InboxTest is Test {
 
   function setUp() public {
     address rollup = address(this);
-    inbox = new InboxHarness(rollup, HEIGHT);
+    inbox = new InboxHarness(rollup, version, HEIGHT);
     emptyTreeRoot = inbox.getEmptyRoot();
   }
 
@@ -128,6 +128,17 @@ contract InboxTest is Test {
     message.recipient.actor = bytes32(Constants.P);
     vm.expectRevert(
       abi.encodeWithSelector(Errors.Inbox__ActorTooLarge.selector, message.recipient.actor)
+    );
+    inbox.sendL2Message(message.recipient, message.content, message.secretHash);
+  }
+
+  function testRevertIfVersionMismatch() public {
+    DataStructures.L1ToL2Msg memory message = _fakeMessage();
+    message.recipient.version = version + 1;
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        Errors.Inbox__VersionMismatch.selector, message.recipient.version, version
+      )
     );
     inbox.sendL2Message(message.recipient, message.content, message.secretHash);
   }

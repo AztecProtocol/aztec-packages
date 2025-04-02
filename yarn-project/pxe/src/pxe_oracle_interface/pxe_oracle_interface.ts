@@ -432,19 +432,20 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs
-   * to sync.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Returns the found logs
+   * and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
-   * @param recipient - The address of the recipient
-   * @returns A list of encrypted logs tagged with the recipient's address
+   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
+   * synced.
+   * @returns A map of recipient addresses to a list of encrypted logs.
    */
   public async syncTaggedLogs(
     contractAddress: AztecAddress,
-    maxBlockNumber: number,
     scopes?: AztecAddress[],
   ): Promise<Map<string, TxScopedL2Log[]>> {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
+
+    const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.

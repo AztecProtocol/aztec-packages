@@ -1,16 +1,15 @@
 import { Fr } from '@aztec/foundation/fields';
 import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
 import { schemas } from '@aztec/foundation/schemas';
-import type { IndexedTreeLeaf } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
 import { AztecAddress } from '../aztec-address/index.js';
 import { PublicKeys } from '../keys/public_keys.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import type { MerkleTreeId } from '../trees/merkle_tree_id.js';
-import { NullifierLeaf } from '../trees/nullifier_leaf.js';
-import { PublicDataTreeLeaf } from '../trees/public_data_leaf.js';
+import { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -152,22 +151,20 @@ export class AvmGetPreviousValueIndexHint {
   }
 }
 
+type IndexedTreeLeafPreimages = NullifierLeafPreimage | PublicDataTreeLeafPreimage;
+type IndexedTreeLeafPreimagesClasses = typeof NullifierLeafPreimage | typeof PublicDataTreeLeafPreimage;
+
 // Hint for MerkleTreeDB.getLeafPreimage.
 // NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
 // having the type doesn't suffice since TS does type erasure in the end.
-function AvmGetLeafPreimageHintFactory<T extends IndexedTreeLeaf>(klass: {
-  schema: z.ZodSchema;
-  new (...args: any[]): T;
-}) {
+function AvmGetLeafPreimageHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
   return class AvmGetLeafPreimageHint {
     constructor(
       public readonly hintKey: AppendOnlyTreeSnapshot,
       // params (tree id will be implicit)
       public readonly index: bigint,
       // return
-      public readonly leaf: T,
-      public readonly nextIndex: bigint,
-      public readonly nextValue: Fr,
+      public readonly leafPreimage: IndexedTreeLeafPreimages,
     ) {}
 
     static get schema() {
@@ -175,21 +172,16 @@ function AvmGetLeafPreimageHintFactory<T extends IndexedTreeLeaf>(klass: {
         .object({
           hintKey: AppendOnlyTreeSnapshot.schema,
           index: schemas.BigInt,
-          leaf: klass.schema,
-          nextIndex: schemas.BigInt,
-          nextValue: schemas.Fr,
+          leafPreimage: klass.schema,
         })
-        .transform(
-          ({ hintKey, index, leaf, nextIndex, nextValue }) =>
-            new AvmGetLeafPreimageHint(hintKey, index, leaf, nextIndex, nextValue),
-        );
+        .transform(({ hintKey, index, leafPreimage }) => new AvmGetLeafPreimageHint(hintKey, index, leafPreimage));
     }
   };
 }
 
 // Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
-export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeaf) {}
-export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeaf) {}
+export class AvmGetLeafPreimageHintPublicDataTree extends AvmGetLeafPreimageHintFactory(PublicDataTreeLeafPreimage) {}
+export class AvmGetLeafPreimageHintNullifierTree extends AvmGetLeafPreimageHintFactory(NullifierLeafPreimage) {}
 
 // Hint for MerkleTreeDB.getLeafValue.
 // Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.

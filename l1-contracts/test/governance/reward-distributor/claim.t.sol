@@ -10,19 +10,18 @@ contract ClaimTest is RewardDistributorBase {
 
   function test_WhenCallerIsNotCanonical(address _caller) external {
     // it reverts
-    vm.assume(_caller != address(0xdead));
+    address canonical = address(registry.getCanonicalRollup());
+    vm.assume(_caller != canonical);
 
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.RewardDistributor__InvalidCaller.selector, _caller, address(0xdead)
-      )
+      abi.encodeWithSelector(Errors.RewardDistributor__InvalidCaller.selector, _caller, canonical)
     );
     vm.prank(_caller);
     rewardDistributor.claim(_caller);
   }
 
   modifier whenCallerIsCanonical() {
-    caller = address(0xdead);
+    caller = address(registry.getCanonicalRollup());
     _;
   }
 

@@ -20,8 +20,8 @@ import {
   type IndexedTreeId,
   MerkleTreeId,
   type MerkleTreeLeafType,
-  NullifierLeaf,
-  PublicDataTreeLeaf,
+  NullifierLeafPreimage,
+  PublicDataTreeLeafPreimage,
   type SequentialInsertionResult,
   getTreeName,
 } from '@aztec/stdlib/trees';
@@ -144,24 +144,12 @@ export class HintingPublicTreesDB extends PublicTreesDB {
       switch (treeId) {
         case MerkleTreeId.PUBLIC_DATA_TREE:
           this.hints.getLeafPreimageHintsPublicDataTree.push(
-            new AvmGetLeafPreimageHintPublicDataTree(
-              key,
-              index,
-              preimage.asLeaf() as PublicDataTreeLeaf,
-              preimage.getNextIndex(),
-              new Fr(preimage.getNextKey()),
-            ),
+            new AvmGetLeafPreimageHintPublicDataTree(key, index, preimage as PublicDataTreeLeafPreimage),
           );
           break;
         case MerkleTreeId.NULLIFIER_TREE:
           this.hints.getLeafPreimageHintsNullifierTree.push(
-            new AvmGetLeafPreimageHintNullifierTree(
-              key,
-              index,
-              preimage.asLeaf() as NullifierLeaf,
-              preimage.getNextIndex(),
-              new Fr(preimage.getNextKey()),
-            ),
+            new AvmGetLeafPreimageHintNullifierTree(key, index, preimage as NullifierLeafPreimage),
           );
           break;
         default:
@@ -196,7 +184,11 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     treeId: ID,
     leaves: Buffer[],
   ): Promise<SequentialInsertionResult<TreeHeight>> {
-    HintingPublicTreesDB.log.debug('sequentialInsert not hinted yet!');
+    // Use appendLeaf for NoteHashTree and L1ToL2MessageTree.
+    assert(treeId == MerkleTreeId.PUBLIC_DATA_TREE || treeId == MerkleTreeId.NULLIFIER_TREE);
+    // We only support 1 leaf at a time for now. Can easily be extended.
+    assert(leaves.length === 1, 'sequentialInsert supports only one leaf at a time!');
+
     const beforeState = await this.getHintKey(treeId);
 
     const result = await super.sequentialInsert<TreeHeight, ID>(treeId, leaves);

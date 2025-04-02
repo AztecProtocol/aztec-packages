@@ -53,6 +53,10 @@ tests:
     error_regex: "verified: false"
     owners:
       - *sergei
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Failed to fetch"
     owners:
@@ -84,10 +88,6 @@ tests:
     error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p"
-    error_regex: "TimeoutError"
-    owners:
-      - *sean
   - regex: "simple e2e_p2p/reex"
     error_regex: "Received promise resolved instead of rejected"
     owners:
@@ -97,6 +97,10 @@ tests:
     owners:
       - *lasse
   - regex: "simple e2e_p2p/validators_sentinel"
+    error_regex: "TimeoutError: Timeout awaiting blocks mined"
+    owners:
+      - *palla
+  - regex: "simple e2e_p2p/reqresp"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla

@@ -20,11 +20,11 @@ contract FeeAssetHandler is IFeeAssetHandler, Ownable {
     mintAmount = _mintAmount;
   }
 
-  function mint(address _recipient) external override {
+  function mint(address _recipient) external override(IFeeAssetHandler) {
     FEE_ASSET.mint(_recipient, mintAmount);
   }
 
-  function setMintAmount(uint256 _amount) external override onlyOwner {
+  function setMintAmount(uint256 _amount) external override(IFeeAssetHandler) onlyOwner {
     mintAmount = _amount;
     emit MintAmountSet(_amount);
   }

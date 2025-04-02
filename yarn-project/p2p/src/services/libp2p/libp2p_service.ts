@@ -719,7 +719,11 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
         severity: PeerErrorSeverity.HighToleranceError,
       },
       metadataValidator: {
-        validator: new MetadataTxValidator(new Fr(this.config.l1ChainId), new Fr(blockNumber)),
+        validator: new MetadataTxValidator(
+          new Fr(this.config.l1ChainId),
+          new Fr(this.config.rollupVersion),
+          new Fr(blockNumber),
+        ),
         severity: PeerErrorSeverity.HighToleranceError,
       },
       proofValidator: {

@@ -657,8 +657,8 @@ export class TXEService {
   }
 
   async avmOpcodeStorageRead(slot: ForeignCallSingle) {
-    const value = await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot));
-    return toForeignCallResult([toSingle(value)]);
+    const value = (await (this.typedOracle as TXE).avmOpcodeStorageRead(fromSingle(slot))).value;
+    return toForeignCallResult([toSingle(new Fr(value))]);
   }
 
   async avmOpcodeStorageWrite(slot: ForeignCallSingle, value: ForeignCallSingle) {

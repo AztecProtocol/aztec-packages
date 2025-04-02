@@ -85,7 +85,7 @@ describe('full_prover', () => {
 
       expect(balance).toBeGreaterThan(0n);
 
-      const canonicalAddress = await feeJuicePortal.read.canonicalRollup();
+      const canonicalAddress = await feeJuicePortal.read.ROLLUP();
       logger.info(`Canonical address: ${canonicalAddress}`);
       expect(canonicalAddress.toLowerCase()).toBe(
         t.l1Contracts.l1ContractAddresses.rollupAddress.toString().toLowerCase(),
