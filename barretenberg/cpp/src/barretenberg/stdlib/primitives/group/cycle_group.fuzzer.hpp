@@ -17,7 +17,7 @@
 #include "barretenberg/common/fuzzer.hpp"
 
 // #define SHOW_INFORMATION
-#define DISABLE_MULTIPLICATION
+// #define DISABLE_MULTIPLICATION
 
 #ifdef SHOW_INFORMATION
 #define PREP_SINGLE_ARG(stack, first_index, output_index)                                                              \
@@ -1487,21 +1487,22 @@ template <typename Builder> class CycleGroupBase {
                 return 1;
             }
             std::vector<ExecutionHandler> to_add;
-            std::vector<ScalarField> to_mul = instruction.batchMulArgs.scalars;
+            std::vector<ScalarField> to_mul;
             for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
                 to_add.push_back(stack[(size_t)instruction.arguments.batchMulArgs.inputs[i] % stack.size()]);
+                to_mul.push_back(instruction.arguments.batchMulArgs.scalars[i]);
             }
-            size_t output_index = (size_t)instruction.arguments.multOpArgs.output_index;
+            size_t output_index = (size_t)instruction.arguments.batchMulArgs.output_index;
 
 #ifdef SHOW_INFORMATION
             std::string res = "";
             bool is_const = true;
             for (size_t i = 0; i < instruction.arguments.batchMulArgs.add_elements_count; i++) {
                 size_t idx = instruction.arguments.batchMulArgs.inputs[i] % stack.size();
-                std::string el = stack[idx].is_constant() ? "c" : "w";
+                std::string el = stack[idx].cycle_group.is_constant() ? "c" : "w";
                 el += std::to_string(idx);
                 res += el + ", ";
-                is_const &= stack[idx].is_constant();
+                is_const &= stack[idx].cycle_group.is_constant();
             }
             std::string out = is_const ? "c" : "w";
             out = (output_index >= stack.size()) ? "auto " : "" + out;
