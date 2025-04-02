@@ -55,6 +55,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      */
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
+        using AggState = aggregation_state<bn254<InnerBuilder>>;
         using fr = typename InnerCurve::ScalarFieldNative;
 
         InnerBuilder builder;
@@ -74,8 +75,10 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
-        builder.add_pairing_point_accumulator(agg_obj_indices);
+
+        // WORKTODO: I dont know, make this nice. probabaly a one liner
+        auto agg_obj = AggState::construct_default(builder);
+        agg_obj.set_public();
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =

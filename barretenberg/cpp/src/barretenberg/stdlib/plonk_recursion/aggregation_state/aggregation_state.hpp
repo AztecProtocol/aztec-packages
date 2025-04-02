@@ -15,13 +15,24 @@ namespace bb::stdlib::recursion {
  */
 template <typename Curve> struct aggregation_state {
     using Group = typename Curve::Group;
+    using Builder = typename Curve::Builder;
+    using Fr = typename Curve::ScalarField;
     Group P0;
     Group P1;
 
-    bool has_data = false;
+    bool has_data = false; // WORKTODO: is this useful??
+
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Group::PUBLIC_INPUTS_SIZE * 2;
 
     // Default constructor
     aggregation_state() = default;
+
+    aggregation_state(const Group& P0, const Group& P1)
+        : P0(P0)
+        , P1(P1)
+        , has_data(true)
+    {}
 
     // Constructor from std::array<Group, 2>
     // WORKTODO: delete this once everything is an Agg Object
@@ -87,6 +98,47 @@ template <typename Curve> struct aggregation_state {
 
         CircuitChecker::check(*context);
         context->add_pairing_point_accumulator(proof_witness_indices);
+    }
+
+    uint32_t set_public()
+    {
+        uint32_t start_idx = P0.set_public();
+        P1.set_public();
+
+        Builder* ctx = P0.get_context();
+        // WORKTODO: eventually set a PublicComponentKey probably
+        ctx->pairing_point_accumulator_public_input_indices[0] = start_idx;
+        ctx->contains_pairing_point_accumulator = true;
+
+        return start_idx;
+    }
+
+    static aggregation_state<Curve> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
+        std::span<const Fr, FRS_PER_POINT> P0_limbs{ limbs.data(), FRS_PER_POINT };
+        std::span<const Fr, FRS_PER_POINT> P1_limbs{ limbs.data() + FRS_PER_POINT, FRS_PER_POINT };
+        Group P0 = Group::reconstruct_from_public(P0_limbs);
+        Group P1 = Group::reconstruct_from_public(P1_limbs);
+        return { P0, P1 };
+    }
+
+    static aggregation_state<Curve> construct_default(typename Curve::Builder& builder)
+    {
+        using Group = typename Curve::Group;
+        using BaseField = typename Curve::BaseField;
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): These are pairing points extracted from a
+        // valid proof. This is a workaround because we can't represent the point at infinity in biggroup yet.
+        uint256_t x0_val("0x031e97a575e9d05a107acb64952ecab75c020998797da7842ab5d6d1986846cf");
+        uint256_t y0_val("0x178cbf4206471d722669117f9758a4c410db10a01750aebb5666547acf8bd5a4");
+        uint256_t x1_val("0x0f94656a2ca489889939f81e9c74027fd51009034b3357f0e91b8a11e7842c38");
+        uint256_t y1_val("0x1b52c2020d7464a0c80c0da527a08193fe27776f50224bd6fb128b46c1ddb67f");
+        BaseField x0 = BaseField::from_witness(&builder, x0_val);
+        BaseField y0 = BaseField::from_witness(&builder, y0_val);
+        BaseField x1 = BaseField::from_witness(&builder, x1_val);
+        BaseField y1 = BaseField::from_witness(&builder, y1_val);
+        // aggregation_state<Curve> agg_obj{ Group(x0, y0), Group(x1, y1) };
+        return { Group(x0, y0), Group(x1, y1) };
     }
 };
 
@@ -221,9 +273,9 @@ aggregation_state<Curve> init_default_aggregation_state(Builder& builder)
     BaseField y0(&builder, y0_val);
     BaseField x1(&builder, x1_val);
     BaseField y1(&builder, y1_val);
-    aggregation_state<Curve> agg_obj;
-    agg_obj.P0 = Group(x0, y0);
-    agg_obj.P1 = Group(x1, y1);
+    aggregation_state<Curve> agg_obj{ Group(x0, y0), Group(x1, y1) };
+    // agg_obj.P0 = Group(x0, y0);
+    // agg_obj.P1 = Group(x1, y1);
     return agg_obj;
 }
 

@@ -386,7 +386,7 @@ aggregation_state<Curve> verify_proof_(typename Curve::Builder* context,
 
     rhs = (-rhs) - PI_Z;
 
-    auto result = aggregation_state<Curve>{ opening_result, rhs, true };
+    auto result = aggregation_state<Curve>{ opening_result, rhs };
     return result;
 }
 

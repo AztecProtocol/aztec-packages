@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>
 
@@ -41,6 +42,7 @@ template <typename FF_> class CircuitBuilderBase {
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     bool contains_pairing_point_accumulator = false;
+    // PublicComponentKey pairing_point_accumulator_public_input_key;
 
     // Public input indices which contain the output IPA opening claim
     IPAClaimPubInputIndices ipa_claim_public_input_indices;
