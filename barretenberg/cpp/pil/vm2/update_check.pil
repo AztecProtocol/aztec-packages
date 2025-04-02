@@ -15,7 +15,7 @@ namespace update_check;
     pol commit current_class_id;
     pol commit original_class_id;
     pol commit public_data_tree_root;
-    pol commit blocknumber;
+    pol commit block_number;
 
     // ======== SHARED MUTABLE HASH READ ========
 
@@ -83,30 +83,30 @@ namespace update_check;
     pol commit update_hi_metadata_bit_size;
     hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.BLOCK_NUMBER_BIT_SIZE - update_hi_metadata_bit_size) = 0;
     // TODO: Remove this as a column when we can lookup with constants
-    pol commit blocknumber_bit_size;
-    hash_not_zero * (constants.BLOCK_NUMBER_BIT_SIZE - blocknumber_bit_size) = 0;
+    pol commit block_number_bit_size;
+    hash_not_zero * (constants.BLOCK_NUMBER_BIT_SIZE - block_number_bit_size) = 0;
 
     #[UPDATE_HI_METADATA_RANGE]
     hash_not_zero { update_hi_metadata, update_hi_metadata_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     #[UPDATE_LO_METADATA_RANGE]
-    hash_not_zero { update_block_of_change, blocknumber_bit_size }
+    hash_not_zero { update_block_of_change, block_number_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-    // Overflow safe since update_hi_metadata_bit_size + blocknumber_bit_size < field bit size (254)
+    // Overflow safe since update_hi_metadata_bit_size + block_number_bit_size < field bit size (254)
     #[UPDATE_METADATA_DECOMPOSITION]
     update_hi_metadata * TWO_POW_32 + update_block_of_change - update_preimage_metadata = 0;
 
     // ======== CLASS ID CHECK ========
-    pol commit blocknumber_is_lt_block_of_change;
+    pol commit block_number_is_lt_block_of_change;
     pol commit block_of_change_subtraction;
-    pol BLOCKNUMBER_LT_BLOCK_OF_CHANGE = update_block_of_change - 1 - blocknumber;
-    pol BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =  blocknumber - update_block_of_change;
-    hash_not_zero * ((BLOCKNUMBER_LT_BLOCK_OF_CHANGE - BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) * blocknumber_is_lt_block_of_change + BLOCKNUMBER_GTE_BLOCK_OF_CHANGE - block_of_change_subtraction) = 0;
+    pol BLOCKNUMBER_LT_BLOCK_OF_CHANGE = update_block_of_change - 1 - block_number;
+    pol BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =  block_number - update_block_of_change;
+    hash_not_zero * ((BLOCKNUMBER_LT_BLOCK_OF_CHANGE - BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) * block_number_is_lt_block_of_change + BLOCKNUMBER_GTE_BLOCK_OF_CHANGE - block_of_change_subtraction) = 0;
 
     #[BLOCK_OF_CHANGE_CMP_RANGE]
-    hash_not_zero { block_of_change_subtraction, blocknumber_bit_size }
+    hash_not_zero { block_of_change_subtraction, block_number_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     pol commit update_pre_class_is_zero;
@@ -121,8 +121,8 @@ namespace update_check;
 
     // If update hasn't applied yet, then the class id should be the pre class id ?? original_class_id
     #[FUTURE_UPDATE_CLASS_ID_ASSIGNMENT]
-    hash_not_zero * blocknumber_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class) * update_pre_class_is_zero + update_preimage_pre_class - current_class_id) = 0;
+    hash_not_zero * block_number_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class) * update_pre_class_is_zero + update_preimage_pre_class - current_class_id) = 0;
 
     // Else, the post ?? original_class_id
     #[PAST_UPDATE_CLASS_ID_ASSIGNMENT]
-    hash_not_zero * (1 - blocknumber_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class) * update_post_class_is_zero + update_preimage_post_class - current_class_id) = 0;
+    hash_not_zero * (1 - block_number_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class) * update_post_class_is_zero + update_preimage_post_class - current_class_id) = 0;

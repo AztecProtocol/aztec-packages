@@ -89,6 +89,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<PublicDataTreeReadEvent> public_data_read_emitter;
     typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
 
+    uint32_t block_number = static_cast<uint32_t>(inputs.publicInputs.globalVariables.blockNumber);
+
     Poseidon2 poseidon2(poseidon2_hash_emitter, poseidon2_perm_emitter);
     ToRadix to_radix(to_radix_emitter);
     Ecc ecc(to_radix, ecc_add_emitter, scalar_mul_emitter);
@@ -103,11 +105,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     HintedRawMerkleDB raw_merkle_db(inputs.hints, inputs.publicInputs.startTreeSnapshots);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
     MerkleDB merkle_db(raw_merkle_db, public_data_tree_check);
-    UpdateCheck update_check(poseidon2,
-                             range_check,
-                             merkle_db,
-                             static_cast<uint32_t>(inputs.publicInputs.globalVariables.blockNumber),
-                             update_check_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
     Siloing siloing(siloing_emitter);
@@ -117,6 +115,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
                                        siloing,
                                        bytecode_hasher,
                                        range_check,
+                                       update_check,
+                                       block_number,
                                        bytecode_retrieval_emitter,
                                        bytecode_decomposition_emitter,
                                        instruction_fetching_emitter);

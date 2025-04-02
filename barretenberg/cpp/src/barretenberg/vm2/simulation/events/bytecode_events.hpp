@@ -36,6 +36,8 @@ struct BytecodeRetrievalEvent {
     ContractInstance contract_instance;
     ContractClass contract_class;
     FF nullifier_root;
+    FF public_data_tree_root;
+    uint32_t block_number;
     bool error = false;
 };
 

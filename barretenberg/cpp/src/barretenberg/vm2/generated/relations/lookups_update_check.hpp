@@ -517,7 +517,7 @@ class lookup_update_check_update_lo_metadata_range_settings {
     static constexpr Column COUNTS = Column::lookup_update_check_update_lo_metadata_range_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_lo_metadata_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_update_block_of_change, ColumnAndShifts::update_check_blocknumber_bit_size
+        ColumnAndShifts::update_check_update_block_of_change, ColumnAndShifts::update_check_block_number_bit_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
@@ -554,7 +554,7 @@ class lookup_update_check_update_lo_metadata_range_settings {
                                      in._update_check_hash_not_zero(),
                                      in._range_check_sel(),
                                      in._update_check_update_block_of_change(),
-                                     in._update_check_blocknumber_bit_size(),
+                                     in._update_check_block_number_bit_size(),
                                      in._range_check_value(),
                                      in._range_check_rng_chk_bits());
     }
@@ -607,7 +607,7 @@ class lookup_update_check_block_of_change_cmp_range_settings {
     static constexpr Column COUNTS = Column::lookup_update_check_block_of_change_cmp_range_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_block_of_change_cmp_range_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::update_check_block_of_change_subtraction, ColumnAndShifts::update_check_blocknumber_bit_size
+        ColumnAndShifts::update_check_block_of_change_subtraction, ColumnAndShifts::update_check_block_number_bit_size
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::range_check_value, ColumnAndShifts::range_check_rng_chk_bits
@@ -644,7 +644,7 @@ class lookup_update_check_block_of_change_cmp_range_settings {
                                      in._update_check_hash_not_zero(),
                                      in._range_check_sel(),
                                      in._update_check_block_of_change_subtraction(),
-                                     in._update_check_blocknumber_bit_size(),
+                                     in._update_check_block_number_bit_size(),
                                      in._range_check_value(),
                                      in._range_check_rng_chk_bits());
     }

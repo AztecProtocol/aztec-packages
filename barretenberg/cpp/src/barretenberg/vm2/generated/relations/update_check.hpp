@@ -35,9 +35,9 @@ template <typename FF_> class update_checkImpl {
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
         const auto update_check_TWO_POW_32 = FF(4294967296UL);
         const auto update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE =
-            ((new_term.update_check_update_block_of_change - FF(1)) - new_term.update_check_blocknumber);
+            ((new_term.update_check_update_block_of_change - FF(1)) - new_term.update_check_block_number);
         const auto update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =
-            (new_term.update_check_blocknumber - new_term.update_check_update_block_of_change);
+            (new_term.update_check_block_number - new_term.update_check_update_block_of_change);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
@@ -109,7 +109,7 @@ template <typename FF_> class update_checkImpl {
         {
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp = new_term.update_check_hash_not_zero *
-                       (constants_BLOCK_NUMBER_BIT_SIZE - new_term.update_check_blocknumber_bit_size);
+                       (constants_BLOCK_NUMBER_BIT_SIZE - new_term.update_check_block_number_bit_size);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
@@ -125,7 +125,7 @@ template <typename FF_> class update_checkImpl {
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = new_term.update_check_hash_not_zero *
                        (((update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE - update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) *
-                             new_term.update_check_blocknumber_is_lt_block_of_change +
+                             new_term.update_check_block_number_is_lt_block_of_change +
                          update_check_BLOCKNUMBER_GTE_BLOCK_OF_CHANGE) -
                         new_term.update_check_block_of_change_subtraction);
             tmp *= scaling_factor;
@@ -157,7 +157,7 @@ template <typename FF_> class update_checkImpl {
         }
         { // FUTURE_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_hash_not_zero * new_term.update_check_blocknumber_is_lt_block_of_change *
+            auto tmp = new_term.update_check_hash_not_zero * new_term.update_check_block_number_is_lt_block_of_change *
                        (((new_term.update_check_original_class_id - new_term.update_check_update_preimage_pre_class) *
                              new_term.update_check_update_pre_class_is_zero +
                          new_term.update_check_update_preimage_pre_class) -
@@ -168,7 +168,7 @@ template <typename FF_> class update_checkImpl {
         { // PAST_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp = new_term.update_check_hash_not_zero *
-                       (FF(1) - new_term.update_check_blocknumber_is_lt_block_of_change) *
+                       (FF(1) - new_term.update_check_block_number_is_lt_block_of_change) *
                        (((new_term.update_check_original_class_id - new_term.update_check_update_preimage_post_class) *
                              new_term.update_check_update_post_class_is_zero +
                          new_term.update_check_update_preimage_post_class) -

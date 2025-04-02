@@ -273,13 +273,13 @@ TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 
 TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 {
-    // hash_not_zero * blocknumber_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class) *
+    // hash_not_zero * block_number_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class) *
     // update_pre_class_is_zero + update_preimage_pre_class - current_class_id)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
-            { C::update_check_blocknumber_is_lt_block_of_change, 1 },
+            { C::update_check_block_number_is_lt_block_of_change, 1 },
             { C::update_check_original_class_id, 42 },
             { C::update_check_update_preimage_pre_class, 27 },
             { C::update_check_update_pre_class_is_zero, 0 },
@@ -303,14 +303,14 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 
 TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
 {
-    // hash_not_zero * (1 - blocknumber_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class) *
+    // hash_not_zero * (1 - block_number_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class) *
     // update_post_class_is_zero + update_preimage_post_class - current_class_id)
 
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
-            { C::update_check_blocknumber_is_lt_block_of_change, 0 },
+            { C::update_check_block_number_is_lt_block_of_change, 0 },
             { C::update_check_original_class_id, 42 },
             { C::update_check_update_preimage_post_class, 27 },
             { C::update_check_update_post_class_is_zero, 0 },

@@ -156,7 +156,7 @@ class lookup_bc_retrieval_update_check_settings {
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 5;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
@@ -169,12 +169,16 @@ class lookup_bc_retrieval_update_check_settings {
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::bc_retrieval_address,
         ColumnAndShifts::bc_retrieval_current_class_id,
-        ColumnAndShifts::bc_retrieval_original_class_id
+        ColumnAndShifts::bc_retrieval_original_class_id,
+        ColumnAndShifts::bc_retrieval_public_data_tree_root,
+        ColumnAndShifts::bc_retrieval_block_number
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
         ColumnAndShifts::update_check_address,
         ColumnAndShifts::update_check_current_class_id,
-        ColumnAndShifts::update_check_original_class_id
+        ColumnAndShifts::update_check_original_class_id,
+        ColumnAndShifts::update_check_public_data_tree_root,
+        ColumnAndShifts::update_check_block_number
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
@@ -210,9 +214,13 @@ class lookup_bc_retrieval_update_check_settings {
                                      in._bc_retrieval_address(),
                                      in._bc_retrieval_current_class_id(),
                                      in._bc_retrieval_original_class_id(),
+                                     in._bc_retrieval_public_data_tree_root(),
+                                     in._bc_retrieval_block_number(),
                                      in._update_check_address(),
                                      in._update_check_current_class_id(),
-                                     in._update_check_original_class_id());
+                                     in._update_check_original_class_id(),
+                                     in._update_check_public_data_tree_root(),
+                                     in._update_check_block_number());
     }
 };
 
