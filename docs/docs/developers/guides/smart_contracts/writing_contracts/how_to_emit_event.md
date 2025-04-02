@@ -17,7 +17,7 @@ To emit encrypted logs you can import the `encode_and_encrypt_event` or `encode_
 #include_code encrypted_unconstrained /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 - `encode_and_encrypt_event` Sends an encrypted message to `recipient` with the content of the event, which they will discover when processing private logs.
-- `encode_and_encrypt_event_unconstrained` is the same as `encode_and_encrypt_event`, except encryption is unconstrained. This means that the sender is free to make the log contents be whatever they wish, potentially resulting in scenarios in which the recipient is unable to decrypt and process the payload, **leading to the event being lost**. Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
+- `encode_and_encrypt_event_unconstrained` is the same as `encode_and_encrypt_event`, except encryption is unconstrained. This means that the sender is free to make the log contents be whatever they wish, so the recipient is trusting the sender of the event. This could also potentially result in scenarios in which the recipient is unable to decrypt and process the payload, **leading to the event being lost**. Only use this function in scenarios where the recipient not receiving the event is an acceptable outcome.
 
 :::note
 Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
