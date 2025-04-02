@@ -123,6 +123,12 @@ template <typename Curve> struct aggregation_state {
         return { P0, P1 };
     }
 
+    static void add_default_pairing_points_to_public_inputs(Builder& builder)
+    {
+        aggregation_state<Curve> agg_obj = construct_default(builder);
+        agg_obj.set_public();
+    }
+
     static aggregation_state<Curve> construct_default(typename Curve::Builder& builder)
     {
         using Group = typename Curve::Group;

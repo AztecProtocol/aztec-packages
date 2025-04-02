@@ -77,8 +77,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         }
 
         // WORKTODO: I dont know, make this nice. probabaly a one liner
-        auto agg_obj = AggState::construct_default(builder);
-        agg_obj.set_public();
+        AggState::add_default_pairing_points_to_public_inputs(builder);
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
