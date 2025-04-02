@@ -67,6 +67,8 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmSequentialInsertHintNullifierTree,
+  AvmSequentialInsertHintPublicDataTree,
   RevertCode,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
@@ -144,6 +146,7 @@ import { PublicTubeData } from '../rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
+import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
@@ -1334,6 +1337,50 @@ export function makeAvmGetLeafValueHint(seed = 0): AvmGetLeafValueHint {
   );
 }
 
+export function makeAvmSequentialInsertHintPublicDataTree(seed = 0): AvmSequentialInsertHintPublicDataTree {
+  const lowLeavesWitnessData = {
+    leaf: makePublicDataTreeLeafPreimage(seed + 3),
+    index: BigInt(seed + 4),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 5),
+  };
+  const insertionWitnessData = {
+    leaf: makePublicDataTreeLeafPreimage(seed + 6),
+    index: BigInt(seed + 7),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 8),
+  };
+
+  return new AvmSequentialInsertHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    makePublicDataTreeLeaf(seed + 2),
+    lowLeavesWitnessData,
+    insertionWitnessData,
+  );
+}
+
+export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentialInsertHintNullifierTree {
+  const lowLeavesWitnessData = {
+    leaf: makeNullifierLeafPreimage(seed + 3),
+    index: BigInt(seed + 4),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 5),
+  };
+  const insertionWitnessData = {
+    leaf: makeNullifierLeafPreimage(seed + 6),
+    index: BigInt(seed + 7),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 8),
+  };
+
+  return new AvmSequentialInsertHintNullifierTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    MerkleTreeId.NULLIFIER_TREE,
+    makeNullifierLeaf(seed + 2),
+    lowLeavesWitnessData,
+    insertionWitnessData,
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1407,6 +1454,16 @@ export async function makeAvmExecutionHints(
     ),
     getLeafPreimageHintNullifierTree: makeArray(baseLength + 5, makeAvmGetLeafPreimageHintNullifierTree, seed + 0x5100),
     getLeafValueHints: makeArray(baseLength + 5, makeAvmGetLeafValueHint, seed + 0x5300),
+    sequentialInsertHintsPublicDataTree: makeArray(
+      baseLength + 5,
+      makeAvmSequentialInsertHintPublicDataTree,
+      seed + 0x5500,
+    ),
+    sequentialInsertHintsNullifierTree: makeArray(
+      baseLength + 5,
+      makeAvmSequentialInsertHintNullifierTree,
+      seed + 0x5700,
+    ),
     ...overrides,
   };
 
@@ -1420,6 +1477,8 @@ export async function makeAvmExecutionHints(
     fields.getLeafPreimageHintPublicDataTree,
     fields.getLeafPreimageHintNullifierTree,
     fields.getLeafValueHints,
+    fields.sequentialInsertHintsPublicDataTree,
+    fields.sequentialInsertHintsNullifierTree,
   );
 }
 

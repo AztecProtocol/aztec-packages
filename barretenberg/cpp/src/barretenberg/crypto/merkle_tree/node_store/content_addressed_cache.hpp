@@ -20,17 +20,6 @@
 #include <utility>
 #include <vector>
 
-template <> struct std::hash<uint256_t> {
-    std::size_t operator()(const uint256_t& k) const { return k.data[0]; }
-};
-template <> struct std::hash<bb::fr> {
-    std::size_t operator()(const bb::fr& k) const
-    {
-        bb::numeric::uint256_t val(k);
-        return val.data[0];
-    }
-};
-
 namespace bb::crypto::merkle_tree {
 
 // Stores all of the penidng updates to a mekle tree indexed for optimal retrieval

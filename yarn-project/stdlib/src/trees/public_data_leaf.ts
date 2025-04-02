@@ -36,6 +36,10 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
       .transform(({ leaf, nextKey, nextIndex }) => new PublicDataTreeLeafPreimage(leaf, nextKey, nextIndex));
   }
 
+  static get leafSchema() {
+    return PublicDataTreeLeaf.schema;
+  }
+
   getKey(): bigint {
     return this.leaf.getKey();
   }
