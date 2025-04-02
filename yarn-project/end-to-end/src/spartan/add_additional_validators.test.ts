@@ -8,17 +8,13 @@ import { type Account, generatePrivateKey, privateKeyToAccount } from 'viem/acco
 import { parseEther } from 'viem/utils';
 
 import {
-  execHelmCommand,
-  getChartDir,
   isK8sConfig,
   kubectlRun,
   readFromValuesFile,
   runAztecBin,
   runAztecBinWithOutput,
-  runProjectScript,
   setupEnvironment,
   startPortForward,
-  waitForResourceByLabel,
 } from './utils.js';
 
 const config = setupEnvironment(process.env);
@@ -147,35 +143,21 @@ describe('add additional validators', () => {
       {
         // TODO: include in config
         ...extraEnv,
+        LOG_LEVEL: 'debug',
         ETHEREUM_SLOT_DURATION: config.ETHEREUM_SLOT_DURATION.toString(),
         AZTEC_EPOCH_DURATION: config.AZTEC_EPOCH_DURATION.toString(),
         AZTEC_SLOT_DURATION: config.AZTEC_SLOT_DURATION.toString(),
         AZTEC_PROOF_SUBMISSION_WINDOW: config.AZTEC_PROOF_SUBMISSION_WINDOW.toString(),
         L1_CHAIN_ID: '1337',
+        SEQ_MIN_TX_PER_BLOCK: '0',
+        P2P_PEER_CHECK_INTERVAL_MS: '2000', // Faster heartbeat for faster discovery
       },
       // Command to run
-      'node',
+      'sh',
       // Command arguments
       [
-        '--no-warnings',
-        '/usr/src/yarn-project/aztec/dest/bin/index.js',
-        'start',
-        '--node',
-        '--archiver',
-        '--sequencer',
-        '--l1-rpc-urls',
-        `http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545`,
-        '--l1-consensus-host-url',
-        `http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052`,
-        '--sequencer.validatorPrivateKey',
-        key,
-        // TODO: make default to the validator address???
-        '--sequencer.coinbase',
-        validatorAddress,
-        '--p2p.bootstrapNodes',
-        enr,
-        '--registry-address',
-        registryAddress,
+        '-c',
+        `export POD_IP=$(hostname -i) && node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --node --archiver --sequencer --l1-rpc-urls http://${config.INSTANCE_NAME}-aztec-network-eth-execution.${config.NAMESPACE}.svc.cluster.local:8545 --l1-consensus-host-url http://${config.INSTANCE_NAME}-aztec-network-eth-beacon.${config.NAMESPACE}.svc.cluster.local:5052 --sequencer.validatorPrivateKey ${key} --sequencer.coinbase ${validatorAddress} --p2p-enabled true --p2p.p2pIp $POD_IP --p2p.bootstrapNodes ${enr} --registry-address ${registryAddress}`,
       ],
     );
   };
@@ -235,20 +217,27 @@ describe('add additional validators', () => {
     }
   };
 
-  const waitForValidatorsToProduceBlocks = async (validatorAddresses: string[], rollupAddress: string) => {
+  const waitForValidatorsToProduceBlocks = async (validatorAddresses: string[]) => {
     // TODO: add a timeout
     // Call get block, check if the coinbase is one of the validators
+    debugLogger.info('Waiting for validators to produce blocks');
     const successfulProposers = new Set<string>();
     while (true) {
       // Get the latest block
       const block = await pxe.getBlock(-1);
       if (!block) {
+        debugLogger.info('No block found, waiting for next block');
         await sleep(5000);
         continue;
       }
 
+      debugLogger.info(
+        `Block ${block.number} has been produced with coinbase ${block.header.globalVariables.coinbase} and fee recipient ${block.header.globalVariables.feeRecipient}`,
+      );
+
       for (const validatorAddress of validatorAddresses) {
         if (block.header.globalVariables.coinbase.toString().toLowerCase() === validatorAddress) {
+          debugLogger.info(`Validator ${validatorAddress} has produced a block`);
           successfulProposers.add(validatorAddress);
         }
       }
@@ -269,7 +258,7 @@ describe('add additional validators', () => {
       if (!info.enr) {
         throw new Error('No ENR found for the boot node');
       }
-      const enr = info.enr.slice(4); // remove enr: prefix
+      const enr = info.enr;
       const rollupAddress = info.l1ContractAddresses.rollupAddress.toString();
       const chain = createEthereumChain([ETHEREUM_HOSTS], 1337);
 
@@ -315,7 +304,7 @@ describe('add additional validators', () => {
       await waitForValidatorsToBeInCommittee(validatorAddresses, rollupAddress);
 
       // Wait for those validators to produce a block
-      await waitForValidatorsToProduceBlocks(validatorAddresses, rollupAddress);
+      await waitForValidatorsToProduceBlocks(validatorAddresses);
     },
     6 * config.AZTEC_PROOF_SUBMISSION_WINDOW * config.AZTEC_SLOT_DURATION * 1000,
   );
