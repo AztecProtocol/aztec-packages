@@ -385,7 +385,7 @@ WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out
     *out = to_heap_buffer(to_buffer(vk));
 }
 
-WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec uint8_t** out)
+WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t** out)
 {
     using DeciderProvingKey = DeciderProvingKey_<UltraKeccakFlavor>;
     using VerificationKey = UltraKeccakFlavor::VerificationKey;

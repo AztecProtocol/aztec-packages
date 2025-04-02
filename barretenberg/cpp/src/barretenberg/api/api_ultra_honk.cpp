@@ -20,9 +20,7 @@ namespace bb {
 extern std::string CRS_PATH;
 
 template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
-Circuit _compute_circuit(const std::string& bytecode_path,
-                         const std::string& witness_path,
-                         const bool init_kzg_accumulator)
+Circuit _compute_circuit(const std::string& bytecode_path, const std::string& witness_path)
 {
     uint32_t honk_recursion = 0;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
