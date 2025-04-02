@@ -19,8 +19,6 @@ contract MockFeeJuicePortal is IFeeJuicePortal {
     UNDERLYING = new TestERC20("test", "TEST", msg.sender);
   }
 
-  function initialize() external override(IFeeJuicePortal) {}
-
   function distributeFees(address, uint256) external override(IFeeJuicePortal) {}
 
   function depositToAztecPublic(bytes32, uint256, bytes32)

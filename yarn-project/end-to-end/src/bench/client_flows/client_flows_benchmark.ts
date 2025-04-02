@@ -40,7 +40,7 @@ import {
   deployAccounts,
 } from '../../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
-import { type SetupOptions, setupCanonicalFeeJuice, setupSponsoredFPC } from '../../fixtures/utils.js';
+import { type SetupOptions, setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import {
   FeeJuicePortalTestingHarnessFactory,
@@ -218,9 +218,7 @@ export class ClientFlowsBenchmark {
   async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
-      async context => {
-        await setupCanonicalFeeJuice(context.pxe);
-      },
+      async () => {},
       async (_data, context) => {
         this.context = context;
 

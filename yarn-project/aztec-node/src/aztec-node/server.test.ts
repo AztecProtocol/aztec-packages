@@ -13,7 +13,7 @@ import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } f
 import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/stdlib/tx';
 
 import { readFileSync } from 'fs';
@@ -75,7 +75,11 @@ describe('aztec node', () => {
     merkleTreeOps.getLeafPreimage.mockImplementation((treeId: MerkleTreeId, index: bigint) => {
       if (treeId === MerkleTreeId.PUBLIC_DATA_TREE && index === feePayerSlotIndex) {
         return Promise.resolve(
-          new PublicDataTreeLeafPreimage(feePayerSlot, new Fr(feePayerBalance), Fr.random(), feePayerSlotIndex + 1n),
+          new PublicDataTreeLeafPreimage(
+            new PublicDataTreeLeaf(feePayerSlot, new Fr(feePayerBalance)),
+            Fr.random(),
+            feePayerSlotIndex + 1n,
+          ),
         );
       } else {
         return Promise.resolve(undefined);

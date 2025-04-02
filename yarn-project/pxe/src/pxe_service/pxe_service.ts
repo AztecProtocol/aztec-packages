@@ -155,7 +155,6 @@ export class PXEService implements PXE {
     const pxeOracleInterface = new PXEOracleInterface(
       node,
       keyStore,
-      simulationProvider,
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,

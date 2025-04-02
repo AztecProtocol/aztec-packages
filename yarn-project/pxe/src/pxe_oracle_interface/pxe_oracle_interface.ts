@@ -1,22 +1,13 @@
-import { type L1_TO_L2_MSG_TREE_HEIGHT, MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/constants';
+import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import type { KeyStore } from '@aztec/key-store';
-import {
-  AcirSimulator,
-  type ExecutionDataProvider,
-  MessageLoadOracleInputs,
-  type SimulationProvider,
-} from '@aztec/simulator/client';
+import { type ExecutionDataProvider, MessageLoadOracleInputs } from '@aztec/simulator/client';
 import {
   EventSelector,
-  type FunctionArtifact,
   type FunctionArtifactWithContractName,
-  FunctionCall,
   FunctionSelector,
-  FunctionType,
-  encodeArguments,
   getFunctionArtifact,
 } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -26,7 +17,13 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { computeAddressSecret, computeAppTaggingSecret } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log, deriveEcdhSharedSecret } from '@aztec/stdlib/logs';
+import {
+  IndexedTaggingSecret,
+  LogWithTxData,
+  PendingTaggedLog,
+  TxScopedL2Log,
+  deriveEcdhSharedSecret,
+} from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { Note, type NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
@@ -50,7 +47,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   constructor(
     private aztecNode: AztecNode,
     private keyStore: KeyStore,
-    private simulationProvider: SimulationProvider,
     private contractDataProvider: ContractDataProvider,
     private noteDataProvider: NoteDataProvider,
     private capsuleDataProvider: CapsuleDataProvider,
@@ -432,19 +428,22 @@ export class PXEOracleInterface implements ExecutionDataProvider {
   }
 
   /**
-   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs
-   * to sync.
-   * @param contractAddress - The address of the contract that the logs are tagged for
-   * @param recipient - The address of the recipient
-   * @returns A list of encrypted logs tagged with the recipient's address
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
+   * in CapsuleArray ready for a later retrieval in Aztec.nr.
+   * @param contractAddress - The address of the contract that the logs are tagged for.
+   * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged logs capsule array in which
+   * found logs will be stored.
+   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
+   * synced.
    */
   public async syncTaggedLogs(
     contractAddress: AztecAddress,
-    maxBlockNumber: number,
+    pendingTaggedLogArrayBaseSlot: Fr,
     scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedL2Log[]>> {
+  ) {
     this.log.verbose('Searching for tagged logs', { contract: contractAddress });
+
+    const maxBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     // Ideally this algorithm would be implemented in noir, exposing its building blocks as oracles.
     // However it is impossible at the moment due to the language not supporting nested slices.
@@ -453,14 +452,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // length, since we don't really know the note they correspond to until we decrypt them.
 
     const recipients = scopes ? scopes : await this.keyStore.getAccounts();
-    // A map of logs going from recipient address to logs. Note that the logs might have been processed before
-    // due to us having a sliding window that "looks back" for logs as well. (We look back as there is no guarantee
-    // that a logs will be received ordered by a given tag index and that the tags won't be reused).
-    const logsMap = new Map<string, TxScopedL2Log[]>();
     const contractName = await this.contractDataProvider.getDebugContractName(contractAddress);
     for (const recipient of recipients) {
-      const logsForRecipient: TxScopedL2Log[] = [];
-
       // Get all the secrets for the recipient and sender pairs (#9365)
       const secrets = await this.#getIndexedTaggingSecretsForSenders(contractAddress, recipient);
 
@@ -499,7 +492,8 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         // Fetch the logs for the tags and iterate over them
         const logsByTags = await this.aztecNode.getLogsByTags(tagsForTheWholeWindow);
 
-        logsByTags.forEach((logsByTag, logIndex) => {
+        for (let logIndex = 0; logIndex < logsByTags.length; logIndex++) {
+          const logsByTag = logsByTags[logIndex];
           if (logsByTag.length > 0) {
             // Discard public logs
             const filteredLogsByTag = logsByTag.filter(l => !l.isFromPublic);
@@ -507,8 +501,16 @@ export class PXEOracleInterface implements ExecutionDataProvider {
               this.log.warn(`Discarded ${logsByTag.filter(l => l.isFromPublic).length} public logs with matching tags`);
             }
 
-            // The logs for the given tag exist so we store them for later processing
-            logsForRecipient.push(...filteredLogsByTag);
+            // We filter out the logs that are newer than the historical block number of the tx currently being constructed
+            const filteredLogsByBlockNumber = filteredLogsByTag.filter(l => l.blockNumber <= maxBlockNumber);
+
+            // We store the logs in capsules (to later be obtained in Noir)
+            await this.#storePendingTaggedLogs(
+              contractAddress,
+              pendingTaggedLogArrayBaseSlot,
+              recipient,
+              filteredLogsByBlockNumber,
+            );
 
             // We retrieve the indexed tagging secret corresponding to the log as I need that to evaluate whether
             // a new largest index have been found.
@@ -540,7 +542,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
               );
             }
           }
-        });
+        }
 
         // Now based on the new largest indexes we found, we will construct a new secrets and windows set to fetch logs
         // for. Note that it's very unlikely that a new log from the current window would appear between the iterations
@@ -569,12 +571,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         secretsAndWindows = newSecretsAndWindows;
       }
 
-      // We filter the logs by block number and store them in the map.
-      logsMap.set(
-        recipient.toString(),
-        logsForRecipient.filter(log => log.blockNumber <= maxBlockNumber),
-      );
-
       // At this point we have processed all the logs for the recipient so we store the new largest indexes in the db.
       await this.taggingDataProvider.setTaggingSecretsIndexesAsRecipient(
         Object.entries(newLargestIndexMapToStore).map(
@@ -583,47 +579,37 @@ export class PXEOracleInterface implements ExecutionDataProvider {
         recipient,
       );
     }
-    return logsMap;
   }
 
-  /**
-   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
-   * @param contractAddress - The address of the contract that the logs are tagged for.
-   * @param logs - The logs to process.
-   * @param recipient - The recipient of the logs.
-   */
-  public async processTaggedLogs(
+  async #storePendingTaggedLogs(
     contractAddress: AztecAddress,
-    logs: TxScopedL2Log[],
+    capsuleArrayBaseSlot: Fr,
     recipient: AztecAddress,
-    simulator?: AcirSimulator,
-  ): Promise<void> {
-    for (const scopedLog of logs) {
-      if (scopedLog.isFromPublic) {
-        throw new Error('Attempted to decrypt public log');
-      }
+    logs: TxScopedL2Log[],
+  ) {
+    // Build all pending tagged logs upfront with their tx effects
+    const pendingTaggedLogs = await Promise.all(
+      logs.map(async scopedLog => {
+        // TODO(#9789): get these effects along with the log
+        const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
+        if (!txEffect) {
+          throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
+        }
 
-      // Log processing requires the note hashes in the tx in which the note was created. We are now assuming that the
-      // note was included in the same block in which the log was delivered - note that partial notes will not work this
-      // way.
-      const txEffect = await this.aztecNode.getTxEffect(scopedLog.txHash);
-      if (!txEffect) {
-        throw new Error(`Could not find tx effect for tx hash ${scopedLog.txHash}`);
-      }
+        const pendingTaggedLog = new PendingTaggedLog(
+          scopedLog.log.toFields(),
+          scopedLog.txHash.hash,
+          txEffect.data.noteHashes,
+          txEffect.data.nullifiers[0],
+          recipient,
+          scopedLog.logIndexInTx,
+        );
 
-      // This will trigger calls to the deliverNote oracle
-      await this.callProcessLog(
-        contractAddress,
-        scopedLog.log.toFields(),
-        scopedLog.txHash,
-        txEffect.data.noteHashes,
-        txEffect.data.nullifiers[0],
-        scopedLog.logIndexInTx,
-        recipient,
-        simulator,
-      );
-    }
-    return;
+        return pendingTaggedLog.toFields();
+      }),
+    );
+
+    return this.capsuleDataProvider.appendToCapsuleArray(contractAddress, capsuleArrayBaseSlot, pendingTaggedLogs);
   }
 
   public async deliverNote(
@@ -779,52 +765,6 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     }
   }
 
-  async callProcessLog(
-    contractAddress: AztecAddress,
-    logCiphertext: Fr[],
-    txHash: TxHash,
-    noteHashes: Fr[],
-    firstNullifier: Fr,
-    logIndexInTx: number,
-    recipient: AztecAddress,
-    simulator?: AcirSimulator,
-  ) {
-    const artifact: FunctionArtifact | undefined = await this.contractDataProvider.getFunctionArtifactByName(
-      contractAddress,
-      'process_log',
-    );
-    if (!artifact) {
-      throw new Error(
-        `Mandatory implementation of "process_log" missing in noir contract ${contractAddress.toString()}.`,
-      );
-    }
-
-    const selector = await FunctionSelector.fromNameAndParameters(artifact);
-    const execRequest: FunctionCall = {
-      name: artifact.name,
-      to: contractAddress,
-      selector,
-      type: FunctionType.UNCONSTRAINED,
-      isStatic: artifact.isStatic,
-      args: encodeArguments(artifact, [
-        toBoundedVec(logCiphertext, PRIVATE_LOG_SIZE_IN_FIELDS),
-        txHash.toString(),
-        toBoundedVec(noteHashes, MAX_NOTE_HASHES_PER_TX),
-        firstNullifier,
-        logIndexInTx,
-        recipient,
-      ]),
-      returnTypes: artifact.returnTypes,
-    };
-
-    await (simulator ?? new AcirSimulator(this, this.simulationProvider)).runUnconstrained(
-      execRequest,
-      contractAddress,
-      selector,
-      [], // empty scope as this call should not require access to private information
-    );
-  }
-
   storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
     return this.capsuleDataProvider.storeCapsule(contractAddress, slot, capsule);
   }
@@ -880,8 +820,4 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       blockNumber,
     );
   }
-}
-
-function toBoundedVec(array: Fr[], maxLength: number) {
-  return { storage: array.concat(Array(maxLength - array.length).fill(new Fr(0))), len: array.length };
 }
