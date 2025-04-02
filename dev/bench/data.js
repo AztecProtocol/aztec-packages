@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743587733450,
+  "lastUpdate": 1743604068428,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "aakoshh@gmail.com",
-            "name": "Akosh Farkash",
-            "username": "aakoshh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "493dede81c2b22426025a398ac81f6b3b8ad9e81",
-          "message": "feat(noir): Allow missing optional fields in msgpack (#13141)\n\nFollowup for https://github.com/AztecProtocol/aztec-packages/pull/12841\n\nChanges code generation for msgpack so that it doesn't throw an error if\nan optional field of a `struct` is not present in the data. This is to\nallow @TomAFrench and @asterite to delete `Opcode::MemoryOp::predicate`\nwhich is an optional field that we no longer use. Removing such a field\nshould be a non-breaking change, as the field was optional to begin\nwith, so while even if it's present in C++ it should already handle it\nbeing empty.\n\nUnfortunately the `msgpack-c` library as far as I can see [would throw\nan\nerror](https://github.com/AztecProtocol/msgpack-c/blob/54e9865b84bbdc73cfbf8d1d437dbf769b64e386/include/msgpack/v1/adaptor/detail/cpp11_define_map.hpp#L33-L45)\nif the optional field would not be present in the data as NIL.\n\nFor this to work the PR re-introduces the `Helpers` and enumerates\nfields explicitly, instead of using `MSGPACK_FIELDS`. I changed the\nunmerged https://github.com/noir-lang/noir/pull/7716 to do codegen with\nthis change.\n\nI rebased https://github.com/AztecProtocol/aztec-packages/pull/13021 on\ntop of this PR to see if it works when msgpack is actually in use.\n\n### Note for future migration path\n\n@ludamad reached out that while the bytecode size increase shown in\nhttps://github.com/noir-lang/noir/pull/7690 doesn't seem too bad, and\ncompression compensates for the inclusion of string field names, it's\nstill wasteful to have to parse them, and it would be better to use\narrays.\n\nI established in\n[tests](https://github.com/noir-lang/noir/pull/7690/files#diff-2d66028e5a8966511a76d1740d752be294c0b6a46e0a567bc2959f91d9ce224bR169-R176)\nthat we what we call `msgpack-compact` format uses arrays for structs,\nbut still tags enums with types. We use a lot of enums, so there is\nstill quite a few strings. Ostensibly we could use [serde\nattributes](https://serde.rs/container-attrs.html) to shorten names, but\nit would probably be a nightmare and ugly.\n\nNevertheless if we generated C++ code to deal with arrays, we could save\nsome space.\n\nAnd if we want to stick to `bincode`, we can use\n`NOIR_SERIALIZATION_FORMAT=bincode`, which I back ported to the Noir\ncodegen PR, to generate `bincode` with a format byte marker. There is\nalso `bincode-legacy`, but unfortunately we only have one shot at\ndeserialising bincode in C++: if it fails, we can't catch the exception.\nTherefore the path to be able to use the bincode format marker is:\n1. Release `bb` which can handle the `msgpack` format (which has a\nprobe, doesn't have to throw)\n2. Start producing msgpack data from `nargo` \n3. Stop accepting unmarked bincode in `bb` and look for format byte == 1\nto show that bincode is in use\n4. Tell `nargo` which format to use\n\nEDIT: Unfortunately if we use `binpack` with today's data types it\nforces us to parse the Brillig part, as established by\nhttps://github.com/AztecProtocol/aztec-packages/pull/13143 which would\nmean the Noir team can't make any changes to Brillig opcodes without\nbreaking `bb`. We would need to change the format again to use two tier\nencoding, or use msgpack arrays.",
-          "timestamp": "2025-03-28T18:40:28Z",
-          "tree_id": "3e1ee8c69b353e2534034efc9f4fc47e9e24a838",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/493dede81c2b22426025a398ac81f6b3b8ad9e81"
-        },
-        "date": 1743189362531,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 16726.48567300007,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 14988.732558 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 118125061884.5,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 1451178156,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 200784088,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 17827.54043399996,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15701.612101 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 46460.570284999994,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 46460571000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 3200.270989000046,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3004.523784 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 7919.656704999999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 7919657000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2209.31",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2962,6 +2884,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 11050,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "51711291+natebeauregard@users.noreply.github.com",
+            "name": "Nate Beauregard",
+            "username": "natebeauregard"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "1d0185dd606eca3604971a63aef4eeb53efd8319",
+          "message": "feat: accept multiple consensus client endpoints (#13022)\n\nCloses https://github.com/AztecProtocol/aztec-packages/issues/12747\n\nUse multiple endpoints for the consensus rpc as fallback in case one\ngoes down.\n\nThe following env vars were renamed and updated to be lists:\n`L1_CONSENSUS_HOST_URL` => `L1_CONSENSUS_HOST_URLS`\n`L1_CONSENSUS_HOST_API_KEY` => `L1_CONSENSUS_HOST_API_KEYS`\n`L1_CONSENSUS_HOST_API_KEY_HEADER` =>\n`L1_CONSENSUS_HOST_API_KEY_HEADERS`\n\nThe following CLI flags were renamed and updated to be lists:\n`--l1-consensus-host-url` => `--l1-consensus-host-urls`\n`--l1-consensus-host-api-key` => `--l1-consensus-host-api-keys`\n`--l1-consensus-host-api-key-header` =>\n`--l1-consensus-host-api-key-headers`",
+          "timestamp": "2025-04-02T13:50:48Z",
+          "tree_id": "e9628ce8aefc7b25c1ce85ee84ab420e5303da72",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1d0185dd606eca3604971a63aef4eeb53efd8319"
+        },
+        "date": 1743604060176,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 26808,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 17830,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8693,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10377,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 10929,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
