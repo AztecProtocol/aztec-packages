@@ -1,5 +1,6 @@
 ---
 title: Glossary
+tags: [protocol, glossary]
 ---
 
 ### `aztec-nargo`
@@ -38,7 +39,7 @@ How this works will be discussed via a future RFP process on Discourse, similarl
 
 The Private eXecution Environment (PXE) is a client-side library for the execution of private operations. The PXE generates proofs of private function execution, and sends these proofs along with public function requests to the sequencer. Private inputs never leave the client-side PXE.
 
-Read more [here](../concepts/pxe/index.md).
+Read more [here](./aztec/concepts/pxe/index.md).
 
 ### Sequencer
 
