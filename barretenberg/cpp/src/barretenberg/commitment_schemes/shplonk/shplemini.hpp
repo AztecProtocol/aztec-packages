@@ -58,8 +58,9 @@ template <typename Curve> class ShpleminiProver_ {
         }
 
         // Only used in Translator
-        std::array<OpeningClaim, NUM_INTERLEAVING_CLAIMS> interleaving_claims;
+        std::vector<OpeningClaim> interleaving_claims;
         if (polynomial_batcher.has_interleaved()) {
+            opening_claims.reserve(NUM_INTERLEAVING_CLAIMS);
             const FF& gemini_r = opening_claims[0].opening_pair.challenge;
             interleaving_claims = GeminiProver::compute_interleaving_claims(polynomial_batcher, gemini_r, transcript);
         }
@@ -258,7 +259,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             GeminiVerifier::get_gemini_evaluations(verifier_state.virtual_log_n, transcript);
 
         // Get evaluations of partially evaluated batched interleaved polynomials P₊(rˢ) and P₋((-r)ˢ)
-        if (claim_batcher.interleaved) {
+        if (has_interleaving) {
             verifier_state.p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_pos");
             verifier_state.p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_neg");
         }
@@ -310,8 +311,8 @@ template <typename Curve> class ShpleminiVerifier_ {
                  verifier_state.gemini_evaluation_challenge.pow(claim_batcher.get_groups_to_be_interleaved_size()))
                     .invert();
             verifier_state.constant_term_accumulator +=
-                verifier_state.p_pos * interleaving_vanishing_eval +
-                verifier_state.p_neg * interleaving_vanishing_eval * verifier_state.shplonk_batching_challenge;
+                interleaving_vanishing_eval *
+                (verifier_state.p_pos + verifier_state.p_neg * verifier_state.shplonk_batching_challenge);
 
             verifier_state.interleaving_vanishing_eval = interleaving_vanishing_eval;
         }
@@ -451,17 +452,19 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                          const std::vector<Fr>& gemini_pos_evaluations,
                                                          const std::vector<Fr>& inverse_vanishing_evals)
     {
+        const Fr& shplonk_batching_challenge = verifier_state.shplonk_batching_challenge;
+        Fr& shplonk_batching_challenge_power = verifier_state.shplonk_batching_challenge_power;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
         // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
         // polynomials. The corresponding evaluations are also handled separately.
         for (size_t j = 1; j < verifier_state.virtual_log_n; ++j) {
-
             // Compute the "positive" scaling factor  (ν^{2j}) / (z - r^{2^{j}})
             Fr scaling_factor_pos = verifier_state.shplonk_batching_challenge_power * inverse_vanishing_evals[2 * j];
-            verifier_state.shplonk_batching_challenge_power *= verifier_state.shplonk_batching_challenge;
+
             // Compute the "negative" scaling factor  (ν^{2j+1}) / (z + r^{2^{j}})
-            Fr scaling_factor_neg =
-                verifier_state.shplonk_batching_challenge_power * inverse_vanishing_evals[2 * j + 1];
+            shplonk_batching_challenge_power *= shplonk_batching_challenge;
+            Fr scaling_factor_neg = shplonk_batching_challenge_power * inverse_vanishing_evals[2 * j + 1];
+            shplonk_batching_challenge_power *= shplonk_batching_challenge;
 
             // Accumulate the const term contribution given by
             // v^{2j} * A_j(r^{2^j}) /(z - r^{2^j}) + v^{2j+1} * A_j(-r^{2^j}) /(z+ r^{2^j})
@@ -614,10 +617,10 @@ template <typename Curve> class ShpleminiVerifier_ {
         // compute the scalars to be multiplied against the commitments [libra_concatenated], [grand_sum], [grand_sum],
         // and [libra_quotient]
         for (size_t idx = 0; idx < NUM_SMALL_IPA_EVALUATIONS; idx++) {
-            shplonk_batching_challenge_power *= shplonk_batching_challenge;
             Fr scaling_factor = denominators[idx] * shplonk_batching_challenge_power;
             batching_scalars[idx] = -scaling_factor;
             verifier_state.constant_term_accumulator += scaling_factor * libra_evaluations[idx];
+            shplonk_batching_challenge_power *= shplonk_batching_challenge;
         }
 
         // to save a scalar mul, add the sum of the batching scalars corresponding to the big sum evaluations

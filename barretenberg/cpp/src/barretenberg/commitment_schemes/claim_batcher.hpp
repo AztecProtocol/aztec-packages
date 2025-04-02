@@ -13,7 +13,7 @@ template <typename Curve> struct ShpleminiVerifierState {
     Fr p_neg;
     Fr interleaving_vanishing_eval;
 
-    Fr batched_evaluation;
+    Fr batched_evaluation{ 0 };
 
     Fr gemini_batching_challenge;
     Fr gemini_evaluation_challenge;

@@ -325,8 +325,9 @@ template <typename Curve> class GeminiProver_ {
                                                                   const Fr& r_challenge);
 
     template <typename Transcript>
-    static std::array<Claim, NUM_INTERLEAVING_CLAIMS> compute_interleaving_claims(
-        PolynomialBatcher& polynomial_batcher, const Fr r_challenge, const std::shared_ptr<Transcript>& transcript);
+    static std::vector<Claim> compute_interleaving_claims(PolynomialBatcher& polynomial_batcher,
+                                                          const Fr r_challenge,
+                                                          const std::shared_ptr<Transcript>& transcript);
 
     template <typename Transcript>
     static std::vector<Claim> prove(const Fr circuit_size,

@@ -63,22 +63,23 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial tmp(max_poly_size);
 
         Fr nu_power = Fr::one();
-        // Const size here
-        for (const auto& claim : libra_opening_claims) {
-            update_batched_quotient(Q, claim, nu_power, nu);
-        }
-
-        // Const size here, only ECCVM
-        for (const auto& claim : sumcheck_round_claims) {
-            update_batched_quotient(Q, claim, nu_power, nu);
-        }
-
+        // Only used in Translator
         for (const auto& claim : interleaving_claims) {
             update_batched_quotient(Q, claim, nu_power, nu);
         }
 
+        // Used by all ZK-Flavors
+        for (const auto& claim : libra_opening_claims) {
+            update_batched_quotient(Q, claim, nu_power, nu);
+        }
+
+        // Only used in ECCVM
+        for (const auto& claim : sumcheck_round_claims) {
+            update_batched_quotient(Q, claim, nu_power, nu);
+        }
+
         size_t fold_idx = 0;
-        // no need for padding
+        // Could be used to batch open any univaraiate claims but includes special handling of Gemini fold claims.
         for (const auto& claim : opening_claims) {
 
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
@@ -145,16 +146,16 @@ template <typename Curve> class ShplonkProver_ {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
 
+        for (const auto& claim : interleaving_claims) {
+            inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
+        }
+
         // Add the terms (z - uₖ) for k = 0, …, d−1 where d is the number of rounds in Sumcheck
         for (const auto& claim : libra_opening_claims) {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
 
         for (const auto& claim : sumcheck_opening_claims) {
-            inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
-        }
-
-        for (const auto& claim : interleaving_claims) {
             inverse_vanishing_evals.emplace_back(z_challenge - claim.opening_pair.challenge);
         }
 
@@ -169,15 +170,15 @@ template <typename Curve> class ShplonkProver_ {
         Polynomial tmp(G.size());
         size_t idx = 0;
 
+        for (auto& claim : interleaving_claims) {
+            update_partially_evaluated_quotient(G, claim, nu_power, nu, inverse_vanishing_evals[idx++]);
+        }
+
         for (auto& claim : libra_opening_claims) {
             update_partially_evaluated_quotient(G, claim, nu_power, nu, inverse_vanishing_evals[idx++]);
         }
 
         for (auto& claim : sumcheck_opening_claims) {
-            update_partially_evaluated_quotient(G, claim, nu_power, nu, inverse_vanishing_evals[idx++]);
-        }
-
-        for (auto& claim : interleaving_claims) {
             update_partially_evaluated_quotient(G, claim, nu_power, nu, inverse_vanishing_evals[idx++]);
         }
 
