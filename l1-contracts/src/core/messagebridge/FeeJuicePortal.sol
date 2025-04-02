@@ -22,33 +22,11 @@ contract FeeJuicePortal is IFeeJuicePortal {
   IERC20 public immutable UNDERLYING;
   uint256 public immutable VERSION;
 
-  bool public initialized;
-
   constructor(IRollup _rollup, IERC20 _underlying, IInbox _inbox, uint256 _version) {
     ROLLUP = _rollup;
     INBOX = _inbox;
     UNDERLYING = _underlying;
     VERSION = _version;
-  }
-
-  /**
-   * @notice  Initialize the FeeJuicePortal
-   *
-   * @dev     This function is only callable by the owner of the contract and only once
-   *
-   * @dev     Must be funded with FEE_JUICE_INITIAL_MINT tokens before initialization to
-   *          ensure that the L2 contract is funded and able to pay for its deployment.
-   */
-  function initialize() external override(IFeeJuicePortal) {
-    require(!initialized, Errors.FeeJuicePortal__AlreadyInitialized());
-
-    uint256 balance = UNDERLYING.balanceOf(address(this));
-    if (balance < Constants.FEE_JUICE_INITIAL_MINT) {
-      UNDERLYING.safeTransferFrom(
-        msg.sender, address(this), Constants.FEE_JUICE_INITIAL_MINT - balance
-      );
-    }
-    initialized = true;
   }
 
   /**

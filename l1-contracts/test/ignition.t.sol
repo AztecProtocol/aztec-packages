@@ -7,7 +7,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -93,8 +93,6 @@ contract IgnitionTest is RollupBase {
     );
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
     rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
