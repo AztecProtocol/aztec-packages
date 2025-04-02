@@ -300,8 +300,6 @@ async function setupFromFresh(
 ): Promise<SubsystemsContext> {
   logger.verbose(`Initializing state...`);
 
-  const blobSinkPort = await getPort();
-
   // Fetch the AztecNode config.
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = { ...getConfigEnvVars(), ...opts };
@@ -320,7 +318,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -415,7 +413,6 @@ async function setupFromFresh(
       l1ChainId: aztecNodeConfig.l1ChainId,
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
-      port: blobSinkPort,
       dataDirectory: aztecNodeConfig.dataDirectory,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
     },
@@ -484,16 +481,13 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
   await fs.mkdir(directoryToCleanup, { recursive: true });
 
-  // Run the blob sink on a random port
-  const blobSinkPort = await getPort();
-
   // TODO: For some reason this is currently the union of a bunch of subsystems. That needs fixing.
   const aztecNodeConfig: AztecNodeConfig & SetupOptions = JSON.parse(
     readFileSync(`${statePath}/aztec_node_config.json`, 'utf-8'),
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
   aztecNodeConfig.listenAddress = '127.0.0.1';
 
   const initialFundedAccounts: InitialAccountData[] =
@@ -538,7 +532,6 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       l1ChainId: aztecNodeConfig.l1ChainId,
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
-      port: blobSinkPort,
       dataDirectory: statePath,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
     },
