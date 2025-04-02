@@ -37,19 +37,19 @@ function build_preset() {
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-release-$hash.zst; then
+  if ! cache_download barretenberg-native-$hash.zst; then
     ./format.sh check
     build_preset $native_preset --target bb
-    cache_upload barretenberg-release-$hash.zst build/bin
+    cache_upload barretenberg-native-$hash.zst build/bin
   fi
 }
 
 function build_nodejs_module {
   set -eu
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-release-nodejs-module-$hash.zst; then
+  if ! cache_download barretenberg-native-nodejs-module-$hash.zst; then
     build_preset $pic_preset --target nodejs_module
-    cache_upload barretenberg-release-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
+    cache_upload barretenberg-native-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
   fi
 }
 
@@ -66,7 +66,7 @@ function build_darwin {
       sudo rm -rf /opt/osxcross/SDK/$osx_sdk/System
     fi
 
-    build_preset darwin-$arch --target nodejs_module
+    build_preset darwin-$arch --target bb
     cache_upload barretenberg-darwin-$hash.zst build-darwin-$arch/bin
   fi
 }
@@ -299,8 +299,12 @@ case "$cmd" in
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
-    # build_preset op-count-time --target bb_cli_bench
-    build_preset wasm-threads --target bb_cli_bench
+
+    # build the benchmarked benches
+    parallel --line-buffered --tag -v denoise ::: \
+      build_preset $native_preset --target bb_cli_bench \
+      build_preset wasm-threads --target bb_cli_bench
+
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then
       echo "Downloading inputs from commit $1."
@@ -310,6 +314,7 @@ case "$cmd" in
       # This generates the client IVC verification keys.
       yarn --cwd ../../yarn-project/bb-prover generate
     fi
+
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
     ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
