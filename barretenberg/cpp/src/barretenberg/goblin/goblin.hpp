@@ -83,7 +83,9 @@ class GoblinProver {
         }
 
         MergeProver merge_prover{ circuit_builder.op_queue, commitment_key };
+
         merge_proof = merge_prover.construct_proof();
+
         return merge_proof;
     };
 
@@ -92,6 +94,7 @@ class GoblinProver {
         PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
 
         auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+
         // As is it used in ClientIVC, we make it fixed size = 2^{CONST_ECCVM_LOG_N}
         eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder, /*fixed_size =*/true);
         eccvm_key = eccvm_prover->key;
@@ -111,11 +114,20 @@ class GoblinProver {
                                      const fq& evaluation_challenge_x,
                                      const std::shared_ptr<Transcript>& transcript)
     {
+        auto T_last = op_queue->construct_previous_ultra_ops_table_columns();
+        for (size_t i = 0; i < 50; ++i) {
+            info(T_last[0][i]);
+        }
         PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
         auto translator_builder =
             std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
         translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
         translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
+        info("op wire: ", get_translator_proving_key()->polynomials.op.size());
+        for (size_t i = 0; i < 50; ++i) {
+            info(get_translator_proving_key()->polynomials.op[i]);
+        }
+
         eccvm_prover = nullptr;
     }
 
@@ -229,13 +241,16 @@ class GoblinVerifier {
 
         bool translation_verified = translator_verifier.verify_translation(
             proof.translation_evaluations, eccvm_verifier.translation_masking_term_eval);
+        bool merge_translator_consistency_verified = translator_verifier.verify_consistency_with_merge(merge_verifier);
 
         vinfo("merge verified?: ", merge_verified);
         vinfo("eccvm verified?: ", eccvm_verified);
         vinfo("accumulator construction_verified?: ", accumulator_construction_verified);
         vinfo("translation verified?: ", translation_verified);
+        info("translator-merge op queue consistency verified?: ", merge_translator_consistency_verified);
 
-        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
+        return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified &&
+               merge_translator_consistency_verified;
     };
 };
 } // namespace bb

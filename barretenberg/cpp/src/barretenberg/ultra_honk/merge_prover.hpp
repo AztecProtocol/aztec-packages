@@ -33,6 +33,7 @@ class MergeProver {
                          std::shared_ptr<CommitmentKey> commitment_key = nullptr);
 
     BB_PROFILE MergeProof construct_proof();
+    std::array<Polynomial, 4> T_current;
 
   private:
     std::shared_ptr<ECCOpQueue> op_queue;

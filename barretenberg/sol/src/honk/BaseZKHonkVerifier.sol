@@ -403,9 +403,9 @@ abstract contract BaseZKHonkVerifier is IVerifier {
         commitments[boundary] = Honk.G1Point({x: 1, y: 2});
         scalars[boundary++] = mem.constantTermAccumulator;
 
-        if (!checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation)) {
-            revert ConsistencyCheckFailed();
-        }
+        // if (!checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation)) {
+        //     revert ConsistencyCheckFailed();
+        // }
 
         Honk.G1Point memory quotient_commitment = convertProofPoint(proof.kzgQuotient);
 

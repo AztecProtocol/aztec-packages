@@ -388,7 +388,7 @@ void TranslatorCircuitBuilder::create_accumulation_gate(const AccumulationInput 
     ASSERT(uint256_t(acc_step.P_y_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
     insert_pair_into_wire(WireIds::X_LOW_Y_HI, acc_step.P_x_lo, acc_step.P_y_hi);
 
-    // Check and insert P_x_hi and z_1 into wire 2
+    // Check and insert P_x_hi and z_1 into wireO 2
     ASSERT(uint256_t(acc_step.P_x_hi) <= MAX_HIGH_WIDE_LIMB_SIZE);
     ASSERT(uint256_t(acc_step.z_1) <= MAX_LOW_WIDE_LIMB_SIZE);
     insert_pair_into_wire(WireIds::X_HIGH_Z_1, acc_step.P_x_hi, acc_step.z_1);
@@ -594,6 +594,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_wi
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
     using Fq = bb::fq;
+    info("in translator circuit builder");
     const auto& eccvm_ops = ecc_op_queue->get_eccvm_ops();
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);

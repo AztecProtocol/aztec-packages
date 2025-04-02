@@ -112,7 +112,7 @@ class ECCVMCircuitBuilder {
         std::vector<size_t> msm_opqueue_index;
         std::vector<std::pair<size_t, size_t>> msm_mul_index;
         std::vector<size_t> msm_sizes;
-
+        info("in eccvm circuit builder");
         const auto& eccvm_ops = op_queue->get_eccvm_ops();
         size_t op_idx = 0;
         // populate opqueue and mul indices

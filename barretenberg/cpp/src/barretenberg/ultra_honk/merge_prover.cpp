@@ -33,7 +33,7 @@ MergeProver::MergeProof MergeProver::construct_proof()
     transcript = std::make_shared<Transcript>();
 
     // Extract columns of the full table T_j, the previous table T_{j,prev}, and the current subtable t_j
-    std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
+    T_current = op_queue->construct_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
 

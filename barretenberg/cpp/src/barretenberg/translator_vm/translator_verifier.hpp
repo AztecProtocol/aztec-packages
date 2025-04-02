@@ -2,9 +2,8 @@
 #include "barretenberg/goblin/translation_evaluations.hpp"
 #include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/translator_vm/translator_flavor.hpp"
-#include "barretenberg/translator_vm/translator_prover.hpp"
-
 namespace bb {
+class MergeVerifier;
 class TranslatorVerifier {
   public:
     using Flavor = TranslatorFlavor;
@@ -21,7 +20,7 @@ class TranslatorVerifier {
     BF batching_challenge_v = 0;
 
     std::shared_ptr<VerificationKey> key;
-    std::map<std::string, Commitment> commitments;
+    std::array<Commitment, 4> consistency_commitments;
     std::shared_ptr<Transcript> transcript;
     RelationParameters<FF> relation_parameters;
 
@@ -36,5 +35,6 @@ class TranslatorVerifier {
     bool verify_proof(const HonkProof& proof, const uint256_t& evaluation_input_x, const BF& batching_challenge_v);
     bool verify_translation(const TranslationEvaluations& translation_evaluations,
                             const BF& translation_masking_term_eval);
+    bool verify_consistency_with_merge(const MergeVerifier& merge_verifier);
 };
 } // namespace bb

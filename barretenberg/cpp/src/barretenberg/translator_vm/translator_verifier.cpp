@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/sumcheck/sumcheck.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/merge_verifier.hpp"
 
 namespace bb {
 
@@ -61,9 +62,6 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
 
-    Flavor::VerifierCommitments commitments{ key };
-    Flavor::CommitmentLabels commitment_labels;
-
     const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
@@ -74,11 +72,17 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
         return false;
     }
 
+    Flavor::VerifierCommitments commitments{ key };
+    Flavor::CommitmentLabels commitment_labels;
     // Get commitments to wires and the ordered range constraints that do not require additional challenges
     for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
                                        commitment_labels.get_wires_and_ordered_range_constraints())) {
         comm = transcript->template receive_from_prover<Commitment>(label);
     }
+    consistency_commitments[0] = commitments.op;
+    consistency_commitments[1] = commitments.x_lo_y_hi;
+    consistency_commitments[2] = commitments.x_hi_z_1;
+    consistency_commitments[3] = commitments.y_lo_z_2;
 
     // Get permutation challenges
     FF beta = transcript->template get_challenge<FF>("beta");
@@ -174,6 +178,34 @@ bool TranslatorVerifier::verify_translation(const TranslationEvaluations& transl
     bool is_value_reconstructed =
         reconstruct_value_from_eccvm_evaluations(translation_evaluations, relation_parameters);
     return is_value_reconstructed;
+}
+
+bool TranslatorVerifier::verify_consistency_with_merge(const MergeVerifier& merge_verifier)
+{
+    auto T_commitments = merge_verifier.T_commitments;
+    ASSERT(T_commitments.size() == 4);
+    bool same_op = T_commitments[0] == consistency_commitments[0];
+    // if (!same_op) {
+    //     return false;
+    // }
+    info("Op commitment mismatch ", T_commitments[0], " vs ", consistency_commitments[0]);
+    bool same_X_low_Y_hi = T_commitments[1] == consistency_commitments[1];
+    // if (!same_X_low_Y_hi) {
+    //     return false;
+    // }
+    info("X low Y hi commitment mismatch ", T_commitments[1], " vs ", consistency_commitments[1]);
+    bool same_X_high_Z_1 = T_commitments[2] == consistency_commitments[2];
+    // if (!same_X_high_Z_1) {
+    //     return false;
+    // }
+    info("X high Z 1 commitment mismatch ", T_commitments[2], " vs ", consistency_commitments[2]);
+    bool same_Y_low_Z_2 = T_commitments[3] == consistency_commitments[3];
+    // if (!same_Y_low_Z_2) {
+    //     return false;
+    // }
+    info("Y low Z 2 commitment mismatch ", T_commitments[3], " vs ", consistency_commitments[3]);
+
+    return same_op && same_X_low_Y_hi && same_X_high_Z_1 && same_Y_low_Z_2;
 }
 
 } // namespace bb

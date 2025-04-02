@@ -15,7 +15,7 @@ namespace bb {
  * circuit, while the Ultra-arithmetization is used in the Mega circuits and the Translator VM. Both tables are
  * constructed via successive pre-pending of subtables of the same format, where each subtable represents the operations
  * of a single circuit.
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possiblπe efficiency improvements
  */
 class ECCOpQueue {
     using Curve = curve::BN254;
@@ -81,6 +81,7 @@ class ECCOpQueue {
     std::vector<ECCVMOperation>& get_eccvm_ops()
     {
         if (eccvm_ops_reconstructed.empty()) {
+            info("here?");
             construct_full_eccvm_ops_table();
         }
         return eccvm_ops_reconstructed;
