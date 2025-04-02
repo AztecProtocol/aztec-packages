@@ -8,20 +8,20 @@
 namespace bb::crypto::merkle_tree {
 
 struct NullifierLeafValue {
-    fr value;
+    fr nullifier;
 
-    MSGPACK_FIELDS(value)
+    MSGPACK_FIELDS(nullifier)
 
     NullifierLeafValue() = default;
-    NullifierLeafValue(const fr& v)
-        : value(v)
+    NullifierLeafValue(const fr& n)
+        : nullifier(n)
     {}
     NullifierLeafValue(const NullifierLeafValue& other) = default;
     NullifierLeafValue(NullifierLeafValue&& other) = default;
     NullifierLeafValue& operator=(const NullifierLeafValue& other)
     {
         if (this != &other) {
-            value = other.value;
+            nullifier = other.nullifier;
         }
         return *this;
     }
@@ -29,7 +29,7 @@ struct NullifierLeafValue {
     NullifierLeafValue& operator=(NullifierLeafValue&& other) noexcept
     {
         if (this != &other) {
-            value = other.value;
+            nullifier = other.nullifier;
         }
         return *this;
     }
@@ -37,21 +37,21 @@ struct NullifierLeafValue {
 
     static bool is_updateable() { return false; }
 
-    bool operator==(NullifierLeafValue const& other) const { return value == other.value; }
+    bool operator==(NullifierLeafValue const& other) const { return nullifier == other.nullifier; }
 
     friend std::ostream& operator<<(std::ostream& os, const NullifierLeafValue& v)
     {
-        os << "value = " << v.value;
+        os << "nullifier = " << v.nullifier;
         return os;
     }
 
-    fr get_key() const { return value; }
+    fr get_key() const { return nullifier; }
 
-    bool is_empty() const { return value == fr::zero(); }
+    bool is_empty() const { return nullifier.is_zero(); }
 
-    std::vector<fr> get_hash_inputs(fr nextValue, fr nextIndex) const
+    std::vector<fr> get_hash_inputs(fr nextKey, fr nextIndex) const
     {
-        return std::vector<fr>({ value, nextValue, nextIndex });
+        return std::vector<fr>({ nullifier, nextKey, nextIndex });
     }
 
     operator uint256_t() const { return get_key(); }
@@ -60,19 +60,19 @@ struct NullifierLeafValue {
 
     static NullifierLeafValue padding(index_t i) { return { i }; }
 
-    static std::string name() { return std::string("NullifierLeafValue"); };
+    static std::string name() { return "NullifierLeafValue"; };
 };
 
 struct PublicDataLeafValue {
-    fr value;
     fr slot;
+    fr value;
 
-    MSGPACK_FIELDS(value, slot)
+    MSGPACK_FIELDS(slot, value)
 
     PublicDataLeafValue() = default;
     PublicDataLeafValue(const fr& s, const fr& v)
-        : value(v)
-        , slot(s)
+        : slot(s)
+        , value(v)
     {}
     PublicDataLeafValue(const PublicDataLeafValue& other) = default;
     PublicDataLeafValue(PublicDataLeafValue&& other) = default;
@@ -120,22 +120,22 @@ struct PublicDataLeafValue {
 
     static PublicDataLeafValue padding(index_t i) { return { i, fr::zero() }; }
 
-    static std::string name() { return std::string("PublicDataLeafValue"); };
+    static std::string name() { return "PublicDataLeafValue"; };
 };
 
 template <typename LeafType> struct IndexedLeaf {
-    LeafType value;
+    LeafType leaf;
     index_t nextIndex;
-    fr nextValue;
+    fr nextKey;
 
-    MSGPACK_FIELDS(value, nextIndex, nextValue)
+    MSGPACK_FIELDS(leaf, nextIndex, nextKey)
 
     IndexedLeaf() = default;
 
-    IndexedLeaf(const LeafType& val, const index_t& nextIdx, const fr& nextVal)
-        : value(val)
+    IndexedLeaf(const LeafType& leaf, const index_t& nextIdx, const fr& nextKey)
+        : leaf(leaf)
         , nextIndex(nextIdx)
-        , nextValue(nextVal)
+        , nextKey(nextKey)
     {}
 
     IndexedLeaf(const IndexedLeaf<LeafType>& other) = default;
@@ -148,14 +148,14 @@ template <typename LeafType> struct IndexedLeaf {
 
     bool operator==(IndexedLeaf<LeafType> const& other) const
     {
-        return value == other.value && nextValue == other.nextValue && nextIndex == other.nextIndex;
+        return leaf == other.leaf && nextKey == other.nextKey && nextIndex == other.nextIndex;
     }
 
     IndexedLeaf<LeafType>& operator=(IndexedLeaf<LeafType> const& other)
     {
         if (this != &other) {
-            value = other.value;
-            nextValue = other.nextValue;
+            leaf = other.leaf;
+            nextKey = other.nextKey;
             nextIndex = other.nextIndex;
         }
         return *this;
@@ -164,8 +164,8 @@ template <typename LeafType> struct IndexedLeaf {
     IndexedLeaf<LeafType>& operator=(IndexedLeaf<LeafType>&& other) noexcept
     {
         if (this != &other) {
-            value = other.value;
-            nextValue = other.nextValue;
+            leaf = other.leaf;
+            nextKey = other.nextKey;
             nextIndex = other.nextIndex;
         }
         return *this;
@@ -173,13 +173,13 @@ template <typename LeafType> struct IndexedLeaf {
 
     friend std::ostream& operator<<(std::ostream& os, const IndexedLeaf<LeafType>& leaf)
     {
-        os << leaf.value << "\nnextIdx = " << leaf.nextIndex << "\nnextVal = " << leaf.nextValue;
+        os << leaf.leaf << "\nnextIdx = " << leaf.nextIndex << "\nnextKey = " << leaf.nextKey;
         return os;
     }
 
-    std::vector<fr> get_hash_inputs() const { return value.get_hash_inputs(nextValue, nextIndex); }
+    std::vector<fr> get_hash_inputs() const { return leaf.get_hash_inputs(nextKey, nextIndex); }
 
-    bool is_empty() { return value.is_empty(); }
+    bool is_empty() { return leaf.is_empty(); }
 
     static IndexedLeaf<LeafType> empty() { return { LeafType::empty(), 0, 0 }; }
 

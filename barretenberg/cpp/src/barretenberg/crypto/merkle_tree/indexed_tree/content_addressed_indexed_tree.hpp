@@ -1018,10 +1018,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     if (!is_already_present) {
                         // Update the current leaf to point it to the new leaf
                         IndexedLeafValueType new_leaf =
-                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextValue);
+                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextKey);
 
                         low_leaf.nextIndex = index_of_new_leaf;
-                        low_leaf.nextValue = value;
+                        low_leaf.nextKey = value;
                         store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
 
                         // std::cout << "NEW LEAf TO BE INSERTED at index: " << index_of_new_leaf << " : " << new_leaf
@@ -1039,7 +1039,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                     } else if (IndexedLeafValueType::is_updateable()) {
                         // Update the current leaf's value, don't change it's link
                         IndexedLeafValueType replacement_leaf =
-                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextValue);
+                            IndexedLeafValueType(value_pair.first, low_leaf.nextIndex, low_leaf.nextKey);
                         // IndexedLeafValueType empty_leaf = IndexedLeafValueType::empty();
                         //  don't update the index for this empty leaf
                         // std::cout << "Low leaf updated at index " << low_leaf_index << " index of new leaf "
@@ -1088,7 +1088,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::update_leaf_and_hash_to_
     // 3. Write the new node value
     index_t index = leaf_index;
     uint32_t level = depth_;
-    fr new_hash = leaf.value.is_empty() ? fr::zero() : HashingPolicy::hash(leaf.get_hash_inputs());
+    fr new_hash = leaf.leaf.is_empty() ? fr::zero() : HashingPolicy::hash(leaf.get_hash_inputs());
 
     // Wait until we see that our leader has cleared 'depth_ - 1' (i.e. the level above the leaves that we are about
     // to write into) this ensures that our leader is not still reading the leaves
@@ -1229,8 +1229,8 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
         }
 
         // one of our leaves
-        new_hash = update.updated_leaf.value.is_empty() ? fr::zero()
-                                                        : HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
+        new_hash = update.updated_leaf.leaf.is_empty() ? fr::zero()
+                                                       : HashingPolicy::hash(update.updated_leaf.get_hash_inputs());
 
         // std::cout << "Hashing leaf at level " << level << " index " << update.leaf_index << " batch start "
         //           << start_index << " hash " << leaf_hash << std::endl;
@@ -1506,10 +1506,10 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                 if (!is_already_present) {
                     // Update the current leaf to point it to the new leaf
                     IndexedLeafValueType new_leaf =
-                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
+                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextKey);
                     index_t index_of_new_leaf = current_size;
                     low_leaf.nextIndex = index_of_new_leaf;
-                    low_leaf.nextValue = value;
+                    low_leaf.nextKey = value;
                     current_size++;
                     // Cache the new leaf
                     store_->set_leaf_key_at_index(index_of_new_leaf, new_leaf);
@@ -1522,7 +1522,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_sequential_inse
                 } else if (IndexedLeafValueType::is_updateable()) {
                     // Update the current leaf's value, don't change it's link
                     IndexedLeafValueType replacement_leaf =
-                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextValue);
+                        IndexedLeafValueType(new_payload, low_leaf.nextIndex, low_leaf.nextKey);
 
                     store_->put_cached_leaf_by_index(low_leaf_index, replacement_leaf);
                     insertion_update.low_leaf_update.updated_leaf = replacement_leaf;
