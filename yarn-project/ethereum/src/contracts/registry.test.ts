@@ -54,7 +54,12 @@ describe('Registry', () => {
       genesisBlockHash: Fr.random(),
     });
     // Since the registry cannot "see" the slash factory, we omit it from the addresses for this test
-    deployedAddresses = omit(deployed.l1ContractAddresses, 'slashFactoryAddress', 'feeAssetHandlerAddress');
+    deployedAddresses = omit(
+      deployed.l1ContractAddresses,
+      'slashFactoryAddress',
+      'feeAssetHandlerAddress',
+      'stakingAssetHandlerAddress',
+    );
     registry = new RegistryContract(publicClient, deployedAddresses.registryAddress);
 
     const rollup = new RollupContract(publicClient, deployedAddresses.rollupAddress);
