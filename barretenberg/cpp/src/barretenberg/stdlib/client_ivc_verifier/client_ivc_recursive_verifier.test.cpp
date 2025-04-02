@@ -17,6 +17,7 @@ class ClientIVCRecursionTests : public testing::Test {
     using UltraRecursiveVerifier = UltraRecursiveVerifier_<RollupFlavor>;
     using MockCircuitProducer = PrivateFunctionExecutionMockCircuitProducer;
     using IVCVerificationKey = ClientIVC::VerificationKey;
+    using AggregationObject = aggregation_state<Builder>;
 
     static constexpr TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
 
@@ -106,8 +107,7 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output instead of
     // just using default.
-    tube_builder->add_pairing_point_accumulator(
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(*tube_builder));
+    AggregationObject::add_default_pairing_points_to_public_inputs(*tube_builder);
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     tube_builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
     tube_builder->ipa_proof = convert_stdlib_proof_to_native(client_ivc_rec_verifier_output.ipa_transcript->proof_data);
@@ -169,10 +169,8 @@ TEST_F(ClientIVCRecursionTests, TubeVKIndependentOfInputCircuits)
         auto client_ivc_rec_verifier_output = verifier.verify(proof);
 
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): fix this by taking it from the output
-        // instead of
-        // just using default.
-        tube_builder->add_pairing_point_accumulator(
-            stdlib::recursion::init_default_agg_obj_indices<Builder>(*tube_builder));
+        // instead of just using default.
+        AggregationObject::add_default_pairing_points_to_public_inputs(*tube_builder);
         // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
         tube_builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
         tube_builder->ipa_proof =
