@@ -509,7 +509,7 @@ class ECCVMFlavor {
          table (reads come from msm_x/y3, msm_x/y4)
          * @return ProverPolynomials
          */
-        ProverPolynomials(const CircuitBuilder& builder, const bool fixed_size = false)
+        ProverPolynomials(const CircuitBuilder& builder)
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -528,11 +528,11 @@ class ECCVMFlavor {
 
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
-            if ((fixed_size) && (ECCVM_FIXED_SIZE < dyadic_num_rows)) {
+            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
                 throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound");
             }
 
-            dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
+            dyadic_num_rows = ECCVM_FIXED_SIZE;
             size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
 
             for (auto& poly : get_to_be_shifted()) {
@@ -722,23 +722,16 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
-        // Used to amortize the commitment time when `fixed_size` = true.
+        // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
-        // Constructor for dynamic size ProvingKey
-        ProvingKey(const CircuitBuilder& builder)
-            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
-            , real_size(this->circuit_size)
-            , polynomials(builder)
-        {}
-
         // Constructor for fixed size ProvingKey
-        ProvingKey(const CircuitBuilder& builder, bool fixed_size)
+        ProvingKey(const CircuitBuilder& builder)
             : Base(ECCVM_FIXED_SIZE, 0)
             , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
-            , polynomials(builder, fixed_size)
+            , polynomials(builder)
         {}
     };
 
