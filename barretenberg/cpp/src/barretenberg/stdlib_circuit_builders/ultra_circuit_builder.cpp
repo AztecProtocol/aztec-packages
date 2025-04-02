@@ -2185,8 +2185,7 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_ROM_gate(RomRecord& record)
 {
     record.record_witness = this->add_variable(0);
-    // record witness is added to the circuit for the one gate
-    // and won't be used anymore.
+    // record_witness is intentionally used only in a single gate
     update_used_witnesses(record.record_witness);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
     blocks.aux.populate_wires(

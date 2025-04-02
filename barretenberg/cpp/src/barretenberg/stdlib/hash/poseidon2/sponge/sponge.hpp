@@ -156,7 +156,8 @@ template <size_t rate, size_t capacity, size_t t, typename Permutation, typename
         for (size_t i = 0; i < out_len; ++i) {
             output[i] = sponge.squeeze();
         }
-        // the same situation as with the state
+        // variables with indices won't be used in the circuit.
+        // but they aren't dangerous and needed to put in used witnesses
         if constexpr (IsUltraBuilder<Builder>) {
             for (const auto& elem : sponge.cache) {
                 if (elem.witness_index != IS_CONSTANT) {

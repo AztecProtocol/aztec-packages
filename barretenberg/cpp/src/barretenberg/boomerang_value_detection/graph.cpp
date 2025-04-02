@@ -651,7 +651,7 @@ bool Graph_<FF>::check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_c
 /**
  * @brief this method connects 2 variables if they are in one gate and
  * 1) have different indices,
- * 2) not constraint variables,
+ * 2) not constant variables,
  * 3) their indices != 0
  * @tparam FF
  * @param ultra_circuit_builder
@@ -1155,6 +1155,8 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     for (const auto& elem : this->fixed_variables) {
         this->variables_in_one_gate.erase(elem);
     }
+    //we found variables that were in one gate and they are intended cases.
+    //so we have to remove them from the scope
     for (const auto& elem : ultra_circuit_builder.get_used_witnesses()) {
         this->variables_in_one_gate.erase(elem);
     }
