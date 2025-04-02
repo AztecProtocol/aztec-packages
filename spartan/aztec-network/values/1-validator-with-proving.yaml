@@ -1,5 +1,7 @@
 aztec:
   realProofs: true
+  slotDuration: 36
+  epochDuration: 32
 
 validator:
   replicas: 1
@@ -19,8 +21,8 @@ proverAgent:
       cpu: "16"
 
 bot:
-  enabled: true
-  txIntervalSeconds: 200
+  enabled: false
+  txIntervalSeconds: 600 # Low low tps
 
 jobs:
   deployL1Verifier:

@@ -67,7 +67,8 @@ function test_cmds {
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
+    echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-proving-smoke"
+    echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-proving-bot"
   fi
 }
 
@@ -135,10 +136,15 @@ case "$cmd" in
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false SEPOLIA_RUN=true \
       ./scripts/test_kind.sh src/spartan/4epochs.test.ts ci-sepolia.yaml four-epochs${NAME_POSTFIX:-}
     ;;
-  "test-kind-proving")
+  "test-kind-proving-smoke")
     OVERRIDES="bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/proving.test.ts ci.yaml proving${NAME_POSTFIX:-}
+      ./scripts/test_kind.sh src/spartan/proving.test.ts 1-validator-with-proving.yaml proving${NAME_POSTFIX:-}
+    ;;
+  "test-kind-proving-bot")
+    OVERRIDES="bot.enabled=true" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/proving.test.ts 1-validator-with-proving.yaml proving${NAME_POSTFIX:-}
     ;;
   "test-kind-transfer")
     # TODO(#12163) reenable bot once not conflicting with transfer
