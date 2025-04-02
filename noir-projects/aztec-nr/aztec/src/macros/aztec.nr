@@ -19,7 +19,7 @@ pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
 
     // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
-    //allowed in contracts.
+    // allowed in contracts.
     check_each_fn_macroified(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
