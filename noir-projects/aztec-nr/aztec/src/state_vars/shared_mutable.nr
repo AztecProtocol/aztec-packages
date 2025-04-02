@@ -9,7 +9,7 @@ use dep::protocol_types::{
 };
 
 use crate::{
-    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::storage::Storage,
     utils::with_hash::WithHash,
 };
@@ -225,7 +225,7 @@ where
     }
 }
 
-impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UnconstrainedContext>
+impl<T, let INITIAL_DELAY: u32> SharedMutable<T, INITIAL_DELAY, UtilityContext>
 where
     T: Eq,
 {
@@ -234,7 +234,7 @@ where
         T: Packable<N>,
     {
         let smv: SharedMutableValues<T, INITIAL_DELAY> =
-            WithHash::unconstrained_public_storage_read(self.context, self.storage_slot);
+            WithHash::utility_public_storage_read(self.context, self.storage_slot);
 
         let block_number = self.context.block_number() as u32;
         smv.svc.get_current_at(block_number)

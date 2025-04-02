@@ -1,4 +1,4 @@
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE,
     lifecycle::{create_note, destroy_note_unsafe},
@@ -106,7 +106,7 @@ where
     }
 }
 
-impl<Note> PrivateSet<Note, UnconstrainedContext>
+impl<Note> PrivateSet<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {
