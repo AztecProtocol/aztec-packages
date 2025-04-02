@@ -203,12 +203,6 @@ export const l1Artifacts = {
 };
 
 export interface DeployL1ContractsArgs extends L1ContractsConfig {
-  /**
-   * The address of the L2 Fee Juice contract.
-   * It should be an AztecAddress, but the type is defined in stdlib,
-   * which would create a circular import
-   * */
-  l2FeeJuiceAddress: Fr;
   /** The vk tree root. */
   vkTreeRoot: Fr;
   /** The protocol contract tree root. */
@@ -225,6 +219,8 @@ export interface DeployL1ContractsArgs extends L1ContractsConfig {
   l1TxConfig?: Partial<L1TxUtilsConfig>;
   /** Enable fast mode for deployments (fire and forget transactions) */
   acceleratedTestDeployments?: boolean;
+  /** The initial balance of the fee juice portal. This is the amount of fee juice that is prefunded to accounts */
+  feeJuicePortalInitialBalance?: bigint;
 }
 
 /**
@@ -539,63 +535,23 @@ export const deployRollup = async (
     );
   }
 
-  const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
+  if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
+    const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
 
-  // @note  This value MUST match what is in `constants.nr`. It is currently specified here instead of just importing
-  //        because there is circular dependency hell. This is a temporary solution. #3342
-  // @todo  #8084
-  // fund the portal contract with Fee Juice
-  const FEE_JUICE_INITIAL_MINT = 200000000000000000000000n;
-
-  // In fast mode, use the L1TxUtils to send transactions with nonce management
-  const { txHash: mintTxHash } = await deployer.sendTransaction({
-    to: addresses.feeJuiceAddress.toString(),
-    data: encodeFunctionData({
-      abi: l1Artifacts.feeAsset.contractAbi,
-      functionName: 'mint',
-      args: [feeJuicePortalAddress.toString(), FEE_JUICE_INITIAL_MINT],
-    }),
-  });
-  logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash} (accelerated test deployments)`);
-  txHashes.push(mintTxHash);
-
-  // @note  This is used to ensure we fully wait for the transaction when running against a real chain
-  //        otherwise we execute subsequent transactions too soon
-  if (!args.acceleratedTestDeployments) {
-    await clients.publicClient.waitForTransactionReceipt({ hash: mintTxHash });
-    logger.verbose(`Funding fee juice portal contract with fee juice in ${mintTxHash}`);
-  }
-
-  const feeJuicePortal = getContract({
-    address: getAddress(feeJuicePortalAddress.toString()),
-    abi: l1Artifacts.feeJuicePortal.contractAbi,
-    client: clients.publicClient,
-  });
-
-  // Check if portal needs initialization
-  let needsInitialization = args.acceleratedTestDeployments;
-  if (!args.acceleratedTestDeployments) {
-    // Only check if not in fast mode and not already known to need initialization
-    needsInitialization = !(await feeJuicePortal.read.initialized());
-  }
-  if (needsInitialization) {
-    const { txHash: initPortalTxHash } = await deployer.sendTransaction({
-      to: feeJuicePortalAddress.toString(),
+    // In fast mode, use the L1TxUtils to send transactions with nonce management
+    const { txHash: mintTxHash } = await deployer.sendTransaction({
+      to: addresses.feeJuiceAddress.toString(),
       data: encodeFunctionData({
-        abi: l1Artifacts.feeJuicePortal.contractAbi,
-        functionName: 'initialize',
-        args: [],
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'mint',
+        args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
       }),
     });
-    txHashes.push(initPortalTxHash);
-    logger.verbose(`Fee juice portal initializing in tx ${initPortalTxHash}`);
-  } else {
-    logger.verbose(`Fee juice portal is already initialized`);
+    logger.verbose(
+      `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
+    );
+    txHashes.push(mintTxHash);
   }
-
-  logger.verbose(
-    `Initialized Fee Juice Portal at ${feeJuicePortalAddress} to bridge between L1 ${addresses.feeJuiceAddress} to L2 ${args.l2FeeJuiceAddress}`,
-  );
 
   const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
   logger.verbose(`Deployed SlashFactory at ${slashFactoryAddress}`);

@@ -12,7 +12,6 @@ interface IFeeJuicePortal {
   );
   event FeesDistributed(address indexed to, uint256 amount);
 
-  function initialize() external;
   function distributeFees(address _to, uint256 _amount) external;
   function depositToAztecPublic(bytes32 _to, uint256 _amount, bytes32 _secretHash)
     external

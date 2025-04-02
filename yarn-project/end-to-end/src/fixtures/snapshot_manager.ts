@@ -348,7 +348,7 @@ async function setupFromFresh(
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
   const sponsoredFPCAddress = await getSponsoredFPCAddress();
-  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData, fundingNeeded } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
@@ -357,6 +357,7 @@ async function setupFromFresh(
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
     genesisBlockHash,
+    feeJuicePortalInitialBalance: fundingNeeded,
     salt: opts.salt,
     ...deployL1ContractsArgs,
     initialValidators: opts.initialValidators,

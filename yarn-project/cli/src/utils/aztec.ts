@@ -10,7 +10,7 @@ import type { DeployL1ContractsReturnType, L1ContractsConfig, RollupContract } f
 import type { Fr } from '@aztec/foundation/fields';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import type { NoirPackageConfig } from '@aztec/foundation/noir';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
@@ -49,6 +49,7 @@ export async function deployAztecContracts(
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
   genesisBlockHash: Fr,
+  feeJuicePortalInitialBalance: bigint,
   acceleratedTestDeployments: boolean,
   config: L1ContractsConfig,
   debugLogger: Logger,
@@ -69,7 +70,6 @@ export async function deployAztecContracts(
     chain.chainInfo,
     debugLogger,
     {
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
       genesisArchiveRoot,
@@ -77,6 +77,7 @@ export async function deployAztecContracts(
       salt,
       initialValidators,
       acceleratedTestDeployments,
+      feeJuicePortalInitialBalance,
       ...config,
     },
     config,
@@ -94,6 +95,7 @@ export async function deployNewRollupContracts(
   initialValidators: EthAddress[],
   genesisArchiveRoot: Fr,
   genesisBlockHash: Fr,
+  feeJuicePortalInitialBalance: bigint,
   config: L1ContractsConfig,
   logger: Logger,
 ): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
@@ -113,10 +115,10 @@ export async function deployNewRollupContracts(
       salt,
       vkTreeRoot: getVKTreeRoot(),
       protocolContractTreeRoot,
-      l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
       genesisArchiveRoot,
       genesisBlockHash,
       initialValidators,
+      feeJuicePortalInitialBalance,
       ...config,
     },
     registryAddress,
