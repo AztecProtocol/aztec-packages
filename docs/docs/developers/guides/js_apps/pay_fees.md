@@ -152,7 +152,7 @@ See this [section](../../reference/environment_reference/cli_wallet_reference.md
 This method of fee payment will only work for environments where a sponsored fee paying contract is deployed.
 The sandbox comes with a sponsored fee paying contract deployed, so this can be used to pay for transactions without needing to bridge fee juice.
 To use sponsored FPCs in other environments, they will need to be deployed and funded with fee juice.
-Using the SponsoredFPC payment method is as simple as importing it, registering it and passing it the PXE:
+Using a SponsoredFPC payment method is as simple as importing it, registering it and passing it the PXE:
 
 ```ts
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
