@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743619102907,
+  "lastUpdate": 1743624554250,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7d875a6133c903341e8df11b5837dda80048a827",
-          "message": "chore(avm): remove check_interaction from tests (#13136)\n\nWe think this gets sufficiently tested with the lookup builders (once https://github.com/AztecProtocol/aztec-packages/issues/13140 is solved).",
-          "timestamp": "2025-03-28T16:55:47Z",
-          "tree_id": "a3586711ccfadec678d2f6d2fd43f7bfe993a2ba",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7d875a6133c903341e8df11b5837dda80048a827"
-        },
-        "date": 1743183115034,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8550,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21745006313662582,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 113489,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1949,6 +1910,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 141650,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "159419107+DanielKotov@users.noreply.github.com",
+            "name": "DanielKotov",
+            "username": "DanielKotov"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "84890c220abbcbfeb63dd8e9ce9e5f590c341bee",
+          "message": "feat(Barretenberg):  static analyzer's routine (#13207)\n\nThis PR adds new used_witnesses vector in UltaCircuitBuilder that\ncontains variables in one gate that are not dangerous.\n\nThere were many false cases while testing static analyzer's working with\ndifferent primitives, so it's time to save these variables and remove\nthem at the final step of working.\n\nAlso some code refactoring.",
+          "timestamp": "2025-04-02T18:48:41Z",
+          "tree_id": "fe74eb7536ea7582fcf965f16cb73288a37d8134",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/84890c220abbcbfeb63dd8e9ce9e5f590c341bee"
+        },
+        "date": 1743624552910,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9470,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24084871232644442,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137545,
             "unit": "us"
           }
         ]
