@@ -48,18 +48,18 @@ function client_ivc_flow_native {
   local flow_folder="$input_folder/$flow"
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
-  function bb_cli_bench {
-    export MAIN_ARGS="$*"
+
+  function bb_cli_bench_native {
     export MEMUSAGE_OUT=bench-out/$flow-proof-files/peak-memory-mb.txt
-    export WASMTIME_ALLOWED_DIRS="--dir=$HOME/.bb-crs --dir=$HOME/.bb-crs/monomial --dir="$flow_folder" --dir=bench-out/$flow-proof-files"
-    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
+    ./build/bin/bb_cli_bench "$@" \
         --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
         --benchmark_out_format=json || {
       echo "bb_cli_bench failed with args: $*"
       exit 1
     }
   }
-  bb_cli_bench prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
+
+  bb_cli_bench_native prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 )
@@ -67,7 +67,7 @@ function client_ivc_flow_native {
   echo "$flow (native) has proven in ${elapsed_ms}ms and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
   echo "$flow (native) has verified.")
-  cat > "./bench-out/ivc/$flow-ivc.json" <<EOF
+  cat > "./bench-out/ivc/$flow-ivc-native.json" <<EOF
   {
     "benchmarks": [
     {
@@ -91,9 +91,10 @@ function client_ivc_flow_wasm {
   local flow_folder="$input_folder/$flow"
   local start=$(date +%s%N)
   mkdir -p "bench-out/$flow-proof-files"
-  function bb_cli_bench {
+
+  function bb_cli_bench_wasm {
     export MAIN_ARGS="$*"
-    export MEMUSAGE_OUT=bench-out/$flow-proof-files/peak-memory-mb.txt
+    export MEMUSAGE_OUT=bench-out/$flow-proof-files/peak-memory-wasm-mb.txt
     export WASMTIME_ALLOWED_DIRS="--dir=$HOME/.bb-crs --dir=$HOME/.bb-crs/monomial --dir="$flow_folder" --dir=bench-out/$flow-proof-files"
     dump_fail memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
         --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
@@ -106,20 +107,20 @@ function client_ivc_flow_wasm {
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 )
-  local memory_taken_mb=$(cat bench-out/$flow-proof-files/peak-memory-mb.txt )
+  local memory_taken_mb=$(cat bench-out/$flow-proof-files/peak-memory-wasm-mb.txt )
   echo "$flow (WASM) has proven in ${elapsed_ms}ms and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
   echo "$flow (WASM) has verified.")
-  cat > "./bench-out/ivc/$flow-ivc.json" <<EOF
+  cat > "./bench-out/ivc/$flow-ivc-wasm.json" <<EOF
   {
     "benchmarks": [
     {
-      "name": "$flow-ivc-proof",
+      "name": "$flow-ivc-proof-wasm",
       "time_unit": "ms",
       "real_time": ${elapsed_ms}
     },
     {
-      "name": "$flow-ivc-proof-memory",
+      "name": "$flow-ivc-proof-wasm-memory",
       "time_unit": "MB",
       "real_time": ${elapsed_ms}
     }
