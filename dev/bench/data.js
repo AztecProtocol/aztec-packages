@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743604068428,
+  "lastUpdate": 1743606294072,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "aakoshh@gmail.com",
-            "name": "Akosh Farkash",
-            "username": "aakoshh"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "493dede81c2b22426025a398ac81f6b3b8ad9e81",
-          "message": "feat(noir): Allow missing optional fields in msgpack (#13141)\n\nFollowup for https://github.com/AztecProtocol/aztec-packages/pull/12841\n\nChanges code generation for msgpack so that it doesn't throw an error if\nan optional field of a `struct` is not present in the data. This is to\nallow @TomAFrench and @asterite to delete `Opcode::MemoryOp::predicate`\nwhich is an optional field that we no longer use. Removing such a field\nshould be a non-breaking change, as the field was optional to begin\nwith, so while even if it's present in C++ it should already handle it\nbeing empty.\n\nUnfortunately the `msgpack-c` library as far as I can see [would throw\nan\nerror](https://github.com/AztecProtocol/msgpack-c/blob/54e9865b84bbdc73cfbf8d1d437dbf769b64e386/include/msgpack/v1/adaptor/detail/cpp11_define_map.hpp#L33-L45)\nif the optional field would not be present in the data as NIL.\n\nFor this to work the PR re-introduces the `Helpers` and enumerates\nfields explicitly, instead of using `MSGPACK_FIELDS`. I changed the\nunmerged https://github.com/noir-lang/noir/pull/7716 to do codegen with\nthis change.\n\nI rebased https://github.com/AztecProtocol/aztec-packages/pull/13021 on\ntop of this PR to see if it works when msgpack is actually in use.\n\n### Note for future migration path\n\n@ludamad reached out that while the bytecode size increase shown in\nhttps://github.com/noir-lang/noir/pull/7690 doesn't seem too bad, and\ncompression compensates for the inclusion of string field names, it's\nstill wasteful to have to parse them, and it would be better to use\narrays.\n\nI established in\n[tests](https://github.com/noir-lang/noir/pull/7690/files#diff-2d66028e5a8966511a76d1740d752be294c0b6a46e0a567bc2959f91d9ce224bR169-R176)\nthat we what we call `msgpack-compact` format uses arrays for structs,\nbut still tags enums with types. We use a lot of enums, so there is\nstill quite a few strings. Ostensibly we could use [serde\nattributes](https://serde.rs/container-attrs.html) to shorten names, but\nit would probably be a nightmare and ugly.\n\nNevertheless if we generated C++ code to deal with arrays, we could save\nsome space.\n\nAnd if we want to stick to `bincode`, we can use\n`NOIR_SERIALIZATION_FORMAT=bincode`, which I back ported to the Noir\ncodegen PR, to generate `bincode` with a format byte marker. There is\nalso `bincode-legacy`, but unfortunately we only have one shot at\ndeserialising bincode in C++: if it fails, we can't catch the exception.\nTherefore the path to be able to use the bincode format marker is:\n1. Release `bb` which can handle the `msgpack` format (which has a\nprobe, doesn't have to throw)\n2. Start producing msgpack data from `nargo` \n3. Stop accepting unmarked bincode in `bb` and look for format byte == 1\nto show that bincode is in use\n4. Tell `nargo` which format to use\n\nEDIT: Unfortunately if we use `binpack` with today's data types it\nforces us to parse the Brillig part, as established by\nhttps://github.com/AztecProtocol/aztec-packages/pull/13143 which would\nmean the Noir team can't make any changes to Brillig opcodes without\nbreaking `bb`. We would need to change the format again to use two tier\nencoding, or use msgpack arrays.",
-          "timestamp": "2025-03-28T18:40:28Z",
-          "tree_id": "3e1ee8c69b353e2534034efc9f4fc47e9e24a838",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/493dede81c2b22426025a398ac81f6b3b8ad9e81"
-        },
-        "date": 1743189373218,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 33877,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 22011,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 10674,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 13071,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 13295,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2938,6 +2884,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 10929,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5defe47be2351f8ea545700990c4a3c48d3a97d7",
+          "message": "chore: Fix flake in e2e fees failures (#13229)\n\nAttempt at fixing `e2e_fees/failures` [test\nflake](http://ci.aztec-labs.com/b0b40aa7bab4695f).\n\nLooking at the logs, the culprit seems to be here:\n\n```\n22:16:13 [22:16:13.882] INFO: e2e:e2e_fees:failures L1 block 50 mined at 22:31:07 with new L2 block 12 for epoch 2 {\"l1Timestamp\":1743546667,\"l1BlockNumber\":50,\"l2SlotNumber\":34,\"l2BlockNumber\":12,\"l2ProvenBlockNumber\":11}\n22:16:14 [22:16:14.540] INFO: archiver Downloaded L2 block 12 {\"blockHash\":{},\"blockNumber\":12,\"txCount\":1,\"globalVariables\":{\"chainId\":31337,\"version\":2493758707,\"blockNumber\":12,\"slotNumber\":34,\"timestamp\":1743546667,\"coinbase\":\"0x1f7a267433ab88c7f7d5a7c05bd0cdbe1416d5e4\",\"feeRecipient\":\"0x1fb7a557b14a492bace6d93ce9b95494fb7bbd9b6233da382c4d233f49880138\",\"feePerDaGas\":0,\"feePerL2Gas\":3180}}\n22:16:14 [22:16:14.657] VERBOSE: p2p Synched to latest block 12\n22:16:14 [22:16:14.689] VERBOSE: world_state World state updated with L2 block 12 {\"eventName\":\"l2-block-handled\",\"duration\":31.29037000000244,\"unfinalisedBlockNumber\":12,\"finalisedBlockNumber\":11,\"oldestHistoricBlock\":1,\"txCount\":1,\"blockNumber\":12,\"blockTimestamp\":1743546667,\"privateLogCount\":2,\"publicLogCount\":1,\"contractClassLogCount\":0,\"contractClassLogSize\":0}\n22:16:14 [22:16:14.711] INFO: ethereum:cheat_codes Calling evm_setNextBlockTimestamp with params: [1743547027] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.715] INFO: ethereum:cheat_codes Calling evm_setNextBlockTimestamp with params: [1743546691] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.717] INFO: ethereum:cheat_codes Calling hardhat_mine with params: [1] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.719] INFO: ethereum:cheat_codes Calling hardhat_mine with params: [1] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.720] WARN: aztecjs:cheat_codes Advanced to next epoch\n22:16:14 [22:16:14.721] WARN: ethereum:cheat_codes Warped L1 timestamp to 1743546691\n22:16:14 [22:16:14.721] INFO: aztecjs:utils:watcher Slot 34 was filled, jumped to next slot\n```\n\nCompare this with a correct run:\n\n```\n22:16:54 [22:16:54.152] INFO: e2e:e2e_fees:failures L1 block 50 mined at 22:31:47 with new L2 block 12 for epoch 2 {\"l1Timestamp\":1743546707,\"l1BlockNumber\":50,\"l2SlotNumber\":34,\"l2BlockNumber\":12,\"l2ProvenBlockNumber\":11}\n22:16:54 [22:16:54.883] INFO: ethereum:cheat_codes Calling evm_setNextBlockTimestamp with params: [1743546731] on http://127.0.0.1/:8545\n22:16:54 [22:16:54.983] INFO: archiver Downloaded L2 block 12 {\"blockHash\":{},\"blockNumber\":12,\"txCount\":1,\"globalVariables\":{\"chainId\":31337,\"version\":4183907290,\"blockNumber\":12,\"slotNumber\":34,\"timestamp\":1743546707,\"coinbase\":\"0xb102a81ca1c1abe5f5a9136c3f2ab0bd885df835\",\"feeRecipient\":\"0x1dfd51415677fcb613cf399dada960bf406a57acd021dde51cd7ce40f9baf035\",\"feePerDaGas\":0,\"feePerL2Gas\":3180}}\n22:16:54 [22:16:54.989] INFO: ethereum:cheat_codes Calling hardhat_mine with params: [1] on http://127.0.0.1/:8545\n22:16:55 [22:16:55.017] WARN: ethereum:cheat_codes Warped L1 timestamp to 1743546731\n22:16:55 [22:16:55.018] INFO: aztecjs:utils:watcher Slot 34 was filled, jumped to next slot\n22:16:55 [22:16:55.027] INFO: archiver Downloaded L2 block 12 {\"blockHash\":{},\"blockNumber\":12,\"txCount\":1,\"globalVariables\":{\"chainId\":31337,\"version\":4183907290,\"blockNumber\":12,\"slotNumber\":34,\"timestamp\":1743546707,\"coinbase\":\"0xb102a81ca1c1abe5f5a9136c3f2ab0bd885df835\",\"feeRecipient\":\"0x1dfd51415677fcb613cf399dada960bf406a57acd021dde51cd7ce40f9baf035\",\"feePerDaGas\":0,\"feePerL2Gas\":3180}}\n22:16:55 [22:16:55.067] VERBOSE: world_state World state updated with L2 block 12 {\"eventName\":\"l2-block-handled\",\"duration\":15.83266499999445,\"unfinalisedBlockNumber\":12,\"finalisedBlockNumber\":11,\"oldestHistoricBlock\":1,\"txCount\":1,\"blockNumber\":12,\"blockTimestamp\":1743546707,\"privateLogCount\":2,\"publicLogCount\":1,\"contractClassLogCount\":0,\"contractClassLogSize\":0}\n22:16:55 [22:16:55.151] VERBOSE: world_state World state updated with L2 block 12 {\"eventName\":\"l2-block-handled\",\"duration\":30.628593000001274,\"unfinalisedBlockNumber\":12,\"finalisedBlockNumber\":11,\"oldestHistoricBlock\":1,\"txCount\":1,\"blockNumber\":12,\"blockTimestamp\":1743546707,\"privateLogCount\":2,\"publicLogCount\":1,\"contractClassLogCount\":0,\"contractClassLogSize\":0}\n22:16:55 [22:16:55.177] VERBOSE: p2p Synched to latest block 12\n22:16:55 [22:16:55.198] INFO: e2e:e2e_fees:failures L1 block 51 mined at 22:32:11 {\"l1Timestamp\":1743546731,\"l1BlockNumber\":51,\"l2SlotNumber\":35,\"l2BlockNumber\":12,\"l2ProvenBlockNumber\":11}\n22:16:55 [22:16:55.468] VERBOSE: prover-node Fetching 1 tx hashes for block number 12 from coordination\n22:16:55 [22:16:55.510] INFO: ethereum:cheat_codes Calling evm_setNextBlockTimestamp with params: [1743547067] on http://127.0.0.1/:8545\n22:16:55 [22:16:55.512] INFO: ethereum:cheat_codes Calling hardhat_mine with params: [1] on http://127.0.0.1/:8545\n22:16:55 [22:16:55.514] WARN: aztecjs:cheat_codes Advanced to next epoch\n```\n\nWhat's happening is that the test code is calling `advanceToNextEpoch`\nto move the timestamp forward, but at the same time the anvil test\nwatcher kicks in and warps the timestamp to that of the next slot that\nwas just mined, which is much lower than the next epoch timestamp.\nZooming in on the logs:\n\n```\n22:16:14 [22:16:14.711] INFO: ethereum:cheat_codes Calling evm_setNextBlockTimestamp with params: [1743547027] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.715] INFO: ethereum:cheat_codes Calling evm_setNextBlockTimestamp with params: [1743546691] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.717] INFO: ethereum:cheat_codes Calling hardhat_mine with params: [1] on http://127.0.0.1/:8545\n22:16:14 [22:16:14.719] INFO: ethereum:cheat_codes Calling hardhat_mine with params: [1] on http://127.0.0.1/:8545\n```\n\nThis PR attempts to fix it by running the test watcher more often, which\nshouldn't be too much of a problem since it should just run against\nlocal nodes. And also by forcing a test watcher run _before_ calling the\ncheat code in that test to advance the epoch.\n\nFingers crossed.",
+          "timestamp": "2025-04-02T14:30:05Z",
+          "tree_id": "2c97585ced35ee0a9d6c20865a6b2d44a4022f0b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5defe47be2351f8ea545700990c4a3c48d3a97d7"
+        },
+        "date": 1743606285957,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 24784,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 16297,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8254,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 9900,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 10086,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
