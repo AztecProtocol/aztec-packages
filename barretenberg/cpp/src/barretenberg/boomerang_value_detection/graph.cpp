@@ -1155,8 +1155,8 @@ std::unordered_set<uint32_t> Graph_<FF>::show_variables_in_one_gate(bb::UltraCir
     for (const auto& elem : this->fixed_variables) {
         this->variables_in_one_gate.erase(elem);
     }
-    //we found variables that were in one gate and they are intended cases.
-    //so we have to remove them from the scope
+    // we found variables that were in one gate and they are intended cases.
+    // so we have to remove them from the scope
     for (const auto& elem : ultra_circuit_builder.get_used_witnesses()) {
         this->variables_in_one_gate.erase(elem);
     }
