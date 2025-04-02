@@ -486,20 +486,18 @@ export async function setup(
     const telemetry = getTelemetryClient(opts.telemetryConfig);
 
     // Blob sink service - blobs get posted here and served from here
-    const blobSinkPort = await getPort();
     const blobSink = await createBlobSinkServer(
       {
         l1ChainId: config.l1ChainId,
         l1RpcUrls: config.l1RpcUrls,
         rollupAddress: config.l1Contracts.rollupAddress,
-        port: blobSinkPort,
         dataDirectory: config.dataDirectory,
         dataStoreMapSizeKB: config.dataStoreMapSizeKB,
       },
       telemetry,
     );
     await blobSink.start();
-    config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+    config.blobSinkUrl = `http://localhost:5052`;
 
     logger.verbose('Creating and synching an aztec node...');
 
