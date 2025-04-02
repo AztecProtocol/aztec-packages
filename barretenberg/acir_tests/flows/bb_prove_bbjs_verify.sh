@@ -29,19 +29,6 @@ $BIN write_vk \
   -b $artifact_dir/program.json \
   -o $output_dir
 
-# bb.js expects proof and public inputs to be separate files, so we need to split them
-# this will not be needed after #11024
-
-# Save public inputs as a separate file (first NUM_PUBLIC_INPUTS fields of proof_fields.json)
-PROOF_FIELDS_LENGTH=$(jq 'length' $output_dir/proof_fields.json)
-UH_PROOF_FIELDS_LENGTH=440
-NUM_PUBLIC_INPUTS=$((PROOF_FIELDS_LENGTH - UH_PROOF_FIELDS_LENGTH))
-jq ".[:$NUM_PUBLIC_INPUTS]" $output_dir/proof_fields.json > $output_dir/public_inputs_fields.json
-
-# Remove public inputs from the proof (first NUM_PUBLIC_INPUTS*32 bytes)
-proof_hex=$(cat $output_dir/proof | xxd -p)
-echo -n ${proof_hex:$((NUM_PUBLIC_INPUTS * 64))} | xxd -r -p > $output_dir/proof
-
 # Verify the proof with bb.js classes
 node ../../bbjs-test verify \
   -d $output_dir

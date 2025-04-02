@@ -13,21 +13,13 @@ output_dir=$artifact_dir/bb-bbjs-tmp
 mkdir -p $output_dir
 
 # Cleanup on exit
-# trap "rm -rf $output_dir" EXIT
+trap "rm -rf $output_dir" EXIT
 
 # Writes the proof, public inputs ./target; this also writes the VK
 node ../../bbjs-test prove \
   -b $artifact_dir/program.json \
   -w $artifact_dir/witness.gz \
   -o $output_dir
-
-# Join the proof and public inputs to a single file
-# this will not be needed after #11024
-
-NUM_PUBLIC_INPUTS=$(cat $output_dir/public_inputs_fields.json | jq 'length')
-UH_PROOF_FIELDS_LENGTH=440
-PROOF_LENGTH_IN_FIELDS=$((UH_PROOF_FIELDS_LENGTH))
-PI_LENGTH_IN_FIELDS=$((NUM_PUBLIC_INPUTS))
 
 proof_bytes=$(cat $output_dir/proof | xxd -p)
 public_inputs=$(cat $output_dir/public_inputs_fields.json | jq -r '.[]')
