@@ -16,10 +16,9 @@ struct UpdateCheckEvent {
     // Hash
     FF update_hash;
     // Hash preimage
-    FF update_delay;
-    FF update_pre_class;
-    FF update_post_class;
-    uint32_t update_block_of_change;
+    FF update_preimage_metadata;
+    FF update_preimage_pre_class;
+    FF update_preimage_post_class;
 
     // Read
     FF shared_mutable_slot;

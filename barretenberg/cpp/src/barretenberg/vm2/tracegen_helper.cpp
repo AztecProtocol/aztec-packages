@@ -382,14 +382,17 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_next_slot_validation_settings>>(),
             // Update check
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hash_poseidon2_0_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hash_poseidon2_1_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hash_poseidon2_settings>>(),
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_update_check_shared_mutable_slot_poseidon2_settings>>(),
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings>>(),
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_update_check_update_hash_public_data_read_settings>>());
+                LookupIntoDynamicTableSequential<lookup_update_check_update_hash_public_data_read_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hi_metadata_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_lo_metadata_range_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_update_check_block_of_change_cmp_range_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));

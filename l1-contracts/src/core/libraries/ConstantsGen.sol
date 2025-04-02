@@ -313,10 +313,15 @@ library Constants {
   uint256 internal constant PROOF_TYPE_ROLLUP_HONK = 5;
   uint256 internal constant PROOF_TYPE_ROOT_ROLLUP_HONK = 6;
   uint256 internal constant TWO_POW_64 = 18446744073709551616;
+  uint256 internal constant BLOCK_NUMBER_BIT_SIZE = 32;
   uint256 internal constant DEFAULT_UPDATE_DELAY = 3600;
   uint256 internal constant MINIMUM_UPDATE_DELAY = 25;
   uint256 internal constant UPDATES_VALUE_SIZE = 1;
   uint256 internal constant UPDATES_SHARED_MUTABLE_VALUES_LEN = 3;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_SDC_DELAY_BIT_SIZE = 32;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_SDC_IS_SOME_BIT_SIZE = 8;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE = 40;
+  uint256 internal constant UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE = 144;
   uint256 internal constant GRUMPKIN_ONE_X = 1;
   uint256 internal constant GRUMPKIN_ONE_Y =
     17631683881184975370165255887551781615748388533673675138860;

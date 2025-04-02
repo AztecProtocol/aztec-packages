@@ -49,10 +49,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 969;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 973;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 1149;
+    static constexpr size_t NUM_ALL_ENTITIES = 1153;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -147,9 +147,10 @@ struct AvmFlavorVariables {
         lookup_update_check_block_of_change_cmp_range_relation<FF_>,
         lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
         lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,
-        lookup_update_check_update_hash_poseidon2_0_relation<FF_>,
-        lookup_update_check_update_hash_poseidon2_1_relation<FF_>,
-        lookup_update_check_update_hash_public_data_read_relation<FF_>>;
+        lookup_update_check_update_hash_poseidon2_relation<FF_>,
+        lookup_update_check_update_hash_public_data_read_relation<FF_>,
+        lookup_update_check_update_hi_metadata_range_relation<FF_>,
+        lookup_update_check_update_lo_metadata_range_relation<FF_>>;
 };
 
 } // namespace bb::avm2
