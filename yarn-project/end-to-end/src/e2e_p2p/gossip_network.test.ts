@@ -9,10 +9,10 @@ import fs from 'fs';
 import os from 'os';
 import path from 'path';
 
-import { shouldCollectMetrics } from '../fixtures/fixtures.js';
+import { SHORTENED_BLOCK_TIME_CONFIG, shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
 import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
-import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
 
 const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';

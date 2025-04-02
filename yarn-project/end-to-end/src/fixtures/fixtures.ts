@@ -26,3 +26,17 @@ export const STATIC_CALL_STATE_MODIFICATION_ERROR =
 export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can only be called statically.*/;
 
 export const DEFAULT_BLOB_SINK_PORT = '5052';
+
+export const DEFAULT_BLOCK_TIME_CONFIG = {
+  ethereumSlotDuration: 12,
+  aztecSlotDuration: 24,
+  aztecEpochDuration: 16,
+  aztecTargetCommitteeSize: 48,
+  aztecProofSubmissionWindow: 31,
+};
+
+export const SHORTENED_BLOCK_TIME_CONFIG = {
+  ...DEFAULT_BLOCK_TIME_CONFIG,
+  aztecSlotDuration: 12,
+  ethereumSlotDuration: 4,
+};
