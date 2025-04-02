@@ -434,7 +434,8 @@ template <typename Curve> class ShplonkVerifier_ {
     {
         std::vector<Fr> denominators;
         const size_t virtual_log_n = gemini_eval_challenge_powers.size();
-        denominators.reserve(2 * virtual_log_n + NUM_INTERLEAVING_CLAIMS);
+        const size_t num_gemini_claims = 2 * virtual_log_n;
+        denominators.reserve(num_gemini_claims);
 
         for (const auto& gemini_eval_challenge_power : gemini_eval_challenge_powers) {
             // Place 1/(z - r ^ {2^j})

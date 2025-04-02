@@ -308,6 +308,8 @@ async function setupFromFresh(
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
   // Only enable proving if specifically requested.
   aztecNodeConfig.realProofs = !!opts.realProofs;
+  // Only enforce the time table if requested
+  aztecNodeConfig.enforceTimeTable = !!opts.enforceTimeTable;
   aztecNodeConfig.listenAddress = '127.0.0.1';
 
   // Create a temp directory for all ephemeral state and cleanup afterwards

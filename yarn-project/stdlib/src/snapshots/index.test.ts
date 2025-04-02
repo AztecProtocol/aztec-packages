@@ -47,7 +47,7 @@ describe('snapshots', () => {
     store = mock<FileStore>();
     store.upload.mockImplementation(dest => Promise.resolve(dest));
     rollup = EthAddress.random();
-    metadata = { l1ChainId: 1, l2Version: 2, rollupAddress: rollup };
+    metadata = { l1ChainId: 1, rollupVersion: 2, rollupAddress: rollup };
     snapshots = times(5, makeSnapshotMetadata);
     index = { ...metadata, snapshots };
   });

@@ -134,8 +134,13 @@ void TranslatorProver::execute_relation_check_rounds()
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 
-    // // create masking polynomials for sumcheck round univariates and auxiliary data
-    zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, key->proving_key->commitment_key);
+    const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Flavor::Curve::SUBGROUP_SIZE));
+    // // Create a temporary commitment key that is only used to initialise the ZKSumcheckData
+    // // If proving in WASM, the commitment key that is part of the Translator proving key remains deallocated
+    // //  until we enter the PCS round
+    auto ck = std::make_shared<CommitmentKey>(1 << (log_subgroup_size + 1));
+
+    zk_sumcheck_data = ZKData(key->proving_key->log_circuit_size, transcript, ck);
 
     sumcheck_output =
         sumcheck.prove(key->proving_key->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
@@ -154,11 +159,12 @@ void TranslatorProver::execute_pcs_rounds()
     using SmallSubgroupIPA = SmallSubgroupIPAProver<Flavor>;
     using PolynomialBatcher = GeminiProver_<Curve>::PolynomialBatcher;
 
-    SmallSubgroupIPA small_subgroup_ipa_prover(zk_sumcheck_data,
-                                               sumcheck_output.challenge,
-                                               sumcheck_output.claimed_libra_evaluation,
-                                               transcript,
-                                               key->proving_key->commitment_key);
+    // Check whether the commitment key has been deallocated and reinitialise it if necessary
+    auto& ck = key->proving_key->commitment_key;
+    ck = ck ? ck : std::make_shared<CommitmentKey>(key->proving_key->circuit_size);
+
+    SmallSubgroupIPA small_subgroup_ipa_prover(
+        zk_sumcheck_data, sumcheck_output.challenge, sumcheck_output.claimed_libra_evaluation, transcript, ck);
     small_subgroup_ipa_prover.prove();
 
     PolynomialBatcher polynomial_batcher(key->proving_key->circuit_size);
@@ -171,11 +177,11 @@ void TranslatorProver::execute_pcs_rounds()
         ShpleminiProver_<Curve>::prove(key->proving_key->circuit_size,
                                        polynomial_batcher,
                                        sumcheck_output.challenge,
-                                       key->proving_key->commitment_key,
+                                       ck,
                                        transcript,
                                        small_subgroup_ipa_prover.get_witness_polynomials());
 
-    PCS::compute_opening_proof(key->proving_key->commitment_key, prover_opening_claim, transcript);
+    PCS::compute_opening_proof(ck, prover_opening_claim, transcript);
 }
 
 HonkProof TranslatorProver::export_proof()
@@ -198,6 +204,11 @@ HonkProof TranslatorProver::construct_proof()
     // Compute grand product(s) and commitments.
     execute_grand_product_computation_round();
 
+    // #ifndef __wasm__
+    // Free the commitment key
+    key->proving_key->commitment_key = nullptr;
+    // #endif
+
     // Fiat-Shamir: alpha
     // Run sumcheck subprotocol.
     execute_relation_check_rounds();
@@ -206,7 +217,6 @@ HonkProof TranslatorProver::construct_proof()
     // Execute Shplemini PCS
     execute_pcs_rounds();
     vinfo("computed opening proof");
-
     return export_proof();
 }
 

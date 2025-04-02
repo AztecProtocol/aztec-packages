@@ -22,7 +22,7 @@ import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 
 import {RollupBase, IInstance} from "./base/RollupBase.sol";
-import {RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
+import {IRollup, RollupConfigInput} from "@aztec/core/interfaces/IRollup.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -70,14 +70,7 @@ contract IgnitionTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this));
-    feeJuicePortal = new FeeJuicePortal(
-      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
-    );
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
-    testERC20.mint(address(rewardDistributor), 1e6 ether);
+    registry = new Registry(address(this), testERC20);
 
     RollupConfigInput memory rollupConfigInput = TestConstants.getRollupConfigInput();
 
@@ -89,7 +82,7 @@ contract IgnitionTest is RollupBase {
     rollup = IInstance(
       address(
         new Rollup(
-          feeJuicePortal,
+          testERC20,
           rewardDistributor,
           testERC20,
           address(this),
@@ -99,7 +92,13 @@ contract IgnitionTest is RollupBase {
       )
     );
 
-    registry.upgrade(address(rollup));
+    feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
+    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
+    feeJuicePortal.initialize();
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+    testERC20.mint(address(rewardDistributor), 1e6 ether);
+
+    registry.addRollup(IRollup(address(rollup)));
 
     _;
   }

@@ -1,5 +1,10 @@
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import type {
+  EventSelector,
+  FunctionArtifact,
+  FunctionArtifactWithContractName,
+  FunctionSelector,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
@@ -7,7 +12,7 @@ import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
@@ -221,17 +226,14 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with the recipient's address and all the senders in the address book.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Returns the found logs
+   * and updates the indexes of the secrets used to tag them until there are no more logs to sync.
    * @param contractAddress - The address of the contract that the logs are tagged for
-   * @param recipient - The address of the recipient
-   * @returns A list of encrypted logs tagged with the recipient's address
+   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
+   * synced.
+   * @returns A map of recipient addresses to a list of encrypted logs.
    */
-  syncTaggedLogs(
-    contractAddress: AztecAddress,
-    maxBlockNumber: number,
-    scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedL2Log[]>>;
+  syncTaggedLogs(contractAddress: AztecAddress, scopes?: AztecAddress[]): Promise<Map<string, TxScopedL2Log[]>>;
 
   /**
    * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
@@ -325,4 +327,22 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @returns The secret for the given address.
    */
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
+
+  /**
+   * Stores an event log in the database.
+   * @param contractAddress - The address of the contract that emitted the log.
+   * @param recipient - The address of the recipient.
+   * @param eventSelector - The event selector of the event.
+   * @param logContent - The content of the private event log.
+   * @param txHash - The hash of the transaction that emitted the log.
+   * @param logIndexInTx - The index of the log within the transaction.
+   */
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+  ): Promise<void>;
 }

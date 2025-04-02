@@ -90,7 +90,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr = Fr.ZERO,
+    private readonly proverId: Fr,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
