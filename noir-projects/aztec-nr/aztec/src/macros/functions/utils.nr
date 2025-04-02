@@ -273,9 +273,19 @@ pub(crate) comptime fn transform_public(f: FunctionDefinition) -> Quoted {
 }
 
 pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
+    // Check if function is marked as unconstrained
+    if !f.is_unconstrained() {
+        let name = f.name();
+        panic(
+            f"Function {name} is annotated with #[utility] but not marked as unconstrained, add unconstrained keyword",
+        );
+    }
+
+    // Create utility context
     let context_creation = quote { let mut context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new(); };
     let module_has_storage = module_has_storage(f.module());
 
+    // Initialize Storage if module has storage
     let storage_init = if module_has_storage {
         quote {
             // Some functions don't access storage, but it'd be quite difficult to only inject this variable if it is
@@ -287,7 +297,7 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
         quote {}
     };
 
-    // All unconstrained functions perform message discovery, since they may need to access private notes that would be
+    // All utility functions perform message discovery, since they may need to access private notes that would be
     // found during this process. This is slightly inefficient and could be improved by only doing it once we actually
     // attempt to read any.
     let message_discovery_call = if NOTES.len() > 0 {
@@ -296,6 +306,8 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
         quote {}
     };
 
+    // Inject context creation, storage initialization, and message discovery call at the beginning of the function
+    // body.
     let to_prepend = quote {
         $context_creation
         $storage_init
@@ -303,8 +315,9 @@ pub(crate) comptime fn transform_utility(f: FunctionDefinition) {
     };
     let body = f.body().as_block().unwrap();
     let modified_body = modify_fn_body(body, to_prepend, quote {});
-    f.set_return_public(true);
     f.set_body(modified_body);
+
+    f.set_return_public(true);
 }
 
 comptime fn create_internal_check(f: FunctionDefinition) -> Quoted {
