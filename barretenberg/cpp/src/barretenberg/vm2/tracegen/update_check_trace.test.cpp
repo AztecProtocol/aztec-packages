@@ -70,7 +70,7 @@ using update_hi_metadata_range = lookup_update_check_update_hi_metadata_range_re
 using update_lo_metadata_range = lookup_update_check_update_lo_metadata_range_relation<FF>;
 using block_of_change_cmp_range = lookup_update_check_block_of_change_cmp_range_relation<FF>;
 
-TEST(UpdateCheckTracegenTest, NeverUpdatedInteractions)
+TEST(UpdateCheckTracegenTest, HashZeroInteractions)
 {
     uint32_t block_number = 100;
     ContractInstance instance = testing::random_contract_instance();
@@ -140,7 +140,7 @@ TEST(UpdateCheckTracegenTest, NeverUpdatedInteractions)
     LookupIntoDynamicTableSequential<block_of_change_cmp_range::Settings>().process(trace);
 }
 
-TEST(UpdateCheckTracegenTest, UpdatedInteractions)
+TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 {
     uint32_t block_number = 100;
     FF update_pre_class = 1;
