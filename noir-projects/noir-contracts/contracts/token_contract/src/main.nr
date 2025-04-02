@@ -27,7 +27,7 @@ pub contract Token {
         event::event_interface::EventInterface,
         macros::{
             events::event,
-            functions::{initializer, internal, private, public, view},
+            functions::{initializer, internal, private, public, utility, view},
             storage::storage,
         },
         prelude::{AztecAddress, Map, PublicContext, PublicImmutable, PublicMutable},
@@ -618,8 +618,8 @@ pub contract Token {
     }
     // docs:end:reduce_total_supply
 
-    /// Unconstrained ///
     // docs:start:balance_of_private
+    #[utility]
     pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> pub u128 {
         storage.balances.at(owner).balance_of()
     }

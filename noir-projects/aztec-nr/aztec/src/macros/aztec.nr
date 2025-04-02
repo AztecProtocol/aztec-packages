@@ -4,7 +4,7 @@ use crate::{
         dispatch::generate_public_dispatch,
         functions::{
             stub_registry,
-            utils::{create_message_discovery_call, find_and_transform_top_level_unconstrained_fns},
+            utils::{check_each_fn_macroified, create_message_discovery_call},
         },
         notes::{generate_note_export, NOTES},
         storage::STORAGE_LAYOUT_NAME,
@@ -18,7 +18,9 @@ use crate::{
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
 
-    find_and_transform_top_level_unconstrained_fns(m);
+    // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
+    //allowed in contracts.
+    check_each_fn_macroified(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
