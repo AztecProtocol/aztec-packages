@@ -19,7 +19,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Get latest published tag
+      - name: Get latest nightly tag
         id: get_tag
         run: |
           # Check if tonight's tag has been published to docker hub
