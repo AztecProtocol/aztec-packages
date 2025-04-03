@@ -16,6 +16,8 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
+mod test;
+
 // docs:start:struct
 pub struct PrivateSet<Note, Context> {
     pub context: Context,
