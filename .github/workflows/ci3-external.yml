@@ -83,6 +83,6 @@ jobs:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
-          LOG_ID: ${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           ./ci.sh ec2
