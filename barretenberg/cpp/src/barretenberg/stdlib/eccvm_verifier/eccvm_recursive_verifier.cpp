@@ -118,7 +118,7 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
 
     opening_claims.back() = std::move(multivariate_to_univariate_opening_claim);
 
-    OpeningClaim batch_opening_claim =
+    const OpeningClaim batch_opening_claim =
         Shplonk::reduce_verification(key->pcs_verification_key->get_g1_identity(), opening_claims, transcript);
 
     return { batch_opening_claim, ipa_transcript };

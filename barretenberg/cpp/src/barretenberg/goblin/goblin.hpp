@@ -36,7 +36,6 @@ class GoblinProver {
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
 
-    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = MergeProver::MergeProof;
 
@@ -93,8 +92,7 @@ class GoblinProver {
         PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
 
         auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        // As is it used in ClientIVC, we make it fixed size = 2^{CONST_ECCVM_LOG_N}
-        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder, /*fixed_size =*/true);
+        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         eccvm_key = eccvm_prover->key;
     }
 
@@ -149,6 +147,8 @@ class GoblinProver {
 
         PROFILE_THIS_NAME("Goblin::prove");
 
+        info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
+
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
             PROFILE_THIS_NAME("prove_eccvm");
@@ -170,7 +170,6 @@ class GoblinVerifier {
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
     using Builder = MegaCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
     using PairingPoints = RecursiveMergeVerifier::PairingPoints;

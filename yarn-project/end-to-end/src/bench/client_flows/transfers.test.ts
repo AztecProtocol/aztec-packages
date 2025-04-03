@@ -1,27 +1,22 @@
-import {
-  AccountWallet,
-  type AztecNode,
-  Fr,
-  PrivateFeePaymentMethod,
-  type SimulateMethodOptions,
-} from '@aztec/aztec.js';
+import { AccountWallet, type AztecNode, Fr, type SimulateMethodOptions } from '@aztec/aztec.js';
 import { FEE_FUNDING_FOR_TESTER_ACCOUNT } from '@aztec/constants';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
+import type { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { mintNotes } from '../../fixtures/token_utils.js';
 import { capturePrivateExecutionStepsIfEnvSet } from '../../shared/capture_private_execution_steps.js';
-import { type AccountType, ClientFlowsBenchmark } from './client_flows_benchmark.js';
+import { type AccountType, type BenchmarkingFeePaymentMethod, ClientFlowsBenchmark } from './client_flows_benchmark.js';
 
-jest.setTimeout(900_000);
+jest.setTimeout(1_600_000);
 
 const AMOUNT_PER_NOTE = 1_000_000;
 
 const MINIMUM_NOTES_FOR_RECURSION_LEVEL = [0, 2, 10];
 
-describe('Client flows benchmarking', () => {
+describe('Transfer benchmark', () => {
   const t = new ClientFlowsBenchmark('transfers');
   // The admin that aids in the setup of the test
   let adminWallet: AccountWallet;
@@ -33,21 +28,28 @@ describe('Client flows benchmarking', () => {
   let candyBarCoin: TokenContract;
   // Aztec node to answer queries
   let node: AztecNode;
+  // Sponsored FPC contract
+  let sponsoredFPC: SponsoredFPCContract;
+  // Benchmarking configuration
+  const config = t.config.transfers;
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();
     await t.applyDeployBananaTokenSnapshot();
     await t.applyFPCSetupSnapshot();
     await t.applyDeployCandyBarTokenSnapshot();
-    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, aztecNode: node } = await t.setup());
+    await t.applyDeploySponsoredFPCSnapshot();
+
+    ({ adminWallet, bananaFPC, bananaCoin, candyBarCoin, aztecNode: node, sponsoredFPC } = await t.setup());
   });
 
   afterAll(async () => {
     await t.teardown();
   });
 
-  transferBenchmark('ecdsar1');
-  transferBenchmark('schnorr');
+  for (const accountType of config.accounts) {
+    transferBenchmark(accountType);
+  }
 
   function transferBenchmark(accountType: AccountType) {
     return describe(`Transfer benchmark for ${accountType}`, () => {
@@ -65,9 +67,15 @@ describe('Client flows benchmarking', () => {
         await benchysWallet.registerContract(bananaCoin);
         // Register the CandyBarCoin on the user's Wallet so we can simulate and prove
         await benchysWallet.registerContract(candyBarCoin);
+        // Register the sponsored FPC on the user's PXE so we can simulate and prove
+        await benchysWallet.registerContract(sponsoredFPC);
       });
 
-      function recursionTest(recursions: number, notesToCreate: number) {
+      function recursionTest(
+        recursions: number,
+        notesToCreate: number,
+        benchmarkingPaymentMethod: BenchmarkingFeePaymentMethod,
+      ) {
         return describe(`Mint ${notesToCreate} notes and transfer using a ${accountType} account`, () => {
           // Total amount of coins minted across all notes
           let totalAmount: bigint;
@@ -98,30 +106,29 @@ describe('Client flows benchmarking', () => {
               caller: adminWallet.getAddress(),
               action: interaction,
             });
-            await interaction.send({ authWitnesses: [witness] }).wait();
+            await interaction.send({ authWitnesses: [witness] }).wait({ timeout: 120 });
           });
 
           // Ensure we create a change note, by sending an amount that is not a multiple of the note amount
           const amountToSend = MINIMUM_NOTES_FOR_RECURSION_LEVEL[recursions] * AMOUNT_PER_NOTE + 1;
 
-          it(`${accountType} contract transfers ${amountToSend} tokens using ${recursions} recursions`, async () => {
-            const paymentMethod = new PrivateFeePaymentMethod(bananaFPC.address, benchysWallet);
-            const options: SimulateMethodOptions = { fee: { paymentMethod } };
+          it(`${accountType} contract transfers ${amountToSend} tokens using ${recursions} recursions, pays using ${benchmarkingPaymentMethod}`, async () => {
+            const paymentMethod = t.paymentMethods[benchmarkingPaymentMethod];
+            const options: SimulateMethodOptions = {
+              fee: { paymentMethod: await paymentMethod.forWallet(benchysWallet) },
+            };
 
             const asset = await TokenContract.at(candyBarCoin.address, benchysWallet);
 
             const transferInteraction = asset.methods.transfer(adminWallet.getAddress(), amountToSend);
 
             await capturePrivateExecutionStepsIfEnvSet(
-              `${accountType}+transfer_${recursions}_recursions+pay_private_fpc`,
+              `${accountType}+transfer_${recursions}_recursions+${benchmarkingPaymentMethod}`,
               transferInteraction,
               options,
               1 + // Account entrypoint
                 1 + // Kernel init
-                2 + // FPC entrypoint + kernel inner
-                2 + // BananaCoin transfer_to_public + kernel inner
-                2 + // Account verify_private_authwit + kernel inner
-                2 + // BananaCoin prepare_private_balance_increase + kernel inner
+                paymentMethod.circuits + // Payment method circuits
                 2 + // CandyBarCoin transfer + kernel inner
                 recursions * 2 + // (CandyBarCoin _recurse_subtract_balance + kernel inner) * recursions
                 1 + // Kernel reset
@@ -138,17 +145,19 @@ describe('Client flows benchmarking', () => {
             /*
              * We should have created the following nullifiers:
              * - One per created note
-             * - One for the fee note
              * - One for the transaction
+             * - One for the fee note if we're using private fpc
              */
-            expect(txEffects!.data.nullifiers.length).toBe(notesToCreate + 2);
+            expect(txEffects!.data.nullifiers.length).toBe(
+              notesToCreate + 1 + (benchmarkingPaymentMethod === 'private_fpc' ? 1 : 0),
+            );
             /** We should have created 4 new notes,
              *  - One for the recipient
              *  - One for the sender (with the change)
-             *  - One for the fee
-             *  - One for the fee refund
+             *  - One for the fee if we're using private fpc
+             *  - One for the fee refund if we're using private fpc
              */
-            expect(txEffects!.data.noteHashes.length).toBe(4);
+            expect(txEffects!.data.noteHashes.length).toBe(2 + (benchmarkingPaymentMethod === 'private_fpc' ? 2 : 0));
 
             expectedChange = totalAmount - BigInt(amountToSend);
 
@@ -158,9 +167,10 @@ describe('Client flows benchmarking', () => {
         });
       }
 
-      for (let i = 0; i < MINIMUM_NOTES_FOR_RECURSION_LEVEL.length; i++) {
-        // Create the minimum amount of notes for the test, which is just above the threshold for recursion at each level
-        recursionTest(i, MINIMUM_NOTES_FOR_RECURSION_LEVEL[i] + 1);
+      for (const paymentMethod of config.feePaymentMethods) {
+        for (const recursions of config.recursions ?? []) {
+          recursionTest(recursions, MINIMUM_NOTES_FOR_RECURSION_LEVEL[recursions] + 1, paymentMethod);
+        }
       }
     });
   }

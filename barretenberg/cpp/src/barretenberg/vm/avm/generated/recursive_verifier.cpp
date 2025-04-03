@@ -170,5 +170,6 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 }
 
 template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb::avm

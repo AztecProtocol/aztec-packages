@@ -94,7 +94,7 @@ export class SlasherClient extends WithTracer {
   ) {
     super(telemetry, 'slasher');
 
-    if (config.l1Contracts.slashFactoryAddress && config.l1Contracts.slashFactoryAddress !== EthAddress.ZERO) {
+    if (config.l1Contracts.slashFactoryAddress && !config.l1Contracts.slashFactoryAddress.equals(EthAddress.ZERO)) {
       const chain = createEthereumChain(config.l1RpcUrls, config.l1ChainId);
       const publicClient = createPublicClient({
         chain: chain.chainInfo,

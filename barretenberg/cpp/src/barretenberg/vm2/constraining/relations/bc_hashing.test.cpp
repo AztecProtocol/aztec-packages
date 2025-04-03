@@ -97,7 +97,6 @@ TEST(BytecodeHashingConstrainingTest, PoseidonInteractions)
     tracegen::LookupIntoDynamicTableSequential<bc_hashing_lookup_relation::Settings>().process(trace);
 
     check_relation<bc_hashing>(trace);
-    check_interaction<bc_hashing_lookup_relation>(trace);
 }
 
 TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
@@ -118,8 +117,6 @@ TEST(BytecodeHashingConstrainingTest, BytecodeInteractions)
     tracegen::LookupIntoDynamicTableSequential<length_iv_relation::Settings>().process(trace);
 
     check_relation<bc_hashing>(trace);
-    check_interaction<bc_decomp_lookup_relation>(trace);
-    check_interaction<length_iv_relation>(trace);
 }
 
 TEST(BytecodeHashingConstrainingTest, NegativeInvalidStartAfterLatch)

@@ -71,15 +71,19 @@ function tail_live_instance {
 case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    bootstrap_ec2 "./bootstrap.sh ci"
+    export USE_TEST_CACHE=1
+    bootstrap_ec2
     ;;
   "ec2-no-cache")
-    # Same as ec2, but disable the build and test cache.
-    bootstrap_ec2 "NO_CACHE=1 USE_TEST_CACHE=0 ./bootstrap.sh ci"
+    # Disable the build and test cache.
+    export NO_CACHE=1
+    export USE_TEST_CACHE=0
+    bootstrap_ec2
     ;;
   "ec2-test")
-    # Same as ec2, but don't use the test cache.
-    bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci"
+    # Can use the build cache, but don't use the test cache.
+    export USE_TEST_CACHE=0
+    bootstrap_ec2
     ;;
   "ec2-shell")
     # Spin up ec2 instance, clone, and drop into shell.
@@ -88,10 +92,11 @@ case "$cmd" in
     ;;
   "ec2-grind")
     # Same as ec2-test but repeat it over arg1 instances.
-    export DENOISE=1
+    export CI_FULL=1
+    export USE_TEST_CACHE=0
     num=${1:-5}
     seq 0 $((num - 1)) | parallel --tag --line-buffered \
-      'INSTANCE_POSTFIX={} bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci" 2>&1 | cache_log "Grind {}"'
+      'INSTANCE_POSTFIX=${USER}_{} bootstrap_ec2 2>&1 | cache_log "Grind {}"'
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.

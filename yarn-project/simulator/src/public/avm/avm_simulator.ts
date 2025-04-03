@@ -7,6 +7,7 @@ import type { GlobalVariables } from '@aztec/stdlib/tx';
 import { strict as assert } from 'assert';
 
 import { SideEffectLimitReachedError } from '../side_effect_errors.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { AvmContext } from './avm_context.js';
 import { AvmContractCallResult } from './avm_contract_call_result.js';
 import { AvmExecutionEnvironment } from './avm_execution_environment.js';
@@ -19,7 +20,6 @@ import {
   revertReasonFromExceptionalHalt,
   revertReasonFromExplicitRevert,
 } from './errors.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
 import type { Instruction } from './opcodes/instruction.js';
 import {
   INSTRUCTION_SET,
@@ -75,7 +75,7 @@ export class AvmSimulator {
   }
 
   public static async create(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     address: AztecAddress,
     sender: AztecAddress,
     transactionFee: Fr,

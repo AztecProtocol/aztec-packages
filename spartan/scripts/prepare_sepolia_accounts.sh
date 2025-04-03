@@ -4,6 +4,14 @@ set -euo pipefail
 
 source $(git rev-parse --show-toplevel)/ci3/source
 
+reset_x=false
+
+# Set +x if it's currently enabled
+if [ -o xtrace ]; then
+  set +x
+  reset_x=true
+fi
+
 tmp_filename=$(mktemp)
 addresses_file=$(mktemp)
 
@@ -14,6 +22,9 @@ cleanup() {
   fi
   if [ -f "$addresses_file" ]; then
     rm -f "$addresses_file"
+  fi
+  if [ $reset_x = true ]; then
+    set -x
   fi
 }
 
@@ -79,14 +90,13 @@ max_index=$((max_index > bot_max_index ? max_index : bot_max_index))
 # Total number of accounts needed
 total_accounts=$((num_validators + num_provers + num_bots))
 
-
-
 # Create a new mnemonic
 echo "Creating mnemonic..."
 cast wallet new-mnemonic --json >"$tmp_filename"
 MNEMONIC=$(jq -r '.mnemonic' "$tmp_filename")
 
-echo "MNEMONIC: $MNEMONIC"
+echo "MNEMONIC:"
+echo "::add-mask::$MNEMONIC"
 
 # Cast has a limit of 255 accounts per mnemonic command
 # We'll need to derive accounts in batches

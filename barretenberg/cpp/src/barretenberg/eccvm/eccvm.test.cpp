@@ -92,7 +92,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
-    ECCVMProver prover(builder, /*fixed_size = */ true);
+    ECCVMProver prover(builder);
     ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
@@ -106,7 +106,7 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
 
-    ECCVMProver prover(builder, /*fixed_size = */ true);
+    ECCVMProver prover(builder);
 
     ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
@@ -127,8 +127,8 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
 
-    ECCVMProver prover(builder, /*fixed_size=*/true);
-    auto pk = std::make_shared<ProvingKey>(builder, /*fixed_size*/ true);
+    ECCVMProver prover(builder);
+    auto pk = std::make_shared<ProvingKey>(builder);
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
 
