@@ -266,10 +266,6 @@ resource "aws_ecs_task_definition" "aztec-proving-agent" {
         "value": "true"
       },
       {
-        "name": "PROVER_AGENT_CONCURRENCY",
-        "value": "1"
-      },
-      {
         "name": "PROVER_REAL_PROOFS",
         "value": "${var.PROVING_ENABLED}"
       },

@@ -85,7 +85,6 @@ For S&P Testnet, we will be providing an Ethereum host, a Boot Node URL and a sp
 The prover agent, on the other hand, relies on the following environment variables:
 
 - **PROVER_BROKER_HOST**: URL to the Prover Node that acts as a proving job source.
-- **PROVER_AGENT_CONCURRENCY**: Maximum concurrency for this given prover agent. Defaults to `1`.
 
 Both the prover node and agent also rely on the following:
 

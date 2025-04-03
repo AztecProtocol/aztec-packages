@@ -50,6 +50,7 @@ function test_cmds {
   echo "$prefix simple e2e_deploy_contract/deploy_method"
   echo "$prefix simple e2e_deploy_contract/legacy"
   echo "$prefix simple e2e_deploy_contract/private_initialization"
+  echo "$prefix simple e2e_double_spend"
   echo "$prefix simple e2e_epochs/epochs_empty_blocks"
   echo "$prefix simple e2e_epochs/epochs_multi_proof"
   echo "$prefix simple e2e_epochs/epochs_proof_fails"
@@ -113,6 +114,9 @@ function test_cmds {
   echo "$prefix simple e2e_token_contract/transfer_to_private"
   echo "$prefix simple e2e_token_contract/transfer_to_public"
   echo "$prefix simple e2e_token_contract/transfer.test"
+
+  # other
+  echo "$prefix simple e2e_sequencer_config"
 
   # circuit_recorder sub-tests
   echo "$prefix simple e2e_circuit_recorder"

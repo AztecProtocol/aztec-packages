@@ -385,6 +385,12 @@ cmake --build --preset default --target run_ecc_bench
 
 ### Debugging
 
+#### Running Realistic ClientIVC from barretenberg folder
+One can now run (for example, any master commit that has finished benchmarking can be used):
+`barretenberg/cpp/bootstrap.sh e2e_ivc_bench 88c0e046ccb8381910a4615ac6218dcdbf04d898`
+
+If one doesn't provide the commit this (if yarn project is bootstrapped) generate these IVC inputs on the fly.
+
 #### Debugging Verifification Failures
 
 The CircuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.

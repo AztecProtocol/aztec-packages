@@ -2,6 +2,8 @@
 name: CI3 (External)
 
 on:
+  # This check is skipped in merge queue, but we need it to run (even skipped) for status checks.
+  merge_group:
   # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
@@ -81,6 +83,6 @@ jobs:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
-          LOG_ID: ${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           ./ci.sh ec2

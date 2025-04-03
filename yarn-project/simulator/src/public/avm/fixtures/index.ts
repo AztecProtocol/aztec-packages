@@ -28,26 +28,26 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import { DEFAULT_BLOCK_NUMBER } from '../../fixtures/public_tx_simulation_tester.js';
 import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
+import { NullifierManager } from '../../state_manager/nullifiers.js';
+import { PublicStorage } from '../../state_manager/public_storage.js';
+import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import type { AvmRevertReason } from '../errors.js';
-import { AvmPersistableStateManager } from '../journal/journal.js';
-import { NullifierManager } from '../journal/nullifiers.js';
-import { PublicStorage } from '../journal/public_storage.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 /**
  * Create a new AVM context with default values.
  */
 export function initContext(overrides?: {
-  persistableState?: AvmPersistableStateManager;
+  persistableState?: PublicPersistableStateManager;
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
@@ -70,9 +70,9 @@ export function initPersistableStateManager(overrides?: {
   doMerkleOperations?: boolean;
   firstNullifier?: Fr;
   blockNumber?: number;
-}): AvmPersistableStateManager {
+}): PublicPersistableStateManager {
   const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
-  return new AvmPersistableStateManager(
+  return new PublicPersistableStateManager(
     treesDB,
     overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
