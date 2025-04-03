@@ -120,6 +120,7 @@ function install_hooks {
 }
 
 function test_cmds {
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
