@@ -1232,6 +1232,13 @@ template <typename FF> void Graph_<FF>::print_variables_gate_counts()
     }
 }
 
+/**
+ * @brief this method prints all information about the gate where variable was found
+ * @tparam FF 
+ * @param ultra_builder 
+ * @param real_idx 
+ */
+
 template <typename FF> void Graph_<FF>::print_variable_in_one_gate(bb::UltraCircuitBuilder& ultra_builder, const uint32_t real_idx)
 {
     const auto& block_data = ultra_builder.blocks.get();
