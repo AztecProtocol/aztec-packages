@@ -94,8 +94,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
     // The aggregation object
-    PairingPointAccumulatorIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
-    for (auto idx : agg_obj) {
+    auto agg_obj = stdlib::recursion::aggregation_state<Builder>::construct_default(builder);
+    for (auto idx : agg_obj.get_witness_indices()) {
         builder.assert_equal(idx, proof_fields[offset].witness_index);
         offset++;
     }
@@ -258,8 +258,6 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    // aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
-    //     builder, input_aggregation_object_indices);
     HonkRecursionConstraintOutput output;
     UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs

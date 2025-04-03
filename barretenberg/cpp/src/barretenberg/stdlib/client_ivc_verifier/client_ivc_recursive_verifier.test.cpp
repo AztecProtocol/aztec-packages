@@ -136,8 +136,8 @@ TEST_F(ClientIVCRecursionTests, ClientTubeBase)
     auto base_vk = std::make_shared<RollupFlavor::VerificationKey>(&base_builder, tube_vk);
     auto base_tube_proof = bb::convert_native_proof_to_stdlib(&base_builder, native_tube_proof);
     UltraRecursiveVerifier base_verifier{ &base_builder, base_vk };
-    UltraRecursiveVerifierOutput<RollupFlavor> output = base_verifier.verify_proof(
-        base_tube_proof, stdlib::recursion::init_default_aggregation_state<Builder, RollupFlavor::Curve>(base_builder));
+    UltraRecursiveVerifierOutput<RollupFlavor> output =
+        base_verifier.verify_proof(base_tube_proof, AggregationObject::construct_default(base_builder));
     info("Tube UH Recursive Verifier: num prefinalized gates = ", base_builder.num_gates);
     output.agg_obj.set_public();
     base_builder.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());

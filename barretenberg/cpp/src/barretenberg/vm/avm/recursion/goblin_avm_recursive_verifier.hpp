@@ -144,8 +144,7 @@ class AvmGoblinRecursiveVerifier {
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ &mega_builder, stdlib_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1304): Do proper pairing point aggregation.
-        auto default_agg_object =
-            stdlib::recursion::init_default_aggregation_state<MegaBuilder, AvmRecursiveFlavor::Curve>(mega_builder);
+        auto default_agg_object = MegaAggregationObject::construct_default(mega_builder);
         [[maybe_unused]] auto mega_agg_output =
             recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_agg_object);
         MegaAggregationObject::add_default_pairing_points_to_public_inputs(mega_builder);

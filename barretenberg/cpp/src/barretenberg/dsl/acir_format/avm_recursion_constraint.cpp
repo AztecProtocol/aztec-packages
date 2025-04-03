@@ -213,7 +213,7 @@ stdlib::recursion::aggregation_state<Builder> create_avm_recursion_constraints(
 HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
     bool has_valid_witness_assignments)
 {
     using RecursiveVerifier = bb::avm::AvmGoblinRecursiveVerifier;
@@ -251,8 +251,6 @@ HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
 
     // Execute the Goblin AVM recursive verifier
     RecursiveVerifier verifier(&builder, key_fields);
-    aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
-        builder, input_aggregation_object_indices);
     auto output_agg_object = verifier.verify_proof(proof_fields, public_inputs_vectors, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public
     // inputs is important, like what the plonk recursion constraint does.

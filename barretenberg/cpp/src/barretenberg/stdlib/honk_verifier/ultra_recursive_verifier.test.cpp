@@ -163,9 +163,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-            typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(
-                inner_proof,
-                init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
+            typename RecursiveVerifier::Output verifier_output =
+                verifier.verify_proof(inner_proof, AggState::construct_default(outer_circuit));
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 outer_circuit.add_ipa_claim(verifier_output.ipa_opening_claim.get_witness_indices());
                 outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
@@ -204,7 +203,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        AggState agg_obj = init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        auto agg_obj = AggState::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
         AggState pairing_points = output.agg_obj;
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
@@ -286,9 +285,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             // Create a recursive verification circuit for the proof of the inner circuit
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
-            VerifierOutput output = verifier.verify_proof(
-                inner_proof,
-                init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
+            VerifierOutput output = verifier.verify_proof(inner_proof, AggState::construct_default(outer_circuit));
 
             // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
             // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
