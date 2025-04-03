@@ -15,7 +15,8 @@ if [ "$arch" == "arm64" ]; then
   export AWS_SHUTDOWN_TIME=90
 else
   if [ "$CI_FULL" -eq 1 ]; then
-    cores=192,128,64
+    # cores=192,128,64
+    cores=128,64
   else
     cores=128,64
   fi
@@ -27,12 +28,16 @@ cores=${CPUS:-$cores}
 # Trap function to terminate our running instance when the script exits.
 function on_exit {
   set +e
-  if [ "$NO_TERMINATE" -eq 0 ]; then
-    aws_terminate_instance $iid $sir
-  else
-    echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
+  if [ -n "$iid" ]; then
+    if [ "$NO_TERMINATE" -eq 0 ]; then
+      aws_terminate_instance $iid $sir
+    else
+      echo "Remote machine not terminated, connect with: ARCH=$arch ./ci.sh shell"
+    fi
+    iid=""
   fi
 }
+trap on_exit SIGINT SIGTERM EXIT
 
 # Verify that the commit exists on the remote. It will be the remote tip of itself if so.
 current_commit=$(git rev-parse HEAD)
@@ -76,7 +81,6 @@ IFS=':' read -r -a parts <<< "$ip_sir"
 ip="${parts[0]}"
 sir="${parts[1]}"
 iid="${parts[2]}"
-trap on_exit EXIT
 
 # If AWS credentials are not set, try to load them from ~/.aws/build_instance_credentials.
 if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
@@ -181,9 +185,8 @@ EOF
 # We set SSH_CONNECTION to something to ensure the hostname is shown in the lean prompt.
 # We provide the host user and group ids to the entrypoint script to ensure alignment.
 # We raise the default pid limit to 32k.
-set +e
-ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
-  function start {
+function run {
+  ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
     sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
     sudo sysctl fs.inotify.max_user_instances=1048576 &>/dev/null
@@ -247,19 +250,19 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
       --pids-limit=32768 \
       aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
-  }
+  "
+}
 
-  # On SIGHUP, shutdown the instance.
-  trap 'sudo shutdown -h now' SIGHUP SIGTERM SIGINT
+set +e
+# If in terminal run in foreground.
+# If not, run in background so we can handle the signals in a timely fashion, and wait for it to finish.
+if [ -t 0 ]; then
+  run
+else
+  run &
+  wait $!
+fi
 
-  if [ -t 0 ]; then
-    start
-  else
-    # If not in terminal, start in background and wait, to allow SIGHUP handler to execute.
-    start &
-    wait \$!
-  fi
-"
 code=$?
 set -e
 echo "SSH exited with code: $code"
