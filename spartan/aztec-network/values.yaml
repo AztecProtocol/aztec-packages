@@ -250,6 +250,8 @@ bot:
   ammTxs: false
   maxErrors: 3
   stopIfUnhealthy: true
+  dataDir: "/data"
+  storageSize: "2Gi"
   service:
     type: ClusterIP
     nodePort: 8082
