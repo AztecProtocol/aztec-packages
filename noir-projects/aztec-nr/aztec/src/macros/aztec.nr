@@ -269,8 +269,11 @@ comptime fn generate_note_exports() -> Quoted {
 
 comptime fn generate_sync_notes() -> Quoted {
     let message_discovery_call = create_message_discovery_call();
+
+    let utility = crate::macros::functions::utility;
+
     quote {
-        #[aztec::macros::functions::utility]
+        #[$utility]
         unconstrained fn sync_notes() {
             $message_discovery_call
         }
