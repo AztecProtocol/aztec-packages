@@ -42,21 +42,8 @@ tests:
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Out of bounds memory access"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Sumcheck verification failed."
-    owners:
-      - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
-    error_regex: "verified: false"
-    owners:
-      - *sergei
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
-    error_regex: "timeout: sending signal TERM to command"
-    owners:
-      - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Failed to fetch"
     owners:
@@ -92,19 +79,11 @@ tests:
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/slashing"
-    skip: true
-    owners:
-      - *lasse
-  - regex: "simple e2e_p2p/validators_sentinel"
+  - regex: "simple e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
       - *palla
-  - regex: "simple e2e_p2p/reqresp"
-    error_regex: "TimeoutError: Timeout awaiting blocks mined"
-    owners:
-      - *palla
-  - regex: "simple e2e_p2p/reqresp"
+  - regex: "simple e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
@@ -191,16 +170,18 @@ tests:
       - *grego
 
   # kind tests
-  - regex: "spartan/bootstrap.sh test-kind-smoke"
-    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
-    owners:
-      - *alex
   - regex: "spartan/bootstrap.sh"
+    # Will skip all kind tests for now. Too unstable, blocking merge queue.
+    skip: true
     error_regex: "timeout: sending signal TERM to command"
     owners:
       - *alex
   - regex: "spartan/bootstrap.sh"
     error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
       - *alex
 

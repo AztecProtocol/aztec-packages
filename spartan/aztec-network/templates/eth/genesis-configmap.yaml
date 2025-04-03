@@ -1,0 +1,37 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-beacon-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  {{- $basePath := printf "eth-devnet/%s" .Values.ethereum.genesisBasePath }}
+  config.yaml: |
+    {{- $path := printf "%s/config.yaml" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}
+  deposit_contract_block.txt: |
+    {{- $path := printf "%s/deposit_contract_block.txt" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}
+  jwt-secret.hex: |
+    {{- $path := printf "%s/jwt-secret.hex" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}
+  genesis-ssz: |
+    {{- $path := printf "%s/genesis-ssz" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-eth-execution-genesis
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+data:
+  {{- $basePath := printf "eth-devnet/%s" .Values.ethereum.genesisBasePath }}
+  genesis.json: |
+    {{- $path := printf "%s/genesis.json" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}
+  jwt-secret.hex: |
+    {{- $path := printf "%s/jwt-secret.hex" $basePath }}
+    {{ .Files.Get $path | nindent 4 }}

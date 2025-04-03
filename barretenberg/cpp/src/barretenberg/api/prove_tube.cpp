@@ -73,8 +73,8 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
                            tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
         HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())
     };
-    write_file(tubePublicInputsPath, to_buffer<true>(public_inputs_and_proof.public_inputs));
-    write_file(tubeProofPath, to_buffer<true>(public_inputs_and_proof.proof));
+    write_file(tubePublicInputsPath, to_buffer(public_inputs_and_proof.public_inputs));
+    write_file(tubeProofPath, to_buffer(public_inputs_and_proof.proof));
 
     std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
     std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";

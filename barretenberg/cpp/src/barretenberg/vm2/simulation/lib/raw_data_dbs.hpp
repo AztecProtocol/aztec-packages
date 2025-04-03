@@ -1,6 +1,7 @@
 #pragma once
 
-#include "barretenberg/common/utils.hpp"
+#include <tuple>
+
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/crypto/merkle_tree/response.hpp"
@@ -61,27 +62,26 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
 
     // Query hints.
     using GetSiblingPathKey =
-        utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
+        std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
     unordered_flat_map<GetSiblingPathKey, crypto::merkle_tree::fr_sibling_path> get_sibling_path_hints;
-    using GetPreviousValueIndexKey = utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, FF>;
+    using GetPreviousValueIndexKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, FF>;
     unordered_flat_map<GetPreviousValueIndexKey, crypto::merkle_tree::GetLowIndexedLeafResponse>
         get_previous_value_index_hints;
-    using GetLeafPreimageKey = utils::HashableTuple<AppendOnlyTreeSnapshot, crypto::merkle_tree::index_t>;
+    using GetLeafPreimageKey = std::tuple<AppendOnlyTreeSnapshot, crypto::merkle_tree::index_t>;
     unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>
         get_leaf_preimage_hints_public_data_tree;
     unordered_flat_map<GetLeafPreimageKey, crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>
         get_leaf_preimage_hints_nullifier_tree;
-    using GetLeafValueKey =
-        utils::HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
+    using GetLeafValueKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::index_t>;
     unordered_flat_map<GetLeafValueKey, FF> get_leaf_value_hints;
     // State modification hints.
-    using SequentialInsertHintPublicDataTreeKey = utils::
-        HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::PublicDataLeafValue>;
+    using SequentialInsertHintPublicDataTreeKey =
+        std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::PublicDataLeafValue>;
     unordered_flat_map<SequentialInsertHintPublicDataTreeKey,
                        SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>>
         sequential_insert_hints_public_data_tree;
-    using SequentialInsertHintNullifierTreeKey = utils::
-        HashableTuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::NullifierLeafValue>;
+    using SequentialInsertHintNullifierTreeKey =
+        std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, crypto::merkle_tree::NullifierLeafValue>;
     unordered_flat_map<SequentialInsertHintNullifierTreeKey,
                        SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;

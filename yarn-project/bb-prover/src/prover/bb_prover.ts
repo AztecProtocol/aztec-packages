@@ -697,8 +697,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32 + 4));
-      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32 + 4));
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
+      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
       const result = await verificationFunction(proofFileName, verificationKeyPath!);
@@ -754,14 +755,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const fieldsWithoutPublicInputs = json.map(Fr.fromHexString);
 
     // Concat binary public inputs and binary proof
-    // This buffer will have the form: [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, binary proof]
+    // This buffer will have the form: [binary public inputs, binary proof]
     const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Get rid of if possible.
-    const metadataLength = 4;
-    assert(
-      binaryProofWithPublicInputs.length ==
-        metadataLength + numPublicInputs * 32 + metadataLength + NESTED_RECURSIVE_PROOF_LENGTH * 32,
-    );
+    assert(binaryProofWithPublicInputs.length == numPublicInputs * 32 + NESTED_RECURSIVE_PROOF_LENGTH * 32);
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProofWithPublicInputs.length}`,
     );
