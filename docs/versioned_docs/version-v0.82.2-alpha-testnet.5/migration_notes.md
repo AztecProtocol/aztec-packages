@@ -2290,7 +2290,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers 
+```rust title="prelude" showLineNumbers
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
@@ -2950,7 +2950,7 @@ impl Storage {
 The `protocol_types` package is now being reexported from `aztec`. It can be accessed through `dep::aztec::protocol_types`.
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2", directory="yarn-project/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2-alpha-testnet.5", directory="yarn-project/aztec-nr/aztec" }
 ```
 
 ### [Aztec.nr] key type definition in Map
@@ -3040,8 +3040,8 @@ const tokenBigInt = (await bridge.methods.token().simulate()).inner;
 ### [Aztec.nr] Add `protocol_types` to Nargo.toml
 
 ```toml
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2", directory="yarn-project/aztec-nr/aztec" }
-protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2", directory="yarn-project/noir-protocol-circuits/crates/types"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2-alpha-testnet.5", directory="yarn-project/aztec-nr/aztec" }
+protocol_types = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2-alpha-testnet.5", directory="yarn-project/noir-protocol-circuits/crates/types"}
 ```
 
 ### [Aztec.nr] moving compute_address func to AztecAddress

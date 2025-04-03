@@ -48,7 +48,7 @@ We will need the Aztec library to create this contract. In your `Nargo.toml` you
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2", directory="noir-projects/aztec-nr/aztec" }
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2-alpha-testnet.5", directory="noir-projects/aztec-nr/aztec" }
 ```
 
 ## Initiate the contract and define imports
@@ -65,7 +65,7 @@ This defines a contract called `Voter`. Everything will sit inside this block.
 
 Inside this, paste these imports:
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use dep::aztec::{
     keys::getters::get_public_keys,
     macros::{functions::{initializer, internal, private, public}, storage::storage},
@@ -90,7 +90,7 @@ We are using various utils within the Aztec `prelude` library:
 Under these imports, we need to set up our contract storage.
 Define the storage struct like so:
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     admin: PublicMutable<AztecAddress, Context>, // admin can end vote
@@ -113,7 +113,7 @@ In this contract, we will store three vars:
 
 The next step is to initialize the contract with a constructor. The constructor will take an address as a parameter and set the admin.
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[public]
 #[initializer]
 // annotation to mark function as a constructor
@@ -140,7 +140,7 @@ To ensure someone only votes once, we will create a nullifier as part of the fun
 
 Create a private function called `cast_vote`:
 
-```rust title="cast_vote" showLineNumbers 
+```rust title="cast_vote" showLineNumbers
 #[private]
 // annotation to mark function as private and expose private context
 fn cast_vote(candidate: Field) {
@@ -165,7 +165,7 @@ After pushing the nullifier, we update the `tally` to reflect this vote. As we k
 
 Create this new public function like this:
 
-```rust title="add_to_tally_public" showLineNumbers 
+```rust title="add_to_tally_public" showLineNumbers
 #[public]
 #[internal]
 fn add_to_tally_public(candidate: Field) {
@@ -187,7 +187,7 @@ The code after the assertion will only run if the assertion is true. In this sni
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
-```rust title="get_vote" showLineNumbers 
+```rust title="get_vote" showLineNumbers
 unconstrained fn get_vote(candidate: Field) -> pub Field {
     storage.tally.at(candidate).read()
 }
@@ -203,7 +203,7 @@ To ensure that only an `admin` can end a voting period, we can use another `asse
 
 Paste this function in your contract:
 
-```rust title="end_vote" showLineNumbers 
+```rust title="end_vote" showLineNumbers
 #[public]
 fn end_vote() {
     assert(storage.admin.read().eq(context.msg_sender()), "Only admin can end votes"); // assert that caller is admin
