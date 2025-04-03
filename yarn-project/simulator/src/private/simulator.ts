@@ -115,6 +115,7 @@ export class AcirSimulator {
     }
   }
 
+  // docs:start:execute_unconstrained_function
   /**
    * Runs an unconstrained function.
    * @param call - The function call to execute.
@@ -172,4 +173,5 @@ export class AcirSimulator {
       throw createSimulationError(err instanceof Error ? err : new Error('Unknown error during private execution'));
     }
   }
+  // docs:end:execute_unconstrained_function
 }
