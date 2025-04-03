@@ -105,7 +105,7 @@ template <class Curve> class CommitmentKey {
         size_t relative_start_index = polynomial.start_index - actual_start_index;
         const size_t consumed_srs = actual_start_index + dyadic_poly_size;
         auto srs = srs::get_crs_factory<Curve>()->get_prover_crs(consumed_srs);
-        // We only need the
+        // We unly need the
         if (consumed_srs > srs->get_monomial_size()) {
             throw_or_abort(format("Attempting to commit to a polynomial that needs ",
                                   consumed_srs,

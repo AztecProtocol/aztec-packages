@@ -51,7 +51,7 @@ function client_ivc_flow_native {
 
   function bb_cli_bench_native {
     export MAIN_ARGS="$*"
-    export MEMUSAGE_OUT=bench-out/$flow-proof-files/peak-memory-mb.txt
+    export MEMUSAGE_OUT="bench-out/$flow-proof-files/peak-memory-native-mb.txt"
     memusage ./build/bin/bb_cli_bench \
         --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
         --benchmark_out_format=json || {
@@ -64,7 +64,7 @@ function client_ivc_flow_native {
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 ))
-  local memory_taken_mb=$(cat bench-out/$flow-proof-files/peak-memory-mb.txt )
+  local memory_taken_mb=$(cat bench-out/$flow-proof-files/peak-memory-native-mb.txt )
   echo "$flow (native) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
   echo "$flow (native) has verified."
@@ -95,7 +95,7 @@ function client_ivc_flow_wasm {
 
   function bb_cli_bench_wasm {
     export MAIN_ARGS="$*"
-    export MEMUSAGE_OUT=bench-out/$flow-proof-files/peak-memory-wasm-mb.txt
+    export MEMUSAGE_OUT="bench-out/$flow-proof-files/peak-memory-wasm-mb.txt"
     export WASMTIME_ALLOWED_DIRS="--dir=$HOME/.bb-crs --dir=$HOME/.bb-crs/monomial --dir="$flow_folder" --dir=bench-out/$flow-proof-files"
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
         --benchmark_out=bench-out/$flow-proof-files/op-counts.json \

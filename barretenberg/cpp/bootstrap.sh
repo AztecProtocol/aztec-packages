@@ -301,7 +301,7 @@ case "$cmd" in
 
     # build the benchmarked benches
     parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
+      "build_preset op-count-time --target bb_cli_bench" \
       "build_preset wasm-threads --target bb_cli_bench"
 
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
@@ -316,7 +316,7 @@ case "$cmd" in
 
     # Recreation of logic from bench.
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-    ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
+    docker_isolate ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
     ;;
   "hash")
     echo $hash
