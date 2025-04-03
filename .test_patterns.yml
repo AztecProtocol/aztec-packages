@@ -42,21 +42,8 @@ tests:
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Out of bounds memory access"
     owners:
       - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Sumcheck verification failed."
-    owners:
-      - *luke
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
-    error_regex: "verified: false"
-    owners:
-      - *sergei
-  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh verify_honk_proof"
-    error_regex: "timeout: sending signal TERM to command"
-    owners:
-      - *adam
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
     error_regex: "Failed to fetch"
     owners:
