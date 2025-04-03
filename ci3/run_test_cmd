@@ -130,6 +130,10 @@ function fail {
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
+  if [ -t 1 ]; then
+    cat $tmp_file
+    echo -e "$line"
+  fi
   exit $code
 }
 
