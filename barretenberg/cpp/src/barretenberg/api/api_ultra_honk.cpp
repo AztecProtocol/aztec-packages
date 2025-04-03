@@ -42,11 +42,9 @@ Circuit _compute_circuit(const std::string& bytecode_path, const std::string& wi
 }
 
 template <typename Flavor>
-UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
-                                     const std::string& witness_path,
-                                     const bool init_kzg_accumulator)
+UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std::string& witness_path)
 {
-    auto prover = UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path, init_kzg_accumulator) };
+    auto prover = UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path) };
 
     size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
     if constexpr (Flavor::HasZK) {
@@ -57,11 +55,10 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
-                                     const std::filesystem::path& bytecode_path,
+PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
                                      const std::filesystem::path& witness_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
+    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
 }
 
@@ -71,7 +68,7 @@ PubInputsProofAndKey<VK> _prove(const bool compute_vk,
                                 const std::filesystem::path& bytecode_path,
                                 const std::filesystem::path& witness_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
+    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
     if (init_kzg_accumulator) {
@@ -215,16 +212,14 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 {
     const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
 
-    const bool init = flags.init_kzg_accumulator;
-
     if (flags.ipa_accumulation) {
-        _write(_compute_vk<UltraRollupFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_compute_vk<UltraFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_compute_vk<UltraKeccakFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_compute_vk<UltraKeccakZKFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }
