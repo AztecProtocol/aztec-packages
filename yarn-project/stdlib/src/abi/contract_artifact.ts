@@ -223,8 +223,7 @@ function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
   } else if (fn.custom_attributes.some(attr => attr.endsWith(AZTEC_UTILITY_ATTRIBUTE))) {
     return FunctionType.UTILITY;
   } else {
-    // Default to a private function (see simple_macro_example_expanded for an example of this behavior)
-    return FunctionType.PRIVATE;
+    throw new Error(`Invalid function type for a noir contract function ${fn.name}`);
   }
 }
 
@@ -238,8 +237,7 @@ function getFunctionType(fn: NoirCompiledContractFunction): FunctionType {
 //   } else if (fn.custom_attributes.includes(AZTEC_UTILITY_ATTRIBUTE)) {
 //     return FunctionType.UTILITY;
 //   } else {
-//     // Default to a private function (see simple_macro_example_expanded for an example of this behavior)
-//     return FunctionType.PRIVATE;
+//     throw new Error(`Invalid function type for a noir contract function ${fn.name}`);
 //   }
 // }
 
