@@ -135,9 +135,9 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     LookupIntoDynamicTableSequential<shared_mutable_slot_poseidon2::Settings>().process(trace);
     LookupIntoDynamicTableSequential<shared_mutable_leaf_slot_poseidon2::Settings>().process(trace);
     LookupIntoDynamicTableSequential<update_hash_public_data_read::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<update_hi_metadata_range::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<update_lo_metadata_range::Settings>().process(trace);
-    LookupIntoDynamicTableSequential<block_of_change_cmp_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<update_hi_metadata_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<update_lo_metadata_range::Settings>().process(trace);
+    LookupIntoDynamicTableGeneric<block_of_change_cmp_range::Settings>().process(trace);
 }
 
 TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
