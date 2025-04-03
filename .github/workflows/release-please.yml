@@ -16,6 +16,8 @@ jobs:
   release-please:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      release-pr: ${{ steps.release.outputs.pr }}
     steps:
       - name: Run Release Please
         id: release
