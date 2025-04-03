@@ -496,7 +496,7 @@ export async function setup(
       telemetry,
     );
     await blobSink.start();
-    config.blobSinkUrl = `http://localhost:5052`;
+    config.blobSinkUrl = `http://127.0.0.1:5052`;
 
     logger.verbose('Creating and synching an aztec node...');
 
