@@ -328,10 +328,10 @@ case "$cmd" in
       release
     fi
 
-    # if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
+    if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
       echo "Building and releasing docs in master"
       docs/bootstrap.sh docs-release
-    # fi
+    fi
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
