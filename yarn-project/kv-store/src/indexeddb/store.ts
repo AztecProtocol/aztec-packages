@@ -1,9 +1,10 @@
 import type { Logger } from '@aztec/foundation/log';
 
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
+import type { NotUndefined } from 'object-hash';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize } from '../interfaces/common.js';
+import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
@@ -16,13 +17,20 @@ import { IndexedDBAztecMultiMap } from './multi_map.js';
 import { IndexedDBAztecSet } from './set.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
 
-export type StoredData<V> = { value: V; container: string; key: string; keyCount: number; slot: string };
+export type StoredData<V extends NotUndefined> = {
+  value: V;
+  container: string;
+  key: string;
+  keyCount: number;
+  slot: string;
+  hash: string;
+};
 
 export interface AztecIDBSchema extends DBSchema {
   data: {
     value: StoredData<any>;
     key: string;
-    indexes: { container: string; key: string; keyCount: number };
+    indexes: { container: string; key: string; keyCount: number; hash: string };
   };
 }
 
@@ -67,6 +75,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
         objectStore.createIndex('key', ['container', 'key'], { unique: false });
         objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: false });
+        objectStore.createIndex('hash', ['container', 'key', 'hash'], { unique: true });
       },
     });
 
@@ -79,7 +88,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     const map = new IndexedDBAztecMap<K, V>(this.#rootDB, name);
     this.#containers.add(map);
     return map;
@@ -101,7 +110,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
     const multimap = new IndexedDBAztecMultiMap<K, V>(this.#rootDB, name);
     this.#containers.add(multimap);
     return multimap;
@@ -116,7 +125,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  openArray<T>(name: string): AztecAsyncArray<T> {
+  openArray<T extends Value>(name: string): AztecAsyncArray<T> {
     const array = new IndexedDBAztecArray<T>(this.#rootDB, name);
     this.#containers.add(array);
     return array;
@@ -127,7 +136,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the singleton
    * @returns A new AztecSingleton
    */
-  openSingleton<T>(name: string): AztecAsyncSingleton<T> {
+  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
     const singleton = new IndexedDBAztecSingleton<T>(this.#rootDB, name);
     this.#containers.add(singleton);
     return singleton;
