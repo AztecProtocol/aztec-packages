@@ -20,7 +20,6 @@ import {
   type AllowedElement,
   SequencerConfigSchema,
   type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
