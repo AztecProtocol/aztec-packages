@@ -123,10 +123,6 @@ Step 3. Ethereum execution
 
 Aztec transactions can pass messages to Ethereum contracts through the rollup via the outbox. The data can be consumed by Ethereum contracts at a later time, but this is not part of the transaction flow for an Aztec transaction. The technical details of this are beyond the scope of this tutorial, but we will cover them in an upcoming piece.
 
-### Unconstrained functions
-
-Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage.
-
 ## Contract dependencies
 
 Before we can implement the functions, we need set up the contract storage, and before we do that we need to import the appropriate dependencies.
@@ -352,9 +348,7 @@ Similar to `_finalize_transfer_to_private_unsafe`, this public internal function
 
 ### View function implementations
 
-View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from unconstrained functions in that the return values are constrained by their definition in the contract.
-
-Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
+The contract contains the following [view](../../../../aztec/concepts/call_types.md#view) functions:
 
 #### `admin`
 
@@ -380,9 +374,9 @@ A getter function for checking the public balance of the provided Aztec account.
 
 #include_code balance_of_public /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
-### Unconstrained function implementations
+### Utility function implementations
 
-Unconstrained functions are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. They are different from view functions in that the values are returned from the user's PXE and are not constrained by the contract's definition--if there is bad data in the user's PXE, they will get bad data back.
+The Token implements the following [utility](../../../../aztec/concepts/call_types.md#utility) functions:
 
 #### `balance_of_private`
 
