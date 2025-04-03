@@ -12,7 +12,7 @@ concurrency:
   # Only allow one run per <forked-repo>/<branch> and full concurrency on merge queue.
   group: |
     ci3-external-${{ github.event_name == 'pull_request' && format('{0}/{1}', github.event.pull_request.head.repo.full_name, github.head_ref)
-                                                         || github.run_id} }
+                                                         || github.run_id }}
   cancel-in-progress: true
 
 jobs:
