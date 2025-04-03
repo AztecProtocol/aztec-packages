@@ -5,6 +5,7 @@ import { type Command, Option } from 'commander';
 
 import {
   ETHEREUM_HOSTS,
+  MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
   makePxeOption,
@@ -66,7 +67,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
 
   program
     .command('deploy-new-rollup')
-    .description('Deploys a new rollup contract and a payload to upgrade the registry with it.')
+    .description('Deploys a new rollup contract and adds it to the registry (if you are the owner).')
     .requiredOption('-r, --registry-address <string>', 'The address of the registry contract', parseEthereumAddress)
     .addOption(l1RpcUrlsOption)
     .option('-pk, --private-key <string>', 'The private key to use for deployment', PRIVATE_KEY)
@@ -74,7 +75,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
+      MNEMONIC ?? 'test test test test test test test test test test test junk',
     )
     .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)

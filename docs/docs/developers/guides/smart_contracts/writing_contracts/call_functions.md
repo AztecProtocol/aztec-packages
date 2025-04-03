@@ -57,4 +57,4 @@ Public functions are always executed after private execution. To learn why, read
 
 #### Other call types
 
-There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/glossary/call_types.md).
+There are other call types, for example to ensure no state changes are made. You can learn more about them in the [call types glossary](../../../../aztec/concepts/call_types.md).

@@ -5,7 +5,10 @@ import {DecoderBase} from "./DecoderBase.sol";
 
 import {IInstance} from "@aztec/core/interfaces/IInstance.sol";
 import {
-  BlockLog, SubmitEpochRootProofArgs, PublicInputArgs
+  IRollup,
+  BlockLog,
+  SubmitEpochRootProofArgs,
+  PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Strings} from "@oz/utils/Strings.sol";
@@ -108,6 +111,17 @@ contract RollupBase is DecoderBase {
     );
   }
 
+  function _updateHeaderVersion(bytes memory _header, uint256 _version)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    assembly {
+      mstore(add(_header, add(0x20, 0x0154)), _version)
+    }
+    return _header;
+  }
+
   function _updateHeaderBaseFee(bytes memory _header, uint256 _baseFee)
     internal
     pure
@@ -126,6 +140,17 @@ contract RollupBase is DecoderBase {
   {
     assembly {
       mstore(add(_header, add(0x20, 0x0268)), _manaUsed)
+    }
+    return _header;
+  }
+
+  function _updateHeaderInboxRoot(bytes memory _header, bytes32 _inboxRoot)
+    internal
+    pure
+    returns (bytes memory)
+  {
+    assembly {
+      mstore(add(_header, add(0x20, 0x0064)), _inboxRoot)
     }
     return _header;
   }
@@ -185,6 +210,7 @@ contract RollupBase is DecoderBase {
     uint256 baseFee = rollup.getManaBaseFeeAt(
       Timestamp.wrap(full.block.decodedHeader.globalVariables.timestamp), true
     );
+    header = _updateHeaderVersion(header, rollup.getVersion());
     header = _updateHeaderBaseFee(header, baseFee);
     header = _updateHeaderManaUsed(header, _manaUsed);
     header = _updateHeaderTotalFees(header, _manaUsed * baseFee);
@@ -195,6 +221,9 @@ contract RollupBase is DecoderBase {
     vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
+    header = _updateHeaderInboxRoot(
+      header, rollup.getInbox().getRoot(full.block.decodedHeader.globalVariables.blockNumber)
+    );
 
     {
       bytes32[] memory blobHashes = new bytes32[](1);
@@ -276,11 +305,12 @@ contract RollupBase is DecoderBase {
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
     inbox = Inbox(address(rollup.getInbox()));
+    uint256 version = rollup.getVersion();
 
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);
       inbox.sendL2Message(
-        DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
+        DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
       );
     }
   }

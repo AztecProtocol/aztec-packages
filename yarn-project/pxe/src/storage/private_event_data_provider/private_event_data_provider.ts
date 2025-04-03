@@ -11,6 +11,7 @@ import type { DataProvider } from '../data_provider.js';
 interface PrivateEventEntry {
   logContent: Buffer;
   blockNumber: number;
+  logIndexInTx: number;
 }
 
 /**
@@ -72,7 +73,7 @@ export class PrivateEventDataProvider implements DataProvider {
       this.logger.verbose('storing private event log', { contractAddress, recipient, logContent, blockNumber });
 
       const index = await this.#eventLogs.lengthAsync();
-      await this.#eventLogs.push({ logContent: serializeToBuffer(logContent), blockNumber });
+      await this.#eventLogs.push({ logContent: serializeToBuffer(logContent), blockNumber, logIndexInTx });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
@@ -98,7 +99,7 @@ export class PrivateEventDataProvider implements DataProvider {
     recipients: AztecAddress[],
     eventSelector: EventSelector,
   ): Promise<Fr[][]> {
-    const events: Fr[][] = [];
+    const events: Array<{ logContent: Fr[]; blockNumber: number; logIndexInTx: number }> = [];
 
     for (const recipient of recipients) {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
@@ -115,11 +116,19 @@ export class PrivateEventDataProvider implements DataProvider {
         const numFields = entry.logContent.length / Fr.SIZE_IN_BYTES;
         const logContent = reader.readArray(numFields, Fr);
 
-        events.push(logContent);
+        events.push({ logContent, blockNumber: entry.blockNumber, logIndexInTx: entry.logIndexInTx });
       }
     }
 
-    return events;
+    // Sort by block number first, then by logIndexInTx (note that we currently don't order by txs within a block)
+    events.sort((a, b) => {
+      if (a.blockNumber !== b.blockNumber) {
+        return a.blockNumber - b.blockNumber;
+      }
+      return a.logIndexInTx - b.logIndexInTx;
+    });
+
+    return events.map(e => e.logContent);
   }
 
   getSize(): Promise<number> {

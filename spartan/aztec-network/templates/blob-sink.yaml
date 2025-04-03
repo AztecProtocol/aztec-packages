@@ -45,9 +45,10 @@ spec:
             - /bin/bash
             - -c
             - |
-              source /shared/config/service-addresses && \
-              source /shared/contracts/contracts.env && \
-              env && \
+              source /shared/contracts/contracts.env
+              source /shared/config/service-addresses
+              env
+
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --blob-sink
           startupProbe:
             httpGet:
@@ -70,6 +71,9 @@ spec:
               mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
             - name: config
               mountPath: /shared/config
+            - name: contracts-env
+              mountPath: /shared/contracts/contracts.env
+              subPath: contracts.env
           env:
             - name: POD_IP
               valueFrom:
@@ -117,6 +121,10 @@ spec:
         - name: pxe-url
           emptyDir: {}
         - name: config
+          emptyDir: {}
+        - name: contracts-env
+          emptyDir: {}
+        - name: pxe-url
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: blob-sink-data

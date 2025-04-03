@@ -28,7 +28,7 @@ To spend a note, the user computes a nullifier corresponding to this note. A nul
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-<Image img={require("/img/address_derivation.png")} />
+<Image img={require("@site/static/img/address_derivation.png")} />
 
 Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. This is useful for encrypting notes for the recipient with only their address.
 

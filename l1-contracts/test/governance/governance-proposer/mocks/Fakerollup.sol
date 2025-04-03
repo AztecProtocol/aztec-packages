@@ -39,4 +39,8 @@ contract Fakerollup {
   function getCurrentProposer() external pure returns (address) {
     return address(0);
   }
+
+  function getVersion() external view returns (uint256) {
+    return uint256(keccak256(abi.encodePacked(bytes("aztec_rollup"), block.chainid, address(this))));
+  }
 }
