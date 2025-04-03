@@ -718,7 +718,7 @@ class TranslatorFlavor {
       public:
         VerificationKey() = default;
         VerificationKey(const size_t num_public_inputs)
-            : VerificationKey_(CONST_TRANSLATOR_LOG_N, num_public_inputs)
+            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
