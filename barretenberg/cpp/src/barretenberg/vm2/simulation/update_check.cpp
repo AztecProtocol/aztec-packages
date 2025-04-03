@@ -14,7 +14,7 @@ FF unconstrained_read(const LowLevelMerkleDBInterface& merkle_db, const FF& leaf
 {
     auto [present, index] = merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
     auto preimage = merkle_db.get_leaf_preimage_public_data_tree(index);
-    return present ? preimage.value.value : 0;
+    return present ? preimage.leaf.value : 0;
 }
 
 } // namespace
