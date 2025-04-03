@@ -59,8 +59,8 @@ typename Flavor::FF compute_public_input_delta(std::span<const typename Flavor::
         denominator *= (denominator_acc + public_inputs[i]); // γ + xᵢ - β(1+i)
 
         // we don't want to add extra variables in the circuit,
-        // so we don't change numerator_acc & denominator_acc at the last step of the cycle, 
-        // because they won't be used. 
+        // so we don't change numerator_acc & denominator_acc at the last step of the cycle,
+        // because they won't be used.
         if (i < public_inputs.size() - 1) {
             numerator_acc += beta;
             denominator_acc -= beta;
