@@ -1,5 +1,10 @@
 use dep::protocol_types::{
-    shared_mutable::{ScheduledDelayChange, ScheduledValueChange, SharedMutableValues},
+    shared_mutable::{
+        ScheduledDelayChange,
+        ScheduledValueChange,
+        shared_mutable_values::{unpack_delay_change, unpack_value_change},
+        SharedMutableValues,
+    },
     traits::Packable,
 };
 
@@ -130,7 +135,7 @@ where
         // We don't read ScheduledValueChange directly by having it implement Packable because ScheduledValueChange
         // and ScheduledDelayChange are packed together (sdc and svc.block_of_change are stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
-        SharedMutableValues::unpack_value_change(packed)
+        unpack_value_change::<T, N>(packed)
     }
 
     fn read_delay_change<let N: u32>(self) -> ScheduledDelayChange<INITIAL_DELAY>
@@ -145,7 +150,7 @@ where
         // ScheduledValueChange and ScheduledDelayChange are packed together (sdc and svc.block_of_change are
         // stored in the same slot).
         let packed = self.context.storage_read(self.storage_slot);
-        SharedMutableValues::<T, INITIAL_DELAY>::unpack_delay_change(packed)
+        unpack_delay_change::<INITIAL_DELAY>(packed)
     }
 
     fn write<let N: u32>(
