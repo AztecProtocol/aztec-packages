@@ -269,6 +269,18 @@ comptime fn generate_note_exports() -> Quoted {
 
 comptime fn generate_sync_notes() -> Quoted {
     let message_discovery_call = create_message_discovery_call();
+
+    // TODO(https://github.com/noir-lang/noir/issues/7912): Doing the following unfortunately doesn't work. Once
+    // the issue is fixed uncomment the following and remove the workaround from TS (look for the issue link in the
+    // codebase).
+    // let utility: fn(FunctionDefinition) -> () = crate::macros::functions::utility;
+    // quote {
+    //     #[$utility]
+    //     unconstrained fn sync_notes() {
+    //         $message_discovery_call
+    //     }
+    // }
+
     quote {
         #[aztec::macros::functions::utility]
         unconstrained fn sync_notes() {
