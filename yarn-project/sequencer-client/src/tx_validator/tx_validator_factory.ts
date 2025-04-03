@@ -107,7 +107,7 @@ class DatabasePublicStateSource implements PublicStateSource {
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return preimage.value;
+    return preimage.leaf.value;
   }
 }
 

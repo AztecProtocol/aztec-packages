@@ -4,7 +4,7 @@ pragma solidity >=0.8.27;
 import {Test} from "forge-std/Test.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
@@ -27,6 +27,8 @@ contract DepositToAztecPublic is Test {
   Rollup internal rollup;
   RewardDistributor internal rewardDistributor;
 
+  address internal constant MAGIC_FEE_JUICE_ADDRESS = address(uint160(Constants.FEE_JUICE_ADDRESS));
+
   function setUp() public {
     token = new TestERC20("test", "TEST", address(this));
     registry = new Registry(OWNER, token);
@@ -42,8 +44,6 @@ contract DepositToAztecPublic is Test {
     );
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-    token.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
 
     vm.prank(OWNER);
     registry.addRollup(IRollup(address(rollup)));
@@ -79,8 +79,10 @@ contract DepositToAztecPublic is Test {
 
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
+    // Separately, NOTE that the sender is the MAGIC_FEE_JUICE_ADDRESS, not the feeJuicePortal address in
+    // this special case.
     DataStructures.L1ToL2Msg memory message = DataStructures.L1ToL2Msg({
-      sender: DataStructures.L1Actor(address(feeJuicePortal), block.chainid),
+      sender: DataStructures.L1Actor(MAGIC_FEE_JUICE_ADDRESS, block.chainid),
       recipient: DataStructures.L2Actor(feeJuicePortal.L2_TOKEN_ADDRESS(), rollup.getVersion()),
       content: Hash.sha256ToField(abi.encodeWithSignature("claim(bytes32,uint256)", to, amount)),
       secretHash: secretHash,

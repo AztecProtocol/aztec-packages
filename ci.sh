@@ -71,7 +71,7 @@ function tail_live_instance {
 case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    # export USE_TEST_CACHE=1
+    export USE_TEST_CACHE=1
     bootstrap_ec2
     ;;
   "ec2-no-cache")
