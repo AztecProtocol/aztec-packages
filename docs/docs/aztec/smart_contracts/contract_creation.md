@@ -81,6 +81,102 @@ The `ContractInstanceDeployer` and `ContractClassRegisterer` contracts exist fro
 
 This modular approach to contract deployment creates a flexible system that supports diverse use cases, from public applications to private contract interactions, while maintaining the security and integrity of the Aztec protocol.
 
+## Contract upgrades
+
+### Original class id
+
+A contract keeps track of the original contract class that it was deployed with, which is the "original" class id. It is this original class that is used when calculating and verifying the contract's [address](contract_creation#instance-address).
+This variable remains unchanged even if a contract is upgraded.
+
+### Current class id
+
+When a contract is first deployed, its current class ID is set equal to its original class ID. The current class ID determines which code implementation the contract actually executes.
+
+During an upgrade:
+- The original class ID remains unchanged
+- The current class ID is updated to refer to the new implementation
+- All contract state/data is preserved
+
+### How to upgrade
+
+Contract upgrades in Aztec can be performed in two ways:
+
+1. **Using the Contract Instance Deployer**
+
+```noir
+use dep::aztec::protocol_types::contract_class_id::ContractClassId;
+use contract_instance_deployer::ContractInstanceDeployer;
+
+#[private]
+fn update_to(new_class_id: ContractClassId) {
+    ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
+        .update(new_class_id)
+        .enqueue(&mut context);
+}
+```
+
+2. **Using the JavaScript SDK**
+
+```typescript
+// Update contract to new implementation
+await wallet.updateContract(contractAddress, newContractArtifact);
+```
+
+#### Upgrade Process
+
+1. **Register New Implementation**
+   - First, register the new contract class if it contains public functions
+   - The new implementation must maintain state variable compatibility with the original contract
+
+2. **Perform Upgrade**
+   - Call the update function with the new contract class ID
+   - The contract's original class ID remains unchanged
+   - The current class ID is updated to the new implementation
+   - All contract state and data are preserved
+
+3. **Verify Upgrade**
+   - After upgrade, the contract will execute functions from the new implementation
+   - The contract's address remains the same since it's based on the original class ID
+   - Existing state variables and their values are preserved
+
+#### Security Considerations
+
+1. **Access Control**
+   - Implement proper access controls for upgrade functions
+   - Consider using a delay mechanism for upgrades using `set_update_delay`
+
+2. **State Compatibility**
+   - Ensure new implementation is compatible with existing state
+   - Maintain the same storage layout to prevent data corruption
+
+3. **Testing**
+   - Test upgrades thoroughly in a development environment
+   - Verify all existing functionality works with the new implementation
+
+#### Example
+
+```noir
+contract Updatable {
+    #[private]
+    fn update_to(new_class_id: ContractClassId) {
+        // Optional: Add access control
+        assert(context.msg_sender() == owner, "Unauthorized");
+
+        // Perform the upgrade
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
+            .update(new_class_id)
+            .enqueue(&mut context);
+    }
+
+    #[private]
+    fn set_update_delay(new_delay: u32) {
+        ContractInstanceDeployer::at(DEPLOYER_CONTRACT_ADDRESS)
+            .set_update_delay(new_delay)
+            .enqueue(&mut context);
+    }
+}
+```
+
 ## Further reading
 
 To see how to deploy a contract in practice, check out the [dapp development tutorial](../../developers/tutorials/codealong/js_tutorials/simple_dapp/index.md).
