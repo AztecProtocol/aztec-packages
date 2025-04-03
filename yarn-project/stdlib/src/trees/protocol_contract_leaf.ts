@@ -89,10 +89,6 @@ export class ProtocolContractLeafPreimage implements IndexedTreeLeafPreimage {
       toBigIntBE(reader.readBytes(32)),
     );
   }
-
-  static fromLeaf(leaf: ProtocolContractLeaf, nextKey: bigint, nextIndex: bigint): ProtocolContractLeafPreimage {
-    return new ProtocolContractLeafPreimage(leaf.address, new Fr(nextKey), nextIndex);
-  }
 }
 
 /**

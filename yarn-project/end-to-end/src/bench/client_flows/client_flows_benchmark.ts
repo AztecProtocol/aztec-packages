@@ -4,6 +4,7 @@ import {
   type AccountWallet,
   AztecAddress,
   type AztecNode,
+  FeeJuicePaymentMethod,
   FeeJuicePaymentMethodWithClaim,
   type FeePaymentMethod,
   type Logger,
@@ -40,7 +41,7 @@ import {
   deployAccounts,
 } from '../../fixtures/snapshot_manager.js';
 import { mintTokensToPrivate } from '../../fixtures/token_utils.js';
-import { type SetupOptions, setupCanonicalFeeJuice, setupSponsoredFPC } from '../../fixtures/utils.js';
+import { type SetupOptions, setupSponsoredFPC } from '../../fixtures/utils.js';
 import { CrossChainTestHarness } from '../../shared/cross_chain_test_harness.js';
 import {
   FeeJuicePortalTestingHarnessFactory,
@@ -52,7 +53,7 @@ const { E2E_DATA_PATH: dataPath, BENCHMARK_CONFIG } = process.env;
 
 export type AccountType = 'ecdsar1' | 'schnorr';
 export type FeePaymentMethodGetter = (wallet: Wallet) => Promise<FeePaymentMethod>;
-export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc';
+export type BenchmarkingFeePaymentMethod = 'bridged_fee_juice' | 'private_fpc' | 'sponsored_fpc' | 'fee_juice';
 
 export class ClientFlowsBenchmark {
   private snapshotManager: ISnapshotManager;
@@ -110,6 +111,11 @@ export class ClientFlowsBenchmark {
       sponsored_fpc: {
         forWallet: this.getSponsoredFPCPaymentMethodForWallet.bind(this),
         circuits: 2, // Sponsored FPC sponsor_unconditionally + kernel inner
+      },
+      // eslint-disable-next-line camelcase
+      fee_juice: {
+        forWallet: this.getFeeJuicePaymentMethodForWallet.bind(this),
+        circuits: 0,
       },
     };
 
@@ -218,9 +224,7 @@ export class ClientFlowsBenchmark {
   async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
-      async context => {
-        await setupCanonicalFeeJuice(context.pxe);
-      },
+      async () => {},
       async (_data, context) => {
         this.context = context;
 
@@ -393,5 +397,9 @@ export class ClientFlowsBenchmark {
 
   public getSponsoredFPCPaymentMethodForWallet(_wallet: Wallet) {
     return Promise.resolve(new SponsoredFeePaymentMethod(this.sponsoredFPC.address));
+  }
+
+  public getFeeJuicePaymentMethodForWallet(wallet: Wallet) {
+    return Promise.resolve(new FeeJuicePaymentMethod(wallet.getAddress()));
   }
 }

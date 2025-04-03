@@ -199,10 +199,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_division)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    // every operator / in bigfield creates one inverse variable for poly gate to check a * a_inv - 1 = 0.
-    // it is the false case, but it will be secure just to check that there are no other variables except for them
-    // otherwise there is a possibility to remove dangerous variables from other functions.
-    EXPECT_EQ(variables_in_one_gate.size(), 3);
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 /**
@@ -255,7 +252,7 @@ TEST(boomerang_bigfield, test_graph_description_bigfield_mix_operations)
     auto connected_components = graph.find_connected_components();
     EXPECT_EQ(connected_components.size(), 1);
     auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
-    EXPECT_EQ(variables_in_one_gate.size(), 2);
+    EXPECT_EQ(variables_in_one_gate.size(), 0);
 }
 
 /**

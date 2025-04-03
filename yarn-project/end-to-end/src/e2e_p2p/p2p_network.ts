@@ -97,9 +97,10 @@ export class P2PNetworkTest {
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         salt: 420,
         metricsPort: metricsPort,
-        numberOfInitialFundedAccounts: 1,
+        numberOfInitialFundedAccounts: 2,
       },
       {
+        ...initialValidatorConfig,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
