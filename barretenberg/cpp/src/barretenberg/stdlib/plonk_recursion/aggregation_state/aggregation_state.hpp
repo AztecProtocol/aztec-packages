@@ -36,9 +36,7 @@ template <typename Builder_> struct aggregation_state {
     // Constructor from std::array<Group, 2>
     // WORKTODO: delete this once everything is an Agg Object
     aggregation_state(std::array<Group, 2> const& points)
-        : P0(points[0])
-        , P1(points[1])
-        , has_data(true)
+        : aggregation_state(points[0], points[1])
     {}
 
     typename Curve::bool_ct operator==(aggregation_state const& other) const
@@ -85,15 +83,10 @@ template <typename Builder_> struct aggregation_state {
         return witness_indices;
     }
 
-    void assign_object_to_proof_outputs()
+    uint32_t set_public()
     {
         P0 = P0.reduce();
         P1 = P1.reduce();
-        this->set_public();
-    }
-
-    uint32_t set_public()
-    {
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 
