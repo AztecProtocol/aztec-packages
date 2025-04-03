@@ -14,7 +14,7 @@ import type { ComponentsVersions } from '@aztec/stdlib/versioning';
 
 import { z } from 'zod';
 
-const BotFollowChain = ['NONE', 'PENDING', 'PROVEN'] as const;
+const BotFollowChain = ['NONE', 'PENDING'] as const;
 type BotFollowChain = (typeof BotFollowChain)[number];
 
 export enum SupportedTokenContracts {

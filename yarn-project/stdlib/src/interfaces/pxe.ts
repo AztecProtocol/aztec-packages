@@ -1,7 +1,5 @@
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
-import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -10,8 +8,6 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
-import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -25,20 +21,12 @@ import {
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
-import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
 import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
 import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
-import { TxEffect } from '../tx/tx_effect.js';
-import {
-  type GetContractClassLogsResponse,
-  GetContractClassLogsResponseSchema,
-  type GetPublicLogsResponse,
-  GetPublicLogsResponseSchema,
-} from './get_logs_response.js';
 
 // docs:start:pxe-interface
 /**
@@ -54,7 +42,6 @@ export interface PXE {
    * @returns Whether the message is synced and ready to be included in a block.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
-
   /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
@@ -202,60 +189,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
-   */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
-
-  /**
-   * Gets the storage value at the given contract storage slot.
-   *
-   * @remarks The storage slot here refers to the slot as it is defined in Noir not the index in the merkle tree.
-   * Aztec's version of `eth_getStorageAt`.
-   *
-   * @param contract - Address of the contract to query.
-   * @param slot - Slot to query.
-   * @returns Storage value at the given contract slot.
-   * @throws If the contract is not deployed.
-   */
-  getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr>;
-
-  /**
    * Gets notes registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
    */
   getNotes(filter: NotesFilter): Promise<UniqueNote[]>;
-
-  /**
-   * Fetches an L1 to L2 message from the node.
-   * @param contractAddress - Address of a contract by which the message was emitted.
-   * @param messageHash - Hash of the message.
-   * @param secret - Secret used to compute a nullifier.
-   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
-   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
-   */
-  getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
-
-  /**
-   * Gets the membership witness for a message that was emitted at a particular block
-   * @param blockNumber - The block number in which to search for the message
-   * @param l2Tol1Message - The message to search for
-   * @returns The membership witness for the message
-   */
-  getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]>;
-
-  /**
-   * Get the given block.
-   * @param number - The block number being requested.
-   * @returns The blocks requested.
-   */
-  getBlock(number: number): Promise<L2Block | undefined>;
 
   /**
    * Method to fetch the current base fees.
@@ -284,32 +222,6 @@ export interface PXE {
     from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded>;
-
-  /**
-   * Gets public logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse>;
-
-  /**
-   * Gets contract class logs based on the provided filter.
-   * @param filter - The filter to apply to the logs.
-   * @returns The requested logs.
-   */
-  getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse>;
-
-  /**
-   * Fetches the current block number.
-   * @returns The block number.
-   */
-  getBlockNumber(): Promise<number>;
-
-  /**
-   * Fetches the current proven block number.
-   * @returns The block number.
-   */
-  getProvenBlockNumber(): Promise<number>;
 
   /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
@@ -471,26 +383,8 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(TxSimulationResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
-  getTxEffect: z
-    .function()
-    .args(TxHash.schema)
-    .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
-  getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
-  getL1ToL2MembershipWitness: z
-    .function()
-    .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
-  getL2ToL1MembershipWitness: z
-    .function()
-    .args(z.number(), schemas.Fr)
-    .returns(z.tuple([schemas.BigInt, SiblingPath.schema])),
-  getBlock: z
-    .function()
-    .args(z.number())
-    .returns(z.union([L2Block.schema, z.undefined()])),
   getCurrentBaseFees: z.function().returns(GasFees.schema),
-
   simulateUnconstrained: z
     .function()
     .args(
@@ -502,10 +396,6 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(z.array(schemas.AztecAddress)),
     )
     .returns(AbiDecodedSchema),
-  getPublicLogs: z.function().args(LogFilterSchema).returns(GetPublicLogsResponseSchema),
-  getContractClassLogs: z.function().args(LogFilterSchema).returns(GetContractClassLogsResponseSchema),
-  getBlockNumber: z.function().returns(z.number()),
-  getProvenBlockNumber: z.function().returns(z.number()),
   getNodeInfo: z.function().returns(NodeInfoSchema),
   getPXEInfo: z.function().returns(PXEInfoSchema),
   getContractMetadata: z.function().args(schemas.AztecAddress).returns(ContractMetadataSchema),

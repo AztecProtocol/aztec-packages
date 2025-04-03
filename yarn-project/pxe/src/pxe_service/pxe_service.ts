@@ -1,9 +1,7 @@
-import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
-import type { SiblingPath } from '@aztec/foundation/trees';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { L2TipsKVStore } from '@aztec/kv-store/stores';
@@ -26,7 +24,6 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -42,15 +39,11 @@ import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
   EventMetadataDefinition,
-  GetContractClassLogsResponse,
-  GetPublicLogsResponse,
   PXE,
   PXEInfo,
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
 import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import type { LogFilter } from '@aztec/stdlib/logs';
-import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
@@ -58,12 +51,11 @@ import {
   PrivateSimulationResult,
   PublicSimulationOutput,
   Tx,
-  type TxEffect,
   TxExecutionRequest,
   type TxHash,
   TxProfileResult,
   TxProvingResult,
-  type TxReceipt,
+  TxReceipt,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
@@ -201,44 +193,12 @@ export class PXEService implements PXE {
     return this.node.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
-  public getL2ToL1MembershipWitness(blockNumber: number, l2Tol1Message: Fr): Promise<[bigint, SiblingPath<number>]> {
-    return this.node.getL2ToL1MessageMembershipWitness(blockNumber, l2Tol1Message);
+  public async getCurrentBaseFees(): Promise<GasFees> {
+    return await this.node.getCurrentBaseFees();
   }
 
   public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
     return this.node.getTxReceipt(txHash);
-  }
-
-  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
-    return this.node.getTxEffect(txHash);
-  }
-
-  public getBlockNumber(): Promise<number> {
-    return this.node.getBlockNumber();
-  }
-
-  public getProvenBlockNumber(): Promise<number> {
-    return this.node.getProvenBlockNumber();
-  }
-
-  public getPublicLogs(filter: LogFilter): Promise<GetPublicLogsResponse> {
-    return this.node.getPublicLogs(filter);
-  }
-
-  public getContractClassLogs(filter: LogFilter): Promise<GetContractClassLogsResponse> {
-    return this.node.getContractClassLogs(filter);
-  }
-
-  public getPublicStorageAt(contract: AztecAddress, slot: Fr) {
-    return this.node.getPublicStorageAt('latest', contract, slot);
-  }
-
-  public async getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]> {
-    return await getNonNullifiedL1ToL2MessageWitness(this.node, contractAddress, messageHash, secret);
   }
 
   // Internal methods
@@ -284,19 +244,6 @@ export class PXEService implements PXE {
       registered[name] = address.toString();
     }
     this.log.verbose(`Registered protocol contracts in pxe`, registered);
-  }
-
-  async #isContractClassPubliclyRegistered(id: Fr): Promise<boolean> {
-    return !!(await this.node.getContractClass(id));
-  }
-
-  async #isContractPubliclyDeployed(address: AztecAddress): Promise<boolean> {
-    return !!(await this.node.getContract(address));
-  }
-
-  async #isContractInitialized(address: AztecAddress): Promise<boolean> {
-    const initNullifier = await siloNullifier(address, address.toField());
-    return !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
   }
 
   async #getFunctionCall(functionName: string, args: any[], to: AztecAddress): Promise<FunctionCall> {
@@ -441,10 +388,6 @@ export class PXEService implements PXE {
     return [...dbSizes, treeRootsSize].reduce((sum, size) => sum + size, 0);
   }
 
-  public getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
-    return this.contractDataProvider.getContractInstance(address);
-  }
-
   public async getContractClassMetadata(
     id: Fr,
     includeArtifact: boolean = false,
@@ -458,9 +401,11 @@ export class PXEService implements PXE {
       this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
     }
 
+    const isContractClassPubliclyRegistered = !!(await this.node.getContractClass(id));
+
     return {
       contractClass: artifact && (await getContractClassFromArtifact(artifact)),
-      isContractClassPubliclyRegistered: await this.#isContractClassPubliclyRegistered(id),
+      isContractClassPubliclyRegistered,
       artifact: includeArtifact ? artifact : undefined,
     };
   }
@@ -476,10 +421,13 @@ export class PXEService implements PXE {
     } catch {
       this.log.warn(`No instance found for contract ${address.toString()} when looking for its metadata`);
     }
+    const initNullifier = await siloNullifier(address, address.toField());
+    const isContractInitialized = !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
+    const isContractPubliclyDeployed = !!(await this.node.getContract(address));
     return {
       contractInstance: instance,
-      isContractInitialized: await this.#isContractInitialized(address),
-      isContractPubliclyDeployed: await this.#isContractPubliclyDeployed(address),
+      isContractInitialized,
+      isContractPubliclyDeployed,
     };
   }
 
@@ -645,18 +593,6 @@ export class PXEService implements PXE {
       return new UniqueNote(dao.note, recipient, dao.contractAddress, dao.storageSlot, dao.txHash, dao.nonce);
     });
     return Promise.all(extendedNotes);
-  }
-
-  public async getBlock(blockNumber: number): Promise<L2Block | undefined> {
-    // If a negative block number is provided the current block number is fetched.
-    if (blockNumber < 0) {
-      blockNumber = await this.node.getBlockNumber();
-    }
-    return await this.node.getBlock(blockNumber);
-  }
-
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.node.getCurrentBaseFees();
   }
 
   public proveTx(

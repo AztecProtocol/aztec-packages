@@ -53,7 +53,6 @@ export async function deployFundedSchnorrAccount(
      */
     skipClassRegistration?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
-  waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager> {
   const signingKey = account.signingKey ?? deriveSigningKey(account.secret);
   const accountManager = await getSchnorrAccount(pxe, account.secret, signingKey, account.salt);
@@ -69,10 +68,6 @@ export async function deployFundedSchnorrAccount(
       fee: { paymentMethod },
     })
     .wait(opts);
-
-  if (waitForProvenOptions !== undefined) {
-    await waitForProven(pxe, receipt, waitForProvenOptions);
-  }
 
   return accountManager;
 }
@@ -90,21 +85,15 @@ export async function deployFundedSchnorrAccounts(
      */
     skipClassRegistration?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
-  waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager[]> {
   const accountManagers: AccountManager[] = [];
   // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
   for (let i = 0; i < accounts.length; i++) {
     accountManagers.push(
-      await deployFundedSchnorrAccount(
-        pxe,
-        accounts[i],
-        {
-          ...opts,
-          skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
-        },
-        waitForProvenOptions,
-      ),
+      await deployFundedSchnorrAccount(pxe, accounts[i], {
+        ...opts,
+        skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
+      }),
     );
   }
   return accountManagers;
