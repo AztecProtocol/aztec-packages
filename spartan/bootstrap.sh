@@ -148,7 +148,7 @@ case "$cmd" in
       ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-1tps")
-    OVERRIDES="bot.enabled=false" \
+    OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/1tps.test.ts ci.yaml one-tps${NAME_POSTFIX:-}
     ;;

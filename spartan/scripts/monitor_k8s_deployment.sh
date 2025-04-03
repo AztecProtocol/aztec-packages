@@ -22,11 +22,27 @@ fi
 # Disable strict mode inside the monitoring function
 
 # Redirect all output to /dev/tty to force unbuffered output directly to terminal
-exec > /dev/tty 2> /dev/tty
+exec >/dev/tty 2>/dev/tty
+
+# Function to handle cleanup on exit
+function cleanup {
+  echo -e "\n==== Deployment monitoring complete. ====\n"
+  exit 0
+}
+
+# Set up trap for cleanup on script termination
+trap cleanup SIGTERM SIGINT EXIT
 
 echo "==== Starting status monitor for namespace $namespace ===="
 
+monitoring_complete=false
+
 for i in {1..100}; do
+  if [ "$monitoring_complete" = true ]; then
+    echo -e "\n==== Monitoring complete. Exiting. ====\n"
+    break
+  fi
+
   echo -e "\n==== STATUS UPDATE ($i) ====\n"
   echo "--- Pod status ---"
   kubectl get pods -n "$namespace" || true
@@ -51,13 +67,15 @@ for i in {1..100}; do
       echo "setupL2Contracts is enabled. Looking for setup-l2-contracts pods..."
     else
       echo "setupL2Contracts is not enabled. Skipping setup-l2-contracts monitoring."
+      monitoring_complete=true
+      break
     fi
 
     # Only proceed with setup-l2-contracts monitoring if it's enabled
     if [ "$setup_l2_contracts_enabled" = true ]; then
       # Look for setup-l2-contracts pods in a loop
       l2_contracts_found=false
-      max_attempts=50
+      max_attempts=5
       attempt=1
 
       while [ $attempt -le $max_attempts ]; do
@@ -88,12 +106,14 @@ for i in {1..100}; do
           pod_status=$(kubectl get pods -n "$namespace" -l app=setup-l2-contracts -o jsonpath='{.items[0].status.phase}' 2>/dev/null)
           if [ "$pod_status" = "Succeeded" ] || [ "$pod_status" = "Failed" ] || [ -z "$pod_status" ]; then
             echo "setup-l2-contracts job finished with status: $pod_status"
+            monitoring_complete=true
             break
           fi
 
           # Alternative check - look for job completion
           if kubectl get job -l app=setup-l2-contracts -n "$namespace" 2>/dev/null | grep -q "1/1"; then
             echo "setup-l2-contracts job completed successfully!"
+            monitoring_complete=true
             break
           fi
         fi
@@ -119,15 +139,17 @@ for i in {1..100}; do
 
         echo -e "\nChecking if the job completed successfully:"
         kubectl get jobs -n "$namespace" | grep -i "setup-l2-contracts" || echo "No setup-l2-contracts job found - it may have been deleted after successful completion due to hook-delete-policy"
+
+        monitoring_complete=true
+        break
       fi
     fi
-
-    echo -e "\n==== Deployment monitoring complete. Stopping log monitor. ====\n"
-    break
   fi
 
   sleep 5
 done
+
+echo "==== Monitoring complete. Exiting. ===="
 
 # Restore strict mode
 set -euo pipefail
