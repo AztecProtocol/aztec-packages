@@ -248,7 +248,8 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -e REF_NAME=${REF_NAME:-} \
     -e AWS_TOKEN=\$(curl -sX PUT http://169.254.169.254/latest/api/token -H 'X-aws-ec2-metadata-token-ttl-seconds: 21600') \
     --pids-limit=32768 \
-    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
+    aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script") &
+  wait \$!
 "
 code=$?
 set -e
