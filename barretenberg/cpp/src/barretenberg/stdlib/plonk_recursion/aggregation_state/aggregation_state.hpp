@@ -34,7 +34,9 @@ template <typename Builder_> struct aggregation_state {
         , has_data(true)
     {}
 
-    aggregation_state(std::array<Group, 2> const& points) { aggregation_state(points[0], points[1]); }
+    aggregation_state(std::array<Group, 2> const& points)
+        : aggregation_state(points[0], points[1])
+    {}
 
     typename Curve::bool_ct operator==(aggregation_state const& other) const
     {
