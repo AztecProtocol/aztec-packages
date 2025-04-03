@@ -143,11 +143,12 @@ template <typename Curve> struct ClaimBatcher_ {
                 rho_powers.emplace_back(rho_powers[i - 1] * rho);
             }
             ASSERT(batch.commitments.size() == batch.evaluations.size());
-            for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
-                commitments.emplace_back(std::move(commitment));
-                scalars.emplace_back(-batch.scalar * rho_power);
-                batched_evaluation += evaluation * rho_power;
-                rho_power *= rho;
+            //for (auto [commitment, evaluation] : zip_view(batch.commitments, batch.evaluations)) {
+            for (size_t i = 0; i < batch.commitments.size(); i++) { 
+                commitments.emplace_back(std::move(batch.commitments[i]));
+                scalars.emplace_back(-batch.scalar * rho_powers[i]);
+                batched_evaluation += batch.evaluations[i] * rho_powers[i];
+                //rho_power *= rho;
             }
         };
 
