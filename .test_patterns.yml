@@ -104,6 +104,10 @@ tests:
     error_regex: "TimeoutError: Timeout awaiting isMined"
     owners:
       - *palla
+  - regex: "simple e2e_p2p/gossip_network"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
   - regex: "simple e2e_fees/private_payments"
     owners:
       - *phil
