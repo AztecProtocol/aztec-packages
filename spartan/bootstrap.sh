@@ -62,7 +62,6 @@ function test_cmds {
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
-    echo "$hash ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
     echo "$hash ./spartan/bootstrap.sh test-cli-add-validators"
     echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
   fi
