@@ -78,6 +78,9 @@ unconstrained fn insert_note(env: &mut TestEnvironment) -> MockNote {
     new_note
 }
 
+// TODO(#13269): we can't test settled notes due to TXE lacking a way to commit state changes that happen outside of a
+// contract call.
+
 #[test]
 unconstrained fn insert_and_get_pending() {
     let mut env = setup();
