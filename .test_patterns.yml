@@ -92,10 +92,6 @@ tests:
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/slashing"
-    skip: true
-    owners:
-      - *lasse
   - regex: "simple e2e_p2p/validators_sentinel"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
