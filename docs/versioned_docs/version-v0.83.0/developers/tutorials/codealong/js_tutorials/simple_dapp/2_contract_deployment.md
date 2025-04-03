@@ -19,15 +19,15 @@ Then, open the `contracts/token/Nargo.toml` configuration file, and add the `azt
 
 ```toml
 [dependencies]
-aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="noir-projects/aztec-nr/aztec" }
-authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="noir-projects/aztec-nr/authwit"}
-uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="noir-projects/aztec-nr/uint-note" }
-compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="master", directory="noir-projects/aztec-nr/compressed-string"}
+aztec = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.83.0", directory="noir-projects/aztec-nr/aztec" }
+authwit = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.83.0", directory="noir-projects/aztec-nr/authwit"}
+uint_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.83.0", directory="noir-projects/aztec-nr/uint-note" }
+compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.83.0", directory="noir-projects/aztec-nr/compressed-string"}
 ```
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-```rust title="token_all" showLineNumbers 
+```rust title="token_all" showLineNumbers
 mod types;
 mod test;
 
