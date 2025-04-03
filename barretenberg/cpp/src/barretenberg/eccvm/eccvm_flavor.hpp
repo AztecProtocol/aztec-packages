@@ -747,8 +747,8 @@ class ECCVMFlavor {
       public:
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
-        VerificationKey(const size_t num_public_inputs)
-            : VerificationKey_((1UL << CONST_ECCVM_LOG_N) + 1, num_public_inputs)
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
@@ -756,7 +756,8 @@ class ECCVMFlavor {
             // IPA verification key requires one more point.
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
             // how many points they need
-            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(proving_key->circuit_size + 1);
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
+            this->circuit_size = ECCVM_FIXED_SIZE;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
