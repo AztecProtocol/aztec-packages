@@ -249,12 +249,13 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
       aztecprotocol/devbox:3.0 bash -c $(printf '%q' "$container_script")
   }
 
+  # On SIGHUP, shutdown the instance.
+  trap 'sudo shutdown -h now' SIGHUP SIGTERM SIGINT
+
   if [ -t 0 ]; then
-    # If stdin is a terminal, start in foreground.
     start
   else
-    # If stdin is not a terminal, register shutdown handler, start in background and wait.
-    trap 'sudo shutdown -h now' SIGHUP
+    # If not in terminal, start in background and wait, to allow SIGHUP handler to execute.
     start &
     wait \$!
   fi
