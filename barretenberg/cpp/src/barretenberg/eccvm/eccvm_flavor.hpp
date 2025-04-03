@@ -748,7 +748,7 @@ class ECCVMFlavor {
         bool operator==(const VerificationKey&) const = default;
         VerificationKey() = default;
         VerificationKey(const size_t num_public_inputs)
-            : VerificationKey_(1UL << CONST_ECCVM_LOG_N, num_public_inputs)
+            : VerificationKey_((1UL << CONST_ECCVM_LOG_N) + 1, num_public_inputs)
         {}
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
