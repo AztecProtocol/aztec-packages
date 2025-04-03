@@ -447,10 +447,11 @@ template <typename Curve> class GeminiVerifier_ {
             p_pos = transcript->template receive_from_prover<Fr>("Gemini:P_0_pos");
             p_neg = transcript->template receive_from_prover<Fr>("Gemini:P_0_neg");
         }
+        ShpleminiVerifierState<Curve> verifier_state;
 
         // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
-        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
-            log_n, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
+        std::vector<Fr> gemini_fold_pos_evaluations =
+            compute_fold_pos_evaluations(r_squares, evaluations, verifier_state);
         // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         auto full_a_0_pos = gemini_fold_pos_evaluations[0];
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
@@ -543,13 +544,17 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
-    static std::vector<Fr> compute_fold_pos_evaluations(const size_t log_n,
-                                                        const Fr& batched_evaluation,
-                                                        std::span<const Fr> evaluation_point, // virtual_log_n
-                                                        std::span<const Fr> challenge_powers, // virtual_log_n
-                                                        std::span<const Fr> fold_neg_evals,
-                                                        Fr p_neg = Fr(0))
+    static std::vector<Fr> compute_fold_pos_evaluations(std::span<const Fr> fold_neg_evals,
+                                                        std::span<const Fr> challenge_powers,
+                                                        ShpleminiVerifierState<Curve>& verifier_state)
     {
+
+        const size_t& log_n = verifier_state.log_n;
+        const Fr& batched_evaluation = verifier_state.batched_evaluation;
+        std::span<const Fr> evaluation_point = verifier_state.multilinear_challenge;
+        const Fr& p_neg = verifier_state.p_neg;
+        const Fr& p_pos = verifier_state.p_pos;
+
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
         Fr eval_pos_prev = batched_evaluation;
@@ -567,7 +572,9 @@ template <typename Curve> class GeminiVerifier_ {
         Fr value_to_emplace;
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
-        evals[0] += p_neg;
+        if (verifier_state.has_interleaving) {
+            evals[0] += p_neg;
+        }
         // Solve the sequence of linear equations
         for (size_t l = virtual_log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
@@ -603,6 +610,9 @@ template <typename Curve> class GeminiVerifier_ {
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
 
+        if (verifier_state.has_interleaving) {
+            fold_pos_evaluations[0] -= p_pos;
+        }
         return fold_pos_evaluations;
     }
 };

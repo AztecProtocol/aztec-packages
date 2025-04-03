@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -286,10 +287,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @return false
      */
     static bool check_libra_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
-                                                    const FF& gemini_evaluation_challenge,
-                                                    std::span<const FF> multilinear_challenge,
-                                                    const FF& inner_product_eval_claim)
+                                                    const FF& inner_product_eval_claim,
+                                                    ShpleminiVerifierState<Curve>& verifier_state)
     {
+        const FF& gemini_evaluation_challenge = verifier_state.gemini_evaluation_challenge;
+        std::span<const FF> multilinear_challenge = verifier_state.multilinear_challenge;
 
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
         // gemini_evaluation_challenge

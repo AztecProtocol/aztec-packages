@@ -65,16 +65,19 @@ template <typename Curve> class ShplonkProver_ {
         Fr nu_power = Fr::one();
         // Only used in Translator
         for (const auto& claim : interleaving_claims) {
+            info("shplonk prover, interleaving, nu power ", nu_power);
             update_batched_quotient(Q, claim, nu_power, nu);
         }
 
         // Used by all ZK-Flavors
         for (const auto& claim : libra_opening_claims) {
+            info("shplonk prover, libra, nu power ", nu_power);
             update_batched_quotient(Q, claim, nu_power, nu);
         }
 
         // Only used in ECCVM
         for (const auto& claim : sumcheck_round_claims) {
+            info("shplonk prover, sumcheck, nu power ", nu_power);
             update_batched_quotient(Q, claim, nu_power, nu);
         }
 
@@ -84,6 +87,7 @@ template <typename Curve> class ShplonkProver_ {
 
             // Gemini Fold Polynomials have to be opened at -r^{2^j} and r^{2^j}.
             if (claim.gemini_fold) {
+                info("shplonk prover, gemini positive, nu power ", nu_power);
                 tmp = claim.polynomial;
                 tmp.at(0) = tmp[0] - gemini_fold_pos_evaluations[fold_idx++];
                 tmp.factor_roots(-claim.opening_pair.challenge);
@@ -91,6 +95,7 @@ template <typename Curve> class ShplonkProver_ {
                 Q.add_scaled(tmp, nu_power);
                 nu_power *= nu;
             }
+            info("shplonk prover, gemini negative, nu power ", nu_power);
 
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
             update_batched_quotient(Q, claim, nu_power, nu);

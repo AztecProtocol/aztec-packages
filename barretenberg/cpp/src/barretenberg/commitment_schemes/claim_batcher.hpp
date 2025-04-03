@@ -30,6 +30,8 @@ template <typename Curve> struct ShpleminiVerifierState {
     Fr constant_term_accumulator;
     size_t virtual_log_n;
     size_t log_n;
+
+    bool has_interleaving;
 };
 
 /**
@@ -103,12 +105,15 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param nu_challenge ν (shplonk batching challenge)
      * @param r_challenge r (gemini evaluation challenge)
      */
-    void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
-                                        const Fr& inverse_vanishing_eval_neg,
-                                        const Fr& nu_challenge,
-                                        const Fr& r_challenge,
-                                        const Fr& interleaving_vanishing_eval = { 0 })
+    void compute_scalars_for_each_batch(std::span<const Fr> inverse_vanishing_evals,
+                                        ShpleminiVerifierState<Curve>& verifier_state)
     {
+        const Fr& nu_challenge = verifier_state.shplonk_batching_challenge;
+        const Fr& r_challenge = verifier_state.gemini_evaluation_challenge;
+
+        const Fr& inverse_vanishing_eval_pos = inverse_vanishing_evals[0];
+        const Fr& inverse_vanishing_eval_neg = inverse_vanishing_evals[1];
+
         if (unshifted) {
             // (1/(z−r) + ν/(z+r))
             unshifted->scalar = inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg;
@@ -131,7 +136,8 @@ template <typename Curve> struct ClaimBatcher_ {
 
             Fr r_shift_pos = Fr(1);
             Fr r_shift_neg = Fr(1);
-            interleaved->shplonk_denominator = interleaving_vanishing_eval;
+            interleaved->shplonk_denominator = inverse_vanishing_evals[get_groups_to_be_interleaved_size()];
+
             for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                 interleaved->scalars_pos.push_back(r_shift_pos);
                 interleaved->scalars_neg.push_back(r_shift_neg);
@@ -192,10 +198,14 @@ template <typename Curve> struct ClaimBatcher_ {
             if (get_groups_to_be_interleaved_size() % 2 != 0) {
                 throw_or_abort("Interleaved groups size must be even");
             }
+            verifier_state.constant_term_accumulator +=
+                interleaved->shplonk_denominator *
+                (verifier_state.p_pos + verifier_state.p_neg * shplonk_batching_challenge);
 
             size_t group_idx = 0;
             for (auto group : interleaved->commitments_groups) {
                 for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
+                    info(get_groups_to_be_interleaved_size());
                     // The j-th commitment in group i is multiplied by ρ^{k+m+i} and 1 \cdot r^j + ν \cdot (-r)^j
                     //  where k is the number of unshifted, m is number of shifted and  is the log_circuit_size
                     //  (assuming to right-shifted-by-k commitments in this example)
