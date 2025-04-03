@@ -13,7 +13,7 @@ use crate::{
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `process_log` and `sync_notes` functions PXE requires in order to discover notes.
+/// the `sync_notes` function PXE requires in order to discover notes.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
