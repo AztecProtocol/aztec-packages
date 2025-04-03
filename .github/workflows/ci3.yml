@@ -104,8 +104,7 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
-        run: |
-          ./ci.sh ec2
+        run: bash -c "trap 'echo TRAPPED && exit' SIGINT SIGTERM; ./ci.sh ec2 & wait $!"
 
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'

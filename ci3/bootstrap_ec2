@@ -259,7 +259,7 @@ set +e
 if [ -t 0 ]; then
   run
 else
-  echo "To tty, running in background..."
+  echo "No tty, running in background..."
   run &
   wait $!
 fi
