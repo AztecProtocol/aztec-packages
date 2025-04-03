@@ -41,6 +41,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
     ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
@@ -94,9 +95,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
     // The aggregation object
-    auto agg_obj = stdlib::recursion::aggregation_state<Builder>::construct_default(builder);
-    for (auto idx : agg_obj.get_witness_indices()) {
-        builder.assert_equal(idx, proof_fields[offset].witness_index);
+    for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
+        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
 
