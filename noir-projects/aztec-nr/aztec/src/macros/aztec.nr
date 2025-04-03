@@ -270,12 +270,8 @@ comptime fn generate_note_exports() -> Quoted {
 comptime fn generate_sync_notes() -> Quoted {
     let message_discovery_call = create_message_discovery_call();
     quote {
+        #[aztec::macros::functions::utility]
         unconstrained fn sync_notes() {
-            // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
-            // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
-            // unconstrained execution context since it will not be available otherwise.
-            let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
-
             $message_discovery_call
         }
     }
