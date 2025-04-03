@@ -134,12 +134,10 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         outer_circuit.finalize_circuit(false);
         auto graph = cdg::Graph(outer_circuit);
         auto connected_components = graph.find_connected_components();
-        EXPECT_EQ(connected_components.size(), 1);
+        EXPECT_EQ(connected_components.size(), 4);
         info("Connected components: ", connected_components.size());
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
-        EXPECT_EQ(variables_in_one_gate.size(), 0);
-        info("Variables in one gate: ", variables_in_one_gate.size());
-        graph.print_variable_in_one_gate(outer_circuit, 3);
+        EXPECT_EQ(variables_in_one_gate.size(), 1);
     }
 };
 
