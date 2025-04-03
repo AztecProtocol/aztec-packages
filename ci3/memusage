@@ -22,7 +22,7 @@
 # See the License for the specific language governing permissions and    #
 # limitations under the License.                       #
 ############################################################################
-set -um
+set -eu
 
 memory_output_file="${MEMUSAGE_OUT:-&2}"
 
