@@ -45,7 +45,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     /**
      * @brief Set the witness indices for the x and y coordinates to public
      *
-     * @return uint32_t
+     * @return uint32_t Index at which the representation is stored in the public inputs
      */
     uint32_t set_public() const
     {

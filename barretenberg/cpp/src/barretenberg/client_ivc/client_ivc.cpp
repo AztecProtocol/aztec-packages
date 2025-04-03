@@ -92,7 +92,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     // Recursively verify the merge proof for the circuit being recursively verified
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
+    [[maybe_unused]] AggregationObject pairing_points =
+        GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
