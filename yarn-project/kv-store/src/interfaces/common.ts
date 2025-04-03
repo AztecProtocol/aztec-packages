@@ -1,5 +1,3 @@
-import type { NotUndefined } from 'object-hash';
-
 /**
  * The key type for use with the kv-store
  */
