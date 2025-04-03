@@ -485,17 +485,20 @@ template <typename Curve> class ShpleminiVerifier_ {
             constant_term_accumulator +=
                 scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
-            if constexpr (Curve::is_stdlib_type) {
-                auto builder = gemini_neg_evaluations[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_n);
-                Fr zero = Fr(0);
-                scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
-                scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
-            } else {
-                if (j >= log_n) {
-                    scaling_factor_neg = 0;
-                    scaling_factor_pos = 0;
+            // If `virtual_log_n` == `log_n`, as in the case of ECCVM and Translator, the padding is not needed.
+            if (virtual_log_n != log_n) {
+                if constexpr (Curve::is_stdlib_type) {
+                    auto builder = gemini_neg_evaluations[0].get_context();
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                    stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_n);
+                    Fr zero = Fr(0);
+                    scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
+                    scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
+                } else {
+                    if (j >= log_n) {
+                        scaling_factor_neg = 0;
+                        scaling_factor_pos = 0;
+                    }
                 }
             }
             // Place the scaling factor to the 'scalars' vector
