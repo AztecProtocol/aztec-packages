@@ -30,7 +30,7 @@ jobs:
 
           TAGS=$(curl -s https://registry.hub.docker.com/v2/repositories/aztecprotocol/aztec/tags/$nightly_tag)
           if [[ "$TAGS" != *"not found"* ]]; then
-              echo "TAG=$nightly_tag >> $GITHUB_OUTPUT
+              echo "TAG=$nightly_tag" >> "$GITHUB_OUTPUT"
           else
             echo "Tag $nightly_tag not published to docker hub"
             exit 1
