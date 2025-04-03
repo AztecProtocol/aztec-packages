@@ -1,7 +1,6 @@
 import type { Logger } from '@aztec/foundation/log';
 
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
-import type { NotUndefined } from 'object-hash';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
 import type { Key, StoreSize, Value } from '../interfaces/common.js';
@@ -17,7 +16,7 @@ import { IndexedDBAztecMultiMap } from './multi_map.js';
 import { IndexedDBAztecSet } from './set.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
 
-export type StoredData<V extends NotUndefined> = {
+export type StoredData<V extends Value> = {
   value: V;
   container: string;
   key: string;
