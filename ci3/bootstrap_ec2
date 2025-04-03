@@ -184,7 +184,7 @@ EOF
 set +e
 ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
   # If the ssh connection is closed, we want to shut down the instance.
-  trap "sudo shutdown -h now" SIGHUP
+  trap 'sudo shutdown -h now' SIGHUP
 
   # TODO: This should *not* be needed in a CI run. Remove "watching" code, e.g. in boxes.
   sudo sysctl fs.inotify.max_user_watches=1048576 &>/dev/null
