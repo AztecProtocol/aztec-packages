@@ -123,11 +123,13 @@ Internal functions are functions that can only be called by the contract itself.
 - [`_store_payload_in_transient_storage_unsafe`](#_store_payload_in_transient_storage_unsafe) - a public function that is called when preparing a private balance increase. This function handles the needed public state updates.
 - [`finalize_transfer_to_private_unsafe`](#_finalize_transfer_to_private_unsafe) - finalizes a transfer from public to private state
 
-### Unconstrained functions
+### Utility functions
 
-Unconstrained functions can be thought of as view functions from Solidity--they only return information from the contract storage or compute and return data without modifying contract storage. They are distinguished from functions with the `#[view]` annotation in that unconstrained functions cannot be called by other contracts.
+The contract contains only 1 utility function:
 
 - [`get_private_nfts`](#get_private_nfts) - Returns an array of token IDs owned by the passed `AztecAddress` in private and a flag indicating whether a page limit was reached.
+
+For more details on utility function see [Call Types section](../../../../aztec/concepts/call_types.md#utility)
 
 ## Contract dependencies
 
@@ -289,7 +291,7 @@ Internal functions are functions that can only be called by this contract. The f
 
 It is labeled unsafe because the public function does not check the value of the storage slot before writing, but it is safe because of the private execution preceding this call.
 
-This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subseqeuent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
+This is transient storage since the storage is not permanent, but is scoped to the current transaction only, after which it will be reset. The partial note is stored the "hiding point slot" value (computed in `_prepare_private_balance_increase()`) in public storage. However subsequent enqueued call to `_finalize_transfer_to_private_unsafe()` will read the partial note in this slot, complete it and emit it. Since the note is completed, there is no use of storing the hiding point slot anymore so we will reset to empty. This saves a write to public storage too.
 
 #include_code store_payload_in_transient_storage_unsafe /noir-projects/noir-contracts/contracts/nft_contract/src/main.nr rust
 
@@ -307,9 +309,7 @@ Updates the public owner of the `token_id` to the `to` address.
 
 ### View function implementations
 
-View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from unconstrained functions in that the return values are constrained by their definition in the contract.
-
-Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
+NFT implements the following [view functions](../../../../aztec/concepts/call_types.md#view).
 
 #### `get_admin`
 
@@ -343,9 +343,9 @@ Returns the name of the NFT contract in the private context.
 
 Returns the symbol of the NFT contract in the private context.
 
-### Unconstrained function implementations
+### Utility function implementations
 
-Unconstrained functions are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. They are different from view functions in that the values are returned from the user's PXE and are not constrained by the contract's definition--if there is bad data in the user's PXE, they will get bad data back.
+The NFT implements the following [utility](../../../../aztec/concepts/call_types.md#utility) function:
 
 #### `get_private_nfts`
 

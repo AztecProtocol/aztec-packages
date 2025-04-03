@@ -134,7 +134,7 @@ We will create a function that anyone can call that will return the number of vo
 
 #include_code get_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state.
+We set it as `utility` because it is only reading from state.
 
 ## Allowing an admin to end a voting period
 
@@ -172,7 +172,7 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Unconstrained functions](../../../../aztec/smart_contracts/functions/attributes.md#unconstrained-functions).
+- [Utility functions](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions).
 - [Oracles](../../../../aztec/smart_contracts/oracles/index.md)
 - [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
 - [How to deploy a contract to the sandbox](../../../guides/js_apps/deploy_contract.md)
