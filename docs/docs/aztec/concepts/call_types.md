@@ -1,5 +1,7 @@
 ---
 title: Call Types
+sidebar_position: 6
+tags: [calls, contracts, execution]
 ---
 
 ## What is a Call
@@ -136,10 +138,12 @@ This is what the implementation of the check timestamp functionality looks like:
 :::note
 Note that the router contract is not currently part of the [aztec-nr repository](https://github.com/AztecProtocol/aztec-nr).
 To add it as a dependency point to the aztec-packages repository instead:
+
 ```toml
 [dependencies]
 aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/router_contract/src" }
 ```
+
 :::
 
 Even with the router contract achieving good privacy is hard.

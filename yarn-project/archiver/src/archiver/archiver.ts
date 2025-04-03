@@ -313,15 +313,22 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       localPendingBlockNumber > provenBlockNumber && (await this.canPrune(currentL1BlockNumber, currentL1Timestamp));
 
     if (canPrune) {
-      const localPendingSlotNumber = getSlotAtTimestamp(currentL1Timestamp, this.l1constants);
-      const localPendingEpochNumber = getEpochAtSlot(localPendingSlotNumber, this.l1constants);
+      const pruneFrom = provenBlockNumber + 1n;
+
+      const header = await this.getBlockHeader(Number(pruneFrom));
+      if (header === undefined) {
+        throw new Error(`Missing block header ${pruneFrom}`);
+      }
+
+      const pruneFromSlotNumber = header.globalVariables.slotNumber.toBigInt();
+      const pruneFromEpochNumber = getEpochAtSlot(pruneFromSlotNumber, this.l1constants);
 
       // Emit an event for listening services to react to the chain prune
       this.emit(L2BlockSourceEvents.L2PruneDetected, {
         type: L2BlockSourceEvents.L2PruneDetected,
-        blockNumber: localPendingBlockNumber,
-        slotNumber: localPendingSlotNumber,
-        epochNumber: localPendingEpochNumber,
+        blockNumber: pruneFrom,
+        slotNumber: pruneFromSlotNumber,
+        epochNumber: pruneFromEpochNumber,
       });
 
       const blocksToUnwind = localPendingBlockNumber - provenBlockNumber;

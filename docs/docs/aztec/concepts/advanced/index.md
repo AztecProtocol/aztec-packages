@@ -1,6 +1,6 @@
 ---
 title: Advanced Concepts
-sidebar_position: 8
+sidebar_position: 9
 tags: [protocol]
 ---
 
@@ -9,4 +9,3 @@ In this section, you'll learn about the more advanced concepts of the Aztec Netw
 import DocCardList from '@theme/DocCardList';
 
 <DocCardList />
-
