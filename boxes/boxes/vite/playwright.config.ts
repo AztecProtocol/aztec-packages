@@ -6,7 +6,7 @@ export default defineConfig({
   fullyParallel: true,
   retries: 3,
   workers: 1,
-  reporter: [["list", { console: true }]],
+  reporter: "list",
   use: {
     baseURL: "http://127.0.0.1:5173",
     trace: "on-first-retry",

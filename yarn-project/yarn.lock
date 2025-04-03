@@ -865,7 +865,6 @@ __metadata:
     "@types/mocha": "npm:^10.0.10"
     "@types/mocha-each": "npm:^2.0.4"
     "@types/node": "npm:^18.7.23"
-    "@types/object-hash": "npm:^3"
     "@types/sinon": "npm:^17.0.3"
     "@web/dev-server-esbuild": "npm:^1.0.3"
     "@web/test-runner": "npm:^0.19.0"
@@ -878,7 +877,6 @@ __metadata:
     mocha: "npm:^10.8.2"
     mocha-each: "npm:^2.0.1"
     msgpackr: "npm:^1.11.2"
-    object-hash: "npm:^3.0.0"
     ohash: "npm:^2.0.11"
     ordered-binary: "npm:^1.5.3"
     sinon: "npm:^19.0.2"
@@ -6297,13 +6295,6 @@ __metadata:
   version: 2.4.4
   resolution: "@types/normalize-package-data@npm:2.4.4"
   checksum: 10/65dff72b543997b7be8b0265eca7ace0e34b75c3e5fee31de11179d08fa7124a7a5587265d53d0409532ecb7f7fba662c2012807963e1f9b059653ec2c83ee05
-  languageName: node
-  linkType: hard
-
-"@types/object-hash@npm:^3":
-  version: 3.0.6
-  resolution: "@types/object-hash@npm:3.0.6"
-  checksum: 10/2c7979d4e540af817b99c09fb4c2fed1c0b0e14342df474d8dcde4165a82c440b038341fd66fe998d9f86acdd5cccc65ba8092315e39e7c2114f945fa70aaa56
   languageName: node
   linkType: hard
 
@@ -17280,13 +17271,6 @@ __metadata:
   version: 4.1.1
   resolution: "object-assign@npm:4.1.1"
   checksum: 10/fcc6e4ea8c7fe48abfbb552578b1c53e0d194086e2e6bbbf59e0a536381a292f39943c6e9628af05b5528aa5e3318bb30d6b2e53cadaf5b8fe9e12c4b69af23f
-  languageName: node
-  linkType: hard
-
-"object-hash@npm:^3.0.0":
-  version: 3.0.0
-  resolution: "object-hash@npm:3.0.0"
-  checksum: 10/f498d456a20512ba7be500cef4cf7b3c183cc72c65372a549c9a0e6dd78ce26f375e9b1315c07592d3fde8f10d5019986eba35970570d477ed9a2a702514432a
   languageName: node
   linkType: hard
 
