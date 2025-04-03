@@ -106,7 +106,6 @@ if [ -t 1 ]; then
     run_cmd="run; exec zsh"
   fi
 else
-  # LOG_ID can optionally be set externally to be e.g. the GA run id.
   run_cmd="ci3/aws_handle_evict run 2>&1 | ci3/add_timestamps | DUP=1 ci3/cache_log 'CI run' \$ci_log_id"
 fi
 
@@ -217,6 +216,8 @@ ssh ${ssh_args:-} -F $ci3/aws/build_instance_ssh_config ubuntu@$ip "
     -v /mnt/bb-crs:/home/aztec-dev/.bb-crs:ro \
     -v /tmp:/tmp \
     -v /dev/kmsg:/dev/kmsg \
+    -e RUN_ID=${RUN_ID:-} \
+    -e JOB_ID=${JOB_ID:-} \
     -e NO_CACHE=${NO_CACHE:-} \
     -e USE_TEST_CACHE=${USE_TEST_CACHE:-1} \
     -e CI_REDIS='ci-redis-tiered.lzka0i.ng.0001.use2.cache.amazonaws.com' \

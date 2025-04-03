@@ -1,9 +1,9 @@
-import type { Key, Range } from './common.js';
+import type { Key, Range, Value } from './common.js';
 
 /**
  * A map backed by a persistent store.
  */
-interface AztecBaseMap<K extends Key, V> {
+interface AztecBaseMap<K extends Key, V extends Value> {
   /**
    * Sets the value at the given key.
    * @param key - The key to set the value at
@@ -24,7 +24,7 @@ interface AztecBaseMap<K extends Key, V> {
    */
   delete(key: K): Promise<void>;
 }
-export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
+export interface AztecMap<K extends Key, V extends Value> extends AztecBaseMap<K, V> {
   /**
    * Gets the value at the given key.
    * @param key - The key to get the value from
@@ -65,7 +65,7 @@ export interface AztecMap<K extends Key, V> extends AztecBaseMap<K, V> {
 /**
  * A map backed by a persistent store.
  */
-export interface AztecAsyncMap<K extends Key, V> extends AztecBaseMap<K, V> {
+export interface AztecAsyncMap<K extends Key, V extends Value> extends AztecBaseMap<K, V> {
   /**
    * Gets the value at the given key.
    * @param key - The key to get the value from

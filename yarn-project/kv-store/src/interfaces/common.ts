@@ -3,6 +3,8 @@
  */
 export type Key = string | number | Array<string | number>;
 
+export type Value = NonNullable<any>;
+
 /**
  * A range of keys to iterate over.
  */
