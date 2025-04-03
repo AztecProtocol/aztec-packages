@@ -45,7 +45,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     resolved_addresses[address] = bytecode_id;
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
 
-    auto trees = merkle_db.get_tree_roots();
+    auto tree_snapshots = merkle_db.get_tree_roots();
 
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
@@ -53,9 +53,9 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
         .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = trees.nullifierTree.root,
-        .public_data_tree_root = trees.publicDataTree.root,
-        .block_number = block_number,
+        .nullifier_root = tree_snapshots.nullifierTree.root,
+        .public_data_tree_root = tree_snapshots.publicDataTree.root,
+        .current_block_number = current_block_number,
     });
 
     return bytecode_id;

@@ -10,7 +10,7 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 
-#include "gmock/gmock.h"
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 using poseidon2 = bb::crypto::Poseidon2<bb::crypto::Poseidon2Bn254ScalarFieldParams>;
@@ -35,7 +35,7 @@ namespace {
 
 TEST(AvmSimulationUpdateCheck, NeverWritten)
 {
-    uint32_t block_number = 100;
+    uint32_t current_block_number = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
@@ -53,14 +53,12 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, event_emitter);
 
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(0)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
 
-    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([&](const std::vector<FF>& input) {
-        return poseidon2::hash(input);
-    });
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
 
     update_check.check_current_class_id(derived_address, instance);
 
@@ -70,7 +68,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                     .current_class_id = instance.current_class_id,
                     .original_class_id = instance.original_class_id,
                     .public_data_tree_root = trees.publicDataTree.root,
-                    .block_number = block_number,
+                    .current_block_number = current_block_number,
                     .update_hash = 0,
                     .update_preimage_metadata = 0,
                     .update_preimage_pre_class = 0,
@@ -82,7 +80,7 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
     // Negative: class id must be original class id
     instance.current_class_id = instance.current_class_id + 1;
     EXPECT_THROW_WITH_MESSAGE(update_check.check_current_class_id(derived_address, instance),
-                              "Current class id does not match expected class id");
+                              "Current class id.*does not match expected class id.*");
 }
 
 struct TestParams {
@@ -161,7 +159,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 {
     const auto& param = GetParam();
 
-    uint32_t block_number = 100;
+    uint32_t current_block_number = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = param.current_class_id;
     instance.original_class_id = param.original_class_id;
@@ -193,7 +191,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
     NiceMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, event_emitter);
 
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(update_hash));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -215,11 +213,9 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                 PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, update_preimage[index]), 0, 0);
         });
 
-    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([&](const std::vector<FF>& input) {
-        return poseidon2::hash(input);
-    });
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
 
-    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly([&](const uint128_t& value, const uint8_t& range) {
+    EXPECT_CALL(range_check, assert_range(_, _)).WillRepeatedly([](const uint128_t& value, const uint8_t& range) {
         if (range > 128) {
             throw std::runtime_error("Range checks aren't supported for bit-sizes > 128");
         }
@@ -233,7 +229,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
 
     if (param.should_throw) {
         EXPECT_THROW_WITH_MESSAGE(update_check.check_current_class_id(derived_address, instance),
-                                  "Current class id does not match expected class id");
+                                  "Current class id.*does not match expected class id.*");
         EXPECT_THAT(event_emitter.dump_events(), SizeIs(0));
     } else {
         update_check.check_current_class_id(derived_address, instance);
@@ -243,7 +239,7 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                         .current_class_id = instance.current_class_id,
                         .original_class_id = instance.original_class_id,
                         .public_data_tree_root = trees.publicDataTree.root,
-                        .block_number = block_number,
+                        .current_block_number = current_block_number,
                         .update_hash = update_hash,
                         .update_preimage_metadata = update_metadata,
                         .update_preimage_pre_class = param.update_pre_class,
@@ -258,7 +254,7 @@ INSTANTIATE_TEST_SUITE_P(AvmSimulationUpdateCheck, UpdateCheckHashNonzeroTest, :
 
 TEST(AvmSimulationUpdateCheck, HashMismatch)
 {
-    uint32_t block_number = 100;
+    uint32_t current_block_number = 100;
     ContractInstance instance = testing::random_contract_instance();
     instance.current_class_id = instance.original_class_id;
     AztecAddress derived_address = compute_contract_address(instance);
@@ -275,7 +271,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
     StrictMock<MockRangeCheck> range_check;
 
     EventEmitter<UpdateCheckEvent> event_emitter;
-    UpdateCheck update_check(poseidon2, range_check, merkle_db, block_number, event_emitter);
+    UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, event_emitter);
 
     EXPECT_CALL(merkle_db, storage_read(shared_mutable_leaf_slot)).WillRepeatedly(Return(FF(27)));
     EXPECT_CALL(merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
@@ -291,9 +287,7 @@ TEST(AvmSimulationUpdateCheck, HashMismatch)
             return PublicDataTreeLeafPreimage(PublicDataLeafValue(FF(index) + shared_mutable_leaf_slot, 0), 0, 0);
         });
 
-    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([&](const std::vector<FF>& input) {
-        return poseidon2::hash(input);
-    });
+    EXPECT_CALL(poseidon2, hash(_)).WillRepeatedly([](const std::vector<FF>& input) { return poseidon2::hash(input); });
 
     EXPECT_THROW_WITH_MESSAGE(update_check.check_current_class_id(derived_address, instance),
                               "Stored hash does not match preimage hash");

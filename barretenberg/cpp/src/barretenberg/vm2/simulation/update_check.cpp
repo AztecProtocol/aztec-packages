@@ -2,7 +2,7 @@
 
 #include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
-#include <stdexcept>
+#include "barretenberg/vm2/common/stringify.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -65,15 +65,17 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         FF pre_class = update_preimage_pre_class == 0 ? instance.original_class_id : update_preimage_pre_class;
         FF post_class = update_preimage_post_class == 0 ? instance.original_class_id : update_preimage_post_class;
 
-        FF expected_current_class_id = block_number < update_block_of_change ? pre_class : post_class;
-        uint32_t block_of_change_subtraction = block_number < update_block_of_change
-                                                   ? update_block_of_change - 1 - block_number
-                                                   : block_number - update_block_of_change;
+        FF expected_current_class_id = current_block_number < update_block_of_change ? pre_class : post_class;
+        uint32_t block_of_change_subtraction = current_block_number < update_block_of_change
+                                                   ? update_block_of_change - 1 - current_block_number
+                                                   : current_block_number - update_block_of_change;
 
         range_check.assert_range(block_of_change_subtraction, BLOCK_NUMBER_BIT_SIZE);
 
         if (expected_current_class_id != instance.current_class_id) {
-            throw std::runtime_error("Current class id does not match expected class id");
+            throw std::runtime_error(
+                "Current class id: " + field_to_string(instance.current_class_id) +
+                " does not match expected class id: " + field_to_string(expected_current_class_id));
         }
     }
 
@@ -82,7 +84,7 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .current_class_id = instance.current_class_id,
         .original_class_id = instance.original_class_id,
         .public_data_tree_root = merkle_db.get_tree_roots().publicDataTree.root,
-        .block_number = block_number,
+        .current_block_number = current_block_number,
         .update_hash = hash,
         .update_preimage_metadata = update_preimage_metadata,
         .update_preimage_pre_class = update_preimage_pre_class,

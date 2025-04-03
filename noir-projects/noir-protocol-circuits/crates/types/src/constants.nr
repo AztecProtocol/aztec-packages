@@ -789,6 +789,7 @@ pub global MINIMUM_UPDATE_DELAY: u32 = 25;
 pub global UPDATES_VALUE_SIZE: u32 = 1;
 pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
 
+// These bit sizes are used in PIL. If need change, consult with the AVM team.
 pub global UPDATES_SHARED_MUTABLE_SDC_DELAY_BIT_SIZE: u32 = 32;
 pub global UPDATES_SHARED_MUTABLE_SDC_IS_SOME_BIT_SIZE: u32 = 8;
 pub global UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE: u32 =

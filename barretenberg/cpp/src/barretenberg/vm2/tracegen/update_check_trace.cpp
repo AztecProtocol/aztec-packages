@@ -16,13 +16,13 @@ void UpdateCheckTraceBuilder::process(
         uint256_t update_metadata_hi = update_metadata >> 32;
         uint32_t update_block_of_change = static_cast<uint32_t>(update_metadata & 0xffffffff);
 
-        bool block_number_is_lt_block_of_change = event.block_number < update_block_of_change;
+        bool block_number_is_lt_block_of_change = event.current_block_number < update_block_of_change;
 
         FF update_hash_inv = event.update_hash == 0 ? 0 : event.update_hash.invert();
 
         FF block_of_change_subtraction = block_number_is_lt_block_of_change
-                                             ? (update_block_of_change - 1 - event.block_number)
-                                             : (event.block_number - update_block_of_change);
+                                             ? (update_block_of_change - 1 - event.current_block_number)
+                                             : (event.current_block_number - update_block_of_change);
 
         bool update_pre_class_is_zero = event.update_preimage_pre_class == 0;
         FF update_pre_class_inv = update_pre_class_is_zero ? 0 : event.update_preimage_pre_class.invert();
@@ -36,7 +36,7 @@ void UpdateCheckTraceBuilder::process(
                       { C::update_check_current_class_id, event.current_class_id },
                       { C::update_check_original_class_id, event.original_class_id },
                       { C::update_check_public_data_tree_root, event.public_data_tree_root },
-                      { C::update_check_block_number, event.block_number },
+                      { C::update_check_block_number, event.current_block_number },
                       { C::update_check_update_hash, event.update_hash },
                       { C::update_check_update_hash_inv, update_hash_inv },
                       { C::update_check_hash_not_zero, event.update_hash != 0 },

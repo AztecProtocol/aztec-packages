@@ -45,7 +45,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
                       UpdateCheckInterface& update_check,
-                      uint32_t block_number,
+                      uint32_t current_block_number,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -55,7 +55,7 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
         , update_check(update_check)
-        , block_number(block_number)
+        , current_block_number(current_block_number)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -71,7 +71,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
     UpdateCheckInterface& update_check;
-    uint32_t block_number;
+    // We need the current block number for the update check interaction
+    uint32_t current_block_number;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;
