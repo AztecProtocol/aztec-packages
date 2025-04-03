@@ -232,7 +232,7 @@ describe('L1Publisher integration', () => {
 
     coinbase = config.coinbase || EthAddress.random();
     feeRecipient = config.feeRecipient || (await AztecAddress.random());
-    version = config.version ?? 1;
+    version = Number(await rollup.getVersion());
 
     const fork = await worldStateSynchronizer.fork();
 

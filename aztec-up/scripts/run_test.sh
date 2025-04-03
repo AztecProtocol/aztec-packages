@@ -12,16 +12,18 @@ docker run --rm \
   --mount type=tmpfs,target=/var/lib/docker,tmpfs-size=4g \
   aztecprotocol/dind \
   bash -c "
-    /usr/local/share/docker-init.sh &>/dev/null
-    chmod 777 /var/run/docker.sock
     tail -f /dev/null
   " >/dev/null
 
 docker save aztecprotocol/aztec:latest | docker exec -i $1 \
   bash -c "
     echo 'Starting docker...'
-    /usr/local/share/docker-init.sh &>/dev/null
-    while ! docker info &>/dev/null; do sleep 1; done
+    while ! docker info &>/dev/null; do
+      /usr/local/share/docker-init.sh &>/dev/null
+      sleep 3
+      cat /tmp/dockerd.log
+    done
+    chmod 777 /var/run/docker.sock
     echo 'Loading image...'
     docker load
   "
@@ -36,4 +38,10 @@ fi
 docker exec ${args:-} -w/home/ubuntu --user ubuntu:ubuntu $1 \
   bash -c "
     ./aztec-packages/aztec-up/test/$1.sh ${fail_shell:-}
+    code=\${PIPESTATUS[0]}
+    if [ \$code -ne 0 ]; then
+      echo 'Dumping docker logs...'
+      cat /tmp/dockerd.log
+    fi
+    exit \$code
   "

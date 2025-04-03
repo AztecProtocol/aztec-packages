@@ -209,6 +209,7 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns A promise that signals the initialization of the l2 block source on completion.
    */
   public start(): Promise<void> {
+    this.log.verbose('Starting mock L2 block source');
     return Promise.resolve();
   }
 
@@ -217,6 +218,7 @@ export class MockL2BlockSource implements L2BlockSource {
    * @returns A promise that signals the l2 block source is now stopped.
    */
   public stop(): Promise<void> {
+    this.log.verbose('Stopping mock L2 block source');
     return Promise.resolve();
   }
 }

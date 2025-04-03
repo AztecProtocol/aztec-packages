@@ -19,7 +19,7 @@ import type {
   MerkleTreeReadOperations,
 } from '@aztec/stdlib/interfaces/server';
 import type { PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
-import { GlobalVariables, type ProcessedTx, type Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
 import { ArchiveCache } from './archive_cache.js';
 import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
@@ -33,12 +33,14 @@ export function createValidatorForAcceptingTxs(
   {
     blockNumber,
     l1ChainId,
+    rollupVersion,
     setupAllowList,
     gasFees,
     skipFeeEnforcement,
   }: {
     blockNumber: number;
     l1ChainId: number;
+    rollupVersion: number;
     setupAllowList: AllowedElement[];
     gasFees: GasFees;
     skipFeeEnforcement?: boolean;
@@ -46,7 +48,7 @@ export function createValidatorForAcceptingTxs(
 ): TxValidator<Tx> {
   const validators: TxValidator<Tx>[] = [
     new DataTxValidator(),
-    new MetadataTxValidator(new Fr(l1ChainId), new Fr(blockNumber)),
+    new MetadataTxValidator(new Fr(l1ChainId), new Fr(rollupVersion), new Fr(blockNumber)),
     new DoubleSpendTxValidator(new NullifierCache(db)),
     new PhasesTxValidator(contractDataSource, setupAllowList, blockNumber),
     new BlockHeaderTxValidator(new ArchiveCache(db)),
@@ -63,14 +65,13 @@ export function createValidatorForAcceptingTxs(
   return new AggregateTxValidator(...validators);
 }
 
-export function createValidatorsForBlockBuilding(
+export function createValidatorForBlockBuilding(
   db: MerkleTreeReadOperations,
   contractDataSource: ContractDataSource,
   globalVariables: GlobalVariables,
   setupAllowList: AllowedElement[],
 ): {
   preprocessValidator: TxValidator<Tx>;
-  postprocessValidator: TxValidator<ProcessedTx>;
   nullifierCache: NullifierCache;
 } {
   const nullifierCache = new NullifierCache(db);
@@ -86,7 +87,6 @@ export function createValidatorsForBlockBuilding(
       globalVariables,
       setupAllowList,
     ),
-    postprocessValidator: postprocessValidator(nullifierCache),
     nullifierCache,
   };
 }
@@ -107,7 +107,7 @@ class DatabasePublicStateSource implements PublicStateSource {
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return preimage.value;
+    return preimage.leaf.value;
   }
 }
 
@@ -121,14 +121,10 @@ function preprocessValidator(
 ): TxValidator<Tx> {
   // We don't include the TxProofValidator nor the DataTxValidator here because they are already checked by the time we get to block building.
   return new AggregateTxValidator(
-    new MetadataTxValidator(globalVariables.chainId, globalVariables.blockNumber),
+    new MetadataTxValidator(globalVariables.chainId, globalVariables.version, globalVariables.blockNumber),
     new DoubleSpendTxValidator(nullifierCache),
     new PhasesTxValidator(contractDataSource, setupAllowList, globalVariables.blockNumber.toNumber()),
     new GasTxValidator(publicStateSource, ProtocolContractAddress.FeeJuice, globalVariables.gasFees),
     new BlockHeaderTxValidator(archiveCache),
   );
-}
-
-function postprocessValidator(nullifierCache: NullifierCache): TxValidator<ProcessedTx> {
-  return new DoubleSpendTxValidator(nullifierCache);
 }

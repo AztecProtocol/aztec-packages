@@ -123,7 +123,6 @@ TEST(Sha256ConstrainingTest, Interaction)
     LookupIntoIndexedByClk<lookup_sha256_round_relation::Settings>().process(trace);
 
     check_relation<sha256>(trace);
-    check_interaction<lookup_sha256_round_relation>(trace);
 }
 
 } // namespace

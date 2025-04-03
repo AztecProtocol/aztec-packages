@@ -99,7 +99,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
     ...booleanConfigHelper(),
-    defaultValue: false,
+    defaultValue: true,
   },
   governanceProposerPayload: {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',

@@ -12,6 +12,8 @@ import { CLIENT_IVC_PROOF_FILE_NAME } from '../prover/client_ivc_proof_utils.js'
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
+export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
+export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
@@ -666,8 +668,19 @@ async function verifyProofInternal(
     logger.verbose(`bb-prover (verify) BB out - ${message}`);
   };
 
+  // take proofFullPath and remove the suffix past the / to get the directory
+  const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
+  const publicInputsFullPath = join(proofDir, '/public_inputs');
+
+  logger.debug(`public inputs path: ${publicInputsFullPath}`);
   try {
-    const args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    let args;
+    // Specify the public inputs path in the case of UH verification.
+    if (command == 'verify') {
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
+    } else {
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    }
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {

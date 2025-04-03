@@ -1,6 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { RollupContract } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { RollupAbi, SlashFactoryAbi, SlasherAbi, SlashingProposerAbi } from '@aztec/l1-artifacts';
 
@@ -8,7 +8,7 @@ import { jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getAddress, getContract, parseEventLogs } from 'viem';
+import { encodeFunctionData, getAddress, getContract, parseEventLogs } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { createNodes } from '../fixtures/setup_p2p_test.js';
@@ -27,9 +27,11 @@ const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'slashing-'));
 describe('e2e_p2p_slashing', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let l1TxUtils: L1TxUtils;
 
-  const slashingQuorum = 6;
-  const slashingRoundSize = 10;
+  const slashingQuorum = 3;
+  const slashingRoundSize = 5;
+  const slashingAmount = 1n;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -38,6 +40,7 @@ describe('e2e_p2p_slashing', () => {
       basePort: BOOT_NODE_UDP_PORT,
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
+        listenAddress: '127.0.0.1',
         aztecEpochDuration: 1,
         ethereumSlotDuration: 4,
         aztecSlotDuration: 12,
@@ -51,6 +54,8 @@ describe('e2e_p2p_slashing', () => {
     await t.applyBaseSnapshots();
     await t.setup();
     await t.removeInitialNode();
+
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.publicClient, t.ctx.deployL1ContractsValues.walletClient);
   });
 
   afterEach(async () => {
@@ -90,13 +95,22 @@ describe('e2e_p2p_slashing', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
-    const slashingInfo = async () => {
-      const bn = await t.ctx.cheatCodes.eth.blockNumber();
+    const getRoundAndSlotNumber = async () => {
       const slotNumber = await rollup.getSlotNumber();
-      const roundNumber = await slashingProposer.read.computeRound([slotNumber]);
+      return { roundNumber: await slashingProposer.read.computeRound([slotNumber]), slotNumber };
+    };
+
+    /**
+     * Get the slashing info for a given round number.
+     * @param roundNumber - The round number to get the slashing info for.
+     * @returns The current block number, current slot number and the slashing info.
+     */
+    const slashingInfo = async (roundNumber: bigint) => {
       const instanceAddress = t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString();
       const info = await slashingProposer.read.rounds([instanceAddress, roundNumber]);
       const leaderVotes = await slashingProposer.read.yeaCount([instanceAddress, roundNumber, info[1]]);
+      const bn = await t.ctx.cheatCodes.eth.blockNumber();
+      const slotNumber = await rollup.getSlotNumber();
       return { bn, slotNumber, roundNumber, info, leaderVotes };
     };
 
@@ -138,13 +152,11 @@ describe('e2e_p2p_slashing', () => {
       }
       const sequencer = (seqClient as any).sequencer;
       const slasher = (sequencer as any).slasherClient;
-      slasher.slashingAmount = 1n;
+      slasher.slashingAmount = slashingAmount;
     }
 
     // wait a bit for peers to discover each other
     await sleep(4000);
-
-    let sInfo = await slashingInfo();
 
     const votesNeeded = await slashingProposer.read.N();
 
@@ -186,6 +198,10 @@ describe('e2e_p2p_slashing', () => {
     expect(slashEvents.length).toBeGreaterThan(0);
     await waitUntilNextRound();
 
+    // Get the round number where we expect to be seeing a bunch of votes.
+    const { roundNumber, slotNumber } = await getRoundAndSlotNumber();
+    let sInfo = await slashingInfo(roundNumber);
+
     // For the next round we will try to cast votes.
     // Stop early if we have enough votes.
     t.logger.info(`Waiting for votes to be cast`);
@@ -196,23 +212,50 @@ describe('e2e_p2p_slashing', () => {
         await sleep(1000);
       }
 
-      sInfo = await slashingInfo();
+      sInfo = await slashingInfo(roundNumber);
       t.logger.info(`We have ${sInfo.leaderVotes} votes in round ${sInfo.roundNumber} on ${sInfo.info[1]}`);
-      if (sInfo.leaderVotes > votesNeeded) {
+      if (sInfo.leaderVotes >= votesNeeded) {
         t.logger.info(`We have sufficient votes`);
         break;
       }
     }
 
-    t.logger.info('Deploy the actual payload for slashing!');
-    const slashEvent = slashEvents[0];
-    await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: await slashFactory.write.createSlashPayload([slashEvent.epoch, slashEvent.amount], {
-        account: t.ctx.deployL1ContractsValues.walletClient.account,
+    // Because of race-conditions when we start we cannot ACTUALLY rely on just the first slash event
+    // of the first node, since the nodes might get online at different times and don't agree on this.
+    // e.g., the first slash could happen before the second node even got online.
+    // Therefore we derive what we are actually looking for based on what people voted on.
+    // Normally, one of the agents voting should be making the slash happen, but right now,
+    // we don't have that in place.
+    const targetAddress = sInfo.info[1];
+
+    let targetEpoch = 0n;
+    for (let i = 0; i <= slotNumber; i++) {
+      const epoch = await rollup.getEpochNumberForSlotNumber(BigInt(i));
+      const [address, isDeployed] = await slashFactory.read.getAddressAndIsDeployed([epoch, slashingAmount]);
+      if (address === targetAddress && !isDeployed) {
+        targetEpoch = epoch;
+        t.logger.info(`Target epoch found: ${targetEpoch}`);
+        break;
+      }
+    }
+
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: slashFactory.address,
+      data: encodeFunctionData({
+        abi: SlashFactoryAbi,
+        functionName: 'createSlashPayload',
+        args: [targetEpoch, slashingAmount],
       }),
     });
 
-    t.logger.info(`We jump in time to the next round to execute`);
+    t.logger.info(`Slash payload for ${targetEpoch}, ${slashingAmount} deployed at ${targetAddress}`);
+    t.logger.info(
+      `Committee for epoch ${targetEpoch}: ${(await rollup.getEpochCommittee(targetEpoch)).map(addr =>
+        addr.toLowerCase(),
+      )}`,
+    );
+
+    t.logger.info(`We wait until next round to execute the payload`);
     await waitUntilNextRound();
     const attestersPre = await rollup.getAttesters();
 
@@ -222,13 +265,26 @@ describe('e2e_p2p_slashing', () => {
       expect(attesterInfo.status).toEqual(1);
     }
 
-    t.logger.info(`Push the proposal, SLASHING!`);
-    const tx = await slashingProposer.write.executeProposal([sInfo.roundNumber], {
-      account: t.ctx.deployL1ContractsValues.walletClient.account,
+    t.logger.info(`Execute payload for ${sInfo.roundNumber} at ${sInfo.info[1]}, SLASHING!`);
+
+    const { result } = await t.ctx.deployL1ContractsValues.publicClient.simulateContract({
+      address: getAddress(slashingProposer.address),
+      abi: SlashingProposerAbi,
+      functionName: 'executeProposal',
+      args: [sInfo.roundNumber],
     });
-    const receipt = await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-      hash: tx,
+    t.logger.info(`Result: `, result);
+
+    const { receipt } = await l1TxUtils.sendAndMonitorTransaction({
+      to: slashingProposer.address,
+      data: encodeFunctionData({
+        abi: SlashingProposerAbi,
+        functionName: 'executeProposal',
+        args: [sInfo.roundNumber],
+      }),
     });
+
+    t.logger.info(`Performed slash in ${receipt.transactionHash}`);
 
     const slashingEvents = parseEventLogs({
       abi: RollupAbi,
@@ -239,6 +295,8 @@ describe('e2e_p2p_slashing', () => {
       // Because TS is a little nagging bitch
       return (event.args as any).attester;
     });
+
+    t.logger.info(`Attesters slashed: ${attestersSlashed.map(addr => addr.toLowerCase())}`);
 
     // Convert attestersPre elements to lowercase for consistent comparison
     const normalizedAttestersPre = attestersPre.map(addr => addr.toLowerCase());
@@ -259,7 +317,7 @@ describe('e2e_p2p_slashing', () => {
       // Check that status is Living
       expect(attesterInfo.status).toEqual(2);
     }
-    const committee = await rollup.getEpochCommittee(slashEvent.epoch);
+    const committee = await rollup.getEpochCommittee(targetEpoch);
     expect(attestersPre.length).toBe(committee.length);
     expect(attestersPost.length).toBe(0);
   }, 1_000_000);
