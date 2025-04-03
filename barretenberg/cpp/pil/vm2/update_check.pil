@@ -120,7 +120,11 @@ namespace update_check;
     update_hi_metadata * TWO_POW_32 + update_block_of_change - update_preimage_metadata = 0;
 
     // ======== CLASS ID CHECK ========
+    // We are going to use the standard way to compare integers.
+    // We request the boolean as a hint, and then we constrain it by subtracting in one direction on the other depending on it.
+    // If the boolean hint is incorrect, then the subtraction will overflow the field and the range constraint will fail.
     pol commit block_number_is_lt_block_of_change;
+    block_number_is_lt_block_of_change * (1 - block_number_is_lt_block_of_change) = 0;
     pol commit block_of_change_subtraction;
     pol BLOCKNUMBER_LT_BLOCK_OF_CHANGE = update_block_of_change - 1 - block_number;
     pol BLOCKNUMBER_GTE_BLOCK_OF_CHANGE =  block_number - update_block_of_change;
@@ -131,11 +135,13 @@ namespace update_check;
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
     pol commit update_pre_class_is_zero;
+    update_pre_class_is_zero * (1 - update_pre_class_is_zero) = 0;
     pol commit update_pre_class_inv;
     #[UPDATE_PRE_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_pre_class * (update_pre_class_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_is_zero) = 0;
 
     pol commit update_post_class_is_zero;
+    update_post_class_is_zero * (1 - update_post_class_is_zero) = 0;
     pol commit update_post_class_inv;
     #[UPDATE_POST_CLASS_IS_ZERO]
     hash_not_zero * (update_preimage_post_class * (update_post_class_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_is_zero) = 0;
