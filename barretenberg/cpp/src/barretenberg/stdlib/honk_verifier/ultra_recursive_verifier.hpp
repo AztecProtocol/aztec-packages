@@ -13,8 +13,7 @@ namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor> struct UltraRecursiveVerifierOutput {
     using Builder = typename Flavor::CircuitBuilder;
-    using AggregationObject = aggregation_state<Builder>;
-    AggregationObject agg_obj;
+    aggregation_state<Builder> agg_obj;
     OpeningClaim<grumpkin<Builder>> ipa_opening_claim;
     StdlibProof<Builder> ipa_proof;
 };

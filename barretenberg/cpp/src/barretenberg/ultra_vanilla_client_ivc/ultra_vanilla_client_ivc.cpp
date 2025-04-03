@@ -6,7 +6,7 @@ namespace bb {
 void UltraVanillaClientIVC::accumulate(Circuit& circuit, const Proof& proof, const std::shared_ptr<VK>& vk)
 {
     RecursiveVerifier verifier{ &circuit, std::make_shared<RecursiveVK>(&circuit, vk) };
-    Accumulator agg_obj = Accumulator::construct_default(circuit);
+    AggregationObject agg_obj = AggregationObject::construct_default(circuit);
     accumulator = verifier.verify_proof(proof, agg_obj).agg_obj;
 }
 

@@ -13,8 +13,7 @@ using Builder = bb::UltraCircuitBuilder;
 using namespace bb;
 
 struct HonkRecursionConstraintOutput {
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
-    AggregationObject agg_obj;
+    stdlib::recursion::aggregation_state<Builder> agg_obj;
     OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
     StdlibProof<Builder> ipa_proof;
 };

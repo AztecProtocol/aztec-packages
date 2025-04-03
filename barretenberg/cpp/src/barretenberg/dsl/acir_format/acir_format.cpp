@@ -365,7 +365,7 @@ void process_plonk_recursion_constraints(Builder& builder,
 
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.add_pairing_point_accumulator(current_output_aggregation_object);
+        builder.add_pairing_point_accumulator_for_plonk(current_output_aggregation_object);
     }
 }
 

@@ -42,6 +42,11 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
     element(const element& other);
     element(element&& other) noexcept;
 
+    /**
+     * @brief Set the witness indices for the x and y coordinates to public
+     *
+     * @return uint32_t
+     */
     uint32_t set_public() const
     {
         const uint32_t start_idx = x.set_public();
@@ -50,6 +55,12 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class element {
         return start_idx;
     }
 
+    /**
+     * @brief Reconstruct a biggroup element from limbs of its coordinates (generally stored in the public inputs)
+     *
+     * @param limbs
+     * @return element
+     */
     static element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;

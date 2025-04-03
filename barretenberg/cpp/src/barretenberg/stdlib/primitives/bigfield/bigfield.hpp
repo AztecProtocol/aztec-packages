@@ -486,6 +486,9 @@ template <typename Builder, typename T> class bigfield {
         return start_index;
     }
 
+    /**
+     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
+     */
     static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
     {
         for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; ++i) {

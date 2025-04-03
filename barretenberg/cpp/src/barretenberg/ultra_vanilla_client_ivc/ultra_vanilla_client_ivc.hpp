@@ -56,7 +56,6 @@ class UltraVanillaClientIVC {
     using RecursiveVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
     using RecursiveVK = RecursiveFlavor::VerificationKey;
     using Curve = stdlib::bn254<Circuit>;
-    using Accumulator = stdlib::recursion::aggregation_state<Circuit>;
     using AggregationObject = stdlib::recursion::aggregation_state<Circuit>;
 
     /**
@@ -73,7 +72,7 @@ class UltraVanillaClientIVC {
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
     Proof previous_proof;
     std::shared_ptr<VK> previous_vk;
-    Accumulator accumulator;
+    AggregationObject accumulator;
     std::array<curve::BN254::AffineElement, 2> accumulator_value;
     AggregationObject aggregation_object;
     std::vector<std::shared_ptr<VK>> vk_cache;
