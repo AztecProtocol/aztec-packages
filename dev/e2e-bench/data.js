@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743672627153,
+  "lastUpdate": 1743676346488,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "09e47221a56deec80324a8e2cb3e482bc9b000fe",
-          "message": "chore: Add e2e test to bootstrap test_cmds (#13146)\n\nAdds test added in #13088",
-          "timestamp": "2025-03-28T18:52:32Z",
-          "tree_id": "6b71fef2b475b84a1086e3b84d46fef3fab2f2b0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/09e47221a56deec80324a8e2cb3e482bc9b000fe"
-        },
-        "date": 1743189484581,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8409,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21385301326380543,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 109676,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1947,6 +1908,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 149782,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "16536249+LHerskind@users.noreply.github.com",
+            "name": "Lasse Herskind",
+            "username": "LHerskind"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "cc609022fe6d31335a67c96521601439907df672",
+          "message": "fix: archiver prune issue and slasher flake (#13156)\n\nFixes #13065.\n\n- Fix a problem in the archiver that caused the slashing test to\nconsistently fail.\n- Fix the flake, by handling a race-condition\n\nShould make the slasher consistently run without flakes, at least when\ntrying it locally for 32 parallel runs multiple times.\n\nKeeping it in the flake for now, but will look at removing it from\nflakes if no failures in the next week from it.",
+          "timestamp": "2025-04-03T09:40:52Z",
+          "tree_id": "518947372c6623f444b755b9c7f3aed5e083d938",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cc609022fe6d31335a67c96521601439907df672"
+        },
+        "date": 1743676345053,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9260,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23548732807364536,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 149664,
             "unit": "us"
           }
         ]
