@@ -369,8 +369,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_scalar_mul_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>(),
             // Field GT
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_lo_range_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_ff_gt_a_lo_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_ff_gt_a_hi_range_settings>>(),
             // Merkle checks
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>(),
@@ -390,10 +390,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoDynamicTableSequential<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings>>(),
             std::make_unique<
                 LookupIntoDynamicTableSequential<lookup_update_check_update_hash_public_data_read_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hi_metadata_range_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_lo_metadata_range_settings>>(),
-            std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_update_check_block_of_change_cmp_range_settings>>());
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_update_hi_metadata_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_update_lo_metadata_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_block_of_change_cmp_range_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
