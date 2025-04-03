@@ -26,7 +26,7 @@ import {
   FeeAssetPerEthE9,
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -107,9 +107,6 @@ contract RollupTest is RollupBase {
     registry.addRollup(IRollup(address(rollup)));
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
-
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
 
     merkleTestUtil = new MerkleTestUtil();
     _;
@@ -349,6 +346,9 @@ contract RollupTest is RollupBase {
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
+    // We need to mint some fee asset to the portal to cover the 2M mana spent.
+    deal(address(testERC20), address(feeJuicePortal), 2e6 * 1e18);
+
     rollup.setProvingCostPerMana(EthValue.wrap(1000));
     _proposeBlock("mixed_block_1", 1, 1e6);
 

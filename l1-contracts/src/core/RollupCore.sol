@@ -2,10 +2,8 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
 import {
-  IRollup,
   IRollupCore,
   ITestRollup,
   CheatDepositArgs,
@@ -98,13 +96,16 @@ contract RollupCore is
       )
     );
     rollupStore.config.version = version;
-    rollupStore.config.inbox =
-      IInbox(address(new Inbox(address(this), version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
+
+    IInbox inbox = IInbox(
+      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT))
+    );
+
+    rollupStore.config.inbox = inbox;
+
     rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), version)));
 
-    rollupStore.config.feeAssetPortal = IFeeJuicePortal(
-      new FeeJuicePortal(IRollup(address(this)), _feeAsset, rollupStore.config.inbox, version)
-    );
+    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
 
     FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }

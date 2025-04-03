@@ -516,8 +516,8 @@ export class TXEService {
     return toForeignCallResult(secret.toFields().map(toSingle));
   }
 
-  async syncNotes() {
-    await this.typedOracle.syncNotes();
+  async syncNotes(pendingTaggedLogArrayBaseSlot: ForeignCallSingle) {
+    await this.typedOracle.syncNotes(fromSingle(pendingTaggedLogArrayBaseSlot));
     return toForeignCallResult([]);
   }
 
@@ -622,10 +622,15 @@ export class TXEService {
     return toForeignCallResult(arrayToBoundedVec(bufferToU8Array(plaintextBuffer), ciphertextBVecStorage.length));
   }
 
-  async getSharedSecret(address: ForeignCallSingle, ephPk: ForeignCallArray) {
+  async getSharedSecret(
+    address: ForeignCallSingle,
+    ephPKField0: ForeignCallSingle,
+    ephPKField1: ForeignCallSingle,
+    ephPKField2: ForeignCallSingle,
+  ) {
     const secret = await this.typedOracle.getSharedSecret(
       AztecAddress.fromField(fromSingle(address)),
-      Point.fromFields(fromArray(ephPk)),
+      Point.fromFields([fromSingle(ephPKField0), fromSingle(ephPKField1), fromSingle(ephPKField2)]),
     );
     return toForeignCallResult(secret.toFields().map(toSingle));
   }

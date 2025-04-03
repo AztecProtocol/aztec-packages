@@ -7,7 +7,10 @@
 
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/world_state.hpp"
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -158,6 +161,22 @@ struct GetLeafValueHint {
     MSGPACK_FIELDS(hintKey, treeId, index, value);
 };
 
+template <typename Leaf> struct SequentialInsertHint {
+    AppendOnlyTreeSnapshot hintKey;
+    // params
+    world_state::MerkleTreeId treeId;
+    Leaf leaf;
+    // return
+    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> lowLeavesWitnessData;
+    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> insertionWitnessData;
+    // evolved state
+    AppendOnlyTreeSnapshot stateAfter;
+
+    bool operator==(const SequentialInsertHint<Leaf>& other) const = default;
+
+    MSGPACK_FIELDS(hintKey, treeId, leaf, lowLeavesWitnessData, insertionWitnessData, stateAfter);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -189,6 +208,8 @@ struct ExecutionHints {
     std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>>
         getLeafPreimageHintsNullifierTree;
     std::vector<GetLeafValueHint> getLeafValueHints;
+    std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>> sequentialInsertHintsPublicDataTree;
+    std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequentialInsertHintsNullifierTree;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -200,7 +221,9 @@ struct ExecutionHints {
                    getPreviousValueIndexHints,
                    getLeafPreimageHintsPublicDataTree,
                    getLeafPreimageHintsNullifierTree,
-                   getLeafValueHints);
+                   getLeafValueHints,
+                   sequentialInsertHintsPublicDataTree,
+                   sequentialInsertHintsNullifierTree);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -217,9 +240,6 @@ struct AvmProvingInputs {
 };
 
 } // namespace bb::avm2
-
-// This has to be done outside of the namespace.
-MSGPACK_ADD_ENUM(bb::world_state::MerkleTreeId);
 
 // Define hash function so that they can be used as keys in maps.
 // See https://en.cppreference.com/w/cpp/utility/hash.

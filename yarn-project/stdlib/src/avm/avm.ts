@@ -207,6 +207,60 @@ export class AvmGetLeafValueHint {
   }
 }
 
+// Hint for MerkleTreeDB.sequentialInsert.
+// NOTE: I need this factory because in order to get hold of the schema, I need an actual instance of the class,
+// having the type doesn't suffice since TS does type erasure in the end.
+function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) {
+  return class AvmSequentialInsertHint {
+    constructor(
+      public readonly hintKey: AppendOnlyTreeSnapshot,
+      public readonly stateAfter: AppendOnlyTreeSnapshot,
+      // params
+      public readonly treeId: MerkleTreeId,
+      public readonly leaf: InstanceType<IndexedTreeLeafPreimagesClasses>['leaf'],
+      // return
+      public readonly lowLeavesWitnessData: {
+        leaf: IndexedTreeLeafPreimages;
+        index: bigint;
+        path: Fr[];
+      },
+      public readonly insertionWitnessData: {
+        leaf: IndexedTreeLeafPreimages;
+        index: bigint;
+        path: Fr[];
+      },
+    ) {}
+
+    static get schema() {
+      return z
+        .object({
+          hintKey: AppendOnlyTreeSnapshot.schema,
+          stateAfter: AppendOnlyTreeSnapshot.schema,
+          treeId: z.number().int().nonnegative(),
+          leaf: klass.leafSchema,
+          lowLeavesWitnessData: z.object({
+            leaf: klass.schema,
+            index: schemas.BigInt,
+            path: schemas.Fr.array(),
+          }),
+          insertionWitnessData: z.object({
+            leaf: klass.schema,
+            index: schemas.BigInt,
+            path: schemas.Fr.array(),
+          }),
+        })
+        .transform(
+          ({ hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData }) =>
+            new AvmSequentialInsertHint(hintKey, stateAfter, treeId, leaf, lowLeavesWitnessData, insertionWitnessData),
+        );
+    }
+  };
+}
+
+// Note: only supported for PUBLIC_DATA_TREE and NULLIFIER_TREE.
+export class AvmSequentialInsertHintPublicDataTree extends AvmSequentialInsertHintFactory(PublicDataTreeLeafPreimage) {}
+export class AvmSequentialInsertHintNullifierTree extends AvmSequentialInsertHintFactory(NullifierLeafPreimage) {}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -246,6 +300,8 @@ export class AvmExecutionHints {
     public readonly getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree[] = [],
     public readonly getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree[] = [],
     public readonly getLeafValueHints: AvmGetLeafValueHint[] = [],
+    public readonly sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree[] = [],
+    public readonly sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree[] = [],
   ) {}
 
   static empty() {
@@ -264,6 +320,8 @@ export class AvmExecutionHints {
         getLeafPreimageHintsPublicDataTree: AvmGetLeafPreimageHintPublicDataTree.schema.array(),
         getLeafPreimageHintsNullifierTree: AvmGetLeafPreimageHintNullifierTree.schema.array(),
         getLeafValueHints: AvmGetLeafValueHint.schema.array(),
+        sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree.schema.array(),
+        sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree.schema.array(),
       })
       .transform(
         ({
@@ -276,6 +334,8 @@ export class AvmExecutionHints {
           getLeafPreimageHintsPublicDataTree,
           getLeafPreimageHintsNullifierTree,
           getLeafValueHints,
+          sequentialInsertHintsPublicDataTree,
+          sequentialInsertHintsNullifierTree,
         }) =>
           new AvmExecutionHints(
             enqueuedCalls,
@@ -287,6 +347,8 @@ export class AvmExecutionHints {
             getLeafPreimageHintsPublicDataTree,
             getLeafPreimageHintsNullifierTree,
             getLeafValueHints,
+            sequentialInsertHintsPublicDataTree,
+            sequentialInsertHintsNullifierTree,
           ),
       );
   }

@@ -106,7 +106,11 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
           "\n * get_leaf_preimage hints_nullifier_tree: ",
           hints.getLeafPreimageHintsNullifierTree.size(),
           "\n * get_leaf_value_hints: ",
-          hints.getLeafValueHints.size());
+          hints.getLeafValueHints.size(),
+          "\n * sequential_insert_hints_public_data_tree: ",
+          hints.sequentialInsertHintsPublicDataTree.size(),
+          "\n * sequential_insert_hints_nullifier_tree: ",
+          hints.sequentialInsertHintsNullifierTree.size());
     debug("Initializing HintedRawMerkleDB with snapshots...",
           "\n * nullifierTree: ",
           tree_roots.nullifierTree.root,
@@ -159,6 +163,20 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
     for (const auto& get_leaf_value_hint : hints.getLeafValueHints) {
         GetLeafValueKey key = { get_leaf_value_hint.hintKey, get_leaf_value_hint.treeId, get_leaf_value_hint.index };
         get_leaf_value_hints[key] = get_leaf_value_hint.value;
+    }
+
+    for (const auto& sequential_insert_hint : hints.sequentialInsertHintsPublicDataTree) {
+        SequentialInsertHintPublicDataTreeKey key = { sequential_insert_hint.hintKey,
+                                                      sequential_insert_hint.treeId,
+                                                      sequential_insert_hint.leaf };
+        sequential_insert_hints_public_data_tree[key] = sequential_insert_hint;
+    }
+
+    for (const auto& sequential_insert_hint : hints.sequentialInsertHintsNullifierTree) {
+        SequentialInsertHintNullifierTreeKey key = { sequential_insert_hint.hintKey,
+                                                     sequential_insert_hint.treeId,
+                                                     sequential_insert_hint.leaf };
+        sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
     }
 }
 
@@ -260,6 +278,86 @@ crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> Hinted
                                         ")"));
     }
     return it->second;
+}
+
+world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
+    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value)
+{
+    auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
+    SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
+    auto it = sequential_insert_hints_public_data_tree.find(key);
+    if (it == sequential_insert_hints_public_data_tree.end()) {
+        throw std::runtime_error(format("Sequential insert hint (PUBLIC_DATA_TREE) not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", leaf_value: ",
+                                        leaf_value,
+                                        ")"));
+    }
+    const auto& hint = it->second;
+
+    world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue> result;
+
+    // Convert low leaves witness data
+    result.low_leaf_witness_data.emplace_back(
+        hint.lowLeavesWitnessData.leaf, hint.lowLeavesWitnessData.index, hint.lowLeavesWitnessData.path);
+
+    // Convert insertion witness data
+    result.insertion_witness_data.emplace_back(
+        hint.insertionWitnessData.leaf, hint.insertionWitnessData.index, hint.insertionWitnessData.path);
+
+    // Evolve state.
+    tree_roots.publicDataTree.root = hint.stateAfter.root;
+    tree_roots.publicDataTree.nextAvailableLeafIndex = hint.stateAfter.nextAvailableLeafIndex;
+
+    debug("Evolved state of PUBLIC_DATA_TREE: ",
+          tree_roots.publicDataTree.root,
+          " (size: ",
+          tree_roots.publicDataTree.nextAvailableLeafIndex,
+          ")");
+
+    return result;
+}
+
+world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> HintedRawMerkleDB::
+    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value)
+{
+    auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
+    SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
+    auto it = sequential_insert_hints_nullifier_tree.find(key);
+    if (it == sequential_insert_hints_nullifier_tree.end()) {
+        throw std::runtime_error(format("Sequential insert hint (NULLIFIER_TREE) not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", leaf_value: ",
+                                        leaf_value,
+                                        ")"));
+    }
+    const auto& hint = it->second;
+
+    world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> result;
+
+    // Convert low leaves witness data
+    result.low_leaf_witness_data.emplace_back(
+        hint.lowLeavesWitnessData.leaf, hint.lowLeavesWitnessData.index, hint.lowLeavesWitnessData.path);
+
+    // Convert insertion witness data
+    result.insertion_witness_data.emplace_back(
+        hint.insertionWitnessData.leaf, hint.insertionWitnessData.index, hint.insertionWitnessData.path);
+
+    // Evolve state.
+    tree_roots.nullifierTree.root = hint.stateAfter.root;
+    tree_roots.nullifierTree.nextAvailableLeafIndex = hint.stateAfter.nextAvailableLeafIndex;
+
+    debug("Evolved state of NULLIFIER_TREE: ",
+          tree_roots.nullifierTree.root,
+          " (size: ",
+          tree_roots.nullifierTree.nextAvailableLeafIndex,
+          ")");
+
+    return result;
 }
 
 } // namespace bb::avm2::simulation
