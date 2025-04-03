@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.83.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.83.0...v0.83.1) (2025-04-03)
+
+
+### Bug Fixes
+
+* archiver prune issue and slasher flake ([#13156](https://github.com/AztecProtocol/aztec-packages/issues/13156)) ([cc60902](https://github.com/AztecProtocol/aztec-packages/commit/cc609022fe6d31335a67c96521601439907df672))
+* disable docs (broken). build arm on tagged releases. ([9d13ba8](https://github.com/AztecProtocol/aztec-packages/commit/9d13ba84fb3e0fe0260236b9d0f3eb6341047274))
+* give the first bot dibs on registering contract classes ([#13256](https://github.com/AztecProtocol/aztec-packages/issues/13256)) ([13df3ca](https://github.com/AztecProtocol/aztec-packages/commit/13df3ca38a995cb6e828e3e85b5f64841423d64e))
+
+
+### Miscellaneous
+
+* fix kind transfer test ([#13182](https://github.com/AztecProtocol/aztec-packages/issues/13182)) ([08f1609](https://github.com/AztecProtocol/aztec-packages/commit/08f1609c3cde12632befa300cd2d8ea225846762))
+
 ## [0.83.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.82.3...v0.83.0) (2025-04-03)
 
 
