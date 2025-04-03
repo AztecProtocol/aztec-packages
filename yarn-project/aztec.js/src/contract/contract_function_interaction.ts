@@ -43,7 +43,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
   public override async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     // docs:end:create
     if (this.functionDao.functionType === FunctionType.UTILITY) {
-      throw new Error("Can't call `create` on an utility function.");
+      throw new Error("Can't call `create` on a utility  function.");
     }
     const requestWithoutFee = await this.request(options);
 

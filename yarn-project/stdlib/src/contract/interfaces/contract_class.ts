@@ -88,7 +88,7 @@ const PrivateFunctionMembershipProofSchema = z.object({
 /** A private function with a membership proof. */
 export type ExecutablePrivateFunctionWithMembershipProof = ExecutablePrivateFunction & PrivateFunctionMembershipProof;
 
-/** Sibling paths and commitments for proving membership of an utility function within a contract class. */
+/** Sibling paths and commitments for proving membership of a utility  function within a contract class. */
 export type UtilityFunctionMembershipProof = {
   artifactMetadataHash: Fr;
   functionMetadataHash: Fr;

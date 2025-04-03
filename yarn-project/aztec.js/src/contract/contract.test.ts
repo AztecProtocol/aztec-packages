@@ -196,7 +196,7 @@ describe('Contract Class', () => {
     expect(result).toBe(mockUtilityResultValue);
   });
 
-  it('should not call create on an utility function', async () => {
+  it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });

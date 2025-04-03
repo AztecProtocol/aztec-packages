@@ -18,7 +18,7 @@ import type {
 } from './interfaces/index.js';
 
 /**
- * Creates a membership proof for an utility function in a contract class, to be verified via `isValidUtilityFunctionMembershipProof`.
+ * Creates a membership proof for a utility  function in a contract class, to be verified via `isValidUtilityFunctionMembershipProof`.
  * @param selector - Selector of the function to create the proof for.
  * @param artifact - Artifact of the contract class where the function is defined.
  */
@@ -66,7 +66,7 @@ export async function createUtilityFunctionMembershipProof(
 }
 
 /**
- * Verifies that an utility function with a membership proof as emitted by the ClassRegisterer contract is valid,
+ * Verifies that a utility  function with a membership proof as emitted by the ClassRegisterer contract is valid,
  * as defined in the protocol specs at contract-deployment/classes:
  *
  * ```

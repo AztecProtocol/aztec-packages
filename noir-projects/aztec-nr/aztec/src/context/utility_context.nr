@@ -15,7 +15,7 @@ impl UtilityContext {
     pub unconstrained fn new() -> Self {
         // We could call these oracles on the getters instead of at creation, which makes sense given that they might
         // not even be accessed. However any performance gains are minimal, and we'd rather fail early if a user
-        // incorrectly attempts to create an UtilityContext in an environment in which these oracles are not
+        // incorrectly attempts to create a UtilityContext in an environment in which these oracles are not
         // available.
         let block_number = get_block_number();
         let contract_address = get_contract_address();

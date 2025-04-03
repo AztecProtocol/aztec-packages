@@ -101,7 +101,7 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(fetchedFunction.selector).toEqual(selector);
     });
 
-    it('broadcasts an utility function', async () => {
+    it('broadcasts a utility function', async () => {
       const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UTILITY)!;
       const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
       const tx = await (await broadcastUtilityFunction(wallet, artifact, selector)).send().wait();

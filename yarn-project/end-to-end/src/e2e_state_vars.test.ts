@@ -36,7 +36,7 @@ describe('e2e_state_vars', () => {
     });
 
     it('initialize and read PublicImmutable', async () => {
-      // Initializes the public immutable and then reads the value using an utility function
+      // Initializes the public immutable and then reads the value using a utility  function
       // checking the return values:
 
       await contract.methods.initialize_public_immutable(1).send().wait();
