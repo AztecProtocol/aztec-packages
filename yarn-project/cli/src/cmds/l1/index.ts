@@ -5,6 +5,7 @@ import { type Command, Option } from 'commander';
 
 import {
   ETHEREUM_HOSTS,
+  MNEMONIC,
   PRIVATE_KEY,
   l1ChainIdOption,
   makePxeOption,
@@ -74,7 +75,7 @@ export function injectCommands(program: Command, log: LogFn, debugLogger: Logger
     .option(
       '-m, --mnemonic <string>',
       'The mnemonic to use in deployment',
-      'test test test test test test test test test test test junk',
+      MNEMONIC ?? 'test test test test test test test test test test test junk',
     )
     .option('-i, --mnemonic-index <number>', 'The index of the mnemonic to use in deployment', arg => parseInt(arg), 0)
     .addOption(l1ChainIdOption)

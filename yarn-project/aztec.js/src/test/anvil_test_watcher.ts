@@ -70,11 +70,11 @@ export class AnvilTestWatcher {
     const isAutoMining = await this.cheatcodes.isAutoMining();
 
     if (isAutoMining) {
-      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 1000);
+      this.filledRunningPromise = new RunningPromise(() => this.warpTimeIfNeeded(), this.logger, 200);
       this.filledRunningPromise.start();
-      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 1000);
+      this.mineIfOutdatedPromise = new RunningPromise(() => this.mineIfOutdated(), this.logger, 200);
       this.mineIfOutdatedPromise.start();
-      this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 1000);
+      this.markingAsProvenRunningPromise = new RunningPromise(() => this.markAsProven(), this.logger, 200);
       this.markingAsProvenRunningPromise.start();
       this.logger.info(`Watcher started for rollup at ${this.rollup.address}`);
     } else {
@@ -86,6 +86,12 @@ export class AnvilTestWatcher {
     await this.filledRunningPromise?.stop();
     await this.mineIfOutdatedPromise?.stop();
     await this.markingAsProvenRunningPromise?.stop();
+  }
+
+  async trigger() {
+    await this.filledRunningPromise?.trigger();
+    await this.mineIfOutdatedPromise?.trigger();
+    await this.markingAsProvenRunningPromise?.trigger();
   }
 
   async markAsProven() {

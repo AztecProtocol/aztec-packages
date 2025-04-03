@@ -7,7 +7,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -90,9 +90,6 @@ contract MultiProofTest is RollupBase {
 
     feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
 
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
-
     registry.addRollup(IRollup(address(rollup)));
 
     _;
@@ -136,6 +133,9 @@ contract MultiProofTest is RollupBase {
   function testMultipleProvers() public setUpFor("mixed_block_1") {
     address alice = address(bytes20("alice"));
     address bob = address(bytes20("bob"));
+
+    // We need to mint some fee asset to the portal to cover the 30M mana spent.
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
 
     _proposeBlock("mixed_block_1", 1, 15e6);
     _proposeBlock("mixed_block_2", 2, 15e6);

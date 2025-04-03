@@ -53,7 +53,14 @@ Below are all the payment methods available to pay transaction fees on Aztec, st
 
 Fee paying contracts specify their own criteria of payment in exchange for paying the fee juice of a transaction, e.g. an FPC
 be written to accept some banana tokens to pay for another's transaction fee.
-With an alias corresponding to the FPC's address this would be:
+
+Before using a fee paying contract, you need to register it in the PXE, passing the address of the contract and specifying the `from` account (in this case `main`). For example:
+
+```bash
+aztec-wallet register-contract $FPC_ADDRESS FPCContract -f main
+```
+
+With an alias corresponding to the FPC's address (`bananaFPC`) this would be:
 
 ```bash
 aztec-wallet <your transaction> --payment method=fpc,fpc-contract=contracts:bananaFPC
@@ -61,14 +68,20 @@ aztec-wallet <your transaction> --payment method=fpc,fpc-contract=contracts:bana
 
 ### Sponsored Fee Paying Contract
 
+Before using a Sponsored Fee Paying Contract (FPC), you need to register it in the PXE, passing the address of the contract and specifying the `from` account (in this case `main`). For example:
+
+```bash
+aztec-wallet register-contract $FPC_ADDRESS SponsoredFPC -f main
+```
+
 This is a special type of FPC that can be used to pay for account deployment and regular txs.
 Eg: to create an account paid for by the sponsoredFPC:
 
 ```bash
-aztec-wallet create-account -a main --payment method=fpc-sponsored,fpc=<fpc-address>
+aztec-wallet create-account -a main --payment method=fpc-sponsored,fpc=$FPC_ADDRESS
 ```
 
-:::Note
+:::note
 In the sandbox, the sponsored FPC address is printed at the end of its initial logs.
 :::
 
