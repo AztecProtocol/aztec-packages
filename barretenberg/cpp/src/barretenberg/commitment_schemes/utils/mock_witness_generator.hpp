@@ -150,6 +150,11 @@ template <typename Curve> struct MockClaimGenerator {
             unshifted.commitments.push_back(Commitment::infinity());
             unshifted.evals.push_back(Fr(0));
         }
+
+        polynomial_batcher.set_unshifted(RefVector(unshifted.polys));
+
+        claim_batcher =
+            ClaimBatcher{ .unshifted = ClaimBatch{ RefVector(unshifted.commitments), RefVector(unshifted.evals) } };
     }
 
     InterleaveData generate_interleaving_inputs(const std::vector<Fr>& u_challenge,

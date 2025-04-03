@@ -50,8 +50,9 @@ template <typename Curve> class ShplonkProver_ {
 
         if (!libra_opening_claims.empty()) {
             // Max size of the polynomials in Libra opening claims is Curve::SUBGROUP_SIZE*2 + 2; we round it up to the
-            // next power of 2
-            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE));
+            // next power of 2. In the case of BN254, `SUBGROUP_SIZE` is dyadic, hence we add 1 to get the next power
+            // of 2.
+            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE + 1));
             max_poly_size = 1 << (log_subgroup_size + 1);
         };
         for (const auto& claim : opening_claims) {
