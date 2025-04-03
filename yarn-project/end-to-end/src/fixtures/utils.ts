@@ -14,7 +14,6 @@ import {
   type AztecNode,
   BatchCall,
   type ContractMethod,
-  FeeJuicePaymentMethod,
   type Logger,
   type PXE,
   SignerlessWallet,
@@ -30,7 +29,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { FEE_JUICE_INITIAL_MINT, GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH, SPONSORED_FPC_SALT } from '@aztec/constants';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
   type DeployL1ContractsArgs,
@@ -49,10 +48,9 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
 import { TestDateProvider } from '@aztec/foundation/timer';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
 import {
   type PXEService,
@@ -65,7 +63,6 @@ import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import { WASMSimulator } from '@aztec/simulator/client';
 import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
 import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
-import { Gas } from '@aztec/stdlib/gas';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
 import {
@@ -82,7 +79,6 @@ import fs from 'fs/promises';
 import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
-import { inspect } from 'util';
 import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -126,7 +122,6 @@ export const setupL1Contracts = async (
   chain: Chain = foundry,
 ) => {
   const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
@@ -238,8 +233,6 @@ async function setupWithRemoteEnvironment(
   };
   const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
-
-  await setupCanonicalFeeJuice(pxeClient);
 
   logger.verbose('Constructing available wallets from already registered accounts...');
   const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
@@ -363,6 +356,8 @@ export async function setup(
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
     config.realProofs = !!opts.realProofs;
+    // Only enforce the time table if requested
+    config.enforceTimeTable = !!opts.enforceTimeTable;
 
     const logger = getLogger();
 
@@ -430,7 +425,7 @@ export async function setup(
     const initialFundedAccounts =
       opts.initialFundedAccounts ??
       (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
-    const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
+    const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
       initialFundedAccounts.map(a => a.address),
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
@@ -442,7 +437,7 @@ export async function setup(
         config.l1RpcUrls,
         publisherHdAccount!,
         logger,
-        { ...opts, genesisArchiveRoot, genesisBlockHash },
+        { ...opts, genesisArchiveRoot, genesisBlockHash, feeJuicePortalInitialBalance: fundingNeeded },
         chain,
       ));
 
@@ -549,11 +544,6 @@ export async function setup(
 
     logger.verbose('Creating a pxe...');
     const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
-
-    if (!config.skipProtocolContracts) {
-      logger.verbose('Setting up Fee Juice...');
-      await setupCanonicalFeeJuice(pxe);
-    }
 
     const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
     const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
@@ -739,27 +729,6 @@ export async function expectMappingDelta<K, V extends number | bigint>(
   const diffs = outputs.map((output, i) => output - initialValues[i]);
 
   expect(diffs).toEqual(expectedDiffs);
-}
-
-/**
- * Deploy the canonical Fee Juice contract to a running instance.
- */
-export async function setupCanonicalFeeJuice(pxe: PXE) {
-  // "deploy" the Fee Juice as it contains public functions
-  const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
-  const wallet = new SignerlessWallet(pxe);
-  const feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
-
-  try {
-    const paymentMethod = new FeeJuicePaymentMethod(ProtocolContractAddress.FeeJuice);
-    await feeJuice.methods
-      .initialize(feeJuicePortalAddress, FEE_JUICE_INITIAL_MINT)
-      .send({ fee: { paymentMethod, gasSettings: { teardownGasLimits: Gas.empty() } } })
-      .wait();
-    getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
-  } catch (error) {
-    getLogger().warn(`Fee Juice might have already been setup. Got error: ${inspect(error)}.`);
-  }
 }
 
 /**

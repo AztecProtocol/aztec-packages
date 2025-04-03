@@ -35,6 +35,7 @@ describe('e2e_p2p_validators_sentinel', () => {
         minTxsPerBlock: 0,
         aztecEpochDuration: 48,
         validatorReexecute: false,
+        sentinelEnabled: true,
       },
     });
 

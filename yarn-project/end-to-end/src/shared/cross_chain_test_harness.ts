@@ -325,8 +325,8 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
-  getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Fr {
-    return this.l1TokenPortalManager.getL2ToL1MessageLeaf(
+  async getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
+    return await this.l1TokenPortalManager.getL2ToL1MessageLeaf(
       withdrawAmount,
       this.ethAccount,
       this.l2Bridge.address,

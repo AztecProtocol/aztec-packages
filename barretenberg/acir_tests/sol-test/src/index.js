@@ -246,10 +246,6 @@ try {
     [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
       JSON.parse(proofAsFields.toString())
     );
-    if (testingHonk) {
-      // Honk proof from the CLI have field length as the first 4 bytes. This should go away in the future
-      proofStr = proofStr.substring(8);
-    }
   }
   // We need to do this because plonk doesn't define this path
   if (publicInputsAsFieldsPath) {
