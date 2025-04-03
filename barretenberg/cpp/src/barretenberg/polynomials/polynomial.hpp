@@ -266,7 +266,12 @@ template <typename Fr> class Polynomial {
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
         ASSERT(virtual_size() >= MASKING_OFFSET);
         ASSERT(virtual_size() == end_index());
-        for (size_t i = virtual_size() - 1; i <= virtual_size() - MASKING_OFFSET; i--) {
+        // Since `virtual_size() - i` entry of a 1-shiftable polynomial becomes `virtual_size() - i - 1` entry of its
+        // shift, we can only mask MASKING_OFFSET - 1 last entries of witness polynomials.
+        constexpr size_t SHIFT_OFFSET = 1;
+        constexpr size_t NUM_ENTRIES_TO_MASK = MASKING_OFFSET - SHIFT_OFFSET;
+
+        for (size_t i = virtual_size() - NUM_ENTRIES_TO_MASK; i < virtual_size(); ++i) {
             at(i) = FF::random_element();
         }
     }

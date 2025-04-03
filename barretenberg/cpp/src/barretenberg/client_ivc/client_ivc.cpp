@@ -259,7 +259,7 @@ std::pair<std::shared_ptr<ClientIVC::ZKDeciderProvingKey>, ClientIVC::MergeProof
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);
 
-    auto decider_pk = std::make_shared<ZKDeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
+    auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
     honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
 
     return { decider_pk, merge_proof };
@@ -273,6 +273,7 @@ std::pair<std::shared_ptr<ClientIVC::ZKDeciderProvingKey>, ClientIVC::MergeProof
 std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
 {
     auto [decider_pk, merge_proof] = construct_hiding_circuit_key();
+    // FoldingRecursiveVerifier circuit is proven by a MegaZKProver
     MegaZKProver prover(decider_pk);
     HonkProof proof = prover.construct_proof();
 

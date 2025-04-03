@@ -33,7 +33,7 @@ class ClientIVC {
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using ZKDeciderProvingKey = DeciderProvingKey_<MegaZKFlavor>;
+    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
