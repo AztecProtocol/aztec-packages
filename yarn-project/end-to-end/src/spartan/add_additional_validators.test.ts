@@ -146,9 +146,6 @@ describe('add additional validators', () => {
         ...extraEnv,
         LOG_LEVEL: 'debug',
         ETHEREUM_SLOT_DURATION: config.ETHEREUM_SLOT_DURATION.toString(),
-        AZTEC_EPOCH_DURATION: config.AZTEC_EPOCH_DURATION.toString(),
-        AZTEC_SLOT_DURATION: config.AZTEC_SLOT_DURATION.toString(),
-        AZTEC_PROOF_SUBMISSION_WINDOW: config.AZTEC_PROOF_SUBMISSION_WINDOW.toString(),
         L1_CHAIN_ID: '1337',
         SEQ_MIN_TX_PER_BLOCK: '0',
         P2P_PEER_CHECK_INTERVAL_MS: '2000', // Faster heartbeat for faster discovery
@@ -226,7 +223,7 @@ describe('add additional validators', () => {
 
   const waitForValidatorsToProduceBlocks = async (validatorAddresses: string[]) => {
     // Call get block, check if the coinbase is one of the validators
-    const timeout = 2 * 60 * 1000; // 2 minutes
+    const timeout = 3 * 60 * 1000; // 3 minutes
     await executeTimeout(
       async () => {
         debugLogger.info('Waiting for validators to produce blocks');
