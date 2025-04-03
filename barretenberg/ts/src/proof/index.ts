@@ -1,4 +1,4 @@
-import { numToUInt32BE } from "../serialize/serialize.js";
+import { numToUInt32BE } from '../serialize/serialize.js';
 
 /**
  * @description
@@ -10,6 +10,8 @@ export type ProofData = {
   /** @description An byte array representing the proof */
   proof: Uint8Array;
 };
+
+export const AGGREGATION_OBJECT_LENGTH = 16;
 
 /**
  * @description
