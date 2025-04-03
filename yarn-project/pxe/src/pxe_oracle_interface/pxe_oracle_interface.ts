@@ -675,9 +675,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     await this.noteDataProvider.addNotes([noteDao], recipient);
     this.log.verbose('Added note', {
-      contract: noteDao.contractAddress,
-      slot: noteDao.storageSlot,
-      noteHash: noteDao.noteHash,
+      index: noteDao.index,
+      contract: noteDao.contractAddress.toString(),
+      slot: noteDao.storageSlot.toString(),
+      noteHash: noteDao.noteHash.toString(),
       nullifier: noteDao.siloedNullifier.toString(),
     });
 
