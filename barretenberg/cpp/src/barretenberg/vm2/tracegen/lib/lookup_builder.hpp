@@ -106,27 +106,38 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
 
         SetDummyInverses<LookupSettings>(trace);
 
+        // For the sequential builder, it is critical that we visit the source rows in order.
+        // Since the trace does not guarantee visiting rows in order, we need to collect the rows.
+        std::vector<uint32_t> src_rows_in_order;
+        src_rows_in_order.reserve(trace.get_column_rows(LookupSettings::SRC_SELECTOR));
         trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
             assert(src_sel_value == 1);
             (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
+            src_rows_in_order.push_back(row);
+        });
+        std::sort(src_rows_in_order.begin(), src_rows_in_order.end());
 
+        for (uint32_t row : src_rows_in_order) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
 
             // We find the first row in the destination columns where the values match.
-            while (dst_row < max_dst_row) {
+            bool found = false;
+            while (!found && dst_row < max_dst_row) {
                 // TODO: As an optimization, we could try to only walk the rows where the selector is active.
                 // We can't just do a visit because we cannot skip rows with that.
                 auto dst_selector = trace.get(LookupSettings::DST_SELECTOR, dst_row);
                 if (dst_selector == 1 && src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row)) {
                     trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
-                    return; // Done with this source row.
+                    found = true;
                 }
                 ++dst_row;
             }
 
-            throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
-                                     ". Could not find tuple in destination.");
-        });
+            if (!found) {
+                throw std::runtime_error("Failed computing counts for " + std::string(LookupSettings::NAME) +
+                                         ". Could not find tuple in destination.");
+            }
+        }
     }
 };
 

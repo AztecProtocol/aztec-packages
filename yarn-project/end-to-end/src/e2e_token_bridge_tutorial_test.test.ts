@@ -196,7 +196,7 @@ describe('e2e_cross_chain_messaging token_bridge_tutorial_test', () => {
     // docs:end:setup-withdrawal
 
     // docs:start:l2-withdraw
-    const l2ToL1Message = l1PortalManager.getL2ToL1MessageLeaf(
+    const l2ToL1Message = await l1PortalManager.getL2ToL1MessageLeaf(
       withdrawAmount,
       EthAddress.fromString(ownerEthAddress),
       l2BridgeContract.address,

@@ -2185,6 +2185,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_ROM_gate(RomRecord& record)
 {
     record.record_witness = this->add_variable(0);
+    // record_witness is intentionally used only in a single gate
+    update_used_witnesses(record.record_witness);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
     blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
@@ -2590,6 +2592,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         const auto value1 = this->get_variable(record.value_column1_witness);
         const auto value2 = this->get_variable(record.value_column2_witness);
         const auto index_witness = this->add_variable(FF((uint64_t)index));
+        // the same thing as with the record witness
+        update_used_witnesses(index_witness);
         const auto value1_witness = this->add_variable(value1);
         const auto value2_witness = this->add_variable(value2);
         RomRecord sorted_record{

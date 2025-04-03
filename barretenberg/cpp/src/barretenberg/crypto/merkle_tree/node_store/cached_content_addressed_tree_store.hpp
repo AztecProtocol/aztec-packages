@@ -422,7 +422,7 @@ void ContentAddressedCachedTreeStore<LeafValueType>::set_leaf_key_at_index(const
                                                                            const IndexedLeafValueType& leaf)
 {
     // std::cout << "Set leaf key at index " << index << std::endl;
-    update_index(index, leaf.value.get_key());
+    update_index(index, leaf.leaf.get_key());
 }
 
 template <typename LeafValueType>
@@ -1069,15 +1069,15 @@ void ContentAddressedCachedTreeStore<LeafValueType>::remove_leaf(const fr& hash,
     if (maxIndex.has_value()) {
         // std::cout << "Max Index" << std::endl;
         //   We need to clear the entry from the leaf key to index database as this leaf never existed
-        IndexedLeafValueType leaf;
+        IndexedLeafValueType leaf_preimage;
         fr key;
-        if (requires_preimage_for_key<LeafValueType>()) {
+        if constexpr (requires_preimage_for_key<LeafValueType>()) {
             // std::cout << "Reading leaf by hash " << hash << std::endl;
-            if (!dataStore_->read_leaf_by_hash(hash, leaf, tx)) {
+            if (!dataStore_->read_leaf_by_hash(hash, leaf_preimage, tx)) {
                 throw std::runtime_error("Failed to find leaf pre-image when attempting to delete indices");
             }
             // std::cout << "Read leaf by hash " << hash << std::endl;
-            key = preimage_to_key(leaf.value);
+            key = preimage_to_key(leaf_preimage.leaf);
         } else {
             key = hash;
         }

@@ -323,7 +323,8 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
     std::vector<uint32_t> memory_read_records;
     // Stores gate index of RAM writes (required by proving key)
     std::vector<uint32_t> memory_write_records;
-
+    // Witnesses that can be in one gate, but that's intentional (used in boomerang catcher)
+    std::vector<uint32_t> used_witnesses;
     std::vector<cached_partial_non_native_field_multiplication> cached_partial_non_native_field_multiplications;
 
     bool circuit_finalized = false;
@@ -709,6 +710,10 @@ class UltraCircuitBuilder_ : public CircuitBuilderBase<typename ExecutionTrace_:
         auto num_filled_gates = get_estimated_num_finalized_gates() + this->public_inputs.size();
         return std::max(minimum_circuit_size, num_filled_gates) + NUM_RESERVED_GATES;
     }
+
+    std::vector<uint32_t> get_used_witnesses() const { return used_witnesses; }
+
+    void update_used_witnesses(uint32_t var_idx) { used_witnesses.emplace_back(var_idx); }
 
     /**x
      * @brief Print the number and composition of gates in the circuit

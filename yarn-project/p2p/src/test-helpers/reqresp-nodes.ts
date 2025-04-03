@@ -55,8 +55,8 @@ export async function createLibp2pNode(
   const options: Libp2pOptions = {
     start,
     addresses: {
-      listen: [`/ip4/0.0.0.0/tcp/${port}`],
-      announce: [`/ip4/0.0.0.0/tcp/${port}`],
+      listen: [`/ip4/127.0.0.1/tcp/${port}`],
+      announce: [`/ip4/127.0.0.1/tcp/${port}`],
     },
     connectionEncryption: [noise()],
     streamMuxers: [yamux()],
@@ -239,7 +239,7 @@ export function createBootstrapNodeConfig(privateKey: string, port: number, chai
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
-    listenAddress: '0.0.0.0',
+    listenAddress: '127.0.0.1',
   };
 }
 

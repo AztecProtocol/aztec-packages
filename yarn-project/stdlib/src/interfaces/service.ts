@@ -11,6 +11,9 @@ export interface Service {
 
   /** Stops the service. */
   stop(): Promise<void>;
+
+  /** Resumes the service after it was stopped */
+  resume(): void;
 }
 
 /** Tries to call stop on a given object and awaits it. Logs any errors and does not rethrow. */
@@ -21,5 +24,15 @@ export async function tryStop(service: Maybe<Service>, logger?: Logger): Promise
       : Promise.resolve();
   } catch (err) {
     logger?.error(`Error stopping service ${(service as object).constructor?.name}: ${err}`);
+  }
+}
+
+export function tryRestart(service: Maybe<Service>, logger?: Logger) {
+  try {
+    return typeof service === 'object' && service && 'restart' in service && typeof service.restart === 'function'
+      ? service.restart()
+      : Promise.resolve();
+  } catch (err) {
+    logger?.error(`Error restarting service ${(service as object).constructor?.name}: ${err}`);
   }
 }

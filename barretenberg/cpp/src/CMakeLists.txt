@@ -101,9 +101,11 @@ add_subdirectory(barretenberg/transcript)
 add_subdirectory(barretenberg/translator_vm)
 add_subdirectory(barretenberg/ultra_honk)
 add_subdirectory(barretenberg/vm)
-add_subdirectory(barretenberg/vm2)
 add_subdirectory(barretenberg/wasi)
-add_subdirectory(barretenberg/world_state)
+if(NOT FUZZING)
+    add_subdirectory(barretenberg/world_state)
+    add_subdirectory(barretenberg/vm2)
+endif()
 
 if(SMT)
     add_subdirectory(barretenberg/smt_verification)
@@ -175,13 +177,13 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:translator_vm_objects>
     $<TARGET_OBJECTS:ultra_honk_objects>)
 
-if(NOT DISABLE_AZTEC_VM)
+if(NOT DISABLE_AZTEC_VM AND NOT FUZZING)
     # enable AVM
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:vm2_objects>)
 endif()
 
-if(NOT WASM)
+if(NOT WASM AND NOT FUZZING)
     # enable merkle trees and lmdb
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:crypto_merkle_tree_objects>)
     list(APPEND BARRETENBERG_TARGET_OBJECTS $<TARGET_OBJECTS:lmdblib_objects>)

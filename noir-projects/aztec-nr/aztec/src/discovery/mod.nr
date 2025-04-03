@@ -1,10 +1,11 @@
 use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
+pub mod nonce_discovery;
+pub mod partial_notes;
+pub mod pending_tagged_log;
 pub mod private_logs;
 pub mod private_notes;
-pub mod partial_notes;
-pub mod nonce_discovery;
 
 /// We reserve two fields in the note private log that are not part of the note content: one for the storage slot, and
 /// one for the combined log and note type ID.

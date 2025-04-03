@@ -25,14 +25,14 @@ describe('versioning', () => {
       l1Contracts: {
         rollupAddress: EthAddress.random(),
       },
-      version: 3,
+      rollupVersion: 3,
     };
   });
 
   it.each([true, false])('sets and compares versions with xxhash=%s', (useXxHash: boolean) => {
     const versions = setAztecEnrKey(enr, chainConfig, useXxHash);
     expect(versions.l1ChainId).toEqual(1);
-    expect(versions.l2ChainVersion).toEqual(3);
+    expect(versions.rollupVersion).toEqual(3);
     expect(versions.l1RollupAddress).toEqual(chainConfig.l1Contracts.rollupAddress);
     expect(versionSet).toHaveLength(useXxHash ? 8 : 33);
 
