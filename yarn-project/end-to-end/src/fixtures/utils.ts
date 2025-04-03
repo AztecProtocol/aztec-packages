@@ -76,7 +76,6 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
-import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
