@@ -729,6 +729,8 @@ template <typename B, typename Params> void write(B& buf, field<Params> const& v
 template <typename Params> struct std::hash<bb::field<Params>> {
     std::size_t operator()(const bb::field<Params>& ff) const noexcept
     {
-        return bb::utils::hash_as_tuple(ff.data[0], ff.data[1], ff.data[2], ff.data[3]);
+        // Just like in equality, we need to reduce the field element before hashing.
+        auto reduced = ff.reduce_once();
+        return bb::utils::hash_as_tuple(reduced.data[0], reduced.data[1], reduced.data[2], reduced.data[3]);
     }
 };
