@@ -138,7 +138,7 @@ pub contract CardGame {
     unconstrained fn view_collection_cards(
         owner: AztecAddress,
         offset: u32,
-    ) -> pub BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let collection = storage.collections.at(owner);
         collection.view_cards(offset)
     }
@@ -148,14 +148,14 @@ pub contract CardGame {
         game: u32,
         player: AztecAddress,
         offset: u32,
-    ) -> pub BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let game_deck = storage.game_decks.at(game as Field).at(player);
 
         game_deck.view_cards(offset)
     }
 
     #[utility]
-    unconstrained fn view_game(game: u32) -> pub Game {
+    unconstrained fn view_game(game: u32) -> Game {
         storage.games.at(game as Field).read()
     }
 }

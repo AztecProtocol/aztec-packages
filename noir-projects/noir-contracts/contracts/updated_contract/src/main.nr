@@ -38,12 +38,12 @@ contract Updated {
     }
 
     #[utility]
-    unconstrained fn get_private_value() -> pub Field {
+    unconstrained fn get_private_value() -> Field {
         storage.private_value.view_note().value
     }
 
     #[utility]
-    unconstrained fn get_public_value() -> pub Field {
+    unconstrained fn get_public_value() -> Field {
         storage.public_value.read()
     }
 

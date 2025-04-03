@@ -43,7 +43,7 @@ pub contract EasyPrivateToken {
 
     // Helper function to get the balance of a user.
     #[utility]
-    unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
+    unconstrained fn get_balance(owner: AztecAddress) -> Field {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.

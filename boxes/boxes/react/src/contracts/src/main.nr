@@ -40,7 +40,7 @@ contract BoxReact {
     }
 
     #[utility]
-    unconstrained fn getNumber(owner: AztecAddress) -> pub ValueNote {
+    unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {
         let numbers = storage.numbers;
         numbers.at(owner).view_note()
     }

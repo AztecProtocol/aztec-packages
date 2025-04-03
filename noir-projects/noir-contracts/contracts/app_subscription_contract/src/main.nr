@@ -116,7 +116,7 @@ pub contract AppSubscription {
     }
 
     #[utility]
-    unconstrained fn is_initialized(subscriber: AztecAddress) -> pub bool {
+    unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
         storage.subscriptions.at(subscriber).is_initialized()
     }
 }

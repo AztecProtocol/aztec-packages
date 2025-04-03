@@ -93,7 +93,7 @@ pub contract SchnorrAccount {
     * @return True if the message_hash can be consumed, false otherwise
     */
     #[utility]
-    unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> pub bool {
+    unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
         let public_key = storage.signing_public_key.view_note();
 
         let message_hash = compute_authwit_message_hash(

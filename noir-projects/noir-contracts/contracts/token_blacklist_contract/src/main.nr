@@ -297,7 +297,7 @@ pub contract TokenBlacklist {
     }
 
     #[utility]
-    unconstrained fn balance_of_private(owner: AztecAddress) -> pub Field {
+    unconstrained fn balance_of_private(owner: AztecAddress) -> Field {
         storage.balances.balance_of(owner).to_field()
     }
 

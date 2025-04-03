@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## 0.83.0
+## TBD
 
 ### [Aztec.nr] #[utility] functions
 
@@ -20,10 +20,12 @@ For this reason you need to apply #[utility] macro to functions which were origi
 
 ```diff
 +    #[utility]
-    unconstrained fn balance_of_private(owner: AztecAddress) -> pub u128 {
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
         storage.balances.at(owner).balance_of()
     }
 ```
+
+## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
 

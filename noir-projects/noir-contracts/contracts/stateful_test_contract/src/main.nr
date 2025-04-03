@@ -99,7 +99,7 @@ pub contract StatefulTest {
     }
 
     #[utility]
-    unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
+    unconstrained fn summed_values(owner: AztecAddress) -> Field {
         let owner_balance = storage.notes.at(owner);
 
         // docs:start:get_balance

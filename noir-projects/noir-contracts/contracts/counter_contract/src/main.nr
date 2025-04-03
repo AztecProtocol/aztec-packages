@@ -84,7 +84,7 @@ pub contract Counter {
 
     // docs:start:get_counter
     #[utility]
-    unconstrained fn get_counter(owner: AztecAddress) -> pub Field {
+    unconstrained fn get_counter(owner: AztecAddress) -> Field {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner).set)
     }

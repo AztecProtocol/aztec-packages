@@ -194,7 +194,7 @@ pub contract Test {
     }
 
     #[utility]
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
+    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
         assert(
             storage_slot
                 != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
@@ -215,7 +215,7 @@ pub contract Test {
     unconstrained fn call_view_notes_many(
         storage_slot: Field,
         active_or_nullified: bool,
-    ) -> pub [Field; 2] {
+    ) -> [Field; 2] {
         assert(
             storage_slot
                 != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
@@ -522,7 +522,7 @@ pub contract Test {
     }
 
     #[utility]
-    unconstrained fn get_constant() -> pub Field {
+    unconstrained fn get_constant() -> Field {
         let constant = storage.example_constant.view_note();
         constant.get_value()
     }

@@ -347,7 +347,7 @@ pub contract NFT {
     unconstrained fn get_private_nfts(
         owner: AztecAddress,
         page_index: u32,
-    ) -> pub ([Field; MAX_NOTES_PER_PAGE], bool) {
+    ) -> ([Field; MAX_NOTES_PER_PAGE], bool) {
         let offset = page_index * MAX_NOTES_PER_PAGE;
         let mut options = NoteViewerOptions::new();
         let notes = storage.private_nfts.at(owner).view_notes(options.set_offset(offset));

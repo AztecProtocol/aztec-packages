@@ -132,7 +132,7 @@ pub contract AuthRegistry {
     unconstrained fn unconstrained_is_consumable(
         on_behalf_of: AztecAddress,
         message_hash: Field,
-    ) -> pub bool {
+    ) -> bool {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 }

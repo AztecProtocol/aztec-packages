@@ -69,7 +69,7 @@ pub contract EasyPrivateVoting {
     // docs:end:end_vote
     // docs:start:get_vote
     #[utility]
-    unconstrained fn get_vote(candidate: Field) -> pub Field {
+    unconstrained fn get_vote(candidate: Field) -> Field {
         storage.tally.at(candidate).read()
     }
     // docs:end:get_vote
