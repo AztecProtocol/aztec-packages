@@ -254,16 +254,9 @@ export async function kubectlRun(
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
-  let isNodeSynced = false;
-  const nodeIsRunningPromise = new Promise<number>(resolve => {
+  await new Promise<number>(resolve => {
     process.stdout?.on('data', data => {
-      const str = data.toString() as string;
-      // TODO: check output
-      if (!isNodeSynced && str.includes('Node synced')) {
-        isNodeSynced = true;
-      } else {
-        logger.silent(str);
-      }
+      logger.silent(data.toString());
     });
     process.stderr?.on('data', data => {
       logger.info(data.toString());
@@ -274,11 +267,8 @@ export async function kubectlRun(
       logger.silent(data.toString());
     });
     process.on('close', () => {
-      if (!isNodeSynced) {
-        isNodeSynced = true;
-        logger.warn('Port forward closed before connection established');
-        resolve(0);
-      }
+      logger.warn('Port forward closed before connection established');
+      resolve(0);
     });
     process.on('error', error => {
       logger.error(`Port forward error: ${error}`);
@@ -289,9 +279,6 @@ export async function kubectlRun(
       resolve(0);
     });
   });
-
-  // TODO: will we need some return value from this thing
-  await nodeIsRunningPromise;
 }
 
 export async function startPortForward({

@@ -2,6 +2,7 @@ import { type PXE, createCompatibleClient, sleep } from '@aztec/aztec.js';
 import { type ViemWalletClient, createEthereumChain, createL1Clients } from '@aztec/ethereum';
 import type { EnvVar } from '@aztec/foundation/config';
 import { createLogger } from '@aztec/foundation/log';
+import { executeTimeout } from '@aztec/foundation/timer';
 
 import type { ChildProcess } from 'child_process';
 import { type Account, generatePrivateKey, privateKeyToAccount } from 'viem/accounts';
@@ -172,85 +173,98 @@ describe('add additional validators', () => {
    * @param rollupAddress - The address of the rollup
    */
   const waitForValidatorsToBeInCommittee = async (validatorAddresses: string[], rollupAddress: string) => {
-    // TODO: add a timeout
-    while (true) {
-      // Run the aztec info cli command to see if the validators are in the set or committee
-      const { exitCode, output } = await runAztecBinWithOutput(
-        ['debug-rollup', '--rollup', rollupAddress, '--l1-rpc-urls', ETHEREUM_HOSTS],
-        debugLogger,
-      );
+    const timeout = 2 * 60 * 1000; // 2 minutes
+    await executeTimeout(
+      async () => {
+        while (true) {
+          // Run the aztec info cli command to see if the validators are in the set or committee
+          const { exitCode, output } = await runAztecBinWithOutput(
+            ['debug-rollup', '--rollup', rollupAddress, '--l1-rpc-urls', ETHEREUM_HOSTS],
+            debugLogger,
+          );
 
-      if (exitCode !== 0) {
-        debugLogger.error(`Error running aztec info command`, {
-          output,
-        });
-      }
+          if (exitCode !== 0) {
+            debugLogger.error(`Error running aztec info command`, {
+              output,
+            });
+          }
 
-      // Extract validators and committee from output
-      const validatorsMatch = output.match(/Validators: (.*)/);
-      const committeeMatch = output.match(/Committee: (.*)/);
+          // Extract validators and committee from output
+          const validatorsMatch = output.match(/Validators: (.*)/);
+          const committeeMatch = output.match(/Committee: (.*)/);
 
-      if (!validatorsMatch || !committeeMatch) {
-        continue;
-      }
+          if (!validatorsMatch || !committeeMatch) {
+            continue;
+          }
 
-      const validators = validatorsMatch[1].split(', ').map(addr => addr.toLowerCase());
-      const committee = committeeMatch[1].split(', ').map(addr => addr.toLowerCase());
+          const validators = validatorsMatch[1].split(', ').map(addr => addr.toLowerCase());
+          const committee = committeeMatch[1].split(', ').map(addr => addr.toLowerCase());
 
-      // Check if our validators are in the validators list
-      for (const validatorAddress of validatorAddresses) {
-        if (validators.includes(validatorAddress)) {
-          debugLogger.info(`Validator ${validatorAddress} is in the validators set`);
+          // Check if our validators are in the validators list
+          for (const validatorAddress of validatorAddresses) {
+            if (validators.includes(validatorAddress)) {
+              debugLogger.info(`Validator ${validatorAddress} is in the validators set`);
+            }
+          }
+
+          // Check if both validators are in the committee
+          const allInCommittee = validatorAddresses.every(validatorAddress => committee.includes(validatorAddress));
+
+          if (allInCommittee) {
+            debugLogger.info('All validators are in the committee');
+            return true;
+          }
+
+          // Wait a bit before checking again
+          await sleep(5000);
         }
-      }
-
-      // Check if both validators are in the committee
-      const allInCommittee = validatorAddresses.every(validatorAddress => committee.includes(validatorAddress));
-
-      if (allInCommittee) {
-        debugLogger.info('All validators are in the committee');
-        return true;
-      }
-
-      // Wait a bit before checking again
-      await sleep(5000);
-    }
+      },
+      timeout,
+      () => new Error('Timeout waiting for validators to be in committee'),
+    );
   };
 
   const waitForValidatorsToProduceBlocks = async (validatorAddresses: string[]) => {
-    // TODO: add a timeout
     // Call get block, check if the coinbase is one of the validators
-    debugLogger.info('Waiting for validators to produce blocks');
-    const successfulProposers = new Set<string>();
-    while (true) {
-      // Get the latest block
-      const block = await pxe.getBlock(-1);
-      if (!block) {
-        debugLogger.info('No block found, waiting for next block');
-        await sleep(5000);
-        continue;
-      }
+    const timeout = 2 * 60 * 1000; // 2 minutes
+    await executeTimeout(
+      async () => {
+        debugLogger.info('Waiting for validators to produce blocks');
+        const successfulProposers = new Set<string>();
+        while (true) {
+          // Get the latest block
+          const block = await pxe.getBlock(-1);
+          if (!block) {
+            debugLogger.info('No block found, waiting for next block');
+            await sleep(5000);
+            continue;
+          }
 
-      debugLogger.info(
-        `Block ${block.number} has been produced with coinbase ${block.header.globalVariables.coinbase} and fee recipient ${block.header.globalVariables.feeRecipient}`,
-      );
+          debugLogger.info(
+            `Block ${block.number} has been produced with coinbase ${block.header.globalVariables.coinbase} and fee recipient ${block.header.globalVariables.feeRecipient}`,
+          );
 
-      for (const validatorAddress of validatorAddresses) {
-        if (block.header.globalVariables.coinbase.toString().toLowerCase() === validatorAddress) {
-          debugLogger.info(`Validator ${validatorAddress} has produced a block`);
-          successfulProposers.add(validatorAddress);
+          for (const validatorAddress of validatorAddresses) {
+            if (block.header.globalVariables.coinbase.toString().toLowerCase() === validatorAddress) {
+              debugLogger.info(`Validator ${validatorAddress} has produced a block`);
+              successfulProposers.add(validatorAddress);
+            }
+          }
+
+          if (successfulProposers.size === validatorAddresses.length) {
+            debugLogger.info('All validators have produced a block');
+            return true;
+          }
+
+          // Wait a bit before checking again
+          await sleep(5000);
         }
-      }
-
-      if (successfulProposers.size === validatorAddresses.length) {
-        debugLogger.info('All validators have produced a block');
-        return true;
-      }
-
-      // Wait a bit before checking again
-      await sleep(5000);
-    }
+      },
+      timeout,
+      () => new Error('Timeout waiting for validators to produce blocks'),
+    );
   };
+
   it(
     'should be able to add additional validators',
     async () => {
