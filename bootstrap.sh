@@ -327,6 +327,11 @@ case "$cmd" in
       echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       release
     fi
+
+    # if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
+      echo "Building and releasing docs in master"
+      docs/bootstrap.sh docs-release
+    # fi
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
