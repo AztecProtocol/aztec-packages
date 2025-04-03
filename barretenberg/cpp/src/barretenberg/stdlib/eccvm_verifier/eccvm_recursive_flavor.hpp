@@ -102,7 +102,7 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
-                builder, 1UL << CONST_ECCVM_LOG_N + 1, native_key->pcs_verification_key);
+                builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
