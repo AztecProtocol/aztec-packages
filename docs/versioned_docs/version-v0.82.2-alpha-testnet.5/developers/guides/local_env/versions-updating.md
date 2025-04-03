@@ -128,9 +128,9 @@ To update the aztec.nr packages manually, update the tags of the `aztec.nr` depe
 ```diff
 [dependencies]
 -aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/aztec" }
-+aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.82.2-alpha-testnet.5", directory="noir-projects/aztec-nr/aztec" }
++aztec = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.82.2", directory="noir-projects/aztec-nr/aztec" }
 -value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.7.5", directory="noir-projects/aztec-nr/value-note" }
-+value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.82.2-alpha-testnet.5", directory="noir-projects/aztec-nr/value-note" }
++value_note = { git="https://github.com/AztecProtocol/aztec-packages", tag="v0.82.2", directory="noir-projects/aztec-nr/value-note" }
 ```
 
 Go to the contract directory and try compiling it with `aztec-nargo compile` to verify that the update was successful:

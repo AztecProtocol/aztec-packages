@@ -1,6 +1,6 @@
 {
   "name": "aztec-docs",
-  "version": "0.0.0",
+  "version": "0.83.0",
   "private": true,
   "scripts": {
     "docs": "yarn preprocess && yarn typedoc && docusaurus start --host ${HOST:-localhost}",

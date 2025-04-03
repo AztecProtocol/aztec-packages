@@ -42,7 +42,7 @@ jobs:
 
       - name: Cut a new version
         working-directory: ./docs
-        run: yarn version ${{ env.BRANCH_NAME }}
+        run: yarn run version ${{ env.BRANCH_NAME }}
 
       - name: Configure git
         run: |

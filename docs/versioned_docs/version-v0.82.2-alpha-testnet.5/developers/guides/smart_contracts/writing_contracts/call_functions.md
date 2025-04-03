@@ -15,7 +15,7 @@ If a contract wishes to access or modify another contract's state, it must make 
 Import the contract that you want to call into your `Nargo.toml` under `dependencies` like this:
 
 ```toml
-token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2-alpha-testnet.5", directory="noir-projects/noir-contracts/contracts/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.82.2", directory="noir-projects/noir-contracts/contracts/token_contract" }
 ```
 
 ### Import into your contract
@@ -39,7 +39,7 @@ To call the function, you need to
 
 To call a private function, you can just use `call()` like this:
 
-```rust title="call_function" showLineNumbers
+```rust title="call_function" showLineNumbers 
 Token::at(token).transfer(recipient, amount).call(&mut context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr#L45-L47" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/escrow_contract/src/main.nr#L45-L47</a></sub></sup>
@@ -49,7 +49,7 @@ Token::at(token).transfer(recipient, amount).call(&mut context);
 
 To call a public function from a public function, it is the same as above. You can just use `call()` like this:
 
-```rust title="public_to_public_call" showLineNumbers
+```rust title="public_to_public_call" showLineNumbers 
 let _ = Token::at(collateral_asset)
     .transfer_in_public(context.msg_sender(), context.this_address(), amount, nonce)
     .call(&mut context);
@@ -61,7 +61,7 @@ let _ = Token::at(collateral_asset)
 
 To call a public function from private, you will need to enqueue it like this:
 
-```rust title="enqueue_public" showLineNumbers
+```rust title="enqueue_public" showLineNumbers 
 Lending::at(context.this_address())
     ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
     .enqueue(&mut context);
