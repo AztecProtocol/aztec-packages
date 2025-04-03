@@ -207,7 +207,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
  * decider proof.
  */
-std::pair<std::shared_ptr<ClientIVC::ZKDeciderProvingKey>, ClientIVC::MergeProof> ClientIVC::
+std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof> ClientIVC::
     construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
