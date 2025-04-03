@@ -185,6 +185,10 @@ const config = {
       image: "img/docs-preview-image.png",
       typesense: {
         typesenseCollectionName: "aztec-docs",
+        typesenseSearchParameters: {
+          filter_by: (() =>
+            versions.filter((v) => `version:${!v.includes("testnet")}`)[0])(),
+        },
         typesenseServerConfig: {
           nodes: [
             {
