@@ -76,7 +76,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
 
-        // WORKTODO: I dont know, make this nice. probabaly a one liner
         AggState::add_default_pairing_points_to_public_inputs(builder);
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {

@@ -7,9 +7,11 @@
 namespace bb::stdlib::recursion {
 
 /**
- * Aggregation state contains the following:
- *   (P0, P1): the aggregated elements storing the verification results of proofs in the past
- *   has_data: indicates if this aggregation state contain past (P0, P1)
+ * @brief An object storing two EC points that represent the inputs to a pairing check.
+ * @details The points may represent the output of a single partial recursive verification or the linear combination of
+ * multiple sets of pairing points.
+ *
+ * @tparam Builder_
  */
 template <typename Builder_> struct aggregation_state {
     using Builder = Builder_;
@@ -19,12 +21,11 @@ template <typename Builder_> struct aggregation_state {
     Group P0;
     Group P1;
 
-    bool has_data = false; // WORKTODO: is this useful??
+    bool has_data = false;
 
     // Number of bb::fr field elements used to represent a goblin element in the public inputs
     static constexpr size_t PUBLIC_INPUTS_SIZE = Group::PUBLIC_INPUTS_SIZE * 2;
 
-    // Default constructor
     aggregation_state() = default;
 
     aggregation_state(const Group& P0, const Group& P1)
@@ -33,23 +34,24 @@ template <typename Builder_> struct aggregation_state {
         , has_data(true)
     {}
 
-    // Constructor from std::array<Group, 2>
-    // WORKTODO: delete this once everything is an Agg Object
-    aggregation_state(std::array<Group, 2> const& points)
-        : P0(points[0])
-        , P1(points[1])
-        , has_data(true)
-    {}
+    aggregation_state(std::array<Group, 2> const& points) { aggregation_state(points[0], points[1]); }
 
     typename Curve::bool_ct operator==(aggregation_state const& other) const
     {
         return P0 == other.P0 && P1 == other.P1;
     };
 
+    /**
+     * @brief Compute a linear combination of the present pairing points with an input set of pairing points
+     *
+     * @param other
+     * @param recursion_separator
+     */
     void aggregate(aggregation_state const& other, typename Curve::ScalarField recursion_separator)
     {
+        // If Mega Builder is in use, the EC operations are deferred via Goblin
         if constexpr (std::is_same_v<Builder, MegaCircuitBuilder>) {
-            // WORKTODO: can we improve efficiency in terms of number of ecc ops here?
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Can we improve efficiency here?
             P0 += other.P0 * recursion_separator;
             P1 += other.P1 * recursion_separator;
         } else {
@@ -62,7 +64,8 @@ template <typename Builder_> struct aggregation_state {
         }
     }
 
-    PairingPointAccumulatorIndices get_witness_indices()
+    // Used in Plonk only. Delete with the rest of plonk.
+    PairingPointAccumulatorIndices get_witness_indices_for_plonk()
     {
         PairingPointAccumulatorIndices witness_indices = {
             P0.x.binary_basis_limbs[0].element.normalize().witness_index,
@@ -85,21 +88,27 @@ template <typename Builder_> struct aggregation_state {
         return witness_indices;
     }
 
-    void assign_object_to_proof_outputs()
+    // Used in Plonk only. Delete with the rest of plonk.
+    void assign_object_to_proof_outputs_for_plonk()
     {
         P0 = P0.reduce();
         P1 = P1.reduce();
         this->set_public();
     }
 
+    /**
+     * @brief Set the witness indices for the limbs of the pairing points to public
+     *
+     * @return uint32_t The index into the public inputs array at which the representation is stored
+     */
     uint32_t set_public()
     {
         uint32_t start_idx = P0.set_public();
         P1.set_public();
 
         Builder* ctx = P0.get_context();
-        // WORKTODO: eventually set a PublicComponentKey probably. For most things its sufficient to simply set the
-        // first index below but while the VK stores all of them it seems to cause problems not to set the others.
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually the builder/PK/VK will store
+        // public input key which should be set here and pairing_point_accumulator_public_input_indices should go away.
         uint32_t pub_idx = start_idx;
         for (uint32_t& idx : ctx->pairing_point_accumulator_public_input_indices) {
             idx = pub_idx++;
@@ -109,6 +118,12 @@ template <typename Builder_> struct aggregation_state {
         return start_idx;
     }
 
+    /**
+     * @brief Reconstruct an aggregation_state from its representation as limbs (generally stored in the public inputs)
+     *
+     * @param limbs The limbs of the pairing points
+     * @return aggregation_state<Builder>
+     */
     static aggregation_state<Builder> reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
     {
         const size_t FRS_PER_POINT = Group::PUBLIC_INPUTS_SIZE;
@@ -118,13 +133,12 @@ template <typename Builder_> struct aggregation_state {
         Group P1 = Group::reconstruct_from_public(P1_limbs);
         return { P0, P1 };
     }
-
-    static void add_default_pairing_points_to_public_inputs(Builder& builder)
-    {
-        aggregation_state<Builder> agg_obj = construct_default(builder);
-        agg_obj.set_public();
-    }
-
+    /**
+     * @brief Constructs an arbitrary but valid aggregation state from a valid set of pairing inputs.
+     *
+     * @param builder
+     * @return aggregation_state<Builder>
+     */
     static aggregation_state<Builder> construct_default(typename Curve::Builder& builder)
     {
         using BaseField = typename Curve::BaseField;
@@ -140,6 +154,12 @@ template <typename Builder_> struct aggregation_state {
         BaseField y1 = BaseField::from_witness(&builder, y1_val);
         // aggregation_state<Builder> agg_obj{ Group(x0, y0), Group(x1, y1) };
         return { Group(x0, y0), Group(x1, y1) };
+    }
+
+    static void add_default_pairing_points_to_public_inputs(Builder& builder)
+    {
+        aggregation_state<Builder> agg_obj = construct_default(builder);
+        agg_obj.set_public();
     }
 };
 

@@ -166,7 +166,7 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     // Assign correct witness value to the verification key hash
     vkey->hash().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
 
-    return result.get_witness_indices();
+    return result.get_witness_indices_for_plonk();
 }
 
 /**

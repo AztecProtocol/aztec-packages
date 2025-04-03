@@ -162,7 +162,7 @@ class RecursiveCircuit {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
         if (outer_circuit.failed()) {
             throw_or_abort("outer composer failed");
         }
