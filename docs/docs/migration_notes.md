@@ -6,6 +6,25 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [Aztec.nr] #[utility] functions
+
+We've introduced a new type of contract function macro called #[utility].
+Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
+They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
+These function were originally referred to as top-level unconstrained.
+
+Now all the contract functions have to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
+For this reason you need to apply #[utility] macro to functions which were originally macro-free:
+
+```diff
++    #[utility]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+        storage.balances.at(owner).balance_of()
+    }
+```
+
 ## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
