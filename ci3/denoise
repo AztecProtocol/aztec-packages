@@ -87,9 +87,7 @@ publish_log
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
-  echo -e "\nCommand exited with status $status. Dumping output:"
-  cat $outfile
-  echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
+  echo -e ". ${red}failed${reset} ($time)"
 else
   echo -e ". ${green}done${reset} ($time)"
 fi
