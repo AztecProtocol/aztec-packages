@@ -49,6 +49,7 @@ class CircuitSimulatorBN254 {
     size_t num_gates = 0;
     static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
+    std::vector<uint32_t> used_witnesses;
 
     void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
     {
@@ -205,6 +206,8 @@ class CircuitSimulatorBN254 {
     }
     void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
 
+    std::vector<uint32_t> get_used_witnesses() { return used_witnesses; }
+    void update_used_witnesses([[maybe_unused]] uint32_t var_idx){};
     // Public input indices which contain recursive proof information
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
 };

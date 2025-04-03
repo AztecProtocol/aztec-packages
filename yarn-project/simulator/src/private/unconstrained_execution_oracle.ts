@@ -278,16 +278,8 @@ export class UnconstrainedExecutionOracle extends TypedOracle {
     return await this.executionDataProvider.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async syncNotes() {
-    const taggedLogsByRecipient = await this.executionDataProvider.syncTaggedLogs(this.contractAddress, this.scopes);
-
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.executionDataProvider.processTaggedLogs(
-        this.contractAddress,
-        taggedLogs,
-        AztecAddress.fromString(recipient),
-      );
-    }
+  public override async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+    await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }

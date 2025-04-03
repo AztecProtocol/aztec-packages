@@ -33,9 +33,15 @@ export async function startProverBroker(
     throw new Error('L1 registry address is required to start Aztec Node without --deploy-aztec-contracts option');
   }
 
-  const { addresses } = await getL1Config(config.l1Contracts.registryAddress, config.l1RpcUrls, config.l1ChainId);
+  const { addresses, config: rollupConfig } = await getL1Config(
+    config.l1Contracts.registryAddress,
+    config.l1RpcUrls,
+    config.l1ChainId,
+    config.rollupVersion,
+  );
 
   config.l1Contracts = addresses;
+  config.rollupVersion = rollupConfig.rollupVersion;
 
   const client = initTelemetryClient(getTelemetryClientConfig());
   const broker = await createAndStartProvingBroker(config, client);

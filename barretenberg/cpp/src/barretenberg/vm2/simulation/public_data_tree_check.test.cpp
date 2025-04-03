@@ -80,7 +80,7 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToInfinity)
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, root)).WillRepeatedly(Return());
-    EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.value.slot)).WillRepeatedly(Return(true));
+    EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
 
     public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root);
     PublicDataTreeReadEvent expect_event = {
@@ -100,7 +100,7 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToInfinity)
         "Value is nonzero for a non existing slot");
 
     // Negative test: failed leaf_slot > low_leaf_preimage.value.slot
-    EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.value.slot)).WillOnce(Return(false));
+    EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillOnce(Return(false));
     EXPECT_THROW_WITH_MESSAGE(
         public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root),
         "Low leaf slot is GTE leaf slot");
@@ -125,8 +125,8 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToAnotherLeaf)
 
     EXPECT_CALL(poseidon2, hash(low_leaf.get_hash_inputs())).WillRepeatedly(Return(FF(low_leaf_hash)));
     EXPECT_CALL(merkle_check, assert_membership(low_leaf_hash, low_leaf_index, _, root)).WillRepeatedly(Return());
-    EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.value.slot)).WillRepeatedly(Return(true));
-    EXPECT_CALL(field_gt, ff_gt(low_leaf.nextValue, leaf_slot)).WillRepeatedly(Return(true));
+    EXPECT_CALL(field_gt, ff_gt(leaf_slot, low_leaf.leaf.slot)).WillRepeatedly(Return(true));
+    EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, leaf_slot)).WillRepeatedly(Return(true));
 
     public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root);
     PublicDataTreeReadEvent expect_event = {
@@ -146,7 +146,7 @@ TEST(AvmSimulationPublicDataTree, NotExistsLowPointsToAnotherLeaf)
         "Value is nonzero for a non existing slot");
 
     // Negative test: failed low_leaf_preimage.nextValue > leaf_slot
-    EXPECT_CALL(field_gt, ff_gt(low_leaf.nextValue, leaf_slot)).WillOnce(Return(false));
+    EXPECT_CALL(field_gt, ff_gt(low_leaf.nextKey, leaf_slot)).WillOnce(Return(false));
     EXPECT_THROW_WITH_MESSAGE(
         public_data_tree_check.assert_read(leaf_slot, value, low_leaf, low_leaf_index, sibling_path, root),
         "Leaf slot is GTE low leaf next slot");

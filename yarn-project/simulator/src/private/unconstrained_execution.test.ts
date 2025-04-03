@@ -3,7 +3,6 @@ import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulT
 import { FunctionCall, FunctionSelector, FunctionType, encodeArguments } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { CompleteAddress, type ContractInstance } from '@aztec/stdlib/contract';
-import type { TxScopedL2Log } from '@aztec/stdlib/logs';
 import { Note } from '@aztec/stdlib/note';
 import { BlockHeader } from '@aztec/stdlib/tx';
 
@@ -66,8 +65,7 @@ describe('Unconstrained Execution test suite', () => {
         currentContractClassId: new Fr(42),
         originalContractClassId: new Fr(42),
       } as ContractInstance);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getBlockHeader.mockResolvedValue(BlockHeader.empty());
       executionDataProvider.getNotes.mockResolvedValue(
         notes.map((note, index) => ({
@@ -82,9 +80,7 @@ describe('Unconstrained Execution test suite', () => {
         })),
       );
 
-      executionDataProvider.syncTaggedLogs.mockImplementation((_, __) =>
-        Promise.resolve(new Map<string, TxScopedL2Log[]>()),
-      );
+      executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
       executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
       const execRequest: FunctionCall = {
