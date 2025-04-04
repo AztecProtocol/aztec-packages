@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# memusg -- Measure peak memory usage of a command, polling every second.
+# memusg -- Measure peak memory usage of a command, polling every 100ms.
 # Usage: memusage output-file COMMAND [ARGS]...
 #
 # Runs the process, outputting peak memory usage to 'output-file' in
@@ -50,7 +50,7 @@ do
   set -- $sizes
   sample=$((${@/#/+}))
   let peak="sample > peak ? sample : peak"
-  sleep 1
+  sleep 0.1
 done
 echo "$((peak / 1024))" > "$memory_output_file"
 ) &

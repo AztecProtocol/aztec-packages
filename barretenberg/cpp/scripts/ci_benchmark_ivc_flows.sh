@@ -2,12 +2,12 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [[ $# -ne 2 ]]; then
-  echo "Usage: $0 <bench_input_folder> <output_folder>"
+  echo "Usage: $0 <bench_input_folder> <benchmark_output>"
   exit 1
 fi
 cd ..
 export input_folder="$1"
-output_folder="$2"
+benchmark_output="$2"
 
 echo_header "bb ivc flow bench"
 
@@ -15,7 +15,7 @@ export HARDWARE_CONCURRENCY=16
 export IGNITION_CRS_PATH=./srs_db/ignition
 export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 export native_preset=${NATIVE_PRESET:-clang16-assert}
-export native_build_dir=$( $native_preset)
+export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
 
 rm -rf bench-out/ivc && mkdir -p bench-out/ivc
 
@@ -45,22 +45,23 @@ function verify_ivc_flow {
 
 function run_bb_cli_bench {
   local runtime="$1"
-  local args="$2"
+  local output="$2"
+  local args="$3"
   export MAIN_ARGS="$args"
 
   if [[ "$runtime" == "native" ]]; then
     memusage "./$native_build_dir/bin/bb_cli_bench" \
-      --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
+      --benchmark_out=$output/op-counts.json \
       --benchmark_out_format=json || {
       echo "bb_cli_bench failed with args: $args"
       exit 1
     }
   else # wasm
     mkdir -p $HOME/.bb-crs/monomial
-    export WASMTIME_ALLOWED_DIRS="--dir="$flow_folder" --dir=bench-out/$flow-proof-files"
+    export WASMTIME_ALLOWED_DIRS="--dir="$flow_folder" --dir=$output"
     # TODO support wasm op count time preset
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
-      --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
+      --benchmark_out=$output/op-counts.json \
       --benchmark_out_format=json || {
       echo "bb_cli_bench failed with args: $args"
       exit 1
@@ -75,14 +76,16 @@ function client_ivc_flow {
   local flow_folder="$input_folder/$flow"
   local start=$(date +%s%N)
 
-  rm -rf "bench-out/$flow-proof-files"
-  mkdir -p "bench-out/$flow-proof-files"
-  export MEMUSAGE_OUT="bench-out/$flow-proof-files/peak-memory-$runtime-mb.txt"
+  local output="bench-out/$flow-proof-files"
+  rm -rf "$output"
+  mkdir -p "$output"
+  export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
+  echo "unset" > "$MEMUSAGE_OUT"
 
-  run_bb_cli_bench "$runtime" "prove -o bench-out/$flow-proof-files -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc --input_type runtime_stack"
+  run_bb_cli_bench "$runtime" "$output" "prove -o $output -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc --input_type runtime_stack"
 
-  if [ ! -f "bench-out/$flow-proof-files/op-counts.json" ]; then
-    scripts/google-bench/summarize-op-counts "bench-out/$flow-proof-files/op-counts.json"
+  if [ ! -f "$output/op-counts.json" ]; then
+    scripts/google-bench/summarize-op-counts "$output/op-counts.json"
   fi
 
   local end=$(date +%s%N)
@@ -91,7 +94,7 @@ function client_ivc_flow {
   local memory_taken_mb=$(cat "$MEMUSAGE_OUT")
 
   echo "$flow ($runtime) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
-  dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
+  dump_fail "verify_ivc_flow $flow $output/proof"
   echo "$flow ($runtime) has verified."
 
   local runtime_suffix=""
@@ -140,8 +143,8 @@ else
   done
 fi
 
-mkdir -p "$output_folder"
+mkdir -p "$benchmark_output"
 
 ../scripts/combine_benchmarks.py \
   ./bench-out/ivc/*.json \
-  > $output_folder/ivc-bench.json
+  > $benchmark_output/ivc-bench.json

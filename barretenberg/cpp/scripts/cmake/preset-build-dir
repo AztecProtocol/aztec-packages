@@ -23,7 +23,7 @@ done < <(
         .binaryDir // ""
       ]
     | @tsv
-  ' ../CMakePresets.json
+  ' ../../CMakePresets.json
 )
 
 function get_binary_dir {
