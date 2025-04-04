@@ -3,9 +3,20 @@ sidebar_position: 2
 title: How to run a prover node
 ---
 
-It is recommended to read the concepts before running a node, specifically the [provers and sequencers](../../concepts/provers-and-sequencers/index.md) section.
+Prover nodes are core for the Aztec network. They orchestrate different prover nodes that prove every single public transaction and roll them up to a root proof that is then published to L1. Aztec is mathematics.
 
-The Aztec client can be run as a Prover Node. In this mode, the client will automatically monitor L1 for unclaimed epochs and propose bids (i.e. EpochProofQuote) for proving them. The prover node watches the L1 to see when a bid they submitted has been accepted by a sequencer, the prover node will then kick off an epoch proving job which performs the following tasks:
+Running a prover means having deep understanding of blockchain technology, crypto economics, devops and hardware. It is an expensive endeavour that is often run by highly skilled engineers or teams.
+
+## Prerequisites
+
+- You need to fully understand the [protocol specs](../../../protocol-specs/intro.md).
+- Your confidence level is expected to be around "I'd be able to run a Prover _without_ this guide"
+
+TODO hardware prerequisites
+
+## Getting started
+
+Running an Aztec Prover node means that the client will automatically monitor L1 for unclaimed epochs and propose bids (i.e. EpochProofQuote) for proving them. The prover node watches the L1 to see when a bid they submitted has been accepted by a sequencer, and will then kick off an epoch proving job which performs the following tasks:
 
 - Downloads the transaction hashes in the epoch and all L1 to L2 messages from L1.
 - Downloads the transaction objects with their ClientIVC proofs from a remote node (to be replaced by loading them from the P2P pool).
@@ -50,15 +61,15 @@ flowchart TD
     %% p2p-client --get-blocks--> l2-block-source
 ```
 
-The Aztec client needed to run a prover node is shipped as a [docker image](https://hub.docker.com/r/aztecprotocol/aztec) The image exposes the Aztec CLI as its `ENTRYPOINT`, which includes a `start` command for starting different components. You can download it directly or use the sandbox scripts which will automatically pull the image and add the aztec shell script to your path.
-
-Once the `aztec` command is available, you can run a prover node via:
+As complex as it is, the command is actually fairly straightforward thanks to the modular nature of the `aztec start` command:
 
 ```bash
 aztec start --prover-node --archiver
 ```
 
-To run a prover agent, either run `aztec start --prover`, or add the `--prover` flag to the command above to start an in-process prover.
+This will start the prover node, which doesn't mean it proves anything. To prove, it needs agents. To run a prover agent, add the `--prover` flag to the command above to start an in-process prover.
+
+
 
 ## Configuration
 
@@ -90,3 +101,37 @@ Both the prover node and agent also rely on the following:
 - **LOG_LEVEL**: One of `debug`, `verbose`, `info`, `warn`, or `error`.
 - **LOG_JSON**: Set to `true` to output logs in JSON format (unreleased).
 - **OTEL_EXPORTER_OTLP_METRICS_ENDPOINT**: Optional URL for pushing telemetry data to a remote OpenTelemetry data collector.
+
+
+
+
+### Prover Config
+
+Please refer to the [Prover Guide](./how_to_run_prover.md) for info on how to setup your prover node.
+
+## Governance Upgrades
+
+During a governance upgrade, we'll announce details on the discord. At some point we'll also write AZIPs (Aztec Improvement Proposals) and post them to either the github or forum to collect feedback.
+
+We'll deploy the payload to the L1 and share the address of the payload with the sequencers on discord.
+
+To participate in the governance vote, sequencers must change the variable `GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS` in the Sequencer Client to vote during the L2 slot they've been assigned sequencer duties.
+
+## Troubleshooting
+
+:::tip
+Please make sure you are in the Discord server and that you have been assigned the role `S&P Participant`. Say gm in the `sequencer-and-prover` channel and turn on notifications for the announcements channel.
+:::
+
+If you encounter any errors or bugs, please try basic troubleshooting steps like restarting your node, checking ports and configs.
+
+If issue persists, please share on the sequencer-and-prover channel and tag [Amin](discordapp.com/users/65773032211231539).
+
+Some issues are fairly light, the group and ourselves can help you within 60 minutes. If the issue isn't resolved, please send more information:
+
+**Error Logs**: Attach any relevant error logs. If possible, note the timestamp when the issue began.
+**Error Description**: Briefly describe the issue. Include details like what you were doing when it started, and any unusual behaviors observed.
+**Steps to Reproduce (if known)**: If there’s a clear way to reproduce the error, please describe it.
+**System Information**: Share details like your system’s operating system, hardware specs, and any other relevant environment information.
+
+That way we can dedicate more time to troubleshoot and open Github issues if no known fix.
