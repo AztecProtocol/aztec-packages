@@ -1,4 +1,5 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 
 namespace bb {
@@ -169,7 +170,10 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
     trace_usage_tracker.update(circuit);
 
     // Set the verification key from precomputed if available, else compute it
-    honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+    {
+        PROFILE_THIS_NAME("ClientIVC::accumulate create MegaVerificationKey");
+        honk_vk = precomputed_vk ? precomputed_vk : std::make_shared<MegaVerificationKey>(proving_key->proving_key);
+    }
     if (mock_vk) {
         honk_vk->set_metadata(proving_key->proving_key);
         vinfo("set honk vk metadata");
