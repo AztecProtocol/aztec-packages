@@ -185,7 +185,6 @@ const config = {
       image: "img/docs-preview-image.png",
       typesense: {
         typesenseCollectionName: "aztec-docs",
-        typesenseSearchParameters: {},
         typesenseServerConfig: {
           nodes: [
             {

@@ -1,6 +1,6 @@
 {
   "name": "aztec-docs",
-  "version": "0.83.0",
+  "version": "0.0.0",
   "private": true,
   "scripts": {
     "docs": "yarn preprocess && yarn typedoc && docusaurus start --host ${HOST:-localhost}",
@@ -15,7 +15,7 @@
     "typedoc": "docusaurus generate-typedoc",
     "rewrite": "node ./scripts/rewrite_paths.js",
     "version::stables": "node ./scripts/setStable.js",
-    "version": "yarn version::stables && ./scripts/cut_version.sh"
+    "version": "./scripts/cut_version.sh"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.0",
