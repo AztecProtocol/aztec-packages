@@ -1185,7 +1185,7 @@ __metadata:
     ts-loader: "npm:^9.5.1"
     typescript: "npm:^5.4.2"
     webpack: "npm:^5.90.3"
-    webpack-cli: "npm:^5.1.4"
+    webpack-cli: "npm:^5.1.3"
     webpack-dev-server: "npm:^5.2.0"
   languageName: unknown
   linkType: soft
@@ -5138,7 +5138,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"webpack-cli@npm:^5.1.4":
+"webpack-cli@npm:^5.1.3":
   version: 5.1.4
   resolution: "webpack-cli@npm:5.1.4"
   dependencies:
