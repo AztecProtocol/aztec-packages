@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
-import { type LogFn, createDebugOnlyLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
@@ -12,14 +12,14 @@ export class CapsuleDataProvider implements DataProvider {
   // Arbitrary data stored by contracts. Key is computed as `${contractAddress}:${key}`
   #capsules: AztecAsyncMap<string, Buffer>;
 
-  debug: LogFn;
+  logger: Logger;
 
   constructor(store: AztecAsyncKVStore) {
     this.#store = store;
 
     this.#capsules = this.#store.openMap('capsules');
 
-    this.debug = createDebugOnlyLogger('pxe:capsule-data-provider');
+    this.logger = createLogger('pxe:capsule-data-provider');
   }
 
   async storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
@@ -29,7 +29,7 @@ export class CapsuleDataProvider implements DataProvider {
   async loadCapsule(contractAddress: AztecAddress, slot: Fr): Promise<Fr[] | null> {
     const dataBuffer = await this.#capsules.getAsync(dbSlotToKey(contractAddress, slot));
     if (!dataBuffer) {
-      this.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
+      this.logger.debug(`Data not found for contract ${contractAddress.toString()} and slot ${slot.toString()}`);
       return null;
     }
     const capsule: Fr[] = [];

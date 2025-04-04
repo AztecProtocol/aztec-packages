@@ -93,7 +93,7 @@ describe('Unconstrained Execution test suite', () => {
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, contractAddress, FunctionSelector.empty(), []);
+      const result = await acirSimulator.runUnconstrained(execRequest, [], []);
 
       expect(result).toEqual(9n);
     }, 30_000);

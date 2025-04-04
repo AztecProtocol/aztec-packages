@@ -2,10 +2,10 @@ import { Fr } from '@aztec/foundation/fields';
 import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
-import { parseSequencerAllowList } from './config.js';
+import { parseAllowList } from './config.js';
 
-describe('sequencer config', () => {
-  it('parse a sequencer config', async () => {
+describe('config', () => {
+  it('parses allow list', async () => {
     const instance = { address: await AztecAddress.random() };
     const instanceFunction = { address: await AztecAddress.random(), selector: FunctionSelector.random() };
     const classId = { classId: Fr.random() };
@@ -21,7 +21,7 @@ describe('sequencer config', () => {
     ];
     const stringifiedAllowList = configStrings.join(',');
 
-    const allowList = parseSequencerAllowList(stringifiedAllowList);
+    const allowList = parseAllowList(stringifiedAllowList);
     expect(allowList).toEqual(config);
   });
 });

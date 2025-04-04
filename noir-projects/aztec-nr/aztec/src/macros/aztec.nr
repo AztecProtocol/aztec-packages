@@ -4,7 +4,7 @@ use crate::{
         dispatch::generate_public_dispatch,
         functions::{
             stub_registry,
-            utils::{create_message_discovery_call, find_and_transform_top_level_unconstrained_fns},
+            utils::{check_each_fn_macroified, create_message_discovery_call},
         },
         notes::{generate_note_export, NOTES},
         storage::STORAGE_LAYOUT_NAME,
@@ -13,12 +13,14 @@ use crate::{
 };
 
 /// Marks a contract as an Aztec contract, generating the interfaces for its functions and notes, as well as injecting
-/// the `process_log` and `sync_notes` functions PXE requires in order to discover notes.
+/// the `sync_notes` utility function PXE requires in order to discover notes.
 /// Note: This is a module annotation, so the returned quote gets injected inside the module (contract) itself.
 pub comptime fn aztec(m: Module) -> Quoted {
     let interface = generate_contract_interface(m);
 
-    find_and_transform_top_level_unconstrained_fns(m);
+    // Functions that don't have #[private], #[public], #[utility], #[contract_library_method], or #[test] are not
+    // allowed in contracts.
+    check_each_fn_macroified(m);
 
     let contract_library_method_compute_note_hash_and_nullifier =
         generate_contract_library_method_compute_note_hash_and_nullifier();
@@ -267,13 +269,21 @@ comptime fn generate_note_exports() -> Quoted {
 
 comptime fn generate_sync_notes() -> Quoted {
     let message_discovery_call = create_message_discovery_call();
-    quote {
-        unconstrained fn sync_notes() {
-            // Because this unconstrained function is injected after the contract is processed by the macros, it'll not
-            // be modified by the macros that alter unconstrained functions. As such, we need to manually inject the
-            // unconstrained execution context since it will not be available otherwise.
-            let context = dep::aztec::context::unconstrained_context::UnconstrainedContext::new();
 
+    // TODO(https://github.com/noir-lang/noir/issues/7912): Doing the following unfortunately doesn't work. Once
+    // the issue is fixed uncomment the following and remove the workaround from TS (look for the issue link in the
+    // codebase).
+    // let utility: fn(FunctionDefinition) -> () = crate::macros::functions::utility;
+    // quote {
+    //     #[$utility]
+    //     unconstrained fn sync_notes() {
+    //         $message_discovery_call
+    //     }
+    // }
+
+    quote {
+        #[aztec::macros::functions::utility]
+        unconstrained fn sync_notes() {
             $message_discovery_call
         }
     }

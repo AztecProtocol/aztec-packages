@@ -1,7 +1,7 @@
 // This file is copied from the token contract.
 use crate::types::token_note::OwnedNote;
 use dep::aztec::{
-    context::{PrivateContext, UnconstrainedContext},
+    context::{PrivateContext, UtilityContext},
     note::note_emission::OuterNoteEmission,
     protocol_types::{
         address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable,
@@ -23,7 +23,7 @@ impl<Note, Context> BalanceSet<Note, Context> {
     }
 }
 
-impl<Note> BalanceSet<Note, UnconstrainedContext>
+impl<Note> BalanceSet<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + OwnedNote + Packable<N> + Eq,
 {

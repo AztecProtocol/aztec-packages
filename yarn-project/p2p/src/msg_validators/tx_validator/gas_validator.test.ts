@@ -6,11 +6,12 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
+import type { PublicStateSource } from '@aztec/stdlib/trees';
 import type { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
+import { GasTxValidator } from './gas_validator.js';
 import { patchNonRevertibleFn, patchRevertibleFn } from './test_utils.js';
 
 describe('GasTxValidator', () => {
