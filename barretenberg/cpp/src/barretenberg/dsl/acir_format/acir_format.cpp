@@ -23,7 +23,8 @@ template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
 template <typename Builder> struct HonkRecursionConstraintsOutput {
-    PairingPointAccumulatorIndices agg_obj_indices;
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    AggregationObject agg_obj;
     OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
     HonkProof ipa_proof;
 };
@@ -31,6 +32,7 @@ template <typename Builder> struct HonkRecursionConstraintsOutput {
 template <typename Builder>
 void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata)
 {
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
     bool has_valid_witness_assignments = !program.witness.empty();
     bool collect_gates_per_opcode = metadata.collect_gates_per_opcode;
     AcirFormat& constraint_system = program.constraints;
@@ -245,8 +247,9 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         }
     } else {
         process_plonk_recursion_constraints(builder, constraint_system, has_valid_witness_assignments, gate_counter);
-        PairingPointAccumulatorIndices current_aggregation_object =
-            stdlib::recursion::init_default_agg_obj_indices<Builder>(builder);
+
+        auto current_aggregation_object = AggregationObject::construct_default(builder);
+
         HonkRecursionConstraintsOutput<Builder> output =
             process_honk_recursion_constraints(builder,
                                                constraint_system,
@@ -254,7 +257,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                                                gate_counter,
                                                current_aggregation_object,
                                                metadata.honk_recursion);
-        current_aggregation_object = output.agg_obj_indices;
+        current_aggregation_object = output.agg_obj;
 
 #ifndef DISABLE_AZTEC_VM
         current_aggregation_object = process_avm_recursion_constraints(
@@ -265,11 +268,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         if (!constraint_system.honk_recursion_constraints.empty() ||
             !constraint_system.avm_recursion_constraints.empty()) {
             ASSERT(metadata.honk_recursion != 0);
-            builder.add_pairing_point_accumulator(current_aggregation_object);
+            current_aggregation_object.set_public();
         } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
-            builder.add_pairing_point_accumulator(current_aggregation_object);
+            current_aggregation_object.set_public();
         }
         // If we are proving with UltraRollupFlavor, the IPA proof should have nonzero size.
         ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
@@ -362,7 +365,7 @@ void process_plonk_recursion_constraints(Builder& builder,
 
         // Make sure the verification key records the public input indices of the
         // final recursion output.
-        builder.add_pairing_point_accumulator(current_output_aggregation_object);
+        builder.add_pairing_point_accumulator_for_plonk(current_output_aggregation_object);
     }
 }
 
@@ -371,7 +374,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
-    PairingPointAccumulatorIndices current_aggregation_object,
+    stdlib::recursion::aggregation_state<Builder> current_aggregation_object,
     uint32_t honk_recursion)
 {
     HonkRecursionConstraintsOutput<Builder> output;
@@ -446,7 +449,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
             output.ipa_proof = ipa_proof;
         }
     }
-    output.agg_obj_indices = current_aggregation_object;
+    output.agg_obj = current_aggregation_object;
     return output;
 }
 
@@ -510,12 +513,12 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
 }
 
 #ifndef DISABLE_AZTEC_VM
-PairingPointAccumulatorIndices process_avm_recursion_constraints(
+stdlib::recursion::aggregation_state<Builder> process_avm_recursion_constraints(
     Builder& builder,
     AcirFormat& constraint_system,
     bool has_valid_witness_assignments,
     GateCounter<Builder>& gate_counter,
-    PairingPointAccumulatorIndices current_aggregation_object)
+    stdlib::recursion::aggregation_state<Builder> current_aggregation_object)
 {
     // Add recursion constraints
     size_t idx = 0;
