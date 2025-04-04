@@ -329,8 +329,8 @@ class lookup_update_check_update_hash_poseidon2_settings {
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::update_check_update_preimage_metadata,
-        ColumnAndShifts::update_check_update_preimage_pre_class,
-        ColumnAndShifts::update_check_update_preimage_post_class,
+        ColumnAndShifts::update_check_update_preimage_pre_class_id,
+        ColumnAndShifts::update_check_update_preimage_post_class_id,
         ColumnAndShifts::update_check_update_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -371,8 +371,8 @@ class lookup_update_check_update_hash_poseidon2_settings {
                                      in._update_check_hash_not_zero(),
                                      in._poseidon2_hash_end(),
                                      in._update_check_update_preimage_metadata(),
-                                     in._update_check_update_preimage_pre_class(),
-                                     in._update_check_update_preimage_post_class(),
+                                     in._update_check_update_preimage_pre_class_id(),
+                                     in._update_check_update_preimage_post_class_id(),
                                      in._update_check_update_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),

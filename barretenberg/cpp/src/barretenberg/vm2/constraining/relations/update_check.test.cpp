@@ -65,8 +65,8 @@ UpdateCheckEvent update_from_original_next_block = {
     .current_block_number = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 101,
-    .update_preimage_pre_class = 0,
-    .update_preimage_post_class = 2,
+    .update_preimage_pre_class_id = 0,
+    .update_preimage_post_class_id = 2,
 };
 
 UpdateCheckEvent update_next_block = {
@@ -76,8 +76,8 @@ UpdateCheckEvent update_next_block = {
     .current_block_number = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 101,
-    .update_preimage_pre_class = 2,
-    .update_preimage_post_class = 3,
+    .update_preimage_pre_class_id = 2,
+    .update_preimage_post_class_id = 3,
 };
 
 UpdateCheckEvent update_previous_block = {
@@ -87,8 +87,8 @@ UpdateCheckEvent update_previous_block = {
     .current_block_number = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 99,
-    .update_preimage_pre_class = 2,
-    .update_preimage_post_class = 3,
+    .update_preimage_pre_class_id = 2,
+    .update_preimage_post_class_id = 3,
 };
 
 UpdateCheckEvent update_current_block = {
@@ -98,8 +98,8 @@ UpdateCheckEvent update_current_block = {
     .current_block_number = 100,
     .update_hash = 27,
     .update_preimage_metadata = FF(static_cast<uint64_t>(1234) << 32) + 100,
-    .update_preimage_pre_class = 2,
-    .update_preimage_post_class = 3,
+    .update_preimage_pre_class_id = 2,
+    .update_preimage_post_class_id = 3,
 };
 
 std::vector<UpdateCheckEvent> positive_tests = {
@@ -192,13 +192,13 @@ TEST(UpdateCheckConstrainingTest, UpdateMetadataDecomposition)
 
 TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
 {
-    // hash_not_zero * (update_preimage_pre_class * (update_pre_class_is_zero * (1 - update_pre_class_inv) +
+    // hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_is_zero * (1 - update_pre_class_inv) +
     // update_pre_class_inv) - 1 + update_pre_class_is_zero)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
-            { C::update_check_update_preimage_pre_class, 27 },
+            { C::update_check_update_preimage_pre_class_id, 27 },
             { C::update_check_update_pre_class_is_zero, 0 },
             { C::update_check_update_pre_class_inv, FF(27).invert() },
         },
@@ -216,13 +216,13 @@ TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
 
 TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 {
-    // hash_not_zero * (update_preimage_post_class * (update_post_class_is_zero * (1 - update_post_class_inv) +
+    // hash_not_zero * (update_preimage_post_class_id * (update_post_class_is_zero * (1 - update_post_class_inv) +
     // update_post_class_inv) - 1 + update_post_class_is_zero)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
-            { C::update_check_update_preimage_post_class, 27 },
+            { C::update_check_update_preimage_post_class_id, 27 },
             { C::update_check_update_post_class_is_zero, 0 },
             { C::update_check_update_post_class_inv, FF(27).invert() },
         },
@@ -240,15 +240,15 @@ TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 
 TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 {
-    // hash_not_zero * block_number_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class) *
-    // update_pre_class_is_zero + update_preimage_pre_class - current_class_id)
+    // hash_not_zero * block_number_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class_id) *
+    // update_pre_class_is_zero + update_preimage_pre_class_id - current_class_id)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
             { C::update_check_block_number_is_lt_block_of_change, 1 },
             { C::update_check_original_class_id, 42 },
-            { C::update_check_update_preimage_pre_class, 27 },
+            { C::update_check_update_preimage_pre_class_id, 27 },
             { C::update_check_update_pre_class_is_zero, 0 },
             { C::update_check_current_class_id, 27 },
         },
@@ -270,8 +270,8 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 
 TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
 {
-    // hash_not_zero * (1 - block_number_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class) *
-    // update_post_class_is_zero + update_preimage_post_class - current_class_id)
+    // hash_not_zero * (1 - block_number_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class_id) *
+    // update_post_class_is_zero + update_preimage_post_class_id - current_class_id)
 
     TestTraceContainer trace({
         {
@@ -279,7 +279,7 @@ TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
             { C::update_check_hash_not_zero, 1 },
             { C::update_check_block_number_is_lt_block_of_change, 0 },
             { C::update_check_original_class_id, 42 },
-            { C::update_check_update_preimage_post_class, 27 },
+            { C::update_check_update_preimage_post_class_id, 27 },
             { C::update_check_update_post_class_is_zero, 0 },
             { C::update_check_current_class_id, 27 },
         },

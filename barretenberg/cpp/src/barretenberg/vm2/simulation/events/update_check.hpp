@@ -17,8 +17,8 @@ struct UpdateCheckEvent {
     FF update_hash;
     // Hash preimage
     FF update_preimage_metadata;
-    FF update_preimage_pre_class;
-    FF update_preimage_post_class;
+    FF update_preimage_pre_class_id;
+    FF update_preimage_post_class_id;
 
     // Read
     FF shared_mutable_slot;

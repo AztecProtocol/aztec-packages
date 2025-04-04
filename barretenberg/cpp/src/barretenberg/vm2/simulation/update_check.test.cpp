@@ -71,8 +71,8 @@ TEST(AvmSimulationUpdateCheck, NeverWritten)
                     .current_block_number = current_block_number,
                     .update_hash = 0,
                     .update_preimage_metadata = 0,
-                    .update_preimage_pre_class = 0,
-                    .update_preimage_post_class = 0,
+                    .update_preimage_pre_class_id = 0,
+                    .update_preimage_post_class_id = 0,
                     .shared_mutable_slot = shared_mutable_slot,
                     .shared_mutable_leaf_slot = shared_mutable_leaf_slot,
                 }));
@@ -242,8 +242,8 @@ TEST_P(UpdateCheckHashNonzeroTest, WithHash)
                         .current_block_number = current_block_number,
                         .update_hash = update_hash,
                         .update_preimage_metadata = update_metadata,
-                        .update_preimage_pre_class = param.update_pre_class,
-                        .update_preimage_post_class = param.update_post_class,
+                        .update_preimage_pre_class_id = param.update_pre_class,
+                        .update_preimage_post_class_id = param.update_post_class,
                         .shared_mutable_slot = shared_mutable_slot,
                         .shared_mutable_leaf_slot = shared_mutable_leaf_slot,
                     }));

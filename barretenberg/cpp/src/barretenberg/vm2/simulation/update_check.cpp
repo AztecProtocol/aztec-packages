@@ -34,8 +34,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
     FF hash = merkle_db.storage_read(shared_mutable_leaf_slot);
 
     uint256_t update_preimage_metadata = 0;
-    FF update_preimage_pre_class = 0;
-    FF update_preimage_post_class = 0;
+    FF update_preimage_pre_class_id = 0;
+    FF update_preimage_post_class_id = 0;
 
     if (hash == 0) {
         // If the shared mutable has never been written, then the contract was never updated. We short circuit early.
@@ -62,8 +62,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         }
 
         update_preimage_metadata = static_cast<uint256_t>(update_preimage[0]);
-        update_preimage_pre_class = update_preimage[1];
-        update_preimage_post_class = update_preimage[2];
+        update_preimage_pre_class_id = update_preimage[1];
+        update_preimage_post_class_id = update_preimage[2];
 
         // Decompose the metadata: we want the least significant 32 bits since that's the block of change.
         uint128_t update_metadata_hi = static_cast<uint128_t>(update_preimage_metadata >> BLOCK_NUMBER_BIT_SIZE);
@@ -72,8 +72,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         range_check.assert_range(update_block_of_change, BLOCK_NUMBER_BIT_SIZE);
 
         // pre and post can be zero, if they have never been touched. In that case we need to use the original class id.
-        FF pre_class = update_preimage_pre_class == 0 ? instance.original_class_id : update_preimage_pre_class;
-        FF post_class = update_preimage_post_class == 0 ? instance.original_class_id : update_preimage_post_class;
+        FF pre_class = update_preimage_pre_class_id == 0 ? instance.original_class_id : update_preimage_pre_class_id;
+        FF post_class = update_preimage_post_class_id == 0 ? instance.original_class_id : update_preimage_post_class_id;
 
         FF expected_current_class_id = current_block_number < update_block_of_change ? pre_class : post_class;
         uint32_t block_of_change_subtraction = current_block_number < update_block_of_change
@@ -97,8 +97,8 @@ void UpdateCheck::check_current_class_id(const AztecAddress& address, const Cont
         .current_block_number = current_block_number,
         .update_hash = hash,
         .update_preimage_metadata = update_preimage_metadata,
-        .update_preimage_pre_class = update_preimage_pre_class,
-        .update_preimage_post_class = update_preimage_post_class,
+        .update_preimage_pre_class_id = update_preimage_pre_class_id,
+        .update_preimage_post_class_id = update_preimage_post_class_id,
         .shared_mutable_slot = shared_mutable_slot,
         .shared_mutable_leaf_slot = shared_mutable_leaf_slot,
     });
