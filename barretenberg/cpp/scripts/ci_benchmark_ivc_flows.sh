@@ -57,7 +57,7 @@ function run_bb_cli_bench {
     }
   else # wasm
     mkdir -p $HOME/.bb-crs/monomial
-    export WASMTIME_ALLOWED_DIRS="--dir=$HOME/.bb-crs --dir=$HOME/.bb-crs/monomial --dir="$flow_folder" --dir=bench-out/$flow-proof-files"
+    export WASMTIME_ALLOWED_DIRS="--dir="$flow_folder" --dir=bench-out/$flow-proof-files"
     # TODO support wasm op count time preset
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
       --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
