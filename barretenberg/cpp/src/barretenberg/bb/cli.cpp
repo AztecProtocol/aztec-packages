@@ -713,8 +713,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     verbose_logging = debug_logging || flags.verbose;
 
     print_active_subcommands(app);
-    info("Scheme is: ", flags.scheme);
-    info("Using ", get_num_cpus(), " threads");
+    info("Scheme is: ", flags.scheme, ", num threads: ", get_num_cpus());
     if (CLI::App* deepest = find_deepest_subcommand(&app)) {
         print_subcommand_options(deepest);
     }
@@ -796,8 +795,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
 #endif
         // TUBE
         else if (prove_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
             prove_tube(prove_tube_output_path, vk_path);
         } else if (verify_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
             auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
             auto tube_proof_path = tube_proof_and_vk_path + "/proof";
             auto tube_vk_path = tube_proof_and_vk_path + "/vk";

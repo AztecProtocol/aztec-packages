@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export native_preset="clang16-assert"
-export pic_preset="clang16-pic-assert"
+export native_preset=${NATIVE_PRESET:-clang16-assert}
+export pic_preset=${PIC_PRESET:-clang16-pic-assert}
 export hash=$(cache_content_hash .rebuild_patterns)
 
 # Injects version number into a given bb binary.
@@ -192,10 +192,11 @@ function build_benchmarks {
   set -eu
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     # Run builds in parallel with different targets per preset
+    # bb_cli_bench is later used in yarn-project.
     parallel --line-buffered --tag -v denoise ::: \
-      "build_preset clang16-assert --target ultra_honk_bench --target client_ivc_bench" \
-      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench" \
-      "build_preset op-count-time --target ultra_honk_bench --target client_ivc_bench --target bb_cli_bench"
+      "build_preset $native_preset --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
+      "build_preset wasm-threads --target ultra_honk_bench --target client_ivc_bench  --target bb_cli_bench" \
+      "build_preset op-count-time --target ultra_honk_bench --target client_ivc_bench"
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
   fi
@@ -300,9 +301,9 @@ case "$cmd" in
     git fetch origin master
 
     # build the benchmarked benches
-    parallel --line-buffered --tag -v denoise ::: \
-      "build_preset $native_preset --target bb_cli_bench" \
-      "build_preset wasm-threads --target bb_cli_bench"
+    # parallel --line-buffered --tag -v denoise ::: \
+    #   "build_preset $native_preset --target bb_cli_bench" \
+    #   "build_preset wasm-threads --target bb_cli_bench"
 
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then

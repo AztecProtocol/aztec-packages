@@ -266,6 +266,7 @@ bot:
 
 ethereum:
   acceleratedTestDeployments: false
+  genesisBasePath: "out"
   replicas: 1
   chainId: 1337
   blockTime: 12

@@ -6,7 +6,7 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
-## TBD
+## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
 
@@ -16,6 +16,19 @@ The `getPrivateEvents` method signature has changed to require an address of a c
 - const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, 1, 1, [recipient.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey()]);
 + const events = await wallet.getPrivateEvents<Transfer>(token.address, TokenContract.events.Transfer, 1, 1, [recipient.getAddress()]);
 ```
+
+### [portal contracts] Versions and Non-following message boxes
+
+The version number is no longer hard-coded to be `1` across all deployments (it not depends on where it is deployed to and with what genesis and logic).
+This means that if your portal were hard-coding `1` it will now fail when inserting into the `inbox` or consuming from the `outbox` because of a version mismatch.
+Instead you can get the real version (which don't change for a deployment) by reading the `VERSION` on inbox and outbox, or using `getVersion()` on the rollup.
+
+New Deployments of the protocol do not preserve former state/across each other.
+This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existant contracts.
+To solve, the portal should be linked to a specific deployment, e.g., a specific inbox.
+This can be done by storing the inbox/outbox/version at the time of deployment or initialize and not update them.
+
+Both of these issues were in the token portal and the uniswap portal, so if you used them as a template it is very likely that you will also have it.
 
 ## 0.82.0
 
@@ -122,7 +135,6 @@ const witness = await wallet.createAuthWit({ caller, action });
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
-
 
 ## 0.79.0
 
