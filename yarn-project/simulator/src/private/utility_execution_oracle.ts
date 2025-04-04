@@ -17,9 +17,9 @@ import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { pickNotes } from './pick_notes.js';
 
 /**
- * The oracle for an unconstrained function execution.
+ * The oracle for an execution of utility contract functions.
  */
-export class UnconstrainedExecutionOracle extends TypedOracle {
+export class UtilityExecutionOracle extends TypedOracle {
   constructor(
     protected readonly contractAddress: AztecAddress,
     /** List of transient auth witnesses to be used during this simulation */

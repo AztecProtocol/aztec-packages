@@ -13,29 +13,29 @@ import {
 } from './artifact_hash.js';
 import type {
   ContractClassPublic,
-  UnconstrainedFunctionMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  UtilityFunctionMembershipProof,
+  UtilityFunctionWithMembershipProof,
 } from './interfaces/index.js';
 
 /**
- * Creates a membership proof for an unconstrained function in a contract class, to be verified via `isValidUnconstrainedFunctionMembershipProof`.
+ * Creates a membership proof for a utility  function in a contract class, to be verified via `isValidUtilityFunctionMembershipProof`.
  * @param selector - Selector of the function to create the proof for.
  * @param artifact - Artifact of the contract class where the function is defined.
  */
-export async function createUnconstrainedFunctionMembershipProof(
+export async function createUtilityFunctionMembershipProof(
   selector: FunctionSelector,
   artifact: ContractArtifact,
-): Promise<UnconstrainedFunctionMembershipProof> {
+): Promise<UtilityFunctionMembershipProof> {
   const log = createLogger('circuits:function_membership_proof');
 
   // Locate function artifact
-  const uncontrainedFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UNCONSTRAINED);
-  const unconstrainedFunctionsAndSelectors = await Promise.all(
-    uncontrainedFunctions.map(async fn => ({ fn, selector: await FunctionSelector.fromNameAndParameters(fn) })),
+  const utilityFunctions = artifact.functions.filter(fn => fn.functionType === FunctionType.UTILITY);
+  const utilityFunctionsAndSelectors = await Promise.all(
+    utilityFunctions.map(async fn => ({ fn, selector: await FunctionSelector.fromNameAndParameters(fn) })),
   );
-  const fn = unconstrainedFunctionsAndSelectors.find(fnAndSelector => selector.equals(fnAndSelector.selector))?.fn;
+  const fn = utilityFunctionsAndSelectors.find(fnAndSelector => selector.equals(fnAndSelector.selector))?.fn;
   if (!fn) {
-    throw new Error(`Unconstrained function with selector ${selector.toString()} not found`);
+    throw new Error(`Utility function with selector ${selector.toString()} not found`);
   }
   // Compute preimage for the artifact hash
   const { privateFunctionRoot: privateFunctionsArtifactTreeRoot, metadataHash: artifactMetadataHash } =
@@ -44,11 +44,11 @@ export async function createUnconstrainedFunctionMembershipProof(
   // Compute the sibling path for the "artifact tree"
   const functionMetadataHash = computeFunctionMetadataHash(fn);
   const functionArtifactHash = await computeFunctionArtifactHash({ ...fn, functionMetadataHash });
-  const artifactTree = (await computeArtifactFunctionTree(artifact, FunctionType.UNCONSTRAINED))!;
+  const artifactTree = (await computeArtifactFunctionTree(artifact, FunctionType.UTILITY))!;
   const artifactTreeLeafIndex = artifactTree.getIndex(functionArtifactHash.toBuffer());
   const artifactTreeSiblingPath = artifactTree.getSiblingPath(artifactTreeLeafIndex).map(Fr.fromBuffer);
 
-  log.debug(`Computed proof for unconstrained function with selector ${selector.toString()}`, {
+  log.debug(`Computed proof for utility function with selector ${selector.toString()}`, {
     functionArtifactHash,
     functionMetadataHash,
     artifactMetadataHash,
@@ -66,7 +66,7 @@ export async function createUnconstrainedFunctionMembershipProof(
 }
 
 /**
- * Verifies that an unconstrained function with a membership proof as emitted by the ClassRegisterer contract is valid,
+ * Verifies that a utility  function with a membership proof as emitted by the ClassRegisterer contract is valid,
  * as defined in the protocol specs at contract-deployment/classes:
  *
  * ```
@@ -75,15 +75,15 @@ export async function createUnconstrainedFunctionMembershipProof(
  *
  * // Compute artifact leaf and assert it belongs to the artifact
  * artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
- * computed_artifact_unconstrained_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
- * computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_unconstrained_function_tree_root, artifact_metadata_hash)
+ * computed_artifact_utility_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
+ * computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_utility_function_tree_root, artifact_metadata_hash)
  * assert computed_artifact_hash == contract_class.artifact_hash
  * ```
  * @param fn - Function to check membership proof for.
  * @param contractClass - In which contract class the function is expected to be.
  */
-export async function isValidUnconstrainedFunctionMembershipProof(
-  fn: UnconstrainedFunctionWithMembershipProof,
+export async function isValidUtilityFunctionMembershipProof(
+  fn: UtilityFunctionWithMembershipProof,
   contractClass: Pick<ContractClassPublic, 'artifactHash'>,
 ) {
   const log = createLogger('circuits:function_membership_proof');
@@ -98,7 +98,7 @@ export async function isValidUnconstrainedFunctionMembershipProof(
   const computedArtifactFunctionTreeRoot = Fr.fromBuffer(computedArtifactFunctionTreeRootBuffer);
   const computedArtifactHash = await computeArtifactHash({
     privateFunctionRoot: fn.privateFunctionsArtifactTreeRoot,
-    unconstrainedFunctionRoot: computedArtifactFunctionTreeRoot,
+    utilityFunctionRoot: computedArtifactFunctionTreeRoot,
     metadataHash: fn.artifactMetadataHash,
   });
   if (!contractClass.artifactHash.equals(computedArtifactHash)) {

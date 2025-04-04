@@ -82,7 +82,7 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
@@ -1169,12 +1169,12 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
     privateFunctionTreeLeafIndex: seed + 3,
     artifactMetadataHash: fr(seed + 4),
     functionMetadataHash: fr(seed + 5),
-    unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
+    utilityFunctionsTreeRoot: fr(seed + 6),
     vkHash: fr(seed + 7),
   };
 }
 
-export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
   return {
     selector: makeSelector(seed),
     bytecode: makeBytes(100, seed + 1),
@@ -1198,7 +1198,7 @@ export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer)
     packedBytecode,
     privateFunctionsRoot,
     privateFunctions: [],
-    unconstrainedFunctions: [],
+    utilityFunctions: [],
     version: 1,
   };
 }
