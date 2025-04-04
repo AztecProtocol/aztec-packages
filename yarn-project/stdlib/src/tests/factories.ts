@@ -56,13 +56,12 @@ import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_req
 import {
   AvmAccumulatedData,
   AvmBytecodeCommitmentHint,
-  AvmCheckpointActionCommitCheckpointHint,
-  AvmCheckpointActionCreateCheckpointHint,
-  AvmCheckpointActionRevertCheckpointHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
+  AvmCommitCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
+  AvmCreateCheckpointHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
@@ -70,6 +69,7 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
   AvmTxHint,
@@ -1385,27 +1385,29 @@ export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentia
   );
 }
 
-export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0) {
-  return new AvmCheckpointActionCreateCheckpointHint(seed, new Fr(seed + 1), seed + 2);
+export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0): AvmCreateCheckpointHint {
+  return new AvmCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
 }
 
-export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0) {
-  return new AvmCheckpointActionCommitCheckpointHint(seed, new Fr(seed + 1), seed + 2);
+export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0): AvmCommitCheckpointHint {
+  return new AvmCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
 }
 
-export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0) {
-  return new AvmCheckpointActionRevertCheckpointHint(
-    seed,
-    new Fr(seed + 1),
-    seed + 2,
-    makeAppendOnlyTreeSnapshot(seed + 3),
-    makeAppendOnlyTreeSnapshot(seed + 4),
-    makeAppendOnlyTreeSnapshot(seed + 5),
-    makeAppendOnlyTreeSnapshot(seed + 6),
-    makeAppendOnlyTreeSnapshot(seed + 7),
-    makeAppendOnlyTreeSnapshot(seed + 8),
-    makeAppendOnlyTreeSnapshot(seed + 9),
-    makeAppendOnlyTreeSnapshot(seed + 10),
+export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
+  return new AvmRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+    /*beforeState=*/ makeTreeSnapshots(seed + 3),
+    /*afterState=*/ makeTreeSnapshots(seed + 7),
   );
 }
 

@@ -5,17 +5,17 @@ import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/tre
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import {
   AvmBytecodeCommitmentHint,
-  AvmCheckpointActionCommitCheckpointHint,
-  AvmCheckpointActionCreateCheckpointHint,
-  AvmCheckpointActionRevertCheckpointHint,
+  AvmCommitCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
+  AvmCreateCheckpointHint,
   type AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
   AvmGetLeafPreimageHintPublicDataTree,
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
 } from '@aztec/stdlib/avm';
@@ -99,18 +99,18 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   }
 }
 
-class CheckpointKey {
-  constructor(public readonly id: number, public readonly hash: Fr) {}
-}
-
 /**
  * A public trees database that forwards requests and collects AVM hints.
  */
 export class HintingPublicTreesDB extends PublicTreesDB {
   private static readonly log: Logger = createLogger('HintingPublicTreesDB');
-  // We use 0 as the initial state even if we never checkpointed.
+  // This stack is only for debugging purposes.
+  // The top of the stack is the current checkpoint id.
+  // We need the stack to be non-empty and use 0 as an arbitrary initial checkpoint id.
+  // This is not necessarily a checkpoint that happened, but whatever tree state we start with.
+  private checkpointStack: number[] = [0];
   private nextCheckpointId: number = 1;
-  private checkpointStack: number[] = [0]; // stack only for debugging purposes.
+  private checkpointActionCounter: number = 0; // yes, a side-effect counter.
 
   constructor(db: PublicTreesDB, private hints: AvmExecutionHints) {
     super(db);
@@ -265,39 +265,42 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   }
 
   public override async createCheckpoint(): Promise<void> {
-    const hintKey = await this.getCheckpointHintKey();
+    const actionCounter = this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCurrentCheckpointId();
+    const treesStateHash = await this.getTreesStateHash();
 
     await super.createCheckpoint();
     this.checkpointStack.push(this.nextCheckpointId++);
     const newCheckpointId = this.getCurrentCheckpointId();
 
-    this.hints.createCheckpointHints.push(
-      new AvmCheckpointActionCreateCheckpointHint(hintKey.id, hintKey.hash, newCheckpointId),
-    );
+    this.hints.createCheckpointHints.push(new AvmCreateCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
     HintingPublicTreesDB.log.debug(
-      `[createCheckpoint] Checkpoint evolved ${hintKey.id} -> ${newCheckpointId} at checkpoint key ${hintKey.hash}.`,
+      `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
 
   public override async commitCheckpoint(): Promise<void> {
-    const hintKey = await this.getCheckpointHintKey();
+    const actionCounter = this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCurrentCheckpointId();
+    const treesStateHash = await this.getTreesStateHash();
 
     await super.commitCheckpoint();
     this.checkpointStack.pop();
     const newCheckpointId = this.getCurrentCheckpointId();
 
-    this.hints.commitCheckpointHints.push(
-      new AvmCheckpointActionCommitCheckpointHint(hintKey.id, hintKey.hash, newCheckpointId),
-    );
+    this.hints.commitCheckpointHints.push(new AvmCommitCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
     HintingPublicTreesDB.log.debug(
-      `[commitCheckpoint] Checkpoint evolved ${hintKey.id} -> ${newCheckpointId} at checkpoint key ${hintKey.hash}.`,
+      `[commitCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
 
   public override async revertCheckpoint(): Promise<void> {
-    const hintKey = await this.getCheckpointHintKey();
+    const actionCounter = this.checkpointActionCounter++;
+    const oldCheckpointId = this.getCurrentCheckpointId();
+    const treesStateHash = await this.getTreesStateHash();
+
     const beforeState: Record<MerkleTreeId, AppendOnlyTreeSnapshot> = {
       [MerkleTreeId.PUBLIC_DATA_TREE]: await this.getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
       [MerkleTreeId.NULLIFIER_TREE]: await this.getHintKey(MerkleTreeId.NULLIFIER_TREE),
@@ -319,17 +322,11 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     };
 
     this.hints.revertCheckpointHints.push(
-      AvmCheckpointActionRevertCheckpointHint.create(
-        hintKey.id,
-        hintKey.hash,
-        beforeState,
-        newCheckpointId,
-        afterState,
-      ),
+      AvmRevertCheckpointHint.create(actionCounter, oldCheckpointId, newCheckpointId, beforeState, afterState),
     );
 
     HintingPublicTreesDB.log.debug(
-      `[revertCheckpoint] Checkpoint evolved ${hintKey.id} -> ${newCheckpointId} at checkpoint key ${hintKey.hash}.`,
+      `[revertCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
     for (const treeId of merkleTreeIds()) {
       HintingPublicTreesDB.logTreeChange(beforeState[treeId], afterState[treeId], treeId);
@@ -346,10 +343,10 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     return this.checkpointStack[this.checkpointStack.length - 1];
   }
 
-  private async getCheckpointHintKey(): Promise<CheckpointKey> {
+  // For logging/debugging purposes.
+  private async getTreesStateHash(): Promise<Fr> {
     const stateReferenceFields = (await super.getStateReference()).toFields();
-    const hash = Fr.fromBuffer(sha256Trunc(Buffer.concat(stateReferenceFields.map(field => field.toBuffer()))));
-    return new CheckpointKey(this.getCurrentCheckpointId(), hash);
+    return Fr.fromBuffer(sha256Trunc(Buffer.concat(stateReferenceFields.map(field => field.toBuffer()))));
   }
 
   private static logTreeChange(

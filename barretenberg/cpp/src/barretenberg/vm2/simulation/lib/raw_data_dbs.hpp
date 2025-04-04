@@ -1,5 +1,6 @@
 #pragma once
 
+#include <stack>
 #include <tuple>
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
@@ -57,8 +58,16 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) override;
 
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
+
   private:
     TreeSnapshots tree_roots;
+    uint32_t checkpoint_action_counter = 0;
+    // We start with a checkpoint id of 0, which is the assumed initial state checkpoint.
+    // This stack is for debugging purposes only.
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
 
     // Query hints.
     using GetSiblingPathKey =
@@ -85,6 +94,9 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map<SequentialInsertHintNullifierTreeKey,
                        SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
+    unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };
