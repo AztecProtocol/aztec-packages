@@ -56,6 +56,9 @@ import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_req
 import {
   AvmAccumulatedData,
   AvmBytecodeCommitmentHint,
+  AvmCheckpointActionCommitCheckpointHint,
+  AvmCheckpointActionCreateCheckpointHint,
+  AvmCheckpointActionRevertCheckpointHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
   AvmContractClassHint,
@@ -1382,6 +1385,30 @@ export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentia
   );
 }
 
+export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0) {
+  return new AvmCheckpointActionCreateCheckpointHint(seed, new Fr(seed + 1), seed + 2);
+}
+
+export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0) {
+  return new AvmCheckpointActionCommitCheckpointHint(seed, new Fr(seed + 1), seed + 2);
+}
+
+export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0) {
+  return new AvmCheckpointActionRevertCheckpointHint(
+    seed,
+    new Fr(seed + 1),
+    seed + 2,
+    makeAppendOnlyTreeSnapshot(seed + 3),
+    makeAppendOnlyTreeSnapshot(seed + 4),
+    makeAppendOnlyTreeSnapshot(seed + 5),
+    makeAppendOnlyTreeSnapshot(seed + 6),
+    makeAppendOnlyTreeSnapshot(seed + 7),
+    makeAppendOnlyTreeSnapshot(seed + 8),
+    makeAppendOnlyTreeSnapshot(seed + 9),
+    makeAppendOnlyTreeSnapshot(seed + 10),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1481,6 +1508,9 @@ export async function makeAvmExecutionHints(
       makeAvmSequentialInsertHintNullifierTree,
       seed + 0x5700,
     ),
+    createCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCreateCheckpointHint, seed + 0x5900),
+    commitCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCommitCheckpointHint, seed + 0x5b00),
+    revertCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionRevertCheckpointHint, seed + 0x5d00),
     ...overrides,
   };
 
@@ -1496,6 +1526,9 @@ export async function makeAvmExecutionHints(
     fields.getLeafValueHints,
     fields.sequentialInsertHintsPublicDataTree,
     fields.sequentialInsertHintsNullifierTree,
+    fields.createCheckpointHints,
+    fields.commitCheckpointHints,
+    fields.revertCheckpointHints,
   );
 }
 

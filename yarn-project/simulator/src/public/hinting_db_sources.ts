@@ -1,9 +1,13 @@
+import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import {
   AvmBytecodeCommitmentHint,
+  AvmCheckpointActionCommitCheckpointHint,
+  AvmCheckpointActionCreateCheckpointHint,
+  AvmCheckpointActionRevertCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
   type AvmExecutionHints,
@@ -28,6 +32,7 @@ import {
   PublicDataTreeLeafPreimage,
   type SequentialInsertionResult,
   getTreeName,
+  merkleTreeIds,
 } from '@aztec/stdlib/trees';
 
 import { strict as assert } from 'assert';
@@ -94,11 +99,18 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
   }
 }
 
+class CheckpointKey {
+  constructor(public readonly id: number, public readonly hash: Fr) {}
+}
+
 /**
  * A public trees database that forwards requests and collects AVM hints.
  */
 export class HintingPublicTreesDB extends PublicTreesDB {
   private static readonly log: Logger = createLogger('HintingPublicTreesDB');
+  // We use 0 as the initial state even if we never checkpointed.
+  private nextCheckpointId: number = 1;
+  private checkpointStack: number[] = [0]; // stack only for debugging purposes.
 
   constructor(db: PublicTreesDB, private hints: AvmExecutionHints) {
     super(db);
@@ -200,11 +212,8 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     const result = await super.sequentialInsert<TreeHeight, ID>(treeId, leaves);
 
     const afterState = await this.getHintKey(treeId);
-    HintingPublicTreesDB.log.debug(
-      `Evolved tree state (${getTreeName(treeId)}): ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${
-        afterState.root
-      }, ${afterState.nextAvailableLeafIndex}.`,
-    );
+    HintingPublicTreesDB.log.debug('[sequentialInsert] Evolved tree state.');
+    HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
 
     switch (treeId) {
       case MerkleTreeId.PUBLIC_DATA_TREE:
@@ -255,12 +264,41 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     return result;
   }
 
+  public override async createCheckpoint(): Promise<void> {
+    const hintKey = await this.getCheckpointHintKey();
+
+    await super.createCheckpoint();
+    this.checkpointStack.push(this.nextCheckpointId++);
+    const newCheckpointId = this.getCurrentCheckpointId();
+
+    this.hints.createCheckpointHints.push(
+      new AvmCheckpointActionCreateCheckpointHint(hintKey.id, hintKey.hash, newCheckpointId),
+    );
+
+    HintingPublicTreesDB.log.debug(
+      `[createCheckpoint] Checkpoint evolved ${hintKey.id} -> ${newCheckpointId} at checkpoint key ${hintKey.hash}.`,
+    );
+  }
+
+  public override async commitCheckpoint(): Promise<void> {
+    const hintKey = await this.getCheckpointHintKey();
+
+    await super.commitCheckpoint();
+    this.checkpointStack.pop();
+    const newCheckpointId = this.getCurrentCheckpointId();
+
+    this.hints.commitCheckpointHints.push(
+      new AvmCheckpointActionCommitCheckpointHint(hintKey.id, hintKey.hash, newCheckpointId),
+    );
+
+    HintingPublicTreesDB.log.debug(
+      `[commitCheckpoint] Checkpoint evolved ${hintKey.id} -> ${newCheckpointId} at checkpoint key ${hintKey.hash}.`,
+    );
+  }
+
   public override async revertCheckpoint(): Promise<void> {
-    HintingPublicTreesDB.log.debug('revertCheckpoint not hinted yet!');
-    // TODO(fcarreiro): we probably want to hint on StateReference hash.
-    // WARNING: is this enough? we might actually need the number of the checkpoint or similar...
-    // We will need to keep a stack of checkpoints on the C++ side.
-    const beforeState = {
+    const hintKey = await this.getCheckpointHintKey();
+    const beforeState: Record<MerkleTreeId, AppendOnlyTreeSnapshot> = {
       [MerkleTreeId.PUBLIC_DATA_TREE]: await this.getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
       [MerkleTreeId.NULLIFIER_TREE]: await this.getHintKey(MerkleTreeId.NULLIFIER_TREE),
       [MerkleTreeId.NOTE_HASH_TREE]: await this.getHintKey(MerkleTreeId.NOTE_HASH_TREE),
@@ -269,8 +307,10 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     };
 
     await super.revertCheckpoint();
+    this.checkpointStack.pop();
+    const newCheckpointId = this.getCurrentCheckpointId();
 
-    const afterState = {
+    const afterState: Record<MerkleTreeId, AppendOnlyTreeSnapshot> = {
       [MerkleTreeId.PUBLIC_DATA_TREE]: await this.getHintKey(MerkleTreeId.PUBLIC_DATA_TREE),
       [MerkleTreeId.NULLIFIER_TREE]: await this.getHintKey(MerkleTreeId.NULLIFIER_TREE),
       [MerkleTreeId.NOTE_HASH_TREE]: await this.getHintKey(MerkleTreeId.NOTE_HASH_TREE),
@@ -278,13 +318,21 @@ export class HintingPublicTreesDB extends PublicTreesDB {
       [MerkleTreeId.ARCHIVE]: await this.getHintKey(MerkleTreeId.ARCHIVE),
     };
 
-    HintingPublicTreesDB.log.debug('Evolved tree state:');
-    for (const treeId of Object.keys(beforeState)) {
-      const id: MerkleTreeId = treeId as unknown as MerkleTreeId;
-      const treeName = getTreeName(id);
-      HintingPublicTreesDB.log.debug(
-        `${treeName}: ${beforeState[id].root}, ${beforeState[id].nextAvailableLeafIndex} -> ${afterState[id].root}, ${afterState[id].nextAvailableLeafIndex}.`,
-      );
+    this.hints.revertCheckpointHints.push(
+      AvmCheckpointActionRevertCheckpointHint.create(
+        hintKey.id,
+        hintKey.hash,
+        beforeState,
+        newCheckpointId,
+        afterState,
+      ),
+    );
+
+    HintingPublicTreesDB.log.debug(
+      `[revertCheckpoint] Checkpoint evolved ${hintKey.id} -> ${newCheckpointId} at checkpoint key ${hintKey.hash}.`,
+    );
+    for (const treeId of merkleTreeIds()) {
+      HintingPublicTreesDB.logTreeChange(beforeState[treeId], afterState[treeId], treeId);
     }
   }
 
@@ -292,5 +340,26 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   private async getHintKey(treeId: MerkleTreeId): Promise<AppendOnlyTreeSnapshot> {
     const treeInfo = await super.getTreeInfo(treeId);
     return new AppendOnlyTreeSnapshot(Fr.fromBuffer(treeInfo.root), Number(treeInfo.size));
+  }
+
+  private getCurrentCheckpointId(): number {
+    return this.checkpointStack[this.checkpointStack.length - 1];
+  }
+
+  private async getCheckpointHintKey(): Promise<CheckpointKey> {
+    const stateReferenceFields = (await super.getStateReference()).toFields();
+    const hash = Fr.fromBuffer(sha256Trunc(Buffer.concat(stateReferenceFields.map(field => field.toBuffer()))));
+    return new CheckpointKey(this.getCurrentCheckpointId(), hash);
+  }
+
+  private static logTreeChange(
+    beforeState: AppendOnlyTreeSnapshot,
+    afterState: AppendOnlyTreeSnapshot,
+    treeId: MerkleTreeId,
+  ) {
+    const treeName = getTreeName(treeId);
+    HintingPublicTreesDB.log.debug(
+      `[${treeName}] Evolved tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
+    );
   }
 }
