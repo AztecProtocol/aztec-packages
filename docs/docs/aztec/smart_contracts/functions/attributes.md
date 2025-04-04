@@ -77,7 +77,7 @@ This function takes the application context, and converts it into the `PrivateCi
 
 ## Utility functions #[utility]
 
-Contract functions marked with `#[utility]` are used to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls.
+Contract functions marked with `#[utility]` are used to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on [oracle calls](https://noir-lang.org/docs/explainers/explainer-oracle).
 
 Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE. Utility functions exist as Noir contract code because they let developers utilize the rest of the contract code directly by being part of the same Noir crate, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
 

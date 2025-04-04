@@ -28,8 +28,8 @@ Public functions can call other public functions as well as private functions. P
 
 ### Utility Functions
 
-Unconstrained functions are used to extract useful data for users, such as the user balance. They are not proven, and are simulated client-side.
+Utility functions are used to extract useful data for users, such as the user balance. They are not proven, and are simulated client-side.
 
-They are run with the assistance of a DB oracle that provides any private data requested by the function.
+They are run with the assistance of an [oracle resolver](https://noir-lang.org/docs/explainers/explainer-oracle) that provides any private data requested by the function.
 
 At the moment, utility functions cannot call any other function. It is not possible for them to call private or public functions, but it is on the roadmap to allow them to call other utility functions.
