@@ -12,6 +12,11 @@ static constexpr size_t POINT_TABLE_SIZE = 1ULL << (NUM_WNAF_DIGIT_BITS);
 static constexpr size_t WNAF_DIGITS_PER_ROW = 4;
 static constexpr size_t ADDITIONS_PER_ROW = 4;
 
+/***
+ * @brief A VM operation is represented as one row with 6 columns in the ECCVM version of the Op Queue.
+ * | OP | X | Y | z_1 | z_2 | mul_scalar_full |
+ */
+// WORKTO DO: explain why multiple thing will be true at once
 template <typename CycleGroup> struct VMOperation {
     bool add = false;
     bool mul = false;
@@ -20,7 +25,10 @@ template <typename CycleGroup> struct VMOperation {
     typename CycleGroup::affine_element base_point = typename CycleGroup::affine_element{ 0, 0 };
     uint256_t z1 = 0;
     uint256_t z2 = 0;
+    // The full scalar
     typename CycleGroup::subgroup_field mul_scalar_full = 0;
+
+    //
     [[nodiscard]] uint32_t get_opcode_value() const
     {
         auto res = static_cast<uint32_t>(add);
@@ -34,6 +42,14 @@ template <typename CycleGroup> struct VMOperation {
     }
     bool operator==(const VMOperation<CycleGroup>& other) const = default;
 
+    /**
+     * @brief Get the point in standard form i.e. as two coordinates x and y which belong to the curve or as a point at
+     * infinity whose coordinates are set to (0,0).
+     *
+     * @details These are represented as uint265_t to make chunking easier as the function is only used in translator
+     * where each coordinate is chunked to efficiently be represented in the scalar field.
+     */
+    // Really this should be a function of the primitive ...
     std::array<uint256_t, 2> get_base_point_standard_form() const
     {
         uint256_t x(base_point.x);

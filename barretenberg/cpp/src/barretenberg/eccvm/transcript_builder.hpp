@@ -356,7 +356,7 @@ class ECCVMTranscriptBuilder {
     {
         const auto P = typename CycleGroup::element(entry.base_point);
         const auto R = typename CycleGroup::element(state.msm_accumulator);
-        updated_state.msm_accumulator = R + P * entry.mul_scalar_full;
+        updated_state.msm_accumulator = R + P * entry.mul_scalar_full; // Figure out why we don't use endomorphism here
     }
 
     /**

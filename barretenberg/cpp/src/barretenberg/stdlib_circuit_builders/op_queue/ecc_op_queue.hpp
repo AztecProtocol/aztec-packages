@@ -10,12 +10,17 @@ namespace bb {
 
 /**
  * @brief Used to construct execution trace representations of elliptic curve operations.
- * @details Constructs and stores tables of ECC operations in two formats: the ECCVM format and the
- * Ultra-arithmetization (width-4) format. The ECCVM format is used to construct the execution trace for the ECCVM
- * circuit, while the Ultra-arithmetization is used in the Mega circuits and the Translator VM. Both tables are
- * constructed via successive pre-pending of subtables of the same format, where each subtable represents the operations
- * of a single circuit.
- * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possiblπe efficiency improvements
+ * @details Constructs and stores tables of ECC operations in two formats: the ECCVM format (width-6, 1 row) and the
+ * Ultra-arithmetization (width-4, 2 rows) format. The ECCVM format is used to construct the execution trace for the
+ * ECCVM circuit, while the Ultra-arithmetization is used in the Mega circuits and the Translator VM (caveat, Translator
+ * uses ECCVM format and redundantly retransforms in ultra ops: add issue). Both tables are constructed via successive
+ * pre-pending of subtables of the same format, where each subtable represents the operations of a single circuit.
+ *
+ * When an MSM is encountered in the stdlib universe, instead of creating constraints for the MSM, it is granularly
+ * split into addition and multiplications that are sent to the op queue. The op queue is responsible for natively
+ * performing the computation (so the wires can be populated with the correct results) and converting these operations
+ * in ultra and eccvm format, storing them in two different tables.
+ * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
 class ECCOpQueue {
     using Curve = curve::BN254;
@@ -207,6 +212,8 @@ class ECCOpQueue {
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
+
+        // Why would ECCVM ever allow only one of theste to be true rather than always having them be true together? o.O
 
         // Store eccvm operation
         append_eccvm_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });

@@ -89,6 +89,9 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
+/***
+ * @brief A table of ECC operations represented in the Eccvm format.
+ */
 using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
 
 /**

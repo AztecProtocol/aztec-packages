@@ -1,7 +1,7 @@
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+`#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
-using namespace bb;
+    using namespace bb;
 
 class ECCOpQueueTest {
   public:
@@ -97,4 +97,16 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
         ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
         check_table_column_polynomials(op_queue);
     }
+}
+
+TEST(ECCOpQueueTest, ConsistencyChecks)
+{
+    // Compute a simple point accumulation natively
+    auto P1 = G1::random_element();
+    auto P2 = G1::random_element();
+    auto z = Fr::random_element();
+    auto P_expected = P1 + P2 * z;
+
+    ECCOpQueue op_queue;
+    op_queue.add_accumulate(P1);
 }

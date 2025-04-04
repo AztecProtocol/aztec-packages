@@ -87,6 +87,7 @@ class EccvmRowTracker {
     {
         num_transcript_rows++;
         if (op.mul) {
+            // We add two ops for effici
             if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
                 cached_active_msm_count++;
             }

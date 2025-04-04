@@ -114,18 +114,23 @@ class GoblinProver {
                                      const fq& evaluation_challenge_x,
                                      const std::shared_ptr<Transcript>& transcript)
     {
-        auto T_last = op_queue->construct_previous_ultra_ops_table_columns();
-        for (size_t i = 0; i < 50; ++i) {
-            info(T_last[0][i]);
-        }
+        auto T_last = op_queue->construct_ultra_ops_table_columns();
+        info("T last[0] size ", T_last[1].size());
+        auto merge_op = T_last[3];
         PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
         auto translator_builder =
             std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
         translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
         translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
-        info("op wire: ", get_translator_proving_key()->polynomials.op.size());
-        for (size_t i = 0; i < 50; ++i) {
-            info(get_translator_proving_key()->polynomials.op[i]);
+        auto op_wire = get_translator_proving_key()->polynomials.y_lo_z_2;
+        info("op wire size: ", op_wire.size());
+        size_t up_to = merge_op.size() < op_wire.size() ? merge_op.size() : op_wire.size();
+        for (size_t i = 0; i < up_to; ++i) {
+            info("merge_op[", i, "] = ", merge_op[i], " op_wire[", i, "] = ", op_wire[i]);
+        }
+        info("contonue looking at op wire");
+        for (size_t i = 610; i < 800; ++i) {
+            info(" op_wire[", i, "] = ", op_wire[i]);
         }
 
         eccvm_prover = nullptr;
