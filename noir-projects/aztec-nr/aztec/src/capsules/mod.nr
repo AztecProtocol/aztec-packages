@@ -91,7 +91,7 @@ mod test {
     global SLOT: Field = 1230;
 
     unconstrained fn setup() -> AztecAddress {
-        TestEnvironment::new().unkonstrained().this_address()
+        TestEnvironment::new().utility().this_address()
     }
 
     #[test]

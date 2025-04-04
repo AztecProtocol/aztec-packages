@@ -49,12 +49,12 @@ You can use `npx aztec-spartan [start/stop/logs/update]` to start, stop, output 
 :::note
 The above deploy script will connect your node to the p2p network where it will register peers and start receiving messages from other nodes on the network. You will not be in the validator set just yet.
 
-Once you connect and begin to see gossiped messages such as attestations, proposals etc notify notify a team member and they will add you to the validator set.
+Once you connect and begin to see gossiped messages such as attestations, proposals etc notify a team member and they will add you to the validator set.
 :::
 
 ## Node Configuration
 
-The `aztec-spartan.sh` script will set the following required variables on your behalf. You can ofcourse override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-spartan.sh`
+The `aztec-spartan.sh` script will set the following required variables on your behalf. You can of course override the variables set by the script by simply changing the `.env` file directly and re-running `./aztec-spartan.sh`
 
 | Variable       | Description                                                                                                                            |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------- |

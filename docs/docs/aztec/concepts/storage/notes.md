@@ -36,7 +36,7 @@ In some cases, if you know the recipient off-chain, you might choose to share th
 
 If you create a note for yourself, you don’t need to broadcast it to the network or share anything. You will only need to keep the note somewhere, such as in your PXE, so you can prove ownership and spend it in future transactions.
 
-## Abstracting notes from from apps & users
+## Abstracting notes from apps & users
 
 When using the Aztec protocol, users may not be aware of the specific notes that they own. Their experience should be similar to Ethereum, and should instead see the amount of their assets inside their account.
 
