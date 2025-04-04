@@ -25,6 +25,14 @@ For this reason you need to apply #[utility] macro to functions which were origi
     }
 ```
 
+With this change the `UnconstrainedContext` has been renamed as `UtilityContext`.
+This led us to rename the `unkonstrained` method on `TestEnvironment` as `utility` so you will need to update your tests using that:
+
+```diff
+-     SharedMutable::new(env.unkonstrained(), storage_slot)
++     SharedMutable::new(env.utility(), storage_slot)
+```
+
 ## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
