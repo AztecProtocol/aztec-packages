@@ -248,9 +248,10 @@ done
     - -c
     - |
       # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
-      if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
-        echo "Registry address and bootstrap nodes already set, skipping wait for services"
-        echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
+      if [ -n "{{ .Values.aztec.contracts.rollupAddress }}" ]; then
+        echo "Rollup address already set, skipping..."
+        echo "ROLLUP_CONTRACT_ADDRESS={{ .Values.aztec.contracts.rollupAddress }}" >> /shared/contracts/contracts.env
+        exit 0
       else
         source /shared/config/service-addresses
         cat /shared/config/service-addresses
