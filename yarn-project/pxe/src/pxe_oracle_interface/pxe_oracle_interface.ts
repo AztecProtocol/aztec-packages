@@ -732,17 +732,20 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     return new LogWithTxData(trimmedLog, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
-  // TODO(#12553): nuke this as part of tackling that issue. This function is no longer unit tested as I had to remove
-  // it from pxe_oracle_interface.test.ts when moving decryption to Noir (at that point we could not get a hold of
-  // the decrypted note in the test as TS decryption no longer existed).
   public async removeNullifiedNotes(contractAddress: AztecAddress) {
     this.log.verbose('Searching for nullifiers of known notes', { contract: contractAddress });
+
+    // We avoid making node queries at 'latest' since we mark notes as nullified only if the corresponding nullifier
+    // has been included in a block up to which PXE has synced. Note that while this technically results in historical
+    // queries, we perform it at the latest locally synced block number which *should* be recent enough to be
+    // available, even for non-archive nodes.
+    const syncedBlockNumber = await this.syncDataProvider.getBlockNumber();
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
-        'latest',
+        syncedBlockNumber,
         MerkleTreeId.NULLIFIER_TREE,
         nullifiersToCheck,
       );
