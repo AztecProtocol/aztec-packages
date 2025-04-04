@@ -1,5 +1,6 @@
 ---
 title: Defining Functions
+sidebar_position: 2
 tags: [functions]
 ---
 
