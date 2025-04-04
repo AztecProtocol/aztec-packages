@@ -98,6 +98,7 @@ export class EpochCache implements EpochCacheInterface {
     const l1RollupConstants: L1RollupConstants = {
       l1StartBlock,
       l1GenesisTime,
+      proofSubmissionWindow: config.aztecProofSubmissionWindow,
       slotDuration: config.aztecSlotDuration,
       epochDuration: config.aztecEpochDuration,
       ethereumSlotDuration: config.ethereumSlotDuration,
