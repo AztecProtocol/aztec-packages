@@ -792,7 +792,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
       const { result } = await validator.validateTx(tx);
-      return { name, isValid: result === 'valid', severity };
+      return { name, isValid: result !== 'invalid', severity };
     });
 
     // A promise that resolves when all validations have been run
