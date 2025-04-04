@@ -1,5 +1,5 @@
 use crate::{
-    context::{PrivateContext, UnconstrainedContext},
+    context::{PrivateContext, UtilityContext},
     note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions},
     oracle::random::random,
     state_vars::private_set::PrivateSet,
@@ -23,10 +23,8 @@ unconstrained fn in_private(
     PrivateSet::new(&mut env.private(), storage_slot)
 }
 
-unconstrained fn in_unconstrained(
-    env: TestEnvironment,
-) -> PrivateSet<MockNote, UnconstrainedContext> {
-    PrivateSet::new(env.unkonstrained(), storage_slot)
+unconstrained fn in_unconstrained(env: TestEnvironment) -> PrivateSet<MockNote, UtilityContext> {
+    PrivateSet::new(env.utility(), storage_slot)
 }
 
 #[test]
