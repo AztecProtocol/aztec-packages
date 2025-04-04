@@ -45,7 +45,8 @@ abstract contract BaseHonkVerifier is IVerifier {
     error ShpleminiFailed();
 
     // Number of field elements in a ultra honk  proof
-    uint256 constant PROOF_SIZE = 440;
+    uint256 constant PROOF_SIZE = 456;
+    uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
@@ -57,7 +58,7 @@ abstract contract BaseHonkVerifier is IVerifier {
 
         Honk.VerificationKey memory vk = loadVerificationKey();
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
-        if (publicInputs.length != vk.publicInputsSize) {
+        if (publicInputs.length != vk.publicInputsSize - PAIRING_POINT_OBJECT_LENGTH) {
             revert PublicInputsLengthWrong();
         }
 
