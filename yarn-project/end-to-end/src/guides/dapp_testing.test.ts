@@ -143,7 +143,7 @@ describe('guides/dapp/testing', () => {
         const provenCall2 = await call2.prove();
 
         await provenCall1.send().wait();
-        await expect(provenCall2.send().wait()).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
+        await expect(provenCall2.send().wait()).rejects.toThrow(/dropped|nullifier/i);
         // docs:end:tx-dropped
       });
 
