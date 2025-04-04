@@ -57,6 +57,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) override;
     world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) override;
+    void append_leaves(world_state::MerkleTreeId tree_id, const FF& leaf) override;
 
     void create_checkpoint() override;
     void commit_checkpoint() override;
@@ -94,6 +95,8 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map<SequentialInsertHintNullifierTreeKey,
                        SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
+    using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, FF>;
+    unordered_flat_map<AppendLeavesHintKey, AppendOnlyTreeSnapshot> append_leaves_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
