@@ -11,6 +11,7 @@ import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdli
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
@@ -555,6 +556,77 @@ describe('PXEOracleInterface', () => {
       // Verify note was removed
       const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
       expect(notes).toHaveLength(0);
+    });
+
+    // Verifies that notes are only accepted from blocks that have been synced by PXE. We mock
+    // `AztecNode.findLeavesIndexes` to only return the note hash in blocks beyond our current
+    // sync point, and then we check that the function correctly throws.
+    it('should reject notes that exist only in unsynced future blocks', async () => {
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const syncedBlockNumber = 100;
+      await setSyncedBlockNumber(syncedBlockNumber);
+
+      // Mock note only exists in blocks after synced block
+      aztecNode.findLeavesIndexes.mockImplementation((blockNum, treeId, leaves) => {
+        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
+          if (typeof blockNum === 'number' && blockNum > syncedBlockNumber) {
+            return Promise.resolve([randomInBlock(0n)]);
+          }
+        }
+        return Promise.resolve([undefined]);
+      });
+
+      await expect(
+        pxeOracleInterface.deliverNote(
+          contractAddress,
+          storageSlot,
+          nonce,
+          content,
+          noteHash,
+          nullifier,
+          txHash,
+          recipient.address,
+        ),
+      ).rejects.toThrow(/not present on the tree/);
+    });
+
+    // Verifies that notes are not marked as nullified when their nullifier only exists in blocks that haven't been
+    // synced yet. We mock the note to exist in a synced block but its nullifier to only exist in future blocks, then
+    // verify the note can still be obtained as active.
+    it('should not remove note if nullifier only exists in unsynced blocks', async () => {
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+      const syncedBlockNumber = 100;
+      await setSyncedBlockNumber(syncedBlockNumber);
+
+      // Mock note exists in synced blocks but nullifier only exists after
+      aztecNode.findLeavesIndexes.mockImplementation((blockNum, treeId, leaves) => {
+        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
+          return Promise.resolve([randomInBlock(0n)]);
+        }
+        if (treeId === MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
+          if (typeof blockNum === 'number' && blockNum > syncedBlockNumber) {
+            return Promise.resolve([randomInBlock(0n)]);
+          }
+        }
+        return Promise.resolve([undefined]);
+      });
+
+      await pxeOracleInterface.deliverNote(
+        contractAddress,
+        storageSlot,
+        nonce,
+        content,
+        noteHash,
+        nullifier,
+        txHash,
+        recipient.address,
+      );
+
+      // Verify note was stored and not removed
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address, status: NoteStatus.ACTIVE });
+      expect(notes).toHaveLength(1);
+      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
     });
   });
 
