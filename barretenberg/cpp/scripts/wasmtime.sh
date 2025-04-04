@@ -2,7 +2,7 @@
 # Helper for passing environment variables to wasm and common config.
 # Allows accessing ~/.bb-crs and ./ (more can be added as parameters to this script).
 set -eu
-wasmtime run \
+exec wasmtime run \
   -Wthreads=y \
   -Sthreads=y \
   --env HARDWARE_CONCURRENCY \

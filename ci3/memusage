@@ -26,42 +26,39 @@ set -eu
 
 memory_output_file="${MEMUSAGE_OUT:-&2}"
 
-# check input
-[[ $# -gt 0 ]] || { sed -n '2,/^#$/ s/^# //p' <"$0"; exit 1; }
-
-export pgid=$(ps -o pgid= $$)
-echo "HEY"
-# make sure we're in a separate process group
-if [[ "$pgid" == "$(ps -o pgid= $(ps -o ppid= $$))" ]]; then
-  echo "HEYO"
-  exec setsid "$0" "$@"
-fi
-
-# detect operating system and prepare measurement
+# detect OS-specific ps command
 case $(uname) in
-  Darwin|*BSD) sizes() { /bin/ps -o rss= -g $1; } ;;
-  Linux) sizes() { /bin/ps -o rss= -$1; } ;;
-  *) echo "$(uname): unsupported operating system" >&2; exit 2 ;;
+  Darwin|*BSD) function sizes { /bin/ps -o rss= -g $1; } ;;
+  Linux) function sizes { /bin/ps -o rss= $1; } ;;
+  *) echo "$(uname): unsupported OS" >&2; exit 2 ;;
 esac
 
-# monitor the memory usage in the background.
-function monitor {
-  local peak=0
-  while sizes=$(sizes $pgid)
-  do
-    set -- $sizes
-    echo "HEYB"
-    sample=$((${@/#/+}))
-    let peak="sample > peak ? sample : peak"
-    sleep 1
+# run the target command in the background in its own process group
+setsid "$@" &
+cmd_pid=$!
+sleep 1 # wait for the command to get a process group
+cmd_pgid=$(ps -o pgid= $cmd_pid)
+
+# start monitoring in background
+(
+  peak=0
+  while kill -0 "$cmd_pid" 2>/dev/null && sizes_out=$(sizes "$cmd_pgid"); do
+    sample=$(echo "$sizes_out" | awk '{sum += $1} END {print sum}')
+    if [[ -n "$sample" && "$sample" -gt "$peak" ]]; then
+      peak=$sample
+    fi
+    sleep 0.1
   done
-  echo "$((peak / 1024))" | tee "$memory_output_file"
-}
-monpid=$!
+  echo "$((peak / 1024))" > "$memory_output_file"
+) &
+monitor_pid=$!
+trap "kill -- -$cmd_pgid &>/dev/null || true" EXIT SIGINT
 
-export -f monitor
+# wait for command, save its exit code
+wait "$cmd_pid"
+exit_code=$?
 
-# run the given command as well as bash -c "$*" with parallel
-parallel --line-buffer --tag bash -c ::: \
-  "monitor" \
-  "$*"
+# clean up monitor
+wait "$monitor_pid"
+
+exit "$exit_code"
