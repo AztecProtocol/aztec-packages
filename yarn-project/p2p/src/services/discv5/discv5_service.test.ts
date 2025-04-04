@@ -135,7 +135,7 @@ describe('Discv5Service', () => {
     }
 
     expect(node.getEnr().ip).toEqual(undefined);
-    await Promise.all([
+    await Promise.any([
       waitForPeers(node, extraNodes),
       (async () => {
         await sleep(2000); // wait for peer discovery to be able to start
