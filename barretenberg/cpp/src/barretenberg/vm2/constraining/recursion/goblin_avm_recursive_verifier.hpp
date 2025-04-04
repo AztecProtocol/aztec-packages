@@ -65,6 +65,14 @@ class AvmGoblinRecursiveVerifier {
         stdlib::recursion::aggregation_state<stdlib::bn254<UltraBuilder>> aggregation_object;
     };
 
+    struct InnerCircuitOutput {
+        HonkProof mega_proof;
+        GoblinProof goblin_proof;
+        std::shared_ptr<MegaFlavor::VerificationKey> mega_vk;
+        GoblinVerifier::VerifierInput goblin_vk;
+        size_t mega_hash_public_input_index;
+    };
+
     std::vector<UltraFF> outer_key_fields;
 
     UltraBuilder& ultra_builder;
@@ -80,12 +88,7 @@ class AvmGoblinRecursiveVerifier {
                                           AggregationObject input_agg_obj) const
     {
         using FF = AvmRecursiveFlavor::FF;
-        using AvmRecursiveVerifier = AvmRecursiveVerifier_<AvmRecursiveFlavor>;
-        using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-        using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
-        using MegaProver = UltraProver_<MegaFlavor>;
         using MegaRecursiveFlavorForUltraCircuit = MegaRecursiveFlavor_<UltraCircuitBuilder>;
-        using MegaVerificationKey = MegaFlavor::VerificationKey;
         using MegaRecursiveVerificationKey = MegaRecursiveFlavorForUltraCircuit::VerificationKey;
         // A MegaHonk recursive verifier arithmetized with Ultra
         using MegaRecursiveVerifier =
@@ -106,13 +109,89 @@ class AvmGoblinRecursiveVerifier {
         std::vector<UltraFF> ultra_hash_buffer;
 
         // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
+        auto populate_ultra_hash_buffer = [&](const std::vector<UltraFF>& ultra_object) {
+            std::vector<FF> mega_object;
+            for (const UltraFF& ultra_element : ultra_object) {
+                ultra_hash_buffer.emplace_back(ultra_element);
+            }
+        };
+
+        // Convert the stdlib Ultra proof, public inputs, and VK to stdlib Mega counterparts and add them to the
+        // respective hash buffers.
+        populate_ultra_hash_buffer(stdlib_proof);
+        for (const std::vector<UltraFF>& input_vec : public_inputs) {
+            populate_ultra_hash_buffer(input_vec);
+        }
+        populate_ultra_hash_buffer(outer_key_fields);
+
+        InnerCircuitOutput inner_output = construct_inner_circuit(stdlib_proof, public_inputs, input_agg_obj);
+
+        // STEP 4: Recursively verify the Mega and Goblin proofs {\pi_M, \pi_G} in the outer (Ultra) circuit
+
+        // Recursively verify the Mega proof in the Ultra circuit
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
+
+        auto outer_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, inner_output.mega_vk);
+        MegaRecursiveVerifier outer_verifier(&ultra_builder, outer_vk);
+        StdlibProof<UltraBuilder> ultra_proof =
+            bb::convert_native_proof_to_stdlib(&ultra_builder, inner_output.mega_proof);
+        auto outer_verifier_output = outer_verifier.verify_proof(ultra_proof, input_agg_obj);
+
+        // Recursively verify the goblin proof in the Ultra circuit
+
+        GoblinRecursiveVerifier gverifier{ &ultra_builder, inner_output.goblin_vk };
+        GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(inner_output.goblin_proof);
+
+        // Propagate the IPA claim via the public inputs of the outer circuit
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity to
+        // handle this IPA data propagation.
+        ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
+        ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
+        ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
+
+        // STEP 5: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner
+        // (Mega) circuit and the outer (Ultra) by asserting equality on the hash of this data computed independently by
+        // each circuit.
+
+        auto ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, ultra_hash_buffer);
+        ultra_proof[inner_output.mega_hash_public_input_index].assert_equal(ultra_hash);
+
+        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
+        RecursiveAvmGoblinOutput result{ .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
+                                         .ipa_claim = goblin_verifier_output.opening_claim,
+                                         .aggregation_object = outer_verifier_output.agg_obj };
+        return result;
+    }
+
+    InnerCircuitOutput construct_inner_circuit(const StdlibProof<UltraBuilder>& stdlib_proof,
+                                               const std::vector<std::vector<UltraFF>>& public_inputs,
+                                               [[maybe_unused]] AggregationObject input_agg_obj) const
+    {
+        using FF = AvmRecursiveFlavor::FF;
+        using AvmRecursiveVerifier = AvmRecursiveVerifier_<AvmRecursiveFlavor>;
+        using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
+        using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+        using MegaProver = UltraProver_<MegaFlavor>;
+        using MegaVerificationKey = MegaFlavor::VerificationKey;
+
+        // STEP 1: To establish consistency of the proof, public inputs and VK for the AVM2 between the inner (Mega)
+        // circuit and the outer (Ultra) circuit, each circuit computes a hash of these components and consistency is
+        // checked on the result. The corresponding hash buffers are constructed here.
+
+        // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
+        GoblinProver goblin;
+        MegaBuilder mega_builder(goblin.op_queue);
+
+        // Buffers to be hashed containing the elements of the Mega and Ultra proof, public inputs, and VK
+        std::vector<FF> mega_hash_buffer;
+
+        // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
         auto convert_stdlib_ultra_to_stdlib_mega = [&](const std::vector<UltraFF>& ultra_object) {
             std::vector<FF> mega_object;
             for (const UltraFF& ultra_element : ultra_object) {
                 FF mega_element = FF::from_witness(&mega_builder, ultra_element.get_value());
                 mega_object.emplace_back(mega_element);
                 mega_hash_buffer.emplace_back(mega_element);
-                ultra_hash_buffer.emplace_back(ultra_element);
             }
             return mega_object;
         };
@@ -130,7 +209,7 @@ class AvmGoblinRecursiveVerifier {
         // Compute the hash of the buffer in the Mega circuit and save its index within the public inputs
         auto mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
         const size_t mega_hash_public_input_index = mega_builder.public_inputs.size();
-        mega_input_hash.set_public(); // Add the hash result to the public inputs to propagate it to the outer circuit
+        mega_input_hash.set_public(); // Add the hash result to the public inputs to propagate it to the outer
 
         // STEP 2: Construct a Mega-arithmetized AVM2 recursive verifier circuit
 
@@ -159,37 +238,19 @@ class AvmGoblinRecursiveVerifier {
         // Recursively verify the Mega proof in the Ultra circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto native_outer_vk = std::make_shared<MegaVerificationKey>(mega_prover.proving_key->proving_key);
-        auto outer_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, native_outer_vk);
-        MegaRecursiveVerifier outer_verifier(&ultra_builder, outer_vk);
-        StdlibProof<UltraBuilder> ultra_proof = bb::convert_native_proof_to_stdlib(&ultra_builder, mega_proof);
-        auto outer_verifier_output = outer_verifier.verify_proof(ultra_proof, input_agg_obj);
 
         // Recursively verify the goblin proof in the Ultra circuit
         GoblinVerifier::VerifierInput goblin_vinput{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
                                                      std::make_shared<TranslatorVK>(
                                                          goblin.get_translator_proving_key()) };
-        GoblinRecursiveVerifier gverifier{ &ultra_builder, goblin_vinput };
-        GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(goblin_proof);
 
-        // Propagate the IPA claim via the public inputs of the outer circuit
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity to
-        // handle this IPA data propagation.
-        ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
-        ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
-        ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
-
-        // STEP 5: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner
-        // (Mega) circuit and the outer (Ultra) by asserting equality on the hash of this data computed independently by
-        // each circuit.
-
-        auto ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, ultra_hash_buffer);
-        ultra_proof[mega_hash_public_input_index].assert_equal(ultra_hash);
-
-        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
-        RecursiveAvmGoblinOutput result{ .ipa_proof = goblin_verifier_output.ipa_transcript->proof_data,
-                                         .ipa_claim = goblin_verifier_output.opening_claim,
-                                         .aggregation_object = outer_verifier_output.agg_obj };
-        return result;
+        return {
+            .mega_proof = mega_proof,
+            .goblin_proof = goblin_proof,
+            .mega_vk = native_outer_vk,
+            .goblin_vk = goblin_vinput,
+            .mega_hash_public_input_index = mega_hash_public_input_index,
+        };
     }
 };
 

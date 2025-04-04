@@ -168,9 +168,9 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
 
-    if (testing::skip_slow_tests()) {
-        GTEST_SKIP();
-    }
+    // if (testing::skip_slow_tests()) {
+    //     GTEST_SKIP();
+    // }
 
     NativeProofResult proof_result;
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
