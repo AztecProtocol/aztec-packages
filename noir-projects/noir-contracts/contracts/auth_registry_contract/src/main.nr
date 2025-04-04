@@ -6,7 +6,7 @@ pub contract AuthRegistry {
         assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
     };
     use dep::aztec::{
-        macros::{functions::{internal, private, public, view}, storage::storage},
+        macros::{functions::{internal, private, public, utility, view}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PublicMutable},
     };
@@ -128,10 +128,11 @@ pub contract AuthRegistry {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 
+    #[utility]
     unconstrained fn unconstrained_is_consumable(
         on_behalf_of: AztecAddress,
         message_hash: Field,
-    ) -> pub bool {
+    ) -> bool {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 }

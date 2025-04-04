@@ -9,6 +9,9 @@ export type SafeJsonRpcClientOptions = {
   namespaceMethods?: string | false;
   fetch?: JsonRpcFetch;
   log?: Logger;
+  proxy?: {
+    [key: string]: any;
+  };
   onResponse?: (res: {
     response: any;
     headers: { get: (header: string) => string | null | undefined };

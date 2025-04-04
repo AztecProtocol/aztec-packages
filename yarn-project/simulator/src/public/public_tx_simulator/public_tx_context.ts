@@ -10,7 +10,13 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import { type AvmCircuitPublicInputs, AvmExecutionHints, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import {
+  type AvmCircuitPublicInputs,
+  AvmExecutionHints,
+  AvmTxHint,
+  PublicDataWrite,
+  RevertCode,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -105,7 +111,7 @@ export class PublicTxContext {
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // We wrap the DB to collect AVM hints.
-    const hints = new AvmExecutionHints();
+    const hints = new AvmExecutionHints(AvmTxHint.fromTx(tx));
     const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
     const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
 

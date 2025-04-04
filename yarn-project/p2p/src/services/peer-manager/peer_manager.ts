@@ -45,7 +45,11 @@ export class PeerManager {
   private trustedPeersInitialized: boolean = false;
 
   private metrics: PeerManagerMetrics;
-  private discoveredPeerHandler;
+  private handlers: {
+    handleConnectedPeerEvent: (e: CustomEvent<PeerId>) => void;
+    handleDisconnectedPeerEvent: (e: CustomEvent<PeerId>) => void;
+    handleDiscoveredPeer: (enr: ENR) => Promise<void>;
+  } = {} as any;
 
   constructor(
     private libP2PNode: PubSubLibp2p,
@@ -58,17 +62,21 @@ export class PeerManager {
   ) {
     this.metrics = new PeerManagerMetrics(telemetryClient, 'PeerManager');
 
-    // Handle new established connections
-    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent.bind(this));
-    // Handle lost connections
-    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent.bind(this));
-
     // Handle Discovered peers
-    this.discoveredPeerHandler = (enr: ENR) =>
-      this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e));
+    this.handlers = {
+      handleConnectedPeerEvent: this.handleConnectedPeerEvent.bind(this),
+      handleDisconnectedPeerEvent: this.handleDisconnectedPeerEvent.bind(this),
+      handleDiscoveredPeer: (enr: ENR) =>
+        this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e)),
+    };
+
+    // Handle new established connections
+    this.libP2PNode.addEventListener(PeerEvent.CONNECTED, this.handlers.handleConnectedPeerEvent);
+    // Handle lost connections
+    this.libP2PNode.addEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
 
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
+    this.peerDiscoveryService.on(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
 
     // Display peer counts every 60 seconds
     this.displayPeerCountsPeerHeartbeat = Math.floor(60_000 / this.config.peerCheckIntervalMS);
@@ -538,15 +546,15 @@ export class PeerManager {
    */
   public async stop() {
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.discoveredPeerHandler);
+    this.peerDiscoveryService.off(PeerEvent.DISCOVERED, this.handlers.handleDiscoveredPeer);
 
     // Send goodbyes to all peers
     await Promise.all(
       this.libP2PNode.getPeers().map(peer => this.goodbyeAndDisconnectPeer(peer, GoodByeReason.SHUTDOWN)),
     );
 
-    this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handleConnectedPeerEvent);
-    this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handleDisconnectedPeerEvent);
+    this.libP2PNode.removeEventListener(PeerEvent.CONNECTED, this.handlers.handleConnectedPeerEvent);
+    this.libP2PNode.removeEventListener(PeerEvent.DISCONNECTED, this.handlers.handleDisconnectedPeerEvent);
   }
 }
 
