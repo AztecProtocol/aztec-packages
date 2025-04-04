@@ -23,7 +23,7 @@ unconstrained fn in_private(
     PrivateSet::new(&mut env.private(), storage_slot)
 }
 
-unconstrained fn in_unconstrained(env: TestEnvironment) -> PrivateSet<MockNote, UtilityContext> {
+unconstrained fn in_utility(env: TestEnvironment) -> PrivateSet<MockNote, UtilityContext> {
     PrivateSet::new(env.utility(), storage_slot)
 }
 
@@ -43,7 +43,7 @@ unconstrained fn get_empty() {
 unconstrained fn view_empty() {
     let mut env = setup();
 
-    let state_var = in_unconstrained(env);
+    let state_var = in_utility(env);
 
     let notes = state_var.view_notes(NoteViewerOptions::new());
     assert_eq(notes.len(), 0);
@@ -104,7 +104,7 @@ unconstrained fn insert_and_view_pending() {
     let mut env = setup();
     let note = insert_note(&mut env);
 
-    let state_var = in_unconstrained(env);
+    let state_var = in_utility(env);
 
     let notes = state_var.view_notes(NoteViewerOptions::new());
     assert_eq(notes.len(), 1);
@@ -138,7 +138,7 @@ unconstrained fn insert_pop_and_read_again_pending() {
     // Now that we've deleted the note, the oracle should know this and not return them any more.
     assert_eq(state_var.pop_notes(NoteGetterOptions::new()).len(), 0);
     assert_eq(state_var.get_notes(NoteGetterOptions::new()).len(), 0);
-    assert_eq(in_unconstrained(env).view_notes(NoteViewerOptions::new()).len(), 0);
+    assert_eq(in_utility(env).view_notes(NoteViewerOptions::new()).len(), 0);
 }
 
 #[test]
@@ -167,5 +167,5 @@ unconstrained fn insert_remove_and_read_again_pending() {
     // Now that we've deleted the notes, the oracle should know this and not return them any more.
     assert_eq(state_var.pop_notes(NoteGetterOptions::new()).len(), 0);
     assert_eq(state_var.get_notes(NoteGetterOptions::new()).len(), 0);
-    assert_eq(in_unconstrained(env).view_notes(NoteViewerOptions::new()).len(), 0);
+    assert_eq(in_utility(env).view_notes(NoteViewerOptions::new()).len(), 0);
 }
