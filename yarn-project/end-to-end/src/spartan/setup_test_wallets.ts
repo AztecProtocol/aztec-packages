@@ -84,7 +84,7 @@ export async function deployTestWalletWithTokens(
     fundedAccounts.map(async (a, i) => {
       const wallet = await a.getWallet();
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claims[i]);
-      await a.deploy({ fee: { paymentMethod } }).wait();
+      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 120 });
       logger.info(`Account deployed at ${a.getAddress()}`);
       return wallet;
     }),
