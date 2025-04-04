@@ -18,12 +18,12 @@ describe('e2e_pending_note_hashes_contract', () => {
   let teardown: () => Promise<void>;
   let contract: PendingNoteHashesContract;
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     ({ teardown, aztecNode, wallet, logger, pxe } = await setup(2));
     owner = wallet.getAddress();
   });
 
-  afterEach(() => teardown());
+  afterAll(() => teardown());
 
   const expectNoteHashesSquashedExcept = async (exceptFirstFew: number) => {
     const blockNum = await aztecNode.getBlockNumber();

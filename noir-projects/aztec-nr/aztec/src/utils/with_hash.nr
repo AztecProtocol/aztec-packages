@@ -1,5 +1,5 @@
 use crate::{
-    context::{PublicContext, UnconstrainedContext},
+    context::{PublicContext, UtilityContext},
     history::public_storage::PublicStorageHistoricalRead,
     oracle,
 };
@@ -43,8 +43,8 @@ where
         context.storage_read(storage_slot)
     }
 
-    pub unconstrained fn unconstrained_public_storage_read(
-        context: UnconstrainedContext,
+    pub unconstrained fn utility_public_storage_read(
+        context: UtilityContext,
         storage_slot: Field,
     ) -> T {
         context.storage_read(storage_slot)
