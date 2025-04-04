@@ -192,14 +192,14 @@ TEST(UpdateCheckConstrainingTest, UpdateMetadataDecomposition)
 
 TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
 {
-    // hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_is_zero * (1 - update_pre_class_inv) +
-    // update_pre_class_inv) - 1 + update_pre_class_is_zero)
+    // hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_id_is_zero * (1 - update_pre_class_inv) +
+    // update_pre_class_inv) - 1 + update_pre_class_id_is_zero)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
             { C::update_check_update_preimage_pre_class_id, 27 },
-            { C::update_check_update_pre_class_is_zero, 0 },
+            { C::update_check_update_pre_class_id_is_zero, 0 },
             { C::update_check_update_pre_class_inv, FF(27).invert() },
         },
     });
@@ -207,7 +207,7 @@ TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
     check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_PRE_CLASS_IS_ZERO);
 
     // Negative test - Lie about it being zero
-    trace.set(C::update_check_update_pre_class_is_zero, 0, 1);
+    trace.set(C::update_check_update_pre_class_id_is_zero, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_PRE_CLASS_IS_ZERO),
@@ -216,14 +216,14 @@ TEST(UpdateCheckConstrainingTest, UpdatePreClassIsZero)
 
 TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 {
-    // hash_not_zero * (update_preimage_post_class_id * (update_post_class_is_zero * (1 - update_post_class_inv) +
-    // update_post_class_inv) - 1 + update_post_class_is_zero)
+    // hash_not_zero * (update_preimage_post_class_id * (update_post_class_id_is_zero * (1 - update_post_class_inv) +
+    // update_post_class_inv) - 1 + update_post_class_id_is_zero)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
             { C::update_check_hash_not_zero, 1 },
             { C::update_check_update_preimage_post_class_id, 27 },
-            { C::update_check_update_post_class_is_zero, 0 },
+            { C::update_check_update_post_class_id_is_zero, 0 },
             { C::update_check_update_post_class_inv, FF(27).invert() },
         },
     });
@@ -231,7 +231,7 @@ TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
     check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_POST_CLASS_IS_ZERO);
 
     // Negative test - Lie about it being zero
-    trace.set(C::update_check_update_post_class_is_zero, 0, 1);
+    trace.set(C::update_check_update_post_class_id_is_zero, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_UPDATE_POST_CLASS_IS_ZERO),
@@ -240,8 +240,8 @@ TEST(UpdateCheckConstrainingTest, UpdatePostClassIsZero)
 
 TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 {
-    // hash_not_zero * block_number_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class_id) *
-    // update_pre_class_is_zero + update_preimage_pre_class_id - current_class_id)
+    // hash_not_zero * block_number_is_lt_block_of_change * (original_class_id * update_pre_class_id_is_zero +
+    // update_preimage_pre_class_id - current_class_id)
     TestTraceContainer trace({
         {
             { C::precomputed_first_row, 1 },
@@ -249,7 +249,7 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
             { C::update_check_block_number_is_lt_block_of_change, 1 },
             { C::update_check_original_class_id, 42 },
             { C::update_check_update_preimage_pre_class_id, 27 },
-            { C::update_check_update_pre_class_is_zero, 0 },
+            { C::update_check_update_pre_class_id_is_zero, 0 },
             { C::update_check_current_class_id, 27 },
         },
     });
@@ -257,7 +257,8 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
     check_relation<update_check_relation>(trace, update_check_relation::SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT);
 
     // Negative test - should use original class id
-    trace.set(C::update_check_update_pre_class_is_zero, 0, 1);
+    trace.set(C::update_check_update_pre_class_id_is_zero, 0, 1);
+    trace.set(C::update_check_update_preimage_pre_class_id, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_FUTURE_UPDATE_CLASS_ID_ASSIGNMENT),
@@ -270,8 +271,8 @@ TEST(UpdateCheckConstrainingTest, FutureUpdateClassIdAssignment)
 
 TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
 {
-    // hash_not_zero * (1 - block_number_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class_id) *
-    // update_post_class_is_zero + update_preimage_post_class_id - current_class_id)
+    // hash_not_zero * (1 - block_number_is_lt_block_of_change) * (original_class_id * update_post_class_id_is_zero +
+    // update_preimage_post_class_id - current_class_id)
 
     TestTraceContainer trace({
         {
@@ -280,7 +281,7 @@ TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
             { C::update_check_block_number_is_lt_block_of_change, 0 },
             { C::update_check_original_class_id, 42 },
             { C::update_check_update_preimage_post_class_id, 27 },
-            { C::update_check_update_post_class_is_zero, 0 },
+            { C::update_check_update_post_class_id_is_zero, 0 },
             { C::update_check_current_class_id, 27 },
         },
     });
@@ -288,7 +289,8 @@ TEST(UpdateCheckConstrainingTest, PastUpdateClassIdAssignment)
     check_relation<update_check_relation>(trace, update_check_relation::SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT);
 
     // Negative test - should use original class id
-    trace.set(C::update_check_update_post_class_is_zero, 0, 1);
+    trace.set(C::update_check_update_post_class_id_is_zero, 0, 1);
+    trace.set(C::update_check_update_preimage_post_class_id, 0, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
         check_relation<update_check_relation>(trace, update_check_relation::SR_PAST_UPDATE_CLASS_ID_ASSIGNMENT),

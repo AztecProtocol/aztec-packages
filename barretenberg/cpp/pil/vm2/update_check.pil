@@ -137,22 +137,22 @@ namespace update_check;
     hash_not_zero { block_of_change_subtraction, block_number_bit_size }
     in range_check.sel { range_check.value, range_check.rng_chk_bits };
 
-    pol commit update_pre_class_is_zero;
-    update_pre_class_is_zero * (1 - update_pre_class_is_zero) = 0;
+    pol commit update_pre_class_id_is_zero;
+    update_pre_class_id_is_zero * (1 - update_pre_class_id_is_zero) = 0;
     pol commit update_pre_class_inv;
     #[UPDATE_PRE_CLASS_IS_ZERO]
-    hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_is_zero) = 0;
+    hash_not_zero * (update_preimage_pre_class_id * (update_pre_class_id_is_zero * (1 - update_pre_class_inv) + update_pre_class_inv) - 1 + update_pre_class_id_is_zero) = 0;
 
-    pol commit update_post_class_is_zero;
-    update_post_class_is_zero * (1 - update_post_class_is_zero) = 0;
+    pol commit update_post_class_id_is_zero;
+    update_post_class_id_is_zero * (1 - update_post_class_id_is_zero) = 0;
     pol commit update_post_class_inv;
     #[UPDATE_POST_CLASS_IS_ZERO]
-    hash_not_zero * (update_preimage_post_class_id * (update_post_class_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_is_zero) = 0;
+    hash_not_zero * (update_preimage_post_class_id * (update_post_class_id_is_zero * (1 - update_post_class_inv) + update_post_class_inv) - 1 + update_post_class_id_is_zero) = 0;
 
     // If update hasn't applied yet, then the class id should be the pre_class_id == 0 ? original_class_id : pre_class_id
     #[FUTURE_UPDATE_CLASS_ID_ASSIGNMENT]
-    hash_not_zero * block_number_is_lt_block_of_change * ((original_class_id - update_preimage_pre_class_id) * update_pre_class_is_zero + update_preimage_pre_class_id - current_class_id) = 0;
+    hash_not_zero * block_number_is_lt_block_of_change * (original_class_id * update_pre_class_id_is_zero + update_preimage_pre_class_id - current_class_id) = 0;
 
     // Else, the post_class_id == 0 ? original_class_id : post_class_id
     #[PAST_UPDATE_CLASS_ID_ASSIGNMENT]
-    hash_not_zero * (1 - block_number_is_lt_block_of_change) * ((original_class_id - update_preimage_post_class_id) * update_post_class_is_zero + update_preimage_post_class_id - current_class_id) = 0;
+    hash_not_zero * (1 - block_number_is_lt_block_of_change) * (original_class_id * update_post_class_id_is_zero + update_preimage_post_class_id - current_class_id) = 0;

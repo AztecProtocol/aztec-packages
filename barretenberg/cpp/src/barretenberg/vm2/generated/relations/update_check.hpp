@@ -139,8 +139,8 @@ template <typename FF_> class update_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_update_pre_class_is_zero *
-                       (FF(1) - new_term.update_check_update_pre_class_is_zero);
+            auto tmp = new_term.update_check_update_pre_class_id_is_zero *
+                       (FF(1) - new_term.update_check_update_pre_class_id_is_zero);
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
@@ -148,18 +148,18 @@ template <typename FF_> class update_checkImpl {
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp =
                 new_term.update_check_hash_not_zero * ((new_term.update_check_update_preimage_pre_class_id *
-                                                            (new_term.update_check_update_pre_class_is_zero *
+                                                            (new_term.update_check_update_pre_class_id_is_zero *
                                                                  (FF(1) - new_term.update_check_update_pre_class_inv) +
                                                              new_term.update_check_update_pre_class_inv) -
                                                         FF(1)) +
-                                                       new_term.update_check_update_pre_class_is_zero);
+                                                       new_term.update_check_update_pre_class_id_is_zero);
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_update_post_class_is_zero *
-                       (FF(1) - new_term.update_check_update_post_class_is_zero);
+            auto tmp = new_term.update_check_update_post_class_id_is_zero *
+                       (FF(1) - new_term.update_check_update_post_class_id_is_zero);
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
@@ -167,34 +167,30 @@ template <typename FF_> class update_checkImpl {
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp =
                 new_term.update_check_hash_not_zero * ((new_term.update_check_update_preimage_post_class_id *
-                                                            (new_term.update_check_update_post_class_is_zero *
+                                                            (new_term.update_check_update_post_class_id_is_zero *
                                                                  (FF(1) - new_term.update_check_update_post_class_inv) +
                                                              new_term.update_check_update_post_class_inv) -
                                                         FF(1)) +
-                                                       new_term.update_check_update_post_class_is_zero);
+                                                       new_term.update_check_update_post_class_id_is_zero);
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
         { // FUTURE_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.update_check_hash_not_zero * new_term.update_check_block_number_is_lt_block_of_change *
-                (((new_term.update_check_original_class_id - new_term.update_check_update_preimage_pre_class_id) *
-                      new_term.update_check_update_pre_class_is_zero +
-                  new_term.update_check_update_preimage_pre_class_id) -
-                 new_term.update_check_current_class_id);
+            auto tmp = new_term.update_check_hash_not_zero * new_term.update_check_block_number_is_lt_block_of_change *
+                       ((new_term.update_check_original_class_id * new_term.update_check_update_pre_class_id_is_zero +
+                         new_term.update_check_update_preimage_pre_class_id) -
+                        new_term.update_check_current_class_id);
             tmp *= scaling_factor;
             std::get<17>(evals) += typename Accumulator::View(tmp);
         }
         { // PAST_UPDATE_CLASS_ID_ASSIGNMENT
             using Accumulator = typename std::tuple_element_t<18, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.update_check_hash_not_zero *
-                (FF(1) - new_term.update_check_block_number_is_lt_block_of_change) *
-                (((new_term.update_check_original_class_id - new_term.update_check_update_preimage_post_class_id) *
-                      new_term.update_check_update_post_class_is_zero +
-                  new_term.update_check_update_preimage_post_class_id) -
-                 new_term.update_check_current_class_id);
+            auto tmp = new_term.update_check_hash_not_zero *
+                       (FF(1) - new_term.update_check_block_number_is_lt_block_of_change) *
+                       ((new_term.update_check_original_class_id * new_term.update_check_update_post_class_id_is_zero +
+                         new_term.update_check_update_preimage_post_class_id) -
+                        new_term.update_check_current_class_id);
             tmp *= scaling_factor;
             std::get<18>(evals) += typename Accumulator::View(tmp);
         }

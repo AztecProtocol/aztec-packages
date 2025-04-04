@@ -24,11 +24,11 @@ void UpdateCheckTraceBuilder::process(
                                              ? (update_block_of_change - 1 - event.current_block_number)
                                              : (event.current_block_number - update_block_of_change);
 
-        bool update_pre_class_is_zero = event.update_preimage_pre_class_id == 0;
-        FF update_pre_class_inv = update_pre_class_is_zero ? 0 : event.update_preimage_pre_class_id.invert();
+        bool update_pre_class_id_is_zero = event.update_preimage_pre_class_id == 0;
+        FF update_pre_class_inv = update_pre_class_id_is_zero ? 0 : event.update_preimage_pre_class_id.invert();
 
-        bool update_post_class_is_zero = event.update_preimage_post_class_id == 0;
-        FF update_post_class_inv = update_post_class_is_zero ? 0 : event.update_preimage_post_class_id.invert();
+        bool update_post_class_id_is_zero = event.update_preimage_post_class_id == 0;
+        FF update_post_class_inv = update_post_class_id_is_zero ? 0 : event.update_preimage_post_class_id.invert();
 
         trace.set(row,
                   { { { C::update_check_sel, 1 },
@@ -57,9 +57,9 @@ void UpdateCheckTraceBuilder::process(
                       { C::update_check_block_number_bit_size, BLOCK_NUMBER_BIT_SIZE },
                       { C::update_check_block_number_is_lt_block_of_change, block_number_is_lt_block_of_change },
                       { C::update_check_block_of_change_subtraction, block_of_change_subtraction },
-                      { C::update_check_update_pre_class_is_zero, update_pre_class_is_zero },
+                      { C::update_check_update_pre_class_id_is_zero, update_pre_class_id_is_zero },
                       { C::update_check_update_pre_class_inv, update_pre_class_inv },
-                      { C::update_check_update_post_class_is_zero, update_post_class_is_zero },
+                      { C::update_check_update_post_class_id_is_zero, update_post_class_id_is_zero },
                       { C::update_check_update_post_class_inv, update_post_class_inv } } });
         row++;
     }
