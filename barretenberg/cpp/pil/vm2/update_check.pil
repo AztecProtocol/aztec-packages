@@ -97,6 +97,7 @@ namespace update_check;
     // ======== BLOCK OF CHANGE READ ========
 
     // Block of change is the last 32 bits of the update metadata
+    // update_metadata = (update_hi_metadata: u112 << 32) + update_block_of_change: u32
     pol commit update_block_of_change;
     pol commit update_hi_metadata;
     pol TWO_POW_32 = 4294967296;
