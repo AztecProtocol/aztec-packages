@@ -17,7 +17,6 @@ spec:
     matchLabels:
       app: {{- include "aztec-network.selectorLabels" . | nindent 6 }}
       app: bot
-  {{- if not .Values.storage.localSsd }}
   volumeClaimTemplates:
     - metadata:
         name: bot-data
@@ -26,7 +25,6 @@ spec:
         resources:
           requests:
             storage: {{ .Values.bot.storageSize }}
-  {{- end }}
   template:
     metadata:
       labels:
@@ -63,14 +61,9 @@ spec:
             defaultMode: 0755
         - name: scripts-output
           emptyDir: {}
-      {{- if .Values.storage.localSsd }}
-        - name: bot-data
-          emptyDir: {}
-      {{ else }}
         - name: bot-data
           persistentVolumeClaim:
             claimName: bot-data
-      {{- end }}
       terminationGracePeriodSeconds: 5  # default is 30 - speed up initcontainer termination
       initContainers:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
