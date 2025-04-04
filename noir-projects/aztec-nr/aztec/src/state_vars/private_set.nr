@@ -1,4 +1,4 @@
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     constants::MAX_NOTES_PER_PAGE,
     lifecycle::{create_note, destroy_note_unsafe},
@@ -15,6 +15,8 @@ use dep::protocol_types::{
     abis::read_request::ReadRequest, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL,
     traits::Packable,
 };
+
+mod test;
 
 // docs:start:struct
 pub struct PrivateSet<Note, Context> {
@@ -104,7 +106,7 @@ where
     }
 }
 
-impl<Note> PrivateSet<Note, UnconstrainedContext>
+impl<Note> PrivateSet<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + Eq,
 {

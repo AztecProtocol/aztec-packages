@@ -436,5 +436,16 @@ void pow_bench(State& state) noexcept
 }
 BENCHMARK(pow_bench);
 
+void hash_bench(State& state) noexcept
+{
+    for (auto _ : state) {
+        state.PauseTiming();
+        fr a = fr::random_element();
+        state.ResumeTiming();
+        DoNotOptimize(std::hash<fr>{}(a));
+    }
+}
+BENCHMARK(hash_bench);
+
 // NOLINTNEXTLINE macro invokation triggers style guideline errors from googletest code
 BENCHMARK_MAIN();

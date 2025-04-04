@@ -352,7 +352,7 @@ The `register`, `broadcast_unconstrained_function`, and `broadcast_private_funct
 
 To encode the bytecode into a fixed-length array of Fields, the bytecode is first split into 31-byte chunks, and each chunk interpreted big-endian as a field element. The total length in bytes is then prepended as an initial element, and then right-padded with zeroes.
 
-The log itself is prepended by the address of the contract that emitted it. This is not stictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
+The log itself is prepended by the address of the contract that emitted it. This is not strictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
 
 ```
 chunks = chunk bytecode into 31 bytes elements, last element right-padded with zeroes

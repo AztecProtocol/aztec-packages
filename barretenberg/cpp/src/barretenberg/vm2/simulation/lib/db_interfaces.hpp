@@ -58,6 +58,7 @@ class HighLevelMerkleDBInterface {
 
     virtual const TreeSnapshots& get_tree_roots() const = 0;
     virtual FF storage_read(const FF& key) const = 0;
+    virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 
 } // namespace bb::avm2::simulation
