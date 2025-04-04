@@ -757,7 +757,8 @@ class ECCVMFlavor {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025): make it so that PCSs inform the crs of
             // how many points they need
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(ECCVM_FIXED_SIZE + 1);
-            this->circuit_size = CONST_ECCVM_LOG_N;
+            this->circuit_size = 1UL << CONST_ECCVM_LOG_N;
+            this->log_circuit_size = CONST_ECCVM_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
