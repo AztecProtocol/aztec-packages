@@ -1,7 +1,6 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
-import { SerialQueue } from '@aztec/foundation/queue';
 import type { PublicProcessorFactory, PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { ValidatorClient } from '@aztec/validator-client';
