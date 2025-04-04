@@ -112,7 +112,7 @@ A successful run should show something like this:
   enr: undefined,
   nodeVersion: '0.82.0',
   l1ChainId: 31337,
-  protocolVersion: 1,
+  rollupVersion: 1,
   l1ContractAddresses: {
     rollupAddress: EthAddress<0x759f145841f36282f23e0935697c7b2e00401902>,
     registryAddress: EthAddress<0xd5448148ccca5b2f27784c72265fc37201741778>,
@@ -198,7 +198,7 @@ We can see that each account has the expected balance of tokens.
 
 ### Calling an unconstrained (view) function
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="@site/static/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
 
 ## Create and submit a transaction
 

@@ -5,7 +5,6 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
-  AvmEnqueuedCallHint,
   AvmExecutionHints,
   type AvmProvingRequest,
   type RevertCode,
@@ -25,9 +24,10 @@ import { strict as assert } from 'assert';
 
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmPersistableStateManager, AvmSimulator } from '../avm/index.js';
-import { NullifierCollisionError } from '../avm/journal/nullifiers.js';
+import { AvmSimulator } from '../avm/index.js';
 import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { NullifierCollisionError } from '../state_manager/nullifiers.js';
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
 
 export type ProcessedPhase = {
@@ -71,6 +71,7 @@ export class PublicTxSimulator {
       const txHash = await this.computeTxHash(tx);
 
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
+
       const context = await PublicTxContext.create(
         this.treesDB,
         this.contractsDB,
@@ -264,18 +265,7 @@ export class PublicTxSimulator {
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
-    // The reason we need enqueued hints at all (and cannot just use the public inputs) is
-    // because they don't have the actual calldata, just the hash of it.
-    // If/when we pass the whole TX to C++, we can remove this class of hints.
     stateManager.traceEnqueuedCall(callRequest.request);
-    context.hints.enqueuedCalls.push(
-      new AvmEnqueuedCallHint(
-        callRequest.request.msgSender,
-        contractAddress,
-        callRequest.calldata,
-        callRequest.request.isStaticCall,
-      ),
-    );
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
@@ -313,7 +303,7 @@ export class PublicTxSimulator {
    * @returns The result of execution.
    */
   protected async simulateEnqueuedCallInternal(
-    stateManager: AvmPersistableStateManager,
+    stateManager: PublicPersistableStateManager,
     { request, calldata }: PublicCallRequestWithCalldata,
     allocatedGas: Gas,
     transactionFee: Fr,

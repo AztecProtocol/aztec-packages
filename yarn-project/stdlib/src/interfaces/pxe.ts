@@ -129,7 +129,7 @@ export interface PXE {
 
   /**
    * Proves the private portion of a simulated transaction, ready to send to the network
-   * (where valiators prove the public portion).
+   * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
@@ -264,19 +264,18 @@ export interface PXE {
   getCurrentBaseFees(): Promise<GasFees>;
 
   /**
-   * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
-   * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
-   * The function takes function name and arguments as parameters, along with the contract address
-   * and optionally the sender's address.
+   * Simulate the execution of a contract utility function.
    *
-   * @param functionName - The name of the function to be called in the contract.
+   * @param functionName - The name of the utility contract function to be called.
    * @param args - The arguments to be provided to the function.
    * @param to - The address of the contract to be called.
+   * @param authwits - (Optional) The authentication witnesses required for the function call.
    * @param from - (Optional) The msg sender to set for the call.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The result of the view function call, structured based on the function ABI.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
+   * default to all.
+   * @returns The result of the utility function call, structured based on the function ABI.
    */
-  simulateUnconstrained(
+  simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -313,7 +312,7 @@ export interface PXE {
 
   /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
-   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * L1 chain identifier, rollup version, and L1 address of the rollup contract.
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
@@ -491,7 +490,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(z.union([L2Block.schema, z.undefined()])),
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
-  simulateUnconstrained: z
+  simulateUtility: z
     .function()
     .args(
       z.string(),

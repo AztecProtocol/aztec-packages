@@ -2,14 +2,12 @@ import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/acco
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
-  AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
   type GlobalVariables,
-  L1EventPayload,
   type Logger,
   type PXE,
   TxStatus,
@@ -36,7 +34,7 @@ import {
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { Tx } from '@aztec/stdlib/tx';
+import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -371,7 +369,9 @@ describe('e2e_block_building', () => {
       it('private -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          TX_ERROR_EXISTING_NULLIFIER,
+        );
       });
 
       it('public -> public', async () => {
@@ -393,7 +393,9 @@ describe('e2e_block_building', () => {
       it('public -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          TX_ERROR_EXISTING_NULLIFIER,
+        );
       });
     });
   });
@@ -420,13 +422,27 @@ describe('e2e_block_building', () => {
     afterAll(() => teardown());
 
     it('calls a method with nested encrypted logs', async () => {
-      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
       const address = owner.address;
 
+      const values = {
+        value0: 5n,
+        value1: 4n,
+        value2: 3n,
+        value3: 2n,
+        value4: 1n,
+      };
+      const nestedValues = {
+        value0: 0n,
+        value1: 0n,
+        value2: 0n,
+        value3: 0n,
+        value4: 0n,
+      };
+
       // call test contract
-      const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
-      const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
-      const action = testContract.methods.emit_array_as_encrypted_log(values, address, address, true);
+      const valuesAsArray = Object.values(values);
+
+      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, address, address, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
@@ -436,16 +452,23 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], await thisWallet.getEncryptionSecret()))!;
-      expect(event0.event.items).toEqual(values);
-
-      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], await thisWallet.getEncryptionSecret()))!;
-      expect(event1.event.items).toEqual(nestedValues);
+      const events = await pxe.getPrivateEvents(
+        testContract.address,
+        TestContract.events.ExampleEvent,
+        rct.blockNumber!,
+        1,
+        [address],
+      );
+      expect(events[0]).toEqual(values);
+      expect(events[1]).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await poseidon2Hash([testContract.address, values[0]]);
-      expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
+      const expectedFirstField = await poseidon2Hash([testContract.address, valuesAsArray[0]]);
+      expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
+        expectedFirstField.toBigInt(),
+        ...valuesAsArray.slice(1),
+      ]);
     }, 60_000);
   });
 

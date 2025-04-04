@@ -418,7 +418,7 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return lowLeafResult.alreadyPresent ? preimage.value : Fr.ZERO;
+    return lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
   }
 
   /**

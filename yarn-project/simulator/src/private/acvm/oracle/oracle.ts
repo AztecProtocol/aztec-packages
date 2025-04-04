@@ -372,8 +372,8 @@ export class Oracle {
     return [];
   }
 
-  async syncNotes(): Promise<ACVMField[]> {
-    await this.typedOracle.syncNotes();
+  async syncNotes([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.syncNotes(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 
@@ -398,7 +398,7 @@ export class Oracle {
       fromBoundedVec(content, contentLength),
       Fr.fromString(noteHash),
       Fr.fromString(nullifier),
-      Fr.fromString(txHash),
+      TxHash.fromString(txHash),
       AztecAddress.fromString(recipient),
     );
 

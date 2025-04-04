@@ -18,7 +18,7 @@ test_hash=$(hash_str_orig "$test_cmd")
 if [ "$USE_TEST_CACHE" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
-    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+    log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
     exit 0
   fi
@@ -33,6 +33,7 @@ export VERBOSE=1
 tmp_file=/tmp/$key
 # Print test metadata header.
 cat <<EOF >$tmp_file
+Parent Log: ${PARENT_LOG_URL:-none}
 Command: $cmd
 Commit: https://github.com/AztecProtocol/aztec-packages/commit/$COMMIT_HASH
 Env: REF_NAME=$REF_NAME CURRENT_VERSION=$CURRENT_VERSION CI_FULL=$CI_FULL
@@ -62,7 +63,7 @@ function live_publish_log {
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
-  log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+  log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
 
   if [ "$CI" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
@@ -80,9 +81,14 @@ else
   timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 fi
 timeout_pid=$!
-trap "kill -- -$timeout_pid" SIGTERM SIGINT
+trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
+
+# If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
+if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+  exit $code
+fi
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
@@ -106,12 +112,13 @@ fi
 function track_test {
   local test_hash=$1
   local line=$2
-  if [ "$REF_NAME" != "master" ]; then
-    return
+
+  # We track tests in CI, and only on master or master merge queue.
+  if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
+    redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+    # Keeps only the last 1000 lines.
+    redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
   fi
-  redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-  # Keeps only the last 1000 lines.
-  redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
 }
 
 # Show PASSED and early out on success.
@@ -124,12 +131,14 @@ function pass {
 
 # Show FAILED and exit with error code.
 function fail {
-  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)"
+  local line="${red}FAILED${reset}${log_info:-}: $test_cmd (${SECONDS}s) (code: $code)${1:-}"
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
-  cat $tmp_file
-  echo -e "$line"
+  if [ -t 1 ]; then
+    cat $tmp_file
+    echo -e "$line"
+  fi
   exit $code
 }
 
@@ -140,7 +149,7 @@ function flake {
   track_test "failed_tests" "$line"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
     return
   fi
 
@@ -173,7 +182,8 @@ function get_owners {
     # If error_regex is present, check the log content.
     if [ -n "$error_regex" ]; then
       # Strip color codes from the log file.
-      if sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' $tmp_file | grep -qE "$error_regex"; then
+      # Do *not* use a pipe here. grep -q will exit immediately on first match and break the pipe.
+      if grep -qE "$error_regex" <(sed 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$tmp_file"); then
         echo "$entry" | jq -r '.owners[]'
       fi
     else

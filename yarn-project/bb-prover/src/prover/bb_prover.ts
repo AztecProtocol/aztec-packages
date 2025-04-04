@@ -69,7 +69,7 @@ import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { assert } from 'console';
+import assert from 'assert';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -80,6 +80,7 @@ import {
   BB_RESULT,
   PROOF_FIELDS_FILENAME,
   PROOF_FILENAME,
+  PUBLIC_INPUTS_FILENAME,
   VK_FILENAME,
   generateAvmProof,
   generateProof,
@@ -386,7 +387,8 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const verificationKey = this.getVerificationKeyDataForCircuit('RootRollupArtifact');
 
     await this.verifyProof('RootRollupArtifact', proof);
-
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13188): Remove this hack.
+    recursiveProof.binaryProof.numPublicInputs += AGGREGATION_OBJECT_LENGTH;
     return makePublicInputsAndRecursiveProof(circuitOutput, recursiveProof, verificationKey);
   }
 
@@ -473,15 +475,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         convertOutput,
         bbWorkingDirectory,
       );
-
-      // Read the binary proof
-      const rawProof = await fs.readFile(`${provingResult.proofPath!}/${PROOF_FILENAME}`);
       const vkData = this.getVerificationKeyDataForCircuit(circuitType);
-      const proof = new Proof(rawProof, vkData.numPublicInputs);
+      const proof = await this.readProofAsFields(provingResult.proofPath!, vkData, RECURSIVE_PROOF_LENGTH);
+
       const circuitName = mapProtocolArtifactNameToCircuitName(circuitType);
 
       this.instrumentation.recordDuration('provingDuration', circuitName, provingResult.durationMs);
-      this.instrumentation.recordSize('proofSize', circuitName, proof.buffer.length);
+      this.instrumentation.recordSize('proofSize', circuitName, proof.binaryProof.buffer.length);
       this.instrumentation.recordSize('circuitPublicInputCount', circuitName, vkData.numPublicInputs);
       this.instrumentation.recordSize('circuitSize', circuitName, vkData.circuitSize);
 
@@ -489,7 +489,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         circuitName,
         // does not include reading the proof from disk
         duration: provingResult.durationMs,
-        proofSize: proof.buffer.length,
+        proofSize: proof.binaryProof.buffer.length,
         eventName: 'circuit-proving',
         // circuitOutput is the partial witness that became the input to the proof
         inputSize: output.toBuffer().length,
@@ -497,7 +497,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
         numPublicInputs: vkData.numPublicInputs,
       } satisfies CircuitProvingStats);
 
-      return { circuitOutput: output, proof };
+      return { circuitOutput: output, proof: proof.binaryProof };
     };
     return await this.runInDirectory(operation);
   }
@@ -694,10 +694,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     verificationFunction: (proofPath: string, vkPath: string) => Promise<BBFailure | BBSuccess>,
   ) {
     const operation = async (bbWorkingDirectory: string) => {
+      const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-
-      await fs.writeFile(proofFileName, proof.buffer);
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
+      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
       const result = await verificationFunction(proofFileName, verificationKeyPath!);
@@ -731,10 +733,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     vkData: VerificationKeyData,
     proofLength: PROOF_LENGTH,
   ): Promise<RecursiveProof<PROOF_LENGTH>> {
+    const publicInputsFilename = path.join(filePath, PUBLIC_INPUTS_FILENAME);
     const proofFilename = path.join(filePath, PROOF_FILENAME);
     const proofFieldsFilename = path.join(filePath, PROOF_FIELDS_FILENAME);
 
-    const [binaryProof, proofString] = await Promise.all([
+    const [binaryPublicInputs, binaryProof, proofString] = await Promise.all([
+      fs.readFile(publicInputsFilename),
       fs.readFile(proofFilename),
       fs.readFile(proofFieldsFilename, { encoding: 'utf-8' }),
     ]);
@@ -742,18 +746,34 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const json = JSON.parse(proofString);
 
     let numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    assert(
+      proofLength == NESTED_RECURSIVE_PROOF_LENGTH || proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      `Proof length must be one of the expected proof lengths, received ${proofLength}`,
+    );
     if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
       numPublicInputs -= IPA_CLAIM_LENGTH;
     }
 
-    assert(json.length - numPublicInputs == proofLength, 'Proof length mismatch');
+    assert(json.length == proofLength, `Proof length mismatch: ${json.length} != ${proofLength}`);
 
-    const fieldsWithoutPublicInputs = json.slice(numPublicInputs).map(Fr.fromHexString);
+    const fieldsWithoutPublicInputs = json.map(Fr.fromHexString);
+
+    // Concat binary public inputs and binary proof
+    // This buffer will have the form: [binary public inputs, binary proof]
+    const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
     logger.debug(
-      `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProof.length}`,
+      `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProofWithPublicInputs.length}`,
     );
-
-    return new RecursiveProof(fieldsWithoutPublicInputs, new Proof(binaryProof, numPublicInputs), true, proofLength);
+    assert(
+      binaryProofWithPublicInputs.length == numPublicInputs * 32 + proofLength * 32,
+      `Proof length mismatch: ${binaryProofWithPublicInputs.length} != ${numPublicInputs * 32 + proofLength * 32}`,
+    );
+    return new RecursiveProof(
+      fieldsWithoutPublicInputs,
+      new Proof(binaryProofWithPublicInputs, numPublicInputs),
+      true,
+      proofLength,
+    );
   }
 
   private async readAvmProofAsFields(

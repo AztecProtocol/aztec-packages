@@ -23,7 +23,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, createP2PClient } from '@aztec/p2p';
+import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   GlobalVariableBuilder,
@@ -31,7 +31,6 @@ import {
   type SequencerPublisher,
   createSlasherClient,
   createValidatorForAcceptingTxs,
-  getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -185,7 +184,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const l1ContractsAddresses = await RegistryContract.collectAddresses(
       publicClient,
       config.l1Contracts.registryAddress,
-      config.version ?? 'canonical',
+      config.rollupVersion ?? 'canonical',
     );
 
     // Overwrite the passed in vars.
@@ -197,13 +196,13 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       client: publicClient,
     });
 
-    const versionFromRollup = Number(await rollup.read.getVersion());
+    const rollupVersionFromRollup = Number(await rollup.read.getVersion());
 
-    config.version ??= versionFromRollup;
+    config.rollupVersion ??= rollupVersionFromRollup;
 
-    if (config.version !== versionFromRollup) {
+    if (config.rollupVersion !== rollupVersionFromRollup) {
       log.warn(
-        `Registry looked up and returned a rollup with version (${config.version}), but this does not match with version detected from the rollup directly: (${versionFromRollup}).`,
+        `Registry looked up and returned a rollup with version (${config.rollupVersion}), but this does not match with version detected from the rollup directly: (${rollupVersionFromRollup}).`,
       );
     }
 
@@ -276,7 +275,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       sequencer,
       validatorsSentinel,
       ethereumChain.chainInfo.id,
-      config.version,
+      config.rollupVersion,
       new GlobalVariableBuilder(config),
       proofVerifier,
       telemetry,
@@ -325,20 +324,19 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-      await Promise.all([
-        this.getNodeVersion(),
-        this.getVersion(),
-        this.getChainId(),
-        this.getEncodedEnr(),
-        this.getL1ContractAddresses(),
-        this.getProtocolContractAddresses(),
-      ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.getNodeVersion(),
+      this.getVersion(),
+      this.getChainId(),
+      this.getEncodedEnr(),
+      this.getL1ContractAddresses(),
+      this.getProtocolContractAddresses(),
+    ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
-      protocolVersion,
+      rollupVersion,
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
@@ -465,13 +463,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    await this.txQueue
-      .put(async () => {
-        await this.#sendTx(tx);
-      })
-      .catch(error => {
-        this.log.error(`Error sending tx`, { error });
-      });
+    await this.txQueue.put(() => this.#sendTx(tx));
   }
 
   async #sendTx(tx: Tx) {
@@ -482,10 +474,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (valid.result !== 'valid') {
       const reason = valid.reason.join(', ');
       this.metrics.receivedTx(timer.ms(), false);
-      this.log.warn(`Invalid tx ${txHash}: ${reason}`, { txHash });
-      // TODO(#10967): Throw when receiving an invalid tx instead of just returning
-      // throw new Error(`Invalid tx: ${reason}`);
-      return;
+      this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
+      throw new Error(`Invalid tx: ${reason}`);
     }
 
     await this.p2pClient!.sendTx(tx);
@@ -909,7 +899,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       MerkleTreeId.PUBLIC_DATA_TREE,
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
-    return preimage.value;
+    return preimage.leaf.value;
   }
 
   /**
@@ -989,7 +979,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       blockNumber,
       l1ChainId: this.l1ChainId,
-      setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
+      rollupVersion: this.version,
+      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
       skipFeeEnforcement,
     });
