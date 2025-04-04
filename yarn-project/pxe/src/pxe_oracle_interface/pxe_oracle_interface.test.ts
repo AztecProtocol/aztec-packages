@@ -483,15 +483,10 @@ describe('PXEOracleInterface', () => {
 
     it('should store note if it exists in note hash tree and is not nullified', async () => {
       const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
-      const siloedNullifier = await siloNullifier(contractAddress, nullifier);
-
       // Mock note exists in tree
       aztecNode.findLeavesIndexes.mockImplementation((_blockNum, treeId, leaves) => {
         if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
           return Promise.resolve([randomInBlock(0n)]);
-        }
-        if (treeId === MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
-          return Promise.resolve([undefined]);
         }
         return Promise.resolve([undefined]);
       });
