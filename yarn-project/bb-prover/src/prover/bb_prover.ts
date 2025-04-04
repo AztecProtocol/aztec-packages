@@ -183,7 +183,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The proof.
    */
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
-    [Attributes.APP_CIRCUIT_NAME]: inputs.functionName,
+    [Attributes.APP_CIRCUIT_NAME]: inputs.hints.tx.hash,
   }))
   public async getAvmProof(
     inputs: AvmCircuitInputs,
@@ -503,12 +503,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
-    logger.info(`Proving avm-circuit for ${input.functionName}...`);
+    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
     const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate AVM proof for ${input.functionName}: ${provingResult.reason}`);
+      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -556,10 +556,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordAvmSize('circuitSize', appCircuitName, verificationKey.circuitSize);
 
       logger.info(
-        `Generated proof for ${circuitType}(${input.functionName}) in ${Math.ceil(provingResult.durationMs)} ms`,
+        `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
         {
           circuitName: circuitType,
-          appCircuitName: input.functionName,
+          appCircuitName: input.hints.tx.hash,
           // does not include reading the proof from disk
           duration: provingResult.durationMs,
           proofSize: avmProof.binaryProof.buffer.length,

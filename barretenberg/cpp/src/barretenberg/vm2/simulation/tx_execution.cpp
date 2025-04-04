@@ -5,7 +5,9 @@ namespace bb::avm2::simulation {
 
 void TxExecution::simulate(const Tx& tx)
 {
-    info("Simulating tx with ",
+    info("Simulating tx ",
+         tx.hash,
+         " with ",
          tx.setupEnqueuedCalls.size(),
          " setup enqueued calls, ",
          tx.appLogicEnqueuedCalls.size(),
