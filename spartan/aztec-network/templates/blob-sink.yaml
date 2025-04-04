@@ -37,7 +37,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.combinedWaitAndConfigureContainer" . | nindent 8 }}
+        {{- include "aztec-network.getRollupContractAddress" . | nindent 8 }}
       containers:
         - name: blob-sink
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -65,13 +65,12 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: contracts-env
+              mountPath: /shared/contracts
             - name: blob-sink-data
               mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
             - name: config
               mountPath: /shared/config
-            - name: contracts-env
-              mountPath: /shared/contracts/contracts.env
-              subPath: contracts.env
           env:
             - name: POD_IP
               valueFrom:
@@ -114,11 +113,11 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
             defaultMode: 0755
-        - name: config
-          emptyDir: {}
         - name: contracts-env
           emptyDir: {}
         - name: pxe-url
+          emptyDir: {}
+        - name: config
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: blob-sink-data

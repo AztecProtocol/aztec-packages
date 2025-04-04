@@ -1,0 +1,74 @@
+aztec:
+  slotDuration: 24
+  epochDuration: 4
+  proofSubmissionWindow: 8
+  realProofs: false
+
+ethereum:
+  acceleratedTestDeployments: true
+  blockTime: 8
+  execution:
+    resources:
+      requests:
+        cpu: "200m"
+      limits:
+        cpu: "200m"
+  beacon:
+    resources:
+      requests:
+        cpu: "200m"
+      limits:
+        cpu: "200m"
+  validator:
+    resources:
+      requests:
+        cpu: "200m"
+      limits:
+        cpu: "200m"
+
+telemetry:
+  enabled: true
+
+validator:
+  replicas: 80
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "1Gi"
+  validator:
+    disabled: false
+  sequencer:
+    enforceTimeTable: false
+    maxTxsPerBlock: 40
+
+fullNode:
+  replicas: 1
+  resources:
+    requests:
+      memory: "2Gi"
+      cpu: "200m"
+
+bot:
+  followChain: "PENDING"
+  enabled: true
+  txIntervalSeconds: 1
+
+bootNode:
+  resources:
+    requests:
+      cpu: "200m"
+
+proverAgent:
+  resources:
+    requests:
+      cpu: "200m"
+
+proverBroker:
+  resources:
+    requests:
+      cpu: "200m"
+
+proverNode:
+  resources:
+    requests:
+      cpu: "200m"

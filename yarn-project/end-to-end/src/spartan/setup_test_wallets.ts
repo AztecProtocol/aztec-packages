@@ -73,15 +73,18 @@ export async function deployTestWalletWithTokens(
     fundedAccounts.map(a => bridgeL1FeeJuice(l1RpcUrls, mnemonicOrPrivateKey, pxe, a.getAddress(), undefined, logger)),
   );
 
-  // Progress by 2 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+  // Progress by 3 L2 blocks so that the l1ToL2Message added above will be available to use on L2.
+  logger.info('advancing L2 blocks');
   await advanceL2Block(node);
   await advanceL2Block(node);
+  await advanceL2Block(node);
+  logger.info('L2 blocks advanced');
 
   const wallets = await Promise.all(
     fundedAccounts.map(async (a, i) => {
       const wallet = await a.getWallet();
       const paymentMethod = new FeeJuicePaymentMethodWithClaim(wallet, claims[i]);
-      await a.deploy({ fee: { paymentMethod } }).wait();
+      await a.deploy({ fee: { paymentMethod } }).wait({ timeout: 120 });
       logger.info(`Account deployed at ${a.getAddress()}`);
       return wallet;
     }),
