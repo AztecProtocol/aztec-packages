@@ -17,7 +17,8 @@ export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 export native_preset=${NATIVE_PRESET:-clang16-assert}
 export native_build_dir=$(scripts/cmake/preset-build-dir $native_preset)
 
-rm -rf bench-out/ivc && mkdir -p bench-out/ivc
+mkdir -p bench-out
+rm -rf bench-out/ivc-*
 
 function verify_ivc_flow {
   local flow="$1"
@@ -53,7 +54,7 @@ function run_bb_cli_bench {
     memusage "./$native_build_dir/bin/bb_cli_bench" \
       --benchmark_out=$output/op-counts.json \
       --benchmark_out_format=json || {
-      echo "bb_cli_bench failed with args: $args"
+      echo "bb_cli_bench native failed with args: $args"
       exit 1
     }
   else # wasm
@@ -63,7 +64,7 @@ function run_bb_cli_bench {
     memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
       --benchmark_out=$output/op-counts.json \
       --benchmark_out_format=json || {
-      echo "bb_cli_bench failed with args: $args"
+      echo "bb_cli_bench wasm failed with args: $args"
       exit 1
     }
   fi
@@ -76,7 +77,7 @@ function client_ivc_flow {
   local flow_folder="$input_folder/$flow"
   local start=$(date +%s%N)
 
-  local output="bench-out/$flow-proof-files"
+  local output="bench-out/ivc-$flow-$runtime"
   rm -rf "$output"
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
@@ -99,7 +100,7 @@ function client_ivc_flow {
   local runtime_suffix=""
   [[ "$runtime" == "wasm" ]] && runtime_suffix="-wasm"
 
-  cat > "./bench-out/ivc/$flow-ivc-$runtime.json" <<EOF
+  cat > "$output/benchmarks.json" <<EOF
   {
     "benchmarks": [
     {
@@ -145,5 +146,5 @@ fi
 mkdir -p "$benchmark_output"
 
 ../scripts/combine_benchmarks.py \
-  ./bench-out/ivc/*.json \
+  ./bench-out/*/benchmarks.json \
   > $benchmark_output/ivc-bench.json
