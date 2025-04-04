@@ -469,7 +469,7 @@ Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect 
 
 #### Running Realistic ClientIVC from barretenberg folder
 
-Realistic IVC inputs poses a problem as the only code to sequence them requires a full end to end run.
+Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
 One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
 `barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
 
