@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 pub contract Counter {
     // docs:end:setup
     // docs:start:imports
-    use aztec::macros::{functions::{initializer, private}, storage::storage};
+    use aztec::macros::{functions::{initializer, private, utility}, storage::storage};
     use aztec::prelude::{AztecAddress, Map};
     use aztec::protocol_types::traits::{FromField, ToField};
     use easy_private_state::EasyPrivateUint;
@@ -83,7 +83,8 @@ pub contract Counter {
     }
 
     // docs:start:get_counter
-    unconstrained fn get_counter(owner: AztecAddress) -> pub Field {
+    #[utility]
+    unconstrained fn get_counter(owner: AztecAddress) -> Field {
         let counters = storage.counters;
         balance_utils::get_balance(counters.at(owner).set)
     }

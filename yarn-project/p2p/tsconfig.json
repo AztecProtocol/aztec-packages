@@ -19,10 +19,16 @@
       "path": "../kv-store"
     },
     {
+      "path": "../noir-contracts.js"
+    },
+    {
       "path": "../noir-protocol-circuits-types"
     },
     {
       "path": "../protocol-contracts"
+    },
+    {
+      "path": "../simulator"
     },
     {
       "path": "../stdlib"

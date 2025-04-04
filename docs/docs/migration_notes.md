@@ -8,6 +8,33 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] #[utility] functions
+
+We've introduced a new type of contract function macro called #[utility].
+Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
+They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
+These function were originally referred to as top-level unconstrained.
+
+Now all the contract functions have to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
+For this reason you need to apply #[utility] macro to functions which were originally macro-free:
+
+```diff
++    #[utility]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+        storage.balances.at(owner).balance_of()
+    }
+```
+
+With this change the `UnconstrainedContext` has been renamed as `UtilityContext`.
+This led us to rename the `unkonstrained` method on `TestEnvironment` as `utility` so you will need to update your tests using that:
+
+```diff
+-     SharedMutable::new(env.unkonstrained(), storage_slot)
++     SharedMutable::new(env.utility(), storage_slot)
+```
+
+## 0.83.0
+
 ### [aztec.js] AztecNode.getPrivateEvents API change
 
 The `getPrivateEvents` method signature has changed to require an address of a contract that emitted the event and use recipient addresses instead of viewing public keys:
@@ -16,6 +43,19 @@ The `getPrivateEvents` method signature has changed to require an address of a c
 - const events = await wallet.getPrivateEvents<Transfer>(TokenContract.events.Transfer, 1, 1, [recipient.getCompleteAddress().publicKeys.masterIncomingViewingPublicKey()]);
 + const events = await wallet.getPrivateEvents<Transfer>(token.address, TokenContract.events.Transfer, 1, 1, [recipient.getAddress()]);
 ```
+
+### [portal contracts] Versions and Non-following message boxes
+
+The version number is no longer hard-coded to be `1` across all deployments (it not depends on where it is deployed to and with what genesis and logic).
+This means that if your portal were hard-coding `1` it will now fail when inserting into the `inbox` or consuming from the `outbox` because of a version mismatch.
+Instead you can get the real version (which don't change for a deployment) by reading the `VERSION` on inbox and outbox, or using `getVersion()` on the rollup.
+
+New Deployments of the protocol do not preserve former state/across each other.
+This means that after a new deployment, any "portal" following the registry would try to send messages into this empty rollup to non-existant contracts.
+To solve, the portal should be linked to a specific deployment, e.g., a specific inbox.
+This can be done by storing the inbox/outbox/version at the time of deployment or initialize and not update them.
+
+Both of these issues were in the token portal and the uniswap portal, so if you used them as a template it is very likely that you will also have it.
 
 ## 0.82.0
 
@@ -122,7 +162,6 @@ const witness = await wallet.createAuthWit({ caller, action });
 ### [PXE] Concurrent contract function simulation disabled
 
 PXE is no longer be able to execute contract functions concurrently (e.g. by collecting calls to `simulateTx` and then using `await Promise.all`). They will instead be put in a job queue and executed sequentially in order of arrival.
-
 
 ## 0.79.0
 

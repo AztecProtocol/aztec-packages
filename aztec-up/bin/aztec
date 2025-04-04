@@ -59,6 +59,9 @@ case ${1:-} in
     AZTEC_PORT=${AZTEC_PORT:-8080}
     export PORTS_TO_EXPOSE="$AZTEC_PORT:$AZTEC_PORT"
 
+    # Appends 8 char hex to avoid container name clashes
+    export CONTAINER_NAME=aztec-start-$(printf "%08x" $((RANDOM * RANDOM)))
+
     if [ "${2:-}" == "--sandbox" ]; then
       # TODO: This entire special case should go away.
       # Sandbox mode should start it's own anvil.

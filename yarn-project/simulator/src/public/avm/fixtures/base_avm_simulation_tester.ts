@@ -80,7 +80,7 @@ export abstract class BaseAvmSimulationTester {
     const feeJuiceContractClassPublic = {
       ...feeJuice.contractClass,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
     await this.contractDataSource.addNewContract(feeJuice.artifact, feeJuiceContractClassPublic, feeJuice.instance);
     return feeJuice.instance;
