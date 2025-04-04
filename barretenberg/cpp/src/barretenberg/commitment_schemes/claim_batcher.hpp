@@ -137,18 +137,11 @@ template <typename Curve> struct ClaimBatcher_ {
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
         auto aggregate_claim_data_and_update_batched_evaluation = [&](const Batch& batch, Fr& rho_power) {
-            // We know the size of the batch.commitments, so we can create vector of rho powers to avoid
-            // extra variables in the circuit
-            std::vector<Fr> rho_powers{ rho_power };
-            rho_powers.reserve(batch.commitments.size());
-            for (size_t i = 1; i < batch.commitments.size(); i++) {
-                rho_powers.emplace_back(rho_powers[i - 1] * rho);
-            }
-            ASSERT(batch.commitments.size() == batch.evaluations.size());
-            for (size_t i = 0; i < batch.commitments.size(); i++) {
-                commitments.emplace_back(std::move(batch.commitments[i]));
-                scalars.emplace_back(-batch.scalar * rho_powers[i]);
-                batched_evaluation += batch.evaluations[i] * rho_powers[i];
+            for (auto [commitment, evaluation]: zip_view(batch.commitments, batch.evaluations)) {
+                commitments.emplace_back(std::move(commitment));
+                scalars.emplace_back(-batch.scalar * rho_power);
+                batched_evaluation += evaluation * rho_power;
+                rho_power *= rho;
             }
         };
 
