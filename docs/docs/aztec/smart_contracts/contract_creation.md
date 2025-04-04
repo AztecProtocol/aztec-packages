@@ -136,7 +136,9 @@ Where new_delay is denominated in blocks. However, take into account that changi
 It can't be set lower than 25 blocks.
 
 When sending a transaction, the max_block_number of your TX will be the current block number you're simulating with + the minimum of the update delays that you're interacting with.
-If your TX interacts with a contract that can be upgraded in 30 blocks and another one that can be upgraded in 300 blocks, the max_block_number will be current block + 30.
+If your TX interacts with a contract that can be upgraded in 30 blocks and another one that can be upgraded in 300 blocks, the max_block_number will be current block + 29.
+Note that this can be even lower if there is an upgrade pending in one of the contracts you're interacting with.
+If the contract you interacted with will upgrade in 2 blocks, the max block number of your tx will be current + 1 blocks.
 Other SharedMutable storage variables read in your tx might reduce this max_block_number further.
 
 #### Upgrade Process
