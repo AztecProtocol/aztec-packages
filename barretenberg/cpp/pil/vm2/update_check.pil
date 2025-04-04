@@ -64,6 +64,7 @@ namespace update_check;
 
     pol commit shared_mutable_leaf_slot;
 
+    // Same as https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/stdlib/src/hash/hash.ts#L78
     #[SHARED_MUTABLE_LEAF_SLOT_POSEIDON2]
     sel { public_leaf_index_domain_separator, deployer_protocol_contract_address, shared_mutable_hash_slot, shared_mutable_leaf_slot }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
@@ -77,9 +78,10 @@ namespace update_check;
     pol commit update_hash_inv;
     pol commit hash_not_zero;
     hash_not_zero * (1 - hash_not_zero) = 0;
+    pol HASH_IS_ZERO = 1 - hash_not_zero;
 
     #[HASH_IS_ZERO_CHECK]
-    sel * (update_hash * ((1 - hash_not_zero) * (1 - update_hash_inv) + update_hash_inv) - 1 + (1 - hash_not_zero)) = 0;
+    update_hash * (HASH_IS_ZERO * (1 - update_hash_inv) + update_hash_inv) - 1 + HASH_IS_ZERO = 0;
 
     // Early return: If update hash is zero, then current_class_id must be original_class_id
     // Everything after this can be skipped if update hash is zero
@@ -100,7 +102,7 @@ namespace update_check;
     // update_metadata = (update_hi_metadata: u112 << 32) + update_block_of_change: u32
     pol commit update_block_of_change;
     pol commit update_hi_metadata;
-    pol TWO_POW_32 = 4294967296;
+    pol TWO_POW_32 = 2**32;
     // TODO: Remove this as a column when we can lookup with constants
     pol commit update_hi_metadata_bit_size;
     hash_not_zero * (constants.UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE - constants.BLOCK_NUMBER_BIT_SIZE - update_hi_metadata_bit_size) = 0;

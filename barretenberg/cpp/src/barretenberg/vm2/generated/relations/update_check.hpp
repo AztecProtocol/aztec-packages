@@ -12,7 +12,7 @@ template <typename FF_> class update_checkImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 5, 3, 3, 3,
+    static constexpr std::array<size_t, 19> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 3, 3, 3, 4, 3, 3, 3,
                                                                             2, 3, 4, 3, 5, 3, 5, 5, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
@@ -33,6 +33,7 @@ template <typename FF_> class update_checkImpl {
         const auto constants_UPDATES_SHARED_MUTABLE_VALUES_LEN = FF(3);
         const auto constants_UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE = FF(144);
         const auto constants_GENERATOR_INDEX__PUBLIC_LEAF_INDEX = FF(23);
+        const auto update_check_HASH_IS_ZERO = (FF(1) - new_term.update_check_hash_not_zero);
         const auto update_check_TWO_POW_32 = FF(4294967296UL);
         const auto update_check_BLOCKNUMBER_LT_BLOCK_OF_CHANGE =
             ((new_term.update_check_update_block_of_change - FF(1)) - new_term.update_check_block_number);
@@ -82,12 +83,11 @@ template <typename FF_> class update_checkImpl {
         }
         { // HASH_IS_ZERO_CHECK
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.update_check_sel *
-                       ((new_term.update_check_update_hash * ((FF(1) - new_term.update_check_hash_not_zero) *
-                                                                  (FF(1) - new_term.update_check_update_hash_inv) +
-                                                              new_term.update_check_update_hash_inv) -
+            auto tmp = ((new_term.update_check_update_hash *
+                             (update_check_HASH_IS_ZERO * (FF(1) - new_term.update_check_update_hash_inv) +
+                              new_term.update_check_update_hash_inv) -
                          FF(1)) +
-                        (FF(1) - new_term.update_check_hash_not_zero));
+                        update_check_HASH_IS_ZERO);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
