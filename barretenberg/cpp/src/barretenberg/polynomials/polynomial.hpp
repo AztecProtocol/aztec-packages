@@ -266,8 +266,11 @@ template <typename Fr> class Polynomial {
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
         ASSERT(virtual_size() >= MASKING_OFFSET);
         ASSERT(virtual_size() == end_index());
-        // Since `virtual_size() - i` entry of a 1-shiftable polynomial becomes `virtual_size() - i - 1` entry of its
-        // shift, we can only mask MASKING_OFFSET - 1 last entries of witness polynomials.
+        // Note that generally we can only mask MASKING_OFFSET - SHIFT_OFFSET last entries of witness polynomials.
+        // Explanation: let n = virtual_size() - 1, m = MASKING_OFFSET, and f any shiftable polynomial. If we randomize
+        // last m coefficients of f, any relation involving f and f_shift would break at row n - m - 1, as f_shift.at(n
+        // - m - 1) = f.at(n - m), whereas f.at(n - m - 1) is a genuinely computed value and the relation is not
+        // disabled at row n - m - 1.
         constexpr size_t SHIFT_OFFSET = 1;
         constexpr size_t NUM_ENTRIES_TO_MASK = MASKING_OFFSET - SHIFT_OFFSET;
 

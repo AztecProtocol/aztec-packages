@@ -45,19 +45,18 @@ template <typename Curve> class ShplonkProver_ {
                                                std::span<const ProverOpeningClaim<Curve>> libra_opening_claims,
                                                std::span<const ProverOpeningClaim<Curve>> sumcheck_round_claims)
     {
-        // Find n, the maximum size of all polynomials fⱼ(X)
+        // Find the maximum polynomial size among all claims to determine the dyadic size of the batched polynomial.
         size_t max_poly_size{ 0 };
 
-        if (!libra_opening_claims.empty()) {
-            // Max size of the polynomials in Libra opening claims is Curve::SUBGROUP_SIZE*2 + 2; we round it up to the
-            // next power of 2. In the case of BN254, `SUBGROUP_SIZE` is dyadic, hence we add 1 to get the next power
-            // of 2.
-            const size_t log_subgroup_size = static_cast<size_t>(numeric::get_msb(Curve::SUBGROUP_SIZE + 1));
-            max_poly_size = 1 << (log_subgroup_size + 1);
-        };
-        for (const auto& claim : opening_claims) {
-            max_poly_size = std::max(max_poly_size, claim.polynomial.size());
+        for (const auto& claim_set : { opening_claims, libra_opening_claims, sumcheck_round_claims }) {
+            for (const auto& claim : claim_set) {
+                max_poly_size = std::max(max_poly_size, claim.polynomial.size());
+            }
         }
+        // The polynomials in Sumcheck Round claims and Libra opening claims are generally not dyadic,
+        // so we round up to the next power of 2.
+        max_poly_size = numeric::round_up_power_2(max_poly_size);
+
         // Q(X) = ∑ⱼ νʲ ⋅ ( fⱼ(X) − vⱼ) / ( X − xⱼ )
         Polynomial Q(max_poly_size);
         Polynomial tmp(max_poly_size);
@@ -183,7 +182,7 @@ template <typename Curve> class ShplonkProver_ {
                 idx++;
             }
             // tmp = νʲ ⋅ ( fⱼ(X) − vⱼ) / ( z − xⱼ )
-            tmp = claim.polynomial;
+            tmp = std::move(claim.polynomial);
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
 
@@ -199,7 +198,7 @@ template <typename Curve> class ShplonkProver_ {
 
         for (const auto& claim : libra_opening_claims) {
             // Compute individual claim quotient tmp = ( fⱼ(X) − vⱼ) / ( X − xⱼ )
-            tmp = claim.polynomial;
+            tmp = std::move(claim.polynomial);
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
 
@@ -210,7 +209,7 @@ template <typename Curve> class ShplonkProver_ {
         }
 
         for (const auto& claim : sumcheck_opening_claims) {
-            tmp = claim.polynomial;
+            tmp = std::move(claim.polynomial);
             tmp.at(0) = tmp[0] - claim.opening_pair.evaluation;
             Fr scaling_factor = current_nu * inverse_vanishing_evals[idx]; // = νʲ / (z − xⱼ )
 
