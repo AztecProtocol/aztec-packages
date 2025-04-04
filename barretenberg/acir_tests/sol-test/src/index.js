@@ -229,7 +229,7 @@ try {
     "PUBLIC_INPUTS_AS_FIELDS"
   ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
   var publicInputs;
-  let proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
   if (proofAsFieldsPath) {
