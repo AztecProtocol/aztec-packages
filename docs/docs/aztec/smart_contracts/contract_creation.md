@@ -141,6 +141,8 @@ Note that this can be even lower if there is an upgrade pending in one of the co
 If the contract you interacted with will upgrade in 2 blocks, the max block number of your tx will be current + 1 blocks.
 Other SharedMutable storage variables read in your tx might reduce this max_block_number further.
 
+NOTE: Only deployed contract instances can upgrade or change its upgrade delay currently. This restriction might be lifted in the future.
+
 #### Upgrade Process
 
 1. **Register New Implementation**
