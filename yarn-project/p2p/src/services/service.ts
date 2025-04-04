@@ -98,6 +98,13 @@ export interface PeerDiscoveryService extends EventEmitter {
    */
   isBootstrapPeer(peerId: PeerId): boolean;
 
+  // TODO: could be removed by listening for the event within the discovery service??
+  /**
+   * Removes a bootstrap peer.
+   * @param peerId - The peer ID to remove.
+   */
+  removeBootstrapPeer(peerId: PeerId): Promise<void>;
+
   /**
    * Event emitted when a new peer is discovered.
    */
@@ -108,5 +115,5 @@ export interface PeerDiscoveryService extends EventEmitter {
 
   getEnr(): ENR | undefined;
 
-  bootstrapNodes: string[];
+  bootstrapNodeEnrs: ENR[];
 }
