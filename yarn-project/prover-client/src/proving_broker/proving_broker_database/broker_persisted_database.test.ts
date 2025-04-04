@@ -35,6 +35,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
       l1RpcUrls: [],
       l1ChainId: 42,
       viemPollingIntervalMS: 100,
+      rollupVersion: 42,
     };
     db = await KVBrokerDatabase.new(config);
   });
@@ -342,6 +343,7 @@ describe('ProvingBrokerPersistedDatabase', () => {
         l1RpcUrls: [],
         l1ChainId: 42,
         viemPollingIntervalMS: 100,
+        rollupVersion: 42,
       };
       db = await KVBrokerDatabase.new(config);
       commitSpy = jest.spyOn(db, 'commitWrites');

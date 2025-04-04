@@ -38,7 +38,7 @@ pub contract Test {
         history::note_inclusion::ProveNoteInclusion,
         macros::{
             events::event,
-            functions::{initializer, internal, noinitcheck, private, public},
+            functions::{initializer, internal, noinitcheck, private, public, utility},
             storage::storage,
         },
         note::{
@@ -193,7 +193,8 @@ pub contract Test {
         [retrieved_notes.get(0).note.value, retrieved_notes.get(1).note.value]
     }
 
-    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> pub Field {
+    #[utility]
+    unconstrained fn call_view_notes(storage_slot: Field, active_or_nullified: bool) -> Field {
         assert(
             storage_slot
                 != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
@@ -210,10 +211,11 @@ pub contract Test {
         notes.get(0).value
     }
 
+    #[utility]
     unconstrained fn call_view_notes_many(
         storage_slot: Field,
         active_or_nullified: bool,
-    ) -> pub [Field; 2] {
+    ) -> [Field; 2] {
         assert(
             storage_slot
                 != aztec::state_vars::storage::Storage::get_storage_slot(storage.example_constant),
@@ -453,6 +455,7 @@ pub contract Test {
         storage.example_constant.initialize(note).discard();
     }
 
+    #[utility]
     unconstrained fn deliver_note(
         contract_address: AztecAddress,
         value: Field,
@@ -518,7 +521,8 @@ pub contract Test {
         aztec_deploy_contract(&mut context, target);
     }
 
-    unconstrained fn get_constant() -> pub Field {
+    #[utility]
+    unconstrained fn get_constant() -> Field {
         let constant = storage.example_constant.view_note();
         constant.get_value()
     }

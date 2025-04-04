@@ -42,8 +42,8 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    */
   public override async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     // docs:end:create
-    if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
-      throw new Error("Can't call `create` on an unconstrained function.");
+    if (this.functionDao.functionType === FunctionType.UTILITY) {
+      throw new Error("Can't call `create` on a utility  function.");
     }
     const requestWithoutFee = await this.request(options);
 
@@ -88,15 +88,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Simulate a transaction and get its return values
    * Differs from prove in a few important ways:
    * 1. It returns the values of the function execution
-   * 2. It supports `unconstrained`, `private` and `public` functions
+   * 2. It supports `utility`, `private` and `public` functions
    *
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     // docs:end:simulate
-    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(
+    if (this.functionDao.functionType == FunctionType.UTILITY) {
+      return this.wallet.simulateUtility(
         this.functionDao.name,
         this.args,
         this.contractAddress,
@@ -139,8 +139,8 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: ProfileMethodOptions = { profileMode: 'gates' }): Promise<TxProfileResult> {
-    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      throw new Error("Can't profile an unconstrained function.");
+    if (this.functionDao.functionType == FunctionType.UTILITY) {
+      throw new Error("Can't profile a utility function.");
     }
     const { authWitnesses, capsules, fee } = options;
 

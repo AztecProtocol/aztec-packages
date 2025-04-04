@@ -5,11 +5,6 @@
 
 namespace bb::avm2::simulation {
 
-// Temporary.
-struct Tx {
-    std::vector<EnqueuedCallHint> enqueued_calls;
-};
-
 // In charge of executing a transaction.
 class TxExecution final {
   public:

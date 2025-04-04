@@ -1,12 +1,14 @@
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
+import { hash } from 'ohash';
 
+import type { Value } from '../interfaces/common.js';
 import type { AztecAsyncSingleton } from '../interfaces/singleton.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**
  * Stores a single value in IndexedDB.
  */
-export class IndexedDBAztecSingleton<T> implements AztecAsyncSingleton<T> {
+export class IndexedDBAztecSingleton<T extends Value> implements AztecAsyncSingleton<T> {
   #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #container: string;
@@ -38,6 +40,7 @@ export class IndexedDBAztecSingleton<T> implements AztecAsyncSingleton<T> {
       key: this.#slot,
       keyCount: 1,
       value: val,
+      hash: hash(val),
     });
     return result !== undefined;
   }

@@ -488,7 +488,7 @@ std::optional<T> WorldState::get_leaf(const WorldStateRevision& revision,
                     success = false;
                     error_msg = response.message;
                 } else {
-                    leaf = response.inner.indexed_leaf.value().value;
+                    leaf = response.inner.indexed_leaf.value().leaf;
                 }
                 signal.signal_level();
             };

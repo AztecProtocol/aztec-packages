@@ -10,6 +10,7 @@ import type {
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'public';
+export const AZTEC_UTILITY_ATTRIBUTE = 'utility';
 export const AZTEC_INTERNAL_ATTRIBUTE = 'internal';
 export const AZTEC_INITIALIZER_ATTRIBUTE = 'initializer';
 export const AZTEC_VIEW_ATTRIBUTE = 'view';
@@ -36,7 +37,7 @@ export interface NoirFunctionAbi {
 /**
  * The compilation result of an Aztec.nr function.
  */
-export interface NoirFunctionEntry {
+interface NoirFunctionEntry {
   /** The name of the function. */
   name: string;
   /** Whether the function is unconstrained. */

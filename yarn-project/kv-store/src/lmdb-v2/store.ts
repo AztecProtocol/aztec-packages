@@ -6,7 +6,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import { mkdir, rm } from 'fs/promises';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize } from '../interfaces/common.js';
+import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
@@ -102,19 +102,19 @@ export class AztecLMDBStoreV2 implements AztecAsyncKVStore, LMDBMessageChannel {
     return currentWrite;
   }
 
-  openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     return new LMDBMap(this, name);
   }
 
-  openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
     return new LMDBMultiMap(this, name);
   }
 
-  openSingleton<T>(name: string): AztecAsyncSingleton<T> {
+  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
     return new LMDBSingleValue(this, name);
   }
 
-  openArray<T>(name: string): AztecAsyncArray<T> {
+  openArray<T extends Value>(name: string): AztecAsyncArray<T> {
     return new LMDBArray(this, name);
   }
 

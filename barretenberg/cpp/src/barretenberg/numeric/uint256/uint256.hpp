@@ -14,6 +14,7 @@
 #include "../uint128/uint128.hpp"
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/utils.hpp"
 #include <concepts>
 #include <cstdint>
 #include <iomanip>
@@ -201,6 +202,8 @@ class alignas(32) uint256_t {
     uint64_t data[4]; // NOLINT
 
     [[nodiscard]] constexpr std::pair<uint256_t, uint256_t> divmod(const uint256_t& b) const;
+
+    size_t hash() const noexcept { return utils::hash_as_tuple(data[0], data[1], data[2], data[3]); }
 
   private:
     [[nodiscard]] static constexpr std::pair<uint64_t, uint64_t> mul_wide(uint64_t a, uint64_t b);

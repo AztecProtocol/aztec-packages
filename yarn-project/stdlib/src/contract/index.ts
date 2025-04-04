@@ -6,7 +6,7 @@ export * from './contract_instance.js';
 export * from './contract_instance_update.js';
 export * from './private_function.js';
 export * from './private_function_membership_proof.js';
-export * from './unconstrained_function_membership_proof.js';
+export * from './utility_function_membership_proof.js';
 export * from './interfaces/index.js';
 export * from './contract_function_dao.js';
 export * from './partial_address.js';

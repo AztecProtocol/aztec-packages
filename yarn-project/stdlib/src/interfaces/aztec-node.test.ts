@@ -315,7 +315,7 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getContractClass(Fr.random());
     expect(response).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
       privateFunctions: [],
     });
   });
@@ -586,7 +586,7 @@ class MockAztecNode implements AztecNode {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return { ...contractClass, unconstrainedFunctions: [], privateFunctions: [] };
+    return { ...contractClass, utilityFunctions: [], privateFunctions: [] };
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);

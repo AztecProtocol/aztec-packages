@@ -1,5 +1,5 @@
 use dep::aztec::{
-    context::{PrivateContext, UnconstrainedContext},
+    context::{PrivateContext, UtilityContext},
     note::{note_emission::OuterNoteEmission, retrieved_note::RetrievedNote},
     protocol_types::{address::AztecAddress, constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL},
 };
@@ -18,7 +18,7 @@ impl<Context> BalanceSet<Context> {
     }
 }
 
-impl BalanceSet<UnconstrainedContext> {
+impl BalanceSet<UtilityContext> {
     pub unconstrained fn balance_of(self: Self) -> u128 {
         self.balance_of_with_offset(0)
     }

@@ -1,5 +1,5 @@
 import type { AztecArray, AztecAsyncArray } from './array.js';
-import type { Key, StoreSize } from './common.js';
+import type { Key, StoreSize, Value } from './common.js';
 import type { AztecAsyncCounter, AztecCounter } from './counter.js';
 import type { AztecAsyncMap, AztecMap } from './map.js';
 import type { AztecAsyncMultiMap, AztecMultiMap } from './multi_map.js';
@@ -14,7 +14,7 @@ export interface AztecKVStore {
    * @param name - The name of the map
    * @returns The map
    */
-  openMap<K extends Key, V>(name: string): AztecMap<K, V>;
+  openMap<K extends Key, V extends Value>(name: string): AztecMap<K, V>;
 
   /**
    * Creates a new set.
@@ -28,21 +28,21 @@ export interface AztecKVStore {
    * @param name - The name of the multi-map
    * @returns The multi-map
    */
-  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V>;
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecMultiMap<K, V>;
 
   /**
    * Creates a new array.
    * @param name - The name of the array
    * @returns The array
    */
-  openArray<T>(name: string): AztecArray<T>;
+  openArray<T extends Value>(name: string): AztecArray<T>;
 
   /**
    * Creates a new singleton.
    * @param name - The name of the singleton
    * @returns The singleton
    */
-  openSingleton<T>(name: string): AztecSingleton<T>;
+  openSingleton<T extends Value>(name: string): AztecSingleton<T>;
 
   /**
    * Creates a new count map.
@@ -83,7 +83,7 @@ export interface AztecAsyncKVStore {
    * @param name - The name of the map
    * @returns The map
    */
-  openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V>;
+  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V>;
 
   /**
    * Creates a new set.
@@ -97,21 +97,21 @@ export interface AztecAsyncKVStore {
    * @param name - The name of the multi-map
    * @returns The multi-map
    */
-  openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V>;
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V>;
 
   /**
    * Creates a new array.
    * @param name - The name of the array
    * @returns The array
    */
-  openArray<T>(name: string): AztecAsyncArray<T>;
+  openArray<T extends Value>(name: string): AztecAsyncArray<T>;
 
   /**
    * Creates a new singleton.
    * @param name - The name of the singleton
    * @returns The singleton
    */
-  openSingleton<T>(name: string): AztecAsyncSingleton<T>;
+  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T>;
 
   /**
    * Creates a new count map.

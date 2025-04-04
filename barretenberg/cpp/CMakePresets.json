@@ -289,7 +289,8 @@
       "inherits": "clang16",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
-        "FUZZING": "ON"
+        "FUZZING": "ON",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -301,6 +302,7 @@
       "cacheVariables": {
         "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
+        "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
       }

@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract EasyPrivateToken {
-    use dep::aztec::macros::{functions::{initializer, private}, storage::storage};
+    use dep::aztec::macros::{functions::{initializer, private, utility}, storage::storage};
     use dep::aztec::prelude::{AztecAddress, Map};
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
@@ -41,8 +41,9 @@ pub contract EasyPrivateToken {
         balances.at(recipient).add(amount, recipient, sender);
     }
 
-    // Helper function to get the balance of a user ("unconstrained" is a Noir alternative of Solidity's "view" function).
-    unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
+    // Helper function to get the balance of a user.
+    #[utility]
+    unconstrained fn get_balance(owner: AztecAddress) -> Field {
         let balances = storage.balances;
 
         // Return the sum of all notes in the set.

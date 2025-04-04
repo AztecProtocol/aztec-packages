@@ -13,7 +13,7 @@ import type { L2LogsSource, MerkleTreeReadOperations, WorldStateSynchronizer } f
 import { RollupValidationRequests } from '@aztec/stdlib/kernel';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { mockTx } from '@aztec/stdlib/testing';
-import { MerkleTreeId, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId, PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, MaxBlockNumber } from '@aztec/stdlib/tx';
 
 import { readFileSync } from 'fs';
@@ -34,6 +34,7 @@ describe('aztec node', () => {
   let feePayer: AztecAddress;
 
   const chainId = new Fr(12345);
+  const rollupVersion = new Fr(1);
 
   const mockTxForRollup = async (seed: number) => {
     return await mockTx(seed, {
@@ -74,7 +75,11 @@ describe('aztec node', () => {
     merkleTreeOps.getLeafPreimage.mockImplementation((treeId: MerkleTreeId, index: bigint) => {
       if (treeId === MerkleTreeId.PUBLIC_DATA_TREE && index === feePayerSlotIndex) {
         return Promise.resolve(
-          new PublicDataTreeLeafPreimage(feePayerSlot, new Fr(feePayerBalance), Fr.random(), feePayerSlotIndex + 1n),
+          new PublicDataTreeLeafPreimage(
+            new PublicDataTreeLeaf(feePayerSlot, new Fr(feePayerBalance)),
+            Fr.random(),
+            feePayerSlotIndex + 1n,
+          ),
         );
       } else {
         return Promise.resolve(undefined);
@@ -117,7 +122,7 @@ describe('aztec node', () => {
       undefined,
       undefined,
       12345,
-      1,
+      rollupVersion.toNumber(),
       globalVariablesBuilder,
       new TestCircuitVerifier(),
     );
@@ -128,6 +133,7 @@ describe('aztec node', () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000)]);
       txs.forEach(tx => {
         tx.data.constants.txContext.chainId = chainId;
+        tx.data.constants.txContext.version = rollupVersion;
       });
       const doubleSpendTx = txs[0];
       const doubleSpendWithExistingTx = txs[1];
@@ -164,6 +170,7 @@ describe('aztec node', () => {
     it('tests that the node correctly validates chain id', async () => {
       const tx = await mockTxForRollup(0x10000);
       tx.data.constants.txContext.chainId = chainId;
+      tx.data.constants.txContext.version = rollupVersion;
 
       expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
 
@@ -173,10 +180,24 @@ describe('aztec node', () => {
       expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect chain id'] });
     });
 
+    it('tests that the node correctly validates rollup version', async () => {
+      const tx = await mockTxForRollup(0x10000);
+      tx.data.constants.txContext.chainId = chainId;
+      tx.data.constants.txContext.version = rollupVersion;
+
+      expect(await node.isValidTx(tx)).toEqual({ result: 'valid' });
+
+      // We make the chain id on the tx not equal to the configured chain id
+      tx.data.constants.txContext.version = new Fr(1n + rollupVersion.toBigInt());
+
+      expect(await node.isValidTx(tx)).toEqual({ result: 'invalid', reason: ['Incorrect rollup version'] });
+    });
+
     it('tests that the node correctly validates max block numbers', async () => {
       const txs = await Promise.all([mockTxForRollup(0x10000), mockTxForRollup(0x20000), mockTxForRollup(0x30000)]);
       txs.forEach(tx => {
         tx.data.constants.txContext.chainId = chainId;
+        tx.data.constants.txContext.version = rollupVersion;
       });
 
       const noMaxBlockNumberMetadata = txs[0];

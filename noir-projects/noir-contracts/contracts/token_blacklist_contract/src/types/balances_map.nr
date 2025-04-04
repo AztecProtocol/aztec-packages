@@ -1,6 +1,6 @@
 use crate::types::token_note::OwnedNote;
 use dep::aztec::{
-    context::{PrivateContext, UnconstrainedContext},
+    context::{PrivateContext, UtilityContext},
     note::note_emission::OuterNoteEmission,
     protocol_types::{constants::MAX_NOTE_HASH_READ_REQUESTS_PER_CALL, traits::Packable},
 };
@@ -28,7 +28,7 @@ impl<Note, Context> BalancesMap<Note, Context> {
     }
 }
 
-impl<Note> BalancesMap<Note, UnconstrainedContext>
+impl<Note> BalancesMap<Note, UtilityContext>
 where
     Note: NoteType + NoteHash + OwnedNote + Packable<N> + Eq,
 {

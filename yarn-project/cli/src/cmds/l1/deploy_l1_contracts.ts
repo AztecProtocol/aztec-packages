@@ -27,7 +27,7 @@ export async function deployL1Contracts(
   const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-  const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialFundedAccounts);
+  const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
@@ -39,6 +39,7 @@ export async function deployL1Contracts(
     initialValidators,
     genesisArchiveRoot,
     genesisBlockHash,
+    fundingNeeded,
     acceleratedTestDeployments,
     config,
     debugLogger,
@@ -66,6 +67,7 @@ export async function deployL1Contracts(
     log(`Governance Address: ${l1ContractAddresses.governanceAddress.toString()}`);
     log(`SlashFactory Address: ${l1ContractAddresses.slashFactoryAddress?.toString()}`);
     log(`FeeAssetHandler Address: ${l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
+    log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
     log(`Genesis block hash: ${genesisBlockHash.toString()}`);

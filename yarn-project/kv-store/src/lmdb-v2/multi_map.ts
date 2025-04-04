@@ -1,12 +1,12 @@
 import { Encoder } from 'msgpackr/pack';
 
-import type { Key, Range } from '../interfaces/common.js';
+import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
 import type { ReadTransaction } from './read_transaction.js';
 import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 
-export class LMDBMultiMap<K extends Key, V> implements AztecAsyncMultiMap<K, V> {
+export class LMDBMultiMap<K extends Key, V extends Value> implements AztecAsyncMultiMap<K, V> {
   private prefix: string;
   private encoder = new Encoder();
   constructor(private store: AztecLMDBStoreV2, name: string) {

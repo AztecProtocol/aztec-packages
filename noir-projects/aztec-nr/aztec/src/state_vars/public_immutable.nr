@@ -1,5 +1,5 @@
 use crate::{
-    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::storage::Storage,
     utils::with_hash::WithHash,
 };
@@ -64,12 +64,12 @@ impl<T, Context> PublicImmutable<T, Context> {
     // docs:end:public_immutable_struct_new
 }
 
-impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, &mut PublicContext>
-where
-    T: Packable<T_PACKED_LEN> + Eq,
-{
+impl<T> PublicImmutable<T, &mut PublicContext> {
     // docs:start:public_immutable_struct_write
-    pub fn initialize(self, value: T) {
+    pub fn initialize<let T_PACKED_LEN: u32>(self, value: T)
+    where
+        T: Packable<T_PACKED_LEN> + Eq,
+    {
         // We check that the struct is not yet initialized by checking if the initialization slot is 0
         let initialization_slot = INITIALIZATION_SLOT_SEPARATOR + self.storage_slot;
         let init_field: Field = self.context.storage_read(initialization_slot);
@@ -83,26 +83,29 @@ where
 
     // Note that we don't access the context, but we do call oracles that are only available in public
     // docs:start:public_immutable_struct_read
-    pub fn read(self) -> T {
+    pub fn read<let T_PACKED_LEN: u32>(self) -> T
+    where
+        T: Packable<T_PACKED_LEN> + Eq,
+    {
         WithHash::public_storage_read(*self.context, self.storage_slot)
     }
     // docs:end:public_immutable_struct_read
 }
 
-impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, UnconstrainedContext>
-where
-    T: Packable<T_PACKED_LEN> + Eq,
-{
-    pub unconstrained fn read(self) -> T {
-        WithHash::unconstrained_public_storage_read(self.context, self.storage_slot)
+impl<T> PublicImmutable<T, UtilityContext> {
+    pub unconstrained fn read<let T_PACKED_LEN: u32>(self) -> T
+    where
+        T: Packable<T_PACKED_LEN> + Eq,
+    {
+        WithHash::utility_public_storage_read(self.context, self.storage_slot)
     }
 }
 
-impl<T, let T_PACKED_LEN: u32> PublicImmutable<T, &mut PrivateContext>
-where
-    T: Packable<T_PACKED_LEN> + Eq,
-{
-    pub fn read(self) -> T {
+impl<T> PublicImmutable<T, &mut PrivateContext> {
+    pub fn read<let T_PACKED_LEN: u32>(self) -> T
+    where
+        T: Packable<T_PACKED_LEN> + Eq,
+    {
         WithHash::historical_public_storage_read(
             self.context.get_block_header(),
             self.context.this_address(),

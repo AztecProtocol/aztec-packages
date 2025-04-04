@@ -36,6 +36,8 @@ describe('smoke test', () => {
 
   it('should be able to get node enr', async () => {
     const info = await pxe.getNodeInfo();
+
+    debugLogger.info(`info: ${JSON.stringify(info)}`);
     expect(info).toBeDefined();
     // expect enr to be a string starting with 'enr:-'
     expect(info.enr).toMatch(/^enr:-/);

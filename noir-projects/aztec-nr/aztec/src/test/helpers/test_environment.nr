@@ -1,8 +1,6 @@
 use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
-use crate::context::{
-    call_interfaces::CallInterface, PrivateContext, PublicContext, UnconstrainedContext,
-};
+use crate::context::{call_interfaces::CallInterface, PrivateContext, PublicContext, UtilityContext};
 use crate::hash::hash_args;
 use crate::test::helpers::{cheatcodes, utils::Deployer};
 
@@ -92,9 +90,8 @@ impl TestEnvironment {
         self.private_at(self.committed_block_number())
     }
 
-    // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
-    pub unconstrained fn unkonstrained(_self: Self) -> UnconstrainedContext {
-        UnconstrainedContext::new()
+    pub unconstrained fn utility(_self: Self) -> UtilityContext {
+        UtilityContext::new()
     }
 
     /// Instantiates a private context at a specific historical block number.

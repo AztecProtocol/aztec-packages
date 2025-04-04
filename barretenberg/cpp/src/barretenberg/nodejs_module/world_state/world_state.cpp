@@ -1,18 +1,5 @@
-#include "barretenberg/nodejs_module/world_state/world_state.hpp"
-#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/response.hpp"
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/ecc/curves/bn254/fr.hpp"
-#include "barretenberg/messaging/header.hpp"
-#include "barretenberg/nodejs_module/util/async_op.hpp"
-#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
-#include "barretenberg/world_state/fork.hpp"
-#include "barretenberg/world_state/types.hpp"
 #include "barretenberg/world_state/world_state.hpp"
-#include "msgpack/v3/pack_decl.hpp"
-#include "msgpack/v3/sbuffer_decl.hpp"
-#include "napi.h"
+
 #include <algorithm>
 #include <any>
 #include <array>
@@ -24,6 +11,21 @@
 #include <stdexcept>
 #include <sys/types.h>
 #include <unordered_map>
+
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/ecc/curves/bn254/fr.hpp"
+#include "barretenberg/messaging/header.hpp"
+#include "barretenberg/nodejs_module/util/async_op.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state.hpp"
+#include "barretenberg/nodejs_module/world_state/world_state_message.hpp"
+#include "barretenberg/world_state/fork.hpp"
+#include "barretenberg/world_state/types.hpp"
+#include "msgpack/v3/pack_decl.hpp"
+#include "msgpack/v3/sbuffer_decl.hpp"
+#include "napi.h"
 
 using namespace bb::nodejs;
 using namespace bb::world_state;

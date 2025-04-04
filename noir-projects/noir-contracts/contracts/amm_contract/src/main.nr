@@ -39,7 +39,7 @@ pub contract AMM {
         lib::{get_amount_in, get_amount_out, get_amounts_on_remove, get_amounts_to_add},
     };
     use dep::aztec::{
-        macros::{functions::{initializer, internal, private, public}, storage::storage},
+        macros::{functions::{initializer, internal, private, public, utility}, storage::storage},
         prelude::{AztecAddress, PublicImmutable},
     };
 
@@ -461,6 +461,7 @@ pub contract AMM {
         );
     }
 
+    #[utility]
     unconstrained fn get_amount_out_for_exact_in(
         balance_in: u128,
         balance_out: u128,
@@ -470,6 +471,7 @@ pub contract AMM {
         get_amount_out(amount_in, balance_in, balance_out)
     }
 
+    #[utility]
     unconstrained fn get_amount_in_for_exact_out(
         balance_in: u128,
         balance_out: u128,

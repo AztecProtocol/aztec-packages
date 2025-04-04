@@ -1,10 +1,10 @@
-import type { Key } from './common.js';
+import type { Key, Value } from './common.js';
 import type { AztecAsyncMap, AztecMap } from './map.js';
 
 /**
  * A map backed by a persistent store that can have multiple values for a single key.
  */
-export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
+export interface AztecMultiMap<K extends Key, V extends Value> extends AztecMap<K, V> {
   /**
    * Gets all the values at the given key.
    * @param key - The key to get the values from
@@ -22,7 +22,7 @@ export interface AztecMultiMap<K extends Key, V> extends AztecMap<K, V> {
 /**
  * A map backed by a persistent store that can have multiple values for a single key.
  */
-export interface AztecAsyncMultiMap<K extends Key, V> extends AztecAsyncMap<K, V> {
+export interface AztecAsyncMultiMap<K extends Key, V extends Value> extends AztecAsyncMap<K, V> {
   /**
    * Gets all the values at the given key.
    * @param key - The key to get the values from

@@ -57,7 +57,11 @@ const createFromName = async (store: AztecKVStore, hasher: Hasher, name: string)
 };
 
 const createNullifierTreeLeafHashInputs = (value: number, nextIndex: number, nextValue: number) => {
-  return new NullifierLeafPreimage(new Fr(value), new Fr(nextValue), BigInt(nextIndex)).toHashInputs();
+  return new NullifierLeafPreimage(
+    new NullifierLeaf(new Fr(value)),
+    new Fr(nextValue),
+    BigInt(nextIndex),
+  ).toHashInputs();
 };
 
 const createPublicDataTreeLeaf = (slot: number, value: number) => {
@@ -66,8 +70,7 @@ const createPublicDataTreeLeaf = (slot: number, value: number) => {
 
 const createPublicDataTreeLeafHashInputs = (slot: number, value: number, nextIndex: number, nextSlot: number) => {
   return new PublicDataTreeLeafPreimage(
-    new Fr(slot),
-    new Fr(value),
+    new PublicDataTreeLeaf(new Fr(slot), new Fr(value)),
     new Fr(nextSlot),
     BigInt(nextIndex),
   ).toHashInputs();

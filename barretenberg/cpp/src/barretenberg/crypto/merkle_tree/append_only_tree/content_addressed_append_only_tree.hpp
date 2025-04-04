@@ -1,13 +1,5 @@
 #pragma once
-#include "../hash_path.hpp"
-#include "../node_store//tree_meta.hpp"
-#include "../response.hpp"
-#include "../types.hpp"
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/signal.hpp"
-#include "barretenberg/numeric/bitop/pow.hpp"
+
 #include <cstddef>
 #include <cstdint>
 #include <exception>
@@ -21,6 +13,16 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/pow.hpp"
 
 namespace bb::crypto::merkle_tree {
 

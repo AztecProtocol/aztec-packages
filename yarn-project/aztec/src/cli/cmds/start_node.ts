@@ -54,7 +54,9 @@ export async function startNode(
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
 
-  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+    initialFundedAccounts,
+  );
 
   userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
@@ -75,6 +77,7 @@ export async function startNode(
       salt: nodeSpecificOptions.deployAztecContractsSalt,
       genesisBlockHash,
       genesisArchiveRoot,
+      feeJuicePortalInitialBalance: fundingNeeded,
     });
   }
   // If not deploying, validate that any addresses and config provided are correct.
@@ -86,6 +89,7 @@ export async function startNode(
       nodeConfig.l1Contracts.registryAddress,
       nodeConfig.l1RpcUrls,
       nodeConfig.l1ChainId,
+      nodeConfig.rollupVersion,
     );
 
     // TODO(#12272): will clean this up.

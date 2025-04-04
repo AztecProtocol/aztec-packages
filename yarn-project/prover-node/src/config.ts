@@ -1,7 +1,8 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
 import type { ACVMConfig, BBConfig } from '@aztec/bb-prover/config';
-import { type GenesisStateConfig, genesisStateConfigMappings } from '@aztec/ethereum';
+import { type GenesisStateConfig, genesisStateConfigMappings, getAddressFromPrivateKey } from '@aztec/ethereum';
 import { type ConfigMappingsType, getConfigFromMappings, numberConfigHelper } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
 import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
@@ -11,7 +12,12 @@ import {
   proverAgentConfigMappings,
   proverBrokerConfigMappings,
 } from '@aztec/prover-client/broker';
-import { type ProverClientConfig, bbConfigMappings, proverClientConfigMappings } from '@aztec/prover-client/config';
+import {
+  type ProverClientConfig,
+  type ProverClientUserConfig,
+  bbConfigMappings,
+  proverClientConfigMappings,
+} from '@aztec/prover-client/config';
 import {
   type PublisherConfig,
   type TxSenderConfig,
@@ -23,7 +29,7 @@ import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-st
 import { type ProverCoordinationConfig, proverCoordinationConfigMappings } from './prover-coordination/config.js';
 
 export type ProverNodeConfig = ArchiverConfig &
-  ProverClientConfig &
+  ProverClientUserConfig &
   P2PConfig &
   WorldStateConfig &
   PublisherConfig &
@@ -105,4 +111,12 @@ export function getProverNodeAgentConfigFromEnv(): ProverAgentConfig & BBConfig 
     ...getConfigFromMappings(proverAgentConfigMappings),
     ...getConfigFromMappings(bbConfigMappings),
   };
+}
+
+export function resolveConfig(userConfig: ProverNodeConfig): ProverNodeConfig & ProverClientConfig {
+  const proverId =
+    userConfig.proverId && !userConfig.proverId.isZero()
+      ? userConfig.proverId
+      : Fr.fromHexString(getAddressFromPrivateKey(userConfig.publisherPrivateKey));
+  return { ...userConfig, proverId };
 }

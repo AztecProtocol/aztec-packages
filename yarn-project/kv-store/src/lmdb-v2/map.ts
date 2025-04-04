@@ -1,13 +1,13 @@
 import { Encoder } from 'msgpackr';
 
-import type { Key, Range } from '../interfaces/common.js';
+import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { ReadTransaction } from './read_transaction.js';
 // eslint-disable-next-line import/no-cycle
 import { type AztecLMDBStoreV2, execInReadTx, execInWriteTx } from './store.js';
 import { deserializeKey, maxKey, minKey, serializeKey } from './utils.js';
 
-export class LMDBMap<K extends Key, V> implements AztecAsyncMap<K, V> {
+export class LMDBMap<K extends Key, V extends Value> implements AztecAsyncMap<K, V> {
   private prefix: string;
   private encoder = new Encoder();
 

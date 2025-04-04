@@ -7,6 +7,7 @@ import {GovernanceProposerBase} from "./Base.t.sol";
 import {Errors} from "@aztec/governance/libraries/Errors.sol";
 import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract VoteTest is GovernanceProposerBase {
   using SlotLib for Slot;
@@ -31,10 +32,15 @@ contract VoteTest is GovernanceProposerBase {
 
   function test_GivenCanonicalRollupHoldNoCode() external whenProposalHoldCode {
     // it revert
+
+    // Somehow we added a new rollup, and then its code was deleted. Or the registry implementation differed
+    address f = address(new Fakerollup());
+    vm.prank(registry.getGovernance());
+    registry.addRollup(IRollup(f));
+    vm.etch(f, "");
+
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead)
-      )
+      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
     governanceProposer.vote(proposal);
   }
@@ -42,7 +48,7 @@ contract VoteTest is GovernanceProposerBase {
   modifier givenCanonicalRollupHoldCode() {
     validatorSelection = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(validatorSelection));
+    registry.addRollup(IRollup(address(validatorSelection)));
 
     // We jump into the future since slot 0, will behave as if already voted in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
@@ -146,7 +152,7 @@ contract VoteTest is GovernanceProposerBase {
 
     Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(freshInstance));
+    registry.addRollup(IRollup(address(freshInstance)));
 
     vm.warp(Timestamp.unwrap(freshInstance.getTimestampForSlot(Slot.wrap(1))));
 

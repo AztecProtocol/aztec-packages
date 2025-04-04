@@ -10,13 +10,14 @@ function test_cmds {
   local prefix="$hash $run_test_script"
 
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
+    echo "$hash timeout -v 900s bash -c 'CPUS=32 MEM=96g $run_test_script simple e2e_prover/full real'"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
   fi
 
   # Longest-running tests first
   echo "$hash timeout -v 900s $run_test_script simple e2e_block_building"
+  echo "$hash timeout -v 660s $run_test_script simple e2e_pending_note_hashes_contract"
 
   echo "$prefix simple e2e_2_pxes"
   echo "$prefix simple e2e_account_contracts"
@@ -95,7 +96,6 @@ function test_cmds {
   echo "$prefix simple e2e_p2p/upgrade_governance_proposer"
   echo "$prefix simple e2e_p2p/validators_sentinel"
 
-  echo "$prefix simple e2e_pending_note_hashes_contract"
   echo "$prefix simple e2e_private_voting_contract"
   echo "$prefix simple e2e_pruned_blocks"
   echo "$prefix simple e2e_public_testnet_transfer"

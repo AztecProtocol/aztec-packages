@@ -97,14 +97,14 @@ export abstract class BaseWallet implements Wallet {
   getCurrentBaseFees(): Promise<GasFees> {
     return this.pxe.getCurrentBaseFees();
   }
-  simulateUnconstrained(
+  simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
     authwits?: AuthWitness[],
     from?: AztecAddress | undefined,
   ): Promise<AbiDecoded> {
-    return this.pxe.simulateUnconstrained(functionName, args, to, authwits, from);
+    return this.pxe.simulateUtility(functionName, args, to, authwits, from);
   }
   getNodeInfo(): Promise<NodeInfo> {
     return this.pxe.getNodeInfo();

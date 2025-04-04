@@ -226,7 +226,6 @@ export function injectCommands(
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
     const address = await deploy(
-      client,
       wallet,
       artifactPath,
       json,
@@ -639,13 +638,38 @@ export function injectCommands(
       aliasedAddressParser('accounts', address, db),
     )
     .argument('[artifact]', ARTIFACT_DESCRIPTION, artifactPathParser)
+    .option('--init <string>', 'The contract initializer function to call', 'constructor')
+    .option(
+      '-k, --public-key <string>',
+      'Optional encryption public key for this address. Set this value only if this contract is expected to receive private notes, which will be encrypted using this public key.',
+      parsePublicKey,
+    )
+    .option(
+      '-s, --salt <hex string>',
+      'Optional deployment salt as a hex string for generating the deployment address.',
+      parseFieldFromHexString,
+    )
+    .option('--deployer <string>', 'The address of the account that deployed the contract', address =>
+      aliasedAddressParser('accounts', address, db),
+    )
     .addOption(createArgsOption(true, db))
     .addOption(pxeOption)
     .addOption(createAccountOption('Alias or address of the account to simulate from', !db, db))
     .addOption(createAliasOption('Alias for the contact. Used for easy reference in subsequent commands.', !db))
     .action(async (address, artifactPathPromise, _options, command) => {
       const { registerContract } = await import('./register_contract.js');
-      const { from: parsedFromAddress, rpcUrl, nodeUrl, secretKey, alias } = command.optsWithGlobals();
+      const {
+        from: parsedFromAddress,
+        rpcUrl,
+        nodeUrl,
+        secretKey,
+        alias,
+        init,
+        publicKey,
+        salt,
+        deployer,
+        args,
+      } = command.optsWithGlobals();
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
       const node = pxeWrapper?.getNode() ?? createAztecNodeClient(nodeUrl);
       const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
@@ -653,7 +677,18 @@ export function injectCommands(
 
       const artifactPath = await artifactPathPromise;
 
-      const instance = await registerContract(wallet, node, address, artifactPath, log);
+      const instance = await registerContract(
+        wallet,
+        node,
+        address,
+        artifactPath,
+        log,
+        init,
+        publicKey,
+        args,
+        salt,
+        deployer,
+      );
 
       if (db && alias) {
         await db.storeContract(instance.address, artifactPath, log, alias);

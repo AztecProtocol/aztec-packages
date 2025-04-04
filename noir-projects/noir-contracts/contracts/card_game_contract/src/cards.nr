@@ -1,7 +1,7 @@
 use dep::aztec::prelude::{NoteGetterOptions, NoteViewerOptions, PrivateContext, RetrievedNote};
 
 use dep::aztec::{
-    context::UnconstrainedContext,
+    context::UtilityContext,
     encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
     keys::getters::get_public_keys,
     note::constants::MAX_NOTES_PER_PAGE,
@@ -126,7 +126,7 @@ impl Deck<&mut PrivateContext> {
     }
 }
 
-impl Deck<UnconstrainedContext> {
+impl Deck<UtilityContext> {
     pub unconstrained fn view_cards(self, offset: u32) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let mut options = NoteViewerOptions::new();
         let notes = self.set.view_notes(options.set_offset(offset));

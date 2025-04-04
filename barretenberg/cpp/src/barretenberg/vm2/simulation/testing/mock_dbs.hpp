@@ -44,6 +44,14 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
                 get_leaf_preimage_nullifier_tree,
                 (crypto::merkle_tree::index_t leaf_index),
                 (const, override));
+    MOCK_METHOD(world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>,
+                insert_indexed_leaves_public_data_tree,
+                (const crypto::merkle_tree::PublicDataLeafValue& leaf_value),
+                (override));
+    MOCK_METHOD(world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>,
+                insert_indexed_leaves_nullifier_tree,
+                (const crypto::merkle_tree::NullifierLeafValue& leaf_value),
+                (override));
 };
 
 class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {

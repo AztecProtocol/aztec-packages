@@ -12,7 +12,7 @@ pub contract CardGame {
 
     use crate::cards::{Card, compute_deck_strength, Deck, get_pack_cards};
     use crate::game::{Game, PLAYABLE_CARDS, PlayerEntry};
-    use dep::aztec::macros::{functions::{internal, private, public}, storage::storage};
+    use dep::aztec::macros::{functions::{internal, private, public, utility}, storage::storage};
 
     use dep::aztec::protocol_types::traits::{FromField, ToField};
 
@@ -134,25 +134,28 @@ pub contract CardGame {
         game_storage.write(game_data);
     }
 
+    #[utility]
     unconstrained fn view_collection_cards(
         owner: AztecAddress,
         offset: u32,
-    ) -> pub BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let collection = storage.collections.at(owner);
         collection.view_cards(offset)
     }
 
+    #[utility]
     unconstrained fn view_game_cards(
         game: u32,
         player: AztecAddress,
         offset: u32,
-    ) -> pub BoundedVec<Card, MAX_NOTES_PER_PAGE> {
+    ) -> BoundedVec<Card, MAX_NOTES_PER_PAGE> {
         let game_deck = storage.game_decks.at(game as Field).at(player);
 
         game_deck.view_cards(offset)
     }
 
-    unconstrained fn view_game(game: u32) -> pub Game {
+    #[utility]
+    unconstrained fn view_game(game: u32) -> Game {
         storage.games.at(game as Field).read()
     }
 }

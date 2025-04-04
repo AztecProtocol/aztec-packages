@@ -68,7 +68,7 @@ export abstract class BaseContractInteraction {
   // docs:start:send
   /**
    * Sends a transaction to the contract function with the specified options.
-   * This function throws an error if called on an unconstrained function.
+   * This function throws an error if called on a utility function.
    * It creates and signs the transaction if necessary, and returns a SentTx instance,
    * which can be used to track the transaction status, receipt, and events.
    * @param options - An optional object containing 'from' property representing

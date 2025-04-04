@@ -15,7 +15,7 @@ pub contract SchnorrAccount {
     use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use dep::aztec::hash::compute_siloed_nullifier;
     use dep::aztec::macros::{
-        functions::{initializer, noinitcheck, private, view},
+        functions::{initializer, noinitcheck, private, utility, view},
         storage::storage,
     };
     use dep::aztec::oracle::get_nullifier_membership_witness::get_low_nullifier_membership_witness;
@@ -92,7 +92,8 @@ pub contract SchnorrAccount {
     * @param message_hash The message hash of the message to check the validity
     * @return True if the message_hash can be consumed, false otherwise
     */
-    unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> pub bool {
+    #[utility]
+    unconstrained fn lookup_validity(consumer: AztecAddress, inner_hash: Field) -> bool {
         let public_key = storage.signing_public_key.view_note();
 
         let message_hash = compute_authwit_message_hash(

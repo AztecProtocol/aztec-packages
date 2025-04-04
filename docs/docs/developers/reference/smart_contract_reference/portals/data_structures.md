@@ -54,17 +54,4 @@ A message that is sent from L2 to L1.
 | `recipient`        | `L1Actor` | The actor on L1 that is to receive the message. |
 | `content`        | `field (~254 bits)` | The field element containing the content to be consumed by the portal on L1. |
 
-## `RegistrySnapshot`
-
-A snapshot of the registry values.
-
-#include_code registry_snapshot l1-contracts/src/governance/libraries/DataStructures.sol solidity
-
-| Name           | Type    | Description |
-| -------------- | ------- | ----------- |
-| `rollup`       | `address` | The address of the rollup contract for the snapshot. |
-| `blockNumber`       | `uint256` | The block number at which the snapshot was created. |
-
-
-
 

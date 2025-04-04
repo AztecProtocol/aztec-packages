@@ -57,12 +57,12 @@ function test_cmds {
   # TODO figure out why these take long sometimes.
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
-    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
-    echo "$hash ./spartan/bootstrap.sh test-cli-upgrade-with-lock"
+    echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
   fi
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
@@ -154,7 +154,7 @@ case "$cmd" in
   "test-prod-deployment")
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
-  "test-cli-upgrade-with-lock")
+  "test-cli-upgrade")
     OVERRIDES="telemetry.enabled=false,network.setupL2Contracts=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}

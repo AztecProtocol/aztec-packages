@@ -67,22 +67,13 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using PriceLib for EthValue;
 
   constructor(
-    IFeeJuicePortal _fpcJuicePortal,
+    IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
-  )
-    RollupCore(
-      _fpcJuicePortal,
-      _rewardDistributor,
-      _stakingAsset,
-      _governance,
-      _genesisState,
-      _config
-    )
-  {}
+  ) RollupCore(_feeAsset, _rewardDistributor, _stakingAsset, _governance, _genesisState, _config) {}
 
   /**
    * @notice  Validate a header for submission

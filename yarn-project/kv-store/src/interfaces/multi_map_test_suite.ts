@@ -116,6 +116,13 @@ export function describeAztecMultiMap(
       expect(await getValues('foo')).to.deep.equal(['bar', 'baz']);
     });
 
+    it('should ignore multiple identical values', async () => {
+      await multiMap.set('foo', 'bar');
+      await multiMap.set('foo', 'bar');
+
+      expect(await getValues('foo')).to.deep.equal(['bar']);
+    });
+
     it('should be able to delete individual values for a single key', async () => {
       await multiMap.set('foo', 'bar');
       await multiMap.set('foo', 'baz');

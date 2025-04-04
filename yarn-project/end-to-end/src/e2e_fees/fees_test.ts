@@ -39,7 +39,6 @@ import {
   type SetupOptions,
   ensureAccountsPubliclyDeployed,
   getBalancesFn,
-  setupCanonicalFeeJuice,
   setupSponsoredFPC,
 } from '../fixtures/utils.js';
 import { FeeJuicePortalTestingHarnessFactory, type GasBridgingTestHarness } from '../shared/gas_portal_test_harness.js';
@@ -198,9 +197,7 @@ export class FeesTest {
   async applySetupFeeJuiceSnapshot() {
     await this.snapshotManager.snapshot(
       'setup_fee_juice',
-      async context => {
-        await setupCanonicalFeeJuice(context.pxe);
-      },
+      async () => {},
       async (_data, context) => {
         this.context = context;
 

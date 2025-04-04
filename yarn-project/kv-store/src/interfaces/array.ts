@@ -1,7 +1,9 @@
+import type { Value } from './common.js';
+
 /**
  * An array backed by a persistent store. Can not have any holes in it.
  */
-interface BaseAztecArray<T> {
+interface BaseAztecArray<T extends Value> {
   /**
    * Pushes values to the end of the array
    * @param vals - The values to push to the end of the array
@@ -27,7 +29,7 @@ interface BaseAztecArray<T> {
 /**
  * An array backed by a persistent store. Can not have any holes in it.
  */
-export interface AztecAsyncArray<T> extends BaseAztecArray<T> {
+export interface AztecAsyncArray<T extends Value> extends BaseAztecArray<T> {
   /**
    * The size of the array
    */
@@ -58,7 +60,7 @@ export interface AztecAsyncArray<T> extends BaseAztecArray<T> {
   [Symbol.asyncIterator](): AsyncIterableIterator<T>;
 }
 
-export interface AztecArray<T> extends BaseAztecArray<T> {
+export interface AztecArray<T extends Value> extends BaseAztecArray<T> {
   /**
    * The size of the array
    */

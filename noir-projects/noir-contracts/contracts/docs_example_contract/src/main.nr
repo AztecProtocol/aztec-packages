@@ -18,7 +18,10 @@ pub contract DocsExample {
     // how to import dependencies defined in your workspace
     use dep::aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
-        macros::{functions::{internal, private, public, view}, storage::{storage, storage_no_init}},
+        macros::{
+            functions::{internal, private, public, utility, view},
+            storage::{storage, storage_no_init},
+        },
         note::note_interface::NoteProperties,
         protocol_types::traits::Hash,
     };
@@ -159,6 +162,7 @@ pub contract DocsExample {
     }
 
     // docs:start:read_public_immutable
+    #[utility]
     unconstrained fn get_public_immutable() -> Leader {
         storage.public_immutable.read()
         // docs:end:read_public_immutable
@@ -211,12 +215,15 @@ pub contract DocsExample {
             context.msg_sender(),
         ));
     }
+
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
+    #[utility]
     unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
         let mut options = NoteViewerOptions::new();
         storage.set.view_notes(options.select(CardNote::properties().points, comparator, amount))
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
+
     #[private]
     fn update_legendary_card(randomness: Field, points: u8) {
         let new_card = CardNote::new(points, randomness, context.msg_sender());
@@ -278,26 +285,37 @@ pub contract DocsExample {
         let new_leader = Leader { account, points };
         storage.leader.write(new_leader);
     }
+
+    #[utility]
     unconstrained fn get_leader() -> Leader {
         storage.leader.read()
     }
+
+    #[utility]
     unconstrained fn get_legendary_card() -> CardNote {
         storage.legendary_card.view_note()
     }
+
     // docs:start:private_mutable_is_initialized
+    #[utility]
     unconstrained fn is_legendary_initialized() -> bool {
         storage.legendary_card.is_initialized()
     }
     // docs:end:private_mutable_is_initialized
+
     // docs:start:get_note-private-immutable
     #[private]
     fn get_imm_card() -> CardNote {
         storage.private_immutable.get_note()
     }
     // docs:end:get_note-private-immutable
+
+    #[utility]
     unconstrained fn view_imm_card() -> CardNote {
         storage.private_immutable.view_note()
     }
+
+    #[utility]
     unconstrained fn is_priv_imm_initialized() -> bool {
         storage.private_immutable.is_initialized()
     }
@@ -310,6 +328,11 @@ pub contract DocsExample {
         a + b
     }
     // docs:end:simple_macro_example
+
+    // We mark the following function as a contract library method because it is mandatory that a contract function has
+    // a macro applied to it. Since this function is not used and is only for documentation purposes, we mark it as a
+    // contract library method to avoid compilation error.
+    #[contract_library_method]
     // docs:start:simple_macro_example_expanded
     fn simple_macro_example_expanded(
         // ************************************************************
@@ -323,7 +346,7 @@ pub contract DocsExample {
         b: Field, // The actual return type of our circuit is the PrivateCircuitPublicInputs struct, this will be the
         // input to our kernel!
         // docs:start:context-example-return
-    ) -> pub PrivateCircuitPublicInputs {
+    ) -> PrivateCircuitPublicInputs {
         // docs:end:context-example-return
         // ************************************************************
         // The hasher is a structure used to generate a hash of the circuits inputs.

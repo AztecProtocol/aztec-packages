@@ -143,7 +143,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.txFetcher.start();
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
-    this.log.info('Started ProverNode', this.options);
+    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.options);
   }
 
   /**

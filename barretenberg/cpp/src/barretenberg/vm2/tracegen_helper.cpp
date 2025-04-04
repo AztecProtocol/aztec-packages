@@ -359,8 +359,8 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 LookupIntoDynamicTableSequential<lookup_address_derivation_preaddress_scalar_mul_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_address_derivation_address_ecadd_settings>>(),
             // Field GT
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_lo_range_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_ff_gt_a_hi_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_ff_gt_a_lo_range_settings>>(),
+            std::make_unique<LookupIntoDynamicTableGeneric<lookup_ff_gt_a_hi_range_settings>>(),
             // Merkle checks
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>(),

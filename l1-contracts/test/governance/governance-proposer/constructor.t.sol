@@ -11,7 +11,7 @@ contract FakeRegistry {
     return address(0x01);
   }
 
-  function getRollup() external pure returns (address) {
+  function getCanonicalRollup() external pure returns (address) {
     return address(0x02);
   }
 }
@@ -53,6 +53,6 @@ contract ConstructorTest is Test {
     assertEq(g.N(), n);
     assertEq(g.M(), m);
     assertEq(g.getExecutor(), address(REGISTRY.getGovernance()), "executor");
-    assertEq(g.getInstance(), address(REGISTRY.getRollup()), "instance");
+    assertEq(g.getInstance(), address(REGISTRY.getCanonicalRollup()), "instance");
   }
 }

@@ -440,9 +440,8 @@ pub fn brillig_to_avm(brillig_bytecode: &[BrilligOpcode<FieldElement>]) -> (Vec<
                     &mut unresolved_jumps,
                 );
             }
-            _ => panic!(
-                "Transpiler doesn't know how to process {:?} brillig instruction",
-                brillig_instr
+            BrilligOpcode::JumpIfNot { .. } => panic!(
+                "Transpiler doesn't know how to process `BrilligOpcode::JumpIfNot` brillig instruction",
             ),
         }
 

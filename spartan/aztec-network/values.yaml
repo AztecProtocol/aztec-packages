@@ -146,6 +146,7 @@ fullNode:
   stakingAssetAddress: ""
   storageSize: "1Gi"
   dataDir: "/data"
+  sentinelEnabled: false
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -265,6 +266,7 @@ bot:
 
 ethereum:
   acceleratedTestDeployments: false
+  genesisBasePath: "out"
   replicas: 1
   chainId: 1337
   blockTime: 12

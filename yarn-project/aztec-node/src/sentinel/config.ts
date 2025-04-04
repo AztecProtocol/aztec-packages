@@ -14,6 +14,6 @@ export const sentinelConfigMappings: ConfigMappingsType<SentinelConfig> = {
   sentinelEnabled: {
     description: 'Whether the sentinel is enabled or not.',
     env: 'SENTINEL_ENABLED',
-    ...booleanConfigHelper(true),
+    ...booleanConfigHelper(false),
   },
 };

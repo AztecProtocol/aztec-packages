@@ -33,6 +33,7 @@ contracts=(
   "Slasher"
   "SlashFactory"
   "SlashingProposer"
+  "StakingAssetHandler"
   "TestERC20"
   "TokenPortal"
   "UniswapPortal"

@@ -1,4 +1,4 @@
-import { Fr, computeSecretHash, fileURLToPath } from '@aztec/aztec.js';
+import { Fr, computeSecretHash, createCompatibleClient, fileURLToPath } from '@aztec/aztec.js';
 import { LOCALHOST } from '@aztec/cli/cli-utils';
 import { type LogFn, createConsoleLogger, createLogger } from '@aztec/foundation/log';
 import { openStoreAt } from '@aztec/kv-store/lmdb-v2';
@@ -90,7 +90,7 @@ async function main() {
         .default(`http://${LOCALHOST}:8080`),
     )
     .hook('preSubcommand', async command => {
-      const { dataDir, remotePxe, nodeUrl, prover } = command.optsWithGlobals();
+      const { dataDir, remotePxe, nodeUrl, prover, rpcUrl } = command.optsWithGlobals();
 
       if (!remotePxe) {
         debugLogger.info('Using local PXE service');
@@ -113,6 +113,25 @@ async function main() {
         await pxeWrapper.init(nodeUrl, join(dataDir, 'pxe'), overridePXEConfig);
       }
       await db.init(await openStoreAt(dataDir));
+      let protocolContractsRegistered;
+      try {
+        protocolContractsRegistered = !!(await db.retrieveAlias('contracts:classRegisterer'));
+        // eslint-disable-next-line no-empty
+      } catch {}
+      if (!protocolContractsRegistered) {
+        userLog('Registering protocol contract aliases...');
+        const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
+        const { protocolContractAddresses } = await client.getPXEInfo();
+        for (const [name, address] of Object.entries(protocolContractAddresses)) {
+          await db.storeAlias('contracts', name, Buffer.from(address.toString()), userLog);
+          await db.storeAlias(
+            'artifacts',
+            address.toString(),
+            Buffer.from(`${name.slice(0, 1).toUpperCase()}${name.slice(1)}`),
+            userLog,
+          );
+        }
+      }
     });
 
   injectCommands(program, userLog, debugLogger, db, pxeWrapper);

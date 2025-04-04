@@ -37,7 +37,7 @@ contract GovernanceBase is TestBase {
   function setUp() public virtual {
     token = IMintableERC20(address(new TestERC20("test", "TEST", address(this))));
 
-    registry = new Registry(address(this));
+    registry = new Registry(address(this), token);
     governanceProposer = new GovernanceProposer(registry, 677, 1000);
 
     governance = new Governance(token, address(governanceProposer));

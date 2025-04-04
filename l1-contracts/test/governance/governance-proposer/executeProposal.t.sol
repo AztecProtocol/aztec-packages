@@ -10,6 +10,7 @@ import {Slot, SlotLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {FaultyGovernance} from "./mocks/FaultyGovernance.sol";
 import {FalsyGovernance} from "./mocks/FalsyGovernance.sol";
 import {Fakerollup} from "./mocks/Fakerollup.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
 
 contract ExecuteProposalTest is GovernanceProposerBase {
   using SlotLib for Slot;
@@ -21,10 +22,15 @@ contract ExecuteProposalTest is GovernanceProposerBase {
 
   function test_GivenCanonicalInstanceHoldNoCode(uint256 _roundNumber) external {
     // it revert
+
+    // Somehow we added a new rollup, and then its code was deleted. Or the registry implementation differed
+    address f = address(new Fakerollup());
+    vm.prank(registry.getGovernance());
+    registry.addRollup(IRollup(f));
+    vm.etch(f, "");
+
     vm.expectRevert(
-      abi.encodeWithSelector(
-        Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(0xdead)
-      )
+      abi.encodeWithSelector(Errors.GovernanceProposer__InstanceHaveNoCode.selector, address(f))
     );
     governanceProposer.executeProposal(_roundNumber);
   }
@@ -32,7 +38,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
   modifier givenCanonicalInstanceHoldCode() {
     validatorSelection = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(validatorSelection));
+    registry.addRollup(IRollup(address(validatorSelection)));
 
     // We jump into the future since slot 0, will behave as if already voted in
     vm.warp(Timestamp.unwrap(validatorSelection.getTimestampForSlot(Slot.wrap(1))));
@@ -223,7 +229,7 @@ contract ExecuteProposalTest is GovernanceProposerBase {
     // When using a new registry we change the governanceProposer's interpetation of time :O
     Fakerollup freshInstance = new Fakerollup();
     vm.prank(registry.getGovernance());
-    registry.upgrade(address(freshInstance));
+    registry.addRollup(IRollup(address(freshInstance)));
 
     // The old is still there, just not executable.
     (, IPayload leader, bool executed) = governanceProposer.rounds(address(validatorSelection), 1);

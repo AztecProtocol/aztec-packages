@@ -197,7 +197,8 @@ function build {
     yarn-project
     boxes
     playground
-    docs
+    # Blocking release.
+    # docs
     release-image
     aztec-up
   )
@@ -269,7 +270,8 @@ function release {
     boxes
     aztec-up
     playground
-    docs
+    # Blocking release.
+    # docs
     release-image
   )
   if [ $(arch) == arm64 ]; then

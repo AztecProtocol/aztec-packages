@@ -627,6 +627,12 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
     field_t<Builder> inverse(witness_t<Builder>(context, inverse_value));
 
+    // inverse is added in the circuit for checking that field element is not zero
+    // and it won't be used anymore, so it's needed to add this element in used witnesses
+    if constexpr (IsUltraBuilder<Builder>) {
+        context->update_used_witnesses(inverse.witness_index);
+    }
+
     // Aim of new gate: `this` has an inverse (hence is not zero).
     // I.e.:
     //     (this.v * this.mul + this.add) * inverse.v == 1;
@@ -740,6 +746,11 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
     result.witness_bool = is_equal;
 
     field_t x(witness_t(ctx, fc));
+    // element x is auxiliary variable to create constraints
+    // for operator == and it won't be used anymore
+    if constexpr (IsUltraBuilder<Builder>) {
+        ctx->update_used_witnesses(x.witness_index);
+    }
     const field_t& a = *this;
     const field_t& b = other;
     const field_t diff = a - b;

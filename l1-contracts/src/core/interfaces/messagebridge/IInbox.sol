@@ -48,5 +48,7 @@ interface IInbox {
   function consume(uint256 _toConsume) external returns (bytes32);
   // docs:end:consume
 
+  function getFeeAssetPortal() external view returns (address);
+
   function getRoot(uint256 _blockNumber) external view returns (bytes32);
 }

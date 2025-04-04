@@ -50,10 +50,6 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
   });
 
-  afterEach(async () => {
-    await kvStore.close();
-  });
-
   const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
@@ -63,6 +59,7 @@ describe('In-Memory P2P Client', () => {
     if (client.isReady()) {
       await client.stop();
     }
+    await kvStore.close();
   });
 
   it('can start & stop', async () => {

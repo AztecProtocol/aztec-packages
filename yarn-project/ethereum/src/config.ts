@@ -51,8 +51,8 @@ export const DefaultL1ContractsConfig = {
   minimumStake: BigInt(100e18),
   slashingQuorum: 6,
   slashingRoundSize: 10,
-  governanceProposerQuorum: 6,
-  governanceProposerRoundSize: 10,
+  governanceProposerQuorum: 51,
+  governanceProposerRoundSize: 100,
   manaTarget: BigInt(1e10),
   provingCostPerMana: BigInt(100),
 } satisfies L1ContractsConfig;

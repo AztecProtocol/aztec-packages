@@ -7,7 +7,10 @@
 
 #include "barretenberg/common/utils.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
+#include "barretenberg/world_state/world_state.hpp"
+
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/world_state/types.hpp"
@@ -133,18 +136,16 @@ struct GetPreviousValueIndexHint {
     MSGPACK_FIELDS(hintKey, treeId, value, index, alreadyPresent);
 };
 
-template <typename Leaf> struct GetLeafPreimageHint {
+template <typename LeafPreimage_> struct GetLeafPreimageHint {
     AppendOnlyTreeSnapshot hintKey;
     // params (tree id will be implicit)
     uint64_t index;
     // return
-    Leaf leaf;
-    uint64_t nextIndex;
-    FF nextValue;
+    LeafPreimage_ leafPreimage;
 
-    bool operator==(const GetLeafPreimageHint<Leaf>& other) const = default;
+    bool operator==(const GetLeafPreimageHint<LeafPreimage_>& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, index, leaf, nextIndex, nextValue);
+    MSGPACK_FIELDS(hintKey, index, leafPreimage);
 };
 
 struct GetLeafValueHint {
@@ -158,6 +159,22 @@ struct GetLeafValueHint {
     bool operator==(const GetLeafValueHint& other) const = default;
 
     MSGPACK_FIELDS(hintKey, treeId, index, value);
+};
+
+template <typename Leaf> struct SequentialInsertHint {
+    AppendOnlyTreeSnapshot hintKey;
+    // params
+    world_state::MerkleTreeId treeId;
+    Leaf leaf;
+    // return
+    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> lowLeavesWitnessData;
+    crypto::merkle_tree::LeafUpdateWitnessData<Leaf> insertionWitnessData;
+    // evolved state
+    AppendOnlyTreeSnapshot stateAfter;
+
+    bool operator==(const SequentialInsertHint<Leaf>& other) const = default;
+
+    MSGPACK_FIELDS(hintKey, treeId, leaf, lowLeavesWitnessData, insertionWitnessData, stateAfter);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -177,8 +194,36 @@ struct EnqueuedCallHint {
     MSGPACK_FIELDS(msgSender, contractAddress, calldata, isStaticCall);
 };
 
+struct AccumulatedData {
+    // TODO: add as needed.
+    std::vector<FF> noteHashes;
+    std::vector<FF> nullifiers;
+
+    bool operator==(const AccumulatedData& other) const = default;
+
+    MSGPACK_FIELDS(noteHashes, nullifiers);
+};
+
+// We are currently using this structure as the input to TX simulation.
+// That's why I'm not calling it TxHint. We can reconsider if the inner types seem to dirty.
+struct Tx {
+    AccumulatedData nonRevertibleAccumulatedData;
+    AccumulatedData revertibleAccumulatedData;
+    std::vector<EnqueuedCallHint> setupEnqueuedCalls;
+    std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
+    std::optional<EnqueuedCallHint> teardownEnqueuedCall;
+
+    bool operator==(const Tx& other) const = default;
+
+    MSGPACK_FIELDS(nonRevertibleAccumulatedData,
+                   revertibleAccumulatedData,
+                   setupEnqueuedCalls,
+                   appLogicEnqueuedCalls,
+                   teardownEnqueuedCall);
+};
+
 struct ExecutionHints {
-    std::vector<EnqueuedCallHint> enqueuedCalls;
+    Tx tx;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
@@ -186,13 +231,17 @@ struct ExecutionHints {
     // Merkle DB.
     std::vector<GetSiblingPathHint> getSiblingPathHints;
     std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
-    std::vector<GetLeafPreimageHint<crypto::merkle_tree::PublicDataLeafValue>> getLeafPreimageHintsPublicDataTree;
-    std::vector<GetLeafPreimageHint<crypto::merkle_tree::NullifierLeafValue>> getLeafPreimageHintsNullifierTree;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>>
+        getLeafPreimageHintsPublicDataTree;
+    std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>>>
+        getLeafPreimageHintsNullifierTree;
     std::vector<GetLeafValueHint> getLeafValueHints;
+    std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>> sequentialInsertHintsPublicDataTree;
+    std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequentialInsertHintsNullifierTree;
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(enqueuedCalls,
+    MSGPACK_FIELDS(tx,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,
@@ -200,7 +249,9 @@ struct ExecutionHints {
                    getPreviousValueIndexHints,
                    getLeafPreimageHintsPublicDataTree,
                    getLeafPreimageHintsNullifierTree,
-                   getLeafValueHints);
+                   getLeafValueHints,
+                   sequentialInsertHintsPublicDataTree,
+                   sequentialInsertHintsNullifierTree);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -217,9 +268,6 @@ struct AvmProvingInputs {
 };
 
 } // namespace bb::avm2
-
-// This has to be done outside of the namespace.
-MSGPACK_ADD_ENUM(bb::world_state::MerkleTreeId);
 
 // Define hash function so that they can be used as keys in maps.
 // See https://en.cppreference.com/w/cpp/utility/hash.
