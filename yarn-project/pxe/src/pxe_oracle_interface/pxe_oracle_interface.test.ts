@@ -7,9 +7,11 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { randomInBlock } from '@aztec/stdlib/block';
 import { CompleteAddress } from '@aztec/stdlib/contract';
+import { computeUniqueNoteHash, siloNoteHash, siloNullifier } from '@aztec/stdlib/hash';
 import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdlib/keys';
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
@@ -460,6 +462,105 @@ describe('PXEOracleInterface', () => {
       expect(capsule!.length).toBe(1);
       expect(capsule![0].toNumber()).toBe(expectedLength);
     };
+  });
+
+  describe('deliverNote', () => {
+    let noteHash: Fr;
+    let nullifier: Fr;
+    let txHash: Fr;
+    let storageSlot: Fr;
+    let nonce: Fr;
+    let content: Fr[];
+
+    beforeEach(() => {
+      noteHash = Fr.random();
+      nullifier = Fr.random();
+      txHash = Fr.random();
+      storageSlot = Fr.random();
+      nonce = Fr.random();
+      content = [Fr.random(), Fr.random()];
+    });
+
+    it('should store note if it exists in note hash tree and is not nullified', async () => {
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+      // Mock note exists in tree
+      aztecNode.findLeavesIndexes.mockImplementation((_blockNum, treeId, leaves) => {
+        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
+          return Promise.resolve([randomInBlock(0n)]);
+        }
+        if (treeId === MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
+          return Promise.resolve([undefined]);
+        }
+        return Promise.resolve([undefined]);
+      });
+
+      await pxeOracleInterface.deliverNote(
+        contractAddress,
+        storageSlot,
+        nonce,
+        content,
+        noteHash,
+        nullifier,
+        txHash,
+        recipient.address,
+      );
+
+      // Verify note was stored
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
+      expect(notes).toHaveLength(1);
+      expect(notes[0].noteHash.equals(noteHash)).toBe(true);
+    });
+
+    it('should throw if note does not exist in note hash tree', async () => {
+      // Mock note does not exist in tree
+      aztecNode.findLeavesIndexes.mockImplementation(() => Promise.resolve([undefined]));
+
+      await expect(
+        pxeOracleInterface.deliverNote(
+          contractAddress,
+          storageSlot,
+          nonce,
+          content,
+          noteHash,
+          nullifier,
+          txHash,
+          recipient.address,
+        ),
+      ).rejects.toThrow(/not present on the tree/);
+    });
+
+    it('should store and immediately remove note if it is already nullified', async () => {
+      const uniqueNoteHash = await computeUniqueNoteHash(nonce, await siloNoteHash(contractAddress, noteHash));
+      const siloedNullifier = await siloNullifier(contractAddress, nullifier);
+
+      // Mock note exists and is nullified
+      aztecNode.findLeavesIndexes.mockImplementation((_blockNum, treeId, leaves) => {
+        if (treeId === MerkleTreeId.NOTE_HASH_TREE && leaves[0].equals(uniqueNoteHash)) {
+          return Promise.resolve([randomInBlock(0n)]);
+        }
+        if (treeId === MerkleTreeId.NULLIFIER_TREE && leaves[0].equals(siloedNullifier)) {
+          return Promise.resolve([randomInBlock(0n)]);
+        }
+        return Promise.resolve([undefined]);
+      });
+
+      await pxeOracleInterface.deliverNote(
+        contractAddress,
+        storageSlot,
+        nonce,
+        content,
+        noteHash,
+        nullifier,
+        txHash,
+        recipient.address,
+      );
+
+      // Verify note was removed
+      const notes = await noteDataProvider.getNotes({ recipient: recipient.address });
+      expect(notes).toHaveLength(0);
+    });
   });
 
   const setSyncedBlockNumber = (blockNumber: number) => {
