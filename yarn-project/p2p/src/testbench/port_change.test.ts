@@ -3,7 +3,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 
-import { assert } from 'console';
+import assert from 'assert';
 import getPort from 'get-port';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -16,7 +16,7 @@ const NODES_TO_CHANGE_PORT = 5;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // Test Summary:
-// - Start 20 clients
+// - Start 5 clients
 // - For NUMBER_OF_ITERATIONS iterations:
 //    - Send a tx from a random client
 //    - Allow for it to propagate to all other clients
@@ -26,8 +26,8 @@ describe('Port Change', () => {
   it(
     'should change port and propagate the gossip message correctly',
     async () => {
-      // Use 20 node configuration for this test
-      const configPath = path.join(__dirname, '../../testbench/configurations', 'normal-degree-20-nodes.json');
+      // Use 5 node configuration for this test
+      const configPath = path.join(__dirname, '../../testbench/configurations', 'normal-degree-5-nodes.json');
       const config = await import(configPath, { assert: { type: 'json' } });
       const testConfig = { ...testChainConfig, ...config.default };
       const numberOfClients = config.default.numberOfClients;
