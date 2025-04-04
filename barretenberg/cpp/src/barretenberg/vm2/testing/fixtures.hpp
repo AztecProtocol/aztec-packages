@@ -43,4 +43,10 @@ ContractInstance random_contract_instance();
 // alu contains non-zero values.
 std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi();
 
+/**
+ * @brief Check if slow tests should be skipped
+ * @return true if AVM_SLOW_TESTS environment variable is not set, false otherwise
+ */
+bool skip_slow_tests();
+
 } // namespace bb::avm2::testing

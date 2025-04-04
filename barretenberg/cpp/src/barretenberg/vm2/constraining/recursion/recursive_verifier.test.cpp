@@ -61,6 +61,7 @@ class AvmRecursiveTests : public ::testing::Test {
     }
 };
 
+// TODO: Makes more sense to migrate this one over a Mega-arithmetized AVM recursive verifier?
 /**
  * @brief A test of the "vanilla" Ultra-arithmetized AVM recursive verifier.
  *
@@ -72,8 +73,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
 
-    // TODO: Do we define another environment variable for long running tests?
-    if (std::getenv("AVM_SLOW_TESTS") == nullptr) {
+    if (testing::skip_slow_tests()) {
         GTEST_SKIP();
     }
 
@@ -151,7 +151,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
 
-    if (std::getenv("AVM_SLOW_TESTS") == nullptr) {
+    if (testing::skip_slow_tests()) {
         GTEST_SKIP();
     }
 
