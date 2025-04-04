@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743770620729,
+  "lastUpdate": 1743782548712,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "santiago@aztecprotocol.com",
-            "name": "Santiago Palladino",
-            "username": "spalladino"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1c2291a344e7528a04d1bf6081f29a9678ecded5",
-          "message": "fix: Race condition while unwinding blocks (#13148)\n\nWe hit [the following error](http://ci.aztec-labs.com/54d28d81fcad1e9b)\nin CI:\n\n```\n19:05:17   ● e2e_block_building › reorgs › detects an upcoming reorg and builds a block for the correct slot\n19:05:17 \n19:05:17     Could not retrieve body for block 4 0x139a9efee631a725b0ed6bc428460ceedb98bd2502ef13eeaa65123fd0cd98f9\n19:05:17 \n19:05:17       124 |         const blockBodyBuffer = await this.#blockBodies.getAsync(blockHash);\n19:05:17       125 |         if (blockBodyBuffer === undefined) {\n19:05:17     > 126 |             throw new Error(`Could not retrieve body for block ${header.globalVariables.blockNumber.toNumber()} ${blockHash}`);\n19:05:17           |                   ^\n19:05:17       127 |         }\n19:05:17       128 |         const body = Body.fromBuffer(blockBodyBuffer);\n19:05:17       129 |         const block = new L2Block(archive, header, body);\n19:05:17 \n19:05:17       at BlockStore.getBlockFromBlockStorage (../../archiver/dest/archiver/kv_archiver_store/block_store.js:126:19)\n19:05:17       at BlockStore.getSettledTxReceipt (../../archiver/dest/archiver/kv_archiver_store/block_store.js:165:23)\n19:05:17       at AztecNodeService.getTxReceipt (../../aztec-node/dest/aztec-node/server.js:357:34)\n19:05:17       at e2e_block_building.test.ts:567:22\n19:05:17       at retryUntil (../../foundation/dest/retry/index.js:84:24)\n19:05:17       at Object.<anonymous> (e2e_block_building.test.ts:566:7)\n```\n\nApparently this happens because we try calling `getTxReceipt` **during**\na block unwind (ie reorg) operation, the new test `does not fail if the\nblock is unwound while requesting a tx` could reproduce it consistently.\nThis is odd, since the only way that can happen is if the block body has\nbeen deleted but not the header. And these operations happen within the\nsame write tx in `unwindBlocks`.\n\nEither way, this fixes it by ignoring missing block bodies as if the\nentire block were missing.",
-          "timestamp": "2025-03-31T13:11:48-03:00",
-          "tree_id": "90e71803774ed6a9d44f4d4fa424c8711105ba10",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c2291a344e7528a04d1bf6081f29a9678ecded5"
-        },
-        "date": 1743439278028,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9953,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.25311329351017514,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 157822,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 132656,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "60546371+PhilWindle@users.noreply.github.com",
+            "name": "PhilWindle",
+            "username": "PhilWindle"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "65cfdf589b7a9bab63c5fbb07a2f52ef34b47e97",
+          "message": "chore: Contract addresses for alpha-testnet (#13303)\n\nThis PR simply configures contract addresses for alpha-testnet",
+          "timestamp": "2025-04-04T15:05:25Z",
+          "tree_id": "204112c4011f82ca091b8a40d1bdbca38431b831",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/65cfdf589b7a9bab63c5fbb07a2f52ef34b47e97"
+        },
+        "date": 1743782547516,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9400,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2390560156055767,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 144132,
             "unit": "us"
           }
         ]
