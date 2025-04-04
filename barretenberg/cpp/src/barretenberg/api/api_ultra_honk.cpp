@@ -64,17 +64,14 @@ PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
 PubInputsProofAndKey<VK> _prove(const bool compute_vk,
-                                const bool init_kzg_accumulator,
                                 const std::filesystem::path& bytecode_path,
                                 const std::filesystem::path& witness_path)
 {
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
-    if (init_kzg_accumulator) {
-        ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
-        num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
-    }
+    ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
+    num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         ASSERT(num_inner_public_inputs >= IPA_CLAIM_SIZE);
         num_inner_public_inputs -= IPA_CLAIM_SIZE;
@@ -162,16 +159,14 @@ void UltraHonkAPI::prove(const Flags& flags,
         write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
     };
 
-    const bool init = flags.init_kzg_accumulator;
-
     if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_prove<UltraFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }

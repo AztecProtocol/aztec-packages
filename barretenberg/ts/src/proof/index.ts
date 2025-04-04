@@ -13,17 +13,6 @@ export type ProofData = {
 
 export const AGGREGATION_OBJECT_LENGTH = 16;
 
-/**
- * @description
- * The representation of a proof
- * */
-export type ProofDataForRecursion = {
-  /** @description Public inputs of a proof */
-  publicInputs: string[];
-  /** @description An byte array representing the proof */
-  proof: string[];
-};
-
 // Fields are 32 bytes
 const fieldByteSize = 32;
 

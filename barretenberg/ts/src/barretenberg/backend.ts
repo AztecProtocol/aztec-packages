@@ -5,7 +5,6 @@ import {
   deflattenFields,
   flattenFieldsAsArray,
   ProofData,
-  ProofDataForRecursion,
   reconstructHonkProof,
   reconstructUltraPlonkProof,
   splitHonkProof,
