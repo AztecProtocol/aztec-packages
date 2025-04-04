@@ -85,6 +85,11 @@ trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
 
+# If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
+if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+  exit $code
+fi
+
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
   # If the test succeeded and we're in CI, save the test log.
@@ -107,12 +112,13 @@ fi
 function track_test {
   local test_hash=$1
   local line=$2
-  if [ "$REF_NAME" != "master" ]; then
-    return
+
+  # We track tests in CI, and only on master or master merge queue.
+  if [[ "$CI" -eq 1 && ( "$REF_NAME" == "master" || "$REF_NAME" =~ ^gh-readonly-queue/master/ ) ]]; then
+    redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
+    # Keeps only the last 1000 lines.
+    redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
   fi
-  redis_cli LPUSH $test_hash "$(date "+%m-%d %H:%M:%S"): $(echo -e "$line")" &>/dev/null
-  # Keeps only the last 1000 lines.
-  redis_cli RTRIM $test_hash -1000 -1 &>/dev/null
 }
 
 # Show PASSED and early out on success.
@@ -129,8 +135,10 @@ function fail {
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
-  cat $tmp_file
-  echo -e "$line"
+  if [ -t 1 ]; then
+    cat $tmp_file
+    echo -e "$line"
+  fi
   exit $code
 }
 
@@ -141,7 +149,7 @@ function flake {
   track_test "failed_tests" "$line"
   echo -e "$line"
 
-  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [ "$REF_NAME" != "master" ]; then
+  if [ -z "${SLACK_BOT_TOKEN:-}" ] || [[ "$REF_NAME" != "master" && ! "$REF_NAME" =~ ^gh-readonly-queue/master/ ]]; then
     return
   fi
 

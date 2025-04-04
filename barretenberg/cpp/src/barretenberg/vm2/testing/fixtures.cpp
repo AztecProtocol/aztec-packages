@@ -1,10 +1,14 @@
 #include "barretenberg/vm2/testing/fixtures.hpp"
 
+#include <utility>
 #include <vector>
 
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/instruction_spec.hpp"
+#include "barretenberg/vm2/common/memory_types.hpp"
+#include "barretenberg/vm2/simulation/events/alu_event.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
+#include "barretenberg/vm2/tracegen_helper.hpp"
 
 using bb::avm2::tracegen::TestTraceContainer;
 
@@ -126,6 +130,22 @@ ContractInstance random_contract_instance()
                                       .tagging_key = AffinePoint::random_element(),
                                   } };
     return instance;
+}
+
+std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
+{
+    AvmTraceGenHelper trace_gen_helper;
+
+    auto trace = trace_gen_helper.generate_trace({
+            .alu = { { .operation = simulation::AluOperation::ADD, .a = 1, .b = 2, .c = 3, .tag = MemoryTag::U16 }, },
+        });
+
+    return std::make_pair<tracegen::TraceContainer, PublicInputs>(std::move(trace), { .reverted = false });
+}
+
+bool skip_slow_tests()
+{
+    return std::getenv("AVM_SLOW_TESTS") == nullptr;
 }
 
 } // namespace bb::avm2::testing

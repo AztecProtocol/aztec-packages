@@ -24,19 +24,15 @@ export type ProofDataForRecursion = {
   proof: string[];
 };
 
-// Honk proofs start with 4 bytes for the size of the proof in fields
-const metadataOffset = 4;
+// Fields are 32 bytes
 const fieldByteSize = 32;
 
 export function splitHonkProof(
   proofWithPublicInputs: Uint8Array,
   numPublicInputs: number,
 ): { publicInputs: Uint8Array; proof: Uint8Array } {
-  // Remove the metadata (proof size in fields)
-  const proofWithPI = proofWithPublicInputs.slice(metadataOffset);
-
-  const publicInputs = proofWithPI.slice(0, numPublicInputs * fieldByteSize);
-  const proof = proofWithPI.slice(numPublicInputs * fieldByteSize);
+  const publicInputs = proofWithPublicInputs.slice(0, numPublicInputs * fieldByteSize);
+  const proof = proofWithPublicInputs.slice(numPublicInputs * fieldByteSize);
 
   return {
     proof,
@@ -45,10 +41,7 @@ export function splitHonkProof(
 }
 
 export function reconstructHonkProof(publicInputs: Uint8Array, proof: Uint8Array): Uint8Array {
-  // Append proofWithPublicInputs size in fields
-  const proofSize = numToUInt32BE((publicInputs.length + proof.length) / fieldByteSize);
-
-  const proofWithPublicInputs = Uint8Array.from([...proofSize, ...publicInputs, ...proof]);
+  const proofWithPublicInputs = Uint8Array.from([...publicInputs, ...proof]);
   return proofWithPublicInputs;
 }
 

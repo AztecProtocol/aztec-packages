@@ -55,15 +55,14 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 // These are options used by multiple modules so should be inputted once
 export const universalOptions = [
   'l1RpcUrls',
-  'l1ConsensusHostUrl',
-  'l1ConsensusHostApiKey',
-  'l1ConsensusHostApiKeyHeader',
+  'l1ConsensusHostUrls',
+  'l1ConsensusHostApiKeys',
+  'l1ConsensusHostApiKeyHeaders',
   'l1ChainId',
   'l1Contracts',
   'p2pEnabled',
   'dataDirectory',
   'dataStoreMapSizeKb',
-  'rollupVersion',
 ];
 
 export const NETWORK_FLAG = 'network';
@@ -76,13 +75,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
-    },
-    {
-      flag: '--rollup-version <value>',
-      description: 'Rollup version of the Rollup. (optional, if not set defaults to version from the rollup-address)',
-      envVar: 'ROLLUP_VERSION',
-      defaultValue: 1,
-      parseVal: val => parseInt(val, 10),
     },
   ],
   SANDBOX: [
@@ -143,23 +135,26 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'MNEMONIC',
     },
     {
-      flag: '--l1-consensus-host-url <value>',
-      description: 'URL of the Ethereum consensus node that services will connect to',
-      defaultValue: undefined,
-      envVar: 'L1_CONSENSUS_HOST_URL',
+      flag: '--l1-consensus-host-urls <value>',
+      description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_URLS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
     },
     {
-      flag: '--l1-consensus-host-api-key <value>',
-      description: 'API key for the Ethereum consensus node',
-      defaultValue: undefined,
-      envVar: 'L1_CONSENSUS_HOST_API_KEY',
+      flag: '--l1-consensus-host-api-keys <value>',
+      description: 'List of API keys for the corresponding Ethereum consensus nodes',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_API_KEYS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
     {
-      flag: '--l1-consensus-host-api-key-header <value>',
+      flag: '--l1-consensus-host-api-key-headers <value>',
       description:
-        'API key header for the Ethereum consensus node. If not set, the api key will be appended to the URL as ?key=<api-key>',
-      defaultValue: undefined,
-      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
+        'List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as ?key=<api-key>',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
   ],
   STORAGE: [

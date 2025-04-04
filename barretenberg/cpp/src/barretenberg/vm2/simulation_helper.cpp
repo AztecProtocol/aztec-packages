@@ -118,7 +118,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     TxExecution tx_execution(execution);
     Sha256 sha256(sha256_compression_emitter);
 
-    tx_execution.simulate({ .enqueued_calls = inputs.hints.enqueuedCalls });
+    tx_execution.simulate(inputs.hints.tx);
 
     return { execution_emitter.dump_events(),
              alu_emitter.dump_events(),

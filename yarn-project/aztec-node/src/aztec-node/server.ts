@@ -23,7 +23,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb';
 import { RollupAbi } from '@aztec/l1-artifacts';
 import { SHA256Trunc, StandardTree, UnbalancedTree } from '@aztec/merkle-tree';
 import { trySnapshotSync, uploadSnapshot } from '@aztec/node-lib/actions';
-import { type P2P, createP2PClient } from '@aztec/p2p';
+import { type P2P, createP2PClient, getDefaultAllowedSetupFunctions } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import {
   GlobalVariableBuilder,
@@ -31,7 +31,6 @@ import {
   type SequencerPublisher,
   createSlasherClient,
   createValidatorForAcceptingTxs,
-  getDefaultAllowedSetupFunctions,
 } from '@aztec/sequencer-client';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -908,7 +907,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       MerkleTreeId.PUBLIC_DATA_TREE,
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
-    return preimage.value;
+    return preimage.leaf.value;
   }
 
   /**
@@ -988,7 +987,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     const validator = createValidatorForAcceptingTxs(db, this.contractDataSource, verifier, {
       blockNumber,
       l1ChainId: this.l1ChainId,
-      setupAllowList: this.config.allowedInSetup ?? (await getDefaultAllowedSetupFunctions()),
+      rollupVersion: this.version,
+      setupAllowList: this.config.txPublicSetupAllowList ?? (await getDefaultAllowedSetupFunctions()),
       gasFees: await this.getCurrentBaseFees(),
       skipFeeEnforcement,
     });

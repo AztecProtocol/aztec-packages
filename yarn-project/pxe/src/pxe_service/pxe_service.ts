@@ -155,7 +155,6 @@ export class PXEService implements PXE {
     const pxeOracleInterface = new PXEOracleInterface(
       node,
       keyStore,
-      simulationProvider,
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
@@ -344,29 +343,16 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
-   * Returns the simulation result containing the outputs of the unconstrained function.
-   *
-   * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The simulation result containing the outputs of the unconstrained function.
+   * Simulate a utility function call on the given contract.
+   * @param call - The function call to execute.
+   * @param authWitnesses - Authentication witnesses required for the function call.
+   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
+   * accounts if not specified.
+   * @returns The simulation result containing the outputs of the utility function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
-    const { to: contractAddress, selector: functionSelector } = execRequest;
-
-    this.log.debug('Executing unconstrained simulator...');
+  async #simulateUtility(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
     try {
-      const result = await this.simulator.runUnconstrained(
-        execRequest,
-        contractAddress,
-        functionSelector,
-        authWitnesses ?? [],
-        scopes,
-      );
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
-
-      return result;
+      return this.simulator.runUtility(call, authWitnesses ?? [], scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);
@@ -818,7 +804,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public simulateUnconstrained(
+  public simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -834,7 +820,7 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
-        const executionResult = await this.#simulateUnconstrained(functionCall, authwits ?? [], scopes);
+        const executionResult = await this.#simulateUtility(functionCall, authwits ?? [], scopes);
 
         // TODO - Return typed result based on the function artifact.
         return executionResult;
@@ -842,7 +828,7 @@ export class PXEService implements PXE {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `simulateUtility ${to}:${functionName}(${stringifiedArgs})`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
@@ -897,7 +883,7 @@ export class PXEService implements PXE {
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
     // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
-    await this.simulateUnconstrained('sync_notes', [], contractAddress);
+    await this.simulateUtility('sync_notes', [], contractAddress);
 
     const events = await this.privateEventDataProvider.getPrivateEvents(
       contractAddress,

@@ -208,7 +208,7 @@ export class AccountWallet extends BaseWallet {
     return {
       name: 'lookup_validity',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.UTILITY,
       isInternal: false,
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
@@ -221,7 +221,7 @@ export class AccountWallet extends BaseWallet {
     return {
       name: 'unconstrained_is_consumable',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.UTILITY,
       isInternal: false,
       isStatic: false,
       parameters: [

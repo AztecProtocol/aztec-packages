@@ -8,6 +8,7 @@ import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { type DateProvider, Timer, elapsed } from '@aztec/foundation/timer';
 import type { P2P } from '@aztec/p2p';
+import { getDefaultAllowedSetupFunctions } from '@aztec/p2p/msg_validators';
 import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -47,7 +48,6 @@ import type { GlobalVariableBuilder } from '../global_variable_builder/global_bu
 import { type SequencerPublisher, VoteType } from '../publisher/sequencer-publisher.js';
 import type { SlasherClient } from '../slasher/slasher_client.js';
 import { createValidatorForBlockBuilding } from '../tx_validator/tx_validator_factory.js';
-import { getDefaultAllowedSetupFunctions } from './allowed.js';
 import type { SequencerConfig } from './config.js';
 import { SequencerMetrics } from './metrics.js';
 import { SequencerTimetable, SequencerTooSlowError } from './timetable.js';
@@ -76,7 +76,7 @@ export class Sequencer {
   private _coinbase = EthAddress.ZERO;
   private _feeRecipient = AztecAddress.ZERO;
   private state = SequencerState.STOPPED;
-  private allowedInSetup: AllowedElement[] = [];
+  private txPublicSetupAllowList: AllowedElement[] = [];
   private maxBlockSizeInBytes: number = 1024 * 1024;
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
@@ -131,7 +131,10 @@ export class Sequencer {
    * @param config - New parameters.
    */
   public async updateConfig(config: SequencerConfig) {
-    this.log.info(`Sequencer config set`, omit(pickFromSchema(config, SequencerConfigSchema), 'allowedInSetup'));
+    this.log.info(
+      `Sequencer config set`,
+      omit(pickFromSchema(config, SequencerConfigSchema), 'txPublicSetupAllowList'),
+    );
 
     if (config.transactionPollingIntervalMS !== undefined) {
       this.pollingIntervalMs = config.transactionPollingIntervalMS;
@@ -154,10 +157,10 @@ export class Sequencer {
     if (config.feeRecipient) {
       this._feeRecipient = config.feeRecipient;
     }
-    if (config.allowedInSetup) {
-      this.allowedInSetup = config.allowedInSetup;
+    if (config.txPublicSetupAllowList) {
+      this.txPublicSetupAllowList = config.txPublicSetupAllowList;
     } else {
-      this.allowedInSetup = await getDefaultAllowedSetupFunctions();
+      this.txPublicSetupAllowList = await getDefaultAllowedSetupFunctions();
     }
     if (config.maxBlockSizeInBytes !== undefined) {
       this.maxBlockSizeInBytes = config.maxBlockSizeInBytes;
@@ -469,7 +472,7 @@ export class Sequencer {
         publicProcessorDBFork,
         this.contractDataSource,
         newGlobalVariables,
-        this.allowedInSetup,
+        this.txPublicSetupAllowList,
       );
 
       // TODO(#11000): Public processor should just handle processing, one tx at a time. It should be responsibility

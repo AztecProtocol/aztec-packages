@@ -81,6 +81,7 @@ async function verifyProof({ directory }: { directory: string }) {
   const publicInputs = JSON.parse(
     await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
   );
+  debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
   const vkey = await fs.readFile(vkeyPath(directory));
 
   const verified = await verifier.verifyUltraHonkProof(
@@ -90,6 +91,7 @@ async function verifyProof({ directory }: { directory: string }) {
 
   await verifier.destroy();
   debug(`Proof verified: ${verified}`);
+  return verified;
 }
 
 // Prepare a minimal command line interface
@@ -107,6 +109,9 @@ program
 program
   .command("verify")
   .option("-d, --directory <path>", "directory")
-  .action((args) => verifyProof(args));
+  .action(async (args) => {
+    const result = await verifyProof(args);
+    process.exit(result ? 0 : 1);
+  });
 
 program.parse(process.argv);

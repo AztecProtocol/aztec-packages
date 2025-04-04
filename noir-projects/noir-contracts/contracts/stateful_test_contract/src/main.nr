@@ -6,7 +6,7 @@ pub contract StatefulTest {
     use dep::aztec::macros::{
         functions::{
             initialization_utils::assert_is_initialized_private, initializer, noinitcheck, private,
-            public, view,
+            public, utility, view,
         },
         storage::storage,
     };
@@ -98,7 +98,8 @@ pub contract StatefulTest {
         loc.write(loc.read() + value);
     }
 
-    unconstrained fn summed_values(owner: AztecAddress) -> pub Field {
+    #[utility]
+    unconstrained fn summed_values(owner: AztecAddress) -> Field {
         let owner_balance = storage.notes.at(owner);
 
         // docs:start:get_balance
