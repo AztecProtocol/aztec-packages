@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743801397335,
+  "lastUpdate": 1743801731781,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "adam.domurad@gmail.com",
-            "name": "ludamad",
-            "username": "ludamad"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "cb1a857e210638f734e19f95d01284dabbd26f17",
-          "message": "chore: convenient way to run app ivc from bb (#13158)\n\nOne can now run (for example, any master commit that has finished\nbenchmarking can be used):\n`barretenberg/cpp/bootstrap.sh e2e_ivc_bench\n88c0e046ccb8381910a4615ac6218dcdbf04d898`\n\nAlso bundled: \n- error in CI if we edit cache contents and try to cache upload\n- bench cleanup and bash typo fix\n- remove AZTEC_CACHE_NO_SCRIPTS as it has gotchas",
-          "timestamp": "2025-03-31T18:53:51Z",
-          "tree_id": "97166afc550d8f2f1a56372108234a8cce406153",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cb1a857e210638f734e19f95d01284dabbd26f17"
-        },
-        "date": 1743448398345,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9544,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.24271821095319324,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 151794,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 151320,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ab0d6c600815e5a75b87b52ceb4fe69654a8bbfc",
+          "message": "refactor: using Txhash type (#13318)\n\nIn plenty of the places we didn't use the TxHash type for no apparent\nreason.",
+          "timestamp": "2025-04-04T20:47:04Z",
+          "tree_id": "91ac4b9a05393f74912424e3e360d7eef2c6ffdb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ab0d6c600815e5a75b87b52ceb4fe69654a8bbfc"
+        },
+        "date": 1743801731150,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9284,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23610693660930135,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 137715,
             "unit": "us"
           }
         ]
