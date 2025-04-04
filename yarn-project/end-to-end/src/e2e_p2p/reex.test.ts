@@ -1,6 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { type SentTx, Tx, sleep } from '@aztec/aztec.js';
 import { times } from '@aztec/foundation/collection';
+import { SerialQueue } from '@aztec/foundation/queue';
 import type { PublicProcessorFactory, PublicTxResult, PublicTxSimulator } from '@aztec/simulator/server';
 import { BlockProposal, SignatureDomainSeparator, getHashedSignaturePayload } from '@aztec/stdlib/p2p';
 import type { ValidatorClient } from '@aztec/validator-client';
@@ -101,8 +102,15 @@ describe('e2e_p2p_reex', () => {
   describe('validators re-execute transactions before attesting', () => {
     // Keep track of txs we have seen, so we do not intercept the simulate call on the first run (the block-proposer's)
     let seenTxs: Set<string>;
+    let interceptionQueue: SerialQueue = new SerialQueue();
     beforeEach(() => {
       seenTxs = new Set();
+      interceptionQueue = new SerialQueue();
+      interceptionQueue.start();
+    });
+
+    afterEach(async () => {
+      await interceptionQueue.end();
     });
 
     // Hold off sequencers from building a block
@@ -159,15 +167,18 @@ describe('e2e_p2p_reex', () => {
           // We only stub the simulate method if it's NOT the first time we see the tx
           // so the proposer works fine, but we cause the failure in the validators.
           jest.spyOn(simulator, 'simulate').mockImplementation(async (tx: Tx) => {
-            const txHash = (await tx.getTxHash()).toString();
-            if (seenTxs.has(txHash)) {
-              t.logger.warn('Calling stubbed simulate for tx', { txHash });
-              return stub(tx, originalSimulate);
-            } else {
-              seenTxs.add(txHash);
-              t.logger.warn('Calling original simulate for tx', { txHash });
-              return originalSimulate(tx);
-            }
+            // Run on a queue to ensure no contentious reads to has(txHash)
+            return await interceptionQueue.put(async () => {
+              const txHash = (await tx.getTxHash()).toString();
+              if (seenTxs.has(txHash)) {
+                t.logger.warn('Calling stubbed simulate for tx', { txHash });
+                return stub(tx, originalSimulate);
+              } else {
+                seenTxs.add(txHash);
+                t.logger.warn('Calling original simulate for tx', { txHash });
+                return originalSimulate(tx);
+              }
+            });
           });
           return processor;
         });
@@ -216,13 +227,15 @@ describe('e2e_p2p_reex', () => {
 
         // Start a fresh slot and resume proposals
         await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+        await t.syncMockSystemTime();
+
         await resumeProposals();
 
         // We ensure that the transactions are NOT mined in the next slot
         const txResults = await Promise.allSettled(
           txs.map(async (tx: SentTx, i: number) => {
             t.logger.info(`Waiting for tx ${i}: ${await tx.getTxHash()} to be mined`);
-            return tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration });
+            return tx.wait({ timeout: t.ctx.aztecNodeConfig.aztecSlotDuration * 2 });
           }),
         );
 
