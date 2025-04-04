@@ -140,7 +140,7 @@ pub unconstrained fn check_total_supply(
     cheatcodes::set_contract_address(current_contract_address);
 }
 
-// docs:start:txe_test_call_unconstrained
+// docs:start:txe_test_call_utility
 pub unconstrained fn check_private_balance(
     token_contract_address: AztecAddress,
     address: AztecAddress,
@@ -148,12 +148,12 @@ pub unconstrained fn check_private_balance(
 ) {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
-    // Direct call to unconstrained
+    // Direct call to a utility function
     let balance_of_private = Token::balance_of_private(address);
     assert(balance_of_private == address_amount, "Private balance is not correct");
     cheatcodes::set_contract_address(current_contract_address);
 }
-// docs:end:txe_test_call_unconstrained
+// docs:end:txe_test_call_utility
 
 pub unconstrained fn get_private_balance(
     token_contract_address: AztecAddress,
@@ -161,7 +161,6 @@ pub unconstrained fn get_private_balance(
 ) -> u128 {
     let current_contract_address = get_contract_address();
     cheatcodes::set_contract_address(token_contract_address);
-    // Direct call to unconstrained
     let amt = Token::balance_of_private(address);
     cheatcodes::set_contract_address(current_contract_address);
     amt

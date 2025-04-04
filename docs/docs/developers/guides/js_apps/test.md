@@ -51,7 +51,7 @@ Alternatively, you can [create a new account.](./create_account.md).
 
 You can send transactions within your tests with Aztec.js. Read how to do that in these guides:
 
-- [Call a view (unconstrained) function](./call_view_function.md)
+- [Simulate a function](./call_view_function.md)
 - [Send a transaction](./send_transaction.md)
 
 ### Using debug options

@@ -30,11 +30,10 @@ In the context of Aztec, a contract is a set of functions which can be of one of
 
 - Private functions: The functions that run on user's machines. They are circuits that must be individually executed by the [ACVM](https://github.com/noir-lang/noir/blob/master/acvm-repo/acvm/src/pwg/mod.rs#L132) and proved by barretenberg.
 - Public functions: The functions that are run by sequencers. They are aggregated in a bytecode block that must be executed and proven by the AVM.
-- Unconstrained functions: Helper functions that are run on users' machines but are not constrained. They are represented individually as bytecode that is executed by the ACVM.
-  - Unconstrained functions are often used to fetch and serialize private data, for use as witnesses to a circuit.
+- Utility functions: Helper functions that are run on users' machines but are not constrained. They are represented individually as bytecode that is executed by the ACVM.
   - They can also be used to convey how dapps should handle a particular contract's data.
 
-When a contract is compiled, private and unconstrained functions are compiled individually. Public functions are compiled together to a single bytecode with an initial dispatch table based on function selectors. Since public functions are run in a VM, we do not incur a huge extra proving cost for the branching that is required to execute different functions.
+When a contract is compiled, private and utility functions are compiled individually. Public functions are compiled together to a single bytecode with an initial dispatch table based on function selectors. Since public functions are run in a VM, we do not incur a huge extra proving cost for the branching that is required to execute different functions.
 
 If a private function needs unconstrained hints, the bytecode that generates the unconstrained hints is embedded in the private circuit. This allows the ACVM to compute the hints during witness generation.
 
@@ -46,11 +45,11 @@ The AVM bytecode is the compilation target of the public functions of a contract
 
 # Brillig Bytecode
 
-Brillig bytecode is the compilation target of all the unconstrained code in a contract. Any unconstrained hint used by a private function is compiled to Brillig bytecode. Also, contracts' top level unconstrained functions are entirely compiled to Brillig bytecode. In the case of Noir, it compiles public functions entirely to a single block of brillig bytecode that is then converted to AVM bytecode. Similarly to AVM bytecode, Brillig bytecode allows control flow.
+Brillig bytecode is the compilation target of all the unconstrained code in a contract. Any unconstrained hint used by a private function is compiled to Brillig bytecode. Also, contracts' utility functions are entirely compiled to Brillig bytecode. In the case of Noir, it compiles public functions entirely to a single block of brillig bytecode that is then converted to AVM bytecode. Similarly to AVM bytecode, Brillig bytecode allows control flow.
 
 Brillig bytecode will be very similar to AVM bytecode. While AVM bytecode is specifically designed to be executed by the AVM, brillig bytecode is meant to be more general and allow the use of arbitrary oracles.
 
-Oracles allow nondeterminism during the execution of a given function, allowing the simulator entity to choose the value that an oracle will return during the simulation process. Oracles are heavily used by aztec.nr to fetch data during simulation of private and unconstrained functions, such as fetching notes. They are also used to notify the simulator about events arising during execution, such as a nullified note so that it's not offered again during the simulation.
+[Oracles](https://noir-lang.org/docs/explainers/explainer-oracle) allow nondeterminism during the execution of a given function, allowing the simulator entity to choose the value that an oracle will return during the simulation process. Oracles are heavily used by aztec.nr to fetch data during simulation of private and utility functions, such as fetching notes. They are also used to notify the simulator about events arising during execution, such as a nullified note so that it's not offered again during the simulation.
 
 However, AVM bytecode doesn't allow arbitrary oracles, any nondeterminism introduced is done in a way that the protocol can ensure that the simulator entity (the sequencer) cannot manipulate the result of an oracle. As such, when transforming brillig bytecode to AVM bytecode, all the oracles are replaced by the specific opcodes that the AVM supports for nondeterminism, like [TIMESTAMP](../public-vm/instruction-set.mdx#isa-section-timestamp), [ADDRESS](../public-vm/instruction-set.mdx#isa-section-address), etc. Any opcode that requires the simulator entity to provide data external to the AVM memory is non-deterministic.
 
@@ -98,7 +97,7 @@ The exact form of the artifact is not specified by the protocol, but it needs at
 
 ### Function entry
 
-If the function is public, the entry will be its ABI. If the function is private or unconstrained, the entry will be the ABI + the artifact.
+If the function is public, the entry will be its ABI. If the function is private or utility, the entry will be the ABI + the artifact.
 
 ### Function artifact
 
@@ -113,7 +112,7 @@ If the function is public, the entry will be its ABI. If the function is private
 | Field | Type | Description |
 |----------|----------|----------|
 | `name` | `string` | The name of the function. |
-| `functionType` | `string` | `private`, `public` or `unconstrained`. |
+| `functionType` | `string` | `private`, `public` or `utility`. |
 | `parameters` | [ABIParameter[]](#abi-parameter) | Function parameters. |
 | `returnTypes` | `AbiType[]` | The types of the return values. |
 
@@ -150,11 +149,11 @@ If the function is public, the entry will be its ABI. If the function is private
 
 The protocol mandates that public bytecode needs to be published to a data availability solution, since the sequencers need to have the data available to run the public functions. Also, it needs to use an encoding that is friendly to the public VM, such as the one specified in the [AVM section](../public-vm/bytecode-validation-circuit.md).
 
-The bytecode of private and unconstrained functions doesn't need to be published, instead, users that desire to use a given contract can add the artifact to their PXE before interacting with it. Publishing it is [supported but not required](../contract-deployment/classes.md#broadcast) by the protocol. However, the verification key of a private function is hashed into the function's leaf of the contract's function tree, so the user can prove to the protocol that he executed the function correctly. Also, contract classes contain an [artifact hash](../contract-deployment/classes.md#artifact-hash) so the PXE can verify that the artifact corresponds with the contract class.
+The bytecode of private and utility functions doesn't need to be published, instead, users that desire to use a given contract can add the artifact to their PXE before interacting with it. Publishing it is [supported but not required](../contract-deployment/classes.md#broadcast) by the protocol. However, the verification key of a private function is hashed into the function's leaf of the contract's function tree, so the user can prove to the protocol that he executed the function correctly. Also, contract classes contain an [artifact hash](../contract-deployment/classes.md#artifact-hash) so the PXE can verify that the artifact corresponds with the contract class.
 
-The encoding of private and unconstrained functions is not specified by the protocol, but it's recommended to follow [the encoding](https://github.com/noir-lang/noir/blob/master/acvm-repo/acir/src/circuit/mod.rs#L157) that Barretenberg and the ACVM share that is serialization using bincode and gzip for compression.
+The encoding of private and utility functions is not specified by the protocol, but it's recommended to follow [the encoding](https://github.com/noir-lang/noir/blob/master/acvm-repo/acir/src/circuit/mod.rs#L157) that Barretenberg and the ACVM share that is serialization using bincode and gzip for compression.
 
-This implies that the encoding of private and unconstrained functions does not need to be friendly to circuits, since when publishing it the protocol only sees a [generic array of field elements](../contract-deployment/classes.md#broadcast).
+This implies that the encoding of private and utility functions does not need to be friendly to circuits, since when publishing it the protocol only sees a [generic array of field elements](../contract-deployment/classes.md#broadcast).
 
 ## Executing a private function
 
@@ -162,9 +161,9 @@ When executing a private function, its ACIR bytecode will be executed by the PXE
 
 The fact that the correct function was executed is checked by the protocol by verifying that the [contract class ID](../contract-deployment/classes.md#class-identifier) contains one leaf in the function tree with this selector and the verification key of the function.
 
-## Executing an unconstrained function
+## Executing a utility function
 
-When executing an unconstrained function, its Brillig bytecode will be executed by the PXE using the ACVM, similarly to private functions, but the PXE will not prove the execution. Instead, the PXE will return the result of the execution of the function to the user.
+When executing a utility function, its Brillig bytecode will be executed by the PXE using the ACVM, similarly to private functions, but the PXE will not prove the execution. Instead, the PXE will return the result of the execution of the function to the user.
 
 ## Executing a public function
 

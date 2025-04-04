@@ -40,7 +40,7 @@ impl TestEnvironment {
     /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
     /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
     /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
-    /// we call top-level unconstrained functions, we must set this contract address to the contract being called.
+    /// we call utility functions, we must set this contract address to the contract being called.
     /// The contract address can be manipulated to do the above at any particular address, and not simply the one provided at
     /// the instantiation of the test.
     /// Returns the currently set contract address.
@@ -50,7 +50,8 @@ impl TestEnvironment {
 
     /// Modifies the currently set contract address. As per above, it sets the "msg_sender" address on our subsequent calls.
     /// This is useful when we have multiple "accounts" that need to interact with an arbitrary contract. This also allows
-    /// us to change the "contract" we emit side effects from, and is required when we want to run a top-level unconstrained function on another contract.
+    /// us to change the "contract" we emit side effects from, and is required when we want to run a utility function
+    /// on another contract.
     pub unconstrained fn impersonate(_self: Self, address: AztecAddress) {
         cheatcodes::set_contract_address(address)
     }
