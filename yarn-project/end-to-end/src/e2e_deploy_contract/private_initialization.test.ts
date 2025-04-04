@@ -1,4 +1,5 @@
 import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -18,15 +19,26 @@ describe('e2e_deploy_contract private initialization', () => {
 
   afterAll(() => t.teardown());
 
-  // Tests calling a private function in an uninitialized and undeployed contract. Note that
-  // it still requires registering the contract artifact and instance locally in the pxe.
-  it('executes a function in an undeployed contract from an account contract', async () => {
+  // Tests calling a private function in an uninitialized and undeployed contract.
+  // Requires registering the contract artifact and instance locally in the pxe.
+  // The function has a noinitcheck flag so it can be called without initialization.
+  it('executes a noinitcheck function in an uninitialized contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
     const receipt = await contract.methods.emit_nullifier(10).send().wait();
     const txEffects = await aztecNode.getTxEffect(receipt.txHash);
 
     const expected = await siloNullifier(contract.address, new Fr(10));
     expect(txEffects!.data.nullifiers).toContainEqual(expected);
+  });
+
+  // Tests calling a private function in an uninitialized and undeployed contract.
+  // Requires registering the contract artifact and instance locally in the pxe.
+  // This contract does not have a constructor, so the fn does not need the noinitcheck flag.
+  it('executes a function in a contract without initializer', async () => {
+    const contract = await t.registerContract(wallet, DocsExampleContract);
+    await expect(contract.methods.is_legendary_initialized().simulate()).resolves.toEqual(false);
+    await contract.methods.initialize_private(0, 1).send().wait();
+    await expect(contract.methods.is_legendary_initialized().simulate()).resolves.toEqual(true);
   });
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
