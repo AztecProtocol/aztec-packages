@@ -42,7 +42,10 @@ class AvmRecursiveTests : public ::testing::Test {
         std::vector<std::vector<FF>> public_inputs_cols;
     };
 
-    NativeProofResult create_and_verify_native_proof()
+    // Helper function to create and verify native proof. Due to the way ASSERT_TRUE
+    // works, this routine needs to return void and therefore we feed proof_result
+    // by reference.
+    static void create_and_verify_native_proof(NativeProofResult& proof_result)
     {
         auto [trace, public_inputs] = testing::get_minimal_trace_with_pi();
 
@@ -57,7 +60,7 @@ class AvmRecursiveTests : public ::testing::Test {
         // Should be in principle ASSERT_TRUE, but compiler does not like it.
         EXPECT_TRUE(verified) << "native proof verification failed";
 
-        return { proof, verification_key, public_inputs_cols };
+        proof_result = { proof, verification_key, public_inputs_cols };
     }
 };
 
@@ -77,56 +80,70 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
         GTEST_SKIP();
     }
 
-    auto [proof, verification_key, public_inputs_cols] = create_and_verify_native_proof();
+    NativeProofResult proof_result;
+    ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
+
+    auto [proof, verification_key, public_inputs_cols] = proof_result;
 
     // Create the outer verifier, to verify the proof
     OuterBuilder outer_circuit;
-    RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-    auto agg_object =
-        stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+    // Scoped to free memory of RecursiveVerifier.
+    {
+        RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-    auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
+        auto agg_object =
+            stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(
+                outer_circuit);
 
-    bool agg_output_valid =
-        verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
+        auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
 
-    // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
-    // be aggregated with others.
-    ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
+        bool agg_output_valid =
+            verification_key->pcs_verification_key->pairing_check(agg_output.P0.get_value(), agg_output.P1.get_value());
 
-    // Check that no failure flag was raised in the recursive verifier circuit
-    ASSERT_FALSE(outer_circuit.failed()) << outer_circuit.err();
+        // Check that the output of the recursive verifier is well-formed for aggregation as this pair of points will
+        // be aggregated with others.
+        ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
 
-    // Check that the circuit is valid.
-    bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
-    ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
+        // Check that no failure flag was raised in the recursive verifier circuit
+        ASSERT_FALSE(outer_circuit.failed()) << outer_circuit.err();
 
-    auto manifest = AvmFlavor::Transcript(proof).get_manifest();
-    auto recursive_manifest = recursive_verifier.transcript->get_manifest();
+        // Check that the circuit is valid.
+        bool outer_circuit_checked = CircuitChecker::check(outer_circuit);
+        ASSERT_TRUE(outer_circuit_checked) << "outer circuit check failed";
 
-    // We sanity check that the recursive manifest matches its counterpart one.
-    ASSERT_EQ(manifest.size(), recursive_manifest.size());
-    for (size_t i = 0; i < recursive_manifest.size(); ++i) {
-        EXPECT_EQ(recursive_manifest[i], manifest[i]);
+        auto manifest = AvmFlavor::Transcript(proof).get_manifest();
+        auto recursive_manifest = recursive_verifier.transcript->get_manifest();
+
+        // We sanity check that the recursive manifest matches its counterpart one.
+        ASSERT_EQ(manifest.size(), recursive_manifest.size());
+        for (size_t i = 0; i < recursive_manifest.size(); ++i) {
+            EXPECT_EQ(recursive_manifest[i], manifest[i]);
+        }
+
+        // We sanity check that the recursive verifier key (precomputed columns) matches its counterpart one.
+        for (const auto [key_el, rec_key_el] :
+             zip_view(verification_key->get_all(), recursive_verifier.key->get_all())) {
+            EXPECT_EQ(key_el, rec_key_el.get_value());
+        }
+
+        // Sanity checks on circuit_size and num_public_inputs match.
+        EXPECT_EQ(verification_key->circuit_size,
+                  static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
+        EXPECT_EQ(verification_key->num_public_inputs,
+                  static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
     }
-
-    // We sanity check that the recursive verifier key (precomputed columns) matches its counterpart one.
-    for (const auto [key_el, rec_key_el] : zip_view(verification_key->get_all(), recursive_verifier.key->get_all())) {
-        EXPECT_EQ(key_el, rec_key_el.get_value());
-    }
-
-    // Sanity checks on circuit_size and num_public_inputs match.
-    EXPECT_EQ(verification_key->circuit_size, static_cast<uint64_t>(recursive_verifier.key->circuit_size.get_value()));
-    EXPECT_EQ(verification_key->num_public_inputs,
-              static_cast<uint64_t>(recursive_verifier.key->num_public_inputs.get_value()));
 
     // Make a proof of the verification of an AVM proof
     const size_t srs_size = 1 << 24; // Current outer_circuit size is 9.6 millions
     auto ultra_instance = std::make_shared<OuterDeciderProvingKey>(
         outer_circuit, TraceSettings{}, std::make_shared<bb::CommitmentKey<curve::BN254>>(srs_size));
-    OuterProver ultra_prover(ultra_instance);
-    auto outer_proof = ultra_prover.construct_proof();
+
+    // Scoped to free memory of OuterProver.
+    auto outer_proof = [&]() {
+        OuterProver ultra_prover(ultra_instance);
+        return ultra_prover.construct_proof();
+    }();
 
     vinfo("Recursive verifier: finalized num gates = ", outer_circuit.num_gates);
 
@@ -155,7 +172,10 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         GTEST_SKIP();
     }
 
-    auto [proof, verification_key, public_inputs_cols] = create_and_verify_native_proof();
+    NativeProofResult proof_result;
+    ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
+
+    auto [proof, verification_key, public_inputs_cols] = proof_result;
 
     // Construct stdlib representations of the proof, public inputs and verification key
     OuterBuilder outer_circuit;
@@ -179,11 +199,13 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         outer_key_fields.push_back(val);
     }
 
-    // Construct the AVM recursive verifier
-    AvmRecursiveVerifier avm_rec_verifier(&outer_circuit, outer_key_fields);
-    auto agg_object = stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
-
-    auto verifier_output = avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
+    // Construct the AVM recursive verifier and verify the proof
+    // Scoped to free memory of AvmRecursiveVerifier.
+    auto verifier_output = [&]() {
+        AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
+        auto agg_object = stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
+        return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
+    }();
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     bool agg_output_valid = verification_key->pcs_verification_key->pairing_check(
@@ -196,8 +218,12 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Construct and verify an Ultra Rollup proof of the AVM recursive verifier circuit. This proof carries an IPA claim
     // from ECCVM recursive verification in its public inputs that will be verified as part of the UltraRollupVerifier.
     auto outer_proving_key = std::make_shared<DeciderProvingKey_<UltraRollupFlavor>>(outer_circuit);
-    UltraRollupProver outer_prover(outer_proving_key);
-    auto outer_proof = outer_prover.construct_proof();
+
+    // Scoped to free memory of UltraRollupProver.
+    auto outer_proof = [&]() {
+        UltraRollupProver outer_prover(outer_proving_key);
+        return outer_prover.construct_proof();
+    }();
 
     // Verify the proof of the Ultra circuit that verified the AVM recursive verifier circuit
     auto outer_verification_key = std::make_shared<UltraRollupFlavor::VerificationKey>(outer_proving_key->proving_key);

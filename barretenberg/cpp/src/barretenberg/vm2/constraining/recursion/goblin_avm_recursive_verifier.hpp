@@ -67,10 +67,10 @@ class AvmGoblinRecursiveVerifier {
 
     std::vector<UltraFF> outer_key_fields;
 
-    UltraBuilder* ultra_builder;
+    UltraBuilder& ultra_builder;
     std::shared_ptr<Transcript> transcript;
 
-    explicit AvmGoblinRecursiveVerifier(UltraBuilder* builder, const std::vector<UltraFF>& outer_key_fields)
+    explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder, const std::vector<UltraFF>& outer_key_fields)
         : outer_key_fields(outer_key_fields)
         , ultra_builder(builder)
     {}
@@ -159,30 +159,30 @@ class AvmGoblinRecursiveVerifier {
         // Recursively verify the Mega proof in the Ultra circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1305): Mega + Goblin VKs must be circuit constants.
         auto native_outer_vk = std::make_shared<MegaVerificationKey>(mega_prover.proving_key->proving_key);
-        auto outer_vk = std::make_shared<MegaRecursiveVerificationKey>(ultra_builder, native_outer_vk);
-        MegaRecursiveVerifier outer_verifier(ultra_builder, outer_vk);
-        StdlibProof<UltraBuilder> ultra_proof = bb::convert_native_proof_to_stdlib(ultra_builder, mega_proof);
+        auto outer_vk = std::make_shared<MegaRecursiveVerificationKey>(&ultra_builder, native_outer_vk);
+        MegaRecursiveVerifier outer_verifier(&ultra_builder, outer_vk);
+        StdlibProof<UltraBuilder> ultra_proof = bb::convert_native_proof_to_stdlib(&ultra_builder, mega_proof);
         auto outer_verifier_output = outer_verifier.verify_proof(ultra_proof, input_agg_obj);
 
         // Recursively verify the goblin proof in the Ultra circuit
         GoblinVerifier::VerifierInput goblin_vinput{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
                                                      std::make_shared<TranslatorVK>(
                                                          goblin.get_translator_proving_key()) };
-        GoblinRecursiveVerifier gverifier{ ultra_builder, goblin_vinput };
+        GoblinRecursiveVerifier gverifier{ &ultra_builder, goblin_vinput };
         GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(goblin_proof);
 
         // Propagate the IPA claim via the public inputs of the outer circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity to
         // handle this IPA data propagation.
-        ultra_builder->add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
-        ultra_builder->ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
-        ASSERT(ultra_builder->ipa_proof.size() && "IPA proof should not be empty");
+        ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
+        ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
+        ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
 
         // STEP 5: Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner
         // (Mega) circuit and the outer (Ultra) by asserting equality on the hash of this data computed independently by
         // each circuit.
 
-        auto ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(*ultra_builder, ultra_hash_buffer);
+        auto ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, ultra_hash_buffer);
         ultra_proof[mega_hash_public_input_index].assert_equal(ultra_hash);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
