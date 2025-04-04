@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import { ProvenTx, Tx, readFieldCompressedString } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
