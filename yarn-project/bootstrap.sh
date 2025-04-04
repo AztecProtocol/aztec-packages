@@ -104,7 +104,7 @@ function test_cmds {
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
     if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=18 MEM=12g yarn-project/scripts/run_test.sh $test"
+      echo "$hash ISOLATE=1 CPUS=20 MEM=16g yarn-project/scripts/run_test.sh $test"
     elif [[ "$test" == p2p/src/client/p2p_client.test.ts ]]; then
       # Add debug logging for tests that require a bit more info
       echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
