@@ -2,10 +2,7 @@ use crate::{
     discovery::private_notes::MAX_NOTE_PACKED_LEN,
     macros::{
         dispatch::generate_public_dispatch,
-        functions::{
-            stub_registry,
-            utils::{check_each_fn_macroified, create_message_discovery_call},
-        },
+        functions::{stub_registry, utils::check_each_fn_macroified},
         notes::{generate_note_export, NOTES},
         storage::STORAGE_LAYOUT_NAME,
         utils::{get_trait_impl_method, module_has_storage},
@@ -268,8 +265,6 @@ comptime fn generate_note_exports() -> Quoted {
 }
 
 comptime fn generate_sync_notes() -> Quoted {
-    let message_discovery_call = create_message_discovery_call();
-
     // TODO(https://github.com/noir-lang/noir/issues/7912): Doing the following unfortunately doesn't work. Once
     // the issue is fixed uncomment the following and remove the workaround from TS (look for the issue link in the
     // codebase).
@@ -277,14 +272,13 @@ comptime fn generate_sync_notes() -> Quoted {
     // quote {
     //     #[$utility]
     //     unconstrained fn sync_notes() {
-    //         $message_discovery_call
     //     }
     // }
 
+    // All we need to do here is trigger message discovery, but this is already done by the #[utility] macro - we don't
+    // need to do anything extra.
     quote {
         #[aztec::macros::functions::utility]
-        unconstrained fn sync_notes() {
-            $message_discovery_call
-        }
+        unconstrained fn sync_notes() { }
     }
 }
