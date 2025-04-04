@@ -8,6 +8,8 @@ fi
 export input_folder="$1"
 output_folder="$2"
 
+export native_preset=${NATIVE_PRESET:-clang16-assert}
+export native_build_dir=$(cmake_preset_build_dir.sh $native_preset)
 cd ..
 
 echo_header "bb ivc flow bench"
@@ -26,10 +28,10 @@ function verify_ivc_flow {
   # TODO(AD): Checking which one would be good, but there isn't too much that can go wrong here.
   set +e
   echo_stderr "Private verify."
-  ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
-  ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+  "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -52,7 +54,7 @@ function client_ivc_flow_native {
 
   function bb_cli_bench_native {
     export MAIN_ARGS="$*"
-    memusage ./build/bin/bb_cli_bench \
+    memusage "./$native_build_dir/bin/bb_cli_bench" \
         --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
         --benchmark_out_format=json || {
       echo "bb_cli_bench failed with args: $*"
