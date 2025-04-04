@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# memusg -- Measure peak memory usage of a command, polling every 100ms.
+# memusg -- Measure peak memory usage of a command, polling every second.
 # Usage: memusage output-file COMMAND [ARGS]...
 #
 # Runs the process, outputting peak memory usage to 'output-file' in
@@ -29,9 +29,11 @@ memory_output_file="${MEMUSAGE_OUT:-&2}"
 # check input
 [[ $# -gt 0 ]] || { sed -n '2,/^#$/ s/^# //p' <"$0"; exit 1; }
 
-pgid=$(ps -o pgid= $$)
+export pgid=$(ps -o pgid= $$)
+echo "HEY"
 # make sure we're in a separate process group
 if [[ "$pgid" == "$(ps -o pgid= $(ps -o ppid= $$))" ]]; then
+  echo "HEYO"
   exec setsid "$0" "$@"
 fi
 
@@ -43,18 +45,23 @@ case $(uname) in
 esac
 
 # monitor the memory usage in the background.
-(
-peak=0
-while sizes=$(sizes $pgid)
-do
-  set -- $sizes
-  sample=$((${@/#/+}))
-  let peak="sample > peak ? sample : peak"
-  sleep 0.1
-done
-echo "$((peak / 1024))" > "$memory_output_file"
-) &
+function monitor {
+  local peak=0
+  while sizes=$(sizes $pgid)
+  do
+    set -- $sizes
+    echo "HEYB"
+    sample=$((${@/#/+}))
+    let peak="sample > peak ? sample : peak"
+    sleep 1
+  done
+  echo "$((peak / 1024))" | tee "$memory_output_file"
+}
 monpid=$!
 
-# run the given command
-exec "$@"
+export -f monitor
+
+# run the given command as well as bash -c "$*" with parallel
+parallel --line-buffer --tag bash -c ::: \
+  "monitor" \
+  "$*"

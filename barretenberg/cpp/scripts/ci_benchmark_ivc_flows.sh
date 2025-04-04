@@ -80,7 +80,6 @@ function client_ivc_flow {
   rm -rf "$output"
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
-  echo "unset" > "$MEMUSAGE_OUT"
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc --input_type runtime_stack"
 
