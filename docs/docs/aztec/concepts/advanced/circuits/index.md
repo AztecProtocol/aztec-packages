@@ -63,4 +63,4 @@ So what kinds of core protocol circuits does Aztec have?
 
 ### Kernel, Rollup, and Squisher Circuits
 
-The specs of these have recently been updated. Eg for squisher circuits since Honk and Goblin Plonk schemes are still being improved! But we'll need some extra circuit(s) to squish a Honk proof (as produced by the Root Rollup Circuit) into a Standard Plonk or Flonk proof, for cheap verification on Ethereum.
+The specs of these have recently been updated. Eg for squisher circuits since Honk and Goblin Plonk schemes are still being improved! But we'll need some extra circuit(s) to squish a Honk proof (as produced by the Root Rollup Circuit) into a Standard Plonk or Fflonk proof, for cheap verification on Ethereum.
