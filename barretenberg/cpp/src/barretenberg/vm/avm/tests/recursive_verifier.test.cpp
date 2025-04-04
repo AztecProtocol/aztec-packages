@@ -1,7 +1,7 @@
 #include "barretenberg/vm/avm/recursion/recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/numeric/random/engine.hpp"
-#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.cpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
 #include "barretenberg/ultra_honk/decider_proving_key.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
@@ -153,7 +153,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
     auto verifier_output = verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
 
-    // Ensure that the pairing check is satisfed on the outputs of the recursive verifier
+    // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
     bool agg_output_valid = verification_key->pcs_verification_key->pairing_check(
         verifier_output.aggregation_object.P0.get_value(), verifier_output.aggregation_object.P1.get_value());
     ASSERT_TRUE(agg_output_valid) << "Pairing points (aggregation state) are not valid.";
