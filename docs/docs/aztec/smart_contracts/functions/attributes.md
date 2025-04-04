@@ -77,16 +77,11 @@ This function takes the application context, and converts it into the `PrivateCi
 
 ## Utility functions #[utility]
 
-Contract functions marked with `#[utility]` are used to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction.
-No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls.
+Contract functions marked with `#[utility]` are used to perform state queries from an off-chain client (from both private and public state!) or to modify local contract-related PXE state (e.g. when processing logs in Aztec.nr), and are never included in any transaction. No guarantees are made on the correctness of the result since the entire execution is unconstrained and heavily reliant on oracle calls.
 
-Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE.
-Utility functions exist because they let developers utilize the rest of the contract code directly by being part of the same Noir contract, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
+Any programming language could be used to construct these queries, since all they do is perform arbitrary computation on data that is either publicly available from any node, or locally available from the PXE. Utility functions exist as Noir contract code because they let developers utilize the rest of the contract code directly by being part of the same Noir crate, and e.g. use the same libraries, structs, etc. instead of having to rely on manual computation of storage slots, struct layout and padding, and so on.
 
-A reasonable mental model for them is that of a Solidity `view` function that can never be called in any transaction, and is only ever invoked via `eth_call`.
-However, unlike view functions, `utility` functions can modify local off-chain PXE state via oracle calls.
-This is commonly done when processing contract-emitted logs.
-Note that in these the caller assumes that the node is acting honestly by executing the true contract bytecode with correct blockchain state, the same way the Aztec version assumes the oracles are returning legitimate data.
+A reasonable mental model for them is that of a Solidity `view` function that can never be called in any transaction, and is only ever invoked via `eth_call`. Note that in these the caller assumes that the node is acting honestly by executing the true contract bytecode with correct blockchain state, the same way the Aztec version assumes the oracles are returning legitimate data. Unlike `view` functions however, `utility` functions can modify local off-chain PXE state via oracle calls - this can be leveraged for example to process messages delivered off-chain and then notify PXE of newly discovered notes.
 
 When a utility function is called, it prompts the ACIR simulator to
 
@@ -111,10 +106,10 @@ Beyond using them inside your other functions, they are convenient for providing
 #include_code balance_of_private /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 :::info
-Note, that utility functions can have access to both public and private data when executed on the user's device. This is possible since it is not actually part of the circuits that are executed in contract execution.
+Note, that utility functions can have access to both private and (historical) public data when executed on the user's device. This is possible since these functions are not invoked as part of transactions, so we don't need to worry about preventing a contract from e.g. accidentally using stale or unverified public state.
 :::
 
-## `Public` Functions #[public]
+## Public functions #[public]
 
 A public function is executed by the sequencer and has access to a state model that is very similar to that of the EVM and Ethereum. Even though they work in an EVM-like model for public transactions, they are able to write data into private storage that can be consumed later by a private function.
 

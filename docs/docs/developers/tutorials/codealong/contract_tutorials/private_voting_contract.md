@@ -134,7 +134,7 @@ We will create a function that anyone can call that will return the number of vo
 
 #include_code get_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
 
-We set it as `utility` because it is only reading from state.
+We set it as `utility` because we don't intend to call this as part of a transaction: we want to call it from our application code to e.g. display the result in a UI.
 
 ## Allowing an admin to end a voting period
 

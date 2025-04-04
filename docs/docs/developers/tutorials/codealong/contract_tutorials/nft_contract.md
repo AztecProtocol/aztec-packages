@@ -125,11 +125,9 @@ Internal functions are functions that can only be called by the contract itself.
 
 ### Utility functions
 
-The contract contains only 1 utility function:
+The contract contains a single [utility function](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility):
 
 - [`get_private_nfts`](#get_private_nfts) - Returns an array of token IDs owned by the passed `AztecAddress` in private and a flag indicating whether a page limit was reached.
-
-For more details on utility function see [Call Types section](../../../../aztec/concepts/call_types.md#utility)
 
 ## Contract dependencies
 
@@ -309,7 +307,7 @@ Updates the public owner of the `token_id` to the `to` address.
 
 ### View function implementations
 
-NFT implements the following [view functions](../../../../aztec/concepts/call_types.md#view).
+NFT implements the following `view` functions:
 
 #### `get_admin`
 

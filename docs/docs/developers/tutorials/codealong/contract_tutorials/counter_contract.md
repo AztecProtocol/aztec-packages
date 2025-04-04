@@ -127,7 +127,7 @@ The last thing we need to implement is the function in order to retrieve a count
 
 #include_code get_counter /noir-projects/noir-contracts/contracts/counter_contract/src/main.nr rust
 
-This is a `utility` function which and it's used to obtain the counter information out of a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
+This is a `utility` function which is used to obtain the counter information outside of a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.
 
 ## Compile
 

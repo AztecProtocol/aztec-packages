@@ -29,9 +29,9 @@ The structure of a contract class is defined as:
 
 The public function are sorted in ascending order by their function selector before being packed. This is to ensure consistent hashing later.
 
-Note that individual public functions are not first-class citizens in the protocol, so the contract entire public function bytecode is stored in the class, unlike private or utility functions which are differentiated individual circuits recognized by the protocol.
+Note that individual public functions are not first-class citizens in the protocol, so the contract entire public function bytecode is stored in the class, unlike private functions which are differentiated individual circuits recognized by the protocol.
 
-As for utility functions, these are not used standalone within the protocol. They are called from a PXE as _getters_ for a contract. Calling from a private function to a utility function is forbidden. Considering this, utility functions are not part of a contract class at the protocol level.
+As for utility functions, these are not part of the protocol when it comes to contract classes, since they are never invoked in either private or public calls. However, commitments to them can (and should) be made in the `artifacts_hash`, so that third parties can validate the code they run and expose their secrets to.
 
 ### `contract_class_id`
 
@@ -265,7 +265,7 @@ Broadcasted function artifacts that do not match with their corresponding `artif
 fn broadcast_private_function(
   contract_class_id: Field,
   artifact_metadata_hash: Field,
-  unconstrained_functions_artifact_tree_root: Field,
+  utility_functions_artifact_tree_root: Field,
   private_function_tree_sibling_path: Field[],
   private_function_tree_leaf_index: Field,
   artifact_function_tree_sibling_path: Field[],
@@ -275,7 +275,7 @@ fn broadcast_private_function(
   emit_public_log ClassPrivateFunctionBroadcasted(
     contract_class_id,
     artifact_metadata_hash,
-    unconstrained_functions_artifact_tree_root,
+    utility_functions_artifact_tree_root,
     private_function_tree_sibling_path,
     private_function_tree_leaf_index,
     artifact_function_tree_sibling_path,
@@ -321,7 +321,7 @@ assert computed_private_function_tree_root == contract_class.private_function_ro
 // Compute artifact leaf and assert it belongs to the artifact
 artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
 computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
-computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
+computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, utility_functions_artifact_tree_root, artifact_metadata_hash)
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
 

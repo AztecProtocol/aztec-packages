@@ -7,7 +7,7 @@ In the Aztec protocol, contracts are deployed as _instances_ of contract _classe
 
 ## Contract Classes
 
-A contract class is a collection of state variable declarations, and related utility, private, and public functions. Contract classes don't have state, they just define code (storage structure and function logic). A contract class cannot be called; only a contract instance can be called.
+A contract class is a collection of state variable declarations, and related private, public and utility functions. Contract classes don't have state, they just define code (storage structure and function logic). A contract class cannot be called; only a contract instance can be called.
 
 ### Key Benefits of Contract Classes
 

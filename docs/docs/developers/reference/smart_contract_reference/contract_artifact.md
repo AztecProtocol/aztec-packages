@@ -78,7 +78,7 @@ The function type can have one of the following values:
 
 - Private: The function is ran and proved locally by the clients, and its bytecode not published to the network.
 - Public: The function is ran and proved by the sequencer, and its bytecode is published to the network.
-- Utility: The function is ran locally by the clients to generate digested information useful for the user. The function cannot be called in a transaction
+- Utility: The function is ran locally by the clients to generate digested information useful for the user. It cannot be called in a transaction.
 
 #### `function.isInternal`
 The is internal property is a boolean that indicates whether the function is internal to the contract and cannot be called from outside.

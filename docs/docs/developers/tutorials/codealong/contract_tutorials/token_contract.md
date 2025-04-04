@@ -348,7 +348,9 @@ Similar to `_finalize_transfer_to_private_unsafe`, this public internal function
 
 ### View function implementations
 
-The contract contains the following [view](../../../../aztec/concepts/call_types.md#view) functions:
+View functions in Aztec are similar to `view` functions in Solidity in that they only return information from the contract storage or compute and return data without modifying contract storage. These functions are different from utility functions in that the return values are constrained by their definition in the contract.
+
+Public view calls that are part of a transaction will be executed by the sequencer when the transaction is being executed, so they are not private and will reveal information about the transaction. Private view calls can be safely used in private transactions for getting the same information.
 
 #### `admin`
 
@@ -376,7 +378,7 @@ A getter function for checking the public balance of the provided Aztec account.
 
 ### Utility function implementations
 
-The Token implements the following [utility](../../../../aztec/concepts/call_types.md#utility) functions:
+[Utility](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions-utility) functions can be used to get contract information, both private and public, from an application - they are not callable inside a transaction.
 
 #### `balance_of_private`
 
