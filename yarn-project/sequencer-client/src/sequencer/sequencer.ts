@@ -292,7 +292,7 @@ export class Sequencer {
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
-    this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+    this.log.debug(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       chainTipArchive,
       blockNumber: newBlockNumber,
       slot,
@@ -320,8 +320,9 @@ export class Sequencer {
       });
       finishedFlushing = true;
     } else {
-      this.log.debug(
-        `Not enough txs to build block ${newBlockNumber} at slot ${slot}: got ${pendingTxCount} txs, need ${this.minTxsPerBlock}`,
+      this.log.verbose(
+        `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
+        { chainTipArchive, blockNumber: newBlockNumber, slot },
       );
     }
 
