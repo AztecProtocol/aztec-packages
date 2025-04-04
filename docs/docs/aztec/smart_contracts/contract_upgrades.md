@@ -40,7 +40,11 @@ fn update_to(new_class_id: ContractClassId) {
 ```
 
 The update function in the deployer is a public function, so you can enqueue it from a private function like the example or call it from a public function directly.
-Note however that this update_to function is unsafe and would allow anyone to update the contract that implements it. Proper authorization systems must be in place to secure a contract from malicious upgrades.
+
+:::note
+Recall that `#[private]` means calling this function preserves privacy, and it still CAN be called externally by anyone.
+So the `update_to` function above allows anyone to update the contract that implements it. A more complete implementation should have a proper authorization systems to secure contracts from malicious upgrades.
+:::
 
 Contract upgrades are implemented using a SharedMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
 This means that they have a delay before entering into effect. The default delay is `3600` blocks but can be configured by the contract:
@@ -57,8 +61,11 @@ fn set_update_delay(new_delay: u32) {
 }
 ```
 
-Where new_delay is denominated in blocks. However, take into account that changing the update delay also has as delay the previous delay. So the first delay change will take 3600 blocks to take into effect.
-It can't be set lower than `25` blocks.
+Where `new_delay` is denominated in blocks. However, take into account that changing the update delay also has as its delay that is the previous delay. So the first delay change will take 3600 blocks to take into effect.
+
+:::info
+The update delay cannot be set lower than `25` blocks
+:::
 
 When sending a transaction, the max_block_number of your TX will be the current block number you're simulating with + the minimum of the update delays that you're interacting with.
 If your TX interacts with a contract that can be upgraded in 30 blocks and another one that can be upgraded in 300 blocks, the max_block_number will be current block + 30.
@@ -66,7 +73,9 @@ Note that this can be even lower if there is an upgrade pending in one of the co
 If the contract you interacted with will upgrade in 2 blocks, the max block number of your tx will be current + 1 blocks.
 Other SharedMutable storage variables read in your tx might reduce this max_block_number further.
 
-NOTE: Only deployed contract instances can upgrade or change its upgrade delay currently. This restriction might be lifted in the future.
+:::note
+Only deployed contract instances can upgrade or change its upgrade delay currently. This restriction might be lifted in the future.
+:::
 
 ### Upgrade Process
 
