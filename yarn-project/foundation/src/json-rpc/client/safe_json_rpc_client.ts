@@ -1,7 +1,13 @@
 import { format } from 'util';
 
 import { type Logger, createLogger } from '../../log/pino-logger.js';
-import { type ApiSchema, type ApiSchemaFor, schemaHasMethod } from '../../schemas/api.js';
+import {
+  type ApiSchema,
+  type ApiSchemaFor,
+  type ZodFunctionFor,
+  schemaHasKey,
+  schemaKeyIsFunction,
+} from '../../schemas/api.js';
 import { type JsonRpcFetch, defaultFetch } from './fetch.js';
 
 export type SafeJsonRpcClientOptions = {
@@ -37,11 +43,16 @@ export function createSafeJsonRpcClient<T extends object>(
   const { useApiEndpoints = false, namespaceMethods = false } = config;
 
   let id = 0;
-  const request = async (methodName: string, params: any[]): Promise<any> => {
-    if (!schemaHasMethod(schema, methodName)) {
-      throw new Error(`Unspecified method ${methodName} in client schema`);
+  const request = async (key: string, params: any[]): Promise<any> => {
+    if (!schemaHasKey(schema, key)) {
+      throw new Error(`Unspecified method ${key} in client schema`);
     }
-    const method = namespaceMethods ? `${namespaceMethods}_${methodName}` : methodName;
+
+    if (!schemaKeyIsFunction(schema[key])) {
+      return createSafeJsonRpcClient(host, schema[key], config);
+    }
+
+    const method = namespaceMethods ? `${namespaceMethods}_${key}` : key;
     const body = { jsonrpc: '2.0', id: id++, method, params };
 
     log.debug(format(`request`, method, params));
@@ -58,7 +69,7 @@ export function createSafeJsonRpcClient<T extends object>(
     if ([null, undefined, 'null', 'undefined'].includes(response.result)) {
       return;
     }
-    return (schema as ApiSchema)[methodName].returnType().parseAsync(response.result);
+    return ((schema as ApiSchema)[key] as ZodFunctionFor<any, any>).returnType().parseAsync(response.result);
   };
 
   const proxy: any = {};

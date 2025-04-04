@@ -24,24 +24,33 @@ type ZodMapParameterTypes<T> = T extends []
   ? [ZodNullableOptional<ZodParameterTypeFor<Head>>, ...{ [K in keyof Rest]: ZodParameterTypeFor<Rest[K]> }]
   : never;
 
+export type ZodFunctionFor<Args, Ret> = z.ZodFunction<
+  z.ZodTuple<ZodMapParameterTypes<Args>, z.ZodUnknown>,
+  ZodReturnTypeFor<Ret>
+>;
+
 /** Maps all functions in an interface to their schema representation. */
 export type ApiSchemaFor<T> = {
   [K in keyof T]: T[K] extends (...args: infer Args) => Promise<infer Ret>
-    ? z.ZodFunction<z.ZodTuple<ZodMapParameterTypes<Args>, z.ZodUnknown>, ZodReturnTypeFor<Ret>>
-    : never;
+    ? ZodFunctionFor<Args, Ret>
+    : ApiSchemaFor<T[K]>;
 };
 
 /** Generic Api schema not bounded to a specific implementation. */
 export type ApiSchema = {
-  [key: string]: z.ZodFunction<z.ZodTuple<any, any>, z.ZodTypeAny>;
+  [key: string]: ZodFunctionFor<any, any> | ApiSchema;
 };
 
-/** Return whether an API schema defines a valid function schema for a given method name. */
-export function schemaHasMethod(schema: ApiSchema, methodName: string) {
+export function schemaKeyIsFunction<K extends keyof ApiSchema>(
+  maybeFn: ApiSchema[K],
+): maybeFn is ZodFunctionFor<any, any> {
   return (
-    typeof methodName === 'string' &&
-    Object.hasOwn(schema, methodName) &&
-    typeof schema[methodName].parameters === 'function' &&
-    typeof schema[methodName].returnType === 'function'
+    typeof (maybeFn as ZodFunctionFor<any, any>).parameters === 'function' &&
+    typeof (maybeFn as ZodFunctionFor<any, any>).returnType === 'function'
   );
+}
+
+/** Return whether an API schema defines a valid getter schema for a given method name. */
+export function schemaHasKey(schema: ApiSchema, methodName: string) {
+  return typeof methodName === 'string' && Object.hasOwn(schema, methodName);
 }
