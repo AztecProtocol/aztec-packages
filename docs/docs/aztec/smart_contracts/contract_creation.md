@@ -133,7 +133,7 @@ fn set_update_delay(new_delay: u32) {
 ```
 
 Where new_delay is denominated in blocks. However, take into account that changing the update delay also has as delay the previous delay. So the first delay change will take 3600 blocks to take into effect.
-It can't be set lower than 25 blocks.
+It can't be set lower than `25` blocks.
 
 When sending a transaction, the max_block_number of your TX will be the current block number you're simulating with + the minimum of the update delays that you're interacting with.
 If your TX interacts with a contract that can be upgraded in 30 blocks and another one that can be upgraded in 300 blocks, the max_block_number will be current block + 30.
@@ -193,7 +193,7 @@ const updatedContractClassId = (
 await contract.methods.update_to(updatedContractClassId).send().wait();
 ```
 
-Now, when the update has happened, calling at with the new contract artifact will automatically update the contract instance in the PXE if it's outdated:
+Now, when the update has happened, calling `at` with the new contract artifact will automatically update the contract instance in the PXE if it's outdated:
 
 ```typescript
 // 'at' will call PXE updateContract if outdated
