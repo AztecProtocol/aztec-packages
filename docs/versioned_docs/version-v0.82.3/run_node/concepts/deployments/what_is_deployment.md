@@ -205,7 +205,7 @@ This contract is the “assembly of Aztec citizensˮ that is the final arbiter o
 
 This contract decides what is the canonical instance which gets block rewards.
 
-The Proposals contract tables proposals for voting, Holders who lock their Hypothetical Assets with the Governance contract may vote once for each Hypothetical Asset locked. They can vote either Yea or Nea.
+The Proposals contract tables proposals for voting, Holders who lock their Hypothetical Assets with the Governance contract may vote once for each Hypothetical Asset locked. They can vote either Yea or Nay.
 
 Once a proposal garners the minimum number of votes, and the Yay votes exceed Nay by at least the `quorum%` , the proposal can be executed by the Governance contract.
 

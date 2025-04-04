@@ -521,7 +521,7 @@ TransientAccumulatedData --* PublicInputs: transient_accumulated_data
 
 %% You'll also need to modify the PrivateInputs class (way above) to include an extra item: `previous_kernel: PreviousKernel`
 
-PrivateInputs *.. PreviousKernel: previous_kernel
+PrivateInputs *-- PreviousKernel: previous_kernel
 
 class PreviousKernel {
   public_inputs: PrivateKernelPublicInputs
