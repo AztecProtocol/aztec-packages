@@ -619,7 +619,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void> {
     // We are going to store the new note in the NoteDataProvider, which will let us later return it via `getNotes`.
@@ -666,7 +666,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       nonce,
       noteHash,
       siloedNullifier,
-      new TxHash(txHash),
+      txHash,
       uniqueNoteHashTreeIndexInBlock?.l2BlockNumber,
       uniqueNoteHashTreeIndexInBlock?.l2BlockHash,
       uniqueNoteHashTreeIndexInBlock?.data,

@@ -1096,7 +1096,7 @@ export class TXE implements TypedOracle {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void> {
     await this.pxeOracleInterface.deliverNote(
