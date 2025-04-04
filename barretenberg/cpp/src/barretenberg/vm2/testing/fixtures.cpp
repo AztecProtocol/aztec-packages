@@ -134,7 +134,6 @@ ContractInstance random_contract_instance()
 
 std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
 {
-
     AvmTraceGenHelper trace_gen_helper;
 
     auto trace = trace_gen_helper.generate_trace({
@@ -142,6 +141,11 @@ std::pair<tracegen::TraceContainer, PublicInputs> get_minimal_trace_with_pi()
         });
 
     return std::make_pair<tracegen::TraceContainer, PublicInputs>(std::move(trace), { .reverted = false });
+}
+
+bool skip_slow_tests()
+{
+    return std::getenv("AVM_SLOW_TESTS") == nullptr;
 }
 
 } // namespace bb::avm2::testing

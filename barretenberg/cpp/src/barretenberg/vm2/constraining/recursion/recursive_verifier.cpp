@@ -156,5 +156,6 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
 // TODO: Once Goblinized version is mature, we can remove this one and we only to template
 // with MegaCircuitBuilder and therefore we can remove the templat in AvmRecursiveVerifier_.
 template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+template class AvmRecursiveVerifier_<AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
 } // namespace bb::avm2
