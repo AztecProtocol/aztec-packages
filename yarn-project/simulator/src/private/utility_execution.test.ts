@@ -12,7 +12,7 @@ import type { ExecutionDataProvider } from './execution_data_provider.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 
-describe('Unconstrained Execution test suite', () => {
+describe('Utility Execution test suite', () => {
   const simulationProvider = new WASMSimulator();
 
   let executionDataProvider: ReturnType<typeof mock<ExecutionDataProvider>>;
@@ -87,13 +87,13 @@ describe('Unconstrained Execution test suite', () => {
         name: artifact.name,
         to: contractAddress,
         selector: FunctionSelector.empty(),
-        type: FunctionType.UNCONSTRAINED,
+        type: FunctionType.UTILITY,
         isStatic: false,
         args: encodeArguments(artifact, [owner]),
         returnTypes: artifact.returnTypes,
       };
 
-      const result = await acirSimulator.runUnconstrained(execRequest, contractAddress, FunctionSelector.empty(), []);
+      const result = await acirSimulator.runUtility(execRequest, [], []);
 
       expect(result).toEqual(9n);
     }, 30_000);
