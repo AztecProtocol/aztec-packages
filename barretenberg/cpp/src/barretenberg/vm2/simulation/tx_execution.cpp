@@ -5,18 +5,43 @@ namespace bb::avm2::simulation {
 
 void TxExecution::simulate(const Tx& tx)
 {
-    // TODO: other inter-enqueued-call stuff will be done here.
-    for (const auto& call : tx.enqueued_calls) {
-        info("Executing enqueued call to ", call.contractAddress);
+    info("Simulating tx with ",
+         tx.setupEnqueuedCalls.size(),
+         " setup enqueued calls, ",
+         tx.appLogicEnqueuedCalls.size(),
+         " app logic enqueued calls, and ",
+         tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
+
+    // TODO: This method is currently wrong. We need to lift the context to this level.
+
+    // Insert non-revertibles.
+    // TODO: We need a context at this level to be able to do the insertions.
+
+    // Setup.
+    for (const auto& call : tx.setupEnqueuedCalls) {
+        info("[SETUP] Executing enqueued call to ", call.contractAddress);
         auto context = make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
-        auto result = call_execution.execute(*context);
-        info("Enqueued call to ",
-             call.contractAddress,
-             " was a ",
-             result.success ? "success" : "failure",
-             " and it returned ",
-             context->get_last_rd_size(),
-             " elements.");
+        call_execution.execute(*context);
+    }
+
+    // Insert revertibles.
+    // TODO: We need a context at this level to be able to do the insertions.
+
+    // App logic.
+    for (const auto& call : tx.appLogicEnqueuedCalls) {
+        info("[APP_LOGIC] Executing enqueued call to ", call.contractAddress);
+        auto context = make_enqueued_context(call.contractAddress, call.msgSender, call.calldata, call.isStaticCall);
+        call_execution.execute(*context);
+    }
+
+    // Teardown.
+    if (tx.teardownEnqueuedCall) {
+        info("[TEARDOWN] Executing enqueued call to ", tx.teardownEnqueuedCall->contractAddress);
+        auto context = make_enqueued_context(tx.teardownEnqueuedCall->contractAddress,
+                                             tx.teardownEnqueuedCall->msgSender,
+                                             tx.teardownEnqueuedCall->calldata,
+                                             tx.teardownEnqueuedCall->isStaticCall);
+        call_execution.execute(*context);
     }
 }
 

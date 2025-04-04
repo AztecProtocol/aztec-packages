@@ -17,6 +17,7 @@ import {Rollup} from "@aztec/core/Rollup.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 
 import {
+  IRollup,
   IRollupCore,
   BlockLog,
   SubmitEpochRootProofArgs,
@@ -25,7 +26,7 @@ import {
   FeeAssetPerEthE9,
   PublicInputArgs
 } from "@aztec/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "./merkle/Naive.sol";
 import {MerkleTestUtil} from "./merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -33,7 +34,7 @@ import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
-
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
@@ -85,19 +86,14 @@ contract RollupTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this));
-    feeJuicePortal = new FeeJuicePortal(
-      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
-    );
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    registry = new Registry(address(this), IERC20(address(testERC20)));
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup = IInstance(
       address(
         new Rollup(
-          feeJuicePortal,
+          testERC20,
           rewardDistributor,
           testERC20,
           address(this),
@@ -108,7 +104,9 @@ contract RollupTest is RollupBase {
     );
     inbox = Inbox(address(rollup.getInbox()));
     outbox = Outbox(address(rollup.getOutbox()));
-    registry.upgrade(address(rollup));
+    registry.addRollup(IRollup(address(rollup)));
+
+    feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
 
     merkleTestUtil = new MerkleTestUtil();
     _;
@@ -291,14 +289,13 @@ contract RollupTest is RollupBase {
   }
 
   function testNonZeroDaFee() public setUpFor("mixed_block_1") {
-    registry.upgrade(address(0xbeef));
-
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
     bytes memory header = data.header;
     assembly {
       mstore(add(header, add(0x20, 0x0208)), 1)
     }
+    header = _updateHeaderVersion(header, rollup.getVersion());
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
@@ -317,15 +314,14 @@ contract RollupTest is RollupBase {
     rollup.propose(args, signatures, data.blobInputs);
   }
 
-  function testNonZeroL2Fee() public setUpFor("mixed_block_1") {
-    registry.upgrade(address(0xbeef));
-
+  function testInvalidL2Fee() public setUpFor("mixed_block_1") {
     DecoderBase.Full memory full = load("mixed_block_1");
     DecoderBase.Data memory data = full.block;
     bytes memory header = data.header;
     assembly {
       mstore(add(header, add(0x20, 0x0228)), 1)
     }
+    header = _updateHeaderVersion(header, rollup.getVersion());
     bytes32[] memory txHashes = new bytes32[](0);
 
     // We jump to the time of the block. (unless it is in the past)
@@ -333,8 +329,12 @@ contract RollupTest is RollupBase {
 
     skipBlobCheck(address(rollup));
 
+    uint256 expectedFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+
     // When not canonical, we expect the fee to be 0
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, 0, 1));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidManaBaseFee.selector, expectedFee, 1)
+    );
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: data.archive,
@@ -346,6 +346,9 @@ contract RollupTest is RollupBase {
   }
 
   function testProvingFeeUpdates() public setUpFor("mixed_block_1") {
+    // We need to mint some fee asset to the portal to cover the 2M mana spent.
+    deal(address(testERC20), address(feeJuicePortal), 2e6 * 1e18);
+
     rollup.setProvingCostPerMana(EthValue.wrap(1000));
     _proposeBlock("mixed_block_1", 1, 1e6);
 
@@ -403,6 +406,7 @@ contract RollupTest is RollupBase {
 
       skipBlobCheck(address(rollup));
       interim.baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      header = _updateHeaderVersion(header, rollup.getVersion());
       header = _updateHeaderBaseFee(header, interim.baseFee);
       header = _updateHeaderManaUsed(header, interim.manaUsed);
       // We mess up the fees and say that someone is paying a massive priority which surpass the amount available.
@@ -699,6 +703,7 @@ contract RollupTest is RollupBase {
       // TODO: Hardcoding offsets in the middle of tests is annoying to say the least.
       mstore(add(header, add(0x20, 0x0174)), 0x420)
     }
+    header = _updateHeaderVersion(header, rollup.getVersion());
     skipBlobCheck(address(rollup));
     vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidBlockNumber.selector, 1, 0x420));
     ProposeArgs memory args = ProposeArgs({
@@ -714,6 +719,7 @@ contract RollupTest is RollupBase {
   function testRevertInvalidChainId() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
+    header = _updateHeaderVersion(header, rollup.getVersion());
     bytes32 archive = data.archive;
     bytes32[] memory txHashes = new bytes32[](0);
 
@@ -742,7 +748,9 @@ contract RollupTest is RollupBase {
       mstore(add(header, add(0x20, 0x0154)), 0x420)
     }
     skipBlobCheck(address(rollup));
-    vm.expectRevert(abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, 1, 0x420));
+    vm.expectRevert(
+      abi.encodeWithSelector(Errors.Rollup__InvalidVersion.selector, rollup.getVersion(), 0x420)
+    );
     ProposeArgs memory args = ProposeArgs({
       header: header,
       archive: archive,
@@ -756,6 +764,7 @@ contract RollupTest is RollupBase {
   function testRevertInvalidTimestamp() public setUpFor("empty_block_1") {
     DecoderBase.Data memory data = load("empty_block_1").block;
     bytes memory header = data.header;
+    header = _updateHeaderVersion(header, rollup.getVersion());
     bytes32 archive = data.archive;
     bytes32[] memory txHashes = new bytes32[](0);
 

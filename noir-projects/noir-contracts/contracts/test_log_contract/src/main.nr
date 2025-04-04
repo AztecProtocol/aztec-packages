@@ -50,9 +50,11 @@ pub contract TestLog {
 
     #[public]
     fn emit_unencrypted_events(preimages: [Field; 4]) {
+        // docs:start:emit_public
         let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
         event0.emit(encode_event(&mut context));
+        // docs:end:emit_public
 
         let event1 = ExampleEvent1 {
             value2: AztecAddress::from_field(preimages[2]),

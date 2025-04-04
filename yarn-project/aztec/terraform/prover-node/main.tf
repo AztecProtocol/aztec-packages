@@ -258,7 +258,6 @@ resource "aws_ecs_task_definition" "aztec-prover-node" {
         // Prover
         { name = "PROVER_PUBLISHER_PRIVATE_KEY", value = local.prover_private_keys[count.index] },
         { name = "PROVER_AGENT_ENABLED", value = "false" },
-        { name = "PROVER_AGENT_CONCURRENCY", value = "0" },
         { name = "PROVER_REAL_PROOFS", value = tostring(var.PROVING_ENABLED) },
         { name = "BB_WORKING_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/temp" },
         { name = "ACVM_WORKING_DIRECTORY", value = "${local.data_dir}/prover_node_${count.index + 1}/temp" },

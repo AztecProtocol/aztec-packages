@@ -1,11 +1,11 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
+import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import type { AvmExecutionEnvironment } from './avm_execution_environment.js';
 import { type Gas, gasToGasLeft } from './avm_gas.js';
 import { AvmMachineState } from './avm_machine_state.js';
 import type { AvmSimulator } from './avm_simulator.js';
-import type { AvmPersistableStateManager } from './journal/journal.js';
 
 /**
  * An execution context includes the information necessary to initiate AVM
@@ -20,7 +20,7 @@ export class AvmContext {
    * @returns new AvmContext instance
    */
   constructor(
-    public persistableState: AvmPersistableStateManager,
+    public persistableState: PublicPersistableStateManager,
     public environment: AvmExecutionEnvironment,
     public machineState: AvmMachineState,
   ) {}

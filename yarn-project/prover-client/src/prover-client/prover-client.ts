@@ -49,7 +49,7 @@ export class ProverClient implements EpochProverManager {
   }
 
   public getProverId(): Fr {
-    return this.config.proverId ?? Fr.ZERO;
+    return this.config.proverId;
   }
 
   async updateProverConfig(config: Partial<ProverClientConfig>): Promise<void> {

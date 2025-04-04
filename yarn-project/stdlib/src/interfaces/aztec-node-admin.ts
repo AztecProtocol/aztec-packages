@@ -17,13 +17,23 @@ export interface AztecNodeAdmin {
    */
   setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void>;
 
-  /** Forces the next block to be built bypassing all time and pending checks. Useful for testing. */
+  /**
+   * Forces the next block to be built bypassing all time and pending checks.
+   * Useful for testing.
+   */
   flushTxs(): Promise<void>;
+
+  /**
+   * Pauses syncing, creates a backup of archiver and world-state databases, and uploads them. Returns immediately.
+   * @param location - The location to upload the snapshot to.
+   */
+  startSnapshotUpload(location: string): Promise<void>;
 }
 
 export const AztecNodeAdminApiSchema: ApiSchemaFor<AztecNodeAdmin> = {
   setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
   flushTxs: z.function().returns(z.void()),
+  startSnapshotUpload: z.function().args(z.string()).returns(z.void()),
 };
 
 export function createAztecNodeAdminClient(
