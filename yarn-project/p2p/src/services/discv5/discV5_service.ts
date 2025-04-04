@@ -32,9 +32,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private currentState = PeerDiscoveryState.STOPPED;
 
-  public readonly bootstrapNodes: string[] = [];
   private bootstrapNodePeerIds: PeerId[] = [];
-  private bootstrapNodeEnrs: ENR[] = [];
+  public bootstrapNodeEnrs: ENR[] = [];
 
   private startTime = 0;
 
@@ -53,8 +52,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   ) {
     super();
     const { p2pIp, p2pPort, bootstrapNodes } = config;
-    this.bootstrapNodes = bootstrapNodes ?? [];
-    this.bootstrapNodeEnrs = this.bootstrapNodes.map(x => ENR.decodeTxt(x));
+    this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
@@ -138,10 +136,12 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     this.currentState = PeerDiscoveryState.RUNNING;
 
     // Add bootnode ENR if provided
-    if (this.bootstrapNodes?.length) {
+    if (this.bootstrapNodeEnrs?.length) {
       // Do this conversion once since it involves an async function call
       this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodeEnrs.map(enr => enr.peerId()));
-      this.logger.info(`Adding ${this.bootstrapNodes} bootstrap nodes ENRs: ${this.bootstrapNodes.join(', ')}`);
+      this.logger.info(
+        `Adding ${this.bootstrapNodeEnrs.length} bootstrap nodes ENRs: ${this.bootstrapNodeEnrs.join(', ')}`,
+      );
       for (const enr of this.bootstrapNodeEnrs) {
         try {
           if (this.config.bootstrapNodeEnrVersionCheck) {
@@ -196,6 +196,16 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   public isBootstrapPeer(peerId: PeerId): boolean {
     return this.bootstrapNodePeerIds.some(node => node.equals(peerId));
+  }
+
+  public async removeBootstrapPeer(peerId: PeerId): Promise<void> {
+    this.bootstrapNodePeerIds = this.bootstrapNodePeerIds.filter(node => !node.equals(peerId));
+    this.bootstrapNodeEnrs = await Promise.all(
+      this.bootstrapNodeEnrs.filter(async enr => {
+        const peerIdFromEnr = await enr.peerId();
+        return peerIdFromEnr.toString() !== peerId.toString();
+      }),
+    );
   }
 
   public async stop(): Promise<void> {

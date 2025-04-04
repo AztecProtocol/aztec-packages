@@ -187,7 +187,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodes;
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
 
     // If trusted peers are provided, also provide them to the p2p service
     bootstrapNodes.push(...config.trustedPeers);
