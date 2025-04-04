@@ -3,12 +3,29 @@
 #include <cassert>
 #include <optional>
 #include <stdexcept>
+#include <string>
 
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 
 namespace bb::avm2::simulation {
+
+namespace {
+
+std::string to_string(const TreeSnapshots& snapshots)
+{
+    return format("PUBLIC_DATA_TREE: ",
+                  snapshots.publicDataTree,
+                  "\nNULLIFIER_TREE: ",
+                  snapshots.nullifierTree,
+                  "\nNOTE_HASH_TREE: ",
+                  snapshots.noteHashTree,
+                  "\nL1_TO_L2_MESSAGE_TREE: ",
+                  snapshots.l1ToL2MessageTree);
+}
+
+} // namespace
 
 // HintedRawContractDB starts.
 HintedRawContractDB::HintedRawContractDB(const ExecutionHints& hints)
@@ -98,41 +115,27 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
     : tree_roots(tree_roots)
 {
     vinfo("Initializing HintedRawMerkleDB with...",
-          "\n * get_sibling_path hints: ",
+          "\n * get_sibling_path_hints: ",
           hints.getSiblingPathHints.size(),
-          "\n * get_previous_value_index hints: ",
+          "\n * get_previous_value_index_hints: ",
           hints.getPreviousValueIndexHints.size(),
-          "\n * get_leaf_preimage hints_public_data_tree: ",
+          "\n * get_leaf_preimage_hints_public_data_tree: ",
           hints.getLeafPreimageHintsPublicDataTree.size(),
-          "\n * get_leaf_preimage hints_nullifier_tree: ",
+          "\n * get_leaf_preimage_hints_nullifier_tree: ",
           hints.getLeafPreimageHintsNullifierTree.size(),
           "\n * get_leaf_value_hints: ",
           hints.getLeafValueHints.size(),
           "\n * sequential_insert_hints_public_data_tree: ",
           hints.sequentialInsertHintsPublicDataTree.size(),
           "\n * sequential_insert_hints_nullifier_tree: ",
-          hints.sequentialInsertHintsNullifierTree.size());
-    debug("Initializing HintedRawMerkleDB with snapshots...",
-          "\n * nullifierTree: ",
-          tree_roots.nullifierTree.root,
-          " (size: ",
-          tree_roots.nullifierTree.nextAvailableLeafIndex,
-          ")",
-          "\n * publicDataTree: ",
-          tree_roots.publicDataTree.root,
-          " (size: ",
-          tree_roots.publicDataTree.nextAvailableLeafIndex,
-          ")",
-          "\n * noteHashTree: ",
-          tree_roots.noteHashTree.root,
-          " (size: ",
-          tree_roots.noteHashTree.nextAvailableLeafIndex,
-          ")",
-          "\n * l1ToL2MessageTree: ",
-          tree_roots.l1ToL2MessageTree.root,
-          " (size: ",
-          tree_roots.l1ToL2MessageTree.nextAvailableLeafIndex,
-          ")");
+          hints.sequentialInsertHintsNullifierTree.size(),
+          "\n * create_checkpoint_hints: ",
+          hints.createCheckpointHints.size(),
+          "\n * commit_checkpoint_hints: ",
+          hints.commitCheckpointHints.size(),
+          "\n * revert_checkpoint_hints: ",
+          hints.revertCheckpointHints.size());
+    debug("Initializing HintedRawMerkleDB with snapshots...\n", to_string(tree_roots));
 
     for (const auto& get_sibling_path_hint : hints.getSiblingPathHints) {
         GetSiblingPathKey key = { get_sibling_path_hint.hintKey,
@@ -178,6 +181,18 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
                                                      sequential_insert_hint.treeId,
                                                      sequential_insert_hint.leaf };
         sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
+    }
+
+    for (const auto& create_checkpoint_hint : hints.createCheckpointHints) {
+        create_checkpoint_hints[create_checkpoint_hint.actionCounter] = create_checkpoint_hint;
+    }
+
+    for (const auto& commit_checkpoint_hint : hints.commitCheckpointHints) {
+        commit_checkpoint_hints[commit_checkpoint_hint.actionCounter] = commit_checkpoint_hint;
+    }
+
+    for (const auto& revert_checkpoint_hint : hints.revertCheckpointHints) {
+        revert_checkpoint_hints[revert_checkpoint_hint.actionCounter] = revert_checkpoint_hint;
     }
 }
 
@@ -359,6 +374,130 @@ world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> 
           ")");
 
     return result;
+}
+
+void HintedRawMerkleDB::create_checkpoint()
+{
+    auto it = create_checkpoint_hints.find(checkpoint_action_counter);
+    if (it == create_checkpoint_hints.end()) {
+        throw std::runtime_error(
+            format("[create_checkpoint@", checkpoint_action_counter, "] Hint not found for action counter!"));
+    }
+    const auto& hint = it->second;
+
+    // Sanity check.
+    if (hint.oldCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[create_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Old checkpoint id does not match the current checkpoint id: ",
+                                        hint.oldCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    debug("[create_checkpoint@",
+          checkpoint_action_counter,
+          "] Checkpoint evolved ",
+          hint.oldCheckpointId,
+          " -> ",
+          hint.newCheckpointId);
+
+    checkpoint_stack.push(hint.newCheckpointId);
+    checkpoint_action_counter++;
+}
+
+void HintedRawMerkleDB::commit_checkpoint()
+{
+    auto it = commit_checkpoint_hints.find(checkpoint_action_counter);
+    if (it == commit_checkpoint_hints.end()) {
+        throw std::runtime_error(
+            format("[commit_checkpoint@", checkpoint_action_counter, "] Hint not found for action counter!"));
+    }
+    const auto& hint = it->second;
+
+    // Sanity check.
+    if (hint.oldCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[commit_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Old checkpoint id does not match the current checkpoint id: ",
+                                        hint.oldCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    checkpoint_stack.pop();
+
+    // Sanity check.
+    if (hint.newCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[commit_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] New checkpoint id does not match the current checkpoint id: ",
+                                        hint.newCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    debug("[commit_checkpoint@",
+          checkpoint_action_counter,
+          "] Checkpoint evolved ",
+          hint.oldCheckpointId,
+          " -> ",
+          hint.newCheckpointId);
+
+    checkpoint_action_counter++;
+}
+
+void HintedRawMerkleDB::revert_checkpoint()
+{
+    auto it = revert_checkpoint_hints.find(checkpoint_action_counter);
+    if (it == revert_checkpoint_hints.end()) {
+        throw std::runtime_error(
+            format("[revert_checkpoint@", checkpoint_action_counter, "] Hint not found for action counter!"));
+    }
+    const auto& hint = it->second;
+
+    // Sanity check of checkpoint stack.
+    if (hint.oldCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[revert_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Old checkpoint id does not match the current checkpoint id: ",
+                                        hint.oldCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    // Sanity check of tree snapshots.
+    if (hint.stateBefore != tree_roots) {
+        vinfo("Hint tree snapshots: ", to_string(hint.stateBefore));
+        vinfo("Current tree roots: ", to_string(tree_roots));
+        throw std::runtime_error(format("[revert_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] Hint tree snapshots do not match the current tree roots."));
+    }
+
+    checkpoint_stack.pop();
+
+    // Sanity check.
+    if (hint.newCheckpointId != checkpoint_stack.top()) {
+        throw std::runtime_error(format("[revert_checkpoint@",
+                                        checkpoint_action_counter,
+                                        "] New checkpoint id does not match the current checkpoint id: ",
+                                        hint.newCheckpointId,
+                                        " != ",
+                                        checkpoint_stack.top()));
+    }
+
+    // Evolve trees.
+    tree_roots = hint.stateAfter;
+
+    debug("[revert_checkpoint@",
+          checkpoint_action_counter,
+          "] Checkpoint evolved ",
+          hint.oldCheckpointId,
+          " -> ",
+          hint.newCheckpointId);
+
+    checkpoint_action_counter++;
 }
 
 } // namespace bb::avm2::simulation

@@ -10,7 +10,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
-import type { Tx } from '../tx/index.js';
+import { TreeSnapshots, type Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -262,6 +262,92 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
 export class AvmSequentialInsertHintPublicDataTree extends AvmSequentialInsertHintFactory(PublicDataTreeLeafPreimage) {}
 export class AvmSequentialInsertHintNullifierTree extends AvmSequentialInsertHintFactory(NullifierLeafPreimage) {}
 
+// Hint for checkpoint actions that don't change the state.
+class AvmCheckpointActionNoStateChangeHint {
+  constructor(
+    // key
+    public readonly actionCounter: number,
+    // current checkpoint evolution
+    public readonly oldCheckpointId: number,
+    public readonly newCheckpointId: number,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        actionCounter: z.number().int().nonnegative(),
+        oldCheckpointId: z.number().int().nonnegative(),
+        newCheckpointId: z.number().int().nonnegative(),
+      })
+      .transform(
+        ({ actionCounter, oldCheckpointId, newCheckpointId }) =>
+          new AvmCheckpointActionNoStateChangeHint(actionCounter, oldCheckpointId, newCheckpointId),
+      );
+  }
+}
+
+// Hint for MerkleTreeDB.createCheckpoint.
+export class AvmCreateCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
+// Hint for MerkleTreeDB.commitCheckpoint.
+export class AvmCommitCheckpointHint extends AvmCheckpointActionNoStateChangeHint {}
+
+// Hint for MerkleTreeDB.revertCheckpoint.
+export class AvmRevertCheckpointHint {
+  // We use explicit fields for MessagePack.
+  constructor(
+    // key
+    public readonly actionCounter: number,
+    // current checkpoint evolution
+    public readonly oldCheckpointId: number,
+    public readonly newCheckpointId: number,
+    // state evolution
+    public readonly stateBefore: TreeSnapshots,
+    public readonly stateAfter: TreeSnapshots,
+  ) {}
+
+  static create(
+    actionCounter: number,
+    oldCheckpointId: number,
+    newCheckpointId: number,
+    stateBefore: Record<MerkleTreeId, AppendOnlyTreeSnapshot>,
+    stateAfter: Record<MerkleTreeId, AppendOnlyTreeSnapshot>,
+  ): AvmRevertCheckpointHint {
+    return new AvmRevertCheckpointHint(
+      actionCounter,
+      oldCheckpointId,
+      newCheckpointId,
+      new TreeSnapshots(
+        stateBefore[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
+        stateBefore[MerkleTreeId.NOTE_HASH_TREE],
+        stateBefore[MerkleTreeId.NULLIFIER_TREE],
+        stateBefore[MerkleTreeId.PUBLIC_DATA_TREE],
+      ),
+      new TreeSnapshots(
+        stateAfter[MerkleTreeId.L1_TO_L2_MESSAGE_TREE],
+        stateAfter[MerkleTreeId.NOTE_HASH_TREE],
+        stateAfter[MerkleTreeId.NULLIFIER_TREE],
+        stateAfter[MerkleTreeId.PUBLIC_DATA_TREE],
+      ),
+    );
+  }
+
+  static get schema() {
+    return z
+      .object({
+        actionCounter: z.number().int().nonnegative(),
+        oldCheckpointId: z.number().int().nonnegative(),
+        newCheckpointId: z.number().int().nonnegative(),
+        stateBefore: TreeSnapshots.schema,
+        stateAfter: TreeSnapshots.schema,
+      })
+      .transform(
+        ({ actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter }) =>
+          new AvmRevertCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter),
+      );
+  }
+}
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -386,6 +472,9 @@ export class AvmExecutionHints {
     public readonly getLeafValueHints: AvmGetLeafValueHint[] = [],
     public readonly sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree[] = [],
     public readonly sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree[] = [],
+    public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
+    public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
+    public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
   ) {}
 
   static empty() {
@@ -406,6 +495,9 @@ export class AvmExecutionHints {
         getLeafValueHints: AvmGetLeafValueHint.schema.array(),
         sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree.schema.array(),
         sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree.schema.array(),
+        createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
+        commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
+        revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
       })
       .transform(
         ({
@@ -420,6 +512,9 @@ export class AvmExecutionHints {
           getLeafValueHints,
           sequentialInsertHintsPublicDataTree,
           sequentialInsertHintsNullifierTree,
+          createCheckpointHints,
+          commitCheckpointHints,
+          revertCheckpointHints,
         }) =>
           new AvmExecutionHints(
             tx,
@@ -433,6 +528,9 @@ export class AvmExecutionHints {
             getLeafValueHints,
             sequentialInsertHintsPublicDataTree,
             sequentialInsertHintsNullifierTree,
+            createCheckpointHints,
+            commitCheckpointHints,
+            revertCheckpointHints,
           ),
       );
   }
