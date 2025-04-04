@@ -35,15 +35,15 @@ export async function inspectBlock(node: AztecNode, blockNumber: number, log: Lo
 }
 
 export async function inspectTx(
-  pxe: PXE,
+  node: AztecNode,
   txHash: TxHash,
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
   const [receipt, effectsInBlock, getNotes] = await Promise.all([
-    pxe.getTxReceipt(txHash),
-    pxe.getTxEffect(txHash),
-    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    node.getTxReceipt(txHash),
+    node.getTxEffect(txHash),
+    node.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);

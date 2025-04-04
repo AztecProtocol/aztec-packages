@@ -84,7 +84,7 @@ import { enrichPublicSimulationError, enrichSimulationError } from './error_enri
  */
 export class PXEService implements PXE {
   private constructor(
-    private node: AztecNode,
+    private _node: AztecNode,
     private synchronizer: Synchronizer,
     private keyStore: KeyStore,
     private contractDataProvider: ContractDataProvider,
@@ -189,16 +189,8 @@ export class PXEService implements PXE {
 
   // Aztec node proxy methods
 
-  public isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return this.node.isL1ToL2MessageSynced(l1ToL2Message);
-  }
-
-  public async getCurrentBaseFees(): Promise<GasFees> {
-    return await this.node.getCurrentBaseFees();
-  }
-
-  public getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    return this.node.getTxReceipt(txHash);
+  get node() {
+    return this._node;
   }
 
   // Internal methods
@@ -331,7 +323,7 @@ export class PXEService implements PXE {
     // Simulating public calls can throw if the TX fails in a phase that doesn't allow reverts (setup)
     // Or return as reverted if it fails in a phase that allows reverts (app logic, teardown)
     try {
-      const result = await this.node.simulatePublicCalls(tx, skipFeeEnforcement);
+      const result = await this._node.simulatePublicCalls(tx, skipFeeEnforcement);
       if (result.revertReason) {
         throw result.revertReason;
       }
@@ -366,7 +358,7 @@ export class PXEService implements PXE {
     config: PrivateKernelExecutionProverConfig,
   ): Promise<PrivateKernelExecutionProofOutput<PrivateKernelTailCircuitPublicInputs>> {
     const block = privateExecutionResult.getSimulationBlockNumber();
-    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this.node, block);
+    const kernelOracle = new PrivateKernelOracleImpl(this.contractDataProvider, this.keyStore, this._node, block);
     const kernelTraceProver = new PrivateKernelExecutionProver(kernelOracle, proofCreator, !this.proverEnabled);
     this.log.debug(`Executing kernel trace prover (${JSON.stringify(config)})...`);
     return await kernelTraceProver.proveWithKernels(txExecutionRequest.toTxRequest(), privateExecutionResult, config);
@@ -401,7 +393,7 @@ export class PXEService implements PXE {
       this.log.warn(`No artifact found for contract class ${id.toString()} when looking for its metadata`);
     }
 
-    const isContractClassPubliclyRegistered = !!(await this.node.getContractClass(id));
+    const isContractClassPubliclyRegistered = !!(await this._node.getContractClass(id));
 
     return {
       contractClass: artifact && (await getContractClassFromArtifact(artifact)),
@@ -422,8 +414,8 @@ export class PXEService implements PXE {
       this.log.warn(`No instance found for contract ${address.toString()} when looking for its metadata`);
     }
     const initNullifier = await siloNullifier(address, address.toField());
-    const isContractInitialized = !!(await this.node.getNullifierMembershipWitness('latest', initNullifier));
-    const isContractPubliclyDeployed = !!(await this.node.getContract(address));
+    const isContractInitialized = !!(await this._node.getNullifierMembershipWitness('latest', initNullifier));
+    const isContractPubliclyDeployed = !!(await this._node.getContract(address));
     return {
       contractInstance: instance,
       isContractInitialized,
@@ -517,7 +509,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
+      await this._node.registerContractFunctionSignatures(instance.address, publicFunctionSignatures);
     } else {
       // Otherwise, make sure there is an artifact already registered for that class id
       artifact = await this.contractDataProvider.getContractArtifact(instance.currentContractClassId);
@@ -550,7 +542,7 @@ export class PXEService implements PXE {
       const currentClassId = await readCurrentClassId(
         contractAddress,
         currentInstance,
-        this.node,
+        this._node,
         header.globalVariables.blockNumber.toNumber(),
       );
       if (!contractClass.id.equals(currentClassId)) {
@@ -562,7 +554,7 @@ export class PXEService implements PXE {
       const publicFunctionSignatures = artifact.functions
         .filter(fn => fn.functionType === FunctionType.PUBLIC)
         .map(fn => decodeFunctionSignature(fn.name, fn.parameters));
-      await this.node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
+      await this._node.registerContractFunctionSignatures(contractAddress, publicFunctionSignatures);
 
       currentInstance.currentContractClassId = contractClass.id;
       await this.contractDataProvider.addContractInstance(currentInstance);
@@ -707,7 +699,7 @@ export class PXEService implements PXE {
         }
 
         if (!skipTxValidation) {
-          const validationResult = await this.node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
+          const validationResult = await this._node.isValidTx(simulatedTx, { isSimulation: true, skipFeeEnforcement });
           if (validationResult.result === 'invalid') {
             throw new Error('The simulated transaction is unable to be added to state and is invalid.');
           }
@@ -742,11 +734,11 @@ export class PXEService implements PXE {
 
   public async sendTx(tx: Tx): Promise<TxHash> {
     const txHash = await tx.getTxHash();
-    if (await this.node.getTxEffect(txHash)) {
+    if (await this._node.getTxEffect(txHash)) {
       throw new Error(`A settled tx with equal hash ${txHash.toString()} exists.`);
     }
     this.log.debug(`Sending transaction ${txHash}`);
-    await this.node.sendTx(tx).catch(err => {
+    await this._node.sendTx(tx).catch(err => {
       throw this.#contextualizeError(err, inspect(tx));
     });
     this.log.info(`Sent transaction ${txHash}`);
@@ -786,12 +778,12 @@ export class PXEService implements PXE {
 
   public async getNodeInfo(): Promise<NodeInfo> {
     const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
-      this.node.getNodeVersion(),
-      this.node.getVersion(),
-      this.node.getChainId(),
-      this.node.getEncodedEnr(),
-      this.node.getL1ContractAddresses(),
-      this.node.getProtocolContractAddresses(),
+      this._node.getNodeVersion(),
+      this._node.getVersion(),
+      this._node.getChainId(),
+      this._node.getEncodedEnr(),
+      this._node.getL1ContractAddresses(),
+      this._node.getProtocolContractAddresses(),
     ]);
 
     const nodeInfo: NodeInfo = {
@@ -848,7 +840,7 @@ export class PXEService implements PXE {
   }
 
   async getPublicEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    const { logs } = await this.node.getPublicLogs({
+    const { logs } = await this._node.getPublicLogs({
       fromBlock: from,
       toBlock: from + limit,
     });
