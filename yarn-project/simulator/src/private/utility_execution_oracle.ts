@@ -291,7 +291,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ) {
     // TODO(#10727): allow other contracts to deliver notes

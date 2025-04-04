@@ -259,7 +259,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void>;
 
