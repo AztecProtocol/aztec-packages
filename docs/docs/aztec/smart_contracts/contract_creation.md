@@ -209,7 +209,7 @@ await RandomContract.at(address, wallet);
 1. **Access Control**
 
    - Implement proper access controls for upgrade functions
-   - Consider using a delay mechanism for upgrades using `set_update_delay`
+   - Consider customizing the upgrades delay for your needs using `set_update_delay`
 
 2. **State Compatibility**
 
