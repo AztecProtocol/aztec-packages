@@ -85,6 +85,11 @@ trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
 wait $timeout_pid
 code=$?
 
+# If the test received a SIGTERM or SIGINT, we don't want to track or print anything.
+if [ "$code" -eq 143 ] || [ "$code" -eq 130 ]; then
+  exit $code
+fi
+
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   # If the test succeeded and we're using the test cache, set success flag for test. This key is unique to the test.
   # If the test succeeded and we're in CI, save the test log.
@@ -130,8 +135,10 @@ function fail {
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
-  cat $tmp_file
-  echo -e "$line"
+  if [ -t 1 ]; then
+    cat $tmp_file
+    echo -e "$line"
+  fi
   exit $code
 }
 
