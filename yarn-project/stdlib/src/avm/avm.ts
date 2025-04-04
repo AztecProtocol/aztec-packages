@@ -10,6 +10,7 @@ import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
 import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
+import type { Tx } from '../tx/index.js';
 import { AvmCircuitPublicInputs } from './avm_circuit_public_inputs.js';
 import { serializeWithMessagePack } from './message_pack.js';
 
@@ -287,9 +288,92 @@ export class AvmEnqueuedCallHint {
   }
 }
 
+export class AvmTxHint {
+  constructor(
+    public readonly nonRevertibleAccumulatedData: {
+      noteHashes: Fr[];
+      nullifiers: Fr[];
+      // TODO: add as needed.
+    },
+    public readonly revertibleAccumulatedData: {
+      noteHashes: Fr[];
+      nullifiers: Fr[];
+      // TODO: add as needed.
+    },
+    public readonly setupEnqueuedCalls: AvmEnqueuedCallHint[],
+    public readonly appLogicEnqueuedCalls: AvmEnqueuedCallHint[],
+    // We need this to be null and not undefined because that's what
+    // MessagePack expects for an std::optional.
+    public readonly teardownEnqueuedCall: AvmEnqueuedCallHint | null,
+  ) {}
+
+  static fromTx(tx: Tx): AvmTxHint {
+    const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
+    const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
+    const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
+
+    return new AvmTxHint(
+      {
+        noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
+        nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+      },
+      {
+        noteHashes: tx.data.forPublic!.revertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
+        nullifiers: tx.data.forPublic!.revertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
+      },
+      setupCallRequests.map(
+        call =>
+          new AvmEnqueuedCallHint(
+            call.request.msgSender,
+            call.request.contractAddress,
+            call.calldata,
+            call.request.isStaticCall,
+          ),
+      ),
+      appLogicCallRequests.map(
+        call =>
+          new AvmEnqueuedCallHint(
+            call.request.msgSender,
+            call.request.contractAddress,
+            call.calldata,
+            call.request.isStaticCall,
+          ),
+      ),
+      teardownCallRequest
+        ? new AvmEnqueuedCallHint(
+            teardownCallRequest.request.msgSender,
+            teardownCallRequest.request.contractAddress,
+            teardownCallRequest.calldata,
+            teardownCallRequest.request.isStaticCall,
+          )
+        : null,
+    );
+  }
+
+  static empty() {
+    return new AvmTxHint({ noteHashes: [], nullifiers: [] }, { noteHashes: [], nullifiers: [] }, [], [], null);
+  }
+
+  static get schema() {
+    return z.object({
+      nonRevertibleAccumulatedData: z.object({
+        noteHashes: schemas.Fr.array(),
+        nullifiers: schemas.Fr.array(),
+      }),
+      revertibleAccumulatedData: z.object({
+        noteHashes: schemas.Fr.array(),
+        nullifiers: schemas.Fr.array(),
+      }),
+      setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+      appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+      teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
+    });
+  }
+}
+
 export class AvmExecutionHints {
   constructor(
-    public readonly enqueuedCalls: AvmEnqueuedCallHint[] = [],
+    public tx: AvmTxHint,
     // Contract hints.
     public readonly contractInstances: AvmContractInstanceHint[] = [],
     public readonly contractClasses: AvmContractClassHint[] = [],
@@ -305,13 +389,13 @@ export class AvmExecutionHints {
   ) {}
 
   static empty() {
-    return new AvmExecutionHints();
+    return new AvmExecutionHints(AvmTxHint.empty());
   }
 
   static get schema() {
     return z
       .object({
-        enqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+        tx: AvmTxHint.schema,
         contractInstances: AvmContractInstanceHint.schema.array(),
         contractClasses: AvmContractClassHint.schema.array(),
         bytecodeCommitments: AvmBytecodeCommitmentHint.schema.array(),
@@ -325,7 +409,7 @@ export class AvmExecutionHints {
       })
       .transform(
         ({
-          enqueuedCalls,
+          tx,
           contractInstances,
           contractClasses,
           bytecodeCommitments,
@@ -338,7 +422,7 @@ export class AvmExecutionHints {
           sequentialInsertHintsNullifierTree,
         }) =>
           new AvmExecutionHints(
-            enqueuedCalls,
+            tx,
             contractInstances,
             contractClasses,
             bytecodeCommitments,

@@ -22,7 +22,7 @@ import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
-  makeUnconstrainedFunctionWithMembershipProof,
+  makeUtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -433,19 +433,19 @@ export function describeArchiverDataStore(
         expect(stored?.privateFunctions).toEqual(fns);
       });
 
-      it('adds new unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('adds new utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
 
-      it('does not duplicate unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('does not duplicate utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
     });
 

@@ -7,33 +7,33 @@ import { Fr } from '@aztec/foundation/fields';
 import type { Tuple } from '@aztec/foundation/serialize';
 import { FieldReader } from '@aztec/foundation/serialize';
 import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
-import type { UnconstrainedFunction, UnconstrainedFunctionWithMembershipProof } from '@aztec/stdlib/contract';
+import type { UtilityFunction, UtilityFunctionWithMembershipProof } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 
 import { REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
-export class UnconstrainedFunctionBroadcastedEvent {
+export class UtilityFunctionBroadcastedEvent {
   constructor(
     public readonly contractClassId: Fr,
     public readonly artifactMetadataHash: Fr,
     public readonly privateFunctionsArtifactTreeRoot: Fr,
     public readonly artifactFunctionTreeSiblingPath: Tuple<Fr, typeof ARTIFACT_FUNCTION_TREE_MAX_HEIGHT>,
     public readonly artifactFunctionTreeLeafIndex: number,
-    public readonly unconstrainedFunction: BroadcastedUnconstrainedFunction,
+    public readonly utilityFunction: BroadcastedUtilityFunction,
   ) {}
 
-  static isUnconstrainedFunctionBroadcastedEvent(log: ContractClassLog) {
+  static isUtilityFunctionBroadcastedEvent(log: ContractClassLog) {
     return log.fields[0].equals(REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG);
   }
 
   static fromLog(log: ContractClassLog) {
     const reader = new FieldReader(log.fields.slice(1));
-    const event = UnconstrainedFunctionBroadcastedEvent.fromFields(reader);
+    const event = UtilityFunctionBroadcastedEvent.fromFields(reader);
     while (!reader.isFinished()) {
       const field = reader.readField();
       if (!field.isZero()) {
-        throw new Error(`Unexpected data after parsing UnconstrainedFunctionBroadcastedEvent: ${field.toString()}`);
+        throw new Error(`Unexpected data after parsing UtilityFunctionBroadcastedEvent: ${field.toString()}`);
       }
     }
 
@@ -47,28 +47,28 @@ export class UnconstrainedFunctionBroadcastedEvent {
     const privateFunctionsArtifactTreeRoot = reader.readField();
     const artifactFunctionTreeSiblingPath = reader.readFieldArray(ARTIFACT_FUNCTION_TREE_MAX_HEIGHT);
     const artifactFunctionTreeLeafIndex = reader.readField().toNumber();
-    const unconstrainedFunction = BroadcastedUnconstrainedFunction.fromFields(reader);
+    const utilityFunction = BroadcastedUtilityFunction.fromFields(reader);
 
-    return new UnconstrainedFunctionBroadcastedEvent(
+    return new UtilityFunctionBroadcastedEvent(
       contractClassId,
       artifactMetadataHash,
       privateFunctionsArtifactTreeRoot,
       artifactFunctionTreeSiblingPath,
       artifactFunctionTreeLeafIndex,
-      unconstrainedFunction,
+      utilityFunction,
     );
   }
 
-  toFunctionWithMembershipProof(): UnconstrainedFunctionWithMembershipProof {
+  toFunctionWithMembershipProof(): UtilityFunctionWithMembershipProof {
     // We should be able to safely remove the zero elements that pad the variable-length sibling path,
     // since a sibling with value zero can only occur on the tree leaves, so the sibling path will never end
     // in a zero. The only exception is a tree with depth 2 with one non-zero leaf, where the sibling path would
     // be a single zero element, but in that case the artifact tree should be just the single leaf.
     const artifactTreeSiblingPath = removeArrayPaddingEnd(this.artifactFunctionTreeSiblingPath, Fr.isZero);
     return {
-      ...this.unconstrainedFunction,
-      bytecode: this.unconstrainedFunction.bytecode,
-      functionMetadataHash: this.unconstrainedFunction.metadataHash,
+      ...this.utilityFunction,
+      bytecode: this.utilityFunction.bytecode,
+      functionMetadataHash: this.utilityFunction.metadataHash,
       artifactMetadataHash: this.artifactMetadataHash,
       privateFunctionsArtifactTreeRoot: this.privateFunctionsArtifactTreeRoot,
       artifactTreeSiblingPath,
@@ -77,7 +77,7 @@ export class UnconstrainedFunctionBroadcastedEvent {
   }
 }
 
-export class BroadcastedUnconstrainedFunction implements UnconstrainedFunction {
+export class BroadcastedUtilityFunction implements UtilityFunction {
   constructor(
     /** Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. */
     public readonly selector: FunctionSelector,
@@ -94,6 +94,6 @@ export class BroadcastedUnconstrainedFunction implements UnconstrainedFunction {
     // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
     const encodedBytecode = reader.readFieldArray(MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS * 1);
     const bytecode = bufferFromFields(encodedBytecode);
-    return new BroadcastedUnconstrainedFunction(selector, metadataHash, bytecode);
+    return new BroadcastedUtilityFunction(selector, metadataHash, bytecode);
   }
 }

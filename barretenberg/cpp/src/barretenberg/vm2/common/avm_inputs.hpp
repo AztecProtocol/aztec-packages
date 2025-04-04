@@ -194,8 +194,36 @@ struct EnqueuedCallHint {
     MSGPACK_FIELDS(msgSender, contractAddress, calldata, isStaticCall);
 };
 
+struct AccumulatedData {
+    // TODO: add as needed.
+    std::vector<FF> noteHashes;
+    std::vector<FF> nullifiers;
+
+    bool operator==(const AccumulatedData& other) const = default;
+
+    MSGPACK_FIELDS(noteHashes, nullifiers);
+};
+
+// We are currently using this structure as the input to TX simulation.
+// That's why I'm not calling it TxHint. We can reconsider if the inner types seem to dirty.
+struct Tx {
+    AccumulatedData nonRevertibleAccumulatedData;
+    AccumulatedData revertibleAccumulatedData;
+    std::vector<EnqueuedCallHint> setupEnqueuedCalls;
+    std::vector<EnqueuedCallHint> appLogicEnqueuedCalls;
+    std::optional<EnqueuedCallHint> teardownEnqueuedCall;
+
+    bool operator==(const Tx& other) const = default;
+
+    MSGPACK_FIELDS(nonRevertibleAccumulatedData,
+                   revertibleAccumulatedData,
+                   setupEnqueuedCalls,
+                   appLogicEnqueuedCalls,
+                   teardownEnqueuedCall);
+};
+
 struct ExecutionHints {
-    std::vector<EnqueuedCallHint> enqueuedCalls;
+    Tx tx;
     // Contracts.
     std::vector<ContractInstanceHint> contractInstances;
     std::vector<ContractClassHint> contractClasses;
@@ -213,7 +241,7 @@ struct ExecutionHints {
 
     bool operator==(const ExecutionHints& other) const = default;
 
-    MSGPACK_FIELDS(enqueuedCalls,
+    MSGPACK_FIELDS(tx,
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,

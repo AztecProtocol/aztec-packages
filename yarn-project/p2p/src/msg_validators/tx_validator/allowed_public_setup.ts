@@ -5,7 +5,6 @@ import { getContractClassFromArtifact } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 
 let defaultAllowedSetupFunctions: AllowedElement[] | undefined = undefined;
-
 export async function getDefaultAllowedSetupFunctions(): Promise<AllowedElement[]> {
   if (defaultAllowedSetupFunctions === undefined) {
     defaultAllowedSetupFunctions = [

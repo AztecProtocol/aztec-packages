@@ -1,4 +1,4 @@
-use crate::context::{PublicContext, UnconstrainedContext};
+use crate::context::{PublicContext, UtilityContext};
 use crate::state_vars::storage::Storage;
 use dep::protocol_types::traits::Packable;
 
@@ -51,7 +51,7 @@ impl<T> PublicMutable<T, &mut PublicContext> {
     // docs:end:public_mutable_struct_write
 }
 
-impl<T> PublicMutable<T, UnconstrainedContext> {
+impl<T> PublicMutable<T, UtilityContext> {
     pub unconstrained fn read<let T_PACKED_LEN: u32>(self) -> T
     where
         T: Packable<T_PACKED_LEN>,

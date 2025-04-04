@@ -69,6 +69,7 @@ import {
   AvmGetSiblingPathHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
+  AvmTxHint,
   RevertCode,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
@@ -81,7 +82,7 @@ import {
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
   SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
@@ -1168,12 +1169,12 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
     privateFunctionTreeLeafIndex: seed + 3,
     artifactMetadataHash: fr(seed + 4),
     functionMetadataHash: fr(seed + 5),
-    unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
+    utilityFunctionsTreeRoot: fr(seed + 6),
     vkHash: fr(seed + 7),
   };
 }
 
-export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
   return {
     selector: makeSelector(seed),
     bytecode: makeBytes(100, seed + 1),
@@ -1197,7 +1198,7 @@ export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer)
     packedBytecode,
     privateFunctionsRoot,
     privateFunctions: [],
-    unconstrainedFunctions: [],
+    utilityFunctions: [],
     version: 1,
   };
 }
@@ -1427,6 +1428,22 @@ export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   );
 }
 
+export function makeAvmTxHint(seed = 0): AvmTxHint {
+  return new AvmTxHint(
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
+    },
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x3000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
+    },
+    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
+    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
+    makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
+  );
+}
+
 /**
  * Creates arbitrary AvmExecutionHints.
  * @param seed - The seed to use for generating the hints.
@@ -1441,7 +1458,7 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
-    enqueuedCalls: makeArray(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
+    tx: makeAvmTxHint(seed + 0x4100),
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
@@ -1468,7 +1485,7 @@ export async function makeAvmExecutionHints(
   };
 
   return new AvmExecutionHints(
-    fields.enqueuedCalls,
+    fields.tx,
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
