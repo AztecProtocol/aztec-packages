@@ -3,7 +3,7 @@ import { sleep } from '@aztec/foundation/sleep';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 
-import { assert } from 'console';
+import assert from 'assert';
 import getPort from 'get-port';
 import path from 'path';
 import { fileURLToPath } from 'url';
