@@ -350,7 +350,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n,
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->log_n,
                                                                                     mock_claims.claim_batcher,
                                                                                     const_size_mle_opening_point,
                                                                                     this->vk()->get_g1_identity(),
@@ -456,7 +456,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     bool consistency_checked = true;
 
     // Run Shplemini
-    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->n,
+    const auto batch_opening_claim = ShpleminiVerifier::compute_batch_opening_claim(this->log_n,
                                                                                     mock_claims.claim_batcher,
                                                                                     challenge,
                                                                                     this->vk()->get_g1_identity(),

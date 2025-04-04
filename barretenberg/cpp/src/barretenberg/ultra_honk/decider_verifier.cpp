@@ -45,8 +45,8 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    auto sumcheck = SumcheckVerifier<Flavor>(
-        static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
+    const size_t log_circuit_size = static_cast<size_t>(accumulator->verification_key->log_circuit_size);
+    SumcheckVerifier<Flavor> sumcheck(log_circuit_size, transcript, accumulator->target_sum);
     // For MegaZKFlavor: receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
@@ -72,7 +72,7 @@ template <typename Flavor> bool DeciderVerifier_<Flavor>::verify()
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+        Shplemini::compute_batch_opening_claim(log_circuit_size,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),

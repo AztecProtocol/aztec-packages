@@ -193,7 +193,7 @@ template <typename Curve> class ShpleminiVerifier_ {
   public:
     template <typename Transcript>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
-        const Fr N,
+        const size_t log_n,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
@@ -209,14 +209,6 @@ template <typename Curve> class ShpleminiVerifier_ {
 
     {
         const bool committed_sumcheck = !sumcheck_round_evaluations.empty();
-
-        // Extract log_n
-        size_t log_n{ 0 };
-        if constexpr (Curve::is_stdlib_type) {
-            log_n = numeric::get_msb(static_cast<uint32_t>(N.get_value()));
-        } else {
-            log_n = numeric::get_msb(static_cast<uint32_t>(N));
-        }
 
         // When padding is enabled, the size of the multilinear challenge may be bigger than the log of `circuit_size`.
         const size_t virtual_log_n = multivariate_challenge.size();
@@ -493,17 +485,20 @@ template <typename Curve> class ShpleminiVerifier_ {
             constant_term_accumulator +=
                 scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
-            if constexpr (Curve::is_stdlib_type) {
-                auto builder = gemini_neg_evaluations[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_n);
-                Fr zero = Fr(0);
-                scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
-                scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
-            } else {
-                if (j >= log_n) {
-                    scaling_factor_neg = 0;
-                    scaling_factor_pos = 0;
+            // If `virtual_log_n` == `log_n`, as in the case of ECCVM and Translator, the padding is not needed.
+            if (virtual_log_n != log_n) {
+                if constexpr (Curve::is_stdlib_type) {
+                    auto builder = gemini_neg_evaluations[0].get_context();
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
+                    stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_n);
+                    Fr zero = Fr(0);
+                    scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
+                    scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
+                } else {
+                    if (j >= log_n) {
+                        scaling_factor_neg = 0;
+                        scaling_factor_pos = 0;
+                    }
                 }
             }
             // Place the scaling factor to the 'scalars' vector

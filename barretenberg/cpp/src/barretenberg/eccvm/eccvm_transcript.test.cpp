@@ -33,10 +33,8 @@ class ECCVMTranscriptTests : public ::testing::Test {
         size_t frs_per_Fr = bb::field_conversion::calc_num_bn254_frs<FF>();
         size_t frs_per_G = bb::field_conversion::calc_num_bn254_frs<typename Flavor::Commitment>();
         size_t frs_per_evals = (Flavor::NUM_ALL_ENTITIES)*frs_per_Fr;
-        size_t frs_per_uint32 = bb::field_conversion::calc_num_bn254_frs<uint32_t>();
 
         size_t round = 0;
-        manifest_expected.add_entry(round, "circuit_size", frs_per_uint32);
         manifest_expected.add_entry(round, "TRANSCRIPT_ADD", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_EQ", frs_per_G);
         manifest_expected.add_entry(round, "TRANSCRIPT_MSM_TRANSITION", frs_per_G);

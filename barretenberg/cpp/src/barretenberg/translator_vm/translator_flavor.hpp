@@ -723,8 +723,8 @@ class TranslatorFlavor {
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
