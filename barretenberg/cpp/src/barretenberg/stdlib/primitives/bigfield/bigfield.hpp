@@ -491,9 +491,6 @@ template <typename Builder, typename T> class bigfield {
      */
     static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
     {
-        for (size_t i = 0; i < PUBLIC_INPUTS_SIZE; ++i) {
-            limbs[i].create_range_constraint(NUM_LIMB_BITS, "l" + std::to_string(i));
-        }
         return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 
