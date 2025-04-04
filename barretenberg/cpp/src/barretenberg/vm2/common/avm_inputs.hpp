@@ -21,6 +21,15 @@ namespace bb::avm2 {
 ////////////////////////////////////////////////////////////////////////////
 // Public Inputs
 ////////////////////////////////////////////////////////////////////////////
+
+struct GlobalVariables {
+    FF blockNumber;
+
+    bool operator==(const GlobalVariables& other) const = default;
+
+    MSGPACK_FIELDS(blockNumber);
+};
+
 struct AppendOnlyTreeSnapshot {
     FF root;
     uint64_t nextAvailableLeafIndex;
@@ -43,6 +52,7 @@ struct TreeSnapshots {
 };
 
 struct PublicInputs {
+    GlobalVariables globalVariables;
     TreeSnapshots startTreeSnapshots;
     bool reverted;
 
@@ -51,7 +61,7 @@ struct PublicInputs {
     std::vector<std::vector<FF>> to_columns() const { return { { reverted } }; }
     bool operator==(const PublicInputs& other) const = default;
 
-    MSGPACK_FIELDS(startTreeSnapshots, reverted);
+    MSGPACK_FIELDS(globalVariables, startTreeSnapshots, reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////

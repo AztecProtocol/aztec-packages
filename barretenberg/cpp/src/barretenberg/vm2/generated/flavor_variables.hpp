@@ -23,6 +23,7 @@
 #include "relations/scalar_mul.hpp"
 #include "relations/sha256.hpp"
 #include "relations/to_radix.hpp"
+#include "relations/update_check.hpp"
 
 // Lookup and permutation relations
 #include "relations/lookups_address_derivation.hpp"
@@ -40,15 +41,16 @@
 #include "relations/lookups_scalar_mul.hpp"
 #include "relations/lookups_sha256.hpp"
 #include "relations/lookups_to_radix.hpp"
+#include "relations/lookups_update_check.hpp"
 
 namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 926;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 975;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 1106;
+    static constexpr size_t NUM_ALL_ENTITIES = 1155;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -74,7 +76,8 @@ struct AvmFlavorVariables {
         avm2::range_check<FF_>,
         avm2::scalar_mul<FF_>,
         avm2::sha256<FF_>,
-        avm2::to_radix<FF_>>;
+        avm2::to_radix<FF_>,
+        avm2::update_check<FF_>>;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -96,8 +99,10 @@ struct AvmFlavorVariables {
         lookup_bc_hashing_get_packed_field_relation<FF_>,
         lookup_bc_hashing_iv_is_len_relation<FF_>,
         lookup_bc_hashing_poseidon2_hash_relation<FF_>,
+        lookup_bc_retrieval_address_derivation_relation<FF_>,
         lookup_bc_retrieval_bytecode_hash_is_correct_relation<FF_>,
         lookup_bc_retrieval_class_id_derivation_relation<FF_>,
+        lookup_bc_retrieval_update_check_relation<FF_>,
         lookup_bitwise_byte_operations_relation<FF_>,
         lookup_bitwise_integral_tag_length_relation<FF_>,
         lookup_class_id_derivation_class_id_poseidon2_0_relation<FF_>,
@@ -136,7 +141,14 @@ struct AvmFlavorVariables {
         lookup_to_radix_fetch_safe_limbs_relation<FF_>,
         lookup_to_radix_limb_less_than_radix_range_relation<FF_>,
         lookup_to_radix_limb_p_diff_range_relation<FF_>,
-        lookup_to_radix_limb_range_relation<FF_>>;
+        lookup_to_radix_limb_range_relation<FF_>,
+        lookup_update_check_block_of_change_cmp_range_relation<FF_>,
+        lookup_update_check_shared_mutable_leaf_slot_poseidon2_relation<FF_>,
+        lookup_update_check_shared_mutable_slot_poseidon2_relation<FF_>,
+        lookup_update_check_update_hash_poseidon2_relation<FF_>,
+        lookup_update_check_update_hash_public_data_read_relation<FF_>,
+        lookup_update_check_update_hi_metadata_range_relation<FF_>,
+        lookup_update_check_update_lo_metadata_range_relation<FF_>>;
 };
 
 } // namespace bb::avm2

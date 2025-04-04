@@ -121,7 +121,8 @@ ContractInstance random_contract_instance()
 {
     ContractInstance instance = { .salt = FF::random_element(),
                                   .deployer_addr = FF::random_element(),
-                                  .contract_class_id = FF::random_element(),
+                                  .current_class_id = FF::random_element(),
+                                  .original_class_id = FF::random_element(),
                                   .initialisation_hash = FF::random_element(),
                                   .public_keys = PublicKeys{
                                       .nullifier_key = AffinePoint::random_element(),

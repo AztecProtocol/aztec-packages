@@ -52,6 +52,8 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     // Probably better like this though.
     FF storage_read(const FF& leaf_slot) const override;
 
+    LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
+
   private:
     LowLevelMerkleDBInterface& raw_merkle_db;
     // TODO: when you have a merkle gadget, consider marking it "mutable" so that read can be const.

@@ -54,7 +54,8 @@ std::optional<ContractInstance> HintedRawContractDB::get_contract_instance(const
     return std::make_optional<ContractInstance>({
         .salt = contract_instance_hint.salt,
         .deployer_addr = contract_instance_hint.deployer,
-        .contract_class_id = contract_instance_hint.originalContractClassId,
+        .current_class_id = contract_instance_hint.currentContractClassId,
+        .original_class_id = contract_instance_hint.originalContractClassId,
         .initialisation_hash = contract_instance_hint.initializationHash,
         .public_keys =
             PublicKeys{
