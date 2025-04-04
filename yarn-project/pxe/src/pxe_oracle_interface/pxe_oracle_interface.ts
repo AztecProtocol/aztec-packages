@@ -598,7 +598,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
         const pendingTaggedLog = new PendingTaggedLog(
           scopedLog.log.toFields(),
-          scopedLog.txHash.hash,
+          scopedLog.txHash,
           txEffect.data.noteHashes,
           txEffect.data.nullifiers[0],
           recipient,
@@ -729,7 +729,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     // TODO(#11636): use the actual log length.
     const trimmedLog = scopedLog.log.toFields().filter(x => !x.isZero());
 
-    return new LogWithTxData(trimmedLog, scopedLog.txHash.hash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
+    return new LogWithTxData(trimmedLog, scopedLog.txHash, txEffect.data.noteHashes, txEffect.data.nullifiers[0]);
   }
 
   // TODO(#12553): nuke this as part of tackling that issue. This function is no longer unit tested as I had to remove
