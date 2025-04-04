@@ -343,27 +343,21 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
+   * Simulate an unconstrained function call on the given contract, without considering constraints set by ACIR.
    * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
    * Returns the simulation result containing the outputs of the unconstrained function.
    *
-   * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
+   * @param call - The function call to execute.
+   * @param authWitnesses - Authentication witnesses required for the function call.
+   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
+   * accounts if not specified.
    * @returns The simulation result containing the outputs of the unconstrained function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
-    const { to: contractAddress, selector: functionSelector } = execRequest;
-
+  async #simulateUnconstrained(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
     this.log.debug('Executing unconstrained simulator...');
     try {
-      const result = await this.simulator.runUnconstrained(
-        execRequest,
-        contractAddress,
-        functionSelector,
-        authWitnesses ?? [],
-        scopes,
-      );
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
+      const result = await this.simulator.runUnconstrained(call, authWitnesses ?? [], scopes);
+      this.log.verbose(`Unconstrained simulation for ${call.to}.${call.selector} completed`);
 
       return result;
     } catch (err) {
