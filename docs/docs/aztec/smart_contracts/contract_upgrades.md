@@ -27,7 +27,7 @@ During an upgrade:
 
 Contract upgrades in Aztec have to be performed by the contract that wishes to be upgraded calling the Contract instance deployer:
 
-```noir
+```rust
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
 use contract_instance_deployer::ContractInstanceDeployer;
 
@@ -49,7 +49,7 @@ So the `update_to` function above allows anyone to update the contract that impl
 Contract upgrades are implemented using a SharedMutable storage variable in the deployer protocol contract, since the upgrade applies to both public and private functions.
 This means that they have a delay before entering into effect. The default delay is `3600` blocks but can be configured by the contract:
 
-```noir
+```rust
 use dep::aztec::protocol_types::contract_class_id::ContractClassId;
 use contract_instance_deployer::ContractInstanceDeployer;
 
@@ -101,7 +101,7 @@ Only deployed contract instances can upgrade or change its upgrade delay current
 The PXE stores the contract instances and classes in a local database. When a contract is updated, in order to interact with it we need to pass the new artifact to the PXE, since the protocol doesn't publish artifacts.
 Consider this contract as an example:
 
-```noir
+```rust
 #[aztec]
 contract Updatable {
 ...
@@ -161,7 +161,7 @@ await RandomContract.at(address, wallet);
 
 ### Example
 
-```noir
+```rust
 contract Updatable {
     #[private]
     fn update_to(new_class_id: ContractClassId) {
