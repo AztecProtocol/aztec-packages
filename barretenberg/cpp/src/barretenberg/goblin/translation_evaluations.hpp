@@ -39,12 +39,19 @@ template <typename FF>
 static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x, FF& translation_masking_term_eval)
 {
     // This method is only invoked within Goblin, which runs ECCVM with a fixed size.
-    static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
+    static constexpr size_t LOG_MASKING_OFFSET = numeric::get_msb(MASKING_OFFSET);
+    static_assert(1UL << LOG_MASKING_OFFSET == MASKING_OFFSET, "MASKING_OFFSET must be a power of 2");
 
-    FF x_to_circuit_size = evaluation_challenge_x.pow(ECCVM_FIXED_SIZE);
+    FF x_to_masking_offset = evaluation_challenge_x;
+    for (size_t idx = 0; idx < LOG_MASKING_OFFSET; idx++) {
+        x_to_masking_offset = x_to_masking_offset.sqr();
+    }
 
-    // Compute X^{MASKING_OFFSET}
-    const FF x_to_masking_offset = evaluation_challenge_x.pow(MASKING_OFFSET);
+    FF x_to_circuit_size = x_to_masking_offset;
+
+    for (size_t idx = LOG_MASKING_OFFSET; idx < CONST_ECCVM_LOG_N; idx++) {
+        x_to_circuit_size = x_to_circuit_size.sqr();
+    }
 
     // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
