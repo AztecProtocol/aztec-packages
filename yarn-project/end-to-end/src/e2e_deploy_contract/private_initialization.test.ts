@@ -2,6 +2,7 @@ import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
+import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
@@ -87,7 +88,7 @@ describe('e2e_deploy_contract private initialization', () => {
         .constructor(...initArgs)
         .send()
         .wait(),
-    ).rejects.toThrow(/dropped/);
+    ).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
   });
 
   it('refuses to call a private function that requires initialization', async () => {

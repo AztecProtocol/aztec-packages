@@ -5,7 +5,14 @@ import { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { GasFees } from '@aztec/stdlib/gas';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
-import { type Tx, TxExecutionPhase, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
+  TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
+  type Tx,
+  TxExecutionPhase,
+  type TxValidationResult,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 export class GasTxValidator implements TxValidator<Tx> {
   #log = createLogger('sequencer:tx_validator:tx_gas');
@@ -21,7 +28,7 @@ export class GasTxValidator implements TxValidator<Tx> {
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
     if (await this.#shouldSkip(tx)) {
-      return Promise.resolve({ result: 'skipped', reason: ['Insufficient fee per gas'] });
+      return Promise.resolve({ result: 'skipped', reason: [TX_ERROR_INSUFFICIENT_FEE_PER_GAS] });
     }
     return this.#validateTxFee(tx);
   }
@@ -88,7 +95,7 @@ export class GasTxValidator implements TxValidator<Tx> {
         balance: balance.toBigInt(),
         feeLimit: feeLimit.toBigInt(),
       });
-      return { result: 'invalid', reason: ['Insufficient fee payer balance'] };
+      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE] };
     }
     return { result: 'valid' };
   }

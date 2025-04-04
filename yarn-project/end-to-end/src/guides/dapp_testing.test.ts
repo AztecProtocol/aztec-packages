@@ -7,6 +7,7 @@ import { CheatCodes } from '@aztec/aztec.js/testing';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 // docs:end:import_contract
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
+import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { U128_UNDERFLOW_ERROR } from '../fixtures/fixtures.js';
 import { mintTokensToPrivate } from '../fixtures/token_utils.js';
@@ -142,7 +143,7 @@ describe('guides/dapp/testing', () => {
         const provenCall2 = await call2.prove();
 
         await provenCall1.send().wait();
-        await expect(provenCall2.send().wait()).rejects.toThrow(/dropped/);
+        await expect(provenCall2.send().wait()).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
         // docs:end:tx-dropped
       });
 
