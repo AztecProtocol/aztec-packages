@@ -324,7 +324,12 @@ case "$cmd" in
       bench
       echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
     else
-      echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      if [ "$CI_NIGHTLY" -eq 1 ]; then
+        echo_stderr -e "${yellow}Not benching $REF_NAME because it is a nightly release.${reset}"
+        test
+      else
+        echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      fi
       release
     fi
     ;;

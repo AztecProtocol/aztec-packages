@@ -71,9 +71,6 @@ spec:
               mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
             - name: config
               mountPath: /shared/config
-            - name: contracts-env
-              mountPath: /shared/contracts/contracts.env
-              subPath: contracts.env
           env:
             - name: POD_IP
               valueFrom:
@@ -121,10 +118,6 @@ spec:
         - name: pxe-url
           emptyDir: {}
         - name: config
-          emptyDir: {}
-        - name: contracts-env
-          emptyDir: {}
-        - name: pxe-url
           emptyDir: {}
       {{- if .Values.storage.localSsd }}
         - name: blob-sink-data

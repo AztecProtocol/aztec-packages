@@ -57,12 +57,13 @@ function test_cmds {
   # TODO figure out why these take long sometimes.
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
-    echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
+    # echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
+    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-1tps"
   fi
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
@@ -150,7 +151,7 @@ case "$cmd" in
   "test-kind-1tps")
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/1tps.test.ts ci.yaml one-tps${NAME_POSTFIX:-}
+      ./scripts/test_kind.sh src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \

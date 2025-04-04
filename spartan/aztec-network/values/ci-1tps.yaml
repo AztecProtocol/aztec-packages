@@ -2,6 +2,7 @@ aztec:
   slotDuration: 24
   epochDuration: 4
   proofSubmissionWindow: 8
+  realProofs: false
 
 ethereum:
   acceleratedTestDeployments: true
@@ -29,8 +30,7 @@ telemetry:
   enabled: true
 
 validator:
-  # replicas: 128
-  replicas: 1
+  replicas: 128
   resources:
     requests:
       cpu: "200m"
