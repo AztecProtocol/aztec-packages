@@ -25,7 +25,7 @@ node ../../bbjs-test prove \
 # this will not be needed after #11024
 
 NUM_PUBLIC_INPUTS=$(cat $output_dir/public_inputs_fields.json | jq 'length')
-UH_PROOF_FIELDS_LENGTH=440
+UH_PROOF_FIELDS_LENGTH=456
 PROOF_LENGTH_IN_FIELDS=$((UH_PROOF_FIELDS_LENGTH))
 PI_LENGTH_IN_FIELDS=$((NUM_PUBLIC_INPUTS))
 # First 4 bytes is PROOF_AND_PI_LENGTH_IN_FIELDS

@@ -34,8 +34,9 @@ $BIN write_vk \
 
 # Save public inputs as a separate file (first NUM_PUBLIC_INPUTS fields of proof_fields.json)
 PROOF_FIELDS_LENGTH=$(jq 'length' $output_dir/proof_fields.json)
-UH_PROOF_FIELDS_LENGTH=440
+UH_PROOF_FIELDS_LENGTH=456
 NUM_PUBLIC_INPUTS=$((PROOF_FIELDS_LENGTH - UH_PROOF_FIELDS_LENGTH))
+echo $NUM_PUBLIC_INPUTS
 jq ".[:$NUM_PUBLIC_INPUTS]" $output_dir/proof_fields.json > $output_dir/public_inputs_fields.json
 
 # Remove public inputs from the proof (first NUM_PUBLIC_INPUTS*32 bytes)
