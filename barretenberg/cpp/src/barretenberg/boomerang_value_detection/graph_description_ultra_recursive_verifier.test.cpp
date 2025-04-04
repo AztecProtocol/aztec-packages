@@ -138,7 +138,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         info("Connected components: ", connected_components.size());
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 1);
-        for (const auto& elem: variables_in_one_gate) {
+        for (const auto& elem : variables_in_one_gate) {
             info("elem == ", elem);
         }
     }
