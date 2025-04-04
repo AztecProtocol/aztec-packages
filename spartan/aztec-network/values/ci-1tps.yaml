@@ -30,7 +30,7 @@ telemetry:
   enabled: true
 
 validator:
-  replicas: 50
+  replicas: 80
   resources:
     requests:
       cpu: "200m"

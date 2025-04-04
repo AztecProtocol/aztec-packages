@@ -136,12 +136,11 @@ describe('token transfer test', () => {
         const sentTx = tx.send();
         console.log(`sent tx: ${i + 1}`);
         await sentTx.wait({ timeout: 600 });
+        const receipt = await sentTx.getReceipt();
+        console.log(`tx ${i + 1} included in block: ${receipt.blockNumber}`);
         return sentTx;
       }),
     );
-    // await sleep(1000);
-    // }
-    // await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
 
     const recipientBalance = await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate();
     console.log(`recipientBalance: ${recipientBalance}`);
