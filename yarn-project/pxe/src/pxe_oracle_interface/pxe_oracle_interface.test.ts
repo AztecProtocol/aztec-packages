@@ -467,7 +467,7 @@ describe('PXEOracleInterface', () => {
   describe('deliverNote', () => {
     let noteHash: Fr;
     let nullifier: Fr;
-    let txHash: Fr;
+    let txHash: TxHash;
     let storageSlot: Fr;
     let nonce: Fr;
     let content: Fr[];
@@ -475,7 +475,7 @@ describe('PXEOracleInterface', () => {
     beforeEach(() => {
       noteHash = Fr.random();
       nullifier = Fr.random();
-      txHash = Fr.random();
+      txHash = TxHash.random();
       storageSlot = Fr.random();
       nonce = Fr.random();
       content = [Fr.random(), Fr.random()];
