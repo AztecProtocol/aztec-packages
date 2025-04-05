@@ -97,6 +97,9 @@ case "$cmd" in
   "release")
     release
     ;;
+  "docs-release")
+    release
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1

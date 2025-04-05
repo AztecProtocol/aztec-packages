@@ -1,5 +1,64 @@
 # Changelog
 
+## [0.84.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.83.1...v0.84.0) (2025-04-04)
+
+
+### ⚠ BREAKING CHANGES
+
+* `UnsconstrainedContext` --> `UtilityContext` ([#13246](https://github.com/AztecProtocol/aztec-packages/issues/13246))
+* `#[utility]` function ([#13243](https://github.com/AztecProtocol/aztec-packages/issues/13243))
+* Validate public setup fns and gas in p2p ([#13154](https://github.com/AztecProtocol/aztec-packages/issues/13154))
+
+### Features
+
+* `#[utility]` function ([#13243](https://github.com/AztecProtocol/aztec-packages/issues/13243)) ([945ffa2](https://github.com/AztecProtocol/aztec-packages/commit/945ffa29c5d77271b21e037c6e5e03f213d93d56))
+* **avm:** tx hint init ([#13218](https://github.com/AztecProtocol/aztec-packages/issues/13218)) ([60a1a92](https://github.com/AztecProtocol/aztec-packages/commit/60a1a9229560535dc9999f03fb8d5135544e8da0))
+* Remove 4 byte metadata from bb-produced proof ([#13231](https://github.com/AztecProtocol/aztec-packages/issues/13231)) ([0dcc915](https://github.com/AztecProtocol/aztec-packages/commit/0dcc915177db55fc43076caee12b92d830602c85))
+* To enable better ci dashboard. ([#13272](https://github.com/AztecProtocol/aztec-packages/issues/13272)) ([61c6375](https://github.com/AztecProtocol/aztec-packages/commit/61c637533327b1e88503cb226f6bf57018345fa5))
+
+
+### Bug Fixes
+
+* **avm:** fix lookup builder and FF hashing ([#13263](https://github.com/AztecProtocol/aztec-packages/issues/13263)) ([2633856](https://github.com/AztecProtocol/aztec-packages/commit/2633856a9a7f4e4976a9738cdd0e9348196c67c7))
+* ci3-external concurrency bug, reduce grind set ([2c5e830](https://github.com/AztecProtocol/aztec-packages/commit/2c5e830bdf635774dcdf572ad5033fe8fae7b341)), closes [#13285](https://github.com/AztecProtocol/aztec-packages/issues/13285)
+* ci3-external.yml ([#13291](https://github.com/AztecProtocol/aztec-packages/issues/13291)) ([6ad68ed](https://github.com/AztecProtocol/aztec-packages/commit/6ad68ed107e8a515557ea57ea9b6f7048d786a1e))
+* Validate public setup fns and gas in p2p ([#13154](https://github.com/AztecProtocol/aztec-packages/issues/13154)) ([1ef4add](https://github.com/AztecProtocol/aztec-packages/commit/1ef4add02e7187e4c6c383425e06506974d92cc3)), closes [#10958](https://github.com/AztecProtocol/aztec-packages/issues/10958)
+
+
+### Miscellaneous
+
+* `UnsconstrainedContext` --&gt; `UtilityContext` ([#13246](https://github.com/AztecProtocol/aztec-packages/issues/13246)) ([69df86f](https://github.com/AztecProtocol/aztec-packages/commit/69df86f4b234725dfacea686fd7307e45685ddfe))
+* add some PrivateSet tests ([#13270](https://github.com/AztecProtocol/aztec-packages/issues/13270)) ([bd9e690](https://github.com/AztecProtocol/aztec-packages/commit/bd9e690ca9b26f7f0415e89f6a1825d10f07fc87))
+* bump full prover test to 32 cores. hoping to boost speed. ([#13293](https://github.com/AztecProtocol/aztec-packages/issues/13293)) ([c8e95dd](https://github.com/AztecProtocol/aztec-packages/commit/c8e95ddaf72ccb74e1772357170cd2290f785717))
+* deflake p2p reqresp test ([#13271](https://github.com/AztecProtocol/aztec-packages/issues/13271)) ([b9164fa](https://github.com/AztecProtocol/aztec-packages/commit/b9164fa3e9cf05ed3afe759e920fe63dd018d43d))
+* don't dump on fail. click the link instead. ([#13292](https://github.com/AztecProtocol/aztec-packages/issues/13292)) ([ba0fb4d](https://github.com/AztecProtocol/aztec-packages/commit/ba0fb4d743ee0a2eec128bac1d7174e478a0e5a0))
+* flake ([#13277](https://github.com/AztecProtocol/aztec-packages/issues/13277)) ([62c32eb](https://github.com/AztecProtocol/aztec-packages/commit/62c32eb0064c0d95527286882b1ec798fd2c3932))
+* make rahul happy with migration notes ([#13255](https://github.com/AztecProtocol/aztec-packages/issues/13255)) ([3dd75a6](https://github.com/AztecProtocol/aztec-packages/commit/3dd75a68b983bbb3b35b6b8b4c075043973ddc30))
+* minor simulator utils cleanup ([#13250](https://github.com/AztecProtocol/aztec-packages/issues/13250)) ([8a622c9](https://github.com/AztecProtocol/aztec-packages/commit/8a622c955e568e42753bc5e886027d2e0c0230e8))
+* move a couple of `SharedMutableValues` functions outside of impl ([#13283](https://github.com/AztecProtocol/aztec-packages/issues/13283)) ([df9a40c](https://github.com/AztecProtocol/aztec-packages/commit/df9a40c5051229f3c6a6b3f88c6d12f145c64420))
+* nuking debug-only logger and various unused functionality in `foundation` ([#13187](https://github.com/AztecProtocol/aztec-packages/issues/13187)) ([2d38e60](https://github.com/AztecProtocol/aztec-packages/commit/2d38e607338fe7b2ec72d71f140539555166592d))
+* prevent eth devnet config contention in ci ([#13260](https://github.com/AztecProtocol/aztec-packages/issues/13260)) ([1581836](https://github.com/AztecProtocol/aztec-packages/commit/158183616c00fb19baec9ad1447a821e351e484d))
+* renaming unconstrained function as utility in TS ([#13249](https://github.com/AztecProtocol/aztec-packages/issues/13249)) ([34d03bb](https://github.com/AztecProtocol/aztec-packages/commit/34d03bb3d32f26c2a26b9adcd72e7bd17af0c015))
+* replace relative paths to noir-protocol-circuits ([b5b99f8](https://github.com/AztecProtocol/aztec-packages/commit/b5b99f89db9581cbe6329fef884b3492a27cc47d))
+* Speed up note hashes test ([#13282](https://github.com/AztecProtocol/aztec-packages/issues/13282)) ([ad23358](https://github.com/AztecProtocol/aztec-packages/commit/ad2335805df21026123b56888c2e971de7b02038))
+* update gov and proposer configs ([#13281](https://github.com/AztecProtocol/aztec-packages/issues/13281)) ([e1a5be3](https://github.com/AztecProtocol/aztec-packages/commit/e1a5be3fc783c3e162c07b8f2f1abb65b1991ae3))
+* update slashing test port ([#13274](https://github.com/AztecProtocol/aztec-packages/issues/13274)) ([9a1ddc5](https://github.com/AztecProtocol/aztec-packages/commit/9a1ddc5101cb93069cf4621b4b705a307628b80a))
+* Want to fail fast on test runs and the wider ci run. ([#13258](https://github.com/AztecProtocol/aztec-packages/issues/13258)) ([f0553b8](https://github.com/AztecProtocol/aztec-packages/commit/f0553b802db8082bf1857795cdaa8ea3c8a4fdf9))
+
+## [0.83.1](https://github.com/AztecProtocol/aztec-packages/compare/v0.83.0...v0.83.1) (2025-04-03)
+
+
+### Bug Fixes
+
+* archiver prune issue and slasher flake ([#13156](https://github.com/AztecProtocol/aztec-packages/issues/13156)) ([cc60902](https://github.com/AztecProtocol/aztec-packages/commit/cc609022fe6d31335a67c96521601439907df672))
+* disable docs (broken). build arm on tagged releases. ([9d13ba8](https://github.com/AztecProtocol/aztec-packages/commit/9d13ba84fb3e0fe0260236b9d0f3eb6341047274))
+* give the first bot dibs on registering contract classes ([#13256](https://github.com/AztecProtocol/aztec-packages/issues/13256)) ([13df3ca](https://github.com/AztecProtocol/aztec-packages/commit/13df3ca38a995cb6e828e3e85b5f64841423d64e))
+
+
+### Miscellaneous
+
+* fix kind transfer test ([#13182](https://github.com/AztecProtocol/aztec-packages/issues/13182)) ([08f1609](https://github.com/AztecProtocol/aztec-packages/commit/08f1609c3cde12632befa300cd2d8ea225846762))
+
 ## [0.83.0](https://github.com/AztecProtocol/aztec-packages/compare/v0.82.3...v0.83.0) (2025-04-03)
 
 

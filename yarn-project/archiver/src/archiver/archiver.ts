@@ -10,7 +10,7 @@ import { InboxAbi } from '@aztec/l1-artifacts';
 import {
   ContractClassRegisteredEvent,
   PrivateFunctionBroadcastedEvent,
-  UnconstrainedFunctionBroadcastedEvent,
+  UtilityFunctionBroadcastedEvent,
 } from '@aztec/protocol-contracts/class-registerer';
 import {
   ContractInstanceDeployedEvent,
@@ -31,10 +31,10 @@ import {
   type ContractDataSource,
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computePublicBytecodeCommitment,
   isValidPrivateFunctionMembershipProof,
-  isValidUnconstrainedFunctionMembershipProof,
+  isValidUtilityFunctionMembershipProof,
 } from '@aztec/stdlib/contract';
 import {
   type L1RollupConstants,
@@ -151,7 +151,12 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       rollup.getL1GenesisTime(),
     ] as const);
 
-    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+    const {
+      aztecEpochDuration: epochDuration,
+      aztecSlotDuration: slotDuration,
+      ethereumSlotDuration,
+      aztecProofSubmissionWindow: proofSubmissionWindow,
+    } = config;
 
     const archiver = new Archiver(
       publicClient,
@@ -163,7 +168,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       },
       deps.blobSinkClient,
       await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
-      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
+      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration, proofSubmissionWindow },
     );
     await archiver.start(blockUntilSynced);
     return archiver;
@@ -991,7 +996,7 @@ class ArchiverStoreHelper
   }
 
   /**
-   * Stores the functions that was broadcasted individually
+   * Stores the functions that were broadcasted individually
    *
    * @dev   Beware that there is not a delete variant of this, since they are added to contract classes
    *        and will be deleted as part of the class if needed.
@@ -1001,17 +1006,17 @@ class ArchiverStoreHelper
    * @returns
    */
   async #storeBroadcastedIndividualFunctions(allLogs: ContractClassLog[], _blockNum: number) {
-    // Filter out private and unconstrained function broadcast events
+    // Filter out private and utility function broadcast events
     const privateFnEvents = allLogs
       .filter(log => PrivateFunctionBroadcastedEvent.isPrivateFunctionBroadcastedEvent(log))
       .map(log => PrivateFunctionBroadcastedEvent.fromLog(log));
-    const unconstrainedFnEvents = allLogs
-      .filter(log => UnconstrainedFunctionBroadcastedEvent.isUnconstrainedFunctionBroadcastedEvent(log))
-      .map(log => UnconstrainedFunctionBroadcastedEvent.fromLog(log));
+    const utilityFnEvents = allLogs
+      .filter(log => UtilityFunctionBroadcastedEvent.isUtilityFunctionBroadcastedEvent(log))
+      .map(log => UtilityFunctionBroadcastedEvent.fromLog(log));
 
     // Group all events by contract class id
     for (const [classIdString, classEvents] of Object.entries(
-      groupBy([...privateFnEvents, ...unconstrainedFnEvents], e => e.contractClassId.toString()),
+      groupBy([...privateFnEvents, ...utilityFnEvents], e => e.contractClassId.toString()),
     )) {
       const contractClassId = Fr.fromHexString(classIdString);
       const contractClass = await this.getContractClass(contractClassId);
@@ -1020,27 +1025,27 @@ class ArchiverStoreHelper
         continue;
       }
 
-      // Split private and unconstrained functions, and filter out invalid ones
+      // Split private and utility functions, and filter out invalid ones
       const allFns = classEvents.map(e => e.toFunctionWithMembershipProof());
       const privateFns = allFns.filter(
-        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'unconstrainedFunctionsArtifactTreeRoot' in fn,
+        (fn): fn is ExecutablePrivateFunctionWithMembershipProof => 'utilityFunctionsTreeRoot' in fn,
       );
-      const unconstrainedFns = allFns.filter(
-        (fn): fn is UnconstrainedFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
+      const utilityFns = allFns.filter(
+        (fn): fn is UtilityFunctionWithMembershipProof => 'privateFunctionsArtifactTreeRoot' in fn,
       );
 
       const privateFunctionsWithValidity = await Promise.all(
         privateFns.map(async fn => ({ fn, valid: await isValidPrivateFunctionMembershipProof(fn, contractClass) })),
       );
       const validPrivateFns = privateFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
-      const unconstrainedFunctionsWithValidity = await Promise.all(
-        unconstrainedFns.map(async fn => ({
+      const utilityFunctionsWithValidity = await Promise.all(
+        utilityFns.map(async fn => ({
           fn,
-          valid: await isValidUnconstrainedFunctionMembershipProof(fn, contractClass),
+          valid: await isValidUtilityFunctionMembershipProof(fn, contractClass),
         })),
       );
-      const validUnconstrainedFns = unconstrainedFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
-      const validFnCount = validPrivateFns.length + validUnconstrainedFns.length;
+      const validUtilityFns = utilityFunctionsWithValidity.filter(({ valid }) => valid).map(({ fn }) => fn);
+      const validFnCount = validPrivateFns.length + validUtilityFns.length;
       if (validFnCount !== allFns.length) {
         this.#log.warn(`Skipping ${allFns.length - validFnCount} invalid functions`);
       }
@@ -1049,7 +1054,7 @@ class ArchiverStoreHelper
       if (validFnCount > 0) {
         this.#log.verbose(`Storing ${validFnCount} functions for contract class ${contractClassId.toString()}`);
       }
-      return await this.store.addFunctions(contractClassId, validPrivateFns, validUnconstrainedFns);
+      return await this.store.addFunctions(contractClassId, validPrivateFns, validUtilityFns);
     }
     return true;
   }

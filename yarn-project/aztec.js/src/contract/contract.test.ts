@@ -28,7 +28,7 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
-  const mockUnconstrainedResultValue = 1;
+  const mockUtilityResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
@@ -98,7 +98,7 @@ describe('Contract Class', () => {
         name: 'qux',
         isInitializer: false,
         isStatic: false,
-        functionType: FunctionType.UNCONSTRAINED,
+        functionType: FunctionType.UTILITY,
         isInternal: false,
         parameters: [
           {
@@ -164,7 +164,7 @@ describe('Contract Class', () => {
       isContractPubliclyDeployed: true,
     });
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
+    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
@@ -186,17 +186,17 @@ describe('Contract Class', () => {
     expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });
 
-  it('should call view on an unconstrained function', async () => {
+  it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
-    expect(result).toBe(mockUnconstrainedResultValue);
+    expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(result).toBe(mockUtilityResultValue);
   });
 
-  it('should not call create on an unconstrained function', async () => {
+  it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });

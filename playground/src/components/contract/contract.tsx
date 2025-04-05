@@ -10,7 +10,7 @@ import {
   loadContractArtifact,
   getAllFunctionAbis,
   type FunctionAbi,
-  AztecAddress,
+  FunctionType,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -210,7 +210,7 @@ export function ContractComponent() {
     searchTerm: '',
     private: true,
     public: true,
-    unconstrained: true,
+    utility: true,
   });
 
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
@@ -443,7 +443,7 @@ export function ContractComponent() {
         searchTerm: '',
         private: true,
         public: true,
-        unconstrained: true,
+        utility: true,
       });
       setIsLoadingArtifact(false);
     };
@@ -996,21 +996,73 @@ export function ContractComponent() {
                     control={
                       <Checkbox
                         sx={{ padding: 0 }}
-                        checked={filters.unconstrained}
+                        checked={filters.utility}
                         onChange={e =>
                           setFilters({
                             ...filters,
-                            unconstrained: e.target.checked,
+                            utility: e.target.checked,
                           })
                         }
                       />
                     }
-                    label="Unconstrained"
+                    label="Utility"
                   />
                 </div>
               </FormGroup>
             </div>
           </div>
+          {functionAbis
+            .filter(
+              fn =>
+                !fn.isInternal &&
+                !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
+                ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
+                  (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+                  (filters.utility && fn.functionType === FunctionType.UTILITY)) &&
+                (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
+            )
+            .map(fn => (
+              <Card
+                key={fn.name}
+                variant="outlined"
+                sx={{
+                  backgroundColor: 'primary.light',
+                  margin: '0.5rem',
+                  overflow: 'hidden',
+                }}
+              >
+                <CardContent sx={{ textAlign: 'left' }}>
+                  <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
+                    {fn.functionType}
+                  </Typography>
+                  <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
+                    {fn.name}
+                  </Typography>
+                  {fn.parameters.length > 0 && (
+                    <>
+                      <Typography
+                        gutterBottom
+                        sx={{
+                          color: 'text.secondary',
+                          fontSize: 14,
+                          marginTop: '1rem',
+                        }}
+                      >
+                        Parameters
+                      </Typography>
+                      <FormGroup row css={{ marginBottom: '1rem' }}>
+                        {fn.parameters.map((param, i) => (
+                          <FunctionParameter
+                            parameter={param}
+                            key={param.name}
+                            onParameterChange={newValue => {
+                              handleParameterChange(fn.name, i, newValue);
+                            }}
+                          />
+                        ))}
+                      </FormGroup>
+                    </>
+                  )}
 
           {!currentContract && (
             <div style={{ padding: '20px', margin: '10px', textAlign: 'center', backgroundColor: 'rgba(33, 150, 243, 0.1)', borderRadius: '8px' }}>
@@ -1083,58 +1135,47 @@ export function ContractComponent() {
                         <Typography variant="body1" sx={{ fontWeight: 200 }}>
                           Simulation results:&nbsp;
                         </Typography>
-                        {simulationResults[fn.name].success ? (
-                          <Typography variant="body1">
-                            {simulationResults?.[fn.name]?.data.length === 0
-                              ? '-'
-                              : simulationResults?.[fn.name].data.toString()}
-                          </Typography>
-                        ) : (
-                          <Typography variant="body1" color="error">
-                            {simulationResults?.[fn.name]?.error}
-                          </Typography>
-                        )}{' '}
-                      </div>
-                    )}
-                    {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
-                  </CardContent>
-                  <CardActions>
-                    <Button
-                      disabled={!wallet || !currentContract || isWorking}
-                      color="secondary"
-                      variant="contained"
-                      size="small"
-                      onClick={() => simulate(fn.name)}
-                      endIcon={<PsychologyIcon />}
-                    >
-                      Simulate
-                    </Button>
-                    <Button
-                      disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
-                      size="small"
-                      color="secondary"
-                      variant="contained"
-                      onClick={() => send(fn.name)}
-                      endIcon={<SendIcon />}
-                    >
-                      Send
-                    </Button>
-                    <Button
-                      disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
-                      size="small"
-                      color="secondary"
-                      variant="contained"
-                      onClick={() =>
-                        handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === 'private')
-                      }
-                      endIcon={<VpnKeyIcon />}
-                    >
-                      Authwit
-                    </Button>
-                  </CardActions>
-                </Card>
-              ))}
-          </div>
+                      )}{' '}
+                    </div>
+                  )}
+                  {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
+                </CardContent>
+                <CardActions>
+                  <Button
+                    disabled={!wallet || !currentContract || isWorking}
+                    color="secondary"
+                    variant="contained"
+                    size="small"
+                    onClick={() => simulate(fn.name)}
+                    endIcon={<PsychologyIcon />}
+                  >
+                    Simulate
+                  </Button>
+                  <Button
+                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
+                    size="small"
+                    color="secondary"
+                    variant="contained"
+                    onClick={() => send(fn.name)}
+                    endIcon={<SendIcon />}
+                  >
+                    Send
+                  </Button>
+                  <Button
+                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
+                    size="small"
+                    color="secondary"
+                    variant="contained"
+                    onClick={() =>
+                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
+                    }
+                    endIcon={<VpnKeyIcon />}
+                  >
+                    Authwit
+                  </Button>
+                </CardActions>
+              </Card>
+            ))}
         </div>
       )}
       <CreateAuthwitDialog
