@@ -10,15 +10,17 @@ docker rm -f $name &>/dev/null || true
 
 docker run --rm \
   ${name_arg:-} \
-  --cpus=${CPUS:-4} \
-  --memory=${MEM:-8g} \
+  --cpus=${CPUS:-16} \
+  --memory=${MEM:-32g} \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
+  -v$root:$root \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
   --workdir $PWD \
   -e HOME \
   -e VERBOSE \
+  -e IVC_BENCH \
   -e GIT_CONFIG_GLOBAL=$root/build-images/src/home/.gitconfig \
   -e FORCE_COLOR=true \
   aztecprotocol/build:3.0 \
-  /bin/bash -c "$1"
+  /bin/bash -c "$*"

@@ -6,14 +6,12 @@
 #include <tuple>
 #include <utility>
 
+#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#ifndef __wasm__
-#include "barretenberg/api/get_bytecode.hpp"
-#endif
-#include "barretenberg/common/map.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace acir_format {
@@ -1000,7 +998,6 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
     return witness_vector_stack;
 }
 
-#ifndef __wasm__
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
                                         uint32_t honk_recursion)
@@ -1024,6 +1021,5 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
 
     return { std::move(constraint_systems), std::move(witness_stack) };
 }
-#endif
 
 } // namespace acir_format

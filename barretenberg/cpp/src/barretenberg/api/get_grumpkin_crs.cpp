@@ -15,7 +15,7 @@ std::vector<uint8_t> download_grumpkin_g1_data(size_t num_points)
     auto data = exec_pipe(command);
     // Header + num_points * sizeof point.
     if (data.size() < g1_end - g1_start) {
-        throw std::runtime_error("Failed to download grumpkin g1 data.");
+        THROW std::runtime_error("Failed to download grumpkin g1 data.");
     }
 
     return data;
@@ -51,7 +51,7 @@ std::vector<curve::Grumpkin::AffineElement> get_grumpkin_g1_data(const std::file
 
     std::ofstream new_size_file(path / "grumpkin_size");
     if (!new_size_file) {
-        throw std::runtime_error("Failed to open size file for writing");
+        THROW std::runtime_error("Failed to open size file for writing");
     }
     new_size_file << num_points;
     new_size_file.close();

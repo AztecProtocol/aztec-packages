@@ -19,6 +19,17 @@
       "request": "attach",
       "name": "Attach",
       "port": 9229
+    },
+    {
+        "name": "Debug CMake Target",
+        "type": "lldb",
+        "request": "launch",
+        "program": "${command:cmake.launchTargetPath}",
+        "args": [],
+        "cwd": "${workspaceFolder}/barretenberg/cpp",
+        "env": {
+            "MAIN_ARGS": "prove -o bench-out/amm-add-liquidity-proof-files -b /mnt/user-data/adam/aztec-packages/barretenberg/cpp/../../yarn-project/end-to-end/example-app-ivc-inputs-out/amm-add-liquidity/acir.msgpack -w /mnt/user-data/adam/aztec-packages/barretenberg/cpp/../../yarn-project/end-to-end/example-app-ivc-inputs-out/amm-add-liquidity/witnesses.msgpack --scheme client_ivc --input_type runtime_stack"
+        }
     }
   ]
 }

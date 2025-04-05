@@ -36,7 +36,8 @@ class ProofSurgeon {
         std::vector<FF> vkey_fields = verification_key.to_field_elements();
 
         // Get public inputs by cutting them out of the proof
-        size_t num_public_inputs_to_extract = verification_key.num_public_inputs - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
+        size_t num_public_inputs_to_extract =
+            static_cast<uint32_t>(verification_key.num_public_inputs) - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
         if (ipa_accumulation) {
             num_public_inputs_to_extract -= bb::IPA_CLAIM_SIZE;
         }

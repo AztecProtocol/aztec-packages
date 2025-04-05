@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Takes a google benchmark output .json file and summarizes the op counts to console.
+
+set -eu
+op_count_json="$1"
+if [ -z "$op_count_json" ]; then
+  echo "Usage: $0 <input_file>"
+  exit 1
+fi
+
+jq -r '.benchmarks[0] | to_entries[] |
+  select(.key | endswith("(t)")) |
+  {op: (.key | rtrimstr("(t)")), seconds: (.value / 1e9)} |
+  [.op, .seconds] | @tsv' $op_count_json |
+  sort -k2 -nr |
+  head -10 |
+  awk '{printf "%-50s %10.2f seconds\n", $1, $2}'
