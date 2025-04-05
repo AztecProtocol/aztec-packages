@@ -25,6 +25,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
+    base: './',
     logLevel: 'error',
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
