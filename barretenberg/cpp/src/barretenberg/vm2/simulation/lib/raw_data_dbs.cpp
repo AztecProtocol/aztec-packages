@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 
@@ -186,7 +187,8 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
     }
 
     for (const auto& append_leaves_hint : hints.appendLeavesHints) {
-        AppendLeavesHintKey key = { append_leaves_hint.hintKey, append_leaves_hint.treeId, append_leaves_hint.leaf };
+        // Convert the span from the hint to a vector for the key
+        AppendLeavesHintKey key = { append_leaves_hint.hintKey, append_leaves_hint.treeId, append_leaves_hint.leaves };
         append_leaves_hints[key] = append_leaves_hint.stateAfter;
     }
 
@@ -505,10 +507,14 @@ void HintedRawMerkleDB::revert_checkpoint()
     checkpoint_action_counter++;
 }
 
-void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, const FF& leaf)
+void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
 {
+    if (leaves.empty()) {
+        return;
+    }
+
     auto tree_info = get_tree_info(tree_id);
-    AppendLeavesHintKey key = { tree_info, tree_id, leaf };
+    AppendLeavesHintKey key = { tree_info, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
     auto it = append_leaves_hints.find(key);
     if (it == append_leaves_hints.end()) {
         throw std::runtime_error(format("Append leaves hint not found for key (root: ",
@@ -517,8 +523,10 @@ void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, const F
                                         tree_info.nextAvailableLeafIndex,
                                         ", tree_id: ",
                                         static_cast<uint32_t>(tree_id),
-                                        ", leaf: ",
-                                        leaf,
+                                        ", leaves: ",
+                                        leaves[0],
+                                        "..., leaves count: ",
+                                        leaves.size(),
                                         ")"));
     }
     const auto& stateAfter = it->second;

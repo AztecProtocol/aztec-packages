@@ -1392,7 +1392,7 @@ export function makeAvmAppendLeavesHint(seed = 0): AvmAppendLeavesHint {
     makeAppendOnlyTreeSnapshot(seed + 1),
     // Use NOTE_HASH_TREE or L1_TO_L2_MESSAGE_TREE as mentioned in the comment on AvmAppendLeavesHint
     seed % 2 === 0 ? MerkleTreeId.NOTE_HASH_TREE : MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
-    new Fr(seed + 2),
+    makeArray((seed % 5) + 1, i => new Fr(seed + i + 2), 0),
   );
 }
 

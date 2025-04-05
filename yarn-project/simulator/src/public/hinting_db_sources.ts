@@ -271,8 +271,10 @@ export class HintingPublicTreesDB extends PublicTreesDB {
   ): Promise<void> {
     // Use sequentialInsert for PublicDataTree and NullifierTree.
     assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
-    // We only support 1 leaf at a time for now. Can easily be extended.
-    assert(leaves.length === 1, 'appendLeaves supports only one leaf at a time!');
+
+    if (leaves.length === 0) {
+      return;
+    }
 
     const beforeState = await this.getHintKey(treeId);
 
@@ -283,17 +285,7 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     HintingPublicTreesDB.log.debug('[appendLeaves] Evolved tree state.');
     HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
 
-    switch (treeId) {
-      case MerkleTreeId.NOTE_HASH_TREE:
-        this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves[0] as Fr));
-        break;
-      case MerkleTreeId.L1_TO_L2_MESSAGE_TREE:
-        this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves[0] as Fr));
-        break;
-      default:
-        throw new Error('appendLeaves only supported for NoteHashTree and L1ToL2MessageTree!');
-        break;
-    }
+    this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves as Fr[]));
   }
 
   public override async createCheckpoint(): Promise<void> {

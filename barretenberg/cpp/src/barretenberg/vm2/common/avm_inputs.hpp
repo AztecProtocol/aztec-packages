@@ -200,11 +200,11 @@ struct AppendLeavesHint {
     AppendOnlyTreeSnapshot stateAfter;
     // params
     world_state::MerkleTreeId treeId;
-    FF leaf;
+    std::vector<FF> leaves;
 
     bool operator==(const AppendLeavesHint& other) const = default;
 
-    MSGPACK_FIELDS(hintKey, stateAfter, treeId, leaf);
+    MSGPACK_FIELDS(hintKey, stateAfter, treeId, leaves);
 };
 
 struct CheckpointActionNoStateChangeHint {

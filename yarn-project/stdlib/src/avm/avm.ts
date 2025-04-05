@@ -270,7 +270,7 @@ export class AvmAppendLeavesHint {
     public readonly stateAfter: AppendOnlyTreeSnapshot,
     // params
     public readonly treeId: MerkleTreeId,
-    public readonly leaf: Fr,
+    public readonly leaves: Fr[],
   ) {}
 
   static get schema() {
@@ -279,9 +279,11 @@ export class AvmAppendLeavesHint {
         hintKey: AppendOnlyTreeSnapshot.schema,
         stateAfter: AppendOnlyTreeSnapshot.schema,
         treeId: z.number().int().nonnegative(),
-        leaf: schemas.Fr,
+        leaves: schemas.Fr.array(),
       })
-      .transform(({ hintKey, stateAfter, treeId, leaf }) => new AvmAppendLeavesHint(hintKey, stateAfter, treeId, leaf));
+      .transform(
+        ({ hintKey, stateAfter, treeId, leaves }) => new AvmAppendLeavesHint(hintKey, stateAfter, treeId, leaves),
+      );
   }
 }
 
