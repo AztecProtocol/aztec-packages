@@ -450,8 +450,6 @@ export const deployRollupForUpgrade = async (
 
   const { rollup, slashFactoryAddress } = await deployRollup(clients, deployer, args, addresses, logger);
 
-  await deployer.waitForDeployments();
-
   return { rollup, slashFactoryAddress };
 };
 
@@ -520,9 +518,6 @@ export const deployRollup = async (
 
   const rollupContract = new RollupContract(clients.publicClient, rollupAddress);
 
-  await deployer.waitForDeployments();
-  logger.verbose(`All core contracts have been deployed`);
-
   if (args.initialValidators) {
     await cheat_initializeValidatorSet(
       clients,
@@ -533,24 +528,6 @@ export const deployRollup = async (
       args.acceleratedTestDeployments,
       logger,
     );
-  }
-
-  if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
-    const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
-
-    // In fast mode, use the L1TxUtils to send transactions with nonce management
-    const { txHash: mintTxHash } = await deployer.sendTransaction({
-      to: addresses.feeJuiceAddress.toString(),
-      data: encodeFunctionData({
-        abi: l1Artifacts.feeAsset.contractAbi,
-        functionName: 'mint',
-        args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
-      }),
-    });
-    logger.verbose(
-      `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
-    );
-    txHashes.push(mintTxHash);
   }
 
   const slashFactoryAddress = await deployer.deploy(l1Artifacts.slashFactory, [rollupAddress.toString()]);
@@ -589,8 +566,27 @@ export const deployRollup = async (
   }
 
   await deployer.waitForDeployments();
-  await Promise.all(txHashes.map(txHash => clients.publicClient.waitForTransactionReceipt({ hash: txHash })));
   logger.verbose(`Rollup deployed`);
+
+  if (args.feeJuicePortalInitialBalance && args.feeJuicePortalInitialBalance > 0n) {
+    // If we are funding it, we gotta at least have the rollup deployed. Such that we can easily get the fee juice portal address
+    await Promise.all(txHashes.map(txHash => clients.publicClient.waitForTransactionReceipt({ hash: txHash })));
+
+    const feeJuicePortalAddress = await rollupContract.getFeeJuicePortal();
+
+    // In fast mode, use the L1TxUtils to send transactions with nonce management
+    const { txHash: mintTxHash } = await deployer.sendTransaction({
+      to: addresses.feeJuiceAddress.toString(),
+      data: encodeFunctionData({
+        abi: l1Artifacts.feeAsset.contractAbi,
+        functionName: 'mint',
+        args: [feeJuicePortalAddress.toString(), args.feeJuicePortalInitialBalance],
+      }),
+    });
+    logger.verbose(
+      `Funding fee juice portal with ${args.feeJuicePortalInitialBalance} fee juice in ${mintTxHash} (accelerated test deployments)`,
+    );
+  }
 
   return { rollup: rollupContract, slashFactoryAddress };
 };
