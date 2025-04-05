@@ -5,7 +5,7 @@ compiler_version = ">=0.25.0"
 type = "contract"
 
 [dependencies]
-aztec = { path = "../../../aztec-nr/aztec" }
-uint_note = { path = "../../../aztec-nr/uint-note" }
+aztec = { path = "../../../../aztec-nr/aztec" }
+uint_note = { path = "../../../../aztec-nr/uint-note" }
 token = { path = "../token_contract" }
 crowdfunding = { path = "../crowdfunding_contract" }

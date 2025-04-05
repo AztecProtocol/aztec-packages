@@ -116,8 +116,14 @@ function compile {
   local contract_name contract_hash
 
   local contract=$1
+  # Find the full path from Nargo.toml
+  local contract_path=$(grep -F "/$contract\"," Nargo.toml | tr -d '", ,')
+  if [ -z "$contract_path" ]; then
+    echo "Contract $contract not found in Nargo.toml" >&2
+    exit 1
+  fi
   # Calculate filename because nargo...
-  contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  contract_name=$(cat $contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
   contract_hash=$(get_contract_hash $contract)
