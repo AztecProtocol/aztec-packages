@@ -805,6 +805,31 @@ describe('PXEOracleInterface', () => {
       const foundNullifiers: InBlock<Fr>[] = [];
       expect(noteDataProvider.removeNullifiedNotes).toHaveBeenCalledWith(foundNullifiers, recipient);
     });
+
+    it('should search for notes from all accounts', async () => {
+      // Add multiple accounts to keystore
+      const numAccounts = 3;
+
+      await keyStore.addAccount(Fr.random(), Fr.random());
+      await keyStore.addAccount(Fr.random(), Fr.random());
+
+      expect(await keyStore.getAccounts()).toHaveLength(numAccounts);
+
+      // Spy on the noteDataProvider.getNotesSpy
+      const getNotesSpy = jest.spyOn(noteDataProvider, 'getNotes');
+
+      // Call the function under test
+      await pxeOracleInterface.removeNullifiedNotes(contractAddress);
+
+      // Verify removeNullifiedNotes was called once for each account
+      expect(getNotesSpy).toHaveBeenCalledTimes(numAccounts);
+
+      // Verify getNotes was called with the correct contract address and recipient for each account
+      const accounts = await keyStore.getAccounts();
+      accounts.forEach(recipient => {
+        expect(getNotesSpy).toHaveBeenCalledWith(expect.objectContaining({ contractAddress, recipient }));
+      });
+    });
   });
 
   const setSyncedBlockNumber = (blockNumber: number) => {
