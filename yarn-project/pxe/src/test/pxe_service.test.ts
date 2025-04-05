@@ -88,7 +88,10 @@ describe('PXEService', () => {
     const settledTx = await TxEffect.random();
     const duplicateTx = await mockTx();
 
-    node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
+    node.getTxEffect.mockResolvedValue({
+      ...randomInBlock(settledTx),
+      txIndexInBlock: 0,
+    });
 
     const pxe = await PXEService.create(
       node,
