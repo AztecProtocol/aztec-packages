@@ -38,14 +38,71 @@ import SendIcon from '@mui/icons-material/Send';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import { CreateAuthwitDialog } from './components/createAuthwitDialog';
 import { parse } from 'buffer-json';
+import UploadFileIcon from '@mui/icons-material/UploadFile';
+import SearchIcon from '@mui/icons-material/Search';
 
 const container = css({
   display: 'flex',
-  height: 'calc(100vh - 50px)',
+  flexDirection: 'column',
+  height: '100%',
   width: '100%',
-  overflow: 'hidden',
+  overflow: 'auto',
+  background: '#E9E9E9',
+  borderRadius: '10px',
+  padding: '45px',
+  '@media (max-width: 1100px)': {
+    width: 'auto',
+    padding: '24px',
+  },
+});
+
+const headerSection = css({
+  width: '100%',
+  marginBottom: '24px',
+});
+
+const descriptionText = css({
+  fontFamily: '"Space Grotesk", sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '18px',
+  lineHeight: '120%',
+  display: 'flex',
+  alignItems: 'center',
+  textAlign: 'center',
+  color: '#000000',
+  marginBottom: '25px',
+  width: '100%',
+});
+
+const buttonContainer = css({
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '24px',
+  marginBottom: '25px',
+});
+
+const actionButton = css({
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'row',
   justifyContent: 'center',
   alignItems: 'center',
+  padding: '20px 32px',
+  gap: '8px',
+  width: '230px',
+  height: '56px',
+  background: '#CDD1D5',
+  borderRadius: '12px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 600,
+  fontSize: '17px',
+  lineHeight: '16px',
+  color: '#000000',
+  '&:hover': {
+    backgroundColor: '#BCC0C4',
+  }
 });
 
 const dropZoneContainer = css({
@@ -53,64 +110,269 @@ const dropZoneContainer = css({
   flexDirection: 'column',
   width: '100%',
   height: '80%',
-  border: '3px dashed black',
+  border: '3px dashed #9894FF',
   borderRadius: '15px',
-  margin: '0rem 2rem 2rem 2rem',
+  margin: '2rem 0',
+  backgroundColor: 'rgba(152, 148, 255, 0.04)',
+  alignItems: 'center',
+  justifyContent: 'center',
+});
+
+const uploadIcon = css({
+  fontSize: '64px',
+  color: '#9894FF',
+  marginBottom: '1rem',
 });
 
 const contractFnContainer = css({
-  display: 'block',
-  width: '100%',
-  overflowY: 'auto',
-  color: 'black',
-  height: '100%',
-});
-
-const headerContainer = css({
   display: 'flex',
   flexDirection: 'column',
-  flexGrow: 1,
-  flexWrap: 'wrap',
-  margin: '0 0.5rem',
-  padding: '0.1rem',
-  overflow: 'hidden',
-  justifyContent: 'stretch',
-  marginBottom: '0.5rem',
-});
-
-const header = css({
-  display: 'flex',
   width: '100%',
-  alignItems: 'center',
-  justifyContent: 'space-between',
-});
-
-const search = css({
-  display: 'flex',
+  height: '100%',
   overflow: 'hidden',
-  '@media (width <= 800px)': {
-    width: '100%',
-  },
-  '@media (width > 800px)': {
-    maxWidth: '500px',
-  },
 });
 
-const contractActions = css({
+const tokenSection = css({
+  marginTop: '50px',
+  marginBottom: '25px',
+});
+
+const tokenHeader = css({
+  fontFamily: '"Space Grotesk", sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 700,
+  fontSize: '48px',
+  lineHeight: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  letterSpacing: '0.02em',
+  color: '#2D2D2D',
+  marginBottom: '25px',
+});
+
+const searchContainer = css({
+  width: '361px',
+  height: '36px',
+  background: 'rgba(250, 250, 250, 0.93)',
+  borderRadius: '6px',
+  display: 'flex',
+  alignItems: 'center',
+  padding: '8px',
+  marginBottom: '15px',
+});
+
+const filterContainer = css({
   display: 'flex',
   flexDirection: 'row',
-  alignItems: 'center',
+  gap: '7px',
+  marginBottom: '25px',
 });
 
-const simulationContainer = css({
+const filterButton = css({
   display: 'flex',
   flexDirection: 'row',
+  justifyContent: 'center',
   alignItems: 'center',
+  padding: '6px 5px',
+  gap: '11px',
+  height: '36px',
+  background: '#CDD1D5',
+  borderRadius: '6px',
+  cursor: 'pointer',
 });
 
-const checkBoxLabel = css({
-  height: '1.5rem',
-  marginLeft: '-10px',
+const filterCheckbox = css({
+  width: '24px',
+  height: '24px',
+  background: '#CDD1D5',
+  border: '2px solid rgba(255, 255, 255, 0.2)',
+  borderRadius: '6px',
+});
+
+const filterLabel = css({
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  fontSize: '16px',
+  lineHeight: '19px',
+  textAlign: 'center',
+  color: '#000000',
+});
+
+const functionCard = css({
+  boxSizing: 'border-box',
+  width: '100%',
+  background: '#CDD1D5',
+  border: '2px solid #DEE2E6',
+  borderRadius: '20px',
+  marginBottom: '20px',
+  overflow: 'hidden',
+});
+
+const functionTypeLabel = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '6px 16px',
+  gap: '10px',
+  width: '88px',
+  height: '20px',
+  background: '#9894FF',
+  borderRadius: '30px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  fontSize: '12px',
+  lineHeight: '120%',
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  color: '#FFFFFF',
+  marginBottom: '10px',
+});
+
+const functionName = css({
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 600,
+  fontSize: '22px',
+  lineHeight: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  letterSpacing: '0.02em',
+  color: '#2D2D2D',
+  marginBottom: '20px',
+});
+
+const parametersLabel = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '6px 16px',
+  gap: '10px',
+  width: '123px',
+  height: '20px',
+  background: '#9894FF',
+  borderRadius: '30px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  fontSize: '12px',
+  lineHeight: '120%',
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  color: '#FFFFFF',
+  marginBottom: '10px',
+});
+
+const parameterInput = css({
+  background: '#FFFFFF',
+  border: '2px solid #DEE2E6',
+  borderRadius: '8px',
+  height: '48px',
+  padding: '0 24px',
+  display: 'flex',
+  alignItems: 'center',
+  marginRight: '16px',
+  marginBottom: '16px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 600,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#3F444A',
+});
+
+const actionButtonsContainer = css({
+  display: 'flex',
+  flexDirection: 'row',
+  gap: '12px',
+  marginTop: '15px',
+});
+
+const simulateButton = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px 20px',
+  gap: '9px',
+  height: '38px',
+  background: '#9894FF',
+  borderRadius: '8px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#000000',
+  border: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8C7EFF',
+  },
+  '&:disabled': {
+    backgroundColor: '#CDD1D5',
+    color: '#808080',
+    cursor: 'not-allowed',
+  }
+});
+
+const sendButton = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px 20px',
+  gap: '9px',
+  height: '38px',
+  background: '#9894FF',
+  borderRadius: '8px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#000000',
+  border: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8C7EFF',
+  },
+  '&:disabled': {
+    backgroundColor: '#CDD1D5',
+    color: '#808080',
+    cursor: 'not-allowed',
+  }
+});
+
+const authwitButton = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px 20px',
+  gap: '9px',
+  height: '38px',
+  background: '#9894FF',
+  borderRadius: '8px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#000000',
+  border: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8C7EFF',
+  },
+  '&:disabled': {
+    backgroundColor: '#CDD1D5',
+    color: '#808080',
+    cursor: 'not-allowed',
+  }
 });
 
 const loadingArtifactContainer = css({
@@ -120,13 +382,101 @@ const loadingArtifactContainer = css({
   alignItems: 'center',
   justifyContent: 'center',
   gap: '2rem',
+  height: '100%',
+});
+
+const headerContainer = css({
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%',
+  marginBottom: '25px',
+});
+
+const functionListContainer = css({
+  width: '100%',
+  padding: '0',
 });
 
 const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
+const PREDEFINED_CONTRACTS = {
+  SIMPLE_VOTING: 'simple_voting',
+  SIMPLE_TOKEN: 'simple_token',
+  CUSTOM_UPLOAD: 'custom_upload'
+};
+
+interface ExtendedFunctionAbi extends FunctionAbi {
+  originalName?: string;
+}
+
+const TOKEN_FUNCTION_MAPPING = {
+  'transfer_in_public': 'public_transfer',
+  'transfer_to_public': 'transfer_from_private_to_public',
+  'transfer_to_private': 'transfer_from_public_to_private'
+};
+
+const TOKEN_ALLOWED_FUNCTIONS = [
+  'name',
+  'symbol',
+  'decimals',
+  'balance_of_private',
+  'balance_of_public',
+  'total_supply_private',
+  'total_supply_public',
+  'mint_privately',
+  'mint_publicly',
+  'private_transfer',
+  'transfer_in_public', // Will be renamed to public_transfer
+  'transfer_to_public', // Will be renamed to transfer_from_private_to_public
+  'transfer_to_private', // Will be renamed to transfer_from_public_to_private
+];
+
+const MOCK_SIMPLE_TOKEN_ARTIFACT = {
+  name: 'SimpleToken',
+  version: '0.1.0',
+  functions: [
+    {
+      name: 'transfer',
+      functionType: 'private',
+      parameters: [
+        { name: 'to', type: 'address' },
+        { name: 'amount', type: 'field' }
+      ],
+      returnType: 'bool'
+    },
+    {
+      name: 'balance_of',
+      functionType: 'public',
+      parameters: [
+        { name: 'account', type: 'address' }
+      ],
+      returnType: 'field'
+    },
+    {
+      name: 'mint',
+      functionType: 'public',
+      parameters: [
+        { name: 'to', type: 'address' },
+        { name: 'amount', type: 'field' }
+      ],
+      returnType: 'bool'
+    }
+  ]
+};
+
+// Define the missing enum values if not present in the imported FunctionType
+declare namespace FunctionTypeExtended {
+  enum Type {
+    PRIVATE = "private",
+    PUBLIC = "public",
+    UTILITY = "utility"
+  }
+}
+
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
-  const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
+  const [functionAbis, setFunctionAbis] = useState<ExtendedFunctionAbi[]>([]);
+  const [showUploadArea, setShowUploadArea] = useState(false);
 
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -156,20 +506,211 @@ export function ContractComponent() {
     walletDB,
     currentContractAddress,
     currentContract,
+    selectedPredefinedContract,
     setCurrentContract,
     setCurrentContractAddress,
     setCurrentTx,
+    setSelectedPredefinedContract,
   } = useContext(AztecContext);
+
+  const logContractState = (message: string = 'Contract State', contract = currentContract) => {
+    console.log(`=== ${message} ===`);
+    console.log('Current Contract Address:', currentContractAddress ? currentContractAddress.toString() : 'None');
+    console.log('Contract Artifact:', contractArtifact ? {
+      name: contractArtifact.name,
+      functions: functionAbis.length
+    } : 'None');
+    console.log('Selected Predefined Contract:', selectedPredefinedContract || 'None');
+    console.log('Wallet Connected:', wallet ? `Yes (${wallet.getAddress().toString()})` : 'No');
+    console.log('Functions:', functionAbis.map(fn => fn.name));
+
+    if (contract) {
+      console.log('Contract Methods:', Object.keys(contract.methods));
+      console.log('Contract Address:', contract.address.toString());
+    }
+
+    console.log('Is Working:', isWorking);
+    console.log('Contract Interface Loaded:', contractArtifact ? 'Yes' : 'No');
+    console.log('====================');
+  };
+
+  useEffect(() => {
+    if (selectedPredefinedContract === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+      setShowUploadArea(true);
+    } else {
+      setShowUploadArea(false);
+    }
+    if (selectedPredefinedContract) {
+      logContractState('Predefined Contract Selected');
+    }
+  }, [selectedPredefinedContract]);
+
+  useEffect(() => {
+    console.log('Wallet:', wallet);
+    console.log('Current Contract:', currentContract);
+    console.log('Is Working:', isWorking);
+    if (currentContract) {
+      logContractState('Contract Updated');
+    }
+  }, [wallet, currentContract, isWorking]);
+
+  const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
+    if (contractName === 'SimplePrivateVoting') {
+      const order = ['constructor', 'cast_vote', 'end_vote', 'get_vote'];
+
+      return [...functions].sort((a, b) => {
+        const indexA = order.indexOf(a.name);
+        const indexB = order.indexOf(b.name);
+
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+
+        return 0;
+      });
+    }
+
+    return functions;
+  };
+
+
+  const filterTokenFunctions = (functions: FunctionAbi[]): ExtendedFunctionAbi[] => {
+    return functions
+      .filter(fn => TOKEN_ALLOWED_FUNCTIONS.includes(fn.name))
+      .map(fn => {
+        if (TOKEN_FUNCTION_MAPPING[fn.name]) {
+          return {
+            ...fn,
+            name: TOKEN_FUNCTION_MAPPING[fn.name],
+            originalName: fn.name
+          };
+        }
+        return fn;
+      });
+  };
+
+  const registerContractClassWithPXE = async (artifact: ContractArtifact) => {
+    if (!wallet) {
+      console.warn('Cannot register contract class: wallet not connected');
+      return;
+    }
+
+    try {
+      console.log('Pre-registering contract class with PXE...');
+      await wallet.registerContractClass(artifact);
+      console.log('Contract class pre-registered successfully');
+    } catch (error) {
+      console.error('Error pre-registering contract class:', error);
+      // Don't throw - we want to continue even if this fails
+    }
+  };
+
+  useEffect(() => {
+    const loadPredefinedContract = async () => {
+      setIsLoadingArtifact(true);
+
+      let contractArtifact;
+
+      if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
+        try {
+          const response = await fetch('/contracts/SimplePrivateVoting.json', {
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
+          }
+          const artifact = await response.json();
+          contractArtifact = loadContractArtifact(artifact);
+        } catch (err) {
+          console.error('Error loading SimplePrivateVoting artifact:', err);
+        }
+      } else if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
+        try {
+          const response = await fetch('/contracts/Token.json', {
+            headers: {
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            }
+          });
+          if (!response.ok) {
+            throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
+          }
+          const artifact = await response.json();
+          contractArtifact = loadContractArtifact(artifact);
+        } catch (err) {
+          console.error('Error loading Token artifact:', err);
+        }
+      }
+
+      if (contractArtifact) {
+        console.log('Loaded contract artifact:', contractArtifact);
+        setContractArtifact(contractArtifact);
+
+        let functionAbis = getAllFunctionAbis(contractArtifact);
+
+        if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
+          functionAbis = filterTokenFunctions(functionAbis);
+        }
+
+        functionAbis = sortFunctions(functionAbis, contractArtifact.name);
+
+        setFunctionAbis(functionAbis);
+        setFilters({
+          searchTerm: '',
+          private: true,
+          public: true,
+          utility: true,
+        });
+
+        console.log('Setting up contract artifact:', contractArtifact.name);
+
+        // Register the contract class with PXE when a predefined contract is loaded
+        if (wallet) {
+          await registerContractClassWithPXE(contractArtifact);
+        }
+      }
+
+      setIsLoadingArtifact(false);
+    };
+
+    if (selectedPredefinedContract) {
+      loadPredefinedContract();
+    }
+  }, [selectedPredefinedContract, wallet]);
+
+  // Also register contract artifact when uploaded
+  useEffect(() => {
+    if (contractArtifact && wallet) {
+      registerContractClassWithPXE(contractArtifact);
+    }
+  }, [contractArtifact, wallet]);
 
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
       const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
       const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+
+      // Register the contract class with PXE before creating Contract instance
+      try {
+        console.log('Pre-registering contract class before loading contract...');
+        await wallet.registerContractClass(contractArtifact);
+        console.log('Contract class pre-registered successfully');
+      } catch (error) {
+        console.error('Error pre-registering contract class:', error);
+        // Continue even if registration fails - Contract.at will try to handle it
+      }
+
       const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
       setCurrentContract(contract);
       setContractArtifact(contract.artifact);
-      setFunctionAbis(getAllFunctionAbis(contract.artifact));
+      setFunctionAbis(sortFunctions(getAllFunctionAbis(contract.artifact), contract.artifact.name));
       setFilters({
         searchTerm: '',
         private: true,
@@ -185,84 +726,312 @@ export function ContractComponent() {
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
+      if (!files || files.length === 0) return;
+
       const file = files[0];
+      if (!file.name.endsWith('.json')) {
+        alert('Please upload a JSON file. Other file types are not supported.');
+        return;
+      }
+
       const reader = new FileReader();
       setIsLoadingArtifact(true);
+
       reader.onload = async e => {
-        const contractArtifact = loadContractArtifact(JSON.parse(e.target?.result as string));
-        setContractArtifact(contractArtifact);
-        setFunctionAbis(getAllFunctionAbis(contractArtifact));
+        try {
+          if (!e.target?.result) {
+            throw new Error('Could not read the file content');
+          }
+
+          const fileContent = e.target.result as string;
+          const artifact = JSON.parse(fileContent);
+          const contractArtifact = loadContractArtifact(artifact);
+
+          setSelectedPredefinedContract('');
+          setCurrentContractAddress(null);
+
+          setContractArtifact(contractArtifact);
+
+          let functionAbis = getAllFunctionAbis(contractArtifact);
+          functionAbis = sortFunctions(functionAbis, contractArtifact.name);
+          setFunctionAbis(functionAbis);
+
+          setFilters({
+            searchTerm: '',
+            private: true,
+            public: true,
+            utility: true,
+          });
+
+
+          setShowUploadArea(false);
+
+          if (wallet) {
+            setTimeout(() => {
+              if (confirm('Would you like to deploy this contract now?')) {
+                setOpenDeployContractDialog(true);
+              }
+            }, 500);
+          }
+
+        } catch (error) {
+          console.error('Error parsing contract artifact:', error);
+          alert(`Failed to load contract artifact: ${error.message || 'Unknown error'}`);
+        } finally {
+          setIsLoadingArtifact(false);
+        }
+      };
+
+      reader.onerror = () => {
+        console.error('Error reading file:', reader.error);
+        alert('Error reading the uploaded file. Please try again.');
         setIsLoadingArtifact(false);
       };
+
       reader.readAsText(file);
     },
+    accept: {
+      'application/json': ['.json']
+    },
+    multiple: false
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleParameterChange = (fnName: string, index: number, value: any) => {
-    const fnParameters = parameters[fnName] || [];
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+    const realFnName =
+      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    const fnParameters = parameters[realFnName] || [];
     fnParameters[index] = value;
-    setParameters({ ...parameters, [fnName]: fnParameters });
+    setParameters({ ...parameters, [realFnName]: fnParameters });
+  };
+
+  const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
+    console.log('=== POST-DEPLOYMENT SETUP STARTED ===');
+    console.log('Contract instance received:', contract ? 'Yes' : 'No');
+    console.log('Alias:', alias);
+
+    if (contract) {
+      console.log('Contract address:', contract.address.toString());
+      console.log('Contract class ID:', contract.currentContractClassId.toString());
+      console.log('Wallet available:', wallet ? 'Yes' : 'No');
+      console.log('Contract artifact available:', contractArtifact ? 'Yes' : 'No');
+      console.log('Selected contract type:', selectedPredefinedContract || 'Custom');
+
+      try {
+        // Register the contract class with PXE first
+        try {
+          console.log('Registering contract class with PXE...');
+          await wallet.registerContractClass(contractArtifact);
+          console.log('Contract class registered successfully with PXE');
+        } catch (err) {
+          // Log the error but continue
+          console.error('Error registering contract class - continuing anyway:', err);
+        }
+
+        console.log('Initializing Contract instance at the deployed address...');
+        const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
+        console.log('Contract initialized successfully');
+
+        console.log('Setting current contract address...');
+        setCurrentContractAddress(deployedContract.address);
+        console.log('Setting current contract instance...');
+        setCurrentContract(deployedContract);
+
+        console.log('Storing contract in walletDB...');
+        await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
+        console.log('Contract stored successfully');
+
+        // List available methods
+        console.log('Contract methods available:');
+        const methods = Object.keys(deployedContract.methods);
+        methods.forEach(method => console.log(`- ${method}`));
+
+        console.log('=== POST-DEPLOYMENT SETUP COMPLETED SUCCESSFULLY ===');
+        console.log('Successfully deployed contract at address:', deployedContract.address.toString());
+      } catch (error) {
+        // Log the error directly without handling
+        console.error('=== DEPLOYMENT ERROR ===');
+        console.error(error);
+        
+        // Show the full error message to user
+        alert(`Error: ${error.message}`);
+      }
+    }
+    
+    setOpenDeployContractDialog(false);
   };
 
   const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract && alias) {
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
-      setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
-      setCurrentContractAddress(contract.address);
+      try {
+        await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+        setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
+        setCurrentContractAddress(contract.address);
+        console.log('Successfully registered contract at address:', contract.address.toString());
+      } catch (error) {
+        console.error('Error registering contract:', error);
+        alert('Error registering the contract. Please try again.');
+      }
     }
     setOpenDeployContractDialog(false);
     setOpenRegisterContractDialog(false);
   };
 
   const simulate = async (fnName: string) => {
+    console.log(`=== SIMULATING FUNCTION: ${fnName} ===`);
+
+    if (!currentContract) {
+      console.error('Simulation failed: No contract instance available');
+      alert('You need to deploy this contract before you can simulate functions.');
+      return;
+    }
+
+    console.log('Contract address:', currentContract.address.toString());
+    console.log('Contract methods available:', Object.keys(currentContract.methods));
+
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+
+    if (!matchingFn) {
+      console.error(`Function ${fnName} not found in contract ABI`);
+      alert(`Function ${fnName} not found in contract ABI`);
+      return;
+    }
+
+    const realFnName = selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    console.log('Function to call:', realFnName);
+
+    if (!currentContract.methods[realFnName]) {
+      console.error(`Method ${realFnName} not found in contract instance`);
+      console.log('Available methods:', Object.keys(currentContract.methods));
+      alert(`Method ${realFnName} not found in contract instance`);
+      return;
+    }
+
     setIsWorking(true);
     let result;
     try {
-      const fnParameters = parameters[fnName] ?? [];
-      const call = currentContract.methods[fnName](...fnParameters);
+      console.log('Getting function parameters...');
+      const fnParameters = parameters[realFnName] ?? [];
+      console.log('Parameters:', fnParameters);
 
+      console.log('Creating function call...');
+      const call = currentContract.methods[realFnName](...fnParameters);
+      console.log('Function call created successfully');
+
+      console.log('Simulating function call...');
       result = await call.simulate();
+      console.log('Simulation result:', result);
+
       setSimulationResults({
         ...simulationResults,
         ...{ [fnName]: { success: true, data: result } },
       });
-    } catch (e) {
+      console.log('=== SIMULATION COMPLETED SUCCESSFULLY ===');
+    } catch (error) {
+      console.error('=== SIMULATION ERROR ===');
+      console.error(error);
+      
       setSimulationResults({
         ...simulationResults,
-        ...{ [fnName]: { success: false, error: e.message } },
+        ...{ [fnName]: { success: false, error: error.message } },
       });
+    } finally {
+      setIsWorking(false);
     }
-
-    setIsWorking(false);
   };
 
   const send = async (fnName: string) => {
+    console.log(`=== SENDING TRANSACTION: ${fnName} ===`);
+
+    if (!currentContract) {
+      console.error('Transaction failed: No contract instance available');
+      alert('You need to deploy this contract before you can send transactions.');
+      return;
+    }
+
+    console.log('Contract address:', currentContract.address.toString());
+    console.log('Contract methods available:', Object.keys(currentContract.methods));
+
     setIsWorking(true);
     let receipt;
     let txHash;
+
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+
+    if (!matchingFn) {
+      console.error(`Function ${fnName} not found in contract ABI`);
+      alert(`Function ${fnName} not found in contract ABI`);
+      setIsWorking(false);
+      return;
+    }
+
+    const realFnName = selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    console.log('Function to call:', realFnName);
+
+    if (!currentContract.methods[realFnName]) {
+      console.error(`Method ${realFnName} not found in contract instance`);
+      console.log('Available methods:', Object.keys(currentContract.methods));
+      alert(`Method ${realFnName} not found in contract instance`);
+      setIsWorking(false);
+      return;
+    }
+
     const currentTx = {
       status: 'proving' as const,
       fnName: fnName,
       contractAddress: currentContract.address,
     };
     setCurrentTx(currentTx);
-    try {
-      const call = currentContract.methods[fnName](...parameters[fnName]);
+    console.log('Transaction status set to proving');
 
+    try {
+      console.log('Getting function parameters...');
+      const fnParameters = parameters[realFnName] || [];
+      console.log('Parameters:', fnParameters);
+
+      console.log('Creating function call...');
+      const call = currentContract.methods[realFnName](...fnParameters);
+      console.log('Function call created successfully');
+
+      console.log('Creating proof for function call...');
       const provenCall = await call.prove();
+      console.log('Proof created successfully');
+
+      console.log('Getting transaction hash...');
       txHash = await provenCall.getTxHash();
+      console.log('Transaction hash:', txHash);
+
       setCurrentTx({
         ...currentTx,
         ...{ txHash, status: 'sending' },
       });
+      console.log('Transaction status set to sending');
+
+      console.log('Submitting transaction to the network...');
       receipt = await provenCall.send().wait({ dontThrowOnRevert: true });
+      console.log('Transaction receipt:', receipt);
+
+      console.log('Transaction status:', receipt.status);
+      if (receipt.error) {
+        console.error('Transaction error:', receipt.error);
+      }
+
+      console.log('Storing transaction in wallet DB...');
       await walletDB.storeTx({
         contractAddress: currentContract.address,
         txHash,
         fnName,
         receipt,
       });
+      console.log('Transaction stored successfully');
+
       setCurrentTx({
         ...currentTx,
         ...{
@@ -272,19 +1041,23 @@ export function ContractComponent() {
           error: receipt.error,
         },
       });
-    } catch (e) {
-      console.error(e);
+      console.log('=== TRANSACTION COMPLETED ===');
+    } catch (error) {
+      // Log the raw error object to ensure all information is captured
+      console.error('=== TRANSACTION ERROR ===');
+      console.error(error);
+      
       setCurrentTx({
         ...currentTx,
         ...{
           txHash,
           status: 'error',
-          error: e.message,
+          error: error.message,
         },
       });
+    } finally {
+      setIsWorking(false);
     }
-
-    setIsWorking(false);
   };
 
   const handleAuthwitFnDataChanged = (
@@ -293,7 +1066,12 @@ export function ContractComponent() {
     parameters: any[],
     isPrivate: boolean,
   ) => {
-    setAuthwitFnData({ name: fnName, parameters, isPrivate });
+    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
+    const realFnName =
+      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+      matchingFn?.originalName || fnName;
+
+    setAuthwitFnData({ name: realFnName, parameters, isPrivate });
     setOpenCreateAuthwitDialog(true);
   };
 
@@ -305,243 +1083,294 @@ export function ContractComponent() {
     setOpenCreateAuthwitDialog(false);
   };
 
+  const resetPXEDatabase = async () => {
+    try {
+      console.log('=== RESETTING PXE DATABASE ===');
+
+      // Clear IndexedDB database that's causing issues
+      const dbs = await window.indexedDB.databases();
+      console.log('Found databases:', dbs);
+
+      // Look for any PXE-related or wallet-related databases
+      const pxeDbs = dbs.filter(db =>
+        db.name && (
+          db.name.includes('pxe') ||
+          db.name.includes('wallet') ||
+          db.name.includes('aztec')
+        )
+      );
+
+      console.log('PXE databases to reset:', pxeDbs);
+
+      // Delete them one by one
+      for (const db of pxeDbs) {
+        if (db.name) {
+          console.log(`Deleting database: ${db.name}`);
+          await new Promise((resolve, reject) => {
+            const request = window.indexedDB.deleteDatabase(db.name!);
+            request.onsuccess = () => {
+              console.log(`Successfully deleted database: ${db.name}`);
+              resolve(undefined);
+            };
+            request.onerror = () => {
+              console.error(`Error deleting database: ${db.name}`);
+              reject(new Error(`Failed to delete database: ${db.name}`));
+            };
+          });
+        }
+      }
+
+      console.log('Database reset complete. Reload the page to reconnect.');
+      alert('Database reset successful. Please reload the page to reconnect to the network with a fresh database.');
+    } catch (error) {
+      console.error('Error resetting PXE database:', error);
+      alert('Error resetting PXE database: ' + error.message);
+    }
+  };
+
   return (
     <div css={container}>
-      {!contractArtifact ? (
+      {showUploadArea ? (
         !isLoadingArtifact ? (
-          <div css={dropZoneContainer}>
-            <div {...getRootProps({ className: 'dropzone' })}>
-              <input {...getInputProps()} />
-              <Typography>Drag 'n' drop some files here, or click to select files</Typography>
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '1rem' }}>
+            <div css={dropZoneContainer}>
+              <div {...getRootProps({ className: 'dropzone' })}>
+                <input {...getInputProps()} />
+                <UploadFileIcon css={uploadIcon} />
+                <Typography variant="h5" sx={{ mb: 2, color: '#9894FF' }}>Upload Contract JSON Artifact</Typography>
+                <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, mb: 3, display: 'block' }}>
+                  The contract artifact should be a JSON file exported from your Noir/Aztec project
+                </Typography>
+                <Button
+                  variant="contained"
+                  sx={{ mt: 2, backgroundColor: '#9894FF', '&:hover': { backgroundColor: '#8C7EFF' } }}
+                >
+                  Select File
+                </Button>
+              </div>
             </div>
           </div>
         ) : (
           <div css={loadingArtifactContainer}>
             <Typography variant="h5">Loading artifact...</Typography>
-            <CircularProgress size={100} />
+            <CircularProgress style={{ color: '#9894FF' }} size={100} />
           </div>
         )
+      ) : !contractArtifact ? (
+        <div css={loadingArtifactContainer}>
+          <Typography variant="h5">No contract loaded</Typography>
+          <Typography>
+            Select a contract from the dropdown or upload your own.
+          </Typography>
+        </div>
       ) : (
         <div css={contractFnContainer}>
-          <div css={headerContainer}>
-            <div css={header}>
-              <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
-                {contractArtifact.name}
-              </Typography>
-              {!currentContract && wallet && (
-                <div css={contractActions}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    css={{ marginRight: '0.5rem' }}
-                    onClick={() => setOpenDeployContractDialog(true)}
-                  >
-                    Deploy
-                  </Button>
-                  <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
-                    Register
-                  </Button>
-                  <DeployContractDialog
-                    contractArtifact={contractArtifact}
-                    open={openDeployContractDialog}
-                    onClose={handleContractCreation}
-                  />
-                  <RegisterContractDialog
-                    contractArtifact={contractArtifact}
-                    open={openRegisterContractDialog}
-                    onClose={handleContractCreation}
-                  />
-                </div>
-              )}
-              {currentContract && (
-                <div css={contractActions}>
-                  <Typography color="text.secondary">{formatFrAsString(currentContract.address.toString())}</Typography>
-                  <CopyToClipboardButton disabled={false} data={currentContract.address.toString()} />
-                  <IconButton
-                    onClick={() => {
-                      setCurrentContractAddress(null);
-                      setCurrentContract(null);
-                      setContractArtifact(null);
-                    }}
-                  >
-                    <ClearIcon />
-                  </IconButton>
-                </div>
-              )}
+          <div css={headerSection}>
+            <div css={descriptionText}>
+             {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING ? (
+               <>
+                 On this page you can simulate transactions in this contract and send them to the network.
+                 <br />
+                 This contract allows a person to vote privately on a public vote.
+               </>
+             ) : selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ? (
+               <>
+                 On this page you can simulate transactions in this contract and send them to the network.
+                 <br />
+                 This is a simple token contract demonstrating holding it both publicly and privately, and being able to transfer publicly and privately, and move it in and out of state publicly and privately.
+               </>
+             ) : (
+               <>
+                 On this page you can simulate transactions in this contract and send them to the network.
+               </>
+             )}
             </div>
-            <div css={search}>
-              <FormGroup sx={{ width: '100%' }}>
-                <Input
-                  type="text"
-                  fullWidth
-                  placeholder="Search function"
-                  value={filters.searchTerm}
-                  onChange={e => setFilters({ ...filters, searchTerm: e.target.value })}
-                  endAdornment={
-                    <InputAdornment position="end">
-                      <FindInPageIcon />
-                    </InputAdornment>
-                  }
-                />
-                <div
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    marginTop: '0.5rem',
-                    width: '100%',
-                  }}
-                >
-                  <FormControlLabel
-                    css={checkBoxLabel}
-                    control={
-                      <Checkbox
-                        sx={{ paddingRight: 0 }}
-                        checked={filters.private}
-                        onChange={e => setFilters({ ...filters, private: e.target.checked })}
-                      />
-                    }
-                    label="Private"
-                  />
-                  <FormControlLabel
-                    css={checkBoxLabel}
-                    control={
-                      <Checkbox
-                        sx={{ padding: 0 }}
-                        checked={filters.public}
-                        onChange={e => setFilters({ ...filters, public: e.target.checked })}
-                      />
-                    }
-                    label="Public"
-                  />
-                  <FormControlLabel
-                    css={checkBoxLabel}
-                    control={
-                      <Checkbox
-                        sx={{ padding: 0 }}
-                        checked={filters.utility}
-                        onChange={e =>
-                          setFilters({
-                            ...filters,
-                            utility: e.target.checked,
-                          })
-                        }
-                      />
-                    }
-                    label="Utility"
-                  />
-                </div>
-              </FormGroup>
+            <div css={buttonContainer}>
+              <Button
+                css={actionButton}
+                onClick={() => setOpenDeployContractDialog(true)}
+              >
+                Deploy
+              </Button>
+              <Button
+                css={actionButton}
+                onClick={() => setOpenRegisterContractDialog(true)}
+              >
+                Go to Docs
+              </Button>
+              <DeployContractDialog
+                contractArtifact={contractArtifact}
+                open={openDeployContractDialog}
+                onClose={handleContractDeployment}
+              />
+              <RegisterContractDialog
+                contractArtifact={contractArtifact}
+                open={openRegisterContractDialog}
+                onClose={handleContractCreation}
+              />
             </div>
           </div>
-          {functionAbis
-            .filter(
-              fn =>
-                !fn.isInternal &&
-                !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
-                ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
-                  (filters.public && fn.functionType === FunctionType.PUBLIC) ||
-                  (filters.utility && fn.functionType === FunctionType.UTILITY)) &&
-                (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
-            )
-            .map(fn => (
-              <Card
-                key={fn.name}
-                variant="outlined"
-                sx={{
-                  backgroundColor: 'primary.light',
-                  margin: '0.5rem',
-                  overflow: 'hidden',
-                }}
-              >
-                <CardContent sx={{ textAlign: 'left' }}>
-                  <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
-                    {fn.functionType}
-                  </Typography>
-                  <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
-                    {fn.name}
-                  </Typography>
-                  {fn.parameters.length > 0 && (
-                    <>
-                      <Typography
-                        gutterBottom
-                        sx={{
-                          color: 'text.secondary',
-                          fontSize: 14,
-                          marginTop: '1rem',
-                        }}
-                      >
-                        Parameters
-                      </Typography>
-                      <FormGroup row css={{ marginBottom: '1rem' }}>
-                        {fn.parameters.map((param, i) => (
-                          <FunctionParameter
-                            parameter={param}
-                            key={param.name}
-                            onParameterChange={newValue => {
-                              handleParameterChange(fn.name, i, newValue);
-                            }}
-                          />
-                        ))}
-                      </FormGroup>
-                    </>
-                  )}
 
-                  {!isWorking && simulationResults[fn.name] !== undefined && (
-                    <div css={simulationContainer}>
-                      <Typography variant="body1" sx={{ fontWeight: 200 }}>
-                        Simulation results:&nbsp;
-                      </Typography>
-                      {simulationResults[fn.name].success ? (
-                        <Typography variant="body1">
-                          {simulationResults?.[fn.name]?.data.length === 0
-                            ? '-'
-                            : simulationResults?.[fn.name].data.toString()}
-                        </Typography>
-                      ) : (
-                        <Typography variant="body1" color="error">
-                          {simulationResults?.[fn.name]?.error}
-                        </Typography>
-                      )}{' '}
+          <div css={tokenSection}>
+            <div css={tokenHeader}>Token</div>
+            <div css={searchContainer}>
+              <SearchIcon style={{ color: 'rgba(60, 60, 67, 0.6)', marginRight: '8px' }} />
+              <Input
+                type="text"
+                fullWidth
+                disableUnderline
+                placeholder="Search"
+                value={filters.searchTerm}
+                onChange={e => setFilters({ ...filters, searchTerm: e.target.value })}
+                style={{ 
+                  fontFamily: 'SF Pro Text, sans-serif',
+                  fontSize: '17px',
+                  color: 'rgba(60, 60, 67, 0.6)'
+                }}
+              />
+            </div>
+            <div css={filterContainer}>
+              <div css={filterButton}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      css={filterCheckbox}
+                      checked={filters.private}
+                      onChange={e => setFilters({ ...filters, private: e.target.checked })}
+                    />
+                  }
+                  label={<span css={filterLabel}>Private</span>}
+                />
+              </div>
+              <div css={filterButton}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      css={filterCheckbox}
+                      checked={filters.public}
+                      onChange={e => setFilters({ ...filters, public: e.target.checked })}
+                    />
+                  }
+                  label={<span css={filterLabel}>Public</span>}
+                />
+              </div>
+              <div css={filterButton}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      css={filterCheckbox}
+                      checked={filters.utility}
+                      onChange={e => setFilters({ ...filters, utility: e.target.checked })}
+                    />
+                  }
+                  label={<span css={filterLabel}>Utility</span>}
+                />
+              </div>
+            </div>
+          </div>
+
+          {!currentContract && (
+            <div style={{ padding: '20px', margin: '10px 0', textAlign: 'center', backgroundColor: 'rgba(152, 148, 255, 0.1)', borderRadius: '8px' }}>
+              <Typography variant="subtitle1" style={{ color: '#9894FF' }}>
+                You need to deploy this contract before you can interact with it.
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Click the "Deploy" button above to deploy this contract to the network.
+              </Typography>
+            </div>
+          )}
+
+          {/* Contract functions list */}
+          <div css={functionListContainer}>
+            {functionAbis
+              .filter(
+                fn =>
+                  !fn.isInternal &&
+                  !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
+                  ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
+                    (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+                    (filters.utility && fn.functionType.toString() === "utility")) &&
+                  (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
+              )
+              .map(fn => (
+                <div
+                  key={fn.name}
+                  css={functionCard}
+                >
+                  <div style={{ padding: '36px' }}>
+                    <div css={functionTypeLabel}>
+                      {fn.functionType.toUpperCase()}
                     </div>
-                  )}
-                  {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
-                </CardContent>
-                <CardActions>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking}
-                    color="secondary"
-                    variant="contained"
-                    size="small"
-                    onClick={() => simulate(fn.name)}
-                    endIcon={<PsychologyIcon />}
-                  >
-                    Simulate
-                  </Button>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
-                    size="small"
-                    color="secondary"
-                    variant="contained"
-                    onClick={() => send(fn.name)}
-                    endIcon={<SendIcon />}
-                  >
-                    Send
-                  </Button>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
-                    size="small"
-                    color="secondary"
-                    variant="contained"
-                    onClick={() =>
-                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
-                    }
-                    endIcon={<VpnKeyIcon />}
-                  >
-                    Authwit
-                  </Button>
-                </CardActions>
-              </Card>
-            ))}
+                    <div css={functionName}>
+                      {fn.name}
+                    </div>
+
+                    {fn.parameters.length > 0 && (
+                      <>
+                        <div css={parametersLabel}>
+                          PARAMETERS
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: '15px' }}>
+                          {fn.parameters.map((param, i) => (
+                            <div key={param.name} style={{ width: '212px', marginRight: '16px' }}>
+                              <FunctionParameter
+                                parameter={param}
+                                onParameterChange={newValue => {
+                                  handleParameterChange(fn.name, i, newValue);
+                                }}
+                                customStyle={parameterInput}
+                              />
+                            </div>
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {!isWorking && simulationResults[fn.name] !== undefined && (
+                      <div style={{ marginTop: '15px' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 400 }}>
+                          Simulation results:&nbsp;
+                          {typeof simulationResults[fn.name] === 'object'
+                            ? JSON.stringify(simulationResults[fn.name])
+                            : simulationResults[fn.name]?.toString()}
+                        </Typography>
+                      </div>
+                    )}
+                    {isWorking && <CircularProgress size={'1rem'} style={{ marginTop: '15px', color: '#9894FF' }} />}
+
+                    <div css={actionButtonsContainer}>
+                      <button
+                        css={simulateButton}
+                        disabled={!wallet || !currentContract || isWorking}
+                        onClick={() => simulate(fn.name)}
+                      >
+                        SIMULATE 
+                        <PsychologyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                      </button>
+                      <button
+                        css={sendButton}
+                        disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+                        onClick={() => send(fn.name)}
+                      >
+                        SEND
+                        <SendIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                      </button>
+                      <button
+                        css={authwitButton}
+                        disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+                        onClick={() =>
+                          handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
+                        }
+                      >
+                        AUTHWIT
+                        <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
       )}
       <CreateAuthwitDialog

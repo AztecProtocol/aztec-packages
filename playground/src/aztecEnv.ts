@@ -85,6 +85,44 @@ export class WebLogger {
   }
 }
 
+// Add a global console log filter
+// This will help filter out the noisy logs that are directly logged to console
+// and not going through our logger
+const originalConsoleLog = console.log;
+console.log = function(...args) {
+  // More comprehensive filtering for block updates
+  if (args.length > 0) {
+    // Filter messages about block updates directly
+    if (typeof args[0] === 'string' &&
+        (args[0].includes('Updated pxe last block') ||
+         args[0].includes('blockHash'))) {
+      return;
+    }
+
+    // Filter object-based log messages about block updates
+    if (args.length >= 2 &&
+        typeof args[0] === 'object' && args[0] &&
+        typeof args[0].module === 'string' && args[0].module === 'pxe:service') {
+
+      // Check for blockHash in second argument
+      if (typeof args[1] === 'object' && args[1] &&
+          (args[1].blockHash !== undefined || args[1].archive !== undefined)) {
+        return;
+      }
+
+      // Check for block update text in third argument
+      if (args.length >= 3 && typeof args[2] === 'string' &&
+          (args[2].includes('Updated pxe last block') ||
+           args[2].includes('block to '))) {
+        return;
+      }
+    }
+  }
+
+  // Let all other logs pass through
+  originalConsoleLog.apply(console, args);
+};
+
 export const AztecContext = createContext<{
   pxe: PXE | null;
   nodeURL: string;
@@ -95,6 +133,7 @@ export const AztecContext = createContext<{
   currentContractAddress: AztecAddress;
   currentContract: Contract;
   currentTx: ContractFunctionInteractionTx;
+  selectedPredefinedContract: string;
   logs: Log[];
   logsOpen: boolean;
   drawerOpen: boolean;
@@ -110,6 +149,8 @@ export const AztecContext = createContext<{
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
   setCurrentContract: (currentContract: Contract) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
+  setSelectedPredefinedContract: (contract: string) => void;
+  setShowContractInterface: (show: boolean) => void;
 }>({
   pxe: null,
   nodeURL: '',
@@ -120,6 +161,7 @@ export const AztecContext = createContext<{
   currentContract: null,
   currentContractAddress: null,
   currentTx: null,
+  selectedPredefinedContract: '',
   logs: [],
   logsOpen: false,
   drawerOpen: false,
@@ -135,6 +177,8 @@ export const AztecContext = createContext<{
   setCurrentTx: () => {},
   setCurrentContract: () => {},
   setCurrentContractAddress: () => {},
+  setSelectedPredefinedContract: () => {},
+  setShowContractInterface: () => {},
 });
 
 export class AztecEnv {

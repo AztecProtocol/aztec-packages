@@ -40,19 +40,58 @@ export function RegisterContractDialog({
 
   const register = async () => {
     setRegistering(true);
+    console.log('=== CONTRACT REGISTRATION STARTED ===');
+    console.log('Contract Name:', contractArtifact.name);
+    console.log('Contract Address:', address);
+    console.log('Alias:', alias);
+    console.log('Wallet Address:', wallet?.getAddress().toString());
 
-    // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
+    try {
+      // First, register the contract class in the PXE to fix potential "No artifact found" errors
+      console.log('Registering contract class with PXE...');
+      await wallet.registerContractClass(contractArtifact);
+      console.log('Contract class registered successfully');
 
-    const contractInstance = await node.getContract(AztecAddress.fromString(address));
+      // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
+      console.log('Getting contract instance from node...');
+      const contractAddress = AztecAddress.fromString(address);
+      const contractInstance = await node.getContract(contractAddress);
 
-    await wallet.registerContract({
-      instance: contractInstance,
-      artifact: contractArtifact,
-    });
+      if (!contractInstance) {
+        throw new Error(`Contract not found at address: ${address}`);
+      }
 
-    const contract = await Contract.at(AztecAddress.fromString(address), contractArtifact, wallet);
+      console.log('Contract instance retrieved from node');
+      console.log('Contract class ID:', contractInstance.currentContractClassId.toString());
 
-    onClose(contract.instance, alias);
+      console.log('Registering contract with PXE...');
+      await wallet.registerContract({
+        instance: contractInstance,
+        artifact: contractArtifact,
+      });
+      console.log('Contract registered with PXE successfully');
+
+      console.log('Creating Contract instance...');
+      const contract = await Contract.at(contractAddress, contractArtifact, wallet);
+      console.log('Contract instance created successfully');
+      console.log('=== CONTRACT REGISTRATION COMPLETED SUCCESSFULLY ===');
+
+      onClose(contract.instance, alias);
+    } catch (error) {
+      console.error('=== CONTRACT REGISTRATION FAILED ===');
+      console.error('Error type:', error.constructor.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+
+      // Try to extract more information about the error
+      if (error.cause) {
+        console.error('Error cause:', error.cause);
+      }
+
+      // Show error in UI
+      alert(`Contract registration failed: ${error.message}`);
+      setRegistering(false);
+    }
   };
 
   return (
