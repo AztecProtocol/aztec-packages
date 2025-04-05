@@ -1,17 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
-import Button from '@mui/material/Button';
-import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import ListSubheader from '@mui/material/ListSubheader';
-import CodeIcon from '@mui/icons-material/Code';
-import ContactsIcon from '@mui/icons-material/Contacts';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import CircularProgress from '@mui/material/CircularProgress';
+import Typography from '@mui/material/Typography';
 import { CopyToClipboardButton } from '../../common/copyToClipboardButton';
-import { select, nestedContainer, primaryButton } from '../styles';
+import { select, primaryButton } from '../styles';
 import { formatFrAsString } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../types';
 import type { AliasedItem } from '../types';
@@ -19,6 +17,24 @@ import { AztecAddress, AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import { setContract } from '../utils/contractHelpers';
 import { AddSendersDialog } from './addSenderDialog';
 import type { WalletDB } from '../../../utils/storage';
+import { css } from '@emotion/react';
+
+const modalContainer = css({
+  padding: '10px 0',
+});
+
+const buttonContainer = css({
+  marginTop: '15px',
+});
+
+const loadingContainer = css({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexDirection: 'column',
+  padding: '20px 0',
+  gap: '12px',
+});
 
 interface ContractSelectorProps {
   contracts: AliasedItem[];
@@ -44,33 +60,39 @@ export function ContractSelector({
   onAccountsChange
 }: ContractSelectorProps) {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
+  const [isContractChanging, setIsContractChanging] = useState(false);
 
   const handleContractChange = (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
+    setIsContractChanging(true);
 
-    if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING ||
-        contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ||
-        contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+    try {
+      if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING ||
+          contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ||
+          contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+        setContract(
+          null,
+          setSelectedPredefinedContract,
+          setCurrentContractAddress,
+          setShowContractInterface,
+          contractValue
+        );
+        return;
+      }
+
+      if (contractValue === '') {
+        return;
+      }
+
       setContract(
-        null,
+        contractValue,
         setSelectedPredefinedContract,
         setCurrentContractAddress,
-        setShowContractInterface,
-        contractValue
+        setShowContractInterface
       );
-      return;
+    } finally {
+      setIsContractChanging(false);
     }
-
-    if (contractValue === '') {
-      return;
-    }
-
-    setContract(
-      contractValue,
-      setSelectedPredefinedContract,
-      setCurrentContractAddress,
-      setShowContractInterface
-    );
   };
 
   const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
@@ -89,15 +111,7 @@ export function ContractSelector({
   };
 
   return (
-    <div css={nestedContainer} style={{ opacity: wallet ? 1 : 0.5 }}>
-      <Typography variant="overline" sx={{
-        fontFamily: '"Space Grotesk", sans-serif',
-        fontWeight: 600,
-        fontSize: '17px',
-        color: '#000000'
-      }}>
-        Contracts
-      </Typography>
+    <div css={modalContainer} style={{ opacity: wallet ? 1 : 0.5 }}>
       <FormControl css={select}>
         <InputLabel>Contracts</InputLabel>
         <Select
@@ -105,7 +119,7 @@ export function ContractSelector({
           label="Contract"
           onChange={handleContractChange}
           fullWidth
-          disabled={!wallet}
+          disabled={!wallet || isContractChanging}
         >
           {/* Predefined contracts */}
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>
@@ -136,23 +150,17 @@ export function ContractSelector({
             </>
           )}
         </Select>
-        <CopyToClipboardButton
-          disabled={!currentContractAddress}
-          data={currentContractAddress?.toString()}
-        />
+        {isContractChanging ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+            <CircularProgress size={20} />
+          </div>
+        ) : (
+          <CopyToClipboardButton
+            disabled={!currentContractAddress}
+            data={currentContractAddress?.toString()}
+          />
+        )}
       </FormControl>
-
-      <div
-        css={primaryButton}
-        onClick={wallet ? handleShowContractInterface : undefined}
-        style={{
-          opacity: wallet ? 1 : 0.6,
-          cursor: wallet ? 'pointer' : 'not-allowed'
-        }}
-      >
-        Select Contract
-      </div>
-
       <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
     </div>
   );

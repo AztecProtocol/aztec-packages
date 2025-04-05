@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { AccountWalletWithSecretKey, Fr } from '@aztec/aztec.js';
+import { AccountWalletWithSecretKey, Fr, SponsoredFeePaymentMethod } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -8,7 +8,6 @@ import Typography from '@mui/material/Typography';
 import { css } from '@mui/styled-engine';
 import { useContext, useState, useEffect } from 'react';
 import { AztecContext } from '../../../aztecEnv';
-import { SponsoredFeePaymentMethod } from '../../../utils/fees';
 
 const creationForm = css({
   display: 'flex',
@@ -94,25 +93,21 @@ export function CreateAccountDialog({
       await account.register();
       console.log('Account registered with PXE');
 
+      // Ensure SponsoredFPC contract is registered with the PXE
+      console.log('Setting up sponsored fee payment...');
+
+      // First, get the wallet instance from the account
+      const accountWallet = await account.getWallet();
+
+      // Use the new combined helper function for sponsored fee payments
+      console.log('Preparing sponsored fee payment...');
+      
       try {
-        // Ensure SponsoredFPC contract is deployed and registered with the PXE
-        console.log('Setting up sponsored fee payment...');
-
-        // First, get the wallet instance from the account
-        const accountWallet = await account.getWallet();
-
-        // Import and register SponsoredFPC with PXE
-        const { registerSponsoredFPC } = await import('../../../utils/fees');
-        try {
-          await registerSponsoredFPC(pxe, accountWallet, node);
-          console.log('SponsoredFPC registered with PXE successfully');
-        } catch (error) {
-          console.error('Error registering SponsoredFPC with PXE:', error);
-          console.warn('Continuing without SponsoredFPC registration - fees might fail');
-        }
-
-        const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe, accountWallet, node);
-        console.log(`Sponsored payment method created using FPC address: ${sponsoredPaymentMethod.paymentContract.toString()}`);
+        const { prepareForFeePayment } = await import('../../../utils/fees');
+        
+        // This handles registration and creation of the payment method
+        const sponsoredPaymentMethod = await prepareForFeePayment(pxe, accountWallet, node);
+        console.log('Sponsored fee payment method ready');
 
         console.log('Attempting to deploy account with sponsored fees...');
         const deployTx = await account.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } });

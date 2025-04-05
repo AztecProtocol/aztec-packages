@@ -1,20 +1,39 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
+import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './createAccountDialog';
 import { CopyToClipboardButton } from '../../common/copyToClipboardButton';
 import { AztecAddress, Fr, AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import type { AliasedItem } from '../types';
-import { select, buttonContainer, actionButton } from '../styles';
+import { select, actionButton } from '../styles';
 import { formatFrAsString } from '../../../utils/conversion';
 import { createWalletForAccount } from '../utils/accountHelpers';
 import type { WalletDB } from '../../../utils/storage';
 import type { PXE } from '@aztec/aztec.js';
+import { css } from '@emotion/react';
+
+const modalContainer = css({
+  padding: '10px 0',
+});
+
+const createButtonContainer = css({
+  marginTop: '15px',
+  marginBottom: '15px',
+});
+
+const loadingContainer = css({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  flexDirection: 'column',
+  padding: '20px 0',
+  gap: '12px',
+});
 
 interface AccountSelectorProps {
   accounts: AliasedItem[];
@@ -40,11 +59,24 @@ export function AccountSelector({
   onAccountsChange
 }: AccountSelectorProps) {
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
+  const [isAccountsLoading, setIsAccountsLoading] = useState(true);
+  const [isAccountChanging, setIsAccountChanging] = useState(false);
+
+  // Set loading state based on accounts and connection state
+  useEffect(() => {
+    // If we have no accounts but we have a wallet connection, we're probably still loading
+    if (accounts.length === 0 && isPXEInitialized && pxe && walletDB && !changingNetworks) {
+      setIsAccountsLoading(true);
+    } else {
+      setIsAccountsLoading(false);
+    }
+  }, [accounts, isPXEInitialized, pxe, walletDB, changingNetworks]);
 
   const handleAccountChange = async (event: SelectChangeEvent) => {
     if (!pxe || !walletDB) return;
     if (event.target.value === '') return;
 
+    setIsAccountChanging(true);
     try {
       const accountAddress = AztecAddress.fromString(event.target.value);
       const accountData = await walletDB.retrieveAccount(accountAddress);
@@ -60,6 +92,8 @@ export function AccountSelector({
       setWallet(newWallet);
     } catch (error) {
       console.error('Error changing account:', error);
+    } finally {
+      setIsAccountChanging(false);
     }
   };
 
@@ -103,20 +137,23 @@ export function AccountSelector({
     setOpenCreateAccountDialog(false);
   };
 
-  return (
-    <>
-      <Typography variant="overline" sx={{
-        fontFamily: '"Space Grotesk", sans-serif',
-        fontWeight: 600,
-        fontSize: '17px',
-        color: '#000000',
-        marginTop: '1.5rem',
-        display: 'block'
-      }}>
-        Connect to Network
-      </Typography>
+  // Render loading state if accounts are being loaded
+  if (isAccountsLoading || isConnecting || changingNetworks) {
+    return (
+      <div css={modalContainer}>
+        <div css={loadingContainer}>
+          <CircularProgress size={24} />
+          <Typography variant="body2">
+            {changingNetworks ? 'Network is changing...' : 'Loading accounts...'}
+          </Typography>
+        </div>
+      </div>
+    );
+  }
 
-      <div style={{ position: 'relative' }}>
+  return (
+    <div css={modalContainer}>
+      <div css={createButtonContainer}>
         <div
           css={actionButton}
           onClick={() => !(!isPXEInitialized || changingNetworks || isConnecting) && setOpenCreateAccountDialog(true)}
@@ -127,50 +164,40 @@ export function AccountSelector({
         >
           Create Account
         </div>
-        {(!isPXEInitialized || changingNetworks || isConnecting) && (
-          <Typography
-            variant="caption"
-            color="textSecondary"
-            sx={{
-              position: 'absolute',
-              bottom: '-18px',
-              width: '100%',
-              textAlign: 'center',
-              fontSize: '0.7rem'
-            }}
-          >
-            Connect to a network first
-          </Typography>
-        )}
       </div>
 
       {pxe && isPXEInitialized ? (
-        <>
-          <FormControl css={select} sx={{ marginTop: '1.5rem' }}>
-            <InputLabel>Account</InputLabel>
-            <Select
-              fullWidth
-              value={currentWallet?.getAddress().toString() ?? ''}
-              label="Account"
-              onChange={handleAccountChange}
-            >
-              {accounts.map(account => (
-                <MenuItem key={account.key} value={account.value}>
-                  {account.key.split(':')[1]}&nbsp;(
-                  {formatFrAsString(account.value)})
-                </MenuItem>
-              ))}
-              <MenuItem key="create" value="" onClick={() => setOpenCreateAccountDialog(true)}>
-                <AddIcon />
-                &nbsp;Create
+        <FormControl css={select}>
+          <InputLabel>Account</InputLabel>
+          <Select
+            fullWidth
+            value={currentWallet?.getAddress().toString() ?? ''}
+            label="Account"
+            onChange={handleAccountChange}
+            disabled={isAccountChanging}
+          >
+            {accounts.map(account => (
+              <MenuItem key={account.key} value={account.value}>
+                {account.key.split(':')[1]}&nbsp;(
+                {formatFrAsString(account.value)})
               </MenuItem>
-            </Select>
+            ))}
+            <MenuItem key="create" value="" onClick={() => setOpenCreateAccountDialog(true)}>
+              <AddIcon />
+              &nbsp;Create
+            </MenuItem>
+          </Select>
+          {isAccountChanging ? (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+              <CircularProgress size={20} />
+            </div>
+          ) : (
             <CopyToClipboardButton disabled={!currentWallet} data={currentWallet?.getAddress().toString()} />
-          </FormControl>
-        </>
+          )}
+        </FormControl>
       ) : null}
 
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
-    </>
+    </div>
   );
 }

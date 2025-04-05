@@ -6,9 +6,42 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import type { Network } from '../types';
-import { select, sectionHeader } from '../styles';
-import { connectToNetwork } from '../utils/networkHelpers';
+import { select } from '../styles';
+import { connectToNetwork, NetworkConnectionError } from '../utils/networkHelpers';
 import { AddNetworksDialog } from './addNetworkDialog';
+import { css } from '@emotion/react';
+import Link from '@mui/material/Link';
+import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import CircularProgress from '@mui/material/CircularProgress';
+
+const modalContainer = css({
+  padding: '10px 0',
+});
+
+const errorMessageStyle = css({
+  display: 'flex',
+  alignItems: 'center',
+  gap: '8px',
+  padding: '12px',
+  marginTop: '12px',
+  backgroundColor: 'rgba(211, 47, 47, 0.1)',
+  borderRadius: '8px',
+  color: '#d32f2f',
+  fontSize: '14px',
+  lineHeight: '1.4',
+});
+
+const errorIcon = css({
+  fontSize: '20px',
+});
+
+const loadingContainer = css({
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '20px 0',
+  gap: '10px',
+});
 
 interface NetworkSelectorProps {
   networks: Network[];
@@ -36,13 +69,35 @@ export function NetworkSelector({
   setChangingNetworks
 }: NetworkSelectorProps) {
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isSandboxError, setIsSandboxError] = useState(false);
+  const [isTestnetError, setIsTestnetError] = useState(false);
+  const [errorText, setErrorText] = useState('');
+
+  const getNetworkType = (networkUrl: string) => {
+    // Check if this is a sandbox network
+    const isSandbox = networkUrl.includes('localhost') || networkUrl.includes('127.0.0.1');
+    
+    // Check if this is a testnet
+    const isTestnet = networkUrl.includes('devnet') || networkUrl.includes('test');
+    
+    return { isSandbox, isTestnet };
+  };
 
   const handleNetworkChange = async (event: SelectChangeEvent) => {
     const networkUrl = event.target.value;
     if (networkUrl === '') {
       return;
     }
+    
+    setIsLoading(true);
+    setConnectionError(null);
+    setErrorText('');
+    setIsSandboxError(false);
+    setIsTestnetError(false);
     setChangingNetworks(true);
+    
     try {
       await connectToNetwork(
         networkUrl,
@@ -53,8 +108,24 @@ export function NetworkSelector({
         setWalletDB,
         setLogs
       );
+    } catch (error) {
+      console.error('Network connection error:', error);
+      
+      const { isSandbox, isTestnet } = getNetworkType(networkUrl);
+      setIsSandboxError(isSandbox);
+      setIsTestnetError(isTestnet);
+      setConnectionError(networkUrl);
+      
+      if (error instanceof NetworkConnectionError) {
+        setErrorText(error.message);
+      } else {
+        setErrorText('Failed to connect to network');
+      }
+      
+      setNodeURL(''); // Reset the node URL on failure
     } finally {
       setChangingNetworks(false);
+      setIsLoading(false);
     }
   };
 
@@ -73,26 +144,33 @@ export function NetworkSelector({
     setOpenAddNetworksDialog(false);
   };
 
-  return (
-    <>
-      <Typography variant="overline" sx={{
-        fontFamily: '"Space Grotesk", sans-serif',
-        fontWeight: 600,
-        fontSize: '17px',
-        color: '#000000',
-        marginTop: '1.5rem',
-        display: 'block'
-      }}>
-        Connect to Network
-      </Typography>
+  // Renders the appropriate error message based on network type
+  const renderErrorMessage = () => {
+    if (isSandboxError) {
+      return (
+        <>
+          {errorText} 
+          <br/> Do you have a sandbox running? Check out the <Link href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener">docs</Link>
+        </>
+      );
+    } else if (isTestnetError) {
+      return `${errorText} 
+      <br/> Testnet may be down. Please see our Discord for updates.`;
+    } else {
+      return `${errorText}
+      <br/> Are your network details correct? Please reach out on Discord for help troubleshooting.`;
+    }
+  };
 
+  return (
+    <div css={modalContainer}>
       <FormControl css={select}>
         <InputLabel>Network</InputLabel>
         <Select
           fullWidth
           value={currentNodeURL || ''}
           label="Network"
-          disabled={false}
+          disabled={isLoading}
           onChange={handleNetworkChange}
         >
           {networks.map(network => (
@@ -109,7 +187,24 @@ export function NetworkSelector({
           </MenuItem>
         </Select>
       </FormControl>
+
+      {isLoading && (
+        <div css={loadingContainer}>
+          <CircularProgress size={24} />
+          <Typography variant="body2">
+            Connecting to network...
+          </Typography>
+        </div>
+      )}
+
+      {connectionError && (
+        <div css={errorMessageStyle}>
+          <ErrorOutlineIcon css={errorIcon} />
+          <div>{renderErrorMessage()}</div>
+        </div>
+      )}
+
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
-    </>
+    </div>
   );
 }

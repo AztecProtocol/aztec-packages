@@ -4,7 +4,7 @@ import { useContext, useState } from 'react';
 import EditIcon from '@mui/icons-material/Edit';
 import { AztecContext } from '../../aztecEnv';
 import TextField from '@mui/material/TextField';
-import { css } from '@mui/styled-engine';
+import { css, type SerializedStyles } from '@mui/styled-engine';
 import Autocomplete from '@mui/material/Autocomplete';
 import CircularProgress from '@mui/material/CircularProgress';
 import { capitalize } from '@mui/material/utils';
@@ -22,10 +22,12 @@ const container = css({
 export function FunctionParameter({
   parameter,
   onParameterChange,
+  customStyle,
 }: {
   parameter: ABIParameter;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onParameterChange: (value: any) => void;
+  customStyle?: SerializedStyles;
 }) {
   const { walletDB } = useContext(AztecContext);
 
@@ -64,7 +66,7 @@ export function FunctionParameter({
   };
 
   return (
-    <div css={container}>
+    <div css={customStyle || container}>
       {isAddressStruct(parameter.type) && !manualInput ? (
         <Autocomplete
           disablePortal

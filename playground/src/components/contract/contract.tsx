@@ -39,13 +39,70 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import { CreateAuthwitDialog } from './components/createAuthwitDialog';
 import { parse } from 'buffer-json';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
+import SearchIcon from '@mui/icons-material/Search';
 
 const container = css({
   display: 'flex',
   flexDirection: 'column',
-  height: 'calc(100vh - 50px)',
+  height: '100%',
   width: '100%',
-  overflow: 'hidden',
+  overflow: 'auto',
+  background: '#E9E9E9',
+  borderRadius: '10px',
+  padding: '45px',
+  '@media (max-width: 1100px)': {
+    width: 'auto',
+    padding: '24px',
+  },
+});
+
+const headerSection = css({
+  width: '100%',
+  marginBottom: '24px',
+});
+
+const descriptionText = css({
+  fontFamily: '"Space Grotesk", sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '18px',
+  lineHeight: '120%',
+  display: 'flex',
+  alignItems: 'center',
+  textAlign: 'center',
+  color: '#000000',
+  marginBottom: '25px',
+  width: '100%',
+});
+
+const buttonContainer = css({
+  display: 'flex',
+  justifyContent: 'center',
+  gap: '24px',
+  marginBottom: '25px',
+});
+
+const actionButton = css({
+  boxSizing: 'border-box',
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '20px 32px',
+  gap: '8px',
+  width: '230px',
+  height: '56px',
+  background: '#CDD1D5',
+  borderRadius: '12px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 600,
+  fontSize: '17px',
+  lineHeight: '16px',
+  color: '#000000',
+  '&:hover': {
+    backgroundColor: '#BCC0C4',
+  }
 });
 
 const dropZoneContainer = css({
@@ -53,15 +110,17 @@ const dropZoneContainer = css({
   flexDirection: 'column',
   width: '100%',
   height: '80%',
-  border: '3px dashed #1976d2',
+  border: '3px dashed #9894FF',
   borderRadius: '15px',
-  margin: '0rem 2rem 2rem 2rem',
-  backgroundColor: 'rgba(25, 118, 210, 0.04)',
+  margin: '2rem 0',
+  backgroundColor: 'rgba(152, 148, 255, 0.04)',
+  alignItems: 'center',
+  justifyContent: 'center',
 });
 
 const uploadIcon = css({
   fontSize: '64px',
-  color: '#1976d2',
+  color: '#9894FF',
   marginBottom: '1rem',
 });
 
@@ -73,56 +132,247 @@ const contractFnContainer = css({
   overflow: 'hidden',
 });
 
-const headerContainer = css({
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  margin: '0 0.5rem',
-  padding: '0.25rem',
-  overflow: 'hidden',
-  flexShrink: 0,
-  maxHeight: '90px',
+const tokenSection = css({
+  marginTop: '50px',
+  marginBottom: '25px',
 });
 
-const functionListContainer = css({
-  flex: 1,
-  overflowY: 'auto',
-  padding: '0 0.5rem',
-});
-
-const header = css({
+const tokenHeader = css({
+  fontFamily: '"Space Grotesk", sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 700,
+  fontSize: '48px',
+  lineHeight: '100%',
   display: 'flex',
-  width: '100%',
   alignItems: 'center',
-  justifyContent: 'space-between',
+  letterSpacing: '0.02em',
+  color: '#2D2D2D',
+  marginBottom: '25px',
 });
 
-const search = css({
+const searchContainer = css({
+  width: '361px',
+  height: '36px',
+  background: 'rgba(250, 250, 250, 0.93)',
+  borderRadius: '6px',
   display: 'flex',
-  overflow: 'hidden',
-  '@media (width <= 800px)': {
-    width: '100%',
-  },
-  '@media (width > 800px)': {
-    maxWidth: '500px',
-  },
+  alignItems: 'center',
+  padding: '8px',
+  marginBottom: '15px',
 });
 
-const contractActions = css({
+const filterContainer = css({
   display: 'flex',
   flexDirection: 'row',
-  alignItems: 'center',
+  gap: '7px',
+  marginBottom: '25px',
 });
 
-const simulationContainer = css({
+const filterButton = css({
   display: 'flex',
   flexDirection: 'row',
+  justifyContent: 'center',
   alignItems: 'center',
+  padding: '6px 5px',
+  gap: '11px',
+  height: '36px',
+  background: '#CDD1D5',
+  borderRadius: '6px',
+  cursor: 'pointer',
 });
 
-const checkBoxLabel = css({
-  height: '1.5rem',
-  marginLeft: '-10px',
+const filterCheckbox = css({
+  width: '24px',
+  height: '24px',
+  background: '#CDD1D5',
+  border: '2px solid rgba(255, 255, 255, 0.2)',
+  borderRadius: '6px',
+});
+
+const filterLabel = css({
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  fontSize: '16px',
+  lineHeight: '19px',
+  textAlign: 'center',
+  color: '#000000',
+});
+
+const functionCard = css({
+  boxSizing: 'border-box',
+  width: '100%',
+  background: '#CDD1D5',
+  border: '2px solid #DEE2E6',
+  borderRadius: '20px',
+  marginBottom: '20px',
+  overflow: 'hidden',
+});
+
+const functionTypeLabel = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '6px 16px',
+  gap: '10px',
+  width: '88px',
+  height: '20px',
+  background: '#9894FF',
+  borderRadius: '30px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  fontSize: '12px',
+  lineHeight: '120%',
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  color: '#FFFFFF',
+  marginBottom: '10px',
+});
+
+const functionName = css({
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 600,
+  fontSize: '22px',
+  lineHeight: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  letterSpacing: '0.02em',
+  color: '#2D2D2D',
+  marginBottom: '20px',
+});
+
+const parametersLabel = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '6px 16px',
+  gap: '10px',
+  width: '123px',
+  height: '20px',
+  background: '#9894FF',
+  borderRadius: '30px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 500,
+  fontSize: '12px',
+  lineHeight: '120%',
+  letterSpacing: '0.1em',
+  textTransform: 'uppercase',
+  color: '#FFFFFF',
+  marginBottom: '10px',
+});
+
+const parameterInput = css({
+  background: '#FFFFFF',
+  border: '2px solid #DEE2E6',
+  borderRadius: '8px',
+  height: '48px',
+  padding: '0 24px',
+  display: 'flex',
+  alignItems: 'center',
+  marginRight: '16px',
+  marginBottom: '16px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 600,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#3F444A',
+});
+
+const actionButtonsContainer = css({
+  display: 'flex',
+  flexDirection: 'row',
+  gap: '12px',
+  marginTop: '15px',
+});
+
+const simulateButton = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px 20px',
+  gap: '9px',
+  height: '38px',
+  background: '#9894FF',
+  borderRadius: '8px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#000000',
+  border: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8C7EFF',
+  },
+  '&:disabled': {
+    backgroundColor: '#CDD1D5',
+    color: '#808080',
+    cursor: 'not-allowed',
+  }
+});
+
+const sendButton = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px 20px',
+  gap: '9px',
+  height: '38px',
+  background: '#9894FF',
+  borderRadius: '8px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#000000',
+  border: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8C7EFF',
+  },
+  '&:disabled': {
+    backgroundColor: '#CDD1D5',
+    color: '#808080',
+    cursor: 'not-allowed',
+  }
+});
+
+const authwitButton = css({
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'center',
+  alignItems: 'center',
+  padding: '16px 20px',
+  gap: '9px',
+  height: '38px',
+  background: '#9894FF',
+  borderRadius: '8px',
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '16px',
+  lineHeight: '19px',
+  color: '#000000',
+  border: 'none',
+  cursor: 'pointer',
+  '&:hover': {
+    backgroundColor: '#8C7EFF',
+  },
+  '&:disabled': {
+    backgroundColor: '#CDD1D5',
+    color: '#808080',
+    cursor: 'not-allowed',
+  }
 });
 
 const loadingArtifactContainer = css({
@@ -132,6 +382,19 @@ const loadingArtifactContainer = css({
   alignItems: 'center',
   justifyContent: 'center',
   gap: '2rem',
+  height: '100%',
+});
+
+const headerContainer = css({
+  display: 'flex',
+  flexDirection: 'column',
+  width: '100%',
+  marginBottom: '25px',
+});
+
+const functionListContainer = css({
+  width: '100%',
+  padding: '0',
 });
 
 const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
@@ -200,6 +463,15 @@ const MOCK_SIMPLE_TOKEN_ARTIFACT = {
     }
   ]
 };
+
+// Define the missing enum values if not present in the imported FunctionType
+declare namespace FunctionTypeExtended {
+  enum Type {
+    PRIVATE = "private",
+    PUBLIC = "public",
+    UTILITY = "utility"
+  }
+}
 
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
@@ -393,7 +665,7 @@ export function ContractComponent() {
           searchTerm: '',
           private: true,
           public: true,
-          unconstrained: true,
+          utility: true,
         });
 
         console.log('Setting up contract artifact:', contractArtifact.name);
@@ -488,7 +760,7 @@ export function ContractComponent() {
             searchTerm: '',
             private: true,
             public: true,
-            unconstrained: true,
+            utility: true,
           });
 
 
@@ -865,14 +1137,14 @@ export function ContractComponent() {
               <div {...getRootProps({ className: 'dropzone' })}>
                 <input {...getInputProps()} />
                 <UploadFileIcon css={uploadIcon} />
-                <Typography variant="h5" sx={{ mb: 2, color: '#1976d2' }}>Upload Contract JSON Artifact</Typography>
+                <Typography variant="h5" sx={{ mb: 2, color: '#9894FF' }}>Upload Contract JSON Artifact</Typography>
                 <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
                 <Typography variant="caption" color="text.secondary" sx={{ mt: 1, mb: 3, display: 'block' }}>
                   The contract artifact should be a JSON file exported from your Noir/Aztec project
                 </Typography>
                 <Button
                   variant="contained"
-                  sx={{ mt: 2 }}
+                  sx={{ mt: 2, backgroundColor: '#9894FF', '&:hover': { backgroundColor: '#8C7EFF' } }}
                 >
                   Select File
                 </Button>
@@ -880,193 +1152,127 @@ export function ContractComponent() {
             </div>
           </div>
         ) : (
-          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-            <div css={loadingArtifactContainer}>
-              <Typography variant="h5">Loading artifact...</Typography>
-              <CircularProgress size={100} />
-            </div>
+          <div css={loadingArtifactContainer}>
+            <Typography variant="h5">Loading artifact...</Typography>
+            <CircularProgress style={{ color: '#9894FF' }} size={100} />
           </div>
         )
       ) : !contractArtifact ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-          <div css={loadingArtifactContainer}>
-            <Typography variant="h5">No contract loaded</Typography>
-            <Typography>
-              Select a contract from the dropdown or upload your own.
-            </Typography>
-          </div>
+        <div css={loadingArtifactContainer}>
+          <Typography variant="h5">No contract loaded</Typography>
+          <Typography>
+            Select a contract from the dropdown or upload your own.
+          </Typography>
         </div>
       ) : (
         <div css={contractFnContainer}>
-          <div css={headerContainer}>
-            <div css={header}>
-              <Typography variant="h4" css={{ marginRight: '0.5rem', fontSize: '1.5rem' }}>
-                {contractArtifact.name}
-              </Typography>
-              <div css={contractActions}>
-                <Button
-                  variant="contained"
-                  size="small"
-                  css={{ marginRight: '0.5rem' }}
-                  onClick={() => setOpenDeployContractDialog(true)}
-                >
-                  Deploy
-                </Button>
-                <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
-                  Register
-                </Button>
-                <DeployContractDialog
-                  contractArtifact={contractArtifact}
-                  open={openDeployContractDialog}
-                  onClose={handleContractDeployment}
-                />
-                <RegisterContractDialog
-                  contractArtifact={contractArtifact}
-                  open={openRegisterContractDialog}
-                  onClose={handleContractCreation}
-                />
-              </div>
-              {selectedPredefinedContract && (
-                <Typography variant="subtitle1" color="text.secondary">
-                  Sample Contract
-                </Typography>
-              )}
-              {currentContract && (
-                <div css={contractActions}>
-                  <Typography color="text.secondary">{formatFrAsString(currentContract.address.toString())}</Typography>
-                  <CopyToClipboardButton disabled={false} data={currentContract.address.toString()} />
-                  <IconButton
-                    onClick={() => {
-                      setCurrentContractAddress(null);
-                      setCurrentContract(null);
-                      setContractArtifact(null);
-                    }}
-                  >
-                    <ClearIcon />
-                  </IconButton>
-                </div>
-              )}
+          <div css={headerSection}>
+            <div css={descriptionText}>
+             {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING ? (
+               <>
+                 On this page you can simulate transactions in this contract and send them to the network.
+                 <br />
+                 This contract allows a person to vote privately on a public vote.
+               </>
+             ) : selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ? (
+               <>
+                 On this page you can simulate transactions in this contract and send them to the network.
+                 <br />
+                 This is a simple token contract demonstrating holding it both publicly and privately, and being able to transfer publicly and privately, and move it in and out of state publicly and privately.
+               </>
+             ) : (
+               <>
+                 On this page you can simulate transactions in this contract and send them to the network.
+               </>
+             )}
             </div>
-            <div css={search}>
-              <FormGroup sx={{ width: '100%' }}>
-                <Input
-                  type="text"
-                  fullWidth
-                  placeholder="Search function"
-                  value={filters.searchTerm}
-                  onChange={e => setFilters({ ...filters, searchTerm: e.target.value })}
-                  endAdornment={
-                    <InputAdornment position="end">
-                      <FindInPageIcon />
-                    </InputAdornment>
-                  }
-                />
-                <div
-                  css={{
-                    display: 'flex',
-                    flexDirection: 'row',
-                    marginTop: '0.5rem',
-                    width: '100%',
-                  }}
-                >
-                  <FormControlLabel
-                    css={checkBoxLabel}
-                    control={
-                      <Checkbox
-                        sx={{ paddingRight: 0 }}
-                        checked={filters.private}
-                        onChange={e => setFilters({ ...filters, private: e.target.checked })}
-                      />
-                    }
-                    label="Private"
-                  />
-                  <FormControlLabel
-                    css={checkBoxLabel}
-                    control={
-                      <Checkbox
-                        sx={{ padding: 0 }}
-                        checked={filters.public}
-                        onChange={e => setFilters({ ...filters, public: e.target.checked })}
-                      />
-                    }
-                    label="Public"
-                  />
-                  <FormControlLabel
-                    css={checkBoxLabel}
-                    control={
-                      <Checkbox
-                        sx={{ padding: 0 }}
-                        checked={filters.utility}
-                        onChange={e =>
-                          setFilters({
-                            ...filters,
-                            utility: e.target.checked,
-                          })
-                        }
-                      />
-                    }
-                    label="Utility"
-                  />
-                </div>
-              </FormGroup>
+            <div css={buttonContainer}>
+              <Button
+                css={actionButton}
+                onClick={() => setOpenDeployContractDialog(true)}
+              >
+                Deploy
+              </Button>
+              <Button
+                css={actionButton}
+                onClick={() => setOpenRegisterContractDialog(true)}
+              >
+                Go to Docs
+              </Button>
+              <DeployContractDialog
+                contractArtifact={contractArtifact}
+                open={openDeployContractDialog}
+                onClose={handleContractDeployment}
+              />
+              <RegisterContractDialog
+                contractArtifact={contractArtifact}
+                open={openRegisterContractDialog}
+                onClose={handleContractCreation}
+              />
             </div>
           </div>
-          {functionAbis
-            .filter(
-              fn =>
-                !fn.isInternal &&
-                !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
-                ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
-                  (filters.public && fn.functionType === FunctionType.PUBLIC) ||
-                  (filters.utility && fn.functionType === FunctionType.UTILITY)) &&
-                (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
-            )
-            .map(fn => (
-              <Card
-                key={fn.name}
-                variant="outlined"
-                sx={{
-                  backgroundColor: 'primary.light',
-                  margin: '0.5rem',
-                  overflow: 'hidden',
+
+          <div css={tokenSection}>
+            <div css={tokenHeader}>Token</div>
+            <div css={searchContainer}>
+              <SearchIcon style={{ color: 'rgba(60, 60, 67, 0.6)', marginRight: '8px' }} />
+              <Input
+                type="text"
+                fullWidth
+                disableUnderline
+                placeholder="Search"
+                value={filters.searchTerm}
+                onChange={e => setFilters({ ...filters, searchTerm: e.target.value })}
+                style={{ 
+                  fontFamily: 'SF Pro Text, sans-serif',
+                  fontSize: '17px',
+                  color: 'rgba(60, 60, 67, 0.6)'
                 }}
-              >
-                <CardContent sx={{ textAlign: 'left' }}>
-                  <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
-                    {fn.functionType}
-                  </Typography>
-                  <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
-                    {fn.name}
-                  </Typography>
-                  {fn.parameters.length > 0 && (
-                    <>
-                      <Typography
-                        gutterBottom
-                        sx={{
-                          color: 'text.secondary',
-                          fontSize: 14,
-                          marginTop: '1rem',
-                        }}
-                      >
-                        Parameters
-                      </Typography>
-                      <FormGroup row css={{ marginBottom: '1rem' }}>
-                        {fn.parameters.map((param, i) => (
-                          <FunctionParameter
-                            parameter={param}
-                            key={param.name}
-                            onParameterChange={newValue => {
-                              handleParameterChange(fn.name, i, newValue);
-                            }}
-                          />
-                        ))}
-                      </FormGroup>
-                    </>
-                  )}
+              />
+            </div>
+            <div css={filterContainer}>
+              <div css={filterButton}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      css={filterCheckbox}
+                      checked={filters.private}
+                      onChange={e => setFilters({ ...filters, private: e.target.checked })}
+                    />
+                  }
+                  label={<span css={filterLabel}>Private</span>}
+                />
+              </div>
+              <div css={filterButton}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      css={filterCheckbox}
+                      checked={filters.public}
+                      onChange={e => setFilters({ ...filters, public: e.target.checked })}
+                    />
+                  }
+                  label={<span css={filterLabel}>Public</span>}
+                />
+              </div>
+              <div css={filterButton}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      css={filterCheckbox}
+                      checked={filters.utility}
+                      onChange={e => setFilters({ ...filters, utility: e.target.checked })}
+                    />
+                  }
+                  label={<span css={filterLabel}>Utility</span>}
+                />
+              </div>
+            </div>
+          </div>
 
           {!currentContract && (
-            <div style={{ padding: '20px', margin: '10px', textAlign: 'center', backgroundColor: 'rgba(33, 150, 243, 0.1)', borderRadius: '8px' }}>
-              <Typography variant="subtitle1" color="primary">
+            <div style={{ padding: '20px', margin: '10px 0', textAlign: 'center', backgroundColor: 'rgba(152, 148, 255, 0.1)', borderRadius: '8px' }}>
+              <Typography variant="subtitle1" style={{ color: '#9894FF' }}>
                 You need to deploy this contract before you can interact with it.
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
@@ -1082,100 +1288,89 @@ export function ContractComponent() {
                 fn =>
                   !fn.isInternal &&
                   !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
-                  ((filters.private && fn.functionType === 'private') ||
-                    (filters.public && fn.functionType === 'public') ||
-                    (filters.unconstrained && fn.functionType === 'unconstrained')) &&
+                  ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
+                    (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+                    (filters.utility && fn.functionType.toString() === "utility")) &&
                   (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
               )
               .map(fn => (
-                <Card
+                <div
                   key={fn.name}
-                  variant="outlined"
-                  sx={{
-                    backgroundColor: 'primary.light',
-                    margin: '0.5rem',
-                    overflow: 'hidden',
-                  }}
+                  css={functionCard}
                 >
-                  <CardContent sx={{ textAlign: 'left' }}>
-                    <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
-                      {fn.functionType}
-                    </Typography>
-                    <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
+                  <div style={{ padding: '36px' }}>
+                    <div css={functionTypeLabel}>
+                      {fn.functionType.toUpperCase()}
+                    </div>
+                    <div css={functionName}>
                       {fn.name}
-                    </Typography>
+                    </div>
+
                     {fn.parameters.length > 0 && (
                       <>
-                        <Typography
-                          gutterBottom
-                          sx={{
-                            color: 'text.secondary',
-                            fontSize: 14,
-                            marginTop: '1rem',
-                          }}
-                        >
-                          Parameters
-                        </Typography>
-                        <FormGroup row css={{ marginBottom: '1rem' }}>
+                        <div css={parametersLabel}>
+                          PARAMETERS
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: '15px' }}>
                           {fn.parameters.map((param, i) => (
-                            <FunctionParameter
-                              parameter={param}
-                              key={param.name}
-                              onParameterChange={newValue => {
-                                handleParameterChange(fn.name, i, newValue);
-                              }}
-                            />
+                            <div key={param.name} style={{ width: '212px', marginRight: '16px' }}>
+                              <FunctionParameter
+                                parameter={param}
+                                onParameterChange={newValue => {
+                                  handleParameterChange(fn.name, i, newValue);
+                                }}
+                                customStyle={parameterInput}
+                              />
+                            </div>
                           ))}
-                        </FormGroup>
+                        </div>
                       </>
                     )}
 
                     {!isWorking && simulationResults[fn.name] !== undefined && (
-                      <div css={simulationContainer}>
-                        <Typography variant="body1" sx={{ fontWeight: 200 }}>
+                      <div style={{ marginTop: '15px' }}>
+                        <Typography variant="body1" sx={{ fontWeight: 400 }}>
                           Simulation results:&nbsp;
+                          {typeof simulationResults[fn.name] === 'object'
+                            ? JSON.stringify(simulationResults[fn.name])
+                            : simulationResults[fn.name]?.toString()}
                         </Typography>
-                      )}{' '}
+                      </div>
+                    )}
+                    {isWorking && <CircularProgress size={'1rem'} style={{ marginTop: '15px', color: '#9894FF' }} />}
+
+                    <div css={actionButtonsContainer}>
+                      <button
+                        css={simulateButton}
+                        disabled={!wallet || !currentContract || isWorking}
+                        onClick={() => simulate(fn.name)}
+                      >
+                        SIMULATE 
+                        <PsychologyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                      </button>
+                      <button
+                        css={sendButton}
+                        disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+                        onClick={() => send(fn.name)}
+                      >
+                        SEND
+                        <SendIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                      </button>
+                      <button
+                        css={authwitButton}
+                        disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+                        onClick={() =>
+                          handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
+                        }
+                      >
+                        AUTHWIT
+                        <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                      </button>
                     </div>
-                  )}
-                  {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
-                </CardContent>
-                <CardActions>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking}
-                    color="secondary"
-                    variant="contained"
-                    size="small"
-                    onClick={() => simulate(fn.name)}
-                    endIcon={<PsychologyIcon />}
-                  >
-                    Simulate
-                  </Button>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
-                    size="small"
-                    color="secondary"
-                    variant="contained"
-                    onClick={() => send(fn.name)}
-                    endIcon={<SendIcon />}
-                  >
-                    Send
-                  </Button>
-                  <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
-                    size="small"
-                    color="secondary"
-                    variant="contained"
-                    onClick={() =>
-                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
-                    }
-                    endIcon={<VpnKeyIcon />}
-                  >
-                    Authwit
-                  </Button>
-                </CardActions>
-              </Card>
-            ))}
+                  </div>
+                </div>
+              ))}
+          </div>
         </div>
       )}
       <CreateAuthwitDialog

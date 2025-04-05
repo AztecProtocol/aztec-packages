@@ -1,1 +1,1 @@
-export * from './get_sponsoredFPC';
+export * from './sponsored_fpc';

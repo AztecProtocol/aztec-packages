@@ -19,7 +19,6 @@ import type { Network, AliasedItem } from './types';
 import { NETWORKS } from './constants';
 import { container, header } from './styles';
 import { PREDEFINED_CONTRACTS } from './types';
-import { registerSponsoredFPC } from '../../utils/fees';
 
 export function SidebarComponent() {
   const {
@@ -321,10 +320,15 @@ export function SidebarComponent() {
 
     try {
       console.log('Initializing SponsoredFPC contract...');
+      // Use dynamic import to get the latest version of the function
+      const { registerSponsoredFPC } = await import('../../utils/fees');
+      
+      // This function now properly registers the contract class first
       await registerSponsoredFPC(pxe, wallet, node);
       console.log('SponsoredFPC contract initialization complete');
     } catch (error) {
       console.error('Error initializing SponsoredFPC contract:', error);
+      console.error('Error details:', error.message);
       // Don't block further operations if this fails
     }
   };
@@ -406,8 +410,6 @@ export function SidebarComponent() {
       />
 
       <div css={{ flex: '1 0 auto', margin: 'auto' }} />
-      <Typography variant="overline">Transactions</Typography>
-      <Divider />
       <TxsPanel css={{ marginBottom: 60 }} />
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>

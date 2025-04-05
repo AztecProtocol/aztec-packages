@@ -9,6 +9,7 @@ export const container = css({
   overflow: 'auto',
   padding: '0 20px',
   textAlign: 'center',
+  transition: 'all 0.3s ease',
 });
 
 export const select = css({

@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { ContractDeployer, type ContractInstanceWithAddress, PublicKeys } from '@aztec/aztec.js';
+import { ContractDeployer, type ContractInstanceWithAddress, PublicKeys, SponsoredFeePaymentMethod } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
@@ -25,7 +25,6 @@ import {
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
-import { SponsoredFeePaymentMethod } from '../../../utils/fees';
 
 const creationForm = css({
   display: 'flex',
@@ -125,20 +124,6 @@ export function DeployContractDialog({
         logDeployment('⚠️ Will try to work around limitations if possible');
       }
 
-      // First, ensure the SponsoredFPC contract is deployed if using sponsored fees
-      if (useSponsoredFees) {
-        try {
-          logDeployment('🔄 Ensuring SponsoredFPC contract is registered with PXE...');
-          // Import and use the function to register SponsoredFPC if needed
-          const { registerSponsoredFPC } = await import('../../../utils/fees');
-          await registerSponsoredFPC(pxe, wallet, node);
-          logDeployment('✅ SponsoredFPC contract is available and registered with PXE');
-        } catch (fpcError) {
-          logDeployment(`⚠️ Error with SponsoredFPC setup: ${fpcError.message}`);
-          logDeployment('⚠️ Continuing with deployment, but sponsored fees might not work');
-        }
-      }
-
       // Register the contract class with PXE
       logDeployment('🔄 1/5: Registering contract class with PXE...');
 
@@ -216,18 +201,28 @@ export function DeployContractDialog({
         try {
           logDeployment('🔄 Setting up sponsored fee payment...');
 
-          // Create a new sponsored fee payment method
-          const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
-          logDeployment(`✅ Sponsored payment method created with FPC address: ${sponsoredPaymentMethod.paymentContract.toString()}`);
+          // Use the new combined function that handles all setup
+          const { prepareForFeePayment } = await import('../../../utils/fees');
+          
+          try {
+            // This function handles both class registration and contract registration
+            const sponsoredPaymentMethod = await prepareForFeePayment(pxe, wallet, node);
+            logDeployment(`✅ Sponsored payment method created and ready to use`);
 
-          deploymentOptions = {
-            fee: {
-              paymentMethod: sponsoredPaymentMethod
-            }
-          };
-          logDeployment('✅ Fee payment method configured');
+            deploymentOptions = {
+              fee: {
+                paymentMethod: sponsoredPaymentMethod
+              }
+            };
+            logDeployment('✅ Fee payment method configured');
+          } catch (fpcError) {
+            logDeployment(`⚠️ Error with sponsored fee setup: ${fpcError.message}`);
+            console.error('Full error details:', fpcError);
+            logDeployment('⚠️ Will continue without sponsored fees');
+          }
         } catch (feeError) {
           logDeployment(`⚠️ Error setting up sponsored fees: ${feeError.message}`);
+          console.error('Sponsored fee setup error details:', feeError);
           logDeployment('⚠️ Continuing with default fee payment');
         }
       }
