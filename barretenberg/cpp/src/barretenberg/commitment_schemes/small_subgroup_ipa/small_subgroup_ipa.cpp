@@ -185,7 +185,7 @@ template <typename Flavor> void SmallSubgroupIPAProver<Flavor>::prove()
  * @param multivariate_challenge A vector of field elements used to compute the challenge polynomial.
  */
 template <typename Flavor>
-void SmallSubgroupIPAProver<Flavor>::compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge)
+void SmallSubgroupIPAProver<Flavor>::compute_challenge_polynomial(std::span<const FF> multivariate_challenge)
 {
     std::vector<FF> coeffs_lagrange_basis =
         compute_challenge_polynomial_coeffs<typename Flavor::Curve>(multivariate_challenge);

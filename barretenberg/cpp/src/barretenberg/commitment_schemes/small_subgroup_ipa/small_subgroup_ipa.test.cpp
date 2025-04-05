@@ -201,9 +201,11 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistency)
 
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(small_subgroup_ipa_prover.get_witness_polynomials());
+    ShpleminiVerifierState<Curve> verifier_state{ .gemini_evaluation_challenge = this->evaluation_challenge,
+                                                  .multilinear_challenge = multivariate_challenge };
 
-    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
-        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+    bool consistency_checked =
+        Verifier::check_libra_evaluations_consistency(small_ipa_evaluations, claimed_inner_product, verifier_state);
 
     EXPECT_TRUE(consistency_checked);
 }
@@ -246,8 +248,11 @@ TYPED_TEST(SmallSubgroupIPATest, LibraEvaluationsConsistencyFailure)
     const std::array<FF, NUM_SMALL_IPA_EVALUATIONS> small_ipa_evaluations =
         this->evaluate_small_ipa_witnesses(witness_polynomials);
 
-    bool consistency_checked = Verifier::check_libra_evaluations_consistency(
-        small_ipa_evaluations, this->evaluation_challenge, multivariate_challenge, claimed_inner_product);
+    ShpleminiVerifierState<Curve> verifier_state{ .gemini_evaluation_challenge = this->evaluation_challenge,
+                                                  .multilinear_challenge = multivariate_challenge };
+
+    bool consistency_checked =
+        Verifier::check_libra_evaluations_consistency(small_ipa_evaluations, claimed_inner_product, verifier_state);
 
     // Since witness polynomials were modified, the consistency check must fail
     EXPECT_FALSE(consistency_checked);

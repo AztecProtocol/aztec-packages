@@ -5,6 +5,35 @@
 
 namespace bb {
 
+template <typename Curve> struct ShpleminiVerifierState {
+    using Fr = typename Curve::ScalarField;
+    using Commitment = typename Curve::AffineElement;
+    // Interleaving members
+    Fr p_pos;
+    Fr p_neg;
+    Fr interleaving_vanishing_eval;
+
+    Fr batched_evaluation{ 0 };
+
+    Fr gemini_batching_challenge;
+    Fr gemini_evaluation_challenge;
+
+    Fr gemini_batching_challenge_power{ 1 };
+
+    Fr shplonk_batching_challenge;
+    Fr shplonk_batching_challenge_power;
+    Fr shplonk_evaluation_challenge;
+
+    std::span<const Fr> multilinear_challenge;
+    std::vector<Fr> scalars;
+    std::vector<Commitment> commitments;
+    Fr constant_term_accumulator;
+    size_t virtual_log_n;
+    size_t log_n;
+
+    bool has_interleaving;
+};
+
 /**
  * @brief Logic to support batching opening claims for unshifted and shifted polynomials in Shplemini
  * @details Stores references to the commitments/evaluations of unshifted and shifted polynomials to be batched
@@ -76,12 +105,15 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param nu_challenge ν (shplonk batching challenge)
      * @param r_challenge r (gemini evaluation challenge)
      */
-    void compute_scalars_for_each_batch(const Fr& inverse_vanishing_eval_pos,
-                                        const Fr& inverse_vanishing_eval_neg,
-                                        const Fr& nu_challenge,
-                                        const Fr& r_challenge,
-                                        const Fr& interleaving_vanishing_eval = { 0 })
+    void compute_scalars_for_each_batch(std::span<const Fr> inverse_vanishing_evals,
+                                        ShpleminiVerifierState<Curve>& verifier_state)
     {
+        const Fr& nu_challenge = verifier_state.shplonk_batching_challenge;
+        const Fr& r_challenge = verifier_state.gemini_evaluation_challenge;
+
+        const Fr& inverse_vanishing_eval_pos = inverse_vanishing_evals[0];
+        const Fr& inverse_vanishing_eval_neg = inverse_vanishing_evals[1];
+
         if (unshifted) {
             // (1/(z−r) + ν/(z+r))
             unshifted->scalar = inverse_vanishing_eval_pos + nu_challenge * inverse_vanishing_eval_neg;
@@ -104,7 +136,8 @@ template <typename Curve> struct ClaimBatcher_ {
 
             Fr r_shift_pos = Fr(1);
             Fr r_shift_neg = Fr(1);
-            interleaved->shplonk_denominator = interleaving_vanishing_eval;
+            interleaved->shplonk_denominator = inverse_vanishing_evals[get_groups_to_be_interleaved_size()];
+
             for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
                 interleaved->scalars_pos.push_back(r_shift_pos);
                 interleaved->scalars_neg.push_back(r_shift_neg);
@@ -123,17 +156,19 @@ template <typename Curve> struct ClaimBatcher_ {
      * @param batched_evaluation running batched evaluation of the committed multilinear polynomials
      * @param rho multivariate batching challenge \rho
      * @param rho_power current power of \rho used in the batching scalar
-     * @param shplonk_batching_pos and @param shplonk_batching_neg consecutive powers of the Shplonk batching
-     * challenge ν for the interleaved contributions
+     * @param shplonk_batching_challenge_power
      */
-    void update_batch_mul_inputs_and_batched_evaluation(std::vector<Commitment>& commitments,
-                                                        std::vector<Fr>& scalars,
-                                                        Fr& batched_evaluation,
-                                                        const Fr& rho,
-                                                        Fr& rho_power,
-                                                        Fr shplonk_batching_pos = { 0 },
-                                                        Fr shplonk_batching_neg = { 0 })
+    void update_batch_mul_inputs_and_batched_evaluation(ShpleminiVerifierState<Curve>& verifier_state)
     {
+        // Unpack verifier_state
+        std::vector<Fr>& scalars = verifier_state.scalars;
+        std::vector<Commitment>& commitments = verifier_state.commitments;
+        Fr& batched_evaluation = verifier_state.batched_evaluation;
+        const Fr& rho = verifier_state.gemini_batching_challenge;
+        const Fr& shplonk_batching_challenge = verifier_state.shplonk_batching_challenge;
+
+        Fr& rho_power = verifier_state.gemini_batching_challenge_power;
+
         // Append the commitments/scalars from a given batch to the corresponding containers; update the batched
         // evaluation and the running batching challenge in place
         auto aggregate_claim_data_and_update_batched_evaluation = [&](const Batch& batch, Fr& rho_power) {
@@ -163,17 +198,21 @@ template <typename Curve> struct ClaimBatcher_ {
             if (get_groups_to_be_interleaved_size() % 2 != 0) {
                 throw_or_abort("Interleaved groups size must be even");
             }
+            verifier_state.constant_term_accumulator +=
+                interleaved->shplonk_denominator *
+                (verifier_state.p_pos + verifier_state.p_neg * shplonk_batching_challenge);
 
             size_t group_idx = 0;
             for (auto group : interleaved->commitments_groups) {
                 for (size_t i = 0; i < get_groups_to_be_interleaved_size(); i++) {
-                    // The j-th commitment in group i is multiplied by ρ^{k+m+i} and ν^{n+1} \cdot r^j + ν^{n+2} ⋅(-r)^j
-                    //  where k is the number of unshifted, m is number of shifted and n is the log_circuit_size
+                    info(get_groups_to_be_interleaved_size());
+                    // The j-th commitment in group i is multiplied by ρ^{k+m+i} and 1 \cdot r^j + ν \cdot (-r)^j
+                    //  where k is the number of unshifted, m is number of shifted and  is the log_circuit_size
                     //  (assuming to right-shifted-by-k commitments in this example)
                     commitments.emplace_back(std::move(group[i]));
-                    scalars.emplace_back(-rho_power * interleaved->shplonk_denominator *
-                                         (shplonk_batching_pos * interleaved->scalars_pos[i] +
-                                          shplonk_batching_neg * interleaved->scalars_neg[i]));
+                    scalars.emplace_back(
+                        -rho_power * interleaved->shplonk_denominator *
+                        (interleaved->scalars_pos[i] + shplonk_batching_challenge * interleaved->scalars_neg[i]));
                 }
                 batched_evaluation += interleaved->evaluations[group_idx] * rho_power;
                 rho_power *= rho;

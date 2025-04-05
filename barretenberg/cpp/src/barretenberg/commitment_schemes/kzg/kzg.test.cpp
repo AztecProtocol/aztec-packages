@@ -19,6 +19,7 @@ class KZGTest : public CommitmentTest<Curve> {
     using GeminiProver = GeminiProver_<Curve>;
     using GeminiVerifier = GeminiVerifier_<Curve>;
     using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    using ShpleminiProver = ShpleminiProver_<Curve>;
 
     static constexpr size_t n = 16;
     static constexpr size_t log_n = 4;
@@ -172,17 +173,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-
-    // Shplonk prover output:
-    // - opening pair: (z_challenge, 0)
-    // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    auto prover_opening_claim =
+        ShpleminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
+    PCS::compute_opening_proof(ck, prover_opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
@@ -220,17 +216,12 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims =
-        GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
-
-    // Shplonk prover output:
-    // - opening pair: (z_challenge, 0)
-    // - witness: polynomial Q - Q_z
-    const auto opening_claim = ShplonkProver::prove(ck, prover_opening_claims, prover_transcript);
+    auto prover_opening_claim =
+        ShpleminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // KZG prover:
     // - Adds commitment [W] to transcript
-    PCS::compute_opening_proof(ck, opening_claim, prover_transcript);
+    PCS::compute_opening_proof(ck, prover_opening_claim, prover_transcript);
 
     // Run the full verifier PCS protocol with genuine opening claims (genuine commitment, genuine evaluation)
 
@@ -274,7 +265,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims =
+    auto prover_opening_claims =
         GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
