@@ -13,12 +13,10 @@
 namespace bb {
 
 ECCVMProver::ECCVMProver(CircuitBuilder& builder,
-                         const bool fixed_size,
                          const std::shared_ptr<Transcript>& transcript,
                          const std::shared_ptr<Transcript>& ipa_transcript)
     : transcript(transcript)
     , ipa_transcript(ipa_transcript)
-    , fixed_size(fixed_size)
 {
     PROFILE_THIS_NAME("ECCVMProver(CircuitBuilder&)");
 
@@ -26,7 +24,7 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
     // ProvingKey/ProverPolynomials and update the model to reflect what's done in all other proving systems.
 
     // Construct the proving key; populates all polynomials except for witness polys
-    key = fixed_size ? std::make_shared<ProvingKey>(builder, fixed_size) : std::make_shared<ProvingKey>(builder);
+    key = std::make_shared<ProvingKey>(builder);
 
     key->commitment_key = std::make_shared<CommitmentKey>(key->circuit_size);
 }
@@ -116,12 +114,12 @@ void ECCVMProver::execute_grand_product_computation_round()
 void ECCVMProver::execute_relation_check_rounds()
 {
 
-    using Sumcheck = SumcheckProver<Flavor>;
+    using Sumcheck = SumcheckProver<Flavor, CONST_ECCVM_LOG_N>;
 
-    auto sumcheck = Sumcheck(key->circuit_size, transcript);
+    Sumcheck sumcheck(key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
+    for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
 

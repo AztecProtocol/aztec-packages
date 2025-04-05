@@ -509,7 +509,7 @@ class ECCVMFlavor {
          table (reads come from msm_x/y3, msm_x/y4)
          * @return ProverPolynomials
          */
-        ProverPolynomials(const CircuitBuilder& builder, const bool fixed_size = false)
+        ProverPolynomials(const CircuitBuilder& builder)
         {
             // compute rows for the three different sections of the ECCVM execution trace
             const auto transcript_rows =
@@ -528,11 +528,11 @@ class ECCVMFlavor {
 
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
-            if ((fixed_size) && (ECCVM_FIXED_SIZE < dyadic_num_rows)) {
+            if (ECCVM_FIXED_SIZE < dyadic_num_rows) {
                 throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound");
             }
 
-            dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;
+            dyadic_num_rows = ECCVM_FIXED_SIZE;
             size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
 
             for (auto& poly : get_to_be_shifted()) {
@@ -722,23 +722,16 @@ class ECCVMFlavor {
         // Expose constructors on the base class
         using Base = ProvingKey_<FF, CommitmentKey>;
         using Base::Base;
-        // Used to amortize the commitment time when `fixed_size` = true.
+        // Used to amortize the commitment time if the `fixed size` > `real_size`.
         size_t real_size = 0;
 
         ProverPolynomials polynomials; // storage for all polynomials evaluated by the prover
 
-        // Constructor for dynamic size ProvingKey
-        ProvingKey(const CircuitBuilder& builder)
-            : Base(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()), 0)
-            , real_size(this->circuit_size)
-            , polynomials(builder)
-        {}
-
         // Constructor for fixed size ProvingKey
-        ProvingKey(const CircuitBuilder& builder, bool fixed_size)
+        ProvingKey(const CircuitBuilder& builder)
             : Base(ECCVM_FIXED_SIZE, 0)
             , real_size(builder.get_circuit_subgroup_size(builder.get_estimated_num_finalized_gates()))
-            , polynomials(builder, fixed_size)
+            , polynomials(builder)
         {}
     };
 
@@ -1001,8 +994,8 @@ class ECCVMFlavor {
         Commitment lookup_inverses_comm;
         Commitment libra_concatenation_commitment;
         FF libra_sum;
-        std::array<Commitment, CONST_PROOF_SIZE_LOG_N> sumcheck_round_commitments;
-        std::array<std::array<FF, 2>, CONST_PROOF_SIZE_LOG_N> sumcheck_round_evaluations;
+        std::array<Commitment, CONST_ECCVM_LOG_N> sumcheck_round_commitments;
+        std::array<std::array<FF, 2>, CONST_ECCVM_LOG_N> sumcheck_round_evaluations;
         FF libra_claimed_evaluation;
         Commitment libra_grand_sum_commitment;
         Commitment libra_quotient_commitment;
@@ -1223,7 +1216,7 @@ class ECCVMFlavor {
                 NativeTranscript::template deserialize_from_buffer<Commitment>(proof_data, num_frs_read);
             libra_sum =
                 NativeTranscript::template deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 sumcheck_round_commitments[i] = NativeTranscript::template deserialize_from_buffer<Commitment>(
                     NativeTranscript::proof_data, num_frs_read);
                 sumcheck_round_evaluations[i] = NativeTranscript::template deserialize_from_buffer<std::array<FF, 2>>(
@@ -1241,10 +1234,10 @@ class ECCVMFlavor {
                 deserialize_from_buffer<Commitment>(NativeTranscript::proof_data, num_frs_read);
             hiding_polynomial_eval = deserialize_from_buffer<FF>(NativeTranscript::proof_data, num_frs_read);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N - 1; ++i) {
                 gemini_fold_comms.push_back(deserialize_from_buffer<Commitment>(proof_data, num_frs_read));
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 gemini_fold_evals.push_back(deserialize_from_buffer<FF>(proof_data, num_frs_read));
             }
             libra_concatenation_eval = deserialize_from_buffer<FF>(proof_data, num_frs_read);
@@ -1394,7 +1387,7 @@ class ECCVMFlavor {
 
             NativeTranscript::template serialize_to_buffer(libra_sum, NativeTranscript::proof_data);
 
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(sumcheck_round_commitments[i],
                                                                NativeTranscript::proof_data);
                 NativeTranscript::template serialize_to_buffer(sumcheck_round_evaluations[i],
@@ -1408,10 +1401,10 @@ class ECCVMFlavor {
             NativeTranscript::template serialize_to_buffer(libra_quotient_commitment, proof_data);
             NativeTranscript::template serialize_to_buffer(hiding_polynomial_commitment, NativeTranscript::proof_data);
             NativeTranscript::template serialize_to_buffer(hiding_polynomial_eval, NativeTranscript::proof_data);
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N - 1; ++i) {
                 NativeTranscript::template serialize_to_buffer(gemini_fold_comms[i], proof_data);
             }
-            for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N; ++i) {
+            for (size_t i = 0; i < CONST_ECCVM_LOG_N; ++i) {
                 NativeTranscript::template serialize_to_buffer(gemini_fold_evals[i], proof_data);
             }
             NativeTranscript::template serialize_to_buffer(libra_concatenation_eval, proof_data);

@@ -32,7 +32,6 @@ class ECCVMProver {
     using OpeningClaim = ProverOpeningClaim<typename Flavor::Curve>;
 
     explicit ECCVMProver(CircuitBuilder& builder,
-                         const bool fixed_size = false,
                          const std::shared_ptr<Transcript>& transcript = std::make_shared<Transcript>(),
                          const std::shared_ptr<Transcript>& ipa_transcript = std::make_shared<Transcript>());
 
@@ -55,7 +54,6 @@ class ECCVMProver {
     std::shared_ptr<Transcript> transcript;
     std::shared_ptr<Transcript> ipa_transcript;
 
-    bool fixed_size;
     size_t unmasked_witness_size;
 
     // Final ShplonkProver consumes an array consisting of Translation Opening Claims and a

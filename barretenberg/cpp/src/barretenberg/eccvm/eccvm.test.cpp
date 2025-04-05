@@ -84,44 +84,20 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
     compute_grand_products<ECCVMFlavor>(pk->polynomials, relation_parameters, unmasked_witness_size);
 
     // Generate gate challenges
-    for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
         gate_challenges[idx] = FF::random_element();
     }
 }
 
-TEST_F(ECCVMTests, BaseCase)
-{
-    ECCVMCircuitBuilder builder = generate_circuit(&engine);
-    ECCVMProver prover(builder);
-    ECCVMProof proof = prover.construct_proof();
-    ECCVMVerifier verifier(prover.key);
-    bool verified = verifier.verify_proof(proof);
-
-    ASSERT_TRUE(verified);
-}
 TEST_F(ECCVMTests, BaseCaseFixedSize)
 {
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
-    ECCVMProver prover(builder, /*fixed_size = */ true);
+    ECCVMProver prover(builder);
     ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
     bool verified = verifier.verify_proof(proof);
 
     ASSERT_TRUE(verified);
-}
-
-TEST_F(ECCVMTests, EqFails)
-{
-    auto builder = generate_circuit(&engine);
-    // Tamper with the eq op such that the expected value is incorect
-    builder.op_queue->add_erroneous_equality_op_for_testing();
-
-    ECCVMProver prover(builder);
-
-    ECCVMProof proof = prover.construct_proof();
-    ECCVMVerifier verifier(prover.key);
-    bool verified = verifier.verify_proof(proof);
-    ASSERT_FALSE(verified);
 }
 
 TEST_F(ECCVMTests, EqFailsFixedSize)
@@ -130,7 +106,7 @@ TEST_F(ECCVMTests, EqFailsFixedSize)
     // Tamper with the eq op such that the expected value is incorect
     builder.op_queue->add_erroneous_equality_op_for_testing();
 
-    ECCVMProver prover(builder, /*fixed_size = */ true);
+    ECCVMProver prover(builder);
 
     ECCVMProof proof = prover.construct_proof();
     ECCVMVerifier verifier(prover.key);
@@ -142,19 +118,17 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 {
     using Flavor = ECCVMFlavor;
     using ProvingKey = ECCVMFlavor::ProvingKey;
-    using SumcheckProver = SumcheckProver<ECCVMFlavor>;
     using FF = ECCVMFlavor::FF;
     using Transcript = Flavor::Transcript;
     using ZKData = ZKSumcheckData<Flavor>;
 
     bb::RelationParameters<FF> relation_parameters;
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
 
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
 
     ECCVMProver prover(builder);
     auto pk = std::make_shared<ProvingKey>(builder);
-    const size_t log_circuit_size = pk->log_circuit_size;
 
     std::shared_ptr<Transcript> prover_transcript = std::make_shared<Transcript>();
 
@@ -163,9 +137,10 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     const FF alpha = FF::random_element();
     complete_proving_key_for_test(relation_parameters, pk, gate_challenges);
 
-    auto sumcheck_prover = SumcheckProver(pk->circuit_size, prover_transcript);
+    using SumcheckProver = SumcheckProver<ECCVMFlavor, CONST_ECCVM_LOG_N>;
+    SumcheckProver sumcheck_prover(pk->circuit_size, prover_transcript);
 
-    ZKData zk_sumcheck_data = ZKData(log_circuit_size, prover_transcript);
+    ZKData zk_sumcheck_data = ZKData(CONST_ECCVM_LOG_N, prover_transcript);
 
     auto prover_output =
         sumcheck_prover.prove(pk->polynomials, relation_parameters, alpha, gate_challenges, zk_sumcheck_data);
@@ -174,12 +149,12 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     std::shared_ptr<Transcript> verifier_transcript = std::make_shared<Transcript>(prover_transcript->proof_data);
 
     // Execute Sumcheck Verifier
-    SumcheckVerifier<Flavor> sumcheck_verifier = SumcheckVerifier<Flavor>(log_circuit_size, verifier_transcript);
+    SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N> sumcheck_verifier(CONST_ECCVM_LOG_N, verifier_transcript);
     SumcheckOutput<ECCVMFlavor> verifier_output = sumcheck_verifier.verify(relation_parameters, alpha, gate_challenges);
 
     // Evaluate prover's round univariates at corresponding challenges and compare them with the claimed evaluations
     // computed by the verifier
-    for (size_t idx = 0; idx < log_circuit_size; idx++) {
+    for (size_t idx = 0; idx < CONST_ECCVM_LOG_N; idx++) {
         FF true_eval_at_the_challenge = prover_output.round_univariates[idx].evaluate(prover_output.challenge[idx]);
         FF verifier_eval_at_the_challenge = verifier_output.round_univariate_evaluations[idx][2];
         EXPECT_TRUE(true_eval_at_the_challenge == verifier_eval_at_the_challenge);

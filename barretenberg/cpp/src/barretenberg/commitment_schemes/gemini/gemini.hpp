@@ -358,7 +358,7 @@ template <typename Curve> class GeminiVerifier_ {
                                                                 auto& transcript)
 
     {
-        const size_t num_variables = multilinear_challenge.size();
+        const size_t log_n = multilinear_challenge.size();
         const bool has_interleaved = claim_batcher.interleaved.has_value();
 
         const Fr rho = transcript->template get_challenge<Fr>("rho");
@@ -383,14 +383,14 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // Get polynomials Fold_i, i = 1,...,m-1 from transcript
-        const std::vector<Commitment> commitments = get_fold_commitments(num_variables, transcript);
+        const std::vector<Commitment> commitments = get_fold_commitments(log_n, transcript);
 
         // compute vector of powers of random evaluation point r
         const Fr r = transcript->template get_challenge<Fr>("Gemini:r");
-        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, CONST_PROOF_SIZE_LOG_N);
+        const std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(r, log_n);
 
         // Get evaluations a_i, i = 0,...,m-1 from transcript
-        const std::vector<Fr> evaluations = get_gemini_evaluations(transcript);
+        const std::vector<Fr> evaluations = get_gemini_evaluations(log_n, transcript);
 
         // C₀_r_pos = ∑ⱼ ρʲ⋅[fⱼ] + r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to A₀₊
         // C₀_r_neg = ∑ⱼ ρʲ⋅[fⱼ] - r⁻¹⋅∑ⱼ ρᵏ⁺ʲ [gⱼ], the commitment to  A₀₋
@@ -445,17 +445,17 @@ template <typename Curve> class GeminiVerifier_ {
 
         // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
         std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
-            num_variables, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
+            log_n, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
         // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         auto full_a_0_pos = gemini_fold_pos_evaluations[0];
         std::vector<OpeningClaim<Curve>> fold_polynomial_opening_claims;
-        fold_polynomial_opening_claims.reserve(2 * num_variables + 2);
+        fold_polynomial_opening_claims.reserve(2 * log_n + 2);
 
         // ( [A₀₊], r, A₀₊(r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { r, full_a_0_pos - p_pos }, C0_r_pos });
         // ( [A₀₋], -r, A₀-(-r) )
         fold_polynomial_opening_claims.emplace_back(OpeningClaim<Curve>{ { -r, evaluations[0] }, C0_r_neg });
-        for (size_t l = 0; l < num_variables - 1; ++l) {
+        for (size_t l = 0; l < log_n - 1; ++l) {
             // ([Aₗ], r^{2ˡ}, Aₗ(r^{2ˡ}) )
             fold_polynomial_opening_claims.emplace_back(
                 OpeningClaim<Curve>{ { r_squares[l + 1], gemini_fold_pos_evaluations[l + 1] }, commitments[l] });
@@ -473,24 +473,41 @@ template <typename Curve> class GeminiVerifier_ {
         return fold_polynomial_opening_claims;
     }
 
-    static std::vector<Commitment> get_fold_commitments([[maybe_unused]] const size_t log_circuit_size,
-                                                        auto& transcript)
+    /**
+     * @brief Receive the fold commitments from the prover. This method is used by Shplemini where padding may be
+     * enabled, i.e. the verifier receives the same number of commitments independent of the actual circuit size.
+     *
+     * @param virtual_log_n An integer >= log_n
+     * @param transcript
+     * @return A vector of fold commitments \f$ [A_i] \f$ for \f$ i = 1, \ldots, \text{virtual_log_n}-1\f$.
+     */
+    static std::vector<Commitment> get_fold_commitments([[maybe_unused]] const size_t virtual_log_n, auto& transcript)
     {
         std::vector<Commitment> fold_commitments;
-        fold_commitments.reserve(CONST_PROOF_SIZE_LOG_N - 1);
-        for (size_t i = 0; i < CONST_PROOF_SIZE_LOG_N - 1; ++i) {
+        fold_commitments.reserve(virtual_log_n - 1);
+        for (size_t i = 0; i < virtual_log_n - 1; ++i) {
             const Commitment commitment =
                 transcript->template receive_from_prover<Commitment>("Gemini:FOLD_" + std::to_string(i + 1));
             fold_commitments.emplace_back(commitment);
         }
         return fold_commitments;
     }
-    static std::vector<Fr> get_gemini_evaluations(auto& transcript)
+
+    /**
+     * @brief Receive the fold evaluations from the prover. This method is used by Shplemini where padding may be
+     * enabled, i.e. the verifier receives the same number of commitments independent of the actual circuit size.
+     *
+     * @param virtual_log_n An integer >= log_n
+     * @param transcript
+     * @return A vector of claimed negative fold evaluation \f$ A_i(-r^{2^i}) \f$  for \f$ i = 0, \ldots,
+     * \text{virtual_log_n}-1\f$.
+     */
+    static std::vector<Fr> get_gemini_evaluations(const size_t virtual_log_n, auto& transcript)
     {
         std::vector<Fr> gemini_evaluations;
-        gemini_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+        gemini_evaluations.reserve(virtual_log_n);
 
-        for (size_t i = 1; i <= CONST_PROOF_SIZE_LOG_N; ++i) {
+        for (size_t i = 1; i <= virtual_log_n; ++i) {
             const Fr evaluation = transcript->template receive_from_prover<Fr>("Gemini:a_" + std::to_string(i));
             gemini_evaluations.emplace_back(evaluation);
         }
@@ -514,6 +531,7 @@ template <typename Curve> class GeminiVerifier_ {
      * In the case of interleaving, the first "negative" evaluation has to be corrected by the contribution from \f$
      * P_{-}(-r^s)\f$, where \f$ s \f$ is the size of the group to be interleaved.
      *
+     * @param log_n The log of the size of the polynomial being opened.
      * @param batched_evaluation The evaluation of the batched polynomial at \f$ (u_0, \ldots, u_{d-1})\f$.
      * @param evaluation_point Evaluation point \f$ (u_0, \ldots, u_{d-1}) \f$ padded to CONST_PROOF_SIZE_LOG_N.
      * @param challenge_powers Powers of \f$ r \f$, \f$ r^2 \), ..., \( r^{2^{d-1}} \f$.
@@ -521,7 +539,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @return Evaluation \f$ A_0(r) \f$.
      */
     static std::vector<Fr> compute_fold_pos_evaluations(
-        const size_t num_variables,
+        const size_t log_n,
         const Fr& batched_evaluation,
         std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
         std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
@@ -531,6 +549,8 @@ template <typename Curve> class GeminiVerifier_ {
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
         Fr eval_pos_prev = batched_evaluation;
+        // Virtual size allows padding in Shplemini.
+        const size_t virtual_log_n = evaluation_point.size();
 
         Fr zero{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -538,15 +558,14 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         std::vector<Fr> fold_pos_evaluations;
-        fold_pos_evaluations.reserve(CONST_PROOF_SIZE_LOG_N);
+        fold_pos_evaluations.reserve(virtual_log_n);
         // Either a computed eval of A_i at r^{2^i}, or 0
         Fr value_to_emplace;
 
         // Add the contribution of P-((-r)ˢ) to get A_0(-r), which is 0 if there are no interleaved polynomials
         evals[0] += p_neg;
-
         // Solve the sequence of linear equations
-        for (size_t l = CONST_PROOF_SIZE_LOG_N; l != 0; --l) {
+        for (size_t l = virtual_log_n; l != 0; --l) {
             // Get r²⁽ˡ⁻¹⁾
             const Fr& challenge_power = challenge_powers[l - 1];
             // Get uₗ₋₁
@@ -561,17 +580,17 @@ template <typename Curve> class GeminiVerifier_ {
             if constexpr (Curve::is_stdlib_type) {
                 auto builder = evaluation_point[0].get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > num_variables);
-                // If current index is bigger than log_circuit_size, we propagate `batched_evaluation` to the next
+                stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > log_n);
+                // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
                 // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
                 eval_pos_prev = Fr::conditional_assign(dummy_round, eval_pos_prev, eval_pos);
-                // If current index is bigger than log_circuit_size, we emplace 0, which is later multiplied against
+                // If current index is bigger than log_n, we emplace 0, which is later multiplied against
                 // Commitment::one().
                 value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
 
             } else {
                 // Perform the same logic natively
-                bool dummy_round = l > num_variables;
+                bool dummy_round = l > log_n;
                 eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
                 value_to_emplace = dummy_round ? zero : eval_pos_prev;
             };

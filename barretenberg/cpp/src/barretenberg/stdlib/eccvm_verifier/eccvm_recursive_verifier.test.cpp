@@ -180,7 +180,6 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
                                                               std::shared_ptr<typename OuterFlavor::VerificationKey>> {
             auto inner_circuit = generate_circuit(&engine, inner_size);
             InnerProver inner_prover(inner_circuit);
-            info("test circuit size: ", inner_prover.key->circuit_size);
 
             ECCVMProof inner_proof = inner_prover.construct_proof();
             auto verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(inner_prover.key);
