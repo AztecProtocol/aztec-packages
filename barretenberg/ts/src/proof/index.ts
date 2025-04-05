@@ -11,16 +11,7 @@ export type ProofData = {
   proof: Uint8Array;
 };
 
-/**
- * @description
- * The representation of a proof
- * */
-export type ProofDataForRecursion = {
-  /** @description Public inputs of a proof */
-  publicInputs: string[];
-  /** @description An byte array representing the proof */
-  proof: string[];
-};
+export const AGGREGATION_OBJECT_LENGTH = 16;
 
 // Fields are 32 bytes
 const fieldByteSize = 32;

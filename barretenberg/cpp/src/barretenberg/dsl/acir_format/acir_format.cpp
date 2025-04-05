@@ -269,7 +269,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             !constraint_system.avm_recursion_constraints.empty()) {
             ASSERT(metadata.honk_recursion != 0);
             current_aggregation_object.set_public();
-        } else if (metadata.honk_recursion != 0 && builder.is_recursive_circuit) {
+        } else if (metadata.honk_recursion != 0) {
             // Make sure the verification key records the public input indices of the
             // final recursion output.
             current_aggregation_object.set_public();
