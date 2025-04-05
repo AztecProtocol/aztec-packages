@@ -69,7 +69,6 @@ export class PublicTxSimulator {
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
       const txHash = await this.computeTxHash(tx);
-
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
       const context = await PublicTxContext.create(
@@ -437,7 +436,7 @@ export class PublicTxSimulator {
   ): AvmProvingRequest {
     return {
       type: ProvingRequestType.PUBLIC_VM,
-      inputs: new AvmCircuitInputs('public_dispatch', [], hints, publicInputs),
+      inputs: new AvmCircuitInputs(hints, publicInputs),
     };
   }
 }

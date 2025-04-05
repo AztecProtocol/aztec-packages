@@ -253,6 +253,7 @@ struct AccumulatedData {
 // We are currently using this structure as the input to TX simulation.
 // That's why I'm not calling it TxHint. We can reconsider if the inner types seem to dirty.
 struct Tx {
+    std::string hash;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<EnqueuedCallHint> setupEnqueuedCalls;
@@ -261,7 +262,8 @@ struct Tx {
 
     bool operator==(const Tx& other) const = default;
 
-    MSGPACK_FIELDS(nonRevertibleAccumulatedData,
+    MSGPACK_FIELDS(hash,
+                   nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
                    appLogicEnqueuedCalls,

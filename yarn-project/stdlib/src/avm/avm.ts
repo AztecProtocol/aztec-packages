@@ -376,6 +376,7 @@ export class AvmEnqueuedCallHint {
 
 export class AvmTxHint {
   constructor(
+    public readonly hash: string,
     public readonly nonRevertibleAccumulatedData: {
       noteHashes: Fr[];
       nullifiers: Fr[];
@@ -393,12 +394,16 @@ export class AvmTxHint {
     public readonly teardownEnqueuedCall: AvmEnqueuedCallHint | null,
   ) {}
 
-  static fromTx(tx: Tx): AvmTxHint {
+  static async fromTx(tx: Tx): Promise<AvmTxHint> {
     const setupCallRequests = tx.getNonRevertiblePublicCallRequestsWithCalldata();
     const appLogicCallRequests = tx.getRevertiblePublicCallRequestsWithCalldata();
     const teardownCallRequest = tx.getTeardownPublicCallRequestWithCalldata();
 
+    // For informational purposes. Assumed quick because it should be cached.
+    const txHash = await tx.getTxHash();
+
     return new AvmTxHint(
+      txHash.hash.toString(),
       {
         noteHashes: tx.data.forPublic!.nonRevertibleAccumulatedData.noteHashes.filter(x => !x.isZero()),
         nullifiers: tx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers.filter(x => !x.isZero()),
@@ -437,23 +442,43 @@ export class AvmTxHint {
   }
 
   static empty() {
-    return new AvmTxHint({ noteHashes: [], nullifiers: [] }, { noteHashes: [], nullifiers: [] }, [], [], null);
+    return new AvmTxHint('', { noteHashes: [], nullifiers: [] }, { noteHashes: [], nullifiers: [] }, [], [], null);
   }
 
   static get schema() {
-    return z.object({
-      nonRevertibleAccumulatedData: z.object({
-        noteHashes: schemas.Fr.array(),
-        nullifiers: schemas.Fr.array(),
-      }),
-      revertibleAccumulatedData: z.object({
-        noteHashes: schemas.Fr.array(),
-        nullifiers: schemas.Fr.array(),
-      }),
-      setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
-      appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
-      teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
-    });
+    return z
+      .object({
+        hash: z.string(),
+        nonRevertibleAccumulatedData: z.object({
+          noteHashes: schemas.Fr.array(),
+          nullifiers: schemas.Fr.array(),
+        }),
+        revertibleAccumulatedData: z.object({
+          noteHashes: schemas.Fr.array(),
+          nullifiers: schemas.Fr.array(),
+        }),
+        setupEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+        appLogicEnqueuedCalls: AvmEnqueuedCallHint.schema.array(),
+        teardownEnqueuedCall: AvmEnqueuedCallHint.schema.nullable(),
+      })
+      .transform(
+        ({
+          hash,
+          nonRevertibleAccumulatedData,
+          revertibleAccumulatedData,
+          setupEnqueuedCalls,
+          appLogicEnqueuedCalls,
+          teardownEnqueuedCall,
+        }) =>
+          new AvmTxHint(
+            hash,
+            nonRevertibleAccumulatedData,
+            revertibleAccumulatedData,
+            setupEnqueuedCalls,
+            appLogicEnqueuedCalls,
+            teardownEnqueuedCall,
+          ),
+      );
   }
 }
 
@@ -537,29 +562,19 @@ export class AvmExecutionHints {
 }
 
 export class AvmCircuitInputs {
-  constructor(
-    public readonly functionName: string, // only informational
-    public readonly calldata: Fr[],
-    public readonly hints: AvmExecutionHints,
-    public publicInputs: AvmCircuitPublicInputs,
-  ) {}
+  constructor(public readonly hints: AvmExecutionHints, public publicInputs: AvmCircuitPublicInputs) {}
 
   static empty() {
-    return new AvmCircuitInputs('', [], AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
+    return new AvmCircuitInputs(AvmExecutionHints.empty(), AvmCircuitPublicInputs.empty());
   }
 
   static get schema() {
     return z
       .object({
-        functionName: z.string(),
-        calldata: schemas.Fr.array(),
         hints: AvmExecutionHints.schema,
         publicInputs: AvmCircuitPublicInputs.schema,
       })
-      .transform(
-        ({ functionName, calldata, hints, publicInputs }) =>
-          new AvmCircuitInputs(functionName, calldata, hints, publicInputs),
-      );
+      .transform(({ hints, publicInputs }) => new AvmCircuitInputs(hints, publicInputs));
   }
 
   public serializeWithMessagePack(): Buffer {
