@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743810075773,
+  "lastUpdate": 1743811362866,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "asterite@gmail.com",
-            "name": "Ary Borenszweig",
-            "username": "asterite"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "62f497f7d5c0e1189fd79ac9a720f2d20f66f22d",
-          "message": "chore: move unbound impl generics to their functions (#13147)\n\nIn Rust, a code like this:\n\n```rust\ntrait Serialize<U> {}\n\nstruct PublicMutable<T>\n{\n    x: T,\n}\n\nimpl<T, U> PublicMutable<T>\nwhere\n    T: Serialize<U>,\n{\n    fn serialize() {}\n}\n```\n\nfails to compile and gives this error:\n\n```\nerror[E0207]: the type parameter `U` is not constrained by the impl trait, self type, or predicates\n --> src/main.rs:8:9\n  |\n8 | impl<T, U> PublicMutable<T>\n  |         ^ unconstrained type parameter\n```\n\nI'm not exactly sure of the technicalities here, there's an explanation\n[here](https://stackoverflow.com/a/78258009), but the solution in Rust\nis to move the constrains to the relevant functions.\n\nNoir will eventually do the same thing (see\nhttps://github.com/noir-lang/noir/pull/6388 ) so this PR fixes the code\nthat will eventually stop to compile.\n\nCo-authored-by: Tom French <15848336+TomAFrench@users.noreply.github.com>",
-          "timestamp": "2025-04-01T12:14:21-03:00",
-          "tree_id": "dd8c82c8025ba47877e0099a94afaa2468863eb0",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/62f497f7d5c0e1189fd79ac9a720f2d20f66f22d"
-        },
-        "date": 1743522210866,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9485,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.24121308957303353,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 134911,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 138380,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "81f3d7d4515f2c05232bfe5f164bf2d08232550e",
+          "message": "feat(avm): checkpointing hints (#13302)\n\nThe hints are fully implemented but it is NOT being extensively used in\nthe code. I only added one call to `create_checkpoint` in the\n`tx_execution` but the use in TS is complex and intertwined with\ninsertion/call success/failure and I didn't want to understand and\nimplement all that in this PR. This has to be implemented once the\ntx_execution is implemented.",
+          "timestamp": "2025-04-04T23:02:10Z",
+          "tree_id": "5e264e0e17cc749f0fc5f9c9c9768e4e82662c3b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/81f3d7d4515f2c05232bfe5f164bf2d08232550e"
+        },
+        "date": 1743811362250,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9280,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2360072482546084,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 143304,
             "unit": "us"
           }
         ]
