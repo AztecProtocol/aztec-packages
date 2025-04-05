@@ -229,7 +229,7 @@ export function describeArchiverDataStore(
         () => ({ data: blocks[5].block.body.txEffects[2], block: blocks[5].block, txIndexInBlock: 2 }),
         () => ({ data: blocks[1].block.body.txEffects[0], block: blocks[1].block, txIndexInBlock: 0 }),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
-        const { data, block, txIndexInBlock } = await getExpectedTx();
+        const { data, block, txIndexInBlock } = getExpectedTx();
         const expectedTx = {
           data,
           l2BlockNumber: block.number,
