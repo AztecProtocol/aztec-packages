@@ -147,7 +147,7 @@ function compile {
   contract_name=$(cat contracts/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $contract_path)
+  contract_hash=$(get_contract_hash $1)
   if ! cache_download contract-$contract_hash.tar.gz; then
     if [ "${VERBOSE:-0}" -eq 0 ]; then
       local args="--silence-warnings"
