@@ -115,7 +115,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator+(const element& other) con
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result.set_point_at_infinity(result_is_infinity);
 
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
@@ -187,7 +193,13 @@ element<C, Fq, Fr, G> element<C, Fq, Fr, G>::operator-(const element& other) con
     // yes = lhs_infinity && rhs_infinity
     // n.b. can likely optimize this
     bool_ct result_is_infinity = infinity_predicate && (!lhs_infinity && !rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result_is_infinity = result_is_infinity || (lhs_infinity && rhs_infinity);
+    if constexpr (IsUltraBuilder<C>) {
+        result_is_infinity.get_context()->update_used_witnesses(result_is_infinity.witness_index);
+    }
     result.set_point_at_infinity(result_is_infinity);
     result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
     return result;
