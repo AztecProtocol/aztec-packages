@@ -13,9 +13,10 @@ void TxExecution::simulate(const Tx& tx)
          tx.teardownEnqueuedCall ? "1 teardown enqueued call" : "no teardown enqueued call");
 
     // TODO: This method is currently wrong. We need to lift the context to this level.
+    // TODO: Checkpointing is not yet correctly implemented.
 
     // Insert non-revertibles.
-    // TODO: We need a context at this level to be able to do the insertions.
+    insert_non_revertibles(tx);
 
     // Setup.
     for (const auto& call : tx.setupEnqueuedCalls) {
@@ -25,7 +26,7 @@ void TxExecution::simulate(const Tx& tx)
     }
 
     // Insert revertibles.
-    // TODO: We need a context at this level to be able to do the insertions.
+    insert_revertibles(tx);
 
     // App logic.
     for (const auto& call : tx.appLogicEnqueuedCalls) {
@@ -53,6 +54,21 @@ std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddres
 {
     auto& execution_provider = call_execution.get_provider();
     return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static);
+}
+
+void TxExecution::insert_non_revertibles(const Tx&)
+{
+    // 1. Write the already siloed nullifiers.
+    // 2. Write the note hashes.
+    // 3. Write the new contracts.
+}
+
+void TxExecution::insert_revertibles(const Tx&)
+{
+    merkle_db.create_checkpoint();
+    // 1. Write the nullifiers.
+    // 2. Write the note hashes.
+    // 3. Write the new contracts.
 }
 
 } // namespace bb::avm2::simulation

@@ -105,7 +105,7 @@ function test_cmds {
     if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
       echo "$hash ISOLATE=1 CPUS=20 MEM=16g yarn-project/scripts/run_test.sh $test"
-    elif [[ "$test" == p2p/src/client/p2p_client.test.ts ]]; then
+    elif [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
       # Add debug logging for tests that require a bit more info
       echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
     else

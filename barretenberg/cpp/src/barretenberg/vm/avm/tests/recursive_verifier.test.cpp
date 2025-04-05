@@ -117,9 +117,9 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 {
     using AvmRecursiveVerifier = avm::AvmGoblinRecursiveVerifier;
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
-    using Curve = UltraRollupRecursiveFlavor::Curve;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
+    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
 
     // Generate the inputs to an AVM verifier
     auto [proof, public_inputs_vec, verification_key] = create_avm_verifier_input();
@@ -149,8 +149,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
 
     // Construct the AVM recursive verifier
     AvmRecursiveVerifier verifier(&outer_circuit, outer_key_fields);
-    stdlib::recursion::aggregation_state<Curve> agg_obj =
-        stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
+    auto agg_obj = AggregationObject::construct_default(outer_circuit);
     auto verifier_output = verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_obj);
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
@@ -185,8 +184,8 @@ TEST_F(AvmRecursiveTests, recursion)
 
     using AvmRecursiveFlavor = AvmRecursiveFlavor_<UltraCircuitBuilder>;
     using AvmRecursiveVerifier = bb::avm::AvmRecursiveVerifier_<AvmRecursiveFlavor>;
-    using Curve = AvmRecursiveFlavor::Curve;
     using DeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
 
     // Generate the inputs to an AVM verifier
     auto [proof, public_inputs_vec, verification_key] = create_avm_verifier_input();
@@ -194,7 +193,7 @@ TEST_F(AvmRecursiveTests, recursion)
     // Construct an AVM recursive verifier circuit
     OuterBuilder outer_circuit;
     AvmRecursiveVerifier recursive_verifier{ &outer_circuit, verification_key };
-    auto agg_object = stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
+    auto agg_object = AggregationObject::construct_default(outer_circuit);
     auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_vec, agg_object);
 
     // Ensure that the pairing check is satisfed on the outputs of the recursive verifier

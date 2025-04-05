@@ -3,6 +3,7 @@
 #pragma once
 
 #include <cstdint>
+#include <ostream>
 #include <vector>
 
 #include "barretenberg/common/utils.hpp"
@@ -21,12 +22,26 @@ namespace bb::avm2 {
 ////////////////////////////////////////////////////////////////////////////
 // Public Inputs
 ////////////////////////////////////////////////////////////////////////////
+
+struct GlobalVariables {
+    FF blockNumber;
+
+    bool operator==(const GlobalVariables& other) const = default;
+
+    MSGPACK_FIELDS(blockNumber);
+};
+
 struct AppendOnlyTreeSnapshot {
     FF root;
     uint64_t nextAvailableLeafIndex;
 
     std::size_t hash() const noexcept { return utils::hash_as_tuple(root, nextAvailableLeafIndex); }
     bool operator==(const AppendOnlyTreeSnapshot& other) const = default;
+    friend std::ostream& operator<<(std::ostream& os, const AppendOnlyTreeSnapshot& obj)
+    {
+        os << "root: " << obj.root << ", nextAvailableLeafIndex: " << obj.nextAvailableLeafIndex;
+        return os;
+    }
 
     MSGPACK_FIELDS(root, nextAvailableLeafIndex);
 };
@@ -43,6 +58,7 @@ struct TreeSnapshots {
 };
 
 struct PublicInputs {
+    GlobalVariables globalVariables;
     TreeSnapshots startTreeSnapshots;
     bool reverted;
 
@@ -51,7 +67,7 @@ struct PublicInputs {
     std::vector<std::vector<FF>> to_columns() const { return { { reverted } }; }
     bool operator==(const PublicInputs& other) const = default;
 
-    MSGPACK_FIELDS(startTreeSnapshots, reverted);
+    MSGPACK_FIELDS(globalVariables, startTreeSnapshots, reverted);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -177,6 +193,36 @@ template <typename Leaf> struct SequentialInsertHint {
     MSGPACK_FIELDS(hintKey, treeId, leaf, lowLeavesWitnessData, insertionWitnessData, stateAfter);
 };
 
+struct CheckpointActionNoStateChangeHint {
+    // key
+    uint32_t actionCounter;
+    // current checkpoint evolution
+    uint32_t oldCheckpointId;
+    uint32_t newCheckpointId;
+
+    bool operator==(const CheckpointActionNoStateChangeHint& other) const = default;
+
+    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId);
+};
+
+using CreateCheckpointHint = CheckpointActionNoStateChangeHint;
+using CommitCheckpointHint = CheckpointActionNoStateChangeHint;
+
+struct RevertCheckpointHint {
+    // key
+    uint32_t actionCounter;
+    // current checkpoint evolution
+    uint32_t oldCheckpointId;
+    uint32_t newCheckpointId;
+    // state evolution
+    TreeSnapshots stateBefore;
+    TreeSnapshots stateAfter;
+
+    bool operator==(const RevertCheckpointHint& other) const = default;
+
+    MSGPACK_FIELDS(actionCounter, oldCheckpointId, newCheckpointId, stateBefore, stateAfter);
+};
+
 ////////////////////////////////////////////////////////////////////////////
 // Hints (other)
 ////////////////////////////////////////////////////////////////////////////
@@ -238,6 +284,9 @@ struct ExecutionHints {
     std::vector<GetLeafValueHint> getLeafValueHints;
     std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>> sequentialInsertHintsPublicDataTree;
     std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequentialInsertHintsNullifierTree;
+    std::vector<CreateCheckpointHint> createCheckpointHints;
+    std::vector<CommitCheckpointHint> commitCheckpointHints;
+    std::vector<RevertCheckpointHint> revertCheckpointHints;
 
     bool operator==(const ExecutionHints& other) const = default;
 
@@ -251,7 +300,10 @@ struct ExecutionHints {
                    getLeafPreimageHintsNullifierTree,
                    getLeafValueHints,
                    sequentialInsertHintsPublicDataTree,
-                   sequentialInsertHintsNullifierTree);
+                   sequentialInsertHintsNullifierTree,
+                   createCheckpointHints,
+                   commitCheckpointHints,
+                   revertCheckpointHints);
 };
 
 ////////////////////////////////////////////////////////////////////////////
@@ -268,9 +320,3 @@ struct AvmProvingInputs {
 };
 
 } // namespace bb::avm2
-
-// Define hash function so that they can be used as keys in maps.
-// See https://en.cppreference.com/w/cpp/utility/hash.
-template <> struct std::hash<bb::avm2::AppendOnlyTreeSnapshot> {
-    std::size_t operator()(const bb::avm2::AppendOnlyTreeSnapshot& st) const noexcept { return st.hash(); }
-};

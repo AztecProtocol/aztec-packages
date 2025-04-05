@@ -119,6 +119,7 @@ export class SequencerClient {
           aztecSlotDuration: config.aztecSlotDuration,
           ethereumSlotDuration: config.ethereumSlotDuration,
           aztecEpochDuration: config.aztecEpochDuration,
+          aztecProofSubmissionWindow: config.aztecProofSubmissionWindow,
         },
         { dateProvider: deps.dateProvider },
       ));

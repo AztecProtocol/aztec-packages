@@ -18,6 +18,7 @@
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
 #include "barretenberg/vm2/simulation/events/to_radix_event.hpp"
+#include "barretenberg/vm2/simulation/events/update_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -44,6 +45,7 @@ struct EventsContainer {
     EventEmitterInterface<RangeCheckEvent>::Container range_check;
     EventEmitterInterface<ContextStackEvent>::Container context_stack;
     EventEmitterInterface<PublicDataTreeReadEvent>::Container public_data_read_events;
+    EventEmitterInterface<UpdateCheckEvent>::Container update_check_events;
 };
 
 } // namespace bb::avm2::simulation

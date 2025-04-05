@@ -75,6 +75,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     using OuterProver = UltraProver;
     using OuterVerifier = UltraVerifier;
     using OuterDeciderProvingKey = DeciderProvingKey_<UltraFlavor>;
+    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
 
     if (testing::skip_slow_tests()) {
         GTEST_SKIP();
@@ -92,10 +93,7 @@ TEST_F(AvmRecursiveTests, StandardRecursion)
     {
         RecursiveVerifier recursive_verifier{ outer_circuit, verification_key };
 
-        auto agg_object =
-            stdlib::recursion::init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(
-                outer_circuit);
-
+        auto agg_object = AggregationObject::construct_default(outer_circuit);
         auto agg_output = recursive_verifier.verify_proof(proof, public_inputs_cols, agg_object);
 
         bool agg_output_valid =
@@ -164,13 +162,9 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Type aliases specific to GoblinRecursion test
     using AvmRecursiveVerifier = AvmGoblinRecursiveVerifier;
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraRollupFlavor::CircuitBuilder>;
-    using Curve = UltraRollupRecursiveFlavor::Curve;
     using UltraFF = UltraRollupRecursiveFlavor::FF;
     using UltraRollupProver = UltraProver_<UltraRollupFlavor>;
-
-    if (testing::skip_slow_tests()) {
-        GTEST_SKIP();
-    }
+    using AggregationObject = stdlib::recursion::aggregation_state<OuterBuilder>;
 
     NativeProofResult proof_result;
     ASSERT_NO_FATAL_FAILURE({ create_and_verify_native_proof(proof_result); });
@@ -203,7 +197,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
     // Scoped to free memory of AvmRecursiveVerifier.
     auto verifier_output = [&]() {
         AvmRecursiveVerifier avm_rec_verifier(outer_circuit, outer_key_fields);
-        auto agg_object = stdlib::recursion::init_default_aggregation_state<OuterBuilder, Curve>(outer_circuit);
+        auto agg_object = AggregationObject::construct_default(outer_circuit);
         return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
     }();
 

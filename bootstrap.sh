@@ -333,6 +333,10 @@ case "$cmd" in
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
+  "docs-release")
+    build
+    docs/bootstrap.sh docs-release
+    ;;
   *)
     echo "Unknown command: $cmd"
     echo "usage: $0 <clean|check|fast|full|test_cmds|test|ci|release>"
