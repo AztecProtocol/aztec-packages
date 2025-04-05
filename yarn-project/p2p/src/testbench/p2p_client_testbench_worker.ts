@@ -14,7 +14,7 @@ import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { Tx, TxStatus } from '@aztec/stdlib/tx';
 
-import type { Message, PeerId } from '@libp2p/interface';
+import { type Message, type PeerId, TopicValidatorResult } from '@libp2p/interface';
 
 import type { P2PConfig } from '../config.js';
 import { createP2PClient } from '../index.js';
@@ -80,7 +80,6 @@ process.on('message', async msg => {
       const epochCache = mockEpochCache();
       const worldState = {} as WorldStateSynchronizer;
       const l2BlockSource = new MockL2BlockSource();
-      await l2BlockSource.createBlocks(100);
 
       const proofVerifier = new AlwaysTrueCircuitVerifier();
       const kvStore = await openTmpStore(`test-${clientIndex}`);
@@ -103,6 +102,22 @@ process.on('message', async msg => {
         undefined,
         deps,
       );
+
+      // We disable message validation in the testbench
+      // In our case we only deal with txs
+      (client as any).p2pService.handleGossipedTx = async (msg: Message, msgId: string, source: PeerId) => {
+        const tx = Tx.fromBuffer(Buffer.from(msg.data));
+        (client as any).p2pService.node.services.pubsub.reportMessageValidationResult(
+          msgId,
+          source.toString(),
+          TopicValidatorResult.Accept,
+        );
+
+        const txHash = await tx.getTxHash();
+        const txHashString = txHash.toString();
+        logger.verbose(`Received tx ${txHashString} from external peer ${source.toString()}.`);
+        await txPool.addTxs([tx]);
+      };
 
       // Create spy for gossip messages
       let gossipMessageCount = 0;

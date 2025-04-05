@@ -244,7 +244,7 @@ class WorkerClientManager {
         } catch (e) {
           this.logger.error(`Error force killing process ${index}:`, e);
         }
-      }, 10000); // 10 second timeout for graceful exit
+      }, 5000); // 5 second timeout for graceful exit
 
       // Listen for process exit
       process.once('exit', () => {
@@ -294,7 +294,7 @@ class WorkerClientManager {
               }
             });
             resolve();
-          }, 30000); // 30 second timeout for all processes
+          }, 10000); // 10 second timeout for all processes
         }),
       ]);
     } catch (error) {
