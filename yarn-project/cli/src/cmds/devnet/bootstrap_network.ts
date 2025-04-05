@@ -58,6 +58,7 @@ export async function bootstrapNetwork(
   // so all we need to do is register them to our pxe.
   const [accountManager] = await getInitialTestAccountsManagers(pxe);
   await accountManager.register();
+  await accountManager.deploy().wait();
 
   const wallet = await accountManager.getWallet();
 

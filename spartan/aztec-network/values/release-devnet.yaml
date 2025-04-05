@@ -13,7 +13,7 @@ bootNode:
       cpu: "1.5"
 
 proverAgent:
-  replicas: 4 # testing this as we're getting timeouts if one dies
+  replicas: 3
 
 bot:
   followChain: "PENDING"
@@ -23,6 +23,7 @@ bot:
 
 network:
   public: true
+  setupL2Contracts: false
 
 images:
   aztec:
