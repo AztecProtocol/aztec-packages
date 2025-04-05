@@ -120,6 +120,10 @@ function install_hooks {
 }
 
 function test_cmds {
+  if [ -z "${NOIR_HASH:-}" ]; then
+    export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  fi
+
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
@@ -156,7 +160,9 @@ export -f start_txes
 
 function test {
   echo_header "test all"
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  if [ -z "${NOIR_HASH:-}" ]; then
+    export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  fi
 
   start_txes
 
@@ -180,7 +186,9 @@ function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
   echo_header "sync noir repo"
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  if [ -z "${NOIR_HASH:-}" ]; then
+    export NOIR_HASH=$(./noir/bootstrap.sh hash)
+  fi
 
   check_toolchains
 
