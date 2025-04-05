@@ -1,0 +1,94 @@
+name: Devnet network tests
+on:
+  pull_request:
+    paths:
+      - '**.yml'
+  workflow_dispatch:
+  schedule:
+    - cron: "00 08 * * 1-5"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # This is a workaround because the runner does not have perms to upload files anywhere else
+  CONTRACT_S3_BUCKET: s3://aztec-ci-artifacts
+jobs:
+  cli-wallet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Checkout smoke tests
+        uses: actions/checkout@v4
+        with:
+          ref: 'v0.81.0'
+          sparse-checkout: |
+            spartan/scripts/smoke-tests
+
+      # TODO: Remove after we see this script succeed consistently
+      - name: Reset state for testing
+        run: |
+          echo '{"accounts": [], "contracts": []}'> state.json
+          aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
+
+      - name: Retrieve state or set default if not
+        run: |
+          aws s3 cp ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json ./state.json || echo '{"accounts": [], "contracts": []}'> state.json
+          cat ./state.json
+
+      - name: Run smoke tests
+        run: |
+          ./spartan/scripts/smoke-tests/main.sh
+
+      - name: Re-commit state
+        run: |
+          jq '.last_modified = (now | tostring)' state.json > tmp.json && mv tmp.json state.json
+          cat ./state.json
+
+          aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
+
+  npm-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: eu-west-2
+
+      - name: Checkout aztec starter
+        uses: actions/checkout@v4
+        with:
+          ref: 'ek/devnet-smoke-tests'
+          repository: 'aztecprotocol/aztec-starter'
+
+      # TODO: Remove after we see this script succeed consistently
+      - name: Reset state for testing
+        run: |
+          echo '{"accounts": [], "contracts": []}'> state.json
+          aws s3 cp ./state.json $CONTRACT_S3_BUCKET/build-cache/devnet-nightly-tests-state.json
+
+      - name: Retrieve state or set default if not
+        run: |
+          aws s3 cp $CONTRACT_S3_BUCKET/build-cache/devnet-nightly-tests-state.json ./state.json || echo '{"accounts": [], "contracts": []}'> state.json
+          cat ./state.json
+
+      - name: Run smoke tests
+        run: |
+          yarn
+          yarn smoke
+
+      - name: Re-commit state
+        run: |
+          jq '.last_modified = (now | tostring)' state.json > tmp.json && mv tmp.json state.json
+          cat ./state.json
+
+          aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
