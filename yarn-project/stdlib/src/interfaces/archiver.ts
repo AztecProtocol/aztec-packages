@@ -47,7 +47,10 @@ export const ArchiverApiSchema: ApiSchemaFor<ArchiverApi> = {
     .function()
     .args(schemas.Integer, schemas.Integer, optional(z.boolean()))
     .returns(z.array(PublishedL2BlockSchema)),
-  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
+  getTxEffect: z
+    .function()
+    .args(TxHash.schema)
+    .returns(inBlockSchemaFor(TxEffect.schema).extend({ txIndexInBlock: schemas.Integer }).optional()),
   getSettledTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema.optional()),
   getL2SlotNumber: z.function().args().returns(schemas.BigInt),
   getL2EpochNumber: z.function().args().returns(schemas.BigInt),

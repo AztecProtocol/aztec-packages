@@ -1122,7 +1122,7 @@ class ArchiverStoreHelper
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
     return this.store.getTxEffect(txHash);
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {

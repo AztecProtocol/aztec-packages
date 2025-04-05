@@ -181,9 +181,9 @@ export class BlockStore {
   /**
    * Gets a tx effect.
    * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @returns The requested tx effect (or undefined if not found) along with its index in the block.
    */
-  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
     const [blockNumber, txIndex] = (await this.getTxLocation(txHash)) ?? [];
     if (typeof blockNumber !== 'number' || typeof txIndex !== 'number') {
       return undefined;
@@ -198,6 +198,7 @@ export class BlockStore {
       data: block.block.body.txEffects[txIndex],
       l2BlockNumber: block.block.number,
       l2BlockHash: (await block.block.hash()).toString(),
+      txIndexInBlock: txIndex,
     };
   }
 

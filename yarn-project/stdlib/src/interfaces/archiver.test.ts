@@ -1,3 +1,4 @@
+import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
@@ -270,9 +271,9 @@ class MockArchiver implements ArchiverApi {
       },
     ];
   }
-  async getTxEffect(_txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(_txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);

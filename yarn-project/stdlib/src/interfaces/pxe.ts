@@ -202,11 +202,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect (or undefined if not found) along with its index in the block.
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -473,7 +473,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getTxEffect: z
     .function()
     .args(TxHash.schema)
-    .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
+    .returns(inBlockSchemaFor(TxEffect.schema).extend({ txIndexInBlock: schemas.Integer }).optional()),
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
   getL1ToL2MembershipWitness: z

@@ -167,7 +167,10 @@ describe('PXEOracleInterface', () => {
         await taggingDataProvider.addSenderAddress(sender.completeAddress.address);
       }
       aztecNode.getLogsByTags.mockReset();
-      aztecNode.getTxEffect.mockResolvedValue(randomInBlock(await TxEffect.random()));
+      aztecNode.getTxEffect.mockResolvedValue({
+        ...randomInBlock(await TxEffect.random()),
+        txIndexInBlock: 0,
+      });
     });
 
     it('should sync tagged logs', async () => {
