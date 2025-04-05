@@ -160,6 +160,7 @@ uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
 uint256 constant NUMBER_OF_ENTITIES = 40;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
+uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
@@ -277,7 +278,7 @@ library Honk {
 
 struct ZKProof {
         // Pairing point object
-        Fr[PAIRING_POINT_OBJECT_LENGTH] pairing_point_object;
+        Fr[PAIRING_POINT_OBJECT_LENGTH] pairingPointObject;
         // Commitments to wire polynomials
         Honk.G1ProofPoint w1;
         Honk.G1ProofPoint w2;
@@ -385,7 +386,7 @@ library ZKTranscriptLib {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
         for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = bytes32(proof.pairing_point_object[i]);
+            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
@@ -1515,7 +1516,6 @@ interface IVerifier {
     error ConsistencyCheckFailed();
 
     uint256 constant PROOF_SIZE = 507;
-    uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
 
     function verify(bytes calldata proof, bytes32[] calldata publicInputs) public view override returns (bool verified) {
       // Check the received proof is the expected size where each field element is 32 bytes

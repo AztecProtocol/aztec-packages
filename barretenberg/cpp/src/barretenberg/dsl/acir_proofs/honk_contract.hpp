@@ -151,6 +151,7 @@ uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
 uint256 constant NUMBER_OF_ENTITIES = 40;
 uint256 constant NUMBER_UNSHIFTED = 35;
 uint256 constant NUMBER_TO_BE_SHIFTED = 5;
+uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
 
 // Alphas are used as relation separators so there should be NUMBER_OF_SUBRELATIONS - 1
 uint256 constant NUMBER_OF_ALPHAS = 25;
@@ -269,7 +270,7 @@ library Honk {
 
     struct Proof {
         // Pairing point object
-        Fr[PAIRING_POINT_OBJECT_LENGTH] pairing_point_object;
+        Fr[PAIRING_POINT_OBJECT_LENGTH] pairingPointObject;
         // Free wires
         Honk.G1ProofPoint w1;
         Honk.G1ProofPoint w2;
@@ -371,7 +372,7 @@ library TranscriptLib {
             round0[3 + i] = bytes32(publicInputs[i]);
         }
         for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
-            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = bytes32(proof.pairing_point_object[i]);
+            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
@@ -1440,7 +1441,6 @@ abstract contract BaseHonkVerifier is IVerifier {
 
     // Number of field elements in a ultra honk zero knowledge proof
     uint256 constant PROOF_SIZE = 456;
-    uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
 
     function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
 
