@@ -743,6 +743,12 @@ export class PXEOracleInterface implements ExecutionDataProvider {
 
     for (const recipient of await this.keyStore.getAccounts()) {
       const currentNotesForRecipient = await this.noteDataProvider.getNotes({ contractAddress, recipient });
+
+      if (currentNotesForRecipient.length === 0) {
+        // Save a call to the node if there are no notes for the recipient
+        continue;
+      }
+
       const nullifiersToCheck = currentNotesForRecipient.map(note => note.siloedNullifier);
       const nullifierIndexes = await this.aztecNode.findLeavesIndexes(
         syncedBlockNumber,
