@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 
@@ -129,6 +130,8 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
           hints.sequentialInsertHintsPublicDataTree.size(),
           "\n * sequential_insert_hints_nullifier_tree: ",
           hints.sequentialInsertHintsNullifierTree.size(),
+          "\n * append_leaves_hints: ",
+          hints.appendLeavesHints.size(),
           "\n * create_checkpoint_hints: ",
           hints.createCheckpointHints.size(),
           "\n * commit_checkpoint_hints: ",
@@ -181,6 +184,12 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
                                                      sequential_insert_hint.treeId,
                                                      sequential_insert_hint.leaf };
         sequential_insert_hints_nullifier_tree[key] = sequential_insert_hint;
+    }
+
+    for (const auto& append_leaves_hint : hints.appendLeavesHints) {
+        // Convert the span from the hint to a vector for the key
+        AppendLeavesHintKey key = { append_leaves_hint.hintKey, append_leaves_hint.treeId, append_leaves_hint.leaves };
+        append_leaves_hints[key] = append_leaves_hint.stateAfter;
     }
 
     for (const auto& create_checkpoint_hint : hints.createCheckpointHints) {
@@ -324,8 +333,7 @@ world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
         hint.insertionWitnessData.leaf, hint.insertionWitnessData.index, hint.insertionWitnessData.path);
 
     // Evolve state.
-    tree_roots.publicDataTree.root = hint.stateAfter.root;
-    tree_roots.publicDataTree.nextAvailableLeafIndex = hint.stateAfter.nextAvailableLeafIndex;
+    tree_roots.publicDataTree = hint.stateAfter;
 
     debug("Evolved state of PUBLIC_DATA_TREE: ",
           tree_roots.publicDataTree.root,
@@ -364,8 +372,7 @@ world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> 
         hint.insertionWitnessData.leaf, hint.insertionWitnessData.index, hint.insertionWitnessData.path);
 
     // Evolve state.
-    tree_roots.nullifierTree.root = hint.stateAfter.root;
-    tree_roots.nullifierTree.nextAvailableLeafIndex = hint.stateAfter.nextAvailableLeafIndex;
+    tree_roots.nullifierTree = hint.stateAfter;
 
     debug("Evolved state of NULLIFIER_TREE: ",
           tree_roots.nullifierTree.root,
@@ -498,6 +505,53 @@ void HintedRawMerkleDB::revert_checkpoint()
           hint.newCheckpointId);
 
     checkpoint_action_counter++;
+}
+
+void HintedRawMerkleDB::append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves)
+{
+    if (leaves.empty()) {
+        return;
+    }
+
+    auto tree_info = get_tree_info(tree_id);
+    AppendLeavesHintKey key = { tree_info, tree_id, std::vector<FF>(leaves.begin(), leaves.end()) };
+    auto it = append_leaves_hints.find(key);
+    if (it == append_leaves_hints.end()) {
+        throw std::runtime_error(format("Append leaves hint not found for key (root: ",
+                                        tree_info.root,
+                                        ", size: ",
+                                        tree_info.nextAvailableLeafIndex,
+                                        ", tree_id: ",
+                                        static_cast<uint32_t>(tree_id),
+                                        ", leaves: ",
+                                        leaves[0],
+                                        "..., leaves count: ",
+                                        leaves.size(),
+                                        ")"));
+    }
+    const auto& stateAfter = it->second;
+
+    // Update the tree state based on the hint
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        tree_roots.noteHashTree = stateAfter;
+        debug("Evolved state of NOTE_HASH_TREE: ",
+              tree_roots.noteHashTree.root,
+              " (size: ",
+              tree_roots.noteHashTree.nextAvailableLeafIndex,
+              ")");
+        break;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        tree_roots.l1ToL2MessageTree = stateAfter;
+        debug("Evolved state of L1_TO_L2_MESSAGE_TREE: ",
+              tree_roots.l1ToL2MessageTree.root,
+              " (size: ",
+              tree_roots.l1ToL2MessageTree.nextAvailableLeafIndex,
+              ")");
+        break;
+    default:
+        throw std::runtime_error("append_leaves is only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE");
+    }
 }
 
 } // namespace bb::avm2::simulation
