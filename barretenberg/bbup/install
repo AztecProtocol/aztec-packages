@@ -37,7 +37,7 @@ chmod 755 "$INSTALL_PATH"
 
 # Add to shell config files if not already present
 PATH_ENTRY="export PATH=\"\${HOME}/.bb:\${PATH}\""
-FISH_PATH_ENTRY="set -gx PATH \${HOME}/.bb \$PATH"
+FISH_PATH_ENTRY="set -gx PATH \"\$HOME\"/.bb \$PATH"
 
 add_to_config() {
     local config_file="$1"
