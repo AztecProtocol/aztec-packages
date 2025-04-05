@@ -208,7 +208,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
  * @brief Construct the proving key of the hiding circuit, which recursively verifies the last folding proof and the
  * decider proof.
  */
-std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> ClientIVC::
+std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof> ClientIVC::
     construct_hiding_circuit_key()
 {
     trace_usage_tracker.print(); // print minimum structured sizes for each block
@@ -260,8 +260,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> 
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);
 
-    auto decider_pk = std::make_shared<DeciderProvingKey>(builder, TraceSettings(), bn254_commitment_key);
-    honk_vk = std::make_shared<MegaVerificationKey>(decider_pk->proving_key);
+    auto decider_pk = std::make_shared<DeciderZKProvingKey>(builder, TraceSettings(), bn254_commitment_key);
+    honk_vk = std::make_shared<MegaZKVerificationKey>(decider_pk->proving_key);
 
     return { decider_pk, merge_proof };
 }
@@ -274,7 +274,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> 
 std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hiding_circuit()
 {
     auto [decider_pk, merge_proof] = construct_hiding_circuit_key();
-    MegaProver prover(decider_pk);
+    // FoldingRecursiveVerifier circuit is proven by a MegaZKProver
+    MegaZKProver prover(decider_pk);
     HonkProof proof = prover.construct_proof();
 
     return { proof, merge_proof };
@@ -301,7 +302,7 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
 
     // Verify the hiding circuit proof
-    MegaVerifier verifer{ vk.mega };
+    MegaZKVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)

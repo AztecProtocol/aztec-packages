@@ -54,7 +54,7 @@ std::vector<typename GeminiProver_<Curve>::Claim> GeminiProver_<Curve>::prove(
 
     // To achieve ZK, we mask the batched polynomial by a random polynomial of the same size
     if (has_zk) {
-        Polynomial random_polynomial(n);
+        Polynomial random_polynomial = Polynomial::random(n);
         transcript->send_to_verifier("Gemini:masking_poly_comm", commitment_key->commit(random_polynomial));
         // In the provers, the size of multilinear_challenge is CONST_PROOF_SIZE_LOG_N, but we need to evaluate the
         // hiding polynomial as multilinear in log_n variables
