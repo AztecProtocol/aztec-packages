@@ -1,6 +1,7 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
+import { timesAsync } from '@aztec/foundation/collection';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -8,9 +9,9 @@ import os from 'os';
 import path from 'path';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
-import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
+import { createNodes } from '../fixtures/setup_p2p_test.js';
 import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
-import { createPXEServiceAndSubmitTransactions } from './shared.js';
+import { createPXEServiceAndPrepareTransactions } from './shared.js';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 6;
@@ -33,6 +34,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
         listenAddress: '127.0.0.1',
+        aztecEpochDuration: 48, // no reorgs please
       },
     });
     await t.setupAccount();
@@ -79,11 +81,18 @@ describe('e2e_p2p_reqresp_tx', () => {
       shouldCollectMetrics(),
     );
 
-    // wait a bit for peers to discover each other
+    t.logger.info('Sleeping to allow nodes to connect');
     await sleep(4000);
 
-    const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
+    t.logger.info('Preparing transactions to send');
+    const contexts = await timesAsync(2, i =>
+      createPXEServiceAndPrepareTransactions(t.logger, nodes[i], NUM_TXS_PER_NODE, t.fundedAccount),
+    );
 
+    t.logger.info('Starting fresh slot');
+    await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+
+    const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
     t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip}`);
     t.logger.info(`Sending txs to proposer nodes: ${proposerIndexes}`);
 
@@ -93,39 +102,23 @@ describe('e2e_p2p_reqresp_tx', () => {
     for (const nodeIndex of nodesToTurnOffTxGossip) {
       jest
         .spyOn((nodes[nodeIndex] as any).p2pClient.p2pService, 'handleGossipedTx')
-        .mockImplementation((): Promise<void> => {
-          return Promise.resolve();
-        });
+        .mockImplementation(() => Promise.resolve());
     }
 
-    t.logger.info('Submitting transactions');
+    t.logger.info('Sending transactions');
+    const sentTxs = contexts.map(c => c.txs.map(tx => tx.send()));
 
-    const contextPromises: Promise<NodeContext>[] = [];
-    // Send to the first two proposers
-    for (const nodeIndex of proposerIndexes.slice(0, 2)) {
-      const context = createPXEServiceAndSubmitTransactions(
-        t.logger,
-        nodes[nodeIndex],
-        NUM_TXS_PER_NODE,
-        t.fundedAccount,
-      );
-      contextPromises.push(context);
-    }
-    const contexts: NodeContext[] = await Promise.all(contextPromises);
-
-    // Wait for transactions to be sent
-
-    t.logger.info('Waiting for transactions to be mined');
+    t.logger.info('Waiting for all transactions to be mined');
     await Promise.all(
-      contexts.flatMap((context, i) =>
-        context.txs.map(async (tx, j) => {
-          t.logger.info(`Waiting for tx ${i}-${j}: ${await tx.getTxHash()} to be mined`);
+      sentTxs.flatMap((txs, i) =>
+        txs.map(async (tx, j) => {
+          t.logger.info(`Waiting for tx ${i}-${j} ${await tx.getTxHash()} to be mined`);
           await tx.wait({ timeout: WAIT_FOR_TX_TIMEOUT * 1.5 }); // more transactions in this test so allow more time
-          t.logger.info(`Tx ${i}-${j}: ${await tx.getTxHash()} has been mined`);
-          return await tx.getTxHash();
+          t.logger.info(`Tx ${i}-${j} ${await tx.getTxHash()} has been mined`);
         }),
       ),
     );
+
     t.logger.info('All transactions mined');
   });
 
@@ -156,8 +149,6 @@ describe('e2e_p2p_reqresp_tx', () => {
     }
     // Get the indexes of the nodes that are responsible for the next two slots
     const proposerIndexes = proposers.map(proposer => mappedProposers.indexOf(proposer as `0x${string}`));
-
-    t.logger.info('proposerIndexes: ' + proposerIndexes.join(', '));
 
     const nodesToTurnOffTxGossip = Array.from({ length: NUM_NODES }, (_, i) => i).filter(
       i => !proposerIndexes.includes(i),
