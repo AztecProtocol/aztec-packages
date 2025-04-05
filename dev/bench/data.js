@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743811360785,
+  "lastUpdate": 1743811963089,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "alexghr@users.noreply.github.com",
-            "name": "Alex Gherghisan",
-            "username": "alexghr"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "4ee1e4ad3c1fa444b187943b9616d7f7d01eb1ad",
-          "message": "fix: read and pass rollup version (#13232)\n\nRead the canonical rollup version and enrich the configs",
-          "timestamp": "2025-04-02T16:08:45Z",
-          "tree_id": "c3c12d3e60adaffce7356be30e0fcc4d9ca7fd13",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/4ee1e4ad3c1fa444b187943b9616d7f7d01eb1ad"
-        },
-        "date": 1743613211172,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 26910,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17901,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 8783,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10326,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 11056,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2888,6 +2834,84 @@ window.BENCHMARK_DATA = {
             "value": 12519,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "98505400+ledwards2225@users.noreply.github.com",
+            "name": "ledwards2225",
+            "username": "ledwards2225"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "76a4525ad0fe1f92f10ef7b2a934900f5dfcac34",
+          "message": "chore: update hash to fix test and dont skip join split tests (#13175)\n\nRemove the skip on join split tests (which should probably be deleted\nsoon anyway) and update a VK hash to make those tests pass. The cause of\nthe flake seen by Charlie may still be present but we won't know if it\ndoesnt run.",
+          "timestamp": "2025-04-04T23:10:56Z",
+          "tree_id": "24cb165415c4a3b610004a05e248e6a7c4c8861b",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/76a4525ad0fe1f92f10ef7b2a934900f5dfcac34"
+        },
+        "date": 1743811955144,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 21072.489440000027,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15677.555258 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 122513091066.5,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2005982122,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 289257990,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19734.19302100001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16905.785797 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56857.596534,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56857594000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4207.013992000157,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3477.543543 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 12083.269593,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 12083276000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2337.56",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
