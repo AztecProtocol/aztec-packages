@@ -180,7 +180,7 @@ export class BlockStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found) along with its index in the block.
    */
   async getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {

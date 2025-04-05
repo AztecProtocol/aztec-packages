@@ -68,7 +68,7 @@ export interface L2BlockSource {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found) along with its index in the block.
    */
   getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined>;

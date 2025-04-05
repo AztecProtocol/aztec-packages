@@ -1,6 +1,5 @@
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
-import { randomInt } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
@@ -129,7 +128,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
    * @returns The requested tx effect (or undefined if not found) along with its index in the block.
    */
   public async getTxEffect(txHash: TxHash) {
@@ -144,7 +143,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
       data: txEffect,
       l2BlockNumber: block.number,
       l2BlockHash: (await block.hash()).toString(),
-      txIndexInBlock: randomInt(10),
+      txIndexInBlock: block.body.txEffects.indexOf(txEffect),
     };
   }
 
