@@ -262,6 +262,29 @@ function AvmSequentialInsertHintFactory(klass: IndexedTreeLeafPreimagesClasses) 
 export class AvmSequentialInsertHintPublicDataTree extends AvmSequentialInsertHintFactory(PublicDataTreeLeafPreimage) {}
 export class AvmSequentialInsertHintNullifierTree extends AvmSequentialInsertHintFactory(NullifierLeafPreimage) {}
 
+// Hint for MerkleTreeDB.appendLeaves.
+// Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
+export class AvmAppendLeavesHint {
+  constructor(
+    public readonly hintKey: AppendOnlyTreeSnapshot,
+    public readonly stateAfter: AppendOnlyTreeSnapshot,
+    // params
+    public readonly treeId: MerkleTreeId,
+    public readonly leaf: Fr,
+  ) {}
+
+  static get schema() {
+    return z
+      .object({
+        hintKey: AppendOnlyTreeSnapshot.schema,
+        stateAfter: AppendOnlyTreeSnapshot.schema,
+        treeId: z.number().int().nonnegative(),
+        leaf: schemas.Fr,
+      })
+      .transform(({ hintKey, stateAfter, treeId, leaf }) => new AvmAppendLeavesHint(hintKey, stateAfter, treeId, leaf));
+  }
+}
+
 // Hint for checkpoint actions that don't change the state.
 class AvmCheckpointActionNoStateChangeHint {
   constructor(
@@ -497,6 +520,7 @@ export class AvmExecutionHints {
     public readonly getLeafValueHints: AvmGetLeafValueHint[] = [],
     public readonly sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree[] = [],
     public readonly sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree[] = [],
+    public readonly appendLeavesHints: AvmAppendLeavesHint[] = [],
     public readonly createCheckpointHints: AvmCreateCheckpointHint[] = [],
     public readonly commitCheckpointHints: AvmCommitCheckpointHint[] = [],
     public readonly revertCheckpointHints: AvmRevertCheckpointHint[] = [],
@@ -520,6 +544,7 @@ export class AvmExecutionHints {
         getLeafValueHints: AvmGetLeafValueHint.schema.array(),
         sequentialInsertHintsPublicDataTree: AvmSequentialInsertHintPublicDataTree.schema.array(),
         sequentialInsertHintsNullifierTree: AvmSequentialInsertHintNullifierTree.schema.array(),
+        appendLeavesHints: AvmAppendLeavesHint.schema.array(),
         createCheckpointHints: AvmCreateCheckpointHint.schema.array(),
         commitCheckpointHints: AvmCommitCheckpointHint.schema.array(),
         revertCheckpointHints: AvmRevertCheckpointHint.schema.array(),
@@ -537,6 +562,7 @@ export class AvmExecutionHints {
           getLeafValueHints,
           sequentialInsertHintsPublicDataTree,
           sequentialInsertHintsNullifierTree,
+          appendLeavesHints,
           createCheckpointHints,
           commitCheckpointHints,
           revertCheckpointHints,
@@ -553,6 +579,7 @@ export class AvmExecutionHints {
             getLeafValueHints,
             sequentialInsertHintsPublicDataTree,
             sequentialInsertHintsNullifierTree,
+            appendLeavesHints,
             createCheckpointHints,
             commitCheckpointHints,
             revertCheckpointHints,

@@ -4,6 +4,7 @@ import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { IndexedTreeLeafPreimage, SiblingPath } from '@aztec/foundation/trees';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import {
+  AvmAppendLeavesHint,
   AvmBytecodeCommitmentHint,
   AvmCommitCheckpointHint,
   AvmContractClassHint,
@@ -262,6 +263,37 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     }
 
     return result;
+  }
+
+  public override async appendLeaves<ID extends MerkleTreeId>(
+    treeId: ID,
+    leaves: MerkleTreeLeafType<ID>[],
+  ): Promise<void> {
+    // Use sequentialInsert for PublicDataTree and NullifierTree.
+    assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+    // We only support 1 leaf at a time for now. Can easily be extended.
+    assert(leaves.length === 1, 'appendLeaves supports only one leaf at a time!');
+
+    const beforeState = await this.getHintKey(treeId);
+
+    await super.appendLeaves<ID>(treeId, leaves);
+
+    const afterState = await this.getHintKey(treeId);
+
+    HintingPublicTreesDB.log.debug('[appendLeaves] Evolved tree state.');
+    HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
+
+    switch (treeId) {
+      case MerkleTreeId.NOTE_HASH_TREE:
+        this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves[0] as Fr));
+        break;
+      case MerkleTreeId.L1_TO_L2_MESSAGE_TREE:
+        this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves[0] as Fr));
+        break;
+      default:
+        throw new Error('appendLeaves only supported for NoteHashTree and L1ToL2MessageTree!');
+        break;
+    }
   }
 
   public override async createCheckpoint(): Promise<void> {
