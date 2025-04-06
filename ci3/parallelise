@@ -16,19 +16,22 @@ echo "Starting test run using max $num_cpus cpus..."
 # Init the cpu scheduling semaphore.
 sem_sched init $num_cpus
 
+output=$(mktemp)
+trap 'rm -f $output' EXIT
+
 # If we're in a terminal default to a progress bar, and use cache_log to save output to redis.
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
   set +e
-  output=$(parallel $parallel_args --bar "DUMP_FAIL=1 run_test_cmd {}" | DUP=1 cache_log "Test run"; exit ${PIPESTATUS[0]})
-  code=$?
+  parallel $parallel_args --bar "DUMP_FAIL=1 run_test_cmd {}" | DUP=1 cache_log "Test run" &> $output
+  code=${PIPESTATUS[0]}
   if [ "$code" -ne 0 ]; then
-    echo -e "$output"
+    cat $output
     exit 1
   fi
   set -e
 else
-  denoise "parallel $parallel_args 'run_test_cmd {}'"
+  denoise "parallel $parallel_args 'run_test_cmd {}' | tee $output"
 fi
 
 function filter_long_times {
@@ -39,7 +42,7 @@ function filter_long_times {
     sed 's/^[0-9]\+ //'                # Remove the extracted number used for sorting
 }
 
-slow_jobs=$(echo "$output" | filter_long_times)
+slow_jobs=$(cat "$output" | filter_long_times)
 if [ -n "$slow_jobs" ]; then
   echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
   echo "$slow_jobs"
