@@ -10,7 +10,7 @@ function test_cmds {
   local prefix="$hash $run_test_script"
 
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash:timeout=15m:CPUS=16:MEM=96g $run_test_script simple e2e_prover/full real"
+    echo "$hash:timeout=15m:CPUS=8:MEM=96g $run_test_script simple e2e_prover/full real"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
   fi
