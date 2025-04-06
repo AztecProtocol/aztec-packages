@@ -51,7 +51,7 @@ if [ "$(stat -c %U counter_contract)" != "ubuntu" ]; then
 fi
 
 # "Write" our contract.
-cp -Rf ./aztec-packages/noir-projects/noir-contracts/contracts/counter_contract .
+cp -Rf ./aztec-packages/noir-projects/noir-contracts/contracts/test/counter_contract .
 cd counter_contract
 sed -i 's|\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/|g' Nargo.toml
 
