@@ -31,9 +31,15 @@ else
   denoise "parallel $parallel_args 'run_test_cmd {}'"
 fi
 
-slow_jobs=$(cat joblog.txt | \
-  awk 'NR>1 && $4 > 300 {print | "sort -k4,4"}' | \
-  awk '{print $4 ": " substr($0, index($0, $10))}')
+function filter_long_times {
+    grep -E '\([0-9]+s\)$' |           # Match lines ending with (number)s
+    sed 's/.*(\([0-9]\+\)s)$/\1 &/' |  # Extract number and keep original line
+    awk '$1 > 300 {print $0}' |        # Filter for times > 300s
+    sort -n |                          # Sort numerically by first column (time)
+    sed 's/^[0-9]\+ //'                # Remove the extracted number used for sorting
+}
+
+slow_jobs=$(echo "$output" | filter_long_times)
 if [ -n "$slow_jobs" ]; then
   echo -e "${yellow}WARNING: The following tests exceed 5 minute runtimes. Break them up or rethink them.${reset}"
   echo "$slow_jobs"
