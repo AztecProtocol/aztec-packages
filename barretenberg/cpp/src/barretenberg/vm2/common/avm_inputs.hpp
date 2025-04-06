@@ -193,6 +193,20 @@ template <typename Leaf> struct SequentialInsertHint {
     MSGPACK_FIELDS(hintKey, treeId, leaf, lowLeavesWitnessData, insertionWitnessData, stateAfter);
 };
 
+// Hint for MerkleTreeDB.appendLeaves.
+// Note: only supported for NOTE_HASH_TREE and L1_TO_L2_MESSAGE_TREE.
+struct AppendLeavesHint {
+    AppendOnlyTreeSnapshot hintKey;
+    AppendOnlyTreeSnapshot stateAfter;
+    // params
+    world_state::MerkleTreeId treeId;
+    std::vector<FF> leaves;
+
+    bool operator==(const AppendLeavesHint& other) const = default;
+
+    MSGPACK_FIELDS(hintKey, stateAfter, treeId, leaves);
+};
+
 struct CheckpointActionNoStateChangeHint {
     // key
     uint32_t actionCounter;
@@ -286,6 +300,7 @@ struct ExecutionHints {
     std::vector<GetLeafValueHint> getLeafValueHints;
     std::vector<SequentialInsertHint<crypto::merkle_tree::PublicDataLeafValue>> sequentialInsertHintsPublicDataTree;
     std::vector<SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>> sequentialInsertHintsNullifierTree;
+    std::vector<AppendLeavesHint> appendLeavesHints;
     std::vector<CreateCheckpointHint> createCheckpointHints;
     std::vector<CommitCheckpointHint> commitCheckpointHints;
     std::vector<RevertCheckpointHint> revertCheckpointHints;
@@ -303,6 +318,7 @@ struct ExecutionHints {
                    getLeafValueHints,
                    sequentialInsertHintsPublicDataTree,
                    sequentialInsertHintsNullifierTree,
+                   appendLeavesHints,
                    createCheckpointHints,
                    commitCheckpointHints,
                    revertCheckpointHints);

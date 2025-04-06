@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <span>
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -44,6 +45,7 @@ class LowLevelMerkleDBInterface {
     insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) = 0;
     virtual world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) = 0;
+    virtual void append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
