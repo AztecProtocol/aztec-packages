@@ -12,18 +12,17 @@
 
 volatile sig_atomic_t termination_requested = 0;
 
-// New global verbose flag.
 static int verbose = 0;
 
-// Signal handler to set the flag.
+// Signal handler to set the term flag.
 void handle_signal(int signum) {
     termination_requested = 1;
 }
 
 void usage(const char *prog_name) {
-    // Updated usage message to include the -v flag.
-    fprintf(stderr, "Usage: %s [-v] --name /sem_name [--init N] [+N|-N] [--cleanup]\n", prog_name);
+    fprintf(stderr, "Usage: %s [-v] [--atomic] --name /sem_name [--init N] [+N|-N] [--cleanup]\n", prog_name);
     fprintf(stderr, "  -v               : Enable verbose output (to stderr)\n");
+    fprintf(stderr, "  --atomic         : Use atomic_wait approach (with rollback on signal) for decrementing\n");
     fprintf(stderr, "  --name /sem_name : Specify the semaphore name (must start with /)\n");
     fprintf(stderr, "  --init N         : Initialize semaphore with value N\n");
     fprintf(stderr, "  +N or -N         : Increment or decrement by N\n");
@@ -31,7 +30,7 @@ void usage(const char *prog_name) {
     exit(EXIT_FAILURE);
 }
 
-// New helper: verbose printf-like function.
+// printf-like function for -v mode.
 void vprintf_verbose(const char *fmt, ...) {
     if (!verbose)
         return;
@@ -52,7 +51,6 @@ sem_t *init_semaphore(const char *name, int initial_value) {
         perror("sem_open (create)");
         exit(EXIT_FAILURE);
     }
-    // Verbose output
     vprintf_verbose("Initialized semaphore %s with value %d\n", name, initial_value);
     return sem;
 }
@@ -62,7 +60,6 @@ void cleanup_semaphore(const char *name) {
         perror("sem_unlink");
         exit(EXIT_FAILURE);
     }
-    // Verbose output
     vprintf_verbose("Cleaned up semaphore %s\n", name);
 }
 
@@ -75,7 +72,8 @@ int get_sem_value(sem_t *sem) {
     return value;
 }
 
-// New helper: atomically wait for N resources
+// Atomically wait for N resources.
+// We maybe starved out by other consumers consuming with much smaller n.
 void atomic_wait(sem_t *sem, int n) {
     int acquired, i;
     while (1) {
@@ -107,15 +105,20 @@ int main(int argc, char *argv[]) {
     int amount = 0;
     int cleanup = 0;
     int has_amount = 0;
+    int use_atomic_decrement = 0;
 
     // Install signal handlers.
     signal(SIGINT, handle_signal);
     signal(SIGTERM, handle_signal);
 
-    // Parse command-line arguments, process -v flag.
+    // Parse command-line arguments.
     for (int i = 1; i < argc; i++) {
         if (strcmp(argv[i], "-v") == 0) {
             verbose = 1;
+            continue;
+        }
+        if (strcmp(argv[i], "--atomic") == 0) {
+            use_atomic_decrement = 1;
             continue;
         }
         if (strcmp(argv[i], "--name") == 0) {
@@ -165,15 +168,14 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // If no amount specified, just show current value and exit
+    // Show current value
+    vprintf_verbose("Current semaphore value: %d\n", get_sem_value(sem));
+
+    // If no amount specified, exit.
     if (!has_amount) {
-        vprintf_verbose("Current semaphore value: %d\n", get_sem_value(sem));
         sem_close(sem);
         return 0;
     }
-
-    // Show current value
-    vprintf_verbose("Current semaphore value: %d\n", get_sem_value(sem));
 
     // Perform increment or decrement
     if (amount >= 0) {
@@ -185,9 +187,35 @@ int main(int argc, char *argv[]) {
         }
         vprintf_verbose("Incremented by %d, new value: %d\n", amount, get_sem_value(sem));
     } else {
-        amount = -amount;  // Make positive value for atomic decrement
-        vprintf_verbose("Attempting atomic decrement by %d (will block until all available)...\n", amount);
-        atomic_wait(sem, amount);
+        amount = -amount;  // Make positive value for decrement
+        if (use_atomic_decrement) {
+            vprintf_verbose("Using atomic_wait for decrement by %d...\n", amount);
+            atomic_wait(sem, amount);
+        } else {
+            vprintf_verbose("Using non-atomic sem_wait for decrement by %d...\n", amount);
+            int succeeded = 0;
+            for (int i = 0; i < amount; i++) {
+                if (termination_requested) {
+                    break;
+                }
+                if (sem_wait(sem) == -1) {
+                    if (errno == EINTR) {
+                        break;
+                    } else {
+                        perror("sem_wait");
+                        exit(EXIT_FAILURE);
+                    }
+                }
+                succeeded++;
+            }
+            if (succeeded != amount) {
+                vprintf_verbose("Failed to decrement by %d, only succeeded in acquiring %d\n", amount, succeeded);
+                for (int j = 0; j < succeeded; j++) {
+                    sem_post(sem);
+                }
+                exit(EXIT_FAILURE);
+            }
+        }
         vprintf_verbose("Decremented by %d, new value: %d\n", amount, get_sem_value(sem));
     }
 
