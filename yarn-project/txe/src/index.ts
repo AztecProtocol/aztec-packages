@@ -65,7 +65,7 @@ class TXEDispatcher {
 
   constructor(private logger: Logger) {}
 
-  async №processDeployInputs({ inputs, root_path: rootPath, package_name: packageName }: TXEForeignCallInput) {
+  async #processDeployInputs({ inputs, root_path: rootPath, package_name: packageName }: TXEForeignCallInput) {
     const [pathStr, contractName, initializer] = inputs.slice(0, 3).map(input =>
       fromArray(input as ForeignCallArray)
         .map(char => String.fromCharCode(char.toNumber()))
