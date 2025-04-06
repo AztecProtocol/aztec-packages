@@ -51,6 +51,7 @@ case "$type" in
     name_arg="-p $name"
     trap 'docker compose $name_arg down --timeout 0' SIGTERM SIGINT EXIT
     docker compose $name_arg down --timeout 0 &> /dev/null
-    docker compose $name_arg up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate
+    docker compose $name_arg up --exit-code-from=end-to-end --abort-on-container-exit --force-recreate &
+    wait $!
   ;;
 esac

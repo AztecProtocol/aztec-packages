@@ -48,7 +48,7 @@ function cleanup {
   if [ -n "${CPU_LIST:-}" ]; then
     sem_sched release "$CPU_LIST"
   fi
-  if [ -n "$publish_pid" ]; then
+  if [ -n "${publish_pid:-}" ]; then
     kill $publish_pid &>/dev/null
   fi
   if [ -f ${tmp_file:-} ]; then

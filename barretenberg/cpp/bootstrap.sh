@@ -174,12 +174,19 @@ function build {
 function test_cmds {
   cd build
   for bin in ./bin/*_tests; do
-    bin_name=$(basename $bin)
+    local bin_name=$(basename $bin)
+    local prefix=$hash
+
+    # A little extra resource for these tests.
+    if [[ "$bin_name" =~ ^(client_ivc_tests|vm_tests|vm2_tests)$ ]]; then
+      prefix="$prefix:CPUS=4:MEM=8g"
+    fi
+
     $bin --gtest_list_tests | \
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
       grep -v 'DISABLED_' | \
       while read -r test; do
-        echo -e "$hash barretenberg/cpp/scripts/run_test.sh $bin_name $test"
+        echo -e "$prefix barretenberg/cpp/scripts/run_test.sh $bin_name $test"
       done || (echo "Failed to list tests in $bin" && exit 1)
   done
 }
