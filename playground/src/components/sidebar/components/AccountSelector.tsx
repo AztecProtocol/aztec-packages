@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
@@ -12,10 +12,11 @@ import { AztecAddress, Fr, AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import type { AliasedItem } from '../types';
 import { select, actionButton } from '../styles';
 import { formatFrAsString } from '../../../utils/conversion';
-import { createWalletForAccount } from '../utils/accountHelpers';
+import { createWalletForAccount, deployAccountWithSponsoredFPC } from '../utils/accountHelpers';
 import type { WalletDB } from '../../../utils/storage';
 import type { PXE } from '@aztec/aztec.js';
 import { css } from '@emotion/react';
+import { AztecContext } from '../../../aztecEnv';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -61,6 +62,8 @@ export function AccountSelector({
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
   const [isAccountChanging, setIsAccountChanging] = useState(false);
+  const [deploymentInProgress, setDeploymentInProgress] = useState(false);
+  const { node } = useContext(AztecContext);
 
   // Set loading state based on accounts and connection state
   useEffect(() => {
@@ -79,17 +82,62 @@ export function AccountSelector({
     setIsAccountChanging(true);
     try {
       const accountAddress = AztecAddress.fromString(event.target.value);
+      console.log(`Selected account ${accountAddress.toString()}`);
+
       const accountData = await walletDB.retrieveAccount(accountAddress);
+      console.log('Retrieved account data:', accountData ? 'Account found in database' : 'Account not found');
 
       // Retrieve the signing private key from metadata
       const signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
+      console.log('Retrieved signing key:', signingPrivateKey ? 'Signing key found' : 'No signing key found');
 
       if (!signingPrivateKey) {
         throw new Error('Could not find signing private key for this account');
       }
 
+      // Get the wallet
+      console.log('Creating wallet for account...');
       const newWallet = await createWalletForAccount(pxe, accountAddress, signingPrivateKey);
+      console.log('Wallet created successfully');
       setWallet(newWallet);
+
+      // Check if the account should be deployed
+      console.log('Checking account deployment status...');
+      const deploymentStatus = await walletDB.retrieveAccountMetadata(accountAddress, 'deploymentStatus');
+      console.log('Deployment status from database:', deploymentStatus ? deploymentStatus.toString() : 'Not set');
+
+      const isDeployed = deploymentStatus && deploymentStatus.toString() === 'deployed';
+
+      if (!isDeployed && node) {
+        try {
+          setDeploymentInProgress(true);
+          // Deploy the account using sponsored fee payment
+          console.log(`Deploying account ${accountAddress.toString()} with sponsored fee payment...`);
+          await deployAccountWithSponsoredFPC(pxe, newWallet, node);
+          console.log(`Account ${accountAddress.toString()} deployment process completed`);
+
+          // Try to verify the deployment
+          console.log('Verifying account deployment...');
+          try {
+            const contracts = await pxe.getContracts();
+            const isInPXEContracts = contracts.some(c => c.equals(accountAddress));
+            console.log(`Account ${isInPXEContracts ? 'found' : 'not found'} in PXE contracts list`);
+
+            // Update deployment status regardless - we've done our best to deploy
+            await walletDB.storeAccountMetadata(accountAddress, 'deploymentStatus', Buffer.from('deployed'));
+            console.log('Updated account deployment status in database');
+          } catch (verifyError) {
+            console.error('Error verifying deployment:', verifyError);
+          }
+        } catch (deployError) {
+          console.error('Error deploying account:', deployError);
+          // Continue anyway since the account is registered and may still function
+        } finally {
+          setDeploymentInProgress(false);
+        }
+      } else {
+        console.log(`Account ${isDeployed ? 'is already marked as deployed' : 'deployment skipped (no node)'}`);
+      }
     } catch (error) {
       console.error('Error changing account:', error);
     } finally {
@@ -151,51 +199,56 @@ export function AccountSelector({
     );
   }
 
-  return (
-    <div css={modalContainer}>
-      <div css={createButtonContainer}>
-        <div
-          css={actionButton}
-          onClick={() => !(!isPXEInitialized || changingNetworks || isConnecting) && setOpenCreateAccountDialog(true)}
-          style={{
-            opacity: (!isPXEInitialized || changingNetworks || isConnecting) ? 0.6 : 1,
-            cursor: (!isPXEInitialized || changingNetworks || isConnecting) ? 'not-allowed' : 'pointer'
-          }}
-        >
-          Create Account
+  // If PXE is not initialized or network is not connected, show a message
+  if (!isPXEInitialized || !pxe) {
+    return (
+      <div css={modalContainer}>
+        <div css={loadingContainer}>
+          <Typography variant="body2">
+            Connect to a network first
+          </Typography>
         </div>
       </div>
+    );
+  }
 
-      {pxe && isPXEInitialized ? (
-        <FormControl css={select}>
-          <InputLabel>Account</InputLabel>
-          <Select
-            fullWidth
-            value={currentWallet?.getAddress().toString() ?? ''}
-            label="Account"
-            onChange={handleAccountChange}
-            disabled={isAccountChanging}
-          >
-            {accounts.map(account => (
-              <MenuItem key={account.key} value={account.value}>
-                {account.key.split(':')[1]}&nbsp;(
-                {formatFrAsString(account.value)})
-              </MenuItem>
-            ))}
-            <MenuItem key="create" value="" onClick={() => setOpenCreateAccountDialog(true)}>
-              <AddIcon />
-              &nbsp;Create
+  return (
+    <div css={modalContainer}>
+      <FormControl css={select}>
+        <InputLabel>Account</InputLabel>
+        <Select
+          fullWidth
+          value={currentWallet?.getAddress().toString() ?? ''}
+          label="Account"
+          onChange={handleAccountChange}
+          disabled={isAccountChanging}
+        >
+          {accounts.map(account => (
+            <MenuItem key={account.key} value={account.value}>
+              {account.key.split(':')[1]}&nbsp;(
+              {formatFrAsString(account.value)})
             </MenuItem>
-          </Select>
-          {isAccountChanging ? (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
-              <CircularProgress size={20} />
-            </div>
-          ) : (
-            <CopyToClipboardButton disabled={!currentWallet} data={currentWallet?.getAddress().toString()} />
-          )}
-        </FormControl>
-      ) : null}
+          ))}
+          <MenuItem key="create" value="" onClick={() => setOpenCreateAccountDialog(true)}>
+            <AddIcon />
+            &nbsp;Create
+          </MenuItem>
+        </Select>
+        {isAccountChanging ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+            <CircularProgress size={20} />
+          </div>
+        ) : deploymentInProgress ? (
+          <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center', padding: '8px 0' }}>
+            <CircularProgress size={20} />
+            <Typography variant="caption" style={{ marginTop: '4px' }}>
+              Deploying account with sponsored fees...
+            </Typography>
+          </div>
+        ) : (
+          <CopyToClipboardButton disabled={!currentWallet} data={currentWallet?.getAddress().toString()} />
+        )}
+      </FormControl>
 
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>

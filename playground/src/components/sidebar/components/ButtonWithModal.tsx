@@ -112,16 +112,14 @@ export function ButtonWithModal({
   onClick,
   children
 }: ButtonWithModalProps) {
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const handleButtonClick = () => {
-    setIsModalOpen(!isModalOpen); // Toggle modal
     onClick();
   };
 
   const handleModalClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent modal clicks from closing the modal
+    e.stopPropagation();
   };
 
   return (
@@ -142,12 +140,12 @@ export function ButtonWithModal({
         {isSelected && <CheckIcon css={checkStyle} />}
       </div>
 
-      {/* Modal */}
-      {isActive && isModalOpen && (
+      {/* Modal - show whenever isActive is true */}
+      {isActive && (
         <div ref={modalRef} css={modalStyle} onClick={handleModalClick}>
           {children}
         </div>
       )}
     </div>
   );
-} 
+}

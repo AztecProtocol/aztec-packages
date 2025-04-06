@@ -78,10 +78,10 @@ export function NetworkSelector({
   const getNetworkType = (networkUrl: string) => {
     // Check if this is a sandbox network
     const isSandbox = networkUrl.includes('localhost') || networkUrl.includes('127.0.0.1');
-    
+
     // Check if this is a testnet
     const isTestnet = networkUrl.includes('devnet') || networkUrl.includes('test');
-    
+
     return { isSandbox, isTestnet };
   };
 
@@ -90,14 +90,14 @@ export function NetworkSelector({
     if (networkUrl === '') {
       return;
     }
-    
+
     setIsLoading(true);
     setConnectionError(null);
     setErrorText('');
     setIsSandboxError(false);
     setIsTestnetError(false);
     setChangingNetworks(true);
-    
+
     try {
       await connectToNetwork(
         networkUrl,
@@ -110,18 +110,18 @@ export function NetworkSelector({
       );
     } catch (error) {
       console.error('Network connection error:', error);
-      
+
       const { isSandbox, isTestnet } = getNetworkType(networkUrl);
       setIsSandboxError(isSandbox);
       setIsTestnetError(isTestnet);
       setConnectionError(networkUrl);
-      
+
       if (error instanceof NetworkConnectionError) {
         setErrorText(error.message);
       } else {
         setErrorText('Failed to connect to network');
       }
-      
+
       setNodeURL(''); // Reset the node URL on failure
     } finally {
       setChangingNetworks(false);
@@ -149,12 +149,12 @@ export function NetworkSelector({
     if (isSandboxError) {
       return (
         <>
-          {errorText} 
+          {errorText}
           <br/> Do you have a sandbox running? Check out the <Link href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener">docs</Link>
         </>
       );
     } else if (isTestnetError) {
-      return `${errorText} 
+      return `${errorText}
       <br/> Testnet may be down. Please see our Discord for updates.`;
     } else {
       return `${errorText}
@@ -183,7 +183,7 @@ export function NetworkSelector({
           ))}
           <MenuItem key="create" value="" onClick={() => setOpenAddNetworksDialog(true)}>
             <AddIcon />
-            &nbsp;Create
+            &nbsp;Add custom network
           </MenuItem>
         </Select>
       </FormControl>

@@ -1,4 +1,4 @@
-import { css } from '@emotion/react';
+import { css, Global } from '@emotion/react';
 import { ContractComponent } from '../contract/contract';
 import { SidebarComponent } from '../sidebar/sidebar';
 import { useEffect, useState, useRef } from 'react';
@@ -19,21 +19,42 @@ import { NETWORKS } from '../sidebar/constants';
 import type { Network, AliasedItem } from '../sidebar/types';
 import { ButtonWithModal } from '../sidebar/components/ButtonWithModal';
 
+// Global styles to ensure full height
+const globalStyles = css`
+  html, body, #root {
+    height: 100%;
+    min-height: 100vh;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    overflow-y: auto;
+    background: linear-gradient(180deg, #9894FF 0%, #CDD1D5 100%) no-repeat fixed;
+    background-size: cover;
+  }
+
+  #root {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+`;
+
 const layout = css({
   display: 'flex',
   flexDirection: 'column',
-  height: '100%',
+  minHeight: '100vh',
   width: '100%',
-  background: 'linear-gradient(180deg, #9894FF 0%, #CDD1D5 100%)',
-  backgroundAttachment: 'fixed',
-  backgroundSize: '100% 100%',
-  backgroundColor: '#CDD1D5', // Fallback color at the end of gradient
+  flex: 1,
 });
 
 const contentLayout = css({
   display: 'flex',
   flexDirection: 'row',
   flex: 1,
+  width: '100%',
+  minHeight: 0,
   '@media (max-width: 1200px)': {
     flexDirection: 'column',
   },
@@ -73,9 +94,10 @@ const landingPage = css({
   alignItems: 'center',
   justifyContent: 'flex-start',
   padding: '0',
-  height: '100%',
   width: '100%',
-  overflow: 'auto',
+  height: 'auto',
+  minHeight: '100%',
+  flex: 1,
 });
 
 const headerFrame = css({
@@ -187,6 +209,9 @@ const contentFrame = css({
   padding: '45px',
   margin: '0 0 48px 0',
   position: 'relative',
+  display: 'flex',
+  flexDirection: 'column',
+  flex: 1,
   '@media (max-width: 1100px)': {
     width: 'auto',
     margin: '24px 0 48px 0',
@@ -247,12 +272,11 @@ const mainContent = css({
   display: 'flex',
   flexDirection: 'column',
   flex: 1,
-  height: '100%',
+  minHeight: 0,
   overflow: 'auto',
   margin: '0 60px 0 24px',
   '@media (max-width: 1200px)': {
-    height: 'auto',
-    minHeight: 'calc(100vh - 350px)',
+    minHeight: 'auto',
     margin: '0 24px',
   },
 });
@@ -504,6 +528,24 @@ export default function Home() {
       .catch(error => console.error('Error loading networks:', error));
   }, []);
 
+  // Setup event listener for network connect request
+  useEffect(() => {
+    const handleShowNetworkConnect = () => {
+      // Activate the network section
+      setActiveSection('network');
+      // Flash the sidebar to draw attention
+      flashSidebar();
+    };
+
+    // Add event listener
+    window.addEventListener('aztec:showNetworkConnect', handleShowNetworkConnect);
+
+    // Clean up
+    return () => {
+      window.removeEventListener('aztec:showNetworkConnect', handleShowNetworkConnect);
+    };
+  }, []);
+
   // Load contracts when wallet or address changes
   useEffect(() => {
     if (walletDB) {
@@ -546,27 +588,23 @@ export default function Home() {
     if (sidebarRef.current) {
       sidebarRef.current.scrollTop = 0;
     }
-    // Set network as the default active section
-    setActiveSection('network');
+    // Don't set any active section - just flash the sidebar
   };
 
   const handleSectionToggle = (section: 'network' | 'account' | 'contract') => {
-    if (activeSection === section) {
-      setActiveSection(null);
-    } else {
-      setActiveSection(section);
+    // Always set the active section, don't toggle off when clicking the same section
+    setActiveSection(section);
 
-      // Ensure proper progression:
-      // - Account section should only be accessible if network is connected
-      // - Contract section should only be accessible if account is created/connected
-      if (section === 'account' && !isNetworkConnected) {
+    // Ensure proper progression:
+    // - Account section should only be accessible if network is connected
+    // - Contract section should only be accessible if account is created/connected
+    if (section === 'account' && !isNetworkConnected) {
+      setActiveSection('network');
+    } else if (section === 'contract' && (!isNetworkConnected || !wallet)) {
+      if (!isNetworkConnected) {
         setActiveSection('network');
-      } else if (section === 'contract' && (!isNetworkConnected || !wallet)) {
-        if (!isNetworkConnected) {
-          setActiveSection('network');
-        } else {
-          setActiveSection('account');
-        }
+      } else if (!wallet) {
+        setActiveSection('account');
       }
     }
   };
@@ -774,12 +812,20 @@ export default function Home() {
 
   return (
     <div css={layout}>
+      <Global styles={globalStyles} />
       <div css={headerFrame}>
         <img css={logo} src={logoURL} alt="Aztec Logo" />
         <div css={headerTitle}>PLAYGROUND</div>
-        <div css={docsButton}>Go to Docs</div>
+        <a
+          href="https://docs.aztec.network/developers/inspiration"
+          target="_blank"
+          rel="noopener noreferrer"
+          css={docsButton}
+        >
+          Go to Docs
+        </a>
       </div>
-      
+
       <div css={contentLayout}>
         <AztecContext.Provider value={AztecContextInitialValue}>
           <div

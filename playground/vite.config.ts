@@ -41,6 +41,7 @@ export default defineConfig(({ mode }) => {
           '../noir/packages/noirc_abi/web',
           '../noir/packages/acvm_js/web',
           '../barretenberg/ts/dest/browser',
+          '../noir-projects',
         ],
       },
     },

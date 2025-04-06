@@ -110,8 +110,21 @@ export function ContractSelector({
     setShowContractInterface(true);
   };
 
+  // Show message if wallet is not connected
+  if (!wallet) {
+    return (
+      <div css={modalContainer}>
+        <div css={loadingContainer}>
+          <Typography variant="body2">
+            Connect to a network and account first
+          </Typography>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div css={modalContainer} style={{ opacity: wallet ? 1 : 0.5 }}>
+    <div css={modalContainer}>
       <FormControl css={select}>
         <InputLabel>Contracts</InputLabel>
         <Select
@@ -119,7 +132,7 @@ export function ContractSelector({
           label="Contract"
           onChange={handleContractChange}
           fullWidth
-          disabled={!wallet || isContractChanging}
+          disabled={isContractChanging}
         >
           {/* Predefined contracts */}
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>

@@ -44,9 +44,7 @@ import SearchIcon from '@mui/icons-material/Search';
 const container = css({
   display: 'flex',
   flexDirection: 'column',
-  height: '100%',
   width: '100%',
-  overflow: 'auto',
   background: '#E9E9E9',
   borderRadius: '10px',
   padding: '45px',
@@ -129,7 +127,7 @@ const contractFnContainer = css({
   flexDirection: 'column',
   width: '100%',
   height: '100%',
-  overflow: 'hidden',
+  overflow: 'auto',
 });
 
 const tokenSection = css({
@@ -409,26 +407,32 @@ interface ExtendedFunctionAbi extends FunctionAbi {
   originalName?: string;
 }
 
-const TOKEN_FUNCTION_MAPPING = {
-  'transfer_in_public': 'public_transfer',
-  'transfer_to_public': 'transfer_from_private_to_public',
-  'transfer_to_private': 'transfer_from_public_to_private'
-};
+const TOKEN_FUNCTION_MAPPING = {};
 
 const TOKEN_ALLOWED_FUNCTIONS = [
-  'name',
-  'symbol',
-  'decimals',
-  'balance_of_private',
-  'balance_of_public',
-  'total_supply_private',
-  'total_supply_public',
+  // Primary functions in specified order
   'mint_privately',
   'mint_publicly',
   'private_transfer',
-  'transfer_in_public', // Will be renamed to public_transfer
-  'transfer_to_public', // Will be renamed to transfer_from_private_to_public
-  'transfer_to_private', // Will be renamed to transfer_from_public_to_private
+  'public_transfer',
+  'transfer_from_private_to_public',
+  'transfer_from_public_to_private',
+  // Other functions after the primary ones
+  'name',
+  'symbol',
+  'decimals',
+  'public_get_name',
+  'public_get_symbol',
+  'public_get_decimals',
+  'public_total_supply',
+  'public_balance_of',
+  'private_balance_of',
+  'burn_public',
+  'burn_private',
+  'prepare_private_balance_increase',
+  'finalize_transfer_to_private',
+  'finalize_mint_to_private',
+  'cancel_authwit'
 ];
 
 const MOCK_SIMPLE_TOKEN_ARTIFACT = {
@@ -477,6 +481,7 @@ export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
   const [functionAbis, setFunctionAbis] = useState<ExtendedFunctionAbi[]>([]);
   const [showUploadArea, setShowUploadArea] = useState(false);
+  const [showNetworkConnect, setShowNetworkConnect] = useState(false);
 
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -511,6 +516,7 @@ export function ContractComponent() {
     setCurrentContractAddress,
     setCurrentTx,
     setSelectedPredefinedContract,
+    nodeURL,
   } = useContext(AztecContext);
 
   const logContractState = (message: string = 'Contract State', contract = currentContract) => {
@@ -537,8 +543,17 @@ export function ContractComponent() {
   useEffect(() => {
     if (selectedPredefinedContract === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
       setShowUploadArea(true);
+      setContractArtifact(null);
+      setFunctionAbis([]);
     } else {
       setShowUploadArea(false);
+      // Immediately clear the current contract artifact and set loading state
+      // when a new contract is selected to provide immediate feedback
+      if (selectedPredefinedContract) {
+        setContractArtifact(null);
+        setFunctionAbis([]);
+        setIsLoadingArtifact(true);
+      }
     }
     if (selectedPredefinedContract) {
       logContractState('Predefined Contract Selected');
@@ -555,7 +570,7 @@ export function ContractComponent() {
   }, [wallet, currentContract, isWorking]);
 
   const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
-    if (contractName === 'SimplePrivateVoting') {
+    if (contractName === 'SimplePrivateVoting' || contractName === 'EasyPrivateVoting') {
       const order = ['constructor', 'cast_vote', 'end_vote', 'get_vote'];
 
       return [...functions].sort((a, b) => {
@@ -569,6 +584,24 @@ export function ContractComponent() {
         if (indexA !== -1) return -1;
         if (indexB !== -1) return 1;
 
+        return 0;
+      });
+    } else if (contractName === 'SimpleToken') {
+      // For the token contract, order functions according to TOKEN_ALLOWED_FUNCTIONS array
+      return [...functions].sort((a, b) => {
+        const indexA = TOKEN_ALLOWED_FUNCTIONS.indexOf(a.name);
+        const indexB = TOKEN_ALLOWED_FUNCTIONS.indexOf(b.name);
+
+        // If both functions are in our allowed list, sort by their position
+        if (indexA !== -1 && indexB !== -1) {
+          return indexA - indexB;
+        }
+
+        // If only one is in our allowed list, prioritize it
+        if (indexA !== -1) return -1;
+        if (indexB !== -1) return 1;
+
+        // Otherwise keep original order for functions not in our list
         return 0;
       });
     }
@@ -616,7 +649,8 @@ export function ContractComponent() {
 
       if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
         try {
-          const response = await fetch('/contracts/SimplePrivateVoting.json', {
+          // Updated path to load from noir-projects monorepo
+          const response = await fetch('/noir-projects/noir-contracts/target/easy_private_voting_contract-EasyPrivateVoting.json', {
             headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache'
@@ -628,11 +662,12 @@ export function ContractComponent() {
           const artifact = await response.json();
           contractArtifact = loadContractArtifact(artifact);
         } catch (err) {
-          console.error('Error loading SimplePrivateVoting artifact:', err);
+          console.error('Error loading EasyPrivateVoting artifact:', err);
         }
       } else if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
         try {
-          const response = await fetch('/contracts/Token.json', {
+          // Updated path to load from noir-projects monorepo
+          const response = await fetch('/noir-projects/noir-contracts/target/simple_token_playground-SimpleToken.json', {
             headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache'
@@ -644,7 +679,7 @@ export function ContractComponent() {
           const artifact = await response.json();
           contractArtifact = loadContractArtifact(artifact);
         } catch (err) {
-          console.error('Error loading Token artifact:', err);
+          console.error('Error loading SimpleToken artifact:', err);
         }
       }
 
@@ -654,9 +689,15 @@ export function ContractComponent() {
 
         let functionAbis = getAllFunctionAbis(contractArtifact);
 
-        if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
-          functionAbis = filterTokenFunctions(functionAbis);
-        }
+        // Add debug logging to show all available functions
+        console.log('All contract functions:', functionAbis.map(fn => ({
+          name: fn.name,
+          type: fn.functionType,
+          parameters: fn.parameters.map(p => `${p.name}: ${p.type}`)
+        })));
+
+        // Don't filter any functions - we want to see all of them
+        // The only filtering we do is through the UI checkboxes
 
         functionAbis = sortFunctions(functionAbis, contractArtifact.name);
 
@@ -723,6 +764,15 @@ export function ContractComponent() {
       loadCurrentContract();
     }
   }, [currentContractAddress]);
+
+  useEffect(() => {
+    console.log('DEBUG INFO:');
+    console.log('- Contract Artifact:', contractArtifact ? contractArtifact.name : 'None');
+    console.log('- Function ABIs Count:', functionAbis.length);
+    console.log('- Function Types:', functionAbis.map(fn => fn.functionType));
+    console.log('- Current Contract:', currentContract ? 'Available' : 'None');
+    console.log('- Filters:', filters);
+  }, [contractArtifact, functionAbis, currentContract, filters]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
@@ -799,9 +849,8 @@ export function ContractComponent() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleParameterChange = (fnName: string, index: number, value: any) => {
     const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-    const realFnName =
-      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
-      matchingFn?.originalName || fnName;
+    // Use the original name only if it exists
+    const realFnName = matchingFn?.originalName || fnName;
 
     const fnParameters = parameters[realFnName] || [];
     fnParameters[index] = value;
@@ -855,12 +904,12 @@ export function ContractComponent() {
         // Log the error directly without handling
         console.error('=== DEPLOYMENT ERROR ===');
         console.error(error);
-        
+
         // Show the full error message to user
         alert(`Error: ${error.message}`);
       }
     }
-    
+
     setOpenDeployContractDialog(false);
   };
 
@@ -900,8 +949,8 @@ export function ContractComponent() {
       return;
     }
 
-    const realFnName = selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
-      matchingFn?.originalName || fnName;
+    // Use the original name only if it exists
+    const realFnName = matchingFn?.originalName || fnName;
 
     console.log('Function to call:', realFnName);
 
@@ -935,7 +984,7 @@ export function ContractComponent() {
     } catch (error) {
       console.error('=== SIMULATION ERROR ===');
       console.error(error);
-      
+
       setSimulationResults({
         ...simulationResults,
         ...{ [fnName]: { success: false, error: error.message } },
@@ -970,8 +1019,8 @@ export function ContractComponent() {
       return;
     }
 
-    const realFnName = selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
-      matchingFn?.originalName || fnName;
+    // Use the original name only if it exists
+    const realFnName = matchingFn?.originalName || fnName;
 
     console.log('Function to call:', realFnName);
 
@@ -1046,7 +1095,7 @@ export function ContractComponent() {
       // Log the raw error object to ensure all information is captured
       console.error('=== TRANSACTION ERROR ===');
       console.error(error);
-      
+
       setCurrentTx({
         ...currentTx,
         ...{
@@ -1067,9 +1116,8 @@ export function ContractComponent() {
     isPrivate: boolean,
   ) => {
     const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-    const realFnName =
-      selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
-      matchingFn?.originalName || fnName;
+    // Use the original name only if it exists
+    const realFnName = matchingFn?.originalName || fnName;
 
     setAuthwitFnData({ name: realFnName, parameters, isPrivate });
     setOpenCreateAuthwitDialog(true);
@@ -1082,6 +1130,44 @@ export function ContractComponent() {
     setAuthwitFnData({ name: '', parameters: [], isPrivate: false });
     setOpenCreateAuthwitDialog(false);
   };
+
+  // Debug effect to log filtered functions
+  useEffect(() => {
+    if (functionAbis.length > 0) {
+      const filtered = functionAbis.filter(
+        fn => !fn.isInternal &&
+        !fn.isInitializer &&
+        !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
+        ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
+          (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+          (filters.utility && (fn.functionType === FunctionType.UTILITY || fn.functionType.toString() === "utility"))) &&
+        (filters.searchTerm === '' || fn.name.includes(filters.searchTerm))
+      );
+
+      const excluded = functionAbis.filter(
+        fn => fn.isInternal ||
+        fn.isInitializer ||
+        FORBIDDEN_FUNCTIONS.includes(fn.name) ||
+        !((filters.private && fn.functionType === FunctionType.PRIVATE) ||
+          (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+          (filters.utility && (fn.functionType === FunctionType.UTILITY || fn.functionType.toString() === "utility"))) ||
+        (filters.searchTerm !== '' && !fn.name.includes(filters.searchTerm))
+      );
+
+      console.log('Filtered functions:', filtered.map(fn => fn.name));
+      console.log('Excluded functions:', excluded.map(fn => ({
+        name: fn.name,
+        isInternal: fn.isInternal,
+        isInitializer: fn.isInitializer,
+        functionType: fn.functionType,
+        forbidden: FORBIDDEN_FUNCTIONS.includes(fn.name),
+        matchesFilter: (filters.private && fn.functionType === FunctionType.PRIVATE) ||
+          (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+          (filters.utility && (fn.functionType === FunctionType.UTILITY || fn.functionType.toString() === "utility")),
+        matchesSearch: filters.searchTerm === '' || fn.name.includes(filters.searchTerm)
+      })));
+    }
+  }, [functionAbis, filters]);
 
   const resetPXEDatabase = async () => {
     try {
@@ -1128,6 +1214,12 @@ export function ContractComponent() {
     }
   };
 
+  // Handle the network connection action
+  const handleShowNetworkConnect = () => {
+    // Send a message to the parent component to show the network connect UI
+    window.dispatchEvent(new CustomEvent('aztec:showNetworkConnect'));
+  };
+
   return (
     <div css={container}>
       {showUploadArea ? (
@@ -1157,6 +1249,11 @@ export function ContractComponent() {
             <CircularProgress style={{ color: '#9894FF' }} size={100} />
           </div>
         )
+      ) : isLoadingArtifact ? (
+        <div css={loadingArtifactContainer}>
+          <Typography variant="h5">Loading contract...</Typography>
+          <CircularProgress style={{ color: '#9894FF' }} size={100} />
+        </div>
       ) : !contractArtifact ? (
         <div css={loadingArtifactContainer}>
           <Typography variant="h5">No contract loaded</Typography>
@@ -1190,6 +1287,7 @@ export function ContractComponent() {
               <Button
                 css={actionButton}
                 onClick={() => setOpenDeployContractDialog(true)}
+                disabled={!nodeURL}
               >
                 Deploy
               </Button>
@@ -1213,7 +1311,11 @@ export function ContractComponent() {
           </div>
 
           <div css={tokenSection}>
-            <div css={tokenHeader}>Token</div>
+            <div css={tokenHeader}>
+              {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING ? 'Simple Private Voting' :
+               selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ? 'Simple Token' :
+               contractArtifact?.name || 'Contract'}
+            </div>
             <div css={searchContainer}>
               <SearchIcon style={{ color: 'rgba(60, 60, 67, 0.6)', marginRight: '8px' }} />
               <Input
@@ -1223,7 +1325,7 @@ export function ContractComponent() {
                 placeholder="Search"
                 value={filters.searchTerm}
                 onChange={e => setFilters({ ...filters, searchTerm: e.target.value })}
-                style={{ 
+                style={{
                   fontFamily: 'SF Pro Text, sans-serif',
                   fontSize: '17px',
                   color: 'rgba(60, 60, 67, 0.6)'
@@ -1276,21 +1378,47 @@ export function ContractComponent() {
                 You need to deploy this contract before you can interact with it.
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
-                Click the "Deploy" button above to deploy this contract to the network.
+                {!nodeURL ? (
+                  <>
+                    You are not connected to a network. Please <span
+                      onClick={handleShowNetworkConnect}
+                      style={{ color: '#9894FF', cursor: 'pointer', textDecoration: 'underline' }}>
+                      connect
+                    </span> first.
+                  </>
+                ) : (
+                  <>
+                    Click the "Deploy" button above to deploy this contract to the network.
+                    {functionAbis.some(fn => fn.isInitializer) && (
+                      <div style={{ marginTop: '8px', fontWeight: 'bold' }}>
+                        This contract has initializer functions that will be available in the deployment dialog.
+                      </div>
+                    )}
+                  </>
+                )}
               </Typography>
             </div>
           )}
 
           {/* Contract functions list */}
           <div css={functionListContainer}>
+            {/* Debug information */}
+            {functionAbis.length === 0 && contractArtifact && (
+              <div style={{ padding: '20px', margin: '10px 0', textAlign: 'center', backgroundColor: 'rgba(255, 235, 59, 0.1)', borderRadius: '8px' }}>
+                <Typography variant="subtitle1" style={{ color: '#FF9800' }}>
+                  No functions found for this contract. Please check the console for debugging information.
+                </Typography>
+              </div>
+            )}
             {functionAbis
               .filter(
                 fn =>
                   !fn.isInternal &&
+                  !fn.isInitializer &&
                   !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
                   ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
                     (filters.public && fn.functionType === FunctionType.PUBLIC) ||
-                    (filters.utility && fn.functionType.toString() === "utility")) &&
+                    (filters.utility && (fn.functionType === FunctionType.UTILITY || fn.functionType.toString() === "utility"))) &&
                   (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
               )
               .map(fn => (
@@ -1345,7 +1473,7 @@ export function ContractComponent() {
                         disabled={!wallet || !currentContract || isWorking}
                         onClick={() => simulate(fn.name)}
                       >
-                        SIMULATE 
+                        SIMULATE
                         <PsychologyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
                       </button>
                       <button

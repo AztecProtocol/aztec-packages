@@ -34,6 +34,7 @@ members = [
     "contracts/schnorr_account_contract",
     "contracts/schnorr_hardcoded_account_contract",
     "contracts/schnorr_single_key_account_contract",
+    "contracts/simple_token_playground",
     "contracts/stateful_test_contract",
     "contracts/spam_contract",
     "contracts/sponsored_fpc_contract",

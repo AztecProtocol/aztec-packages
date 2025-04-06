@@ -7,7 +7,6 @@ import {
 } from '@aztec/aztec.js';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
-// Re-export SponsoredFeePaymentMethod for use elsewhere in the app
 export { SponsoredFeePaymentMethod };
 
 const SPONSORED_FPC_SALT = new Fr(0);
@@ -34,7 +33,7 @@ export async function getDeployedSponsoredFPCAddress(pxe: PXE) {
 /**
  * Registers the EXISTING SponsoredFPC contract with the PXE to enable fee payment functionality.
  * This function DOES NOT deploy a new contract - it assumes the contract is already deployed and funded.
- * 
+ *
  * @param pxe The PXE instance to register with
  * @param wallet The wallet to use for registering the contract class
  * @param node The node URL or instance (not used for registration)
@@ -43,7 +42,6 @@ export async function getDeployedSponsoredFPCAddress(pxe: PXE) {
 export async function registerSponsoredFPC(pxe: any, wallet: any, node: any) {
   console.log('Checking if SponsoredFPC is available in PXE...');
   try {
-    // Step 1: Register the contract class with the wallet first
     console.log('Registering SponsoredFPC contract class...');
     try {
       await wallet.registerContractClass(SponsoredFPCContract.artifact);
@@ -53,26 +51,21 @@ export async function registerSponsoredFPC(pxe: any, wallet: any, node: any) {
       console.warn('Continuing with contract registration anyway');
     }
 
-    // Get the expected address of the existing SponsoredFPC contract
     const fpcAddress = await getSponsoredFPCAddress();
     console.log(`Looking for SponsoredFPC at address ${fpcAddress.toString()}`);
-    
-    // Check if the contract is already registered in the PXE's contract list
+
     const contracts = await pxe.getContracts();
     const isRegistered = contracts.some(c => c.equals(fpcAddress));
-    
+
     if (isRegistered) {
       console.log(`SponsoredFPC already registered with PXE at ${fpcAddress.toString()}`);
       return fpcAddress;
     }
-    
-    // Contract not registered, register it with the PXE
+
     console.log(`SponsoredFPC not registered in PXE, registering now...`);
-    
-    // Get the contract instance (using the standard artifact and salt)
+
     const sponsoredFPC = await getSponsoredFPCInstance();
-    
-    // Attempt to register the contract with the PXE (NOT deploying)
+
     try {
       console.log('Registering SponsoredFPC contract with PXE...');
       await pxe.registerContract({
@@ -80,15 +73,14 @@ export async function registerSponsoredFPC(pxe: any, wallet: any, node: any) {
         artifact: SponsoredFPCContract.artifact
       });
       console.log(`SponsoredFPC registered with PXE at ${fpcAddress.toString()}`);
-      
-      // Verify registration
+
       const updatedContracts = await pxe.getContracts();
       const nowRegistered = updatedContracts.some(c => c.equals(fpcAddress));
-      
+
       if (!nowRegistered) {
         console.warn('SponsoredFPC registration reported success but contract not found in PXE contracts list');
       }
-      
+
       return fpcAddress;
     } catch (registerError) {
       console.error('Error registering SponsoredFPC with PXE:', registerError);
@@ -103,7 +95,7 @@ export async function registerSponsoredFPC(pxe: any, wallet: any, node: any) {
 /**
  * Prepares a SponsoredFeePaymentMethod for use with contract deployments and transactions.
  * This handles all the necessary setup steps in one function.
- * 
+ *
  * @param pxe The PXE instance to register with
  * @param wallet The wallet to use for registering the contract class
  * @param node The node URL or instance
@@ -112,15 +104,15 @@ export async function registerSponsoredFPC(pxe: any, wallet: any, node: any) {
 export async function prepareForFeePayment(pxe: any, wallet: any, node: any): Promise<SponsoredFeePaymentMethod> {
   try {
     console.log('Preparing SponsoredFeePaymentMethod...');
-    
+
     // First register the contract and class
     const fpcAddress = await registerSponsoredFPC(pxe, wallet, node);
     console.log(`SponsoredFPC registered at address: ${fpcAddress.toString()}`);
-    
+
     // Create the payment method
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(fpcAddress);
     console.log('SponsoredFeePaymentMethod created successfully');
-    
+
     return sponsoredPaymentMethod;
   } catch (error) {
     console.error('Error preparing SponsoredFeePaymentMethod:', error);
