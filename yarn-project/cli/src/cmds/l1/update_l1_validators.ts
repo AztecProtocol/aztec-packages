@@ -10,8 +10,23 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
+import { sleep } from '@aztec/foundation/sleep';
+
+import {
+  type EncodeFunctionDataParameters,
+  encodeFunctionData,
+  createPublicClient,
+  createWalletClient,
+  fallback,
+  getContract,
+  http
+} from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
+
+import {
+  L1TxUtils,
+  getL1TxUtilsConfigEnvVars,
+} from '@aztec/ethereum';
 
 export interface RollupCommandArgs {
   rpcUrls: string[];
@@ -52,6 +67,9 @@ export async function addL1Validator({
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
+  const l1TxUtilsConfig = getL1TxUtilsConfigEnvVars();
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient, debugLogger, l1TxUtilsConfig);
+
   const rollup = getContract({
     address: rollupAddress.toString(),
     abi: RollupAbi,
@@ -64,24 +82,77 @@ export async function addL1Validator({
     client: walletClient,
   });
 
-  await Promise.all(
-    [
-      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
-      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
-    ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
-  );
+  const retries = 10;
+  const retryDelaySeconds = 12;
+  let success = false;
+  for (let i = 0; i < retries; i++) {
+    try {
+      const mintFunctionData: EncodeFunctionDataParameters<typeof TestERC20Abi, 'mint'> = {
+        abi: TestERC20Abi,
+        functionName: 'mint',
+        args: [walletClient.account.address, config.minimumStake],
+      };
+      const encodedMintData = encodeFunctionData(mintFunctionData);
 
-  dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.deposit([
-    validatorAddress.toString(),
-    // TODO(#11451): custom forwarders
-    getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
-      .address,
-    withdrawerAddress?.toString() ?? validatorAddress.toString(),
-    config.minimumStake,
-  ]);
-  dualLog(`Transaction hash: ${txHash}`);
-  await publicClient.waitForTransactionReceipt({ hash: txHash });
+      const { receipt: mintReceipt } = await l1TxUtils.sendAndMonitorTransaction({
+        to: stakingAsset.address,
+        data: encodedMintData,
+      });
+
+      if (mintReceipt.status !== 'success') {
+        throw new Error(`Mintaing failed for ${walletClient.account.address}`);
+      }
+
+      const approveFunctionData: EncodeFunctionDataParameters<typeof TestERC20Abi, `approve`> = {
+        abi: TestERC20Abi,
+        functionName: `approve`,
+        args: [rollup.address, config.minimumStake]
+      };
+      const encodedApproveData = encodeFunctionData(approveFunctionData);
+
+      const { receipt: approveReceipt } = await l1TxUtils.sendAndMonitorTransaction({
+        to: stakingAsset.address,
+        data: encodedApproveData,
+      });
+
+      if (approveReceipt.status !== `success`) {
+        throw new Error(`Failed to approve spend of Staking Asset`);
+      }
+
+      dualLog(`Now attempting to add validator ${validatorAddress} to the set`);
+
+      const depositFunctionData:  EncodeFunctionDataParameters<typeof RollupAbi, `deposit`> = {
+        abi: RollupAbi,
+        functionName: `deposit`,
+        args: [validatorAddress.toString(), getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
+        .address, withdrawerAddress ? withdrawerAddress.toString() : validatorAddress.toString(), config.minimumStake],
+      };
+      const encodedDepositData = encodeFunctionData(depositFunctionData);
+
+      const { receipt: depositReceipt } = await l1TxUtils.sendAndMonitorTransaction({
+        to: rollup.address,
+        data: encodedDepositData,
+      });
+
+      if (depositReceipt.status === `success`) {
+        success = true;
+        dualLog(`Validator ${validatorAddress} added successfully`);
+        break;
+      } else {
+        throw new Error(`Error adding validator ${validatorAddress} to the validator set`);
+      }
+    } catch (error) {
+      debugLogger.error(`Error adding validator ${validatorAddress} to the validator set`)
+    }
+
+    dualLog(`Retrying to add validator ${validatorAddress} in ${retries} seconds.`);
+    await sleep(retryDelaySeconds * 1000);
+  }
+
+  if (!success) {
+    throw new Error(`Failed to add validator ${validatorAddress} after ${retries} retries`)
+  }
+
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
