@@ -6,7 +6,7 @@ section "Deploying token contract (alias: $TOKEN_ALIAS) and creating a sponsored
 aztec-wallet import-test-accounts
 aztec-wallet deploy sponsored_fpc_contract@SponsoredFPC -f test0 -a $FPC_ALIAS --no-init
 
-CLAIM=$(aztec-wallet bridge-fee-juice 1000000000000000000 contracts:$FPC_ALIAS --mint --no-wait --json)
+CLAIM=$(aztec-wallet bridge-fee-juice contracts:$FPC_ALIAS --no-wait --json)
 
 retrieve () {
   echo "$CLAIM" | grep "\"$1\"" | awk -F ': ' '{print $2}' | tr -d '",'
