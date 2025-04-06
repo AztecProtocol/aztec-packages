@@ -100,11 +100,12 @@ function build {
 
 function test_cmds {
   local hash=$(hash)
+
   # These need isolation due to network stack usage (p2p, anvil, etc).
   for test in {prover-node,p2p,ethereum,aztec}/src/**/*.test.ts; do
     if [[ "$test" =~ testbench ]]; then
       # Testbench runs require more memory and CPU.
-      echo "$hash ISOLATE=1 CPUS=20 MEM=16g yarn-project/scripts/run_test.sh $test"
+      echo "$hash:CPUS=16:MEM=16g ISOLATE=1 yarn-project/scripts/run_test.sh $test"
     elif [[ "$test" == p2p/src/client/p2p_client.test.ts || "$test" == p2p/src/services/discv5/discv5_service.test.ts ]]; then
       # Add debug logging for tests that require a bit more info
       echo "$hash ISOLATE=1 LOG_LEVEL=debug yarn-project/scripts/run_test.sh $test"
@@ -116,7 +117,7 @@ function test_cmds {
   # Enable real proofs in prover-client integration tests only on CI full
   for test in prover-client/src/test/*.test.ts; do
     if [ "$CI_FULL" -eq 1 ]; then
-      echo "$hash ISOLATE=1 LOG_LEVEL=verbose CPUS=16 MEM=96g yarn-project/scripts/run_test.sh $test"
+      echo "$hash:CPUS=16:MEM=96g ISOLATE=1 LOG_LEVEL=verbose yarn-project/scripts/run_test.sh $test"
     else
       echo "$hash FAKE_PROOFS=1 yarn-project/scripts/run_test.sh $test"
     fi
@@ -141,8 +142,7 @@ function test_cmds {
 
 function test {
   echo_header "yarn-project test"
-  local num_cpus=$(get_num_cpus)
-  test_cmds | filter_test_cmds | parallelise $((num_cpus / 2))
+  test_cmds | filter_test_cmds | parallelise
 }
 
 function release_packages {

@@ -16,12 +16,14 @@ if [ "${ISOLATE:-0}" -eq 1 ]; then
   # Strip leading non alpha numerics and replace / with _ for the container name.
   name=$(echo "$test" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
   [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
+  [ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
   trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
   docker rm -f $name &>/dev/null || true
   docker run --rm \
     ${name_arg:-} \
     --cpus=$CPUS \
-    --memory $MEM \
+    --memory=$MEM \
+    ${cpuset_arg:-} \
     -v$(git rev-parse --show-toplevel):/root/aztec-packages \
     -v$HOME/.bb-crs:/root/.bb-crs \
     --workdir /root/aztec-packages/yarn-project/$dir \

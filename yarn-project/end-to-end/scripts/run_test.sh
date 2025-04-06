@@ -19,6 +19,7 @@ case "$type" in
   "simple")
     # Strip leading non alpha numerics and replace / with _ for the container name.
     name="$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
+    [ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
     name_arg="--name $name"
     repo_dir=$(git rev-parse --show-toplevel)
     trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM EXIT
@@ -27,6 +28,7 @@ case "$type" in
       $name_arg \
       --cpus=${CPUS:-4} \
       --memory=${MEM:-8g} \
+      ${cpuset_arg:-} \
       --user $(id -u):$(id -g) \
       "-v$repo_dir:$repo_dir" \
       "-v$HOME/.bb-crs:$HOME/.bb-crs" \

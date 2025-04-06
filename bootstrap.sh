@@ -138,7 +138,7 @@ function start_txes {
       kill -9 $existing_pid &>/dev/null || true
       while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
     fi
-    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'strace -e trace=network node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
     txe_pids+="$! "
   done
 
@@ -167,13 +167,13 @@ function test {
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
   # and also that half the cpus are logical, not physical.
   echo "Gathering tests to run..."
-  local num_cpus=$(get_num_cpus)
   tests=$(test_cmds $@)
   # Note: Capturing strips last newline. The echo re-adds it.
   local num
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
-  echo -n "$tests" | parallelise $((num_cpus / 2))
+
+  echo -n "$tests" | parallelise
 }
 
 function build {

@@ -170,7 +170,7 @@ function build {
 
 # Print every individual test command. Can be fed into gnu parallel.
 # Paths are relative to repo root.
-# We append the hash as a comment. This ensures the test harness and cache and skip future runs.
+# We prefix the hash. This ensures the test harness and cache and skip future runs.
 function test_cmds {
   cd build
   for bin in ./bin/*_tests; do
