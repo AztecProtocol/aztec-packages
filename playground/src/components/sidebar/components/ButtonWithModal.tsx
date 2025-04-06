@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { css, keyframes } from '@emotion/react';
 import CheckIcon from '@mui/icons-material/Check';
+import CircularProgress from '@mui/material/CircularProgress';
 
 // Animation for the modal appearing
 const popupAnimation = keyframes`
@@ -95,10 +96,17 @@ const modalStyle = css({
   transformOrigin: 'top',
 });
 
+// Styles for loading spinner
+const loadingSpinner = css({
+  marginLeft: '8px',
+  color: '#FFFFFF',
+});
+
 interface ButtonWithModalProps {
   label: string;
   isActive: boolean;
   isSelected?: boolean;
+  isLoading?: boolean;
   connectionStatus?: string;
   onClick: () => void;
   children?: ReactNode;
@@ -108,6 +116,7 @@ export function ButtonWithModal({
   label,
   isActive,
   isSelected = false,
+  isLoading = false,
   connectionStatus,
   onClick,
   children
@@ -137,7 +146,11 @@ export function ButtonWithModal({
         onClick={handleButtonClick}
       >
         <span>{label}</span>
-        {isSelected && <CheckIcon css={checkStyle} />}
+        {isLoading ? (
+          <CircularProgress size={20} css={loadingSpinner} />
+        ) : (
+          isSelected && <CheckIcon css={checkStyle} />
+        )}
       </div>
 
       {/* Modal - show whenever isActive is true */}

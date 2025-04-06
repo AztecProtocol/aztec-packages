@@ -16,6 +16,7 @@ export const AztecContext = createContext({
   selectedPredefinedContract: '',
   currentTx: null,
   showContractInterface: false,
+  isWorking: false,
   setShowContractInterface: (show: boolean) => {},
   setPXE: (pxe: PXE | null) => {},
   setNodeURL: (url: string) => {},
@@ -30,6 +31,7 @@ export const AztecContext = createContext({
   setLogsOpen: (open: boolean) => {},
   setSelectedPredefinedContract: (contract: string) => {},
   setCurrentTx: (tx: any) => {},
+  setIsWorking: (working: boolean) => {},
 });
 
 // Provider component to wrap the app with the Aztec context
@@ -48,6 +50,7 @@ export const AztecProvider = ({ children }) => {
   const [selectedPredefinedContract, setSelectedPredefinedContract] = useState('');
   const [currentTx, setCurrentTx] = useState(null);
   const [showContractInterface, setShowContractInterface] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
 
   // Filter out noisy PXE block update logs
   useEffect(() => {
@@ -89,6 +92,7 @@ export const AztecProvider = ({ children }) => {
         selectedPredefinedContract,
         currentTx,
         showContractInterface,
+        isWorking,
         setShowContractInterface,
         setPXE,
         setNodeURL,
@@ -103,6 +107,7 @@ export const AztecProvider = ({ children }) => {
         setLogsOpen,
         setSelectedPredefinedContract,
         setCurrentTx,
+        setIsWorking,
       }}
     >
       {children}

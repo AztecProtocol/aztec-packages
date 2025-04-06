@@ -32,7 +32,7 @@ export function RegisterContractDialog({
   const [address, setAddress] = useState('');
   const [registering, setRegistering] = useState(false);
 
-  const { wallet, node } = useContext(AztecContext);
+  const { wallet, node, setIsWorking } = useContext(AztecContext);
 
   const handleClose = () => {
     onClose();
@@ -40,6 +40,7 @@ export function RegisterContractDialog({
 
   const register = async () => {
     setRegistering(true);
+    setIsWorking(true);
     console.log('=== CONTRACT REGISTRATION STARTED ===');
     console.log('Contract Name:', contractArtifact.name);
     console.log('Contract Address:', address);
@@ -90,7 +91,9 @@ export function RegisterContractDialog({
 
       // Show error in UI
       alert(`Contract registration failed: ${error.message}`);
+    } finally {
       setRegistering(false);
+      setIsWorking(false);
     }
   };
 

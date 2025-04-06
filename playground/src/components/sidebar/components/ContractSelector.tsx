@@ -64,6 +64,12 @@ export function ContractSelector({
 
   const handleContractChange = (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
+
+    // If 'create' is clicked, don't proceed (it's just for showing the dialog)
+    if (contractValue === 'create') {
+      return;
+    }
+
     setIsContractChanging(true);
 
     try {
@@ -109,19 +115,6 @@ export function ContractSelector({
   const handleShowContractInterface = () => {
     setShowContractInterface(true);
   };
-
-  // Show message if wallet is not connected
-  if (!wallet) {
-    return (
-      <div css={modalContainer}>
-        <div css={loadingContainer}>
-          <Typography variant="body2">
-            Connect to a network and account first
-          </Typography>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div css={modalContainer}>
@@ -174,6 +167,13 @@ export function ContractSelector({
           />
         )}
       </FormControl>
+      {!wallet && (
+        <div css={loadingContainer}>
+          <Typography variant="body2" color="warning.main">
+            Note: Connect to a network and account to deploy and interact with contracts
+          </Typography>
+        </div>
+      )}
       <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
     </div>
   );

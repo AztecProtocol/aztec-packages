@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { AccountWalletWithSecretKey, Fr, SponsoredFeePaymentMethod } from '@aztec/aztec.js';
+import { AccountWalletWithSecretKey, Fr } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -20,9 +20,11 @@ const creationForm = css({
 export function CreateAccountDialog({
   open,
   onClose,
+  networkDisconnected,
 }: {
   open: boolean;
   onClose: (account?: AccountWalletWithSecretKey, salt?: Fr, alias?: string) => void;
+  networkDisconnected?: boolean;
 }) {
   const [alias, setAlias] = useState('');
   const [secretKey] = useState(Fr.random());
@@ -64,83 +66,66 @@ export function CreateAccountDialog({
     const salt = Fr.random();
 
     try {
-      console.log('=== CREATING NEW ECDSA K ACCOUNT ===');
-      console.log('Alias:', alias);
+      console.log(`Creating new ECDSA K account: ${alias}`);
 
       // Create a deterministic private key for signing
-      // In production, you'd want a more secure random generation or user-provided key
       const signingPrivateKey = Buffer.alloc(32);
-      // Use the alias to generate a deterministic value
       const keyContent = `${alias}-${Date.now()}`;
       signingPrivateKey.write(keyContent.padEnd(32, '-'), 0, 32, 'utf8');
 
-      console.log('ECDSA K signing key created');
-
       // Lazy load the ECDSA module and use ECDSA K account
-      console.log('Importing ECDSA K functions...');
       const { getEcdsaKAccount } = await import('@aztec/accounts/ecdsa/lazy');
 
-      console.log('Creating account manager...');
       const account = await getEcdsaKAccount(
         pxe,
         secretKey,
         signingPrivateKey,
         salt
       );
-      console.log('Account manager created');
 
-      console.log('Registering account with PXE...');
+      // Register account with PXE
       await account.register();
-      console.log('Account registered with PXE');
 
-      // Ensure SponsoredFPC contract is registered with the PXE
-      console.log('Setting up sponsored fee payment...');
-
-      // First, get the wallet instance from the account
+      // Get the wallet instance
       const accountWallet = await account.getWallet();
 
-      // Use the new combined helper function for sponsored fee payments
-      console.log('Preparing sponsored fee payment...');
-      
+      // Try to deploy the account
+      let isDeployed = false;
+      let deployError = null;
+
       try {
         const { prepareForFeePayment } = await import('../../../utils/fees');
-        
-        // This handles registration and creation of the payment method
         const sponsoredPaymentMethod = await prepareForFeePayment(pxe, accountWallet, node);
-        console.log('Sponsored fee payment method ready');
 
-        console.log('Attempting to deploy account with sponsored fees...');
+        // Attempt deployment
         const deployTx = await account.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } });
-        console.log('Deployment transaction created, waiting for confirmation...');
         await deployTx.wait();
-        console.log('Account deployed successfully with sponsored fees!');
+        isDeployed = true;
       } catch (err) {
-        // Log the raw error without abstracting
-        console.error('Error with sponsored account deployment:');
-        console.error(err);
-        console.log('Falling back to standard deployment without fee specification...');
+        console.error('Error with sponsored account deployment');
+        deployError = err;
 
         try {
-          // Try a regular deployment without fee specification
+          // Try standard deployment as fallback
           const deployTx = await account.deploy();
-          console.log('Standard deployment transaction created, waiting for confirmation...');
           await deployTx.wait();
-          console.log('Account deployed successfully with standard deployment!');
+          isDeployed = true;
         } catch (fallbackErr) {
-          console.error('Error with standard account deployment:');
-          console.error(fallbackErr);
-          console.log('Falling back to standard registration without deployment...');
+          console.error('Error with standard account deployment');
         }
       }
 
-      // Get the wallet regardless of whether deployment succeeded
-      console.log('Getting wallet instance...');
-      const ecdsaWallet = await account.getWallet();
-      console.log('Wallet obtained:', ecdsaWallet.getAddress().toString());
+      // Verify deployment status by checking contract metadata
+      let verifiedDeploymentStatus = false;
+      try {
+        const metadata = await pxe.getContractMetadata(account.getAddress());
+        verifiedDeploymentStatus = metadata.isContractPubliclyDeployed;
+      } catch (e) {
+        // If metadata check fails, deployment didn't complete
+      }
 
-      // Store the signing key metadata to retrieve it later
+      // Store account data regardless of deployment status
       if (walletDB) {
-        console.log('Storing account data...');
         await walletDB.storeAccount(account.getAddress(), {
           type: 'ecdsasecp256k1',
           secretKey: secretKey,
@@ -148,21 +133,31 @@ export function CreateAccountDialog({
           salt,
         });
 
-        console.log('Storing signing key metadata...');
         await walletDB.storeAccountMetadata(account.getAddress(), 'signingPrivateKey', signingPrivateKey);
 
-        console.log('Account data stored successfully');
+        // Store deployment status based on verification, not attempts
+        await walletDB.storeAccountMetadata(
+          account.getAddress(),
+          'deploymentStatus',
+          Buffer.from(verifiedDeploymentStatus ? 'deployed' : 'registered')
+        );
       }
 
-      console.log('=== ECDSA K ACCOUNT CREATED SUCCESSFULLY ===');
-      console.log('Address:', account.getAddress().toString());
+      const ecdsaWallet = await account.getWallet();
+
+      // Log only essential information
+      console.log(`Account created with address: ${account.getAddress().toString()}`);
+      console.log(`Deployment status: ${verifiedDeploymentStatus ? 'Deployed' : 'Registered only'}`);
+
+      // If there was a deployment error but we're not showing it as successfully deployed
+      if (deployError && !verifiedDeploymentStatus) {
+        console.log('Note: Account is registered but not fully deployed. You can still use it for many operations.');
+      }
 
       setCreatingAccount(false);
       onClose(ecdsaWallet, salt, alias);
     } catch (error) {
-      console.error('=== ERROR CREATING ECDSA K ACCOUNT ===');
-      // Log the raw error without abstracting it
-      console.error(error);
+      console.error('Error creating account:', error);
       alert(`Error creating account: ${error.message}`);
       setCreatingAccount(false);
       onClose(); // Close dialog on error
@@ -177,7 +172,17 @@ export function CreateAccountDialog({
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Create ECDSA K Account</DialogTitle>
       <div css={creationForm}>
-        {creatingAccount ? (
+        {networkDisconnected ? (
+          <>
+            <Typography color="error">Network not connected</Typography>
+            <Typography variant="body2">
+              You need to connect to a network before creating an account.
+            </Typography>
+            <Button color="primary" onClick={handleClose}>
+              Close
+            </Button>
+          </>
+        ) : creatingAccount ? (
           <>
             <Typography>Creating ECDSA K Account...</Typography>
             <CircularProgress />

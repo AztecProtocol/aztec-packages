@@ -6,8 +6,10 @@
   "type": "module",
   "scripts": {
     "clean": "rm -rf ./dist .tsbuildinfo",
-    "serve": "vite",
-    "build": "tsc -b && vite build",
+    "copy-contracts": "node scripts/copy-contracts.js",
+    "serve": "yarn copy-contracts && vite",
+    "dev": "yarn copy-contracts && vite",
+    "build": "yarn copy-contracts && tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview --host 0.0.0.0 --port 3000",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",

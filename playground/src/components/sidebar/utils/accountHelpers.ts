@@ -33,200 +33,139 @@ export async function getInitialEcdsaKTestAccounts() {
  */
 export async function deployAccountWithSponsoredFPC(pxe: PXE, wallet: AccountWalletWithSecretKey, node: any) {
   try {
-    console.log('Starting account deployment using sponsored FPC...');
-
-    // Check if the account is already deployed
     const accountAddress = wallet.getAddress();
-    console.log(`Checking if account ${accountAddress.toString()} is already deployed...`);
+    console.log(`Deploying account ${accountAddress.toString()}...`);
 
     // Import the necessary functions
     const { prepareForFeePayment } = await import('../../../utils/fees');
 
     // Get the fee payment method using the sponsored FPC
     const feePaymentMethod = await prepareForFeePayment(pxe, wallet, node);
-    console.log('Fee payment method prepared successfully');
 
-    // Try to use the PXE to check if the contract is already deployed at this address
+    // Check if the contract is already deployed
     try {
-      console.log('Checking PXE contracts...');
-      const contracts = await pxe.getContracts();
-      console.log(`Found ${contracts.length} contracts in PXE`);
-
-      // Check if our account address is in the list of contracts
-      if (contracts.some(contract => contract.equals(accountAddress))) {
-        console.log(`Account contract already registered at ${accountAddress.toString()}`);
-
-        // We can try to check the deployment status through other means
-        try {
-          console.log('Checking if contract is deployed via transaction simulation...');
-          // Try to simulate a simple transaction to see if the account is responsive
-          const isDeployed = await checkAccountDeployment(pxe, accountAddress);
-          if (isDeployed) {
-            console.log(`Account ${accountAddress.toString()} verified as deployed through transaction checks.`);
-            return accountAddress;
-          } else {
-            console.log(`Account ${accountAddress.toString()} is registered with PXE but not fully deployed.`);
-          }
-        } catch (error) {
-          console.log('Error checking account deployment status via transaction:', error);
-        }
-      } else {
-        console.log(`Account ${accountAddress.toString()} not found in PXE contracts list.`);
+      const metadata = await pxe.getContractMetadata(accountAddress);
+      if (metadata.isContractPubliclyDeployed) {
+        console.log(`Account ${accountAddress.toString()} is already deployed.`);
+        return accountAddress;
       }
-
-      console.log(`Account at ${accountAddress.toString()} needs to be deployed. Proceeding with deployment...`);
     } catch (error) {
-      console.log(`Error checking account deployment status:`, error);
+      // Continue with deployment if we couldn't verify deployment status
     }
 
-    // Try to get account data from the wallet, if available
-    console.log('Retrieving account data from wallet...');
+    // Get account data from wallet
     const walletDB = (wallet as any).walletDB;
     let accountManager;
+    let secretKey;
+    let signingPrivateKey;
+    let salt;
 
     if (walletDB) {
-      // We have walletDB reference, so we can retrieve account data
       try {
-        console.log('Retrieving account metadata from walletDB...');
-        // Get account data and signing key
-        const secretKey = await walletDB.retrieveAccountMetadata(accountAddress, 'secretKey');
-        const signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
-        const salt = await walletDB.retrieveAccountMetadata(accountAddress, 'salt');
-
-        console.log('Retrieved account data:', {
-          hasSecretKey: !!secretKey,
-          hasSigningKey: !!signingPrivateKey,
-          hasSalt: !!salt
-        });
+        secretKey = await walletDB.retrieveAccountMetadata(accountAddress, 'secretKey');
+        signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
+        salt = await walletDB.retrieveAccountMetadata(accountAddress, 'salt');
 
         if (secretKey && signingPrivateKey) {
-          // Get the ECDSA K account manager which has deployment capabilities
-          console.log('Creating account manager using retrieved keys...');
           const { getEcdsaKAccount } = await import('@aztec/accounts/ecdsa/lazy');
-
-          // Create account manager
           accountManager = await getEcdsaKAccount(
             pxe,
             secretKey,
             signingPrivateKey,
             salt
           );
-          console.log('Account manager created successfully');
-        } else {
-          console.log('Missing account data, secretKey or signingPrivateKey not found');
         }
       } catch (error) {
-        console.log('Error retrieving account data from walletDB:', error);
+        console.log('Error retrieving account data:', error);
       }
-    } else {
-      console.log('WalletDB not available from wallet object');
     }
 
-    // If we don't have accountManager, try an alternative approach
+    // If we don't have accountManager, try with PXE registration data
     if (!accountManager) {
-      console.log('No account manager created from walletDB data, trying with PXE directly...');
-
-      // Try to get account from PXE that matches this address
       const pxeAccounts = await pxe.getRegisteredAccounts();
-      console.log(`Found ${pxeAccounts.length} accounts registered with PXE`);
-
       const matchingAccount = pxeAccounts.find(acct => acct.address.equals(accountAddress));
 
       if (!matchingAccount) {
-        console.error(`Account ${accountAddress.toString()} not found in PXE. Cannot deploy.`);
         throw new Error(`Account ${accountAddress.toString()} not found in PXE. Cannot deploy.`);
       }
 
-      // We have the account in PXE, so let's try to deploy it
-      console.log(`Account ${accountAddress.toString()} found in PXE registry, preparing for deployment...`);
+      console.log(`Account ${accountAddress.toString()} found in PXE registry.`);
 
-      // Use the SponsoredFPC to register this contract
-      console.log('Attempting to register account address as contract with PXE...');
-
-      // Since we don't have an account manager, try with direct contract registration
+      // Try to deploy using wallet capabilities
       try {
-        console.log('Getting SponsoredFPC address...');
-        const { getSponsoredFPCAddress, getSponsoredFPCInstance } = await import('../../../utils/fees');
-        const fpcAddress = await getSponsoredFPCAddress();
+        if ((wallet as any).deployAccountContract) {
+          console.log('Sending deployment transaction...');
+          const tx = await (wallet as any).deployAccountContract({
+            fee: { paymentMethod: feePaymentMethod }
+          });
+          await tx.wait();
+          console.log(`Account ${accountAddress.toString()} deployment transaction completed.`);
 
-        console.log(`Using SponsoredFPC at ${fpcAddress.toString()} to deploy account ${accountAddress.toString()}`);
-
-        // Since we can't deploy without an account manager, but we have the wallet,
-        // let's try to use special capabilities of the wallet
-        console.log('Attempting contract deployment using wallet capabilities...');
-        try {
-          // Get the contract instance for our account first (may need to register the artifact)
-          console.log('Registering account contract class...');
-          try {
-            // Access artifact if available
-            const contractArtifact = (wallet as any).getContractArtifact ?
-               await (wallet as any).getContractArtifact() : null;
-
-            if (contractArtifact) {
-              console.log('Registering contract class...');
-              await wallet.registerContractClass(contractArtifact);
-              console.log('Contract class registered');
-            } else {
-              console.log('Contract artifact not available from wallet');
+          // Update deployment status in walletDB
+          if (walletDB) {
+            // Verify the actual deployment status
+            let isDeployed = false;
+            try {
+              const metadata = await pxe.getContractMetadata(accountAddress);
+              isDeployed = metadata.isContractPubliclyDeployed;
+            } catch (e) {
+              // If check fails, assume not deployed
             }
-          } catch (error) {
-            console.log('Error registering contract class:', error);
+
+            // Store accurate deployment status
+            await walletDB.storeAccountMetadata(
+              accountAddress,
+              'deploymentStatus',
+              Buffer.from(isDeployed ? 'deployed' : 'registered')
+            );
+            console.log(`Account marked as ${isDeployed ? 'deployed' : 'registered'} in database.`);
           }
 
-          // Try to send a deploy transaction if possible
-          if ((wallet as any).deployAccountContract) {
-            console.log('Using deployAccountContract method...');
-            const tx = await (wallet as any).deployAccountContract({
-              fee: { paymentMethod: feePaymentMethod }
-            });
-            console.log('Deployment transaction sent, waiting for completion...');
-            await tx.wait();
-            console.log('Deployment transaction completed');
-          } else {
-            console.log('deployAccountContract method not available');
-          }
-        } catch (error) {
-          console.log('Error deploying using wallet capabilities:', error);
+          return accountAddress;
+        }
+      } catch (error) {
+        console.log('Error deploying using wallet capabilities:', error);
+      }
+    }
+
+    // Deploy using the account manager if available
+    if (accountManager) {
+      console.log(`Deploying account contract using account manager...`);
+      try {
+        const deployTx = await accountManager.deploy({ fee: { paymentMethod: feePaymentMethod } });
+        await deployTx.wait();
+
+        // Verify deployment status
+        let isDeployed = false;
+        try {
+          const metadata = await pxe.getContractMetadata(accountAddress);
+          isDeployed = metadata.isContractPubliclyDeployed;
+        } catch (e) {
+          // If check fails, assume not deployed
         }
 
-        // We'll mark it as deployed - in reality, this might not be a full deployment but it's the best we can do
-        // in this fallback scenario
+        // Update deployment status in walletDB
         if (walletDB) {
-          console.log('Updating account deployment status in database...');
-          await walletDB.storeAccountMetadata(accountAddress, 'deploymentStatus', Buffer.from('deployed'));
-          console.log('Account marked as deployed in database');
+          await walletDB.storeAccountMetadata(
+            accountAddress,
+            'deploymentStatus',
+            Buffer.from(isDeployed ? 'deployed' : 'registered')
+          );
+          console.log(`Account marked as ${isDeployed ? 'deployed' : 'registered'} in database.`);
         }
 
         return accountAddress;
-      } catch (error) {
-        console.error('Error in fallback deployment process:', error);
-        throw error;
+      } catch (deployError) {
+        console.error('Error deploying account:', deployError);
+
+        // Still return the address since the account is registered
+        return accountAddress;
       }
     }
 
-    // Deploy the account using the account manager
-    console.log(`Deploying account contract for ${accountAddress.toString()} using account manager...`);
-    try {
-      // Deploy with a transaction using sponsored fee payment
-      console.log('Calling deploy method with sponsored fee payment...');
-      const deployTx = await accountManager.deploy({ fee: { paymentMethod: feePaymentMethod } });
-
-      console.log('Deployment transaction sent, waiting for completion...');
-      await deployTx.wait();
-      console.log(`Account ${accountAddress.toString()} deployment complete!`);
-
-      // Update account status in walletDB
-      if (walletDB) {
-        console.log('Updating account deployment status in database...');
-        await walletDB.storeAccountMetadata(accountAddress, 'deploymentStatus', Buffer.from('deployed'));
-        console.log('Account marked as deployed in database');
-      }
-
-      return accountAddress;
-    } catch (deployError) {
-      console.error('Error deploying account:', deployError);
-      throw deployError;
-    }
+    // If we got here, we failed to deploy but the account is registered
+    console.log(`Account ${accountAddress.toString()} is registered but could not be deployed.`);
+    return accountAddress;
   } catch (error) {
     console.error('Error in account deployment process:', error);
     throw error;
@@ -238,16 +177,10 @@ export async function deployAccountWithSponsoredFPC(pxe: PXE, wallet: AccountWal
  */
 async function checkAccountDeployment(pxe: PXE, accountAddress: AztecAddress): Promise<boolean> {
   try {
-    console.log(`Checking if account ${accountAddress.toString()} is deployed using state checks...`);
-
     // Try to get contract info from PXE
     const contractMetadata = await pxe.getContractMetadata(accountAddress);
-    console.log('Contract metadata retrieved:', !!contractMetadata);
-
-    // If we have contract metadata, it's deployed
-    return !!contractMetadata;
+    return contractMetadata.isContractPubliclyDeployed;
   } catch (error) {
-    console.log('Error checking account deployment:', error);
     return false;
   }
 }

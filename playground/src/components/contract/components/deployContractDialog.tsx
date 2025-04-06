@@ -46,8 +46,8 @@ export function DeployContractDialog({
   const [alias, setAlias] = useState('');
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
-  const [deploying, setDeploying] = useState(false);
-  const { wallet, setLogsOpen, node, pxe } = useContext(AztecContext);
+  const [localDeploying, setLocalDeploying] = useState(false);
+  const { wallet, setLogsOpen, node, pxe, setIsWorking } = useContext(AztecContext);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
   const [useSponsoredFees, setUseSponsoredFees] = useState(true);
 
@@ -96,8 +96,11 @@ export function DeployContractDialog({
   };
 
   const deploy = async () => {
-    setDeploying(true);
-    setLogsOpen(true);
+    setLocalDeploying(true);
+    setIsWorking(true); // Set global isWorking state to true
+
+    // Close the dialog immediately so only the main modal shows
+    onClose();
 
     try {
       console.log('=== CONTRACT DEPLOYMENT STARTED ===');
@@ -182,10 +185,10 @@ export function DeployContractDialog({
       }
     } catch (error) {
       console.error('Deployment failed:', error);
-      alert(`Deployment failed: ${error.message}`);
       onClose();
     } finally {
-      setDeploying(false);
+      setLocalDeploying(false);
+      setIsWorking(false); // Always set global isWorking state back to false
     }
   };
 
@@ -193,96 +196,84 @@ export function DeployContractDialog({
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Deploy Contract</DialogTitle>
       <div css={creationForm}>
-        {deploying ? (
-          <>
-            <Typography>Deploying Contract...</Typography>
-            <CircularProgress />
-            <Typography variant="caption">
-              This may take 20-30 seconds
-            </Typography>
-          </>
-        ) : (
-          <>
-            <TextField
-              value={alias}
-              label="Alias"
-              onChange={event => {
-                setAlias(event.target.value);
-              }}
-            />
-            {functionAbis.filter(fn => fn.isInitializer).length > 0 && (
-              <Typography variant="subtitle1" style={{ marginTop: '16px', alignSelf: 'flex-start', fontWeight: 'bold' }}>
-                Contract Initializer
-              </Typography>
-            )}
-            {initializer && (
-              <FormControl fullWidth>
-                <InputLabel>Initializer</InputLabel>
-                <Select
-                  value={initializer.name}
-                  label="Initializer"
-                  onChange={event => {
-                    setInitializer(
-                      getInitializer(
-                        contractArtifact,
-                        event.target.value as string,
-                      ),
-                    );
-                    // Reset parameters when changing initializer
-                    setParameters([]);
-                  }}
-                >
-                  {functionAbis
-                    .filter(fn => fn.isInitializer)
-                    .map(fn => (
-                      <MenuItem key={fn.name} value={fn.name}>
-                        {fn.name}
-                      </MenuItem>
-                    ))}
-                </Select>
-                <FormHelperText>
-                  Select the initializer function to use for deployment. A contract can only be initialized once.
-                </FormHelperText>
-              </FormControl>
-            )}
-            {initializer?.parameters && initializer.parameters.length > 0 && (
-              <FormGroup row>
-                {initializer.parameters.map((param, i) => (
-                  <FunctionParameter
-                    parameter={param}
-                    key={param.name}
-                    onParameterChange={value =>
-                      handleParameterChange(i, value)
-                    }
-                  />
-                ))}
-              </FormGroup>
-            )}
-
-            <FormControl component="fieldset" sx={{ mt: 2 }}>
-              <FormGroup>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={useSponsoredFees}
-                      onChange={(e) => setUseSponsoredFees(e.target.checked)}
-                      name="useSponsoredFees"
-                    />
-                  }
-                  label="Use sponsored fees"
-                />
-              </FormGroup>
-              <FormHelperText>Enable fee sponsorship for deployment</FormHelperText>
-            </FormControl>
-
-            <Button disabled={alias === ''} onClick={deploy}>
-              Deploy
-            </Button>
-            <Button color="error" onClick={handleClose}>
-              Cancel
-            </Button>
-          </>
+        <TextField
+          value={alias}
+          label="Alias"
+          onChange={event => {
+            setAlias(event.target.value);
+          }}
+        />
+        {functionAbis.filter(fn => fn.isInitializer).length > 0 && (
+          <Typography variant="subtitle1" style={{ marginTop: '16px', alignSelf: 'flex-start', fontWeight: 'bold' }}>
+            Contract Initializer
+          </Typography>
         )}
+        {initializer && (
+          <FormControl fullWidth>
+            <InputLabel>Initializer</InputLabel>
+            <Select
+              value={initializer.name}
+              label="Initializer"
+              onChange={event => {
+                setInitializer(
+                  getInitializer(
+                    contractArtifact,
+                    event.target.value as string,
+                  ),
+                );
+                // Reset parameters when changing initializer
+                setParameters([]);
+              }}
+            >
+              {functionAbis
+                .filter(fn => fn.isInitializer)
+                .map(fn => (
+                  <MenuItem key={fn.name} value={fn.name}>
+                    {fn.name}
+                  </MenuItem>
+                ))}
+            </Select>
+            <FormHelperText>
+              Select the initializer function to use for deployment. A contract can only be initialized once.
+            </FormHelperText>
+          </FormControl>
+        )}
+        {initializer?.parameters && initializer.parameters.length > 0 && (
+          <FormGroup row>
+            {initializer.parameters.map((param, i) => (
+              <FunctionParameter
+                parameter={param}
+                key={param.name}
+                onParameterChange={value =>
+                  handleParameterChange(i, value)
+                }
+              />
+            ))}
+          </FormGroup>
+        )}
+
+        <FormControl component="fieldset" sx={{ mt: 2 }}>
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={useSponsoredFees}
+                  onChange={(e) => setUseSponsoredFees(e.target.checked)}
+                  name="useSponsoredFees"
+                />
+              }
+              label="Use sponsored fees"
+            />
+          </FormGroup>
+          <FormHelperText>Enable fee sponsorship for deployment</FormHelperText>
+        </FormControl>
+
+        <Button disabled={alias === ''} onClick={deploy}>
+          Deploy
+        </Button>
+        <Button color="error" onClick={handleClose}>
+          Cancel
+        </Button>
       </div>
     </Dialog>
   );

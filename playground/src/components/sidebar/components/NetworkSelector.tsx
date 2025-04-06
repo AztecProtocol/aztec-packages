@@ -154,11 +154,20 @@ export function NetworkSelector({
         </>
       );
     } else if (isTestnetError) {
-      return `${errorText}
-      <br/> Testnet may be down. Please see our Discord for updates.`;
+      return (
+        <>
+          {errorText}
+          <br/><br/> Testnet may be down. Please see our Discord for updates.
+          <br/> In the meantime, you can try the sandbox network.
+        </>
+      );
     } else {
-      return `${errorText}
-      <br/> Are your network details correct? Please reach out on Discord for help troubleshooting.`;
+      return (
+        <>
+          {errorText}
+          <br/><br/> Are your network details correct? Please reach out on Discord for help troubleshooting.
+        </>
+      );
     }
   };
 

@@ -322,7 +322,7 @@ export function SidebarComponent() {
       console.log('Initializing SponsoredFPC contract...');
       // Use dynamic import to get the latest version of the function
       const { registerSponsoredFPC } = await import('../../utils/fees');
-      
+
       // This function now properly registers the contract class first
       await registerSponsoredFPC(pxe, wallet, node);
       console.log('SponsoredFPC contract initialization complete');

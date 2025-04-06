@@ -137,6 +137,7 @@ export const AztecContext = createContext<{
   logs: Log[];
   logsOpen: boolean;
   drawerOpen: boolean;
+  isWorking: boolean;
   setDrawerOpen: (drawerOpen: boolean) => void;
   setLogsOpen: (logsOpen: boolean) => void;
   setLogs: (logs: Log[]) => void;
@@ -151,6 +152,7 @@ export const AztecContext = createContext<{
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
   setSelectedPredefinedContract: (contract: string) => void;
   setShowContractInterface: (show: boolean) => void;
+  setIsWorking: (working: boolean) => void;
 }>({
   pxe: null,
   nodeURL: '',
@@ -165,6 +167,7 @@ export const AztecContext = createContext<{
   logs: [],
   logsOpen: false,
   drawerOpen: false,
+  isWorking: false,
   setDrawerOpen: () => {},
   setLogsOpen: () => {},
   setLogs: () => {},
@@ -179,6 +182,7 @@ export const AztecContext = createContext<{
   setCurrentContractAddress: () => {},
   setSelectedPredefinedContract: () => {},
   setShowContractInterface: () => {},
+  setIsWorking: () => {},
 });
 
 export class AztecEnv {

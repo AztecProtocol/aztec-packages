@@ -29,3 +29,6 @@ vite.config.ts.*
 *.module.css.d.ts
 bundlemeta.json
 test-results/
+
+# Example contracts copied from monorepo
+public/contracts

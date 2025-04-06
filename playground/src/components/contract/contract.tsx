@@ -25,6 +25,8 @@ import IconButton from '@mui/material/IconButton';
 import Input from '@mui/material/Input';
 import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
+import Tooltip from '@mui/material/Tooltip';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 
 import FindInPageIcon from '@mui/icons-material/FindInPage';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
@@ -40,14 +42,17 @@ import { CreateAuthwitDialog } from './components/createAuthwitDialog';
 import { parse } from 'buffer-json';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import SearchIcon from '@mui/icons-material/Search';
+import { LoadingModal } from '../common/LoadingModal';
 
 const container = css({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
+  height: '100%',
   background: '#E9E9E9',
   borderRadius: '10px',
   padding: '45px',
+  overflow: 'hidden',
   '@media (max-width: 1100px)': {
     width: 'auto',
     padding: '24px',
@@ -126,7 +131,9 @@ const contractFnContainer = css({
   display: 'flex',
   flexDirection: 'column',
   width: '100%',
-  height: '100%',
+  flex: '1 1 auto',
+  height: '0',
+  minHeight: '0',
   overflow: 'auto',
 });
 
@@ -177,6 +184,7 @@ const filterButton = css({
   background: '#CDD1D5',
   borderRadius: '6px',
   cursor: 'pointer',
+  position: 'relative',
 });
 
 const filterCheckbox = css({
@@ -185,6 +193,7 @@ const filterCheckbox = css({
   background: '#CDD1D5',
   border: '2px solid rgba(255, 255, 255, 0.2)',
   borderRadius: '6px',
+  marginLeft: '5px',
 });
 
 const filterLabel = css({
@@ -195,6 +204,13 @@ const filterLabel = css({
   lineHeight: '19px',
   textAlign: 'center',
   color: '#000000',
+});
+
+const filterHelpIcon = css({
+  fontSize: '16px',
+  marginLeft: '4px',
+  color: '#666',
+  display: 'none',
 });
 
 const functionCard = css({
@@ -239,6 +255,16 @@ const functionName = css({
   alignItems: 'center',
   letterSpacing: '0.02em',
   color: '#2D2D2D',
+  marginBottom: '10px',
+});
+
+const functionDescription = css({
+  fontFamily: 'Inter, sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '14px',
+  lineHeight: '120%',
+  color: '#4A4A4A',
   marginBottom: '20px',
 });
 
@@ -280,6 +306,14 @@ const parameterInput = css({
   fontSize: '16px',
   lineHeight: '19px',
   color: '#3F444A',
+  '& .MuiOutlinedInput-notchedOutline': {
+    border: 'none',
+  },
+  '& .MuiInputBase-root': {
+    '&.Mui-focused fieldset': {
+      border: 'none',
+    }
+  }
 });
 
 const actionButtonsContainer = css({
@@ -477,6 +511,38 @@ declare namespace FunctionTypeExtended {
   }
 }
 
+// Function descriptions for SimpleVoting and SimpleToken contracts
+const FUNCTION_DESCRIPTIONS = {
+  // SimpleVoting functions
+  constructor: "Initialize the voting contract with an admin who can end the vote.",
+  cast_vote: "Cast a private vote for a candidate without revealing who you voted for.",
+  end_vote: "End the voting process and prevent further vote submissions.",
+  get_vote: "View the total number of votes for a specific candidate.",
+
+  // SimpleToken functions
+  mint_privately: "Create new tokens privately for a specified address.",
+  mint_publicly: "Create new tokens publicly for a specified address.",
+  private_transfer: "Transfer tokens without revealing the amount or participants, with complete privacy.",
+  public_transfer: "Transfer tokens publicly where amounts and participants are visible to everyone.",
+  transfer_from_private_to_public: "Move tokens from private to public state, revealing them on-chain.",
+  transfer_from_public_to_private: "Move tokens from public to private state, hiding them from public view.",
+  name: "Get the name of the token.",
+  symbol: "Get the token's ticker symbol.",
+  decimals: "Get the number of decimal places supported by the token.",
+  public_get_name: "Get the token name from a public function.",
+  public_get_symbol: "Get the token symbol from a public function.",
+  public_get_decimals: "Get the token decimals from a public function.",
+  public_total_supply: "View the total number of tokens in circulation.",
+  public_balance_of: "View the public token balance of a specific address.",
+  private_balance_of: "View the private token balance of a specific address.",
+  burn_public: "Destroy tokens from a public balance, reducing total supply.",
+  burn_private: "Destroy tokens from a private balance, reducing total supply.",
+  prepare_private_balance_increase: "Prepare for a private balance increase operation.",
+  finalize_transfer_to_private: "Complete a previously initiated transfer to private state.",
+  finalize_mint_to_private: "Complete a previously initiated private mint operation.",
+  cancel_authwit: "Cancel a previously created authorization witness."
+};
+
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
   const [functionAbis, setFunctionAbis] = useState<ExtendedFunctionAbi[]>([]);
@@ -491,8 +557,6 @@ export function ContractComponent() {
   });
 
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
-
-  const [isWorking, setIsWorking] = useState(false);
 
   const [simulationResults, setSimulationResults] = useState({});
   const [parameters, setParameters] = useState({});
@@ -517,6 +581,8 @@ export function ContractComponent() {
     setCurrentTx,
     setSelectedPredefinedContract,
     nodeURL,
+    isWorking,
+    setIsWorking,
   } = useContext(AztecContext);
 
   const logContractState = (message: string = 'Contract State', contract = currentContract) => {
@@ -649,8 +715,8 @@ export function ContractComponent() {
 
       if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
         try {
-          // Updated path to load from noir-projects monorepo
-          const response = await fetch('/noir-projects/noir-contracts/target/easy_private_voting_contract-EasyPrivateVoting.json', {
+          // Use simplified filenames in the public/contracts directory
+          const response = await fetch('/contracts/EasyPrivateVoting.json', {
             headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache'
@@ -666,8 +732,8 @@ export function ContractComponent() {
         }
       } else if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
         try {
-          // Updated path to load from noir-projects monorepo
-          const response = await fetch('/noir-projects/noir-contracts/target/simple_token_playground-SimpleToken.json', {
+          // Use simplified filenames in the public/contracts directory
+          const response = await fetch('/contracts/SimpleToken.json', {
             headers: {
               'Content-Type': 'application/json',
               'Cache-Control': 'no-cache'
@@ -862,12 +928,27 @@ export function ContractComponent() {
     console.log('Contract instance received:', contract ? 'Yes' : 'No');
     console.log('Alias:', alias);
 
+    // Close the dialog first regardless of contract status
+    setOpenDeployContractDialog(false);
+
     if (contract) {
+      setIsWorking(true); // Set isWorking to true when deployment starts
+
+      // Set up a current transaction object for the deployment to track status
+      const deploymentTx = {
+        status: 'proving' as const,
+        fnName: 'deploy',
+        contractAddress: contract.address,
+      };
+      setCurrentTx(deploymentTx);
+
       console.log('Contract address:', contract.address.toString());
       console.log('Contract class ID:', contract.currentContractClassId.toString());
       console.log('Wallet available:', wallet ? 'Yes' : 'No');
       console.log('Contract artifact available:', contractArtifact ? 'Yes' : 'No');
       console.log('Selected contract type:', selectedPredefinedContract || 'Custom');
+
+      let hasError = false;
 
       try {
         // Register the contract class with PXE first
@@ -898,31 +979,79 @@ export function ContractComponent() {
         const methods = Object.keys(deployedContract.methods);
         methods.forEach(method => console.log(`- ${method}`));
 
+        // Update transaction status to success
+        setCurrentTx({
+          ...deploymentTx,
+          status: 'sending' as const, // Use a valid status from the allowed types
+        });
+
         console.log('=== POST-DEPLOYMENT SETUP COMPLETED SUCCESSFULLY ===');
         console.log('Successfully deployed contract at address:', deployedContract.address.toString());
       } catch (error) {
-        // Log the error directly without handling
+        // Log the error directly
         console.error('=== DEPLOYMENT ERROR ===');
         console.error(error);
 
-        // Show the full error message to user
-        alert(`Error: ${error.message}`);
+        // Mark that we had an error
+        hasError = true;
+
+        // Update transaction status to error and include the error message
+        setCurrentTx({
+          ...deploymentTx,
+          status: 'error' as const,
+          error: error.message || 'Unknown deployment error',
+        });
+      } finally {
+        // Only set isWorking to false if there was no error
+        if (!hasError) {
+          setIsWorking(false);
+        }
       }
     }
-
-    setOpenDeployContractDialog(false);
   };
 
   const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract && alias) {
+      setIsWorking(true); // Set isWorking to true when contract registration starts
+
+      // Set up a current transaction object for the registration to track status
+      const registrationTx = {
+        status: 'proving' as const,
+        fnName: 'register',
+        contractAddress: contract.address,
+      };
+      setCurrentTx(registrationTx);
+
+      let hasError = false;
+
       try {
         await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
         setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
         setCurrentContractAddress(contract.address);
         console.log('Successfully registered contract at address:', contract.address.toString());
+
+        // Update transaction status to success
+        setCurrentTx({
+          ...registrationTx,
+          status: 'sending' as const,
+        });
       } catch (error) {
         console.error('Error registering contract:', error);
-        alert('Error registering the contract. Please try again.');
+
+        // Mark that we had an error
+        hasError = true;
+
+        // Update transaction status to error and include the error message
+        setCurrentTx({
+          ...registrationTx,
+          status: 'error' as const,
+          error: error.message || 'Unknown registration error',
+        });
+      } finally {
+        // Only set isWorking to false if there was no error
+        if (!hasError) {
+          setIsWorking(false);
+        }
       }
     }
     setOpenDeployContractDialog(false);
@@ -934,7 +1063,15 @@ export function ContractComponent() {
 
     if (!currentContract) {
       console.error('Simulation failed: No contract instance available');
-      alert('You need to deploy this contract before you can simulate functions.');
+
+      // Use error modal instead of alert
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: 'You need to deploy this contract before you can simulate functions',
+        contractAddress: null // Add contractAddress property
+      });
+      // Don't set isWorking to false on error to keep modal visible
       return;
     }
 
@@ -945,7 +1082,15 @@ export function ContractComponent() {
 
     if (!matchingFn) {
       console.error(`Function ${fnName} not found in contract ABI`);
-      alert(`Function ${fnName} not found in contract ABI`);
+
+      // Use error modal instead of alert
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: `Function ${fnName} not found in contract ABI`,
+        contractAddress: currentContract.address // Add contractAddress property
+      });
+      // Don't set isWorking to false on error to keep modal visible
       return;
     }
 
@@ -957,7 +1102,15 @@ export function ContractComponent() {
     if (!currentContract.methods[realFnName]) {
       console.error(`Method ${realFnName} not found in contract instance`);
       console.log('Available methods:', Object.keys(currentContract.methods));
-      alert(`Method ${realFnName} not found in contract instance`);
+
+      // Use error modal instead of alert
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: `Method ${realFnName} not found in contract instance`,
+        contractAddress: currentContract.address // Add contractAddress property
+      });
+      // Don't set isWorking to false on error to keep modal visible
       return;
     }
 
@@ -989,7 +1142,19 @@ export function ContractComponent() {
         ...simulationResults,
         ...{ [fnName]: { success: false, error: error.message } },
       });
+
+      // Show error in modal
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: error.message || 'Simulation failed',
+        contractAddress: currentContract.address // Add contractAddress property
+      });
+      // Don't set isWorking to false when there's an error
+      // so the error modal stays visible
+      return;
     } finally {
+      // Only set isWorking to false if we haven't encountered an error
       setIsWorking(false);
     }
   };
@@ -999,7 +1164,14 @@ export function ContractComponent() {
 
     if (!currentContract) {
       console.error('Transaction failed: No contract instance available');
-      alert('You need to deploy this contract before you can send transactions.');
+
+      // Use error modal instead of alert
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: 'You need to deploy this contract before you can send transactions',
+        contractAddress: null // Add contractAddress property
+      });
       return;
     }
 
@@ -1014,8 +1186,15 @@ export function ContractComponent() {
 
     if (!matchingFn) {
       console.error(`Function ${fnName} not found in contract ABI`);
-      alert(`Function ${fnName} not found in contract ABI`);
-      setIsWorking(false);
+
+      // Use error modal instead of alert
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: `Function ${fnName} not found in contract ABI`,
+        contractAddress: currentContract.address // Add contractAddress property
+      });
+      // Don't set isWorking to false on error to keep modal visible
       return;
     }
 
@@ -1027,8 +1206,15 @@ export function ContractComponent() {
     if (!currentContract.methods[realFnName]) {
       console.error(`Method ${realFnName} not found in contract instance`);
       console.log('Available methods:', Object.keys(currentContract.methods));
-      alert(`Method ${realFnName} not found in contract instance`);
-      setIsWorking(false);
+
+      // Use error modal instead of alert
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: fnName,
+        error: `Method ${realFnName} not found in contract instance`,
+        contractAddress: currentContract.address // Add contractAddress property
+      });
+      // Don't set isWorking to false on error to keep modal visible
       return;
     }
 
@@ -1092,19 +1278,20 @@ export function ContractComponent() {
       });
       console.log('=== TRANSACTION COMPLETED ===');
     } catch (error) {
-      // Log the raw error object to ensure all information is captured
       console.error('=== TRANSACTION ERROR ===');
       console.error(error);
 
+      // Show error in modal
       setCurrentTx({
         ...currentTx,
-        ...{
-          txHash,
-          status: 'error',
-          error: error.message,
-        },
+        status: 'error' as const,
+        error: error.message || 'Transaction failed',
       });
+      // Don't set isWorking to false when there's an error
+      // so the error modal stays visible
+      return;
     } finally {
+      // Only set isWorking to false if we haven't encountered an error
       setIsWorking(false);
     }
   };
@@ -1222,6 +1409,7 @@ export function ContractComponent() {
 
   return (
     <div css={container}>
+      <LoadingModal />
       {showUploadArea ? (
         !isLoadingArtifact ? (
           <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '1rem' }}>
@@ -1293,7 +1481,7 @@ export function ContractComponent() {
               </Button>
               <Button
                 css={actionButton}
-                onClick={() => setOpenRegisterContractDialog(true)}
+                onClick={() => window.open('https://docs.aztec.network/', '_blank')}
               >
                 Go to Docs
               </Button>
@@ -1333,49 +1521,100 @@ export function ContractComponent() {
               />
             </div>
             <div css={filterContainer}>
-              <div css={filterButton}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      css={filterCheckbox}
-                      checked={filters.private}
-                      onChange={e => setFilters({ ...filters, private: e.target.checked })}
-                    />
+              <Tooltip
+                title="These functions are simulated locally and only proofs are sent to Aztec"
+                arrow
+                componentsProps={{
+                  tooltip: {
+                    sx: {
+                      fontSize: '14px',
+                      padding: '10px',
+                      maxWidth: '300px',
+                      lineHeight: '1.4'
+                    }
                   }
-                  label={<span css={filterLabel}>Private</span>}
-                />
-              </div>
-              <div css={filterButton}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      css={filterCheckbox}
-                      checked={filters.public}
-                      onChange={e => setFilters({ ...filters, public: e.target.checked })}
-                    />
+                }}
+              >
+                <div css={filterButton}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        css={filterCheckbox}
+                        checked={filters.private}
+                        onChange={e => setFilters({ ...filters, private: e.target.checked })}
+                      />
+                    }
+                    label={<span css={filterLabel}>Private</span>}
+                  />
+                </div>
+              </Tooltip>
+              <Tooltip
+                title="These are public functions that work similarly to other blockchains"
+                arrow
+                componentsProps={{
+                  tooltip: {
+                    sx: {
+                      fontSize: '14px',
+                      padding: '10px',
+                      maxWidth: '300px',
+                      lineHeight: '1.4'
+                    }
                   }
-                  label={<span css={filterLabel}>Public</span>}
-                />
-              </div>
-              <div css={filterButton}>
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      css={filterCheckbox}
-                      checked={filters.utility}
-                      onChange={e => setFilters({ ...filters, utility: e.target.checked })}
-                    />
+                }}
+              >
+                <div css={filterButton}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        css={filterCheckbox}
+                        checked={filters.public}
+                        onChange={e => setFilters({ ...filters, public: e.target.checked })}
+                      />
+                    }
+                    label={<span css={filterLabel}>Public</span>}
+                  />
+                </div>
+              </Tooltip>
+              <Tooltip
+                title="Only invoked by applications that interact with contracts to perform state queries from an off-chain client. They are unconstrained, meaning no proofs are generated"
+                arrow
+                componentsProps={{
+                  tooltip: {
+                    sx: {
+                      fontSize: '14px',
+                      padding: '10px',
+                      maxWidth: '350px',
+                      lineHeight: '1.4'
+                    }
                   }
-                  label={<span css={filterLabel}>Utility</span>}
-                />
-              </div>
+                }}
+              >
+                <div css={filterButton}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        css={filterCheckbox}
+                        checked={filters.utility}
+                        onChange={e => setFilters({ ...filters, utility: e.target.checked })}
+                      />
+                    }
+                    label={<span css={filterLabel}>Utility</span>}
+                  />
+                </div>
+              </Tooltip>
             </div>
           </div>
 
           {!currentContract && (
             <div style={{ padding: '20px', margin: '10px 0', textAlign: 'center', backgroundColor: 'rgba(152, 148, 255, 0.1)', borderRadius: '8px' }}>
               <Typography variant="subtitle1" style={{ color: '#9894FF' }}>
-                You need to deploy this contract before you can interact with it.
+                {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING ? (
+                  'This is a simple voting contract that allows users to cast their votes privately. Your vote remains hidden while still being verifiably counted.'
+                ) : selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ? (
+                  'This contract demonstrates private token transfers and balances. Users can transact without revealing amounts or participants while maintaining verifiability.'
+                ) : (
+                  'This is your own uploaded contract. Remember you will need to deploy it before you can interact with it.'
+                )}
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
                 {!nodeURL ? (
@@ -1388,9 +1627,9 @@ export function ContractComponent() {
                   </>
                 ) : (
                   <>
-                    Click the "Deploy" button above to deploy this contract to the network.
+                    {selectedPredefinedContract ? 'Remember you will need to deploy it before you can interact with it.' : 'Click the "Deploy" button above to deploy this contract to the network.'}
                     {functionAbis.some(fn => fn.isInitializer) && (
-                      <div style={{ marginTop: '8px', fontWeight: 'bold' }}>
+                      <div style={{ marginTop: '8px'}}>
                         This contract has initializer functions that will be available in the deployment dialog.
                       </div>
                     )}
@@ -1433,6 +1672,11 @@ export function ContractComponent() {
                     <div css={functionName}>
                       {fn.name}
                     </div>
+                    {selectedPredefinedContract !== PREDEFINED_CONTRACTS.CUSTOM_UPLOAD && FUNCTION_DESCRIPTIONS[fn.name] && (
+                      <div css={functionDescription}>
+                        {FUNCTION_DESCRIPTIONS[fn.name]}
+                      </div>
+                    )}
 
                     {fn.parameters.length > 0 && (
                       <>

@@ -5,6 +5,7 @@ import { useEffect, useState, useRef } from 'react';
 import { AztecContext, AztecEnv } from '../../aztecEnv';
 import { LogPanel } from '../logPanel/logPanel';
 import logoURL from '../../assets/aztec_logo.png';
+import welcomeIconURL from '../../assets/welcome_icon.svg';
 import LinearProgress from '@mui/material/LinearProgress';
 import Typography from '@mui/material/Typography';
 import Box from '@mui/material/Box';
@@ -14,10 +15,11 @@ import { ContractSelector } from '../sidebar/components/ContractSelector';
 import { parseAliasedBuffersAsString } from '../../utils/conversion';
 import { getAccountsAndSenders } from '../sidebar/utils/accountHelpers';
 import { loadContracts } from '../sidebar/utils/contractHelpers';
-import { loadNetworks } from '../sidebar/utils/networkHelpers';
+import { loadNetworks, connectToNetwork } from '../sidebar/utils/networkHelpers';
 import { NETWORKS } from '../sidebar/constants';
 import type { Network, AliasedItem } from '../sidebar/types';
 import { ButtonWithModal } from '../sidebar/components/ButtonWithModal';
+import { LoadingModal } from '../common/LoadingModal';
 
 // Global styles to ensure full height
 const globalStyles = css`
@@ -120,12 +122,13 @@ const headerTitle = css({
   fontFamily: '"Space Grotesk", sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
-  fontSize: '32px',
-  lineHeight: '41px',
+  fontSize: '42px',
+  lineHeight: '48px',
   display: 'flex',
   alignItems: 'center',
   letterSpacing: '0.03em',
   color: '#2D2D2D',
+  textDecoration: 'none',
 });
 
 const docsButton = css({
@@ -133,11 +136,11 @@ const docsButton = css({
   flexDirection: 'row',
   justifyContent: 'center',
   alignItems: 'center',
-  padding: '8px 20px',
+  padding: '12px 24px',
   gap: '8px',
   position: 'absolute',
-  width: '109px',
-  height: '32px',
+  width: '160px',
+  height: '42px',
   right: '40px',
   background: '#8C7EFF',
   boxShadow: '0px 0px 0px 1px #715EC2, 0px 0px 0px 3px rgba(247, 249, 255, 0.08)',
@@ -146,9 +149,10 @@ const docsButton = css({
   fontFamily: 'Inter, sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
-  fontSize: '13px',
-  lineHeight: '16px',
+  fontSize: '16px',
+  lineHeight: '20px',
   cursor: 'pointer',
+  textDecoration: 'none',
 });
 
 const cardsContainer = css({
@@ -391,7 +395,7 @@ const PrivateVotingIcon = () => (
       position: 'absolute',
       width: '40.75px',
       height: '27.12px',
-      left: '4.62px',
+      left: 'calc(50% - 40.75px/2)',
       top: '18.45px',
       background: '#9894FF',
       borderRadius: '3.2455px'
@@ -400,8 +404,8 @@ const PrivateVotingIcon = () => (
       position: 'absolute',
       width: '25.98px',
       height: '27.12px',
-      left: '12px',
-      top: '30.41px',
+      left: 'calc(50% - 25.98px/2 - 0.57px)',
+      top: '4.41px',
       background: '#2D2D2D',
       borderRadius: '3.2455px',
       transform: 'rotate(-90deg)'
@@ -476,6 +480,7 @@ export default function Home() {
   const [logsOpen, setLogsOpen] = useState(false);
   const [showContractInterface, setShowContractInterface] = useState(false);
   const [sidebarFlash, setSidebarFlash] = useState(false);
+  const [isWorking, setIsWorking] = useState(false);
 
   // Track which sidebar section is active
   const [activeSection, setActiveSection] = useState<'network' | 'account' | 'contract' | null>(null);
@@ -523,10 +528,13 @@ export default function Home() {
 
   // Load networks from storage
   useEffect(() => {
-    loadNetworks()
-      .then(networks => setNetworks(networks))
-      .catch(error => console.error('Error loading networks:', error));
-  }, []);
+    // Only try to load networks after the network store is initialized
+    if (isNetworkStoreInitialized) {
+      loadNetworks()
+        .then(networks => setNetworks(networks))
+        .catch(error => console.error('Error loading networks:', error));
+    }
+  }, [isNetworkStoreInitialized]);
 
   // Setup event listener for network connect request
   useEffect(() => {
@@ -595,18 +603,7 @@ export default function Home() {
     // Always set the active section, don't toggle off when clicking the same section
     setActiveSection(section);
 
-    // Ensure proper progression:
-    // - Account section should only be accessible if network is connected
-    // - Contract section should only be accessible if account is created/connected
-    if (section === 'account' && !isNetworkConnected) {
-      setActiveSection('network');
-    } else if (section === 'contract' && (!isNetworkConnected || !wallet)) {
-      if (!isNetworkConnected) {
-        setActiveSection('network');
-      } else if (!wallet) {
-        setActiveSection('account');
-      }
-    }
+    // No more checks - allow all sections to be accessible regardless of network connection
   };
 
   // Get the current network name
@@ -619,7 +616,7 @@ export default function Home() {
 
   // Get button text based on connection state
   const getNetworkButtonText = () => {
-    if (isConnecting) return "Connecting...";
+    if (isConnecting) return "Auto-connecting...";
     if (isNetworkConnected) return `Connected to ${getCurrentNetworkName()}`;
     return "Connect to Network";
   };
@@ -663,6 +660,7 @@ export default function Home() {
     logs,
     logsOpen,
     drawerOpen: false,
+    isWorking,
     setLogsOpen,
     setLogs,
     setAztecNode,
@@ -678,6 +676,7 @@ export default function Home() {
     setSelectedPredefinedContract,
     setShowContractInterface,
     setDrawerOpen: () => {},
+    setIsWorking,
   };
 
   // Render only the selected section content
@@ -760,8 +759,8 @@ export default function Home() {
               It is a minimalistic remix.ethereum.org but for Aztec
             </div>
           </div>
-          <div style={{ width: '40%' }}>
-            {/* Visualization or graphic would go here */}
+          <div style={{ width: '40%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <img src={welcomeIconURL} alt="Welcome visualization" style={{ maxWidth: '100%', maxHeight: '200px' }} />
           </div>
         </div>
 
@@ -810,6 +809,32 @@ export default function Home() {
     </div>
   );
 
+  // Connect to devnet when starting up
+  useEffect(() => {
+    if (!nodeURL && !changingNetworks && !isConnecting && isNetworkStoreInitialized) {
+      setIsConnecting(true);
+      const defaultNetwork = NETWORKS[0].nodeURL;
+      connectToNetwork(
+        defaultNetwork,
+        setNodeURL,
+        setPXEInitialized,
+        setAztecNode,
+        setPXE,
+        setWalletDB,
+        setLogs
+      )
+        .then(() => {
+          setIsConnecting(false);
+          // Set network as active section after successful connection
+          setActiveSection('network');
+        })
+        .catch(error => {
+          console.error('Error connecting to default network:', error);
+          setIsConnecting(false);
+        });
+    }
+  }, [nodeURL, changingNetworks, isConnecting, isNetworkStoreInitialized]);
+
   return (
     <div css={layout}>
       <Global styles={globalStyles} />
@@ -821,6 +846,7 @@ export default function Home() {
           target="_blank"
           rel="noopener noreferrer"
           css={docsButton}
+          style={{ textDecoration: 'none' }}
         >
           Go to Docs
         </a>
@@ -828,6 +854,7 @@ export default function Home() {
 
       <div css={contentLayout}>
         <AztecContext.Provider value={AztecContextInitialValue}>
+          <LoadingModal />
           <div
             css={[sidebarContainer, sidebarFlash && flashAnimation]}
             ref={sidebarRef}
@@ -838,6 +865,7 @@ export default function Home() {
               label="Connect to Network"
               isActive={activeSection === 'network'}
               isSelected={isNetworkConnected}
+              isLoading={isConnecting}
               connectionStatus={isNetworkConnected ? `Connected to ${getCurrentNetworkName()}` : undefined}
               onClick={() => handleSectionToggle('network')}
             >
