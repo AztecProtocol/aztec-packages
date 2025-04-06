@@ -86,7 +86,7 @@ class AvmGoblinRecursiveVerifier {
      */
     RecursiveAvmGoblinOutput verify_proof(const StdlibProof<UltraBuilder>& stdlib_proof,
                                           const std::vector<std::vector<UltraFF>>& public_inputs,
-                                          AggregationObject input_agg_obj) const
+                                          const AggregationObject& input_agg_obj) const
     {
         // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
         InnerProverOutput inner_output =
@@ -112,8 +112,8 @@ class AvmGoblinRecursiveVerifier {
     RecursiveAvmGoblinOutput construct_outer_recursive_verification_circuit(
         const StdlibProof<UltraBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs,
-        AggregationObject input_agg_obj,
-        InnerProverOutput& inner_output) const
+        const AggregationObject& input_agg_obj,
+        const InnerProverOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
         using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
@@ -152,7 +152,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
-        auto ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, hash_buffer);
+        const FF ultra_hash = stdlib::poseidon2<UltraBuilder>::hash(ultra_builder, hash_buffer);
         mega_proof[inner_output.mega_hash_public_input_index].assert_equal(ultra_hash);
 
         // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
@@ -172,7 +172,7 @@ class AvmGoblinRecursiveVerifier {
     InnerProverOutput construct_and_prove_inner_recursive_verification_circuit(
         const StdlibProof<UltraBuilder>& stdlib_proof,
         const std::vector<std::vector<UltraFF>>& public_inputs,
-        [[maybe_unused]] AggregationObject input_agg_obj) const
+        [[maybe_unused]] const AggregationObject& input_agg_obj) const
     {
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
@@ -209,7 +209,7 @@ class AvmGoblinRecursiveVerifier {
         std::vector<FF> key_fields = convert_stdlib_ultra_to_stdlib_mega(outer_key_fields);
 
         // Compute the hash and set it public
-        auto mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
+        const FF mega_input_hash = stdlib::poseidon2<MegaBuilder>::hash(mega_builder, mega_hash_buffer);
         const size_t mega_hash_public_input_index = mega_builder.public_inputs.size();
         mega_input_hash.set_public(); // Add the hash result to the public inputs
 
