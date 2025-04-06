@@ -135,7 +135,7 @@ function fail {
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
-  if [ -t 1 ]; then
+  if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
     cat $tmp_file
     echo -e "$line"
   fi
