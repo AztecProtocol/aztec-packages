@@ -119,12 +119,31 @@ function install_hooks {
   chmod +x $hooks_dir/post-checkout
 }
 
+function sort_by_cpus {
+  awk '
+    {
+      cpus = 0;  # Default value
+      # Split line on space, take first field ($1)
+      split($1, subfields, ":");  # Split first field on :
+      for (i in subfields) {
+        split(subfields[i], arr, "=");
+        if (arr[1] == "CPUS") {
+          cpus = arr[2];
+          break;
+        }
+      }
+      # Print padded CPUS value followed by original line
+      printf "%010d %s\n", cpus, $0
+    }
+  ' | sort -s -r -n -k1,1 | cut -d' ' -f2-
+}
+
 function test_cmds {
   if [ "$#" -eq 0 ]; then
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds | sort_by_cpus
 }
 
 function start_txes {

@@ -128,10 +128,6 @@ tests:
     owners:
       - *lasse
   - regex: "simple e2e_block_building"
-    error_regex: "Cannot read properties of undefined"
-    owners:
-      - *jan
-  - regex: "simple e2e_block_building"
     error_regex: "Could not retrieve body for block"
     owners:
       - *palla

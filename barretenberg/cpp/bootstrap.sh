@@ -178,9 +178,9 @@ function test_cmds {
     local prefix=$hash
 
     # A little extra resource for these tests.
-    if [[ "$bin_name" =~ ^(client_ivc_tests|vm_tests|vm2_tests)$ ]]; then
-      prefix="$prefix:CPUS=4:MEM=8g"
-    fi
+    # if [[ "$bin_name" =~ ^(client_ivc_tests|vm_tests|vm2_tests)$ ]]; then
+    #   prefix="$prefix:CPUS=4:MEM=8g"
+    # fi
 
     $bin --gtest_list_tests | \
       awk '/^[a-zA-Z]/ {suite=$1} /^[ ]/ {print suite$1}' | \
