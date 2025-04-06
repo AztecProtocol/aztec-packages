@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1743885851796,
+  "lastUpdate": 1743908345971,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "15848336+TomAFrench@users.noreply.github.com",
-            "name": "Tom French",
-            "username": "TomAFrench"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "2bc9ca244d05b3ad49d5f38d8360524919b4fa33",
-          "message": "chore: remove catch-all branch from opcode match in transpiler (#13210)\n\nTo flush out any mismatches between brillig and the transpiler, I've\nremoved the wildcard match from the transpiler so that it needs to\nenumerate how it handles all brillig opcodes.\n\nIt seems like there's a `JumpNotIf` opcode which is not supported either\n(although I'm pretty confident that we never emit this.\n\n@sirasistant @dbanks12",
-          "timestamp": "2025-04-02T08:58:57Z",
-          "tree_id": "6e935ee1d53d1d26cd35f95905111f0a806e93a4",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2bc9ca244d05b3ad49d5f38d8360524919b4fa33"
-        },
-        "date": 1743587735028,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9569,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.24334494169820214,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 145334,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,43 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 137545,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "committer": {
+            "email": "tech@aztecprotocol.com",
+            "name": "AztecBot"
+          },
+          "distinct": true,
+          "id": "0e38c2665d8dd8f6714b8835bf658ee52f39f0f2",
+          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"8dde369fd0\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"8dde369fd0\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
+          "timestamp": "2025-04-06T02:30:51Z",
+          "tree_id": "294a64cebd88ce5e0d486a2bfd12da31e5515ed3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0e38c2665d8dd8f6714b8835bf658ee52f39f0f2"
+        },
+        "date": 1743908345147,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9415,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23944043727570416,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 146832,
             "unit": "us"
           }
         ]
