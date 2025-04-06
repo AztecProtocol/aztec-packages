@@ -51,7 +51,6 @@ class AvmGoblinRecursiveVerifier {
 
     using AggregationObject = bb::stdlib::recursion::aggregation_state<stdlib::bn254<UltraBuilder>>;
 
-    using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<UltraBuilder>>;
     using UltraFF = UltraRollupRecursiveFlavor::Curve::ScalarField;
 
     // The structure of the final output of the goblinized AVM2 recursive verifier. The IPA data comes from recursive
@@ -73,7 +72,6 @@ class AvmGoblinRecursiveVerifier {
     std::vector<UltraFF> outer_key_fields;
 
     UltraBuilder& ultra_builder;
-    std::shared_ptr<Transcript> transcript;
 
     explicit AvmGoblinRecursiveVerifier(UltraBuilder& builder, const std::vector<UltraFF>& outer_key_fields)
         : outer_key_fields(outer_key_fields)
@@ -83,6 +81,24 @@ class AvmGoblinRecursiveVerifier {
     RecursiveAvmGoblinOutput verify_proof(const StdlibProof<UltraBuilder>& stdlib_proof,
                                           const std::vector<std::vector<UltraFF>>& public_inputs,
                                           AggregationObject input_agg_obj) const
+    {
+        // Construct and prove the inner Mega-arithmetized AVM recursive verifier circuit; proof is {\pi_M, \pi_G}
+        InnerCircuitOutput inner_output =
+            construct_and_prove_inner_recursive_verification_circuit(stdlib_proof, public_inputs, input_agg_obj);
+
+        // Construct the outer Ultra-arithmetized Mega/Goblin recursive verifier circuit
+        RecursiveAvmGoblinOutput result =
+            construct_outer_recursive_verification_circuit(stdlib_proof, public_inputs, input_agg_obj, inner_output);
+
+        // Return ipa proof, ipa claim and output aggregation object produced from verifying the Mega + Goblin proofs
+        return result;
+    }
+
+    RecursiveAvmGoblinOutput construct_outer_recursive_verification_circuit(
+        const StdlibProof<UltraBuilder>& stdlib_proof,
+        const std::vector<std::vector<UltraFF>>& public_inputs,
+        AggregationObject input_agg_obj,
+        InnerCircuitOutput& inner_output) const
     {
         // Types for MegaHonk and Goblin recursive verifiers arithmetized with Ultra
         using MegaRecursiveFlavor = MegaRecursiveFlavor_<UltraBuilder>;
@@ -95,9 +111,6 @@ class AvmGoblinRecursiveVerifier {
         // STEP 1: To establish consistency of the proof, public inputs and VK for the AVM2 between the inner (Mega)
         // circuit and the outer (Ultra) circuit, each circuit computes a hash of these components and consistency is
         // checked on the result. The corresponding hash buffers are constructed here.
-
-        // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
-        InnerCircuitOutput inner_output = construct_inner_circuit(stdlib_proof, public_inputs, input_agg_obj);
 
         // Construct hash buffer containing the AVM proof, public inputs, and VK
         std::vector<FF> hash_buffer;
@@ -137,9 +150,10 @@ class AvmGoblinRecursiveVerifier {
                                          .aggregation_object = mega_verifier_output.agg_obj };
     }
 
-    InnerCircuitOutput construct_inner_circuit(const StdlibProof<UltraBuilder>& stdlib_proof,
-                                               const std::vector<std::vector<UltraFF>>& public_inputs,
-                                               [[maybe_unused]] AggregationObject input_agg_obj) const
+    InnerCircuitOutput construct_and_prove_inner_recursive_verification_circuit(
+        const StdlibProof<UltraBuilder>& stdlib_proof,
+        const std::vector<std::vector<UltraFF>>& public_inputs,
+        [[maybe_unused]] AggregationObject input_agg_obj) const
     {
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
