@@ -1,10 +1,16 @@
-# Process accounts for AMM
-process_proven=false
+should_prove_flow=true
 use_sponsored_fpc=true
 
+# We loop through every account and do required setup, and test that the suite of function calls work as expected.
+# The specific calls tested are mint_to_private in setup; and for each amm setup, we add liquidity, swap, then remove liquidity.
+
 jq -c '.accounts[]' state.json | while read -r account; do
-  current_user_address=$(echo $account | jq -r '.address')
-  account_inited=$(echo "$account" | jq -r '.inited')
+  current_user_address=$(echo "$account" | jq -r '.address')
+  account_needs_setup=$(echo "$account" | jq -r '.needs_setup')
+
+  # We should use the sponsored fpc flow for one account at least, this flag is true at the start
+  # but set false after the first account has been processed
+  fee_method_override=$([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
 
   # Register all AMM related contracts for each account
   jq -c '.contracts | map(select(.type=="amm"))[]' state.json | while read -r contract; do
@@ -13,37 +19,53 @@ jq -c '.accounts[]' state.json | while read -r account; do
     token_liquidity_address=$(echo "$contract" | jq -r '.token_liquidity_address')
     amm_address=$(echo "$contract" | jq -r '.amm_address')
 
-    aztec-wallet register-contract "$token_0_address" Token -f "$current_user_address" --node-url $NODE_URL
-    aztec-wallet register-contract "$token_1_address" Token -f "$current_user_address" --node-url $NODE_URL
-    aztec-wallet register-contract "$token_liquidity_address" Token -f "$current_user_address" --node-url $NODE_URL
-    aztec-wallet register-contract "$amm_address" AMM -f "$current_user_address" --node-url $NODE_URL
+    aztec-wallet register-contract $token_0_address Token \
+      -f $current_user_address
 
-    aztec-wallet register-contract "$token_0_address" Token -f accounts:test0 --node-url $NODE_URL
-    aztec-wallet register-contract "$token_1_address" Token -f accounts:test0 --node-url $NODE_URL
-    aztec-wallet register-contract "$token_liquidity_address" Token -f accounts:test0 --node-url $NODE_URL
-    aztec-wallet register-contract "$amm_address" AMM -f accounts:test0 --node-url $NODE_URL
+    aztec-wallet register-contract $token_1_address Token \
+      -f $current_user_address
+
+    aztec-wallet register-contract $token_liquidity_address Token \
+      -f $current_user_address
+
+    aztec-wallet register-contract $amm_address AMM \
+      -f $current_user_address
+
   done
 
   AMOUNT=420000000000
 
-  # Do setup for each amm if new account or new amm setup
   jq -c '.contracts | map(select(.type=="amm"))[]' state.json | while read -r contract; do
-    amm_inited=$(echo "$contract" | jq -r '.inited')
+    amm_needs_setup=$(echo "$contract" | jq -r '.needs_setup')
 
-    if [ "$account_inited" = "false" ] || [ "$amm_inited" = "false" ]; then
+    # If the account, or amm is new, we need to mint to the account being processed.
+    if [ "$account_needs_setup" = "true" ] || [ "$amm_needs_setup" = "true" ]; then
       token_0_address=$(echo "$contracts_data" | jq -r '.token_0_address')
       token_1_address=$(echo "$contracts_data" | jq -r '.token_1_address')
       token_liquidity_address=$(echo "$contracts_data" | jq -r '.token_liquidity_address')
       amm_address=$(echo "$contracts_data" | jq -r '.amm_address')
+      admin_and_minter=$(echo "$contract" | jq -r '.admin_and_minter')
 
-      aztec-wallet send mint_to_private -ca "$token_0_address" --args test0 "$current_user_address" "$AMOUNT" -f test0 --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
-      aztec-wallet send mint_to_private -ca "$token_1_address" --args test0 "$current_user_address" "$AMOUNT" -f test0 --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+      aztec-wallet -p none \
+        send mint_to_private \
+        -ca $token_0_address \
+        --args $admin_and_minter $current_user_address $AMOUNT \
+        -f $admin_and_minter \
+        $fee_method_override
 
-      private_balance_token_0=$(aztec-wallet simulate balance_of_private -ca "$token_0_address" --args "$current_user_address" -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
-      private_balance_token_1=$(aztec-wallet simulate balance_of_private -ca "$token_1_address" --args "$current_user_address" -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
+      aztec-wallet -p none \
+        send mint_to_private \
+        -ca $token_1_address \
+        --args $admin_and_minter $current_user_address $AMOUNT \
+        -f $admin_and_minter \
+        $fee_method_override
 
-      echo "Account $current_user_address for token 0 address $token_0_address private balance is ${private_balance_token_0}"
-      echo "Account $current_user_address for token 1 address $token_1_address private balance is ${private_balance_token_1}"
+      private_balance_token_0=$(get_private_balance "$token_0_address" "$current_user_address")
+
+      private_balance_token_1=$(get_private_balance "$token_1_address" "$current_user_address")
+
+      assert_eq "${AMOUNT}" "${private_balance_token_0}"
+      assert_eq "${AMOUNT}" "${private_balance_token_1}"
     else
       echo "Skipping setup for $current_user_address from amm $amm_address - already initialized"
     fi
@@ -56,48 +78,168 @@ jq -c '.accounts[]' state.json | while read -r account; do
     token_liquidity_address=$(echo "$contracts_data" | jq -r '.token_liquidity_address')
     amm_address=$(echo "$contracts_data" | jq -r '.amm_address')
 
-    private_balance_token_0=$(aztec-wallet simulate balance_of_private -ca "$token_address" --args $current_user_address -f $current_user_address --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}' | tr -d 'n')
-    private_balance_token_1=$(aztec-wallet simulate balance_of_private -ca "$token_address" --args $current_user_address -f $current_user_address --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}' | tr -d 'n')
+    # Getting initial balances
 
-    echo "Account $current_user_address for token 0 address $token_0_address private balance is ${private_balance_token_0}"
-    echo "Account $current_user_address for token 1 address $token_1_address private balance is ${private_balance_token_1}"
+    amm_public_balance_token_0_initial=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
 
-    aztec-wallet create-secret -a add-liquidity-nonce
-    aztec-wallet create-authwit transfer_to_public "$amm_address" -ca "$token_0_address" --args "$current_user_address" "$amm_address" "$amount_0_max" secrets:add-liquidity-nonce -f "$current_user_address" -a amm-lp-token-0
-    aztec-wallet create-authwit transfer_to_public "$amm_address" -ca "$token_1_address" --args "$current_user_address" "$amm_address" "$amount_1_max" secrets:add-liquidity-nonce -f "$current_user_address" -a amm-lp-token-1
+    amm_public_balance_token_1_initial=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
+
+    current_user_private_balance_token_0_initial=$(get_private_balance "$token_0_address" "$current_user_address")
+
+    current_user_private_balance_token_1_initial=$(get_private_balance "$token_1_address" "$current_user_address")
+
+    current_user_liquidity_token_balance_initial=$(get_private_balance "$token_liquidity_address" "$current_user_address")
+
+    echo "Balances for account $current_user_address"
+    echo "Token 0 at at address $token_0_address: private balance is $current_user_private_balance_token_0_initial"
+    echo "Token 1 at address $token_1_address: private balance is $current_user_private_balance_token_1_initial"
+    echo "Liquidity token at address $token_liquidity_address: private blance is $current_user_liquidity_token_balance_initial"
+
+    # Adding liquidity
+
+    aztec-wallet \
+      create-secret \
+      -a add-liquidity-nonce
+
+    aztec-wallet \
+      create-authwit transfer_to_public $amm_address \
+      -ca $token_0_address \
+      --args $current_user_address $amm_address $amount_0_max secrets:add-liquidity-nonce \
+      -f $current_user_address \
+      -a amm-lp-token-0
+
+    aztec-wallet \
+      create-authwit transfer_to_public $amm_address \
+      -ca $token_1_address \
+      --args $current_user_address $amm_address $amount_1_max secrets:add-liquidity-nonce \
+      -f $current_user_address \
+      -a amm-lp-token-1
 
     amount_0_max=$((private_balance_token_0/4))
     amount_1_max=$((private_balance_token_1/4))
     amount_0_min=1
     amount_1_min=1
 
-    aztec-wallet $([ "$process_proven" = "false" ] && echo "-p native" || echo "") send add_liquidity -ca "$amm_address" --args "$amount_0_max" "$amount_1_max" "$amount_0_min" "$amount_1_min" secrets:add-liquidity-nonce -aw amm-lp-token-0 -aw amm-lp-token-1 -f "$liquidity_provider" $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+    prover_to_use_for_amm_flow=$([ "$should_prove_flow" = "true" ] && echo "-p native" || echo "-p none")
 
-    ###
+    # TODO(ek): Re-enable after testing
+    # prover_to_use_for_amm_flow=$([ "$should_prove_flow" = "true" ] && echo "-p native" || echo "-p none")
+    prover_to_use_for_amm_flow="-p none"
 
-    amount_in=$((private_balance_token_0/88))
+    aztec-wallet $prover_to_use_for_amm_flow \
+      send add_liquidity \
+      -ca $amm_address \
+      --args $amount_0_max $amount_1_max $amount_0_min $amount_1_min secrets:add-liquidity-nonce \
+      -aw amm-lp-token-0 \
+      -aw amm-lp-token-1 \
+      -f $current_user_address \
+      $fee_method_override
 
-    aztec-wallet create-secret -a swap-nonce
-    aztec-wallet create-authwit transfer_to_public "$amm_address" -ca "$token_0_address" --args "$current_user_address" "$amm_address" "$amount_in" secrets:swap-nonce -f "$current_user_address" -a amm-swapper-token-0
+    current_user_private_balance_token_0_after_adding_liquidity=$(get_private_balance "$token_0_address" "$current_user_address")
 
-    amount_out_min=$(aztec-wallet simulate get_amount_out_for_exact_in -ca "$amm_address" --args "$balance_of_public_token_0_amm" "$balance_of_public_token_1_amm" "$amount_in" -f "$swapper")
-    echo "Amount out min for swap: $amount_out_min"
+    current_user_private_balance_token_1_after_adding_liquidity=$(get_private_balance "$token_1_address" "$current_user_address")
 
-    # TODO: test swap_tokens_for_exact_tokens ?
-    aztec-wallet $([ "$process_proven" = "false" ] && echo "-p native" || echo "") send swap_exact_tokens_for_tokens --ca "$amm_address" --args "$token_0_address" "$token_1_address" "$amount_in" 0 secrets:swap-nonce -aw amm-swapper-token-0 -f "$current_user_address" $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+    echo "Balances for account $current_user_address after adding liquidity"
+    echo "Token 0 at at address $token_0_address: private balance is $current_user_private_balance_token_0_after_adding_liquidity"
+    echo "Token 1 at address $token_1_address: private balance is $current_user_private_balance_token_1_after_adding_liquidity"
 
-    liquidity_token_balance=$(aztec-wallet simulate balance_of_private -ca "$token_liquidity_address" --args "$other_liquidity_provider" -f "$other_liquidity_provider" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
-    echo "Liquidity token balance: $liquidity_token_balance"
+    # We check that both tokens balance has decreased after adding liquidity
+    assert_lt "$current_user_private_balance_token_0_after_adding_liquidity" "$current_user_private_balance_token_0_initial"
+    assert_lt "$current_user_private_balance_token_1_after_adding_liquidity" "$current_user_private_balance_token_1_initial"
 
-    aztec-wallet create-secret -a burn-nonce
-    aztec-wallet create-authwit transfer_to_public "$amm_address" -ca "$token_liquidity_address" --args "$current_user_address" "$amm_address" "$liquidity_token_balance" secrets:burn-nonce -f "$current_user_address" -a amm-burn-token-liquidity
+    amm_public_balance_token_0_after_adding_liquidity=$(get_public_balance "$token_0_address" "$amm_address" "$current_user_address")
+
+    amm_public_balance_token_1_after_adding_liquidity=$(get_public_balance "$token_1_address" "$amm_address" "$current_user_address")
+
+    echo "Balances for AMM $amm_address after adding liquidity"
+    echo "Token 0 at at address $token_0_address: public balance is $amm_public_balance_token_0_after_adding_liquidity"
+    echo "Token 1 at address $token_1_address: public balance is $amm_public_balance_token_1_after_adding_liquidity"
+
+    # We check that our public balances for the AMM have increased by the same amount as our private balances have decreased for the account
+    assert_eq $((amm_public_balance_token_0_after_adding_liquidity - amm_public_balance_token_0_initial)) $((current_user_private_balance_token_0_initial - current_user_private_balance_token_0_after_adding_liquidity))
+    assert_eq $((amm_public_balance_token_1_after_adding_liquidity - amm_public_balance_token_1_initial)) $((current_user_private_balance_token_1_initial - current_user_private_balance_token_1_after_adding_liquidity))
+
+    current_user_liquidity_token_balance_after_adding_liquidity=$(get_private_balance "$token_liquidity_address" "$current_user_address")
+
+    assert_lt "$current_user_liquidity_token_balance_initial" "$current_user_liquidity_token_balance_after_adding_liquidity"
+
+    # Swapping
+
+    # The amount we want to swap should be a small fraction of our total amount
+    amount_in=$((current_user_private_balance_token_0_after_adding_liquidity / 88))
+
+    aztec-wallet \
+      create-secret \
+      -a swap-nonce
+
+    aztec-wallet \
+      create-authwit transfer_to_public $amm_address \
+      -ca $token_0_address \
+      --args $current_user_address $amm_address $amount_in secrets:swap-nonce \
+      -f $current_user_address \
+      -a amm-swapper-token-0
+
+    amount_out_exact=$(aztec-wallet \
+      simulate get_amount_out_for_exact_in \
+      -ca $amm_address \
+      --args $amm_public_balance_token_0_after_adding_liquidity $amm_public_balance_token_1_after_adding_liquidity $amount_in \
+      -f $current_user_address)
+
+    echo "Amount out min for swap: $amount_out_exact"
+
+    aztec-wallet $prover_to_use_for_amm_flow \
+      send swap_exact_tokens_for_tokens \
+      --ca $amm_address \
+      --args $token_0_address $token_1_address $amount_in $(amount_out_exact / 2) secrets:swap-nonce \
+      -aw amm-swapper-token-0 \
+      -f $current_user_address \
+      $fee_method_override
+
+    current_user_private_balance_token_0_after_swap=$(get_private_balance "$token_0_address" "$current_user_address")
+
+    current_user_private_balance_token_1_after_swap=$(get_private_balance "$token_1_address" "$current_user_address")
+
+    # We check that our token 0 balance after the swap is equal to the value before the swap subtracted by the amount swapped
+    assert_eq $((current_user_private_balance_token_0_after_adding_liquidity - amount_in)) "$current_user_private_balance_token_0_after_swap"
+
+    #We check that our token 1 balance after the swap is greater than before the swap
+    assert_lt "$current_user_private_balance_token_1_after_adding_liquidity" "$current_user_private_balance_token_1_after_swap"
+
+    # Remove liquidity
+
+    aztec-wallet \
+      create-secret \
+      -a burn-nonce
+
+    aztec-wallet \
+      create-authwit transfer_to_public $amm_address \
+      -ca $token_liquidity_address \
+      --args $current_user_address $amm_address $liquidity_token_balance secrets:burn-nonce \
+      -f $current_user_address \
+      -a amm-burn-token-liquidity
 
     amount_0_min=1
     amount_1_min=1
 
-    aztec-wallet $([ "$process_proven" = "false" ] && echo "-p native" || echo "") send remove_liquidity --ca "$amm_address" --args $((liquidity_token_balance/8)) "$amount_0_min" "$amount_1_min" secrets:burn-nonce -aw amm-burn-token-liquidity -f "$current_user_address" $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+    aztec-wallet $prover_to_use_for_amm_flow \
+      send remove_liquidity \
+      --ca "$amm_address" \
+      --args $((liquidity_token_balance/8)) $amount_0_min $amount_1_min secrets:burn-nonce \
+      -aw amm-burn-token-liquidity \
+      -f "$current_user_address" \
+      $fee_method_override
 
-    process_proven=true
+    current_user_private_balance_token_0_after_remove_liquidity=$(get_private_balance "$token_0_address" "$current_user_address")
+
+    current_user_private_balance_token_1_after_remove_liquidity=$(get_private_balance "$token_1_address" "$current_user_address")
+
+    # We check that our token balances after removing liquidity are greater than before
+    assert_lt "$current_user_private_balance_token_0_after_swap" "$current_user_private_balance_token_0_after_remove_liquidity"
+    assert_lt "$current_user_private_balance_token_1_after_swap" "$current_user_private_balance_token_1_after_remove_liquidity"
+
+    # Check public balances of AMM ?
+
+    should_prove_flow=false
   done
   use_sponsored_fpc=false
 done

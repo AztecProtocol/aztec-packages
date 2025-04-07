@@ -1,4 +1,4 @@
-# Add senders for each account
+# Register senders for each account
 jq -c '.accounts[]' state.json | while read -r account; do
   current_user_address=$(echo $account | jq -r '.address')
 
@@ -6,6 +6,8 @@ jq -c '.accounts[]' state.json | while read -r account; do
   echo "$other_accounts" | while read -r other_account; do
     other_address=$(echo "$other_account" | jq -r '.address')
 
-    aztec-wallet register-sender "$other_address" -f "$current_user_address" --node-url $NODE_URL
+    aztec-wallet \
+      register-sender "$other_address" \
+      -f "$current_user_address"
   done
 done

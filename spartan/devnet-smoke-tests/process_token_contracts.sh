@@ -1,72 +1,95 @@
-# Process tokens for account
-setup_proven=false
-process_proven=false
+should_prove_mint=true
+should_prove_transfer=true
 use_sponsored_fpc=true
+
+# We loop through every account and do required setup, and test that the suite of function calls work as expected.
+# The specific calls tested are mint_to_private, and mint_to_public in setup; and for each token we transfer
+# to the other accounts in aggregate 1/8 of our balance in both private and public.
 
 jq -c '.accounts[]' state.json | while read -r account; do
   current_user_address=$(echo $account | jq -r '.address')
-  account_inited=$(echo "$account" | jq -r '.inited')
+  account_needs_setup=$(echo "$account" | jq -r '.needs_setup')
 
-  # For each account we have to make sure that it has registered every token contract
+  # We should use the sponsored fpc flow for one account at least, this flag is true at the start
+  # but set false after the first account has been processed
+  fee_method_override=$([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+
+  # Register all Token contracts for each account
   jq -c '.contracts | map(select(.type=="token"))[]' state.json | while read -r contract; do
     token_address=$(echo "$contract" | jq -r '.address')
 
     echo "Processing token contract at $token_address"
-    aztec-wallet register-contract "$token_address" Token -f "$current_user_address" --node-url $NODE_URL
+    aztec-wallet \
+      register-contract "$token_address" Token \
+      -f "$current_user_address"
 
-    # We register the token contracts with the test account because the setup elects to mint with it
-    aztec-wallet register-contract "$token_address" Token -f accounts:test0 --node-url $NODE_URL
   done
 
   AMOUNT=420000000000
 
-  # Do setup for each token if new account or new token
+  # If the account, or Token is new, we need to mint to the account being processed.
   jq -c '.contracts | map(select(.type=="token"))[]' state.json | while read -r contract; do
-    token_inited=$(echo "$contract" | jq -r '.inited')
+    token_needs_setup=$(echo "$contract" | jq -r '.needs_setup')
 
-    if [ "$account_inited" = "false" ] || [ "$token_inited" = "false" ]; then
+    if [[ "$account_needs_setup" = "true" || "$token_needs_setup" = "true" ]]; then
       token_address=$(echo "$contract" | jq -r '.address')
+      admin_and_minter=$(echo "$contract" | jq -r '.admin_and_minter')
 
       echo "Minting for $current_user_address from token $token_address"
-
       echo "Minting to public balance for $current_user_address"
-      aztec-wallet $([ "$setup_proven" = "false" ] && echo "-p native" || echo "") send mint_to_public -ca "$token_address" --args "$current_user_address" "$AMOUNT" -f test0 --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
 
-      echo "Minting to private balance for $current_user_address"
-      aztec-wallet $([ "$setup_proven" = "false" ] && echo "-p native" || echo "") send mint_to_private -ca "$token_address" --args test0 "$current_user_address" "$AMOUNT" -f test0 --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+      # TODO(ek): Re-enable after testing
+      # prover_to_use_for_minting=$([ "$should_prove_mint" = "true" ] && echo "-p native" || echo "-p none")
+      prover_to_use_for_minting="-p none"
 
-      public_balance=$(aztec-wallet simulate balance_of_public -ca "$token_address" --args "$current_user_address" -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
-      private_balance=$(aztec-wallet simulate balance_of_private -ca "$token_address" --args "$current_user_address" -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
+      aztec-wallet $prover_to_use_for_minting send mint_to_public \
+        -ca $token_address \
+        --args $current_user_address $AMOUNT \
+        -f $admin_and_minter \
+        $fee_method_override
 
-      echo "Account $current_user_address for token address $token_address public balance is ${public_balance}"
-      echo "Account $current_user_address for token address $token_address private balance is ${private_balance}"
+      aztec-wallet $prover_to_use_for_minting send mint_to_private \
+        -ca $token_address \
+        --args $admin_and_minter $current_user_address $AMOUNT \
+        -f $admin_and_minter \
+        $fee_method_override
 
-      setup_proven=true
+      public_balance=$(get_public_balance "$token_address" "$current_user_address" "$current_user_address")
+
+      private_balance=$(get_private_balance "$token_address" "$current_user_address")
+
+      echo "Balances for account $current_user_address at address $token_address"
+      echo "Private balance: $private_balance"
+      echo "public balance: $public_balance"
+
+      should_prove_mint=false
     else
       echo "Skipping minting for $current_user_address from token $token_address - already initialized"
     fi
   done
 
-  other_accounts=$(jq -c --arg curr "$current_user_address" '.accounts[] | select(.address != $curr)' state.json)
+  other_accounts=$(jq -c \
+    --arg curr "$current_user_address" \
+    '.accounts[] | select(.address != $curr)' state.json)
 
   other_accounts_count=$(echo "$other_accounts" | jq -s 'length')
   if [ "$other_accounts_count" -eq 0 ]; then
-      echo "No other accounts found, exiting..."
-      break
+    echo "No other accounts found, exiting..."
+    break
   fi
 
-  # We then process each contract
   jq -c '.contracts | map(select(.type=="token"))[]' state.json | while read -r contract; do
     token_address=$(echo "$contract" | jq -r '.address')
 
-    public_balance=$(aztec-wallet simulate balance_of_public -ca "$token_address" --args $current_user_address -f $current_user_address --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}' | tr -d 'n')
-    private_balance=$(aztec-wallet simulate balance_of_private -ca "$token_address" --args $current_user_address -f $current_user_address --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}' | tr -d 'n')
+    public_balance=$(get_public_balance "$token_address" "$current_user_address" "$current_user_address")
+
+    private_balance=$(get_private_balance "$token_address" "$current_user_address")
 
     echo "Account $current_user_address for token address $token_address public balance is ${public_balance}"
     echo "Account $current_user_address for token address $token_address private balance is ${private_balance}"
 
-    # For every other account, we distribute 1/2 of our private and public balances to them
-    amount_to_transfer=$(($public_balance/2/$other_accounts_count))
+    # We distribute 1/8 of our private and public balances the other accounts
+    amount_to_transfer=$(($public_balance/8/$other_accounts_count))
     echo "Amount to transfer $amount_to_transfer"
 
     echo "$other_accounts" | while read -r other_account; do
@@ -74,10 +97,25 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
       echo "Token address: $token_address, Current address: $current_user_address, Other address: $other_address"
 
-      aztec-wallet $([ "$process_proven" = "false" ] && echo "-p native" || echo "") send transfer_in_public -ca "$token_address" --args "$current_user_address" "$other_address" $amount_to_transfer 0 -f "$current_user_address" --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
-      aztec-wallet $([ "$process_proven" = "false" ] && echo "-p native" || echo "") send transfer_in_private -ca "$token_address" --args "$current_user_address" "$other_address" $amount_to_transfer 0 -f "$current_user_address" --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+      # TODO(ek): Re-enable after testing
+      # prover_to_use_for_transfer=$([ "$should_prove_transfer" = "true" ] && echo "-p native" || echo "-p none")
+      prover_to_use_for_transfer="-p none"
 
-      process_proven=true
+      aztec-wallet $prover_to_use_for_transfer \
+        send transfer_in_public \
+        -ca $token_address \
+        --args $current_user_address $other_address $amount_to_transfer 0 \
+        -f $current_user_address \
+        $fee_method_override
+
+      aztec-wallet $prover_to_use_for_transfer \
+        send transfer_in_private \
+        -ca $token_address \
+        --args $current_user_address $other_address $amount_to_transfer 0 \
+        -f $current_user_address \
+        $fee_method_override
+
+      should_prove_transfer=false
     done
   done
   use_sponsored_fpc=false

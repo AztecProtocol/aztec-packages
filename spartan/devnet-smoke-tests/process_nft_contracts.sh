@@ -1,44 +1,80 @@
-# Process accounts for NFT
-setup_proven=false
-process_proven=false
+should_prove_mint=true
+should_prove_transfer=true
 use_sponsored_fpc=true
+
+# We loop through every account and do required setup, and test that the suite of function calls work as expected.
+# The specific calls tested are mint and transfer_to_private in setup; and for each NFT contract we try to transfer at most 2 nfts, sending
+# each to a randomly selected account.
 
 jq -c '.accounts[]' state.json | while read -r account; do
   current_user_address=$(echo $account | jq -r '.address')
-  account_inited=$(echo "$account" | jq -r '.inited')
+  account_needs_setup=$(echo "$account" | jq -r '.needs_setup')
 
-  # For each account we have to make sure that it has registered every nft contract
+  # We should use the sponsored fpc flow for one account at least, this flag is true at the start
+  # but set false after the first account has been processed
+  fee_method_override=$([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+
+  # Register all NFT contracts for each account
   jq -c '.contracts | map(select(.type=="nft"))[]' state.json | while read -r contract; do
     nft_address=$(echo "$contract" | jq -r '.address')
 
     echo "Processing nft contract at $nft_address"
-    aztec-wallet register-contract "$nft_address" NFT -f "$current_user_address" --node-url $NODE_URL
-    aztec-wallet register-contract "$nft_address" NFT -f accounts:test0 --node-url $NODE_URL
+    aztec-wallet \
+      register-contract "$nft_address" NFT \
+      -f "$current_user_address"
+
   done
 
   nfts_to_mint=2
 
-  # Do setup for each nft if new account or new nft
+  # If the account, or amm is new, we need to mint to the account being processed.
   jq -c '.contracts | map(select(.type=="nft"))[]' state.json | while read -r contract; do
-    nft_inited=$(echo "$contract" | jq -r '.inited')
+    nft_needs_setup=$(echo "$contract" | jq -r '.needs_setup')
 
-    if [ "$account_inited" = "false" ] || [ "$nft_inited" = "false" ]; then
+    if [ "$account_needs_setup" = "true" ] || [ "$nft_needs_setup" = "true" ]; then
         nft_address=$(echo "$contract" | jq -r '.address')
         token_id=$(echo "$contract" | jq -r '.token_id')
+        admin_and_minter=$(echo "$contract" | jq -r '.admin_and_minter')
 
         for i in $(seq 1 $((nfts_to_mint))); do
-          aztec-wallet $([ "$setup_proven" = "false" ] && echo "-p native" || echo "") send mint -ca "$nft_address" --args "$current_user_address" $((i + token_id)) -f test0 --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+          # TODO(ek): Re-enable after testing
+          # prover_to_use_for_minting_setup=$([ "$should_prove_mint" = "true" ] && echo "-p native" || echo "-p none")
+          prover_to_use_for_minting_setup="-p none"
 
-          owner_of_token_id=$(aztec-wallet simulate owner_of -ca "$nft_address" --args $((i + token_id)) -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
+          aztec-wallet $prover_to_use_for_minting_setup \
+            send mint \
+            -ca $nft_address \
+            --args $current_user_address $((i + token_id)) \
+            -f $admin_and_minter \
+            $fee_method_override
+
+          owner_of_token_id=$(aztec-wallet \
+            simulate owner_of \
+            -ca $nft_address \
+            --args $((i + token_id)) \
+            -f $current_user_address \
+            | get_simulation_result)
+
           echo "Owner of token_id $((i + token_id)) is $owner_of_token_id"
 
           # Transfer our nfts to private due to easier tracking
-          aztec-wallet $([ "$setup_proven" = "false" ] && echo "-p native" || echo "") send transfer_to_private -ca "$nft_address" --args "$current_user_address" $((i + token_id)) -f "$current_user_address" --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+          aztec-wallet $prover_to_use_for_minting_setup \
+            send transfer_to_private \
+            -ca $nft_address \
+            --args $current_user_address $((i + token_id)) \
+            -f $current_user_address \
+            $fee_method_override
 
-          private_nfts=$(aztec-wallet simulate get_private_nfts -ca "$nft_address" --args "$current_user_address" 0 -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
+          private_nfts=$(aztec-wallet \
+            simulate get_private_nfts \
+            -ca $nft_address \
+            --args $current_user_address 0 \
+            -f $current_user_address \
+            | get_simulation_result)
+
           echo "Private Nfts: $private_nfts"
 
-          setup_proven=true
+          should_prove_mint=false
         done
 
         # Increment token id by nfts_to_mint
@@ -52,7 +88,9 @@ jq -c '.accounts[]' state.json | while read -r account; do
     fi
   done
 
-  other_accounts=$(jq -c --arg curr "$current_user_address" '[.accounts[] | select(.address != $curr)]' state.json)
+  other_accounts=$(jq -c \
+    --arg curr "$current_user_address" \
+    '[.accounts[] | select(.address != $curr)]' state.json)
 
   other_accounts_count=$(echo "$other_accounts" | jq -s 'length')
   if [ "$other_accounts_count" -eq 0 ]; then
@@ -65,7 +103,13 @@ jq -c '.accounts[]' state.json | while read -r account; do
   jq -c '.contracts | map(select(.type=="nft"))[]' state.json | while read -r contract; do
     nft_address=$(echo "$contract" | jq -r '.address')
 
-    private_nfts=$(aztec-wallet simulate get_private_nfts -ca "$nft_address" --args "$current_user_address" 0 -f "$current_user_address" --node-url $NODE_URL | grep "Simulation result:" | awk '{print $3}')
+    private_nfts=$(aztec-wallet \
+      simulate get_private_nfts \
+      -ca "$nft_address" \
+      --args "$current_user_address" 0 \
+      -f "$current_user_address" \
+      | get_simulation_result)
+
     nft_array=$(echo "$private_nfts" | jq -c -R 'split(" ") | map(select(length > 0))')
     nft_count=$(echo "$nft_array" | jq '. | length')
 
@@ -78,13 +122,20 @@ jq -c '.accounts[]' state.json | while read -r account; do
         continue
       fi
 
-      random_index=$((RANDOM % account_count))
-      random_account="${account_array[$random_index]}"
-      random_account_address=$(echo "$random_account" | jq -r '.address')
+      random_other_account_address=$(select_random_account "$other_accounts")
 
-      aztec-wallet $([ "$process_proven" = "false" ] && echo "-p native" || echo "") send transfer_in_private -ca "$nft_address" --args "$current_account" "$random_account_address" "$current_nft" 0 -f "$current_user_address" --node-url $NODE_URL $([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+      # TODO(ek): Re-enable after testing
+      # prover_to_use_for_transfer=$([ "$should_prove_transfer" = "true" ] && echo "-p native" || echo "-p none")
+      prover_to_use_for_transfer="-p none"
 
-      process_proven=true
+      aztec-wallet $prover_to_use_for_transfer \
+        send transfer_in_private \
+        -ca "$nft_address" \
+        --args "$current_user_address" "$random_other_account_address" "$current_nft" 0 \
+        -f "$current_user_address" \
+        $fee_method_override
+
+      should_prove_transfer=false
     done
   done
   use_sponsored_fpc=false
