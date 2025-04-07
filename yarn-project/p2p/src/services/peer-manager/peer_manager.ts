@@ -66,7 +66,8 @@ export class PeerManager {
     this.handlers = {
       handleConnectedPeerEvent: this.handleConnectedPeerEvent.bind(this),
       handleDisconnectedPeerEvent: this.handleDisconnectedPeerEvent.bind(this),
-      handleDiscoveredPeer: this.handleDiscoveredPeer.bind(this),
+      handleDiscoveredPeer: (enr: ENR) =>
+        this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e)),
     };
 
     // Handle new established connections
