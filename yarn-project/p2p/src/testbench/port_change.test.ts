@@ -1,9 +1,8 @@
-import { type Logger, createLogger } from '@aztec/foundation/log';
+import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
 
-import assert from 'assert';
 import getPort from 'get-port';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -25,7 +24,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 describe('Port Change', () => {
   let workerClientManager: WorkerClientManager;
   let numberOfClients: number;
-  let testConfig: Partial<P2PConfig>;
+  let testConfig: P2PConfig;
   const logger = createLogger('testbench-ports');
 
   beforeEach(async () => {
