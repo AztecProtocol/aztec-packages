@@ -283,6 +283,11 @@ void ClientIVCAPI::prove(const Flags& flags,
     };
 
     write_proof();
+
+    if (flags.write_vk) {
+        vinfo("writing ClientIVC vk in directory ", output_dir);
+        write_vk_for_ivc(bytecode_path, output_dir);
+    }
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
