@@ -222,7 +222,7 @@ function bump_noir_repo_ref {
   scripts/sync.sh write-noir-repo-ref $ref
 
   # Build nargo and run formatter on `noir-projects`
-  build
+  build_native
   ../noir-projects/scripts/format.sh
   git add .
   git commit -m "chore: Update noir-repo-ref to $ref" || true
