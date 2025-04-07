@@ -71,14 +71,6 @@ function release_preview {
 }
 
 function docs_cut_version {
-    cleanup() {
-    # Function to clean up temporary files on exit/error
-    echo "Cleaning up temporary build artifacts..."
-    # Only remove build cache, keep generated versioned docs/sidebars/versions.json on error for inspection?
-    # For now, just clean cache.
-    rm -rf processed-docs processed-docs-cache
-    }
-
     echo_header "docs version"
 
     if [ -z "$1" ]; then
@@ -99,9 +91,7 @@ function docs_cut_version {
     git stash push -m "$stash_message"
     local stashed=$? # Check if something was stashed
 
-    # Setup cleanup trap *after* stashing
-    trap cleanup EXIT
-
+    rm -rf processed-docs processed-docs-cache
 
     echo "Processing tag: $COMMIT_TAG"
 
