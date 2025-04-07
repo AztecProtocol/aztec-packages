@@ -31,7 +31,7 @@ pub struct PrivateFunction {
 pub struct ClassPrivateFunctionBroadcasted {
     contract_class_id: ContractClassId,
     artifact_metadata_hash: Field,
-    unconstrained_functions_artifact_tree_root: Field,
+    utility_functions_artifact_tree_root: Field,
     private_function_tree_sibling_path: [Field; FUNCTION_TREE_HEIGHT],
     private_function_tree_leaf_index: Field,
     artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
@@ -51,7 +51,7 @@ impl ClassPrivateFunctionBroadcasted {
         packed[0] = REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE;
         packed[1] = self.contract_class_id.to_field();
         packed[2] = self.artifact_metadata_hash;
-        packed[3] = self.unconstrained_functions_artifact_tree_root;
+        packed[3] = self.utility_functions_artifact_tree_root;
         for i in 0..FUNCTION_TREE_HEIGHT {
             packed[i + 4] = self.private_function_tree_sibling_path[i];
         }

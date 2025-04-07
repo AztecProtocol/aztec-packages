@@ -109,6 +109,11 @@ if [ "$sepolia_deployment" = "true" ]; then
   # set -x
 else
   echo "Generating devnet config..."
+
+  # For each spartan run, we write genesis files into a different directory to prevent contention in ci
+  export GENESIS_PATH="out-$namespace"
+  helm_set_args+=(--set ethereum.genesisBasePath="$GENESIS_PATH")
+
   ./generate_devnet_config.sh "$values_file"
 fi
 

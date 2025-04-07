@@ -539,7 +539,7 @@ export class TXEService {
       fromArray(content.slice(0, Number(BigInt(contentLength)))),
       fromSingle(noteHash),
       fromSingle(nullifier),
-      fromSingle(txHash),
+      new TxHash(fromSingle(txHash)),
       AztecAddress.fromField(fromSingle(recipient)),
     );
 

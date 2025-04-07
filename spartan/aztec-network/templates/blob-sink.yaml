@@ -45,10 +45,8 @@ spec:
             - /bin/bash
             - -c
             - |
-              source /shared/contracts/contracts.env
-              source /shared/config/service-addresses
-              env
-
+              source /shared/config/service-addresses && \
+              env && \
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --blob-sink
           startupProbe:
             httpGet:

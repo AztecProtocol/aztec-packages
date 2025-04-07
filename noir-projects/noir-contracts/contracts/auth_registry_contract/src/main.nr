@@ -1,3 +1,9 @@
+/**
+ * @title AuthRegistry Contract
+ * @notice Manages authorization of public actions through authentication witnesses (authwits)
+ * @dev This contract allows users to approve/reject public actions that can be performed on their behalf by other
+ * addresses
+ */
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -6,15 +12,17 @@ pub contract AuthRegistry {
         assert_current_call_valid_authwit, compute_authwit_message_hash, IS_VALID_SELECTOR,
     };
     use dep::aztec::{
-        macros::{functions::{internal, private, public, view}, storage::storage},
+        macros::{functions::{internal, private, public, utility, view}, storage::storage},
         protocol_types::address::AztecAddress,
         state_vars::{Map, PublicMutable},
     };
 
     #[storage]
     struct Storage<Context> {
+        /// Map of addresses that have rejected all actions
         reject_all: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
-        // on_behalf_of => authwit hash => authorized
+        /// Nested map of approvers to their authorized message hashes
+        /// First key is the approver address, second key is the message hash, value is authorization status
         approved_actions: Map<AztecAddress, Map<Field, PublicMutable<bool, Context>, Context>, Context>,
     }
 
@@ -128,10 +136,14 @@ pub contract AuthRegistry {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 
-    unconstrained fn unconstrained_is_consumable(
+    /**
+     * Just like `is_consumable`, but a utility function and not public.
+     */
+    #[utility]
+    unconstrained fn utility_is_consumable(
         on_behalf_of: AztecAddress,
         message_hash: Field,
-    ) -> pub bool {
+    ) -> bool {
         storage.approved_actions.at(on_behalf_of).at(message_hash).read()
     }
 }

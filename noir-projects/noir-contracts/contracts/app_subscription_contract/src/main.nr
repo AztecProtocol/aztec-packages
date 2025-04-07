@@ -11,7 +11,7 @@ pub contract AppSubscription {
     use authwit::auth::assert_current_call_valid_authwit;
     use aztec::{
         encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
-        macros::{functions::{initializer, private, public}, storage::storage},
+        macros::{functions::{initializer, private, public, utility}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable, PublicImmutable},
         protocol_types::{constants::MAX_FIELD_VALUE, traits::ToField},
         utils::comparison::Comparator,
@@ -115,7 +115,8 @@ pub contract AppSubscription {
         );
     }
 
-    unconstrained fn is_initialized(subscriber: AztecAddress) -> pub bool {
+    #[utility]
+    unconstrained fn is_initialized(subscriber: AztecAddress) -> bool {
         storage.subscriptions.at(subscriber).is_initialized()
     }
 }
