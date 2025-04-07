@@ -38,11 +38,15 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function format {
+    parallel -k ./{}/bootstrap.sh format ::: noir-protocol-circuits noir-contracts aztec-nr
+}
+
 case "$cmd" in
   full|fast|ci|"")
     build
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   "hash")

@@ -214,6 +214,10 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function format {
+  $NARGO fmt
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -236,7 +240,7 @@ case "$cmd" in
     shift
     VERBOSE=${VERBOSE:-1} build "$@"
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   *)

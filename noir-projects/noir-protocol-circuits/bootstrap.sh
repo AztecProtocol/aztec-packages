@@ -191,6 +191,11 @@ function test {
   test_cmds | filter_test_cmds | parallelise
 }
 
+function format {
+  [ -f "package.json" ] && denoise "yarn && node ./scripts/generate_variants.js"
+  $NARGO fmt
+}
+
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -209,7 +214,7 @@ case "$cmd" in
     shift
     compile $1
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   *)
