@@ -21,7 +21,7 @@ import { PublicKeys } from '@aztec/stdlib/keys';
 import { Note } from '@aztec/stdlib/note';
 import { makeTxRequest } from '@aztec/stdlib/testing';
 import { NoteAndSlot, PrivateCallExecutionResult, PrivateExecutionResult, type TxRequest } from '@aztec/stdlib/tx';
-import { VerificationKey, VerificationKeyAsFields } from '@aztec/stdlib/vks';
+import { VerificationKey, VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { mock } from 'jest-mock-extended';
 
@@ -87,7 +87,7 @@ describe('Private Kernel Sequencer', () => {
     publicInputs.end.noteHashes = noteHashes;
     return {
       publicInputs,
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+      verificationKey: VerificationKeyData.empty(),
       outputWitness: new Map(),
       bytecode: Buffer.from([]),
     };
@@ -104,7 +104,7 @@ describe('Private Kernel Sequencer', () => {
     return {
       publicInputs,
       outputWitness: new Map(),
-      verificationKey: VerificationKeyAsFields.makeEmpty(CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+      verificationKey: VerificationKeyData.empty(),
       bytecode: Buffer.from([]),
     };
   };
