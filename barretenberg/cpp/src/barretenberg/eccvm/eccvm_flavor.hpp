@@ -746,6 +746,7 @@ class ECCVMFlavor {
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         bool operator==(const VerificationKey&) const = default;
+        VerificationKey() = default;
 
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
