@@ -398,7 +398,7 @@ export class Oracle {
       fromBoundedVec(content, contentLength),
       Fr.fromString(noteHash),
       Fr.fromString(nullifier),
-      Fr.fromString(txHash),
+      TxHash.fromString(txHash),
       AztecAddress.fromString(recipient),
     );
 

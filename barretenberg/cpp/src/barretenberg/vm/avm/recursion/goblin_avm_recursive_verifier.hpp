@@ -54,7 +54,7 @@ class AvmGoblinRecursiveVerifier {
     using MegaBuilder = MegaCircuitBuilder;
     using UltraRollupRecursiveFlavor = UltraRollupRecursiveFlavor_<UltraBuilder>;
 
-    using AggregationObject = bb::stdlib::recursion::aggregation_state<stdlib::bn254<UltraBuilder>>;
+    using AggregationObject = bb::stdlib::recursion::aggregation_state<UltraBuilder>;
 
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<UltraBuilder>>;
     using UltraFF = UltraRollupRecursiveFlavor::Curve::ScalarField;
@@ -67,7 +67,7 @@ class AvmGoblinRecursiveVerifier {
     struct RecursiveAvmGoblinOutput {
         std::vector<UltraFF> ipa_proof;
         OpeningClaim<stdlib::grumpkin<UltraBuilder>> ipa_claim;
-        stdlib::recursion::aggregation_state<stdlib::bn254<UltraBuilder>> aggregation_object;
+        stdlib::recursion::aggregation_state<UltraBuilder> aggregation_object;
     };
 
     std::vector<UltraFF> outer_key_fields;
@@ -93,6 +93,7 @@ class AvmGoblinRecursiveVerifier {
         using MegaRecursiveFlavorForUltraCircuit = MegaRecursiveFlavor_<UltraCircuitBuilder>;
         using MegaVerificationKey = MegaFlavor::VerificationKey;
         using MegaRecursiveVerificationKey = MegaRecursiveFlavorForUltraCircuit::VerificationKey;
+        using MegaAggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
         // A MegaHonk recursive verifier arithmetized with Ultra
         using MegaRecursiveVerifier =
             stdlib::recursion::honk::UltraRecursiveVerifier_<MegaRecursiveFlavorForUltraCircuit>;
@@ -143,12 +144,10 @@ class AvmGoblinRecursiveVerifier {
         auto stdlib_key = std::make_shared<AvmRecursiveVerificationKey>(mega_builder, std::span<FF>(key_fields));
         AvmRecursiveVerifier recursive_verifier{ &mega_builder, stdlib_key };
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1304): Do proper pairing point aggregation.
-        auto default_agg_object =
-            stdlib::recursion::init_default_aggregation_state<MegaBuilder, AvmRecursiveFlavor::Curve>(mega_builder);
+        auto default_agg_object = MegaAggregationObject::construct_default(mega_builder);
         [[maybe_unused]] auto mega_agg_output =
             recursive_verifier.verify_proof(mega_stdlib_proof, mega_public_inputs, default_agg_object);
-        mega_builder.add_pairing_point_accumulator(
-            stdlib::recursion::init_default_agg_obj_indices<MegaBuilder>(mega_builder));
+        MegaAggregationObject::add_default_pairing_points_to_public_inputs(mega_builder);
 
         // STEP 3: Generate a Mega and Goblin proof {\pi_M, \pi_G} of the AVM recursive verifier circuit
 

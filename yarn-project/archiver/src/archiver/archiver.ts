@@ -151,7 +151,12 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       rollup.getL1GenesisTime(),
     ] as const);
 
-    const { aztecEpochDuration: epochDuration, aztecSlotDuration: slotDuration, ethereumSlotDuration } = config;
+    const {
+      aztecEpochDuration: epochDuration,
+      aztecSlotDuration: slotDuration,
+      ethereumSlotDuration,
+      aztecProofSubmissionWindow: proofSubmissionWindow,
+    } = config;
 
     const archiver = new Archiver(
       publicClient,
@@ -163,7 +168,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       },
       deps.blobSinkClient,
       await ArchiverInstrumentation.new(deps.telemetry, () => archiverStore.estimateSize()),
-      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration },
+      { l1StartBlock, l1GenesisTime, epochDuration, slotDuration, ethereumSlotDuration, proofSubmissionWindow },
     );
     await archiver.start(blockUntilSynced);
     return archiver;

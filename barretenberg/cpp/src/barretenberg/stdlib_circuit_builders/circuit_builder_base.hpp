@@ -4,6 +4,7 @@
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
+#include "barretenberg/stdlib_circuit_builders/public_component_key.hpp"
 #include <msgpack/sbuffer_decl.hpp>
 #include <utility>
 
@@ -206,13 +207,14 @@ template <typename FF_> class CircuitBuilderBase {
     bool is_valid_variable(uint32_t variable_index) { return variable_index < variables.size(); };
 
     /**
-     * @brief Add information about which witnesses contain the recursive proof computation information
+     * @brief PLONK only: Add information about which witnesses contain the recursive proof computation information
      *
      * @param circuit_constructor Object with the circuit
      * @param proof_output_witness_indices Witness indices that need to become public and stored as recurisve proof
      * specific
      */
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
+    void add_pairing_point_accumulator_for_plonk(
+        const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
 
     void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
 

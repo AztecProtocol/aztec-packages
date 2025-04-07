@@ -3,7 +3,7 @@ import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import { makeAztecAddress, makeSelector, mockTx } from '@aztec/stdlib/testing';
-import type { Tx } from '@aztec/stdlib/tx';
+import { TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED, type Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -100,7 +100,7 @@ describe('PhasesTxValidator', () => {
   it('rejects txs with setup functions not on the allow list', async () => {
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
 
-    await expectInvalid(tx, 'Setup function not on allow list');
+    await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED);
   });
 
   it('rejects setup functions not on the contracts class list', async () => {
@@ -121,7 +121,7 @@ describe('PhasesTxValidator', () => {
       }
     });
 
-    await expectInvalid(tx, 'Setup function not on allow list');
+    await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED);
   });
 
   it('allows multiple setup functions on the allow list', async () => {
@@ -136,6 +136,6 @@ describe('PhasesTxValidator', () => {
     const tx = await mockTx(1, { numberOfNonRevertiblePublicCallRequests: 2 });
     await patchNonRevertibleFn(tx, 0, { address: allowedContract, selector: allowedSetupSelector1 });
 
-    await expectInvalid(tx, 'Setup function not on allow list');
+    await expectInvalid(tx, TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED);
   });
 });

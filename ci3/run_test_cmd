@@ -18,7 +18,7 @@ test_hash=$(hash_str_orig "$test_cmd")
 if [ "$USE_TEST_CACHE" -eq 1 ]; then
   log_key=$(redis_cli GET $key)
   if [ -n "$log_key" ]; then
-    log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+    log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
     echo -e "${blue}SKIPPED${reset}${log_info:-}: $cmd"
     exit 0
   fi
@@ -63,7 +63,7 @@ function live_publish_log {
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   log_key=$(uuid)
-  log_info=" (${yellow}http://ci.aztec-labs.com/$log_key${reset})"
+  log_info=" (${yellow}$(ci_term_link $log_key)${reset})"
 
   if [ "$CI" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
@@ -135,7 +135,7 @@ function fail {
   track_test $test_hash "$line"
   track_test "failed_tests" "$line"
   echo -e "$line"
-  if [ -t 1 ]; then
+  if [ "${DUMP_FAIL:-0}" -eq 1 ]; then
     cat $tmp_file
     echo -e "$line"
   fi

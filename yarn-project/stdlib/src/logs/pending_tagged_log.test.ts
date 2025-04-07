@@ -2,12 +2,13 @@ import { Fr } from '@aztec/foundation/fields';
 import { updateInlineTestData } from '@aztec/foundation/testing/files';
 
 import { AztecAddress } from '../aztec-address/index.js';
+import { TxHash } from '../tx/tx_hash.js';
 import { PendingTaggedLog } from './pending_tagged_log.js';
 
 describe('PendingTaggedLog', () => {
   it('serialization matches snapshots and output of Noir serialization', () => {
     const log = [new Fr(1n), new Fr(2n), new Fr(3n)];
-    const txHash = new Fr(123n);
+    const txHash = new TxHash(new Fr(123n));
     const uniqueNoteHashes = [new Fr(4n), new Fr(5n)];
     const firstNullifier = new Fr(6n);
     const recipient = AztecAddress.fromField(new Fr(789n));
