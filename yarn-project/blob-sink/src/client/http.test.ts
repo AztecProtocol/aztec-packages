@@ -186,7 +186,7 @@ describe('HttpBlobSinkClient', () => {
       await startExecutionHostServer();
 
       const client = new HttpBlobSinkClient({
-        blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
+        blobSinkUrl: `http://127.0.0.1:${blobSinkServer.port}`,
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
       });
 
