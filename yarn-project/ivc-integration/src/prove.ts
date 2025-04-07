@@ -10,7 +10,7 @@ import {
   readProofAsFields,
   verifyProof,
 } from '@aztec/bb-prover';
-import { RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, TUBE_PROOF_LENGTH } from '@aztec/constants';
 import type { Logger } from '@aztec/foundation/log';
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
@@ -94,6 +94,7 @@ export async function proveRollupHonk(
 ) {
   await fs.writeFile(path.join(workingDirectory, 'witness.gz'), witness);
   const flavor = root ? 'ultra_keccak_honk' : 'ultra_rollup_honk';
+  const proofLength = root ? NESTED_RECURSIVE_PROOF_LENGTH : RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
   const proofResult = await generateProof(
     pathToBB,
     workingDirectory,
@@ -110,7 +111,7 @@ export async function proveRollupHonk(
   }
 
   const vk = await extractVkData(proofResult.vkPath!);
-  const proof = await readProofAsFields(proofResult.proofPath!, vk, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, logger);
+  const proof = await readProofAsFields(proofResult.proofPath!, vk, proofLength, logger);
 
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
 
