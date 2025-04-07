@@ -194,28 +194,6 @@ pub contract DocsExample {
         ));
     }
 
-    #[private]
-    fn insert_notes(amounts: [u8; 3]) {
-        for i in 0..amounts.len() {
-            let note = CardNote::new(amounts[i], 1, context.msg_sender());
-            storage.set.insert(note).emit(encode_and_encrypt_note(
-                &mut context,
-                context.msg_sender(),
-                context.msg_sender(),
-            ));
-        }
-    }
-    #[private]
-    fn insert_note(amount: u8, randomness: Field) {
-        let note = CardNote::new(amount, randomness, context.msg_sender());
-
-        storage.set.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
-        ));
-    }
-
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[utility]
     unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {

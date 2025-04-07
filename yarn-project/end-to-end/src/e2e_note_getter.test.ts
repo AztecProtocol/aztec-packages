@@ -1,5 +1,5 @@
 import { type AztecAddress, Comparator, Fr, type Wallet } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { NoteGetterContract } from '@aztec/noir-contracts.js/NoteGetter';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 import { setup } from './fixtures/utils.js';
@@ -27,12 +27,12 @@ describe('e2e_note_getter', () => {
   afterAll(() => teardown());
 
   describe('comparators', () => {
-    let contract: DocsExampleContract;
+    let contract: NoteGetterContract;
 
     beforeAll(async () => {
-      contract = await DocsExampleContract.deploy(wallet).send().deployed();
+      contract = await NoteGetterContract.deploy(wallet).send().deployed();
       // sets card value to 1 and leader to sender.
-      await contract.methods.initialize_private(Fr.random(), 1).send().wait();
+      // await contract.methods.initialize_private(Fr.random(), 1).send().wait();
     });
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
@@ -46,8 +46,8 @@ describe('e2e_note_getter', () => {
       await contract.methods.insert_notes([0, 1, 2]).send().wait();
       await contract.methods.insert_notes([3, 4, 5]).send().wait();
       await contract.methods.insert_notes([6, 7, 8]).send().wait();
-      await contract.methods.insert_note(9, new Fr(1n)).send().wait();
-      await contract.methods.insert_note(5, Fr.ZERO).send().wait();
+      await contract.methods.insert_note(9).send().wait();
+      await contract.methods.insert_note(5).send().wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([
         contract.methods.read_note(Comparator.EQ, 5).simulate(),
