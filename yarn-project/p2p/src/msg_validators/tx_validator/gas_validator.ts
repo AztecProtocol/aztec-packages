@@ -9,6 +9,7 @@ import type { PublicStateSource } from '@aztec/stdlib/trees';
 import {
   TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE,
   TX_ERROR_INSUFFICIENT_FEE_PER_GAS,
+  TX_ERROR_INSUFFICIENT_GAS_LIMIT,
   type Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -74,7 +75,7 @@ export class GasTxValidator implements TxValidator<Tx> {
         gasLimits,
         minGasLimits,
       });
-      return { result: 'invalid', reason: ['Insufficient minimum gas limit'] };
+      return { result: 'invalid', reason: [TX_ERROR_INSUFFICIENT_GAS_LIMIT] };
     }
     return { result: 'valid' };
   }
