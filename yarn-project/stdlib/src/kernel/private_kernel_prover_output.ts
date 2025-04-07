@@ -24,7 +24,8 @@ export interface PrivateExecutionStep {
   gateCount?: number;
   bytecode: Buffer;
   witness: WitnessMap;
-  verificationKey: VerificationKeyData;
+  /* TODO(https://github.com/AztecProtocol/barretenberg/issues/1328) this should get its own proper class. */
+  vk: Buffer;
 }
 
 /** Represents the output of proven PrivateKernelSimulateOutput.*/
@@ -36,7 +37,7 @@ export interface PrivateKernelExecutionProofOutput<
   /** The private IVC proof optimized for user devices. It will be consumed by an Aztec prover,
    * which recursively verifies it through the "tube" circuit.*/
   clientIvcProof: ClientIvcProof;
-  verificationKey: VerificationKeyAsFields;
+  vk: Buffer;
   /**
    * The trace the clientIvcProof corresponds to.
    * A trace of app circuits interleaved with private kernel circuits.
