@@ -1,10 +1,10 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::{
+        encoding::to_expanded_metadata,
         log_assembly_strategies::default_aes128::{aes128::AES128, utils::prefix_with_tag},
         log_encryption::LogEncryption,
         log_type::PRIVATE_EVENT_LOG_TYPE_ID,
-        metadata_packing::to_expanded_metadata,
     },
     event::event_interface::EventInterface,
     prelude::AztecAddress,
