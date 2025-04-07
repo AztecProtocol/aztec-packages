@@ -2,7 +2,6 @@ export * from './client/index.js';
 export * from './config.js';
 export * from './publisher/index.js';
 export * from './tx_validator/tx_validator_factory.js';
-export { ArchiveCache } from './tx_validator/archive_cache.js';
 export * from './slasher/index.js';
 export { Sequencer, SequencerState } from './sequencer/index.js';
 

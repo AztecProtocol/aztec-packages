@@ -28,9 +28,6 @@
       "path": "../protocol-contracts"
     },
     {
-      "path": "../sequencer-client"
-    },
-    {
       "path": "../simulator"
     },
     {

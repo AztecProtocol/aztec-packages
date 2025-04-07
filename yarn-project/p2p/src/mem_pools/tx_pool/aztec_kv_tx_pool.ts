@@ -2,7 +2,6 @@ import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncMultiMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import { ArchiveCache } from '@aztec/sequencer-client';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
@@ -11,7 +10,8 @@ import { DatabasePublicStateSource } from '@aztec/stdlib/trees';
 import { Tx, TxHash } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
-import { GasTxValidator } from '../../msg_validators/index.js';
+import { ArchiveCache } from '../../msg_validators/tx_validator/archive_cache.js';
+import { GasTxValidator } from '../../msg_validators/tx_validator/gas_validator.js';
 import { PoolInstrumentation, PoolName } from '../instrumentation.js';
 import { getPendingTxPriority } from './priority.js';
 import type { TxPool } from './tx_pool.js';

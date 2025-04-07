@@ -72,7 +72,6 @@
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
     "@aztec/protocol-contracts": "workspace:^",
-    "@aztec/sequencer-client": "workspace:^",
     "@aztec/simulator": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",

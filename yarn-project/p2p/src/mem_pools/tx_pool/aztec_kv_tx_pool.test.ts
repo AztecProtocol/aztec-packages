@@ -1,6 +1,5 @@
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { ArchiveCache } from '@aztec/sequencer-client';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { MerkleTreeReadOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { mockTx } from '@aztec/stdlib/testing';
@@ -8,7 +7,7 @@ import { MaxBlockNumber, Tx, type TxValidationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { GasTxValidator } from '../../msg_validators/index.js';
+import { ArchiveCache, GasTxValidator } from '../../msg_validators/index.js';
 import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import { describeTxPool } from './tx_pool_test_suite.js';
 
