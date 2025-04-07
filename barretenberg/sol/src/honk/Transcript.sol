@@ -5,10 +5,11 @@ import {
     NUMBER_OF_ALPHAS,
     NUMBER_OF_ENTITIES,
     BATCHED_RELATION_PARTIAL_LENGTH,
-    CONST_PROOF_SIZE_LOG_N
+    CONST_PROOF_SIZE_LOG_N,
+    PAIRING_POINT_OBJECT_LENGTH
 } from "./HonkTypes.sol";
 import {Fr, FrLib} from "./Fr.sol";
-import {bytesToG1ProofPoint, bytesToFr} from "./utils.sol";
+import {bytesToG1ProofPoint, bytesToFr, logUint, logFr} from "./utils.sol";
 
 // Transcript library to generate fiat shamir challenges
 struct Transcript {
@@ -35,19 +36,24 @@ library TranscriptLib {
         uint256 pubInputsOffset
     ) internal pure returns (Transcript memory t) {
         Fr previousChallenge;
+        logUint("before generateRelationParametersChallenges", 0);
         (t.relationParameters, previousChallenge) = generateRelationParametersChallenges(
             proof, publicInputs, circuitSize, publicInputsSize, pubInputsOffset, previousChallenge
         );
+        logUint("before generateAlphaChallenges", 0);
 
         (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
+        logUint("before generateGateChallenges", 0);
 
         (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge);
+        logUint("before generateSumcheckChallenges", 0);
 
         (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge);
 
         (t.rho, previousChallenge) = generateRhoChallenge(proof, previousChallenge);
 
         (t.geminiR, previousChallenge) = generateGeminiRChallenge(proof, previousChallenge);
+        logUint("before generateShplonkNuChallenge", 0);
 
         (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge);
 
@@ -89,8 +95,11 @@ library TranscriptLib {
         round0[0] = bytes32(circuitSize);
         round0[1] = bytes32(publicInputsSize);
         round0[2] = bytes32(pubInputsOffset);
-        for (uint256 i = 0; i < publicInputsSize; i++) {
+        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINT_OBJECT_LENGTH; i++) {
             round0[3 + i] = bytes32(publicInputs[i]);
+        }
+        for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
+            round0[3 + publicInputsSize - PAIRING_POINT_OBJECT_LENGTH + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
         }
 
         // Create the first challenge
@@ -281,20 +290,32 @@ library TranscriptLib {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1235)
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1236)
     function loadProof(bytes calldata proof) internal pure returns (Honk.Proof memory p) {
-        // Commitments
-        p.w1 = bytesToG1ProofPoint(proof[0x0:0x80]);
+         uint256 boundary = 0x0; // TEMP: remove this when we finalize and optimize.
 
-        p.w2 = bytesToG1ProofPoint(proof[0x80:0x100]);
-        p.w3 = bytesToG1ProofPoint(proof[0x100:0x180]);
+        // Pairing point object
+        for (uint256 i = 0; i < PAIRING_POINT_OBJECT_LENGTH; i++) {
+            p.pairingPointObject[i] = bytesToFr(proof[boundary:boundary + 0x20]);
+            boundary += 0x20;
+        }
+        // Commitments
+        p.w1 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
+        p.w2 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
+        p.w3 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
 
         // Lookup / Permutation Helper Commitments
-        p.lookupReadCounts = bytesToG1ProofPoint(proof[0x180:0x200]);
-        p.lookupReadTags = bytesToG1ProofPoint(proof[0x200:0x280]);
-        p.w4 = bytesToG1ProofPoint(proof[0x280:0x300]);
-        p.lookupInverses = bytesToG1ProofPoint(proof[0x300:0x380]);
-        p.zPerm = bytesToG1ProofPoint(proof[0x380:0x400]);
-        // TEMP the boundary of what has already been read
-        uint256 boundary = 0x400;
+        p.lookupReadCounts = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
+        p.lookupReadTags = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
+        p.w4 = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
+        p.lookupInverses = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
+        p.zPerm = bytesToG1ProofPoint(proof[boundary:boundary + 0x80]);
+        boundary = boundary + 0x80;
 
         // Sumcheck univariates
         for (uint256 i = 0; i < CONST_PROOF_SIZE_LOG_N; i++) {
