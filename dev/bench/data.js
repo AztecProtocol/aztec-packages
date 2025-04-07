@@ -1,60 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744058404504,
+  "lastUpdate": 1744064229084,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "committer": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "distinct": true,
-          "id": "133bcf6315da989121a8b27d51c46d9798f39fd3",
-          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"45d3f88ef8\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"45d3f88ef8\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
-          "timestamp": "2025-04-04T02:29:18Z",
-          "tree_id": "d2bb1c947064664c159317d86639458e8b29648e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/133bcf6315da989121a8b27d51c46d9798f39fd3"
-        },
-        "date": 1743735411089,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 28691,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17561,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 8830,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10556,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12331,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2906,6 +2854,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12543,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "64675db1232d1344da8e0f1ebd6b87b1522ad59a",
+          "message": "chore: rename logs to msg (#13364)\n\nThis expands on the 'message' term:\n\n- contracts send and receive messages\n- messages follow standard encoding, by having a message type id,\nmetadata, and content\n- encoded messages are encrypted into ciphertext\n- ciphertext can be emitted alongside a tag in a log\n- ciphertext is decrypted into plaintext, which is an encoded message\n- from it we get back message metadata and content\n\nBefore this PR, we call both the log and the message 'logs', which is\nincorrect and confusing.\n\nThe renaming is partial since some concepts are still tied to logs (e.g.\nevents *must* be in logs, message processing is currently done on logs\nstored in capsules, etc.), but this is a good first step.",
+          "timestamp": "2025-04-07T21:36:12Z",
+          "tree_id": "a4f2192b2549e65875b8a92937cd5cdbd244ecfb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/64675db1232d1344da8e0f1ebd6b87b1522ad59a"
+        },
+        "date": 1744064221230,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 29191,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 17769,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 8928,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10659,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12519,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
