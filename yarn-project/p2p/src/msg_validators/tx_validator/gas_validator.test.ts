@@ -7,7 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees, GasSettings } from '@aztec/stdlib/gas';
 import { mockTx } from '@aztec/stdlib/testing';
 import type { PublicStateSource } from '@aztec/stdlib/trees';
-import type { Tx } from '@aztec/stdlib/tx';
+import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE, TX_ERROR_INSUFFICIENT_FEE_PER_GAS, type Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -82,11 +82,11 @@ describe('GasTxValidator', () => {
 
   it('rejects txs if fee payer has not enough balance', async () => {
     mockBalance(feeLimit - 1n);
-    await expectInvalid(tx, 'Insufficient fee payer balance');
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
   it('rejects txs if fee payer has zero balance', async () => {
-    await expectInvalid(tx, 'Insufficient fee payer balance');
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
   it('rejects txs if fee payer claims balance outside setup', async () => {
@@ -95,16 +95,16 @@ describe('GasTxValidator', () => {
       selector: await FunctionSelector.fromSignature('_increase_public_balance((Field),u128)'),
       args: [payer.toField(), new Fr(1n)],
     });
-    await expectInvalid(tx, 'Insufficient fee payer balance');
+    await expectInvalid(tx, TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
   it('skips txs with not enough fee per da gas', async () => {
     gasFees.feePerDaGas = gasFees.feePerDaGas.add(new Fr(1));
-    await expectSkipped(tx, 'Insufficient fee per gas');
+    await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 
   it('skips txs with not enough fee per l2 gas', async () => {
     gasFees.feePerL2Gas = gasFees.feePerL2Gas.add(new Fr(1));
-    await expectSkipped(tx, 'Insufficient fee per gas');
+    await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
 });

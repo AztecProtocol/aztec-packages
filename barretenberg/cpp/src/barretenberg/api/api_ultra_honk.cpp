@@ -20,9 +20,7 @@ namespace bb {
 extern std::string CRS_PATH;
 
 template <typename Flavor, typename Circuit = typename Flavor::CircuitBuilder>
-Circuit _compute_circuit(const std::string& bytecode_path,
-                         const std::string& witness_path,
-                         const bool init_kzg_accumulator)
+Circuit _compute_circuit(const std::string& bytecode_path, const std::string& witness_path)
 {
     uint32_t honk_recursion = 0;
     if constexpr (IsAnyOf<Flavor, UltraFlavor, UltraKeccakFlavor, UltraKeccakZKFlavor>) {
@@ -34,7 +32,7 @@ Circuit _compute_circuit(const std::string& bytecode_path,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1180): Don't init grumpkin crs when unnecessary.
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    const acir_format::ProgramMetadata metadata{ .recursive = init_kzg_accumulator, .honk_recursion = honk_recursion };
+    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
     acir_format::AcirProgram program{ get_constraint_system(bytecode_path, metadata.honk_recursion) };
 
     if (!witness_path.empty()) {
@@ -44,11 +42,9 @@ Circuit _compute_circuit(const std::string& bytecode_path,
 }
 
 template <typename Flavor>
-UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
-                                     const std::string& witness_path,
-                                     const bool init_kzg_accumulator)
+UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path, const std::string& witness_path)
 {
-    auto prover = UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path, init_kzg_accumulator) };
+    auto prover = UltraProver_<Flavor>{ _compute_circuit<Flavor>(bytecode_path, witness_path) };
 
     size_t required_crs_size = prover.proving_key->proving_key.circuit_size;
     if constexpr (Flavor::HasZK) {
@@ -59,27 +55,23 @@ UltraProver_<Flavor> _compute_prover(const std::string& bytecode_path,
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
-PubInputsProofAndKey<VK> _compute_vk(const bool init_kzg_accumulator,
-                                     const std::filesystem::path& bytecode_path,
+PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
                                      const std::filesystem::path& witness_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
+    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
 }
 
 template <typename Flavor, typename VK = typename Flavor::VerificationKey>
 PubInputsProofAndKey<VK> _prove(const bool compute_vk,
-                                const bool init_kzg_accumulator,
                                 const std::filesystem::path& bytecode_path,
                                 const std::filesystem::path& witness_path)
 {
-    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string(), init_kzg_accumulator);
+    auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     HonkProof concat_pi_and_proof = prover.construct_proof();
     size_t num_inner_public_inputs = prover.proving_key->proving_key.num_public_inputs;
-    if (init_kzg_accumulator) {
-        ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
-        num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
-    }
+    ASSERT(num_inner_public_inputs >= PAIRING_POINT_ACCUMULATOR_SIZE);
+    num_inner_public_inputs -= PAIRING_POINT_ACCUMULATOR_SIZE;
     if constexpr (HasIPAAccumulator<Flavor>) {
         ASSERT(num_inner_public_inputs >= IPA_CLAIM_SIZE);
         num_inner_public_inputs -= IPA_CLAIM_SIZE;
@@ -167,16 +159,14 @@ void UltraHonkAPI::prove(const Flags& flags,
         write(_prove_output, flags.output_format, flags.write_vk ? "proof_and_vk" : "proof", output_dir);
     };
 
-    const bool init = flags.init_kzg_accumulator;
-
     if (flags.ipa_accumulation) {
-        _write(_prove<UltraRollupFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraRollupFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_prove<UltraFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_prove<UltraKeccakFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, init, bytecode_path, witness_path));
+        _write(_prove<UltraKeccakZKFlavor>(flags.write_vk, bytecode_path, witness_path));
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }
@@ -217,16 +207,14 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 {
     const auto _write = [&](auto&& _prove_output) { write(_prove_output, flags.output_format, "vk", output_path); };
 
-    const bool init = flags.init_kzg_accumulator;
-
     if (flags.ipa_accumulation) {
-        _write(_compute_vk<UltraRollupFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraRollupFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "poseidon2") {
-        _write(_compute_vk<UltraFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "keccak" && !flags.zk) {
-        _write(_compute_vk<UltraKeccakFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraKeccakFlavor>(bytecode_path, ""));
     } else if (flags.oracle_hash_type == "keccak" && flags.zk) {
-        _write(_compute_vk<UltraKeccakZKFlavor>(init, bytecode_path, ""));
+        _write(_compute_vk<UltraKeccakZKFlavor>(bytecode_path, ""));
     } else {
         throw_or_abort("Invalid proving options specified in _prove");
     }
@@ -235,7 +223,7 @@ void UltraHonkAPI::write_vk(const Flags& flags,
 void UltraHonkAPI::gates([[maybe_unused]] const Flags& flags,
                          [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
-    gate_count(bytecode_path, flags.recursive, flags.honk_recursion, flags.include_gates_per_opcode);
+    gate_count(bytecode_path, /*useless=*/false, flags.honk_recursion, flags.include_gates_per_opcode);
 }
 
 void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
@@ -273,7 +261,7 @@ void write_recursion_inputs_ultra_honk(const std::string& bytecode_path,
         init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
         ipa_accumulation = true;
     }
-    const acir_format::ProgramMetadata metadata{ .recursive = true, .honk_recursion = honk_recursion };
+    const acir_format::ProgramMetadata metadata{ .honk_recursion = honk_recursion };
 
     acir_format::AcirProgram program;
     program.constraints = get_constraint_system(bytecode_path, metadata.honk_recursion);

@@ -33,6 +33,10 @@ This led us to rename the `unkonstrained` method on `TestEnvironment` as `utilit
 +     SharedMutable::new(env.utility(), storage_slot)
 ```
 
+### [AuthRegistry] function name change
+
+As part of the broader transition from "top-level unconstrained" to "utility" name (detailed in the note above), the `unconstrained_is_consumable` function in AuthRegistry has been renamed to `utility_is_consumable`. The function's signature and behavior remain unchanged - only the name has been updated to align with the new convention. If you're currently using this function, a simple rename in your code will suffice.
+
 ## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
