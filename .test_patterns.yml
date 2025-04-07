@@ -72,6 +72,11 @@ tests:
     skip: true
     owners:
       - *charlie
+  # CI3 is breaking noir tests due to handling of paths.
+  - regex: "tests::{compile_failure,execution_success}"
+    skip: true
+    owners:
+      - *tom
 
   # e2e tests
   - regex: "simple e2e_p2p"
