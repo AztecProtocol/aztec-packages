@@ -86,7 +86,7 @@ type ValidationOutcome = { allPassed: true } | { allPassed: false; failure: Vali
 /**
  * Lib P2P implementation of the P2PService interface.
  */
-export class LibP2PService<T extends P2PClientType> extends WithTracer implements P2PService {
+export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends WithTracer implements P2PService {
   private jobQueue: SerialQueue = new SerialQueue();
   private peerManager: PeerManager;
   private discoveryRunningPromise?: RunningPromise;
@@ -115,15 +115,15 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   constructor(
     private clientType: T,
     private config: P2PConfig,
-    private node: PubSubLibp2p,
+    protected node: PubSubLibp2p,
     private peerDiscoveryService: PeerDiscoveryService,
-    private mempools: MemPools<T>,
+    protected mempools: MemPools<T>,
     private archiver: L2BlockSource & ContractDataSource,
     epochCache: EpochCacheInterface,
     private proofVerifier: ClientProtocolCircuitVerifier,
     private worldStateSynchronizer: WorldStateSynchronizer,
     telemetry: TelemetryClient,
-    private logger = createLogger('p2p:libp2p_service'),
+    protected logger = createLogger('p2p:libp2p_service'),
   ) {
     super(telemetry, 'LibP2PService');
 
@@ -187,7 +187,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
 
     const otelMetricsAdapter = new OtelMetricsAdapter(telemetry);
 
-    const bootstrapNodes = peerDiscoveryService.bootstrapNodes;
+    const bootstrapNodes = peerDiscoveryService.bootstrapNodeEnrs.map(enr => enr.encodeTxt());
 
     // If trusted peers are provided, also provide them to the p2p service
     bootstrapNodes.push(...config.trustedPeers);
@@ -482,7 +482,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
    * @param topic - The message's topic.
    * @param data - The message data
    */
-  private async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
+  protected async handleNewGossipMessage(msg: Message, msgId: string, source: PeerId) {
     if (msg.topic === Tx.p2pTopic) {
       await this.handleGossipedTx(msg, msgId, source);
     }
@@ -496,7 +496,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return;
   }
 
-  private async validateReceivedMessage<T>(
+  protected async validateReceivedMessage<T>(
     validationFunc: () => Promise<{ result: boolean; obj: T }>,
     msgId: string,
     source: PeerId,
@@ -516,7 +516,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
     return resultAndObj;
   }
 
-  private async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
+  protected async handleGossipedTx(msg: Message, msgId: string, source: PeerId) {
     const validationFunc = async () => {
       const tx = Tx.fromBuffer(Buffer.from(msg.data));
       const result = await this.validatePropagatedTx(tx, source);
@@ -792,7 +792,7 @@ export class LibP2PService<T extends P2PClientType> extends WithTracer implement
   ): Promise<ValidationOutcome> {
     const validationPromises = Object.entries(messageValidators).map(async ([name, { validator, severity }]) => {
       const { result } = await validator.validateTx(tx);
-      return { name, isValid: result === 'valid', severity };
+      return { name, isValid: result !== 'invalid', severity };
     });
 
     // A promise that resolves when all validations have been run

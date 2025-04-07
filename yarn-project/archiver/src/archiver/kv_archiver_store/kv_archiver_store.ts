@@ -10,7 +10,7 @@ import type {
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import { type LogFilter, PrivateLog, type TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -117,9 +117,9 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, unconstrainedFunctions);
+    return this.#contractClassStore.addFunctions(contractClassId, privateFunctions, utilityFunctions);
   }
 
   async addContractInstances(data: ContractInstanceWithAddress[], _blockNumber: number): Promise<boolean> {
@@ -196,8 +196,8 @@ export class KVArchiverDataStore implements ArchiverDataStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   getTxEffect(txHash: TxHash) {
     return this.#blockStore.getTxEffect(txHash);

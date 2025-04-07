@@ -1,6 +1,14 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type AnyTx, Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  type AnyTx,
+  TX_ERROR_INCORRECT_CHAIN_ID,
+  TX_ERROR_INCORRECT_ROLLUP_VERSION,
+  TX_ERROR_INVALID_BLOCK_NUMBER,
+  Tx,
+  type TxValidationResult,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   #log = createLogger('p2p:tx_validator:tx_metadata');
@@ -10,13 +18,13 @@ export class MetadataTxValidator<T extends AnyTx> implements TxValidator<T> {
   async validateTx(tx: T): Promise<TxValidationResult> {
     const errors = [];
     if (!(await this.#hasCorrectChainId(tx))) {
-      errors.push('Incorrect chain id');
+      errors.push(TX_ERROR_INCORRECT_CHAIN_ID);
     }
     if (!(await this.#hasCorrectRollupVersion(tx))) {
-      errors.push('Incorrect rollup version');
+      errors.push(TX_ERROR_INCORRECT_ROLLUP_VERSION);
     }
     if (!(await this.#isValidForBlockNumber(tx))) {
-      errors.push('Invalid block number');
+      errors.push(TX_ERROR_INVALID_BLOCK_NUMBER);
     }
     return errors.length > 0 ? { result: 'invalid', reason: errors } : { result: 'valid' };
   }

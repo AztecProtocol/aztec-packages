@@ -7,7 +7,7 @@ import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoc
 import { jest } from '@jest/globals';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import { EPOCH_DURATION_IN_L2_SLOTS, EpochsTestContext, L1_BLOCK_TIME_IN_S } from './epochs_test.js';
+import { EpochsTestContext, L1_BLOCK_TIME_IN_S } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -58,7 +58,7 @@ describe('e2e_epochs/epochs_multi_proof', () => {
     await sleep(L1_BLOCK_TIME_IN_S * 1000);
     const [_firstEpochStartSlot, firstEpochEndSlot] = getSlotRangeForEpoch(0n, constants);
     const firstEpochBlocks = await context.aztecNode
-      .getBlocks(1, EPOCH_DURATION_IN_L2_SLOTS)
+      .getBlocks(1, test.epochDuration)
       .then(blocks => blocks.filter(block => block.header.getSlot() <= firstEpochEndSlot));
     const firstEpochLength = firstEpochBlocks.length;
     const firstEpochLastBlockNum = firstEpochBlocks.at(-1)!.number;

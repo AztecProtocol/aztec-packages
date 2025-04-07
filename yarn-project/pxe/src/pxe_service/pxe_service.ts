@@ -26,7 +26,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -54,11 +54,11 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   PublicSimulationOutput,
   Tx,
-  type TxEffect,
   TxExecutionRequest,
   type TxHash,
   TxProfileResult,
@@ -209,7 +209,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.node.getTxEffect(txHash);
   }
 
@@ -343,23 +343,16 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Simulate an unconstrained function call on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
-   * Returns the simulation result containing the outputs of the unconstrained function.
-   *
+   * Simulate a utility function call on the given contract.
    * @param call - The function call to execute.
    * @param authWitnesses - Authentication witnesses required for the function call.
    * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
    * accounts if not specified.
-   * @returns The simulation result containing the outputs of the unconstrained function.
+   * @returns The simulation result containing the outputs of the utility function.
    */
-  async #simulateUnconstrained(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
-    this.log.debug('Executing unconstrained simulator...');
+  async #simulateUtility(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
     try {
-      const result = await this.simulator.runUnconstrained(call, authWitnesses ?? [], scopes);
-      this.log.verbose(`Unconstrained simulation for ${call.to}.${call.selector} completed`);
-
-      return result;
+      return this.simulator.runUtility(call, authWitnesses ?? [], scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);
@@ -811,7 +804,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public simulateUnconstrained(
+  public simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -827,7 +820,7 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
-        const executionResult = await this.#simulateUnconstrained(functionCall, authwits ?? [], scopes);
+        const executionResult = await this.#simulateUtility(functionCall, authwits ?? [], scopes);
 
         // TODO - Return typed result based on the function artifact.
         return executionResult;
@@ -835,7 +828,7 @@ export class PXEService implements PXE {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `simulateUtility ${to}:${functionName}(${stringifiedArgs})`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
@@ -890,7 +883,7 @@ export class PXEService implements PXE {
     this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
     // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
-    await this.simulateUnconstrained('sync_notes', [], contractAddress);
+    await this.simulateUtility('sync_notes', [], contractAddress);
 
     const events = await this.privateEventDataProvider.getPrivateEvents(
       contractAddress,

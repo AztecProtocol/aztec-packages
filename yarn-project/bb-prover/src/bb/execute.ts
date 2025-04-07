@@ -123,6 +123,7 @@ export async function executeBbClientIvcProof(
   bytecodeStackPath: string,
   witnessStackPath: string,
   log: LogFn,
+  writeVk = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -158,8 +159,10 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
-      '--write_vk',
     ];
+    if (writeVk) {
+      args.push('--write_vk');
+    }
 
     const timer = new Timer();
     const logFunction = (message: string) => {

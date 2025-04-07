@@ -1,5 +1,7 @@
 #pragma once
 
+#include <span>
+#include <stack>
 #include <tuple>
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
@@ -56,9 +58,18 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) override;
     world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) override;
+    void append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) override;
+
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
 
   private:
     TreeSnapshots tree_roots;
+    uint32_t checkpoint_action_counter = 0;
+    // We start with a checkpoint id of 0, which is the assumed initial state checkpoint.
+    // This stack is for debugging purposes only.
+    std::stack<uint32_t> checkpoint_stack{ { 0 } };
 
     // Query hints.
     using GetSiblingPathKey =
@@ -85,8 +96,27 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map<SequentialInsertHintNullifierTreeKey,
                        SequentialInsertHint<crypto::merkle_tree::NullifierLeafValue>>
         sequential_insert_hints_nullifier_tree;
+    using AppendLeavesHintKey = std::tuple<AppendOnlyTreeSnapshot, world_state::MerkleTreeId, std::vector<FF>>;
+    unordered_flat_map<AppendLeavesHintKey, AppendOnlyTreeSnapshot> append_leaves_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, CreateCheckpointHint> create_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, CommitCheckpointHint> commit_checkpoint_hints;
+    unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
 };
 
 } // namespace bb::avm2::simulation
+
+// Specialization of std::hash for std::vector<FF> to be used as a key in unordered_flat_map.
+namespace std {
+template <> struct hash<std::vector<bb::avm2::FF>> {
+    size_t operator()(const std::vector<bb::avm2::FF>& vec) const
+    {
+        size_t seed = vec.size();
+        for (const auto& item : vec) {
+            seed ^= std::hash<bb::avm2::FF>{}(item) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+        }
+        return seed;
+    }
+};
+} // namespace std

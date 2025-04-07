@@ -10,6 +10,7 @@ import {
   loadContractArtifact,
   getAllFunctionAbis,
   type FunctionAbi,
+  FunctionType,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -131,7 +132,7 @@ export function ContractComponent() {
     searchTerm: '',
     private: true,
     public: true,
-    unconstrained: true,
+    utility: true,
   });
 
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
@@ -173,7 +174,7 @@ export function ContractComponent() {
         searchTerm: '',
         private: true,
         public: true,
-        unconstrained: true,
+        utility: true,
       });
       setIsLoadingArtifact(false);
     };
@@ -417,16 +418,16 @@ export function ContractComponent() {
                     control={
                       <Checkbox
                         sx={{ padding: 0 }}
-                        checked={filters.unconstrained}
+                        checked={filters.utility}
                         onChange={e =>
                           setFilters({
                             ...filters,
-                            unconstrained: e.target.checked,
+                            utility: e.target.checked,
                           })
                         }
                       />
                     }
-                    label="Unconstrained"
+                    label="Utility"
                   />
                 </div>
               </FormGroup>
@@ -437,9 +438,9 @@ export function ContractComponent() {
               fn =>
                 !fn.isInternal &&
                 !FORBIDDEN_FUNCTIONS.includes(fn.name) &&
-                ((filters.private && fn.functionType === 'private') ||
-                  (filters.public && fn.functionType === 'public') ||
-                  (filters.unconstrained && fn.functionType === 'unconstrained')) &&
+                ((filters.private && fn.functionType === FunctionType.PRIVATE) ||
+                  (filters.public && fn.functionType === FunctionType.PUBLIC) ||
+                  (filters.utility && fn.functionType === FunctionType.UTILITY)) &&
                 (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
             )
             .map(fn => (
@@ -517,7 +518,7 @@ export function ContractComponent() {
                     Simulate
                   </Button>
                   <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
+                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
                     size="small"
                     color="secondary"
                     variant="contained"
@@ -527,12 +528,12 @@ export function ContractComponent() {
                     Send
                   </Button>
                   <Button
-                    disabled={!wallet || !currentContract || isWorking || fn.functionType === 'unconstrained'}
+                    disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
                     size="small"
                     color="secondary"
                     variant="contained"
                     onClick={() =>
-                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === 'private')
+                      handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
                     }
                     endIcon={<VpnKeyIcon />}
                   >
