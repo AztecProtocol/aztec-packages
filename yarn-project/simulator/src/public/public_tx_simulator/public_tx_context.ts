@@ -111,7 +111,7 @@ export class PublicTxContext {
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // We wrap the DB to collect AVM hints.
-    const hints = new AvmExecutionHints(AvmTxHint.fromTx(tx));
+    const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
     const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
     const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
 

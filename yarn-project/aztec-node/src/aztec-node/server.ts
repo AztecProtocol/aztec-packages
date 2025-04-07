@@ -463,13 +463,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    await this.txQueue
-      .put(async () => {
-        await this.#sendTx(tx);
-      })
-      .catch(error => {
-        this.log.error(`Error sending tx`, { error });
-      });
+    await this.txQueue.put(() => this.#sendTx(tx));
   }
 
   async #sendTx(tx: Tx) {
@@ -480,10 +474,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (valid.result !== 'valid') {
       const reason = valid.reason.join(', ');
       this.metrics.receivedTx(timer.ms(), false);
-      this.log.warn(`Invalid tx ${txHash}: ${reason}`, { txHash });
-      // TODO(#10967): Throw when receiving an invalid tx instead of just returning
-      // throw new Error(`Invalid tx: ${reason}`);
-      return;
+      this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
+      throw new Error(`Invalid tx: ${reason}`);
     }
 
     await this.p2pClient!.sendTx(tx);

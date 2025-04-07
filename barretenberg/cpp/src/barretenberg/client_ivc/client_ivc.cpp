@@ -92,7 +92,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     // Recursively verify the merge proof for the circuit being recursively verified
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
+    [[maybe_unused]] AggregationObject pairing_points =
+        GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -151,7 +152,7 @@ void ClientIVC::accumulate(ClientCircuit& circuit,
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Do proper aggregation with merge recursive
     // verifier.
-    circuit.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(circuit));
+    AggregationObject::add_default_pairing_points_to_public_inputs(circuit);
 
     // Construct the proving key for circuit
     std::shared_ptr<DeciderProvingKey> proving_key = std::make_shared<DeciderProvingKey>(circuit, trace_settings);
@@ -254,7 +255,7 @@ std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, ClientIVC::MergeProof> 
     DeciderRecursiveVerifier decider{ &builder, recursive_verifier_accumulator };
     decider.verify_proof(decider_proof);
 
-    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<ClientCircuit>(builder));
+    AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
     // Construct the last merge proof for the present circuit and add to merge verification queue
     MergeProof merge_proof = goblin.prove_merge(builder);

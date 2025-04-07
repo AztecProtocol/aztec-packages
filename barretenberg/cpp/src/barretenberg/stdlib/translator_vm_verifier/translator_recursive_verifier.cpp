@@ -57,7 +57,7 @@ void TranslatorRecursiveVerifier_<Flavor>::put_translation_data_in_relation_para
  * @brief This function verifies an TranslatorFlavor Honk proof for given program settings.
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor>::verify_proof(
+TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerifier_<Flavor>::verify_proof(
     const HonkProof& proof, const BF& evaluation_input_x, const BF& batching_challenge_v)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
@@ -143,7 +143,7 @@ std::array<typename Flavor::GroupElement, 2> TranslatorRecursiveVerifier_<Flavor
 
     const auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template <typename Flavor>

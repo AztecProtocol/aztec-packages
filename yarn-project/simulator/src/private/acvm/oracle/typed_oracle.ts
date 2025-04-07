@@ -225,7 +225,7 @@ export abstract class TypedOracle {
     _content: Fr[],
     _noteHash: Fr,
     _nullifier: Fr,
-    _txHash: Fr,
+    _txHash: TxHash,
     _recipient: AztecAddress,
   ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
