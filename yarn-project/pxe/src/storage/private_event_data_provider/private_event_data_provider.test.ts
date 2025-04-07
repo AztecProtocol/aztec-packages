@@ -20,6 +20,7 @@ describe('PrivateEventDataProvider', () => {
   let eventSelector: EventSelector;
   let txHash: TxHash;
   let logIndexInTx: number;
+  let txIndexInBlock: number;
 
   beforeEach(async () => {
     const store = await openTmpStore('private_event_data_provider_test');
@@ -31,6 +32,7 @@ describe('PrivateEventDataProvider', () => {
     eventSelector = EventSelector.random();
     txHash = TxHash.random();
     logIndexInTx = randomInt(10);
+    txIndexInBlock = randomInt(10);
   });
 
   it('stores and retrieves private events', async () => {
@@ -41,6 +43,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     const events = await privateEventDataProvider.getPrivateEvents(
@@ -61,6 +64,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     await privateEventDataProvider.storePrivateEventLog(
@@ -70,6 +74,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     const events = await privateEventDataProvider.getPrivateEvents(
@@ -91,6 +96,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     await privateEventDataProvider.storePrivateEventLog(
@@ -100,6 +106,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       otherTxHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     const events = await privateEventDataProvider.getPrivateEvents(
@@ -120,6 +127,7 @@ describe('PrivateEventDataProvider', () => {
       getRandomMsgContent(),
       TxHash.random(),
       logIndexInTx,
+      txIndexInBlock,
       100,
     );
     await privateEventDataProvider.storePrivateEventLog(
@@ -129,6 +137,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       TxHash.random(),
       logIndexInTx,
+      txIndexInBlock,
       200,
     );
     await privateEventDataProvider.storePrivateEventLog(
@@ -138,6 +147,7 @@ describe('PrivateEventDataProvider', () => {
       getRandomMsgContent(),
       TxHash.random(),
       logIndexInTx,
+      txIndexInBlock,
       300,
     );
 
@@ -161,6 +171,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     await privateEventDataProvider.storePrivateEventLog(
@@ -170,6 +181,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       TxHash.random(),
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
 
@@ -204,6 +216,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     expect(await privateEventDataProvider.getSize()).toBe(1);
@@ -215,6 +228,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     expect(await privateEventDataProvider.getSize()).toBe(1); // Duplicate event not stored
@@ -226,6 +240,7 @@ describe('PrivateEventDataProvider', () => {
       msgContent,
       TxHash.random(),
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
     expect(await privateEventDataProvider.getSize()).toBe(2);
