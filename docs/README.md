@@ -149,6 +149,31 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
 
+## Versioning
+
+Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not: it allows you to hot-fix previous versions.
+
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
+The way docs builds work is the following:
+
+- CI runs on merge to master, and runs `build_docs` and `deploy` on the `bootstrap.sh` file
+- `build_docs` eventually ends up running `build.sh` on the `scripts` folder and:
+  - cleans up
+  - preprocesses (see above)
+  - runs typedoc, which should work since all the other packages in the monorepo are now built
+  - builds the docs website with the versions in `versions.json`
+- `deploy` decides on whether it's running on CI or not to decide on whether to deploy on the prod website, or to deploy a preview and comment on the PR it came from
+
+### How do I cut a new version
+
+First check that the version you want to cut is already released. Then you just:
+
+- checkout `master`
+- run `./bootstrap.sh docs-cut-version <version you want to cut>`
+
+You'll end up with a HEAD that has a new version in `versioned_docs`. PR that.
+
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.
