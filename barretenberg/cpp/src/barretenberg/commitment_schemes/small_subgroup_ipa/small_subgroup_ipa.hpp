@@ -1,5 +1,6 @@
 #pragma once
 
+#include "barretenberg/commitment_schemes/claim_batcher.hpp"
 #include "barretenberg/commitment_schemes/utils/test_settings.hpp"
 #include "barretenberg/constants.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
@@ -144,7 +145,7 @@ template <typename Flavor> class SmallSubgroupIPAProver {
 
     void prove();
 
-    void compute_challenge_polynomial(const std::vector<FF>& multivariate_challenge);
+    void compute_challenge_polynomial(std::span<const FF> multivariate_challenge);
 
     void compute_eccvm_challenge_polynomial(const FF evaluation_challenge_x, const FF batching_challenge_v);
 
@@ -286,10 +287,11 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
      * @return false
      */
     static bool check_libra_evaluations_consistency(const std::array<FF, NUM_SMALL_IPA_EVALUATIONS>& libra_evaluations,
-                                                    const FF& gemini_evaluation_challenge,
-                                                    const std::vector<FF>& multilinear_challenge,
-                                                    const FF& inner_product_eval_claim)
+                                                    const FF& inner_product_eval_claim,
+                                                    ShpleminiVerifierState<Curve>& verifier_state)
     {
+        const FF& gemini_evaluation_challenge = verifier_state.gemini_evaluation_challenge;
+        std::span<const FF> multilinear_challenge = verifier_state.multilinear_challenge;
 
         // Compute the evaluation of the vanishing polynomia Z_H(X) at X =
         // gemini_evaluation_challenge
@@ -419,7 +421,7 @@ template <typename Curve> class SmallSubgroupIPAVerifier {
  */
 template <typename Curve>
 static std::vector<typename Curve::ScalarField> compute_challenge_polynomial_coeffs(
-    const std::vector<typename Curve::ScalarField>& multivariate_challenge)
+    std::span<const typename Curve::ScalarField> multivariate_challenge)
 {
     using FF = typename Curve::ScalarField;
 
