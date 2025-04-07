@@ -32,6 +32,14 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
+function deploy {
+  if [ $(dist_tag) != "latest" ]; then
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
+  else
+    release_preview
+  fi
+}
+
 # If we're an AMD64 CI run and have a PR, do a preview release.
 function release_preview {
   echo_header "docs release preview"
@@ -60,11 +68,6 @@ function release_preview {
     # We remove color from the URL before passing.
     scripts/docs_preview_comment.sh $GITHUB_TOKEN $pr_number "$(echo $docs_preview_url | sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g')"
   fi
-}
-
-function release_prod {
-  echo_header "docs release"
-  do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
 }
 
 function docs_cut_version {
@@ -150,14 +153,10 @@ case "$cmd" in
     ;;
   ""|"full"|"fast")
     build_docs
-    release_preview
+    deploy
     ;;
   "hash")
     echo "$hash"
-    ;;
-  "release")
-    build_docs
-    release_prod
     ;;
   "docs-cut-version")
     build_docs
