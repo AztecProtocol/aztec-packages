@@ -302,9 +302,12 @@ unconstrained fn flatten_options<let N: u32>(
     for i in 0..selects.len() {
         let select = selects.get(i);
         if select.is_some() {
-            select_by_indexes[num_selects as u32] = select.unwrap_unchecked().property_selector.index;
-            select_by_offsets[num_selects as u32] = select.unwrap_unchecked().property_selector.offset;
-            select_by_lengths[num_selects as u32] = select.unwrap_unchecked().property_selector.length;
+            select_by_indexes[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.index;
+            select_by_offsets[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.offset;
+            select_by_lengths[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.length;
             select_values[num_selects as u32] = select.unwrap_unchecked().value;
             select_comparators[num_selects as u32] = select.unwrap_unchecked().comparator;
             num_selects += 1;
