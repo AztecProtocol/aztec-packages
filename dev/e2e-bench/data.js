@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744066527919,
+  "lastUpdate": 1744067400667,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "lucasxia01@gmail.com",
-            "name": "Lucas Xia",
-            "username": "lucasxia01"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "0dcc915177db55fc43076caee12b92d830602c85",
-          "message": "feat: Remove 4 byte metadata from bb-produced proof (#13231)\n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1312.\n\nRemoves the 4 byte metadata from proof and public inputs produced from\nthe `to_buffer</*include_size=*/true>()` function. We are able to\nserialize and deserialize without this metadata by use many_from_buffer\nfor deserialization.\n\nThe result is that we get to remove a lot of ugly if statements and\nweird proof parsing based on the metadata.",
-          "timestamp": "2025-04-03T13:34:25Z",
-          "tree_id": "8bc96cb526b03767cf89e06c47294053a97df1ea",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0dcc915177db55fc43076caee12b92d830602c85"
-        },
-        "date": 1743690912818,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9175,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2333250191851497,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 140103,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1941,6 +1902,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 139096,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "janbenes1234@gmail.com",
+            "name": "Jan Beneš",
+            "username": "benesjan"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "5026c6259e6a09a3a1ea73c904aa4f12bafbb880",
+          "message": "test: `getLogByTag` and `removeNullifiedNotes` on `PXEOracleInterface` (#13323)\n\nAdding tests for `getLogByTag` oracle and `removeNullifiedNotes`",
+          "timestamp": "2025-04-07T22:34:35Z",
+          "tree_id": "659818506224bd1f3f1616f3eff3247dda2f8649",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5026c6259e6a09a3a1ea73c904aa4f12bafbb880"
+        },
+        "date": 1744067399793,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9298,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.23645765622698234,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 146406,
             "unit": "us"
           }
         ]
