@@ -8,6 +8,18 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [noir-contracts] Reference Noir contracts directory structure change
+
+`noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
+If you import contract from the directory make sure to update the paths accordingly.
+E.g. for a token contract:
+
+```
+#[dependencies]
+-token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/src/token_contract" }
++token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
+```
+
 ### [Aztec.nr] #[utility] functions
 
 We've introduced a new type of contract function macro called #[utility].
