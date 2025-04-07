@@ -2,6 +2,7 @@
 
 namespace bb::avm2::simulation {
 
+// Contracts DB starts.
 std::optional<ContractInstance> ContractDB::get_contract_instance(const AztecAddress& address) const
 {
     std::optional<ContractInstance> instance = raw_contract_db.get_contract_instance(address);
@@ -28,10 +29,39 @@ std::optional<ContractClass> ContractDB::get_contract_class(const ContractClassI
     return klass;
 }
 
+// Merkle DB starts.
 const TreeSnapshots& MerkleDB::get_tree_roots() const
 {
     // No event generated.
     return raw_merkle_db.get_tree_roots();
+}
+
+FF MerkleDB::storage_read(const FF& leaf_slot) const
+{
+    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
+    auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
+    auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
+
+    FF value = present ? preimage.leaf.value : 0;
+
+    public_data_tree_check.assert_read(leaf_slot, value, preimage, index, path, get_tree_roots().publicDataTree.root);
+
+    return value;
+}
+
+void MerkleDB::create_checkpoint()
+{
+    raw_merkle_db.create_checkpoint();
+}
+
+void MerkleDB::commit_checkpoint()
+{
+    raw_merkle_db.commit_checkpoint();
+}
+
+void MerkleDB::revert_checkpoint()
+{
+    raw_merkle_db.revert_checkpoint();
 }
 
 } // namespace bb::avm2::simulation

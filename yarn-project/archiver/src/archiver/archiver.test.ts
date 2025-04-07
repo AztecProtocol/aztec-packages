@@ -112,6 +112,7 @@ describe('Archiver', () => {
       epochDuration: 4,
       slotDuration: 24,
       ethereumSlotDuration: 12,
+      proofSubmissionWindow: 8,
     };
 
     archiver = new Archiver(

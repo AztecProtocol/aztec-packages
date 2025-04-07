@@ -1,4 +1,5 @@
 import { Fr } from '@aztec/aztec.js';
+import { RollupContract } from '@aztec/ethereum';
 import { sha256ToField } from '@aztec/foundation/crypto';
 import { OutboxAbi } from '@aztec/l1-artifacts';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
@@ -9,6 +10,8 @@ import { CrossChainMessagingTest } from './cross_chain_messaging_test.js';
 
 describe('e2e_cross_chain_messaging l2_to_l1', () => {
   const t = new CrossChainMessagingTest('l2_to_l1');
+
+  let version: number = 1;
 
   let { crossChainTestHarness, aztecNode, user1Wallet, outbox } = t;
 
@@ -25,6 +28,13 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       abi: OutboxAbi,
       client: crossChainTestHarness.walletClient,
     });
+
+    version = Number(
+      await new RollupContract(
+        crossChainTestHarness.publicClient,
+        crossChainTestHarness.l1ContractAddresses.rollupAddress.toString(),
+      ).getVersion(),
+    );
   }, 300_000);
 
   afterAll(async () => {
@@ -57,7 +67,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
       }
 
       const l2ToL1Message = {
-        sender: { actor: testContract.address.toString() as Hex, version: 1n },
+        sender: { actor: testContract.address.toString() as Hex, version: BigInt(version) },
         recipient: {
           actor: recipient.toString() as Hex,
           chainId: BigInt(crossChainTestHarness.publicClient.chain.id),
@@ -67,7 +77,7 @@ describe('e2e_cross_chain_messaging l2_to_l1', () => {
 
       const leaf = sha256ToField([
         testContract.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         recipient.toBuffer32(),
         new Fr(crossChainTestHarness.publicClient.chain.id), // chain id
         content,

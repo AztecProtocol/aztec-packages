@@ -1,12 +1,12 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import { Fr, type Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { SerialQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
 import type { SiblingPath } from '@aztec/foundation/trees';
 import { KeyStore } from '@aztec/key-store';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
-import { L2TipsStore } from '@aztec/kv-store/stores';
+import { L2TipsKVStore } from '@aztec/kv-store/stores';
 import {
   ProtocolContractAddress,
   type ProtocolContractsProvider,
@@ -20,12 +20,13 @@ import {
   FunctionCall,
   FunctionSelector,
   FunctionType,
+  decodeFromAbi,
   decodeFunctionSignature,
   encodeArguments,
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -36,7 +37,6 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import { EventMetadata, L1EventPayload } from '@aztec/stdlib/event';
 import type { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
@@ -49,17 +49,16 @@ import type {
   PrivateKernelProver,
 } from '@aztec/stdlib/interfaces/client';
 import type { PrivateKernelExecutionProofOutput, PrivateKernelTailCircuitPublicInputs } from '@aztec/stdlib/kernel';
-import { computeAddressSecret } from '@aztec/stdlib/keys';
 import type { LogFilter } from '@aztec/stdlib/logs';
 import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   PublicSimulationOutput,
   Tx,
-  type TxEffect,
   TxExecutionRequest,
   type TxHash,
   TxProfileResult,
@@ -82,6 +81,7 @@ import { AddressDataProvider } from '../storage/address_data_provider/address_da
 import { CapsuleDataProvider } from '../storage/capsule_data_provider/capsule_data_provider.js';
 import { ContractDataProvider } from '../storage/contract_data_provider/contract_data_provider.js';
 import { NoteDataProvider } from '../storage/note_data_provider/note_data_provider.js';
+import { PrivateEventDataProvider } from '../storage/private_event_data_provider/private_event_data_provider.js';
 import { SyncDataProvider } from '../storage/sync_data_provider/sync_data_provider.js';
 import { TaggingDataProvider } from '../storage/tagging_data_provider/tagging_data_provider.js';
 import { Synchronizer } from '../synchronizer/index.js';
@@ -101,6 +101,7 @@ export class PXEService implements PXE {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private simulator: AcirSimulator,
     private packageVersion: string,
     private proverEnabled: boolean,
@@ -134,13 +135,14 @@ export class PXEService implements PXE {
     const packageVersion = getPackageInfo().version;
     const proverEnabled = !!config.proverEnabled;
     const addressDataProvider = new AddressDataProvider(store);
+    const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
     const taggingDataProvider = new TaggingDataProvider(store);
     const capsuleDataProvider = new CapsuleDataProvider(store);
     const keyStore = new KeyStore(store);
-    const tipsStore = new L2TipsStore(store, 'pxe');
+    const tipsStore = new L2TipsKVStore(store, 'pxe');
     const synchronizer = new Synchronizer(
       node,
       syncDataProvider,
@@ -153,13 +155,13 @@ export class PXEService implements PXE {
     const pxeOracleInterface = new PXEOracleInterface(
       node,
       keyStore,
-      simulationProvider,
       contractDataProvider,
       noteDataProvider,
       capsuleDataProvider,
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       log,
     );
     const simulator = new AcirSimulator(pxeOracleInterface, simulationProvider);
@@ -175,6 +177,7 @@ export class PXEService implements PXE {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       simulator,
       packageVersion,
       proverEnabled,
@@ -188,7 +191,7 @@ export class PXEService implements PXE {
 
     await pxeService.#registerProtocolContracts();
     const info = await pxeService.getNodeInfo();
-    log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.protocolVersion}`);
+    log.info(`Started PXE connected to chain ${info.l1ChainId} version ${info.rollupVersion}`);
     return pxeService;
   }
 
@@ -206,7 +209,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.node.getTxEffect(txHash);
   }
 
@@ -340,29 +343,16 @@ export class PXEService implements PXE {
   }
 
   /**
-   * Simulate an unconstrained transaction on the given contract, without considering constraints set by ACIR.
-   * The simulation parameters are fetched using ContractDataProvider and executed using AcirSimulator.
-   * Returns the simulation result containing the outputs of the unconstrained function.
-   *
-   * @param execRequest - The transaction request object containing the target contract and function data.
-   * @param scopes - The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The simulation result containing the outputs of the unconstrained function.
+   * Simulate a utility function call on the given contract.
+   * @param call - The function call to execute.
+   * @param authWitnesses - Authentication witnesses required for the function call.
+   * @param scopes - Optional array of account addresses whose notes can be accessed in this call. Defaults to all
+   * accounts if not specified.
+   * @returns The simulation result containing the outputs of the utility function.
    */
-  async #simulateUnconstrained(execRequest: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
-    const { to: contractAddress, selector: functionSelector } = execRequest;
-
-    this.log.debug('Executing unconstrained simulator...');
+  async #simulateUtility(call: FunctionCall, authWitnesses?: AuthWitness[], scopes?: AztecAddress[]) {
     try {
-      const result = await this.simulator.runUnconstrained(
-        execRequest,
-        contractAddress,
-        functionSelector,
-        authWitnesses ?? [],
-        scopes,
-      );
-      this.log.verbose(`Unconstrained simulation for ${contractAddress}.${functionSelector} completed`);
-
-      return result;
+      return this.simulator.runUtility(call, authWitnesses ?? [], scopes);
     } catch (err) {
       if (err instanceof SimulationError) {
         await enrichSimulationError(err, this.contractDataProvider, this.log);
@@ -814,7 +804,7 @@ export class PXEService implements PXE {
     return txHash;
   }
 
-  public simulateUnconstrained(
+  public simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -830,7 +820,7 @@ export class PXEService implements PXE {
         await this.synchronizer.sync();
         // TODO - Should check if `from` has the permission to call the view function.
         const functionCall = await this.#getFunctionCall(functionName, args, to);
-        const executionResult = await this.#simulateUnconstrained(functionCall, authwits ?? [], scopes);
+        const executionResult = await this.#simulateUtility(functionCall, authwits ?? [], scopes);
 
         // TODO - Return typed result based on the function artifact.
         return executionResult;
@@ -838,7 +828,7 @@ export class PXEService implements PXE {
         const stringifiedArgs = args.map(arg => arg.toString()).join(', ');
         throw this.#contextualizeError(
           err,
-          `simulateUnconstrained ${to}:${functionName}(${stringifiedArgs})`,
+          `simulateUtility ${to}:${functionName}(${stringifiedArgs})`,
           `scopes=${scopes?.map(s => s.toString()).join(', ') ?? 'undefined'}`,
         );
       }
@@ -846,20 +836,19 @@ export class PXEService implements PXE {
   }
 
   public async getNodeInfo(): Promise<NodeInfo> {
-    const [nodeVersion, protocolVersion, chainId, enr, contractAddresses, protocolContractAddresses] =
-      await Promise.all([
-        this.node.getNodeVersion(),
-        this.node.getVersion(),
-        this.node.getChainId(),
-        this.node.getEncodedEnr(),
-        this.node.getL1ContractAddresses(),
-        this.node.getProtocolContractAddresses(),
-      ]);
+    const [nodeVersion, rollupVersion, chainId, enr, contractAddresses, protocolContractAddresses] = await Promise.all([
+      this.node.getNodeVersion(),
+      this.node.getVersion(),
+      this.node.getChainId(),
+      this.node.getEncodedEnr(),
+      this.node.getL1ContractAddresses(),
+      this.node.getProtocolContractAddresses(),
+    ]);
 
     const nodeInfo: NodeInfo = {
       nodeVersion,
       l1ChainId: chainId,
-      protocolVersion,
+      rollupVersion,
       enr,
       l1ContractAddresses: contractAddresses,
       protocolContractAddresses: protocolContractAddresses,
@@ -881,78 +870,35 @@ export class PXEService implements PXE {
   }
 
   public async getPrivateEvents<T>(
+    contractAddress: AztecAddress,
     eventMetadataDef: EventMetadataDefinition,
     from: number,
-    limit: number,
-    // TODO (#9272): Make this better, we should be able to only pass an address now
-    vpks: Point[],
+    numBlocks: number,
+    recipients: AztecAddress[],
   ): Promise<T[]> {
-    const eventMetadata = new EventMetadata<T>(eventMetadataDef);
-    if (vpks.length === 0) {
-      throw new Error('Tried to get encrypted events without supplying any viewing public keys');
+    if (recipients.length === 0) {
+      throw new Error('Recipients are required to get private events');
     }
 
-    const blocks = await this.node.getBlocks(from, limit);
+    this.log.verbose(`Getting private events for ${contractAddress.toString()} from ${from} to ${from + numBlocks}`);
 
-    const txEffects = blocks.flatMap(block => block.body.txEffects);
-    const privateLogs = txEffects.flatMap(txEffect => txEffect.privateLogs);
+    // TODO(#13113): This is a temporary hack to ensure that the notes are synced before getting the events.
+    await this.simulateUtility('sync_notes', [], contractAddress);
 
-    const vsks = await Promise.all(
-      vpks.map(async vpk => {
-        const [keyPrefix, account] = await this.keyStore.getKeyPrefixAndAccount(vpk);
-        let secretKey = await this.keyStore.getMasterSecretKey(vpk);
-        if (keyPrefix === 'iv') {
-          const registeredAccount = (await this.getRegisteredAccounts()).find(completeAddress =>
-            completeAddress.address.equals(account),
-          );
-          if (!registeredAccount) {
-            throw new Error('No registered account');
-          }
-
-          const preaddress = await registeredAccount.getPreaddress();
-
-          secretKey = await computeAddressSecret(preaddress, secretKey);
-        }
-
-        return secretKey;
-      }),
+    const events = await this.privateEventDataProvider.getPrivateEvents(
+      contractAddress,
+      from,
+      numBlocks,
+      recipients,
+      eventMetadataDef.eventSelector,
     );
 
-    const visibleEvents = (
-      await Promise.all(
-        privateLogs.map(async log => {
-          for (const sk of vsks) {
-            // TODO: Verify that the first field of the log is the tag siloed with contract address.
-            // Or use tags to query logs, like we do with notes.
-            const decryptedEvent = await L1EventPayload.decryptAsIncoming(log, sk);
-            if (decryptedEvent !== undefined) {
-              return [decryptedEvent];
-            }
-          }
-
-          return [];
-        }),
-      )
-    ).flat();
-
-    const decodedEvents = visibleEvents
-      .map(visibleEvent => {
-        if (visibleEvent === undefined) {
-          return undefined;
-        }
-        if (!visibleEvent.eventTypeId.equals(eventMetadata.eventSelector)) {
-          return undefined;
-        }
-
-        return eventMetadata.decode(visibleEvent);
-      })
-      .filter(visibleEvent => visibleEvent !== undefined) as T[];
+    const decodedEvents = events.map((event: Fr[]): T => decodeFromAbi([eventMetadataDef.abiType], event) as T);
 
     return decodedEvents;
   }
 
   async getPublicEvents<T>(eventMetadataDef: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {
-    const eventMetadata = new EventMetadata<T>(eventMetadataDef);
     const { logs } = await this.node.getPublicLogs({
       fromBlock: from,
       toBlock: from + limit,
@@ -961,10 +907,10 @@ export class PXEService implements PXE {
     const decodedEvents = logs
       .map(log => {
         // +1 for the event selector
-        const expectedLength = eventMetadata.fieldNames.length + 1;
+        const expectedLength = eventMetadataDef.fieldNames.length + 1;
         const logFields = log.log.log.slice(0, expectedLength);
         // We are assuming here that event logs are the last 4 bytes of the event. This is not enshrined but is a function of aztec.nr raw log emission.
-        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadata.eventSelector)) {
+        if (!EventSelector.fromField(logFields[logFields.length - 1]).equals(eventMetadataDef.eventSelector)) {
           return undefined;
         }
         // If any of the remaining fields, are non-zero, the payload does match expected:
@@ -974,7 +920,7 @@ export class PXEService implements PXE {
           );
         }
 
-        return eventMetadata.decode(log.log);
+        return decodeFromAbi([eventMetadataDef.abiType], log.log.log) as T;
       })
       .filter(log => log !== undefined) as T[];
 

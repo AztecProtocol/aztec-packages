@@ -6,6 +6,8 @@ aztec:
   epochDuration: 32
   proofSubmissionWindow: 64
   realProofs: true
+  testAccounts: true
+  sponsoredFPC: true
 
 images:
   aztec:

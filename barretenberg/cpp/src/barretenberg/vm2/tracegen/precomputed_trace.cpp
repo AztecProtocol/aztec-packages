@@ -127,20 +127,6 @@ void PrecomputedTraceBuilder::process_power_of_2(TraceContainer& trace)
     }
 }
 
-void PrecomputedTraceBuilder::process_unary(TraceContainer& trace)
-{
-    using C = Column;
-
-    constexpr auto num_rows = 64;
-    trace.reserve_column(C::precomputed_sel_unary, num_rows);
-    trace.reserve_column(C::precomputed_as_unary, num_rows);
-    for (uint32_t i = 0; i < num_rows; i++) {
-        trace.set(C::precomputed_sel_unary, i, 1);
-        uint64_t value = (static_cast<uint64_t>(1) << i) - 1;
-        trace.set(C::precomputed_as_unary, i, value);
-    }
-}
-
 void PrecomputedTraceBuilder::process_sha256_round_constants(TraceContainer& trace)
 {
     using C = Column;
@@ -218,6 +204,14 @@ void PrecomputedTraceBuilder::process_wire_instruction_spec(TraceContainer& trac
                   static_cast<uint32_t>(wire_opcode),
                   static_cast<uint32_t>(wire_instruction_spec.exec_opcode));
         trace.set(C::precomputed_instr_size, static_cast<uint32_t>(wire_opcode), wire_instruction_spec.size_in_bytes);
+
+        if (wire_instruction_spec.tag_operand_idx.has_value()) {
+            trace.set(C::precomputed_sel_has_tag, static_cast<uint32_t>(wire_opcode), 1);
+
+            if (wire_instruction_spec.tag_operand_idx.value() == 2) {
+                trace.set(C::precomputed_sel_tag_is_op2, static_cast<uint32_t>(wire_opcode), 1);
+            }
+        }
     }
 }
 
@@ -255,6 +249,17 @@ void PrecomputedTraceBuilder::process_to_radix_p_decompositions(TraceContainer& 
             trace.set(C::precomputed_p_decomposition_limb, row, p_limbs_per_radix[i][j]);
             row++;
         }
+    }
+}
+
+void PrecomputedTraceBuilder::process_memory_tag_range(TraceContainer& trace)
+{
+    using C = Column;
+
+    constexpr uint32_t num_rows = 1 << 8; // 256
+
+    for (uint32_t i = static_cast<uint32_t>(MemoryTag::MAX) + 1; i < num_rows; i++) {
+        trace.set(C::precomputed_sel_mem_tag_out_of_range, i, 1);
     }
 }
 

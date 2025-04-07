@@ -1,5 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import type { LogFn } from '@aztec/foundation/log';
@@ -47,10 +48,18 @@ export async function startNode(
 
   await preloadCrsDataForVerifying(nodeConfig, userLog);
 
-  const initialFundedAccounts = nodeConfig.testAccounts ? await getInitialTestAccounts() : [];
-  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
-    initialFundedAccounts.map(a => a.address),
+  const testAccounts = nodeConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = nodeConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+
+  const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+    initialFundedAccounts,
   );
+
+  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
   // Deploy contracts if needed
   if (nodeSpecificOptions.deployAztecContracts || nodeSpecificOptions.deployAztecContractsSalt) {
@@ -68,6 +77,7 @@ export async function startNode(
       salt: nodeSpecificOptions.deployAztecContractsSalt,
       genesisBlockHash,
       genesisArchiveRoot,
+      feeJuicePortalInitialBalance: fundingNeeded,
     });
   }
   // If not deploying, validate that any addresses and config provided are correct.
@@ -79,6 +89,7 @@ export async function startNode(
       nodeConfig.l1Contracts.registryAddress,
       nodeConfig.l1RpcUrls,
       nodeConfig.l1ChainId,
+      nodeConfig.rollupVersion,
     );
 
     // TODO(#12272): will clean this up.

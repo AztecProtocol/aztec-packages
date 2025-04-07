@@ -121,6 +121,17 @@ export async function deployAndInitializeTokenAndBridgeContracts(
 }
 // docs:end:deployAndInitializeTokenAndBridgeContracts
 
+export type CrossChainContext = {
+  l2Token: AztecAddress;
+  l2Bridge: AztecAddress;
+  tokenPortal: EthAddress;
+  underlying: EthAddress;
+  ethAccount: EthAddress;
+  ownerAddress: AztecAddress;
+  inbox: EthAddress;
+  outbox: EthAddress;
+};
+
 /**
  * A Class for testing cross chain interactions, contains common interactions
  * shared between cross chain tests.
@@ -221,8 +232,10 @@ export class CrossChainTestHarness {
       address: this.l1TokenManager.tokenAddress.toString(),
       client: this.walletClient,
     });
-    await contract.write.mint([this.ethAccount.toString(), amount]);
-    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(amount);
+    const balanceBefore = await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString());
+    const hash = await contract.write.mint([this.ethAccount.toString(), amount]);
+    await this.publicClient.waitForTransactionReceipt({ hash });
+    expect(await this.l1TokenManager.getL1TokenBalance(this.ethAccount.toString())).toEqual(balanceBefore + amount);
   }
 
   getL1BalanceOf(address: EthAddress) {
@@ -314,8 +327,8 @@ export class CrossChainTestHarness {
     expect(balance).toBe(expectedBalance);
   }
 
-  getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Fr {
-    return this.l1TokenPortalManager.getL2ToL1MessageLeaf(
+  async getL2ToL1MessageLeaf(withdrawAmount: bigint, callerOnL1: EthAddress = EthAddress.ZERO): Promise<Fr> {
+    return await this.l1TokenPortalManager.getL2ToL1MessageLeaf(
       withdrawAmount,
       this.ethAccount,
       this.l2Bridge.address,
@@ -362,6 +375,19 @@ export class CrossChainTestHarness {
 
     await this.mintTokensPublicOnL2(0n);
     await this.mintTokensPublicOnL2(0n);
+  }
+
+  toCrossChainContext(): CrossChainContext {
+    return {
+      l2Token: this.l2Token.address,
+      l2Bridge: this.l2Bridge.address,
+      tokenPortal: this.tokenPortalAddress,
+      underlying: this.underlyingERC20Address,
+      ethAccount: this.ethAccount,
+      ownerAddress: this.ownerAddress,
+      inbox: this.l1ContractAddresses.inboxAddress,
+      outbox: this.l1ContractAddresses.outboxAddress,
+    };
   }
 }
 // docs:end:cross_chain_test_harness

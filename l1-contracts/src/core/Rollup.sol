@@ -23,7 +23,9 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-import {FeeLib, FeeAssetValue, PriceLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {
+  FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
 import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
@@ -65,22 +67,13 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using PriceLib for EthValue;
 
   constructor(
-    IFeeJuicePortal _fpcJuicePortal,
+    IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     address _governance,
     GenesisState memory _genesisState,
     RollupConfigInput memory _config
-  )
-    RollupCore(
-      _fpcJuicePortal,
-      _rewardDistributor,
-      _stakingAsset,
-      _governance,
-      _genesisState,
-      _config
-    )
-  {}
+  ) RollupCore(_feeAsset, _rewardDistributor, _stakingAsset, _governance, _genesisState, _config) {}
 
   /**
    * @notice  Validate a header for submission
@@ -126,6 +119,23 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     returns (address[] memory)
   {
     return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
+  }
+
+  /**
+   * @notice  Get the validator set for a given epoch
+   *
+   * @dev     Consider removing this to replace with a `size` and individual getter.
+   *
+   * @param _epoch The epoch number to get the validator set for
+   *
+   * @return The validator set for the given epoch
+   */
+  function getEpochCommittee(Epoch _epoch)
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
   }
 
   /**
@@ -339,7 +349,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeHeader memory)
   {
-    return FeeLib.getStorage().feeHeaders[_blockNumber];
+    return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
   }
 
   function getBlobPublicInputsHash(uint256 _blockNumber)
@@ -390,24 +400,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     address attester = StakingLib.getStorage().attesters.at(_index);
     return
       OperatorInfo({proposer: StakingLib.getStorage().info[attester].proposer, attester: attester});
-  }
-
-  /**
-   * @notice  Get the validator set for a given epoch
-   *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
-   *
-   * @param _epoch The epoch number to get the validator set for
-   *
-   * @return The validator set for the given epoch
-   */
-  function getEpochCommittee(Epoch _epoch)
-    external
-    view
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getStorage().epochs[_epoch].committee;
   }
 
   /**

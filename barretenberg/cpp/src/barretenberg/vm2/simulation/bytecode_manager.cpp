@@ -24,7 +24,9 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // TODO: check nullifier in the merkle tree. Prove (non-)membership.
 
     auto& instance = maybe_instance.value();
-    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.contract_class_id);
+    update_check.check_current_class_id(address, instance);
+
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarrantees
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
@@ -42,13 +44,18 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // We now save the bytecode so that we don't repeat this process.
     resolved_addresses[address] = bytecode_id;
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
+
+    auto tree_snapshots = merkle_db.get_tree_roots();
+
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
         .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = merkle_db.get_tree_roots().nullifierTree.root,
+        .nullifier_root = tree_snapshots.nullifierTree.root,
+        .public_data_tree_root = tree_snapshots.publicDataTree.root,
+        .current_block_number = current_block_number,
     });
 
     return bytecode_id;
@@ -71,12 +78,17 @@ Instruction TxBytecodeManager::read_instruction(BytecodeId bytecode_id, uint32_t
     instr_fetching_event.bytecode = bytecode_ptr;
 
     const auto& bytecode = *bytecode_ptr;
-    instr_fetching_event.error = InstrDeserializationError::NO_ERROR;
 
     // TODO: Propagate instruction fetching error to the upper layer (execution loop)
     try {
         instr_fetching_event.instruction = deserialize_instruction(bytecode, pc);
+
+        // If the following code is executed, no error was thrown in deserialize_instruction().
+        if (!check_tag(instr_fetching_event.instruction)) {
+            instr_fetching_event.error = InstrDeserializationError::TAG_OUT_OF_RANGE;
+        };
     } catch (const InstrDeserializationError& error) {
+        assert(error != InstrDeserializationError::TAG_OUT_OF_RANGE);
         instr_fetching_event.error = error;
     }
 

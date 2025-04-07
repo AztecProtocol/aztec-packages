@@ -15,7 +15,15 @@ export class InMemoryAttestationPool implements AttestationPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.ATTESTATION_POOL);
   }
 
-  public getAttestationsForSlot(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
+  public getAttestationsForSlot(slot: bigint): Promise<BlockAttestation[]> {
+    return Promise.resolve(
+      Array.from(this.attestations.get(slot)?.values() ?? []).flatMap(proposalAttestationMap =>
+        Array.from(proposalAttestationMap.values()),
+      ),
+    );
+  }
+
+  public getAttestationsForSlotAndProposal(slot: bigint, proposalId: string): Promise<BlockAttestation[]> {
     const slotAttestationMap = this.attestations.get(slot);
     if (slotAttestationMap) {
       const proposalAttestationMap = slotAttestationMap.get(proposalId);
@@ -40,6 +48,9 @@ export class InMemoryAttestationPool implements AttestationPool {
 
       this.log.verbose(`Added attestation for slot ${slotNumber.toBigInt()} from ${address}`, {
         signature: attestation.signature.toString(),
+        slotNumber,
+        address,
+        proposalId,
       });
     }
 

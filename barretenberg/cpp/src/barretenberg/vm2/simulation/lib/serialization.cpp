@@ -367,15 +367,14 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
     const auto bytecode_length = bytecode.size();
 
     if (pos >= bytecode_length) {
-        vinfo("PC is out of range. Position: " + std::to_string(pos) +
-              " Bytecode length: " + std::to_string(bytecode_length));
+        vinfo("PC is out of range. Position: ", pos, " Bytecode length: ", bytecode_length);
         throw InstrDeserializationError::PC_OUT_OF_RANGE;
     }
 
     const uint8_t opcode_byte = bytecode[pos];
 
     if (!is_wire_opcode_valid(opcode_byte)) {
-        vinfo("Invalid wire opcode byte: 0x" + to_hex(opcode_byte) + " at position: " + std::to_string(pos));
+        vinfo("Invalid wire opcode byte: 0x", to_hex(opcode_byte), " at position: ", pos);
         throw InstrDeserializationError::OPCODE_OUT_OF_RANGE;
     }
 
@@ -410,26 +409,13 @@ Instruction deserialize_instruction(std::span<const uint8_t> bytecode, size_t po
                                                        //  pos + instruction_size <= bytecode_length
 
         switch (op_type) {
-        case OperandType::TAG: {
-            uint8_t tag_u8 = bytecode[pos];
-            // TODO: To handle in a subsequent PR (not decided if handled in specific opcode gadgets)
-            // if (tag_u8 > MAX_MEM_TAG) {
-            //     vinfo("Instruction tag is invalid at position " + std::to_string(pos) +
-            //          " value: " + std::to_string(tag_u8) + " for WireOpCode: " + to_string(WireOpCode));
-            //     return InstructionWithError{
-            //         .instruction = Instruction(WireOpCode::LAST_WireOpCode_SENTINEL, {}),
-            //         .error = AvmError::INVALID_TAG_VALUE,
-            //     };
-            // }
-            operands.emplace_back(tag_u8);
+        case OperandType::TAG:
+        case OperandType::UINT8: {
+            operands.emplace_back(bytecode[pos]);
             break;
         }
         case OperandType::INDIRECT8: {
             indirect = bytecode[pos];
-            break;
-        }
-        case OperandType::UINT8: {
-            operands.emplace_back(bytecode[pos]);
             break;
         }
         case OperandType::INDIRECT16: {
@@ -545,6 +531,62 @@ std::vector<uint8_t> Instruction::serialize() const
         }
     }
     return output;
+}
+
+bool check_tag(const Instruction& instruction)
+{
+    if (instruction.opcode == WireOpCode::LAST_OPCODE_SENTINEL) {
+        vinfo("Instruction does not contain a valid wire opcode.");
+        return false;
+    }
+
+    const auto& wire_format = WireOpCode_WIRE_FORMAT.at(instruction.opcode);
+
+    size_t pos = 0; // Position in instruction operands
+
+    for (size_t i = 0; i < wire_format.size(); i++) {
+        if (wire_format[i] == OperandType::INDIRECT8 || wire_format[i] == OperandType::INDIRECT16) {
+            continue; // No pos increment
+        }
+
+        if (wire_format[i] == OperandType::TAG) {
+            if (pos >= instruction.operands.size()) {
+                vinfo("Instruction operands size is too small. Tag position: ",
+                      pos,
+                      " size: ",
+                      instruction.operands.size(),
+                      " WireOpCode: ",
+                      instruction.opcode);
+                return false;
+            }
+
+            try {
+                uint8_t tag = static_cast<uint8_t>(instruction.operands.at(pos)); // Cast to uint8_t might throw
+
+                if (tag > static_cast<uint8_t>(MemoryTag::MAX)) {
+                    vinfo("Instruction tag operand at position: ",
+                          pos,
+                          " is invalid.",
+                          " Tag value: ",
+                          tag,
+                          " WireOpCode: ",
+                          instruction.opcode);
+                    return false;
+                }
+
+            } catch (const std::runtime_error&) {
+                vinfo("Instruction operand at position: ",
+                      pos,
+                      " is longer than a byte.",
+                      " WireOpCode: ",
+                      instruction.opcode);
+                return false;
+            }
+        }
+
+        pos++;
+    }
+    return true;
 }
 
 } // namespace bb::avm2::simulation

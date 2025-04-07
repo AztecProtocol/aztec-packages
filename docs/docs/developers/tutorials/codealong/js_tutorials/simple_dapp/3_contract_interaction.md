@@ -8,7 +8,7 @@ In this section, we'll write the logic in our app that will interact with the co
 
 Let's start by showing our user's private balance for the token across their accounts. To do this, we can leverage the `balance_of_private` unconstrained view function of the token contract:
 
-#include_code balance_of_private noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
+#include_code balance_of_private noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
 
 :::info
 Note that this function will only return a valid response for accounts registered in the Private eXecution Environment (PXE), since it requires access to the [user's private state](../../../../../aztec/concepts/wallets/index.md#private-state). In other words, you cannot query the private balance of another user for the token contract.
@@ -18,12 +18,14 @@ To do this, let's first initialize a new `Contract` instance using `aztec.js` th
 
 ```js
 // src/contracts.mjs
-#include_code imports yarn-project/end-to-end/src/sample-dapp/contracts.mjs raw
+import { AztecAddress, Contract, loadContractArtifact } from "@aztec/aztec.js";
+import TokenContractJson from "../contracts/token/target/token-Token.json" assert { type: "json" };
+
+import { readFileSync } from "fs";
+const TokenContractArtifact = loadContractArtifact(TokenContractJson);
+
+#include_code get-tokens yarn-project/end-to-end/src/sample-dapp/contracts.mjs raw
 ```
-
-You may have noticed that we are importing the `TokenContract` class from `@aztec/noir-contracts.js`. This is an alternative way to get the contract interface for interacting with the contract. With this, we can add the following code for initializing the `TokenContract` instance:
-
-#include_code get-tokens yarn-project/end-to-end/src/sample-dapp/contracts.mjs javascript
 
 We can now get the token instance in our main code in `src/index.mjs`, by importing the function from `src/contracts.mjs`. Update the imports in `src/index.mjs` to look like this:
 

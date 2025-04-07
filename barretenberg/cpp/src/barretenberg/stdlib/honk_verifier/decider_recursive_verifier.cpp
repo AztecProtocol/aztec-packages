@@ -10,7 +10,8 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -48,7 +49,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;

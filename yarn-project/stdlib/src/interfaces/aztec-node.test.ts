@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -42,12 +43,14 @@ import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import { BlockHeader } from '../tx/block_header.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
+import type { ValidatorsStats } from '../validators/types.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -289,6 +292,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
+  it('getValidatorsStats', async () => {
+    const response = await context.client.getValidatorsStats();
+    expect(response).toBeDefined();
+  });
+
   it('simulatePublicCalls', async () => {
     const response = await context.client.simulatePublicCalls(await Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
@@ -309,7 +317,7 @@ describe('AztecNodeApiSchema', () => {
     const response = await context.client.getContractClass(Fr.random());
     expect(response).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
       privateFunctions: [],
     });
   });
@@ -359,6 +367,7 @@ class MockAztecNode implements AztecNode {
       finalized: { number: 1, hash: `0x01` },
     });
   }
+
   findLeavesIndexes(
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
@@ -455,7 +464,7 @@ class MockAztecNode implements AztecNode {
     return {
       nodeVersion: '1.0',
       l1ChainId: 1,
-      protocolVersion: 1,
+      rollupVersion: 1,
       enr: 'enr',
       l1ContractAddresses: Object.fromEntries(
         L1ContractsNames.map(name => [name, EthAddress.random()]),
@@ -530,9 +539,9 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
   }
   async getPendingTxs(): Promise<Tx[]> {
     return [await Tx.random()];
@@ -556,6 +565,14 @@ class MockAztecNode implements AztecNode {
   getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
   }
+  getValidatorsStats(): Promise<ValidatorsStats> {
+    return Promise.resolve({
+      stats: {},
+      lastProcessedSlot: 20n,
+      initialSlot: 1n,
+      slotWindow: 10,
+    } satisfies ValidatorsStats);
+  }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
@@ -571,7 +588,7 @@ class MockAztecNode implements AztecNode {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return { ...contractClass, unconstrainedFunctions: [], privateFunctions: [] };
+    return { ...contractClass, utilityFunctions: [], privateFunctions: [] };
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);

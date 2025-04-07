@@ -5,7 +5,11 @@ import type { BlobSinkClientInterface } from './interface.js';
 import { LocalBlobSinkClient } from './local.js';
 
 export function createBlobSinkClient(config?: BlobSinkConfig): BlobSinkClientInterface {
-  if (!config?.blobSinkUrl && !config?.l1ConsensusHostUrl && !config?.archiveApiUrl && !config?.l1ChainId) {
+  if (
+    !config?.blobSinkUrl &&
+    (!config?.l1ConsensusHostUrls || config?.l1ConsensusHostUrls?.length == 0) &&
+    !config?.archiveApiUrl
+  ) {
     const blobStore = new MemoryBlobStore();
     return new LocalBlobSinkClient(blobStore);
   }

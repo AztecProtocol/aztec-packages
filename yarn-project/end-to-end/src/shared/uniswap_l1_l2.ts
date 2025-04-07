@@ -101,7 +101,7 @@ export const uniswapL1L2TestSuite = (
     const minimumOutputAmount = 0n;
 
     let cheatCodes: CheatCodes;
-
+    let version: number;
     beforeAll(async () => {
       ({
         aztecNode,
@@ -123,7 +123,7 @@ export const uniswapL1L2TestSuite = (
         deployL1ContractsValues.publicClient,
         deployL1ContractsValues.l1ContractAddresses.rollupAddress,
       );
-
+      version = Number(await rollup.getVersion());
       ownerAddress = ownerWallet.getAddress();
       // sponsorAddress = sponsorWallet.getAddress();
       ownerEthAddress = EthAddress.fromString((await walletClient.getAddresses())[0]);
@@ -261,7 +261,7 @@ export const uniswapL1L2TestSuite = (
 
       const swapPrivateLeaf = sha256ToField([
         uniswapL2Contract.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         EthAddress.fromString(uniswapPortal.address).toBuffer32(),
         new Fr(publicClient.chain.id), // chain id
         swapPrivateContent,
@@ -276,7 +276,7 @@ export const uniswapL1L2TestSuite = (
 
       const withdrawLeaf = sha256ToField([
         wethCrossChainHarness.l2Bridge.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
         new Fr(publicClient.chain.id), // chain id
         withdrawContent,
@@ -849,7 +849,7 @@ export const uniswapL1L2TestSuite = (
 
       const swapPrivateLeaf = sha256ToField([
         uniswapL2Contract.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         EthAddress.fromString(uniswapPortal.address).toBuffer32(),
         new Fr(publicClient.chain.id), // chain id
         swapPrivateContent,
@@ -864,7 +864,7 @@ export const uniswapL1L2TestSuite = (
 
       const withdrawLeaf = sha256ToField([
         wethCrossChainHarness.l2Bridge.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
         new Fr(publicClient.chain.id), // chain id
         withdrawContent,
@@ -979,7 +979,7 @@ export const uniswapL1L2TestSuite = (
 
       const swapPublicLeaf = sha256ToField([
         uniswapL2Contract.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         EthAddress.fromString(uniswapPortal.address).toBuffer32(),
         new Fr(publicClient.chain.id), // chain id
         swapPublicContent,
@@ -994,7 +994,7 @@ export const uniswapL1L2TestSuite = (
 
       const withdrawLeaf = sha256ToField([
         wethCrossChainHarness.l2Bridge.address,
-        new Fr(1), // aztec version
+        new Fr(version), // aztec version
         wethCrossChainHarness.tokenPortalAddress.toBuffer32(),
         new Fr(publicClient.chain.id), // chain id
         withdrawContent,

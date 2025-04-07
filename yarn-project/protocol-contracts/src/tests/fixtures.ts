@@ -15,8 +15,8 @@ export function getSamplePrivateFunctionBroadcastedEventPayload(): Buffer {
 }
 
 // Generated from end-to-end/src/e2e_deploy_contract/contract_class_registration.test.ts with AZTEC_GENERATE_TEST_DATA=1
-export function getSampleUnconstrainedFunctionBroadcastedEventPayload(): Buffer {
-  const path = getPathToFixture('UnconstrainedFunctionBroadcastedEventData.hex');
+export function getSampleUtilityFunctionBroadcastedEventPayload(): Buffer {
+  const path = getPathToFixture('UtilityFunctionBroadcastedEventData.hex');
   return Buffer.from(readFileSync(path).toString(), 'hex');
 }
 

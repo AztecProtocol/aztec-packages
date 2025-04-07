@@ -34,7 +34,6 @@
     "./tx": "./dest/tx/index.js",
     "./fees": "./dest/fees/index.js",
     "./note": "./dest/note/index.js",
-    "./event": "./dest/event/index.js",
     "./p2p": "./dest/p2p/index.js",
     "./errors": "./dest/errors/index.js",
     "./stats": "./dest/stats/index.js",
@@ -46,7 +45,10 @@
     "./epoch-helpers": "./dest/epoch-helpers/index.js",
     "./config": "./dest/config/index.js",
     "./testing/jest": "./dest/tests/jest.js",
-    "./database-version": "./dest/database-version/index.js"
+    "./database-version": "./dest/database-version/index.js",
+    "./validators": "./dest/validators/index.js",
+    "./file-store": "./dest/file-store/index.js",
+    "./snapshots": "./dest/snapshots/index.js"
   },
   "typedocOptions": {
     "entryPoints": [
@@ -70,6 +72,7 @@
     "@aztec/constants": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
+    "@google-cloud/storage": "^7.15.0",
     "lodash.chunk": "^4.2.0",
     "lodash.isequal": "^4.5.0",
     "lodash.omit": "^4.5.0",

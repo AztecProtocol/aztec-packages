@@ -11,12 +11,17 @@ export class ProvenTx extends Tx {
     super(tx.data, tx.clientIvcProof, tx.contractClassLogs, tx.publicFunctionCalldata);
   }
 
+  // Clone the TX data to get a serializable object.
+  protected getPlainDataTx(): Tx {
+    return new Tx(this.data, this.clientIvcProof, this.contractClassLogs, this.publicFunctionCalldata);
+  }
+
   /**
    * Sends the transaction to the network via the provided wallet.
    */
   public send(): SentTx {
     const promise = (() => {
-      return this.wallet.sendTx(this);
+      return this.wallet.sendTx(this.getPlainDataTx());
     })();
 
     return new SentTx(this.wallet, promise);

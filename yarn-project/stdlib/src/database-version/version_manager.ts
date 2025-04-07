@@ -79,13 +79,15 @@ export class DatabaseVersion {
 
 export type DatabaseVersionManagerFs = Pick<typeof fs, 'readFile' | 'writeFile' | 'rm' | 'mkdir'>;
 
+export const DATABASE_VERSION_FILE_NAME = 'db_version';
+
 /**
  * A manager for handling database versioning and migrations.
  * This class will check the version of data in a directory and either
  * reset or upgrade based on version compatibility.
  */
 export class DatabaseVersionManager<T> {
-  public static readonly VERSION_FILE = 'db_version';
+  public static readonly VERSION_FILE = DATABASE_VERSION_FILE_NAME;
 
   private readonly versionFile: string;
   private readonly currentVersion: DatabaseVersion;
@@ -117,6 +119,11 @@ export class DatabaseVersionManager<T> {
 
     this.versionFile = join(this.dataDirectory, DatabaseVersionManager.VERSION_FILE);
     this.currentVersion = new DatabaseVersion(schemaVersion, rollupAddress);
+  }
+
+  static async writeVersion(version: DatabaseVersion, dataDir: string, fileSystem: DatabaseVersionManagerFs = fs) {
+    await fileSystem.mkdir(dataDir, { recursive: true });
+    return fileSystem.writeFile(join(dataDir, DatabaseVersionManager.VERSION_FILE), version.toBuffer());
   }
 
   /**
@@ -163,7 +170,7 @@ export class DatabaseVersionManager<T> {
         needsReset = true;
       }
     } else {
-      this.log.warn('Rollup address changed, resetting data directory');
+      this.log.warn('Rollup address changed, resetting data directory', { versionFile: this.versionFile });
       needsReset = true;
     }
 
@@ -181,17 +188,14 @@ export class DatabaseVersionManager<T> {
   /**
    * Writes the current version to the version file
    */
-  private async writeVersion(): Promise<void> {
-    // Ensure the directory exists
-    await this.fileSystem.mkdir(this.dataDirectory, { recursive: true });
-    // Write the version file
-    await this.fileSystem.writeFile(this.versionFile, this.currentVersion.toBuffer());
+  public writeVersion(dir?: string): Promise<void> {
+    return DatabaseVersionManager.writeVersion(this.currentVersion, dir ?? this.dataDirectory, this.fileSystem);
   }
 
   /**
    * Resets the data directory by deleting it and recreating it
    */
-  private async resetDataDirectory(): Promise<void> {
+  public async resetDataDirectory(): Promise<void> {
     try {
       await this.fileSystem.rm(this.dataDirectory, { recursive: true, force: true, maxRetries: 3 });
       await this.fileSystem.mkdir(this.dataDirectory, { recursive: true });

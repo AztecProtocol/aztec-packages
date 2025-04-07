@@ -65,6 +65,10 @@ export class EpochProvingJob implements Traceable {
     return this.epochNumber;
   }
 
+  public getDeadline(): Date | undefined {
+    return this.deadline;
+  }
+
   /**
    * Proves the given epoch and submits the proof to L1.
    */
@@ -214,7 +218,7 @@ export class EpochProvingJob implements Traceable {
 
   /**
    * Kicks off a running promise that queries the archiver for the set of L2 blocks of the current epoch.
-   * If those changed, stops the proving job with a `rerun` state, so the node re-enqueues it.
+   * If those change, stops the proving job with a `rerun` state, so the node re-enqueues it.
    */
   private async scheduleEpochCheck() {
     const intervalMs = Math.ceil((await this.l2BlockSource.getL1Constants()).ethereumSlotDuration / 2) * 1000;

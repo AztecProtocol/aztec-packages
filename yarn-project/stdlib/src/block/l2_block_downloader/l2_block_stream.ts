@@ -9,6 +9,7 @@ import type { PublishedL2Block } from '../published_l2_block.js';
 export class L2BlockStream {
   private readonly runningPromise: RunningPromise;
   private isSyncing = false;
+  private hasStarted = false;
 
   constructor(
     private l2BlockSource: Pick<L2BlockSource, 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'>,
@@ -65,18 +66,31 @@ export class L2BlockStream {
 
       // Check if there was a reorg and emit a chain-pruned event if so.
       let latestBlockNumber = localTips.latest.number;
-      while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache: [sourceTips.latest] }))) {
+      const sourceCache = new BlockHashCache([sourceTips.latest]);
+      while (!(await this.areBlockHashesEqualAt(latestBlockNumber, { sourceCache }))) {
         latestBlockNumber--;
       }
+
       if (latestBlockNumber < localTips.latest.number) {
         this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
-        await this.emitEvent({ type: 'chain-pruned', blockNumber: latestBlockNumber });
+        await this.emitEvent({
+          type: 'chain-pruned',
+          block: {
+            number: latestBlockNumber,
+            hash: sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber))!,
+          },
+        });
       }
 
       // If we are just starting, use the starting block number from the options.
       if (latestBlockNumber === 0 && this.opts.startingBlock !== undefined) {
         latestBlockNumber = Math.max(this.opts.startingBlock - 1, 0);
+      }
+
+      // Only log this entry once (for sanity)
+      if (!this.hasStarted) {
         this.log.verbose(`Starting sync from block number ${latestBlockNumber}`);
+        this.hasStarted = true;
       }
 
       // Request new blocks from the source.
@@ -94,10 +108,13 @@ export class L2BlockStream {
 
       // Update the proven and finalized tips.
       if (localTips.proven !== undefined && sourceTips.proven.number !== localTips.proven.number) {
-        await this.emitEvent({ type: 'chain-proven', blockNumber: sourceTips.proven.number });
+        await this.emitEvent({
+          type: 'chain-proven',
+          block: sourceTips.proven,
+        });
       }
       if (localTips.finalized !== undefined && sourceTips.finalized.number !== localTips.finalized.number) {
-        await this.emitEvent({ type: 'chain-finalized', blockNumber: sourceTips.finalized.number });
+        await this.emitEvent({ type: 'chain-finalized', block: sourceTips.finalized });
       }
     } catch (err: any) {
       if (err.name === 'AbortError') {
@@ -112,34 +129,56 @@ export class L2BlockStream {
    * @param blockNumber - The block number to test.
    * @param args - A cache of data already requested from source, to avoid re-requesting it.
    */
-  private async areBlockHashesEqualAt(blockNumber: number, args: { sourceCache: L2BlockId[] }) {
+  private async areBlockHashesEqualAt(blockNumber: number, args: { sourceCache: BlockHashCache }) {
     if (blockNumber === 0) {
       return true;
     }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
-    const sourceBlockHash =
-      args.sourceCache.find(id => id.number === blockNumber && id.hash)?.hash ??
-      (await this.l2BlockSource
-        .getBlockHeader(blockNumber)
-        .then(h => h?.hash())
-        .then(hash => hash?.toString()));
-    this.log.trace(`Comparing block hashes for block ${blockNumber}`, {
-      localBlockHash,
-      sourceBlockHash,
-      sourceCacheNumber: args.sourceCache[0]?.number,
-      sourceCacheHash: args.sourceCache[0]?.hash,
-    });
+    const sourceBlockHashFromCache = args.sourceCache.get(blockNumber);
+    const sourceBlockHash = args.sourceCache.get(blockNumber) ?? (await this.getBlockHashFromSource(blockNumber));
+    if (!sourceBlockHashFromCache && sourceBlockHash) {
+      args.sourceCache.add({ number: blockNumber, hash: sourceBlockHash });
+    }
+
+    this.log.trace(`Comparing block hashes for block ${blockNumber}`, { localBlockHash, sourceBlockHash });
     return localBlockHash === sourceBlockHash;
+  }
+
+  private getBlockHashFromSource(blockNumber: number) {
+    return this.l2BlockSource
+      .getBlockHeader(blockNumber)
+      .then(h => h?.hash())
+      .then(hash => hash?.toString());
   }
 
   private async emitEvent(event: L2BlockStreamEvent) {
     this.log.debug(
-      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.blockNumber})`,
+      `Emitting ${event.type} (${event.type === 'blocks-added' ? event.blocks.length : event.block.number})`,
     );
     await this.handler.handleBlockStreamEvent(event);
     if (!this.isRunning() && !this.isSyncing) {
       throw new AbortError();
     }
+  }
+}
+
+class BlockHashCache {
+  private readonly cache: Map<number, string> = new Map();
+
+  constructor(initial: L2BlockId[] = []) {
+    for (const block of initial) {
+      this.add(block);
+    }
+  }
+
+  public add(block: L2BlockId) {
+    if (block.hash) {
+      this.cache.set(block.number, block.hash);
+    }
+  }
+
+  public get(blockNumber: number) {
+    return this.cache.get(blockNumber);
   }
 }
 
@@ -155,23 +194,19 @@ export interface L2BlockStreamEventHandler {
 }
 
 export type L2BlockStreamEvent =
-  | {
+  | /** Emits blocks added to the chain. */ {
       type: 'blocks-added';
-      /** New blocks added to the chain. */
       blocks: PublishedL2Block[];
     }
-  | {
+  | /** Reports last correct block (new tip of the unproven chain). */ {
       type: 'chain-pruned';
-      /** Last correct block number (new tip of the unproven chain). */
-      blockNumber: number;
+      block: L2BlockId;
     }
-  | {
+  | /** Reports new proven block. */ {
       type: 'chain-proven';
-      /** New proven block number */
-      blockNumber: number;
+      block: L2BlockId;
     }
-  | {
+  | /** Reports new finalized block (proven and finalized on L1). */ {
       type: 'chain-finalized';
-      /** New finalized block number */
-      blockNumber: number;
+      block: L2BlockId;
     };
