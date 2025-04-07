@@ -203,19 +203,6 @@ pub contract DocsExample {
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
     #[private]
-    fn update_legendary_card(randomness: Field, points: u8) {
-        let new_card = CardNote::new(points, randomness, context.msg_sender());
-
-        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
-        ));
-        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(
-            &mut context,
-        );
-    }
-    #[private]
     fn increase_legendary_points() {
         // Ensure `points` > current value
         // Also serves as a e2e test that you can `get_note()` and then `replace()`
