@@ -97,8 +97,8 @@ template <typename RecursiveFlavor> class TranslatorRecursiveTests : public ::te
         native_verifier_transcript->template receive_from_prover<InnerBF>("init");
         InnerVerifier native_verifier(verification_key, native_verifier_transcript);
         bool native_result = native_verifier.verify_proof(proof, evaluation_challenge_x, batching_challenge_v);
-        auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points[0].get_value(),
-                                                                                         pairing_points[1].get_value());
+        auto recursive_result = native_verifier.key->pcs_verification_key->pairing_check(pairing_points.P0.get_value(),
+                                                                                         pairing_points.P1.get_value());
         EXPECT_EQ(recursive_result, native_result);
 
         auto recursive_manifest = verifier.transcript->get_manifest();

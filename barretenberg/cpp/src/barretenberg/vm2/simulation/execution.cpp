@@ -119,7 +119,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // Go from a wire instruction to an execution opcode.
             const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
             context.set_next_pc(pc + wire_spec.size_in_bytes);
-            info("@", pc, " ", instruction.to_string());
+            debug("@", pc, " ", instruction.to_string());
             ExecutionOpCode opcode = wire_spec.exec_opcode;
             ex_event.opcode = opcode;
 

@@ -8,7 +8,7 @@ import type { P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
@@ -256,9 +256,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.telemetryClient,
     );
 
-    const [_, endTimestamp] = getTimestampRangeForEpoch(epochNumber + 1n, await this.getL1Constants());
-    const deadline = new Date(Number(endTimestamp) * 1000);
-
+    const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
+    const deadline = new Date(Number(deadlineTs) * 1000);
     const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory);
     this.jobs.set(job.getId(), job);
     return job;

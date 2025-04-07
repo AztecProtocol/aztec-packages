@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <span>
 
 #include "barretenberg/crypto/merkle_tree/hash_path.hpp"
 #include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
@@ -40,15 +41,15 @@ class LowLevelMerkleDBInterface {
     virtual crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> get_leaf_preimage_nullifier_tree(
         crypto::merkle_tree::index_t leaf_index) const = 0;
 
-    // Inserts a leaf into the public data tree sequentially, getting witnesses at every step.
-    // Note: This method doesn't support inserting empty leaves.
     virtual world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
     insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) = 0;
-
-    // Inserts a leaf into the nullifier tree sequentially, getting witnesses at every step.
-    // Note: This method doesn't support inserting empty leaves.
     virtual world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) = 0;
+    virtual void append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
+
+    virtual void create_checkpoint() = 0;
+    virtual void commit_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
 };
 
 // High level access to a merkle db. In general these will be constrained.
@@ -58,6 +59,12 @@ class HighLevelMerkleDBInterface {
 
     virtual const TreeSnapshots& get_tree_roots() const = 0;
     virtual FF storage_read(const FF& key) const = 0;
+
+    virtual void create_checkpoint() = 0;
+    virtual void commit_checkpoint() = 0;
+    virtual void revert_checkpoint() = 0;
+
+    virtual LowLevelMerkleDBInterface& as_unconstrained() const = 0;
 };
 
 } // namespace bb::avm2::simulation

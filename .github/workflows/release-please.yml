@@ -16,6 +16,8 @@ jobs:
   release-please:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      release-pr: ${{ steps.release.outputs.pr }}
     steps:
       - name: Run Release Please
         id: release
@@ -40,7 +42,7 @@ jobs:
 
       - name: Cut a new version
         working-directory: ./docs
-        run: yarn version ${{ env.BRANCH_NAME }}
+        run: yarn run version ${{ env.BRANCH_NAME }}
 
       - name: Configure git
         run: |

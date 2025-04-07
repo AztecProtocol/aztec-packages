@@ -9,6 +9,7 @@ import {
 import { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
 import { GasSettings } from '@aztec/stdlib/gas';
+import { TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE } from '@aztec/stdlib/tx';
 
 import { expectMapping } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';
@@ -313,7 +314,7 @@ describe('e2e_fees private_payment', () => {
           },
         })
         .wait(),
-    ).rejects.toThrow('Tx dropped by P2P node.');
+    ).rejects.toThrow(TX_ERROR_INSUFFICIENT_FEE_PAYER_BALANCE);
   });
 
   // TODO(#7694): Remove this test once the lacking feature in TXE is implemented.
