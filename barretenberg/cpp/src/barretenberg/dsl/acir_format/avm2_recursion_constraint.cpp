@@ -141,7 +141,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
  */
 aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
                                                        const RecursionConstraint& input,
-                                                       aggregation_state_ct input_agg_obj,
+                                                       const aggregation_state_ct& input_aggregation_object,
                                                        bool has_valid_witness_assignments)
 {
     using Flavor = avm2::AvmRecursiveFlavor_<Builder>;
@@ -176,7 +176,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(builder, vkey);
     aggregation_state_ct output_agg_object =
-        verifier.verify_proof(proof_fields, { public_inputs_flattened }, input_agg_obj);
+        verifier.verify_proof(proof_fields, { public_inputs_flattened }, input_aggregation_object);
 
     return output_agg_object;
 }
@@ -193,7 +193,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
 HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
+    const aggregation_state_ct& input_aggregation_object,
     bool has_valid_witness_assignments)
 {
     using RecursiveVerifier = avm2::AvmGoblinRecursiveVerifier;
@@ -224,7 +224,7 @@ HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
 
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder, key_fields);
-    auto output_agg_object = verifier.verify_proof(proof_fields, { public_inputs_flattened }, input_agg_obj);
+    auto output_agg_object = verifier.verify_proof(proof_fields, { public_inputs_flattened }, input_aggregation_object);
 
     HonkRecursionConstraintOutput result{ .agg_obj = output_agg_object.aggregation_object,
                                           .ipa_claim = output_agg_object.ipa_claim,

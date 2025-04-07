@@ -133,6 +133,8 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
 TEST_F(AcirAvmRecursionConstraint, TestBasicSingleAvmRecursionConstraint)
 {
+    GTEST_SKIP(); // Will be decomissioned in favour of avm2.
+
     std::vector<FF> public_inputs_vec;
     // public_inputs_vec.resize(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     // public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = FF(1000000);
