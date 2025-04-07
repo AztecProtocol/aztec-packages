@@ -1,19 +1,27 @@
 name: Devnet network tests
 on:
+  # TODO(ek): Remove this after testing
   pull_request:
     paths:
       - '**.yml'
   workflow_dispatch:
   schedule:
-    - cron: "00 08 * * 1-5"
+    # Run nightly at 0300
+    - cron: "0 3 * * *"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
-  # This is a workaround because the runner does not have perms to upload files anywhere else
-  CONTRACT_S3_BUCKET: s3://aztec-ci-artifacts
+  # This path is a workaround because the runner does not have perms to upload files anywhere else
+  STATE_S3_BASE_PATH: s3://aztec-ci-artifacts/build-cache
+  AZTEC_VERSION: 0.84.0-alpha-testnet.1
+  NODE_URL: http://104.198.9.75:8080
+  SPONSORED_FPC_ADDRESS: "0x2742bae7b298acd9ae3f09ff48f6e6254f1e28bb71fbec9b6e79fe9955adf83c"
+  L1_URL: http://34.169.129.31:8545
+  FAUCET_URL: http://104.199.115.217:8086
+
 jobs:
   cli-wallet:
     runs-on: ubuntu-latest
@@ -25,70 +33,70 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: eu-west-2
 
-      - name: Checkout smoke tests
+      - name: Checkout smoke tests (note that this is not pinned to a version, the CLI wallet installed is though)
         uses: actions/checkout@v4
         with:
-          ref: 'v0.81.0'
           sparse-checkout: |
-            spartan/scripts/smoke-tests
+            spartan/devnet-smoke-tests
 
       # TODO: Remove after we see this script succeed consistently
       - name: Reset state for testing
         run: |
           echo '{"accounts": [], "contracts": []}'> state.json
-          aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
+          aws s3 cp ./state.json ${{ env.STATE_S3_BASE_PATH }}/devnet-nightly-tests-state.json
 
       - name: Retrieve state or set default if not
         run: |
-          aws s3 cp ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json ./state.json || echo '{"accounts": [], "contracts": []}'> state.json
+          aws s3 cp ${{ env.STATE_S3_BASE_PATH }}/devnet-nightly-tests-state.json ./state.json || echo '{"accounts": [], "contracts": []}'> state.json
           cat ./state.json
 
       - name: Run smoke tests
         run: |
-          ./spartan/scripts/smoke-tests/main.sh
+          ./spartan/devnet-smoke-tests/main.sh
 
       - name: Re-commit state
         run: |
           jq '.last_modified = (now | tostring)' state.json > tmp.json && mv tmp.json state.json
           cat ./state.json
 
-          aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
+          aws s3 cp ./state.json ${{ env.STATE_S3_BASE_PATH }}/devnet-nightly-tests-state.json
 
-  npm-release:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v1
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: eu-west-2
+  # TODO: Re-enable this when the above tests are stable.
+  # npm-release:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v1
+  #       with:
+  #         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #         aws-region: eu-west-2
 
-      - name: Checkout aztec starter
-        uses: actions/checkout@v4
-        with:
-          ref: 'ek/devnet-smoke-tests'
-          repository: 'aztecprotocol/aztec-starter'
+  #     - name: Checkout aztec starter
+  #       uses: actions/checkout@v4
+  #       with:
+  #         ref: 'ek/devnet-smoke-tests'
+  #         repository: 'aztecprotocol/aztec-starter'
 
-      # TODO: Remove after we see this script succeed consistently
-      - name: Reset state for testing
-        run: |
-          echo '{"accounts": [], "contracts": []}'> state.json
-          aws s3 cp ./state.json $CONTRACT_S3_BUCKET/build-cache/devnet-nightly-tests-state.json
+  #     # TODO: Remove after we see this script succeed consistently
+  #     - name: Reset state for testing
+  #       run: |
+  #         echo '{"accounts": [], "contracts": []}'> state.json
+  #         aws s3 cp ./state.json $CONTRACT_S3_BUCKET/build-cache/devnet-nightly-tests-state.json
 
-      - name: Retrieve state or set default if not
-        run: |
-          aws s3 cp $CONTRACT_S3_BUCKET/build-cache/devnet-nightly-tests-state.json ./state.json || echo '{"accounts": [], "contracts": []}'> state.json
-          cat ./state.json
+  #     - name: Retrieve state or set default if not
+  #       run: |
+  #         aws s3 cp $CONTRACT_S3_BUCKET/build-cache/devnet-nightly-tests-state.json ./state.json || echo '{"accounts": [], "contracts": []}'> state.json
+  #         cat ./state.json
 
-      - name: Run smoke tests
-        run: |
-          yarn
-          yarn smoke
+  #     - name: Run smoke tests
+  #       run: |
+  #         yarn
+  #         yarn smoke
 
-      - name: Re-commit state
-        run: |
-          jq '.last_modified = (now | tostring)' state.json > tmp.json && mv tmp.json state.json
-          cat ./state.json
+  #     - name: Re-commit state
+  #       run: |
+  #         jq '.last_modified = (now | tostring)' state.json > tmp.json && mv tmp.json state.json
+  #         cat ./state.json
 
-          aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
+  #         aws s3 cp ./state.json ${{ env.CONTRACT_S3_BUCKET }}/build-cache/devnet-nightly-tests-state.json
