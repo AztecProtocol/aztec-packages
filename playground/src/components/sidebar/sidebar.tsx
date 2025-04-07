@@ -313,7 +313,7 @@ export function SidebarComponent() {
    * This ensures it's available for fee payments in all transactions
    */
   const initSponsoredFPC = async () => {
-    if (!pxe || !wallet || !node || !isPXEInitialized) {
+    if (!pxe || !wallet || !isPXEInitialized) {
       console.log('Cannot initialize SponsoredFPC: Missing required dependencies');
       return;
     }
@@ -324,21 +324,20 @@ export function SidebarComponent() {
       const { registerSponsoredFPC } = await import('../../utils/fees');
 
       // This function now properly registers the contract class first
-      await registerSponsoredFPC(pxe, wallet, node);
+      await registerSponsoredFPC(pxe, wallet);
       console.log('SponsoredFPC contract initialization complete');
     } catch (error) {
       console.error('Error initializing SponsoredFPC contract:', error);
-      console.error('Error details:', error.message);
       // Don't block further operations if this fails
     }
   };
 
   // Initialize SponsoredFPC contract when wallet, pxe and node are all available
   useEffect(() => {
-    if (pxe && wallet && node && isPXEInitialized) {
+    if (pxe && wallet && isPXEInitialized) {
       initSponsoredFPC();
     }
-  }, [pxe, wallet, node, isPXEInitialized]);
+  }, [pxe, wallet, isPXEInitialized]);
 
   return (
     <div css={container}>

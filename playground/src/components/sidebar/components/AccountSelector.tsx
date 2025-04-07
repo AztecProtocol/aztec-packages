@@ -17,6 +17,8 @@ import type { WalletDB } from '../../../utils/storage';
 import type { PXE } from '@aztec/aztec.js';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
+import type { ReactNode } from 'react';
+import { LoadingModal } from '../../common/LoadingModal';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -63,7 +65,7 @@ export function AccountSelector({
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
   const [isAccountChanging, setIsAccountChanging] = useState(false);
   const [deploymentInProgress, setDeploymentInProgress] = useState(false);
-  const { node } = useContext(AztecContext);
+  const { node, currentTx, setCurrentTx, setIsWorking } = useContext(AztecContext);
 
   // Set loading state based on accounts and connection state
   useEffect(() => {
@@ -75,73 +77,93 @@ export function AccountSelector({
     }
   }, [accounts, isPXEInitialized, pxe, walletDB, changingNetworks]);
 
-  const handleAccountChange = async (event: SelectChangeEvent) => {
-    if (!pxe || !walletDB) return;
-    if (event.target.value === '') return;
+  const handleAccountChange = async (event: SelectChangeEvent<`0x${string}`>, child: ReactNode) => {
+    if (!pxe || !walletDB) {
+      console.error('PXE or walletDB not available');
+      return;
+    }
 
+    const selectedAccountStr = event.target.value;
+    if (!selectedAccountStr) {
+      return;
+    }
+
+    const selectedAccount = AztecAddress.fromString(selectedAccountStr);
     setIsAccountChanging(true);
+    setDeploymentInProgress(true);
+
     try {
-      const accountAddress = AztecAddress.fromString(event.target.value);
-      console.log(`Selected account ${accountAddress.toString()}`);
+      // Get account data from walletDB
+      const accountData = await walletDB.retrieveAccount(selectedAccount);
+      if (!accountData) {
+        throw new Error(`No account data found for ${selectedAccount.toString()}`);
+      }
 
-      const accountData = await walletDB.retrieveAccount(accountAddress);
-      console.log('Retrieved account data:', accountData ? 'Account found in database' : 'Account not found');
-
-      // Retrieve the signing private key from metadata
-      const signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
-      console.log('Retrieved signing key:', signingPrivateKey ? 'Signing key found' : 'No signing key found');
-
+      // Get signing private key
+      const signingPrivateKey = await walletDB.retrieveAccountMetadata(selectedAccount, 'signingPrivateKey');
       if (!signingPrivateKey) {
-        throw new Error('Could not find signing private key for this account');
+        throw new Error(`No signing private key found for ${selectedAccount.toString()}`);
       }
 
-      // Get the wallet
-      console.log('Creating wallet for account...');
-      const newWallet = await createWalletForAccount(pxe, accountAddress, signingPrivateKey);
-      console.log('Wallet created successfully');
-      setWallet(newWallet);
+      // Create wallet for the account
+      const wallet = await createWalletForAccount(pxe, selectedAccount, signingPrivateKey);
 
-      // Check if the account should be deployed
-      console.log('Checking account deployment status...');
-      const deploymentStatus = await walletDB.retrieveAccountMetadata(accountAddress, 'deploymentStatus');
-      console.log('Deployment status from database:', deploymentStatus ? deploymentStatus.toString() : 'Not set');
+      // Check if account is deployed
+      try {
+        const metadata = await pxe.getContractMetadata(selectedAccount);
+        if (!metadata.isContractPubliclyDeployed) {
+          // Set up the deployment modal
+          setCurrentTx({
+            status: 'proving' as const,
+            fnName: 'deploy',
+            contractAddress: selectedAccount,
+          });
+          setIsWorking(true);
 
-      const isDeployed = deploymentStatus && deploymentStatus.toString() === 'deployed';
+          // Attempt to deploy the account
+          await deployAccountWithSponsoredFPC(pxe, wallet, null, walletDB);
 
-      if (!isDeployed && node) {
-        try {
-          setDeploymentInProgress(true);
-          // Deploy the account using sponsored fee payment
-          console.log(`Deploying account ${accountAddress.toString()} with sponsored fee payment...`);
-          await deployAccountWithSponsoredFPC(pxe, newWallet, node);
-          console.log(`Account ${accountAddress.toString()} deployment process completed`);
-
-          // Try to verify the deployment
-          console.log('Verifying account deployment...');
-          try {
-            const contracts = await pxe.getContracts();
-            const isInPXEContracts = contracts.some(c => c.equals(accountAddress));
-            console.log(`Account ${isInPXEContracts ? 'found' : 'not found'} in PXE contracts list`);
-
-            // Update deployment status regardless - we've done our best to deploy
-            await walletDB.storeAccountMetadata(accountAddress, 'deploymentStatus', Buffer.from('deployed'));
-            console.log('Updated account deployment status in database');
-          } catch (verifyError) {
-            console.error('Error verifying deployment:', verifyError);
-          }
-        } catch (deployError) {
-          console.error('Error deploying account:', deployError);
-          // Continue anyway since the account is registered and may still function
-        } finally {
-          setDeploymentInProgress(false);
+          // Update deployment status
+          setCurrentTx({
+            status: 'sending' as const,
+            fnName: 'deploy',
+            contractAddress: selectedAccount,
+          });
         }
-      } else {
-        console.log(`Account ${isDeployed ? 'is already marked as deployed' : 'deployment skipped (no node)'}`);
+      } catch (error) {
+        // Only throw if it's not a cancellation error
+        if (error.message !== 'Deployment cancelled by user') {
+          console.error('Error checking deployment status:', error);
+          setCurrentTx({
+            status: 'error' as const,
+            fnName: 'deploy',
+            contractAddress: selectedAccount,
+            error: error.message || 'Failed to deploy account',
+          });
+          throw error;
+        }
       }
+
+      // Update the selected wallet regardless of deployment status
+      setWallet(wallet);
+      onAccountsChange();
     } catch (error) {
-      console.error('Error changing account:', error);
+      // Only show error if it's not a cancellation
+      if (error.message !== 'Deployment cancelled by user') {
+        console.error('Error changing account:', error);
+        setCurrentTx({
+          status: 'error' as const,
+          fnName: 'deploy',
+          contractAddress: selectedAccount,
+          error: error.message || 'Failed to change account',
+        });
+      }
     } finally {
-      setIsAccountChanging(false);
+      // Only clear deployment state if it's not a cancellation
+      if (!currentTx || currentTx.error !== 'Deployment cancelled by user') {
+        setIsAccountChanging(false);
+        setDeploymentInProgress(false);
+      }
     }
   };
 
@@ -245,7 +267,7 @@ export function AccountSelector({
           value={currentWallet?.getAddress().toString() ?? ''}
           label="Account"
           onChange={handleAccountChange}
-          disabled={isAccountChanging}
+          disabled={isAccountChanging && !currentTx?.error?.includes('cancelled')}
         >
           {accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
@@ -258,11 +280,11 @@ export function AccountSelector({
             &nbsp;Create
           </MenuItem>
         </Select>
-        {isAccountChanging ? (
+        {isAccountChanging && !currentTx?.error?.includes('cancelled') ? (
           <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
             <CircularProgress size={20} />
           </div>
-        ) : deploymentInProgress ? (
+        ) : deploymentInProgress && !currentTx?.error?.includes('cancelled') ? (
           <div style={{ display: 'flex', justifyContent: 'center', flexDirection: 'column', alignItems: 'center', padding: '8px 0' }}>
             <CircularProgress size={20} />
             <Typography variant="caption" style={{ marginTop: '4px' }}>
@@ -274,6 +296,7 @@ export function AccountSelector({
         )}
       </FormControl>
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
+      {deploymentInProgress && <LoadingModal />}
     </div>
   );
 }

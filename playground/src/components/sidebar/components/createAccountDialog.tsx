@@ -36,23 +36,9 @@ export function CreateAccountDialog({
     if (open) {
       const originalConsoleLog = console.log;
       console.log = function(...args) {
-        // Filter out "Updated pxe last block" messages
-        if (
-          args.length > 0 &&
-          typeof args[0] === 'object' &&
-          args[0] !== null &&
-          args[0].module === 'pxe:service' &&
-          args.length > 1 &&
-          typeof args[1] === 'string' &&
-          args[1].includes('Updated pxe last block')
-        ) {
-          // Skip this log
-          return;
-        }
         originalConsoleLog.apply(console, args);
       };
 
-      // Restore console.log when dialog closes
       return () => {
         console.log = originalConsoleLog;
       };
@@ -66,7 +52,7 @@ export function CreateAccountDialog({
     const salt = Fr.random();
 
     try {
-      console.log(`Creating new ECDSA K account: ${alias}`);
+      console.log(`Creating new account: ${alias}`);
 
       // Create a deterministic private key for signing
       const signingPrivateKey = Buffer.alloc(32);
@@ -95,7 +81,7 @@ export function CreateAccountDialog({
 
       try {
         const { prepareForFeePayment } = await import('../../../utils/fees');
-        const sponsoredPaymentMethod = await prepareForFeePayment(pxe, accountWallet, node);
+        const sponsoredPaymentMethod = await prepareForFeePayment(pxe, accountWallet);
 
         // Attempt deployment
         const deployTx = await account.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } });

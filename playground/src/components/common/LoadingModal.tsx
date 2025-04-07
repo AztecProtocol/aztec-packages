@@ -4,22 +4,33 @@ import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import loadingIcon from '../../assets/loading_icon.gif';
 import Link from '@mui/material/Link';
+import IconButton from '@mui/material/IconButton';
+import CloseIcon from '@mui/icons-material/Close';
+import Button from '@mui/material/Button';
 
 // Modal container styling
 const modalContainer = css({
   boxSizing: 'border-box',
-  position: 'absolute',
+  position: 'fixed',
   width: '700px',
   height: '500px',
   left: 'calc(50% - 700px/2)',
   top: 'calc(50% - 500px/2)',
-  background: '#F8F8F8', // This will be overridden when there's an error
+  background: '#F8F8F8',
   border: '2px solid #B6B4B4',
   borderRadius: '10px',
   display: 'flex',
   justifyContent: 'center',
   alignItems: 'center',
-  zIndex: 1000,
+  zIndex: 9999,
+});
+
+// Close button styling
+const closeButton = css({
+  position: 'absolute',
+  top: '10px',
+  right: '10px',
+  zIndex: 10000,
 });
 
 // Content group styling
@@ -81,237 +92,92 @@ const loadingAnimation = css({
   alignItems: 'center',
 });
 
-// Overlay to dim the background
-const overlay = css({
-  position: 'fixed',
-  top: 0,
-  left: 0,
-  right: 0,
-  bottom: 0,
-  backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  zIndex: 999,
-});
-
-// Transaction hash styling
-const hashText = css({
-  position: 'absolute',
-  width: '432px',
-  top: 'calc(50% - 36px/2 + 110px)',
-  fontFamily: '"Inter", sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '14px',
-  lineHeight: '150%',
-  textAlign: 'center',
-  color: 'rgba(0, 0, 0, 0.6)',
-  wordBreak: 'break-all',
-  padding: '0 20px',
-});
-
-// Always visible subtitle about ZK proof
-const proofInfoText = css({
-  position: 'absolute',
-  width: '432px',
-  top: 'calc(50% - 36px/2 + 110px)',
-  fontFamily: '"Inter", sans-serif',
-  fontStyle: 'italic',
-  fontWeight: 400,
-  fontSize: '14px',
-  lineHeight: '150%',
-  textAlign: 'center',
-  color: 'rgba(0, 0, 0, 0.8)',
-});
-
-// Aztec fact styling
-const aztecFactText = css({
-  position: 'absolute',
-  width: '432px',
-  top: 'calc(50% - 36px/2 + 170px)',
-  fontFamily: '"Inter", sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '14px',
-  lineHeight: '150%',
-  textAlign: 'center',
-  color: 'rgba(0, 0, 0, 0.6)',
-  padding: '0 20px',
-  margin: '15px 0',
-});
-
-// Error text styling
-const errorText = css({
+// Error message styling
+const errorMessage = css({
   position: 'absolute',
   width: '432px',
   top: 'calc(50% - 36px/2 - 50px)',
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
-  fontWeight: 500,
+  fontWeight: 400,
   fontSize: '16px',
   lineHeight: '150%',
   textAlign: 'center',
-  color: '#C62828',
-  wordBreak: 'break-word',
-  padding: '0 20px',
+  color: '#FF0000',
 });
 
-// Aztec facts array
-const AZTEC_FACTS = [
-  'Did you know - Even Aztec\'s testnet is decentralized. Check out some more information at <a href="https://blog.aztec.network" target="_blank">blog.aztec.network</a>',
-  'You can play with this contract directly on your own machine by following this guide at <a href="https://docs.aztec.network" target="_blank">docs.aztec.network</a>',
-  'Aztec allows for private and public execution, private and public state, and a mix of both!',
-  'Privacy is a human right',
-  'Aztec is the first EVM-compatible ZK rollup',
-  'Aztec combines privacy protection with programmability to offer true private smart contracts',
-  'The Aztec Protocol makes the entire Ethereum ecosystem private',
-  'Noir is Aztec\'s Domain Specific Language for writing zero-knowledge circuits'
-];
+// Button container styling
+const buttonContainer = css({
+  position: 'absolute',
+  bottom: '20px',
+  display: 'flex',
+  gap: '10px',
+});
 
 export function LoadingModal() {
-  const { currentTx, isWorking, currentContract, setIsWorking } = useContext(AztecContext);
-  const [randomFact, setRandomFact] = useState(0);
+  const { currentTx, setCurrentTx, setIsWorking } = useContext(AztecContext);
+  const [showError, setShowError] = useState(false);
 
-  // Show modal when a transaction is being sent to the network
-  // This now includes both regular transactions and contract deployments
-  const isTransactionSending =
-    // Regular transaction with specific status
-    (currentTx && (
-      currentTx.status === 'proving' ||
-      currentTx.status === 'sending' ||
-      currentTx.status === 'pending'
-    )) ||
-    // Contract deployment or any other operation that uses isWorking flag
-    isWorking === true;
-
-  // Check if there's an error
-  const hasError = currentTx?.status === 'error' || !!currentTx?.error;
-
-  useEffect(() => {
-    // If the modal is showing, rotate the facts every 4 seconds
-    if (isTransactionSending) {
-      const interval = setInterval(() => {
-        setRandomFact(prev => (prev + 1) % AZTEC_FACTS.length);
-      }, 4000);
-
-      return () => clearInterval(interval);
+  const handleClose = () => {
+    // Set error state to indicate deployment was cancelled
+    if (currentTx && currentTx.status !== 'error') {
+      setCurrentTx({
+        ...currentTx,
+        status: 'error' as const,
+        error: 'Deployment cancelled by user'
+      });
     }
-  }, [isTransactionSending]);
-
-  // Keep the modal open when there's an error by ensuring isWorking is true
-  useEffect(() => {
-    if (hasError) {
-      setIsWorking(true);
-    }
-  }, [hasError, setIsWorking]);
-
-  // Always show modal if there's an error or transaction in progress
-  if (!hasError && !isTransactionSending) {
-    return null;
-  }
-
-  // Determine the appropriate message based on transaction status
-  const getMessage = () => {
-    if (hasError) {
-      return 'Error with contract deployment';
-    }
-
-    if (!currentTx && isWorking) {
-      // When deploying a contract
-      if (currentContract === null || currentContract === undefined) {
-        return 'Deploying contract to Aztec network...';
-      }
-      return 'Processing operation...';
-    }
-
-    if (currentTx) {
-      if (currentTx.status === 'proving') {
-        return 'Generating proof for transaction...';
-      } else if (currentTx.status === 'sending') {
-        return 'Sending transaction to Aztec network...';
-      } else if (currentTx.status === 'pending') {
-        return 'Transaction pending on Aztec network...';
-      } else if (currentTx.status === 'error') {
-        return 'Error with contract deployment';
-      }
-    }
-
-    return 'Processing transaction...';
+    // Clean up working state after a short delay to allow error to be displayed
+    setTimeout(() => {
+      setCurrentTx(null);
+      setIsWorking(false);
+      setShowError(false);
+    }, 1000);
   };
 
-  // Get the function name subtitle
-  const getSubtitle = () => {
-    if (hasError) {
-      // Get just the first part of the error message
-      let errorMsg = 'Unknown error occurred';
-
-      try {
-        if (currentTx?.error) {
-          errorMsg = String(currentTx.error);
-        }
-      } catch (e) {
-        // Fallback if toString fails
-        console.error('Error converting error to string:', e);
-      }
-
-      // Extract just the first sentence
-      const firstPart = errorMsg.split('.')[0];
-      return `${firstPart}. Please reach out to us on Discord.`;
+  const handleOutsideClick = (e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
     }
-
-    if (currentTx && currentTx.fnName) {
-      return `Function: ${currentTx.fnName}`;
-    } else if (!currentTx && isWorking) {
-      if (currentContract === null || currentContract === undefined) {
-        return 'This may take a few moments';
-      }
-      return 'Please wait while we process your request';
-    }
-    return '';
   };
 
-  // Get the transaction hash if available
-  const getHashDisplay = () => {
-    if (currentTx && currentTx.txHash) {
-      return `Transaction Hash: ${currentTx.txHash.toString()}`;
-    }
-    return '';
-  };
+  if (!currentTx) return null;
 
-  // Set the background color based on status
-  const getBackgroundColor = () => {
-    if (hasError) {
-      return '#FFF5F5'; // Light red background for errors
-    }
-    return '#F8F8F8'; // Default background matches the GIF background
-  };
+  const isError = currentTx.status === 'error';
+  const isProving = currentTx.status === 'proving';
+  const isSending = currentTx.status === 'sending';
 
   return (
-    <>
-      <div css={overlay} />
-      <div css={modalContainer} style={{ background: getBackgroundColor() }}>
-        <div css={contentGroup}>
-          <div css={titleText}>{getMessage()}</div>
-          {hasError ? (
-            <div css={errorText}>{getSubtitle()}</div>
-          ) : (
-            <div css={subtitleText}>{getSubtitle()}</div>
-          )}
-
-          {!hasError && (
-            <div css={loadingAnimation}>
-              <img src={loadingIcon} alt="Loading" style={{ width: 'auto', height: 'auto', maxWidth: '100%', maxHeight: '100%' }} />
+    <div css={modalContainer} onClick={handleOutsideClick}>
+      <IconButton css={closeButton} onClick={handleClose}>
+        <CloseIcon />
+      </IconButton>
+      <div css={contentGroup}>
+        <Typography css={titleText}>
+          {isError ? 'Error' : isProving ? 'Generating proof for transaction...' : 'Sending transaction to Aztec network...'}
+        </Typography>
+        {isError ? (
+          <>
+            <Typography css={errorMessage}>
+              {currentTx.error || 'An error occurred during deployment'}
+            </Typography>
+            <div css={buttonContainer}>
+              <Button variant="contained" color="primary" onClick={handleClose}>
+                Close
+              </Button>
             </div>
-          )}
-
-          {currentTx && currentTx.txHash && <div css={hashText}>{getHashDisplay()}</div>}
-
-          {!hasError && (
-            <>
-              <div css={proofInfoText}>You are generating a client-side zero-knowledge proof right in your browser!</div>
-              <div css={aztecFactText} dangerouslySetInnerHTML={{ __html: AZTEC_FACTS[randomFact] }} />
-            </>
-          )}
-        </div>
+          </>
+        ) : (
+          <>
+            <Typography css={subtitleText}>
+              {isProving
+                ? 'A client-side zero-knowledge proof is being generated in your browser. This may take a few seconds.'
+                : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
+            </Typography>
+            <img src={loadingIcon} alt="Loading..." css={loadingAnimation} />
+          </>
+        )}
       </div>
-    </>
+    </div>
   );
 }

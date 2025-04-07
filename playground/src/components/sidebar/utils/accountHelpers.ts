@@ -7,9 +7,7 @@ import type { WalletDB } from '../../../utils/storage';
 export async function getInitialEcdsaKTestAccounts() {
   return Promise.all(
     INITIAL_TEST_SECRET_KEYS.map(async (secret, i) => {
-      // Create a fixed deterministic Buffer for each account's signing key
       const signingKey = Buffer.alloc(32);
-      // Fill with a pattern based on index to make it deterministic but unique
       signingKey.write(`test-key-${i}`.padEnd(32, '-'), 0, 32, 'utf8');
       const salt = INITIAL_TEST_ACCOUNT_SALTS[i];
 
@@ -22,150 +20,90 @@ export async function getInitialEcdsaKTestAccounts() {
   );
 }
 
-/**
- * Deploys an account contract using the sponsored fee payment contract
- * This allows account deployment without requiring an existing funded account
- *
- * @param pxe The PXE instance to use for deployment
- * @param wallet The wallet of the account to deploy
- * @param node The Aztec node instance
- * @returns Promise that resolves when the account is deployed
- */
-export async function deployAccountWithSponsoredFPC(pxe: PXE, wallet: AccountWalletWithSecretKey, node: any) {
+export async function deployAccountWithSponsoredFPC(pxe: PXE, wallet: AccountWalletWithSecretKey, node: any, walletDB: WalletDB) {
   try {
     const accountAddress = wallet.getAddress();
-    console.log(`Deploying account ${accountAddress.toString()}...`);
-
-    // Import the necessary functions
-    const { prepareForFeePayment } = await import('../../../utils/fees');
-
-    // Get the fee payment method using the sponsored FPC
-    const feePaymentMethod = await prepareForFeePayment(pxe, wallet, node);
+    console.log(`Starting deployment process for account ${accountAddress.toString()}...`);
 
     // Check if the contract is already deployed
     try {
+      console.log('Checking if account is already deployed...');
       const metadata = await pxe.getContractMetadata(accountAddress);
       if (metadata.isContractPubliclyDeployed) {
         console.log(`Account ${accountAddress.toString()} is already deployed.`);
         return accountAddress;
       }
+      console.log('Account is not deployed yet, proceeding with deployment...');
     } catch (error) {
-      // Continue with deployment if we couldn't verify deployment status
+      console.log('Could not verify deployment status, proceeding with deployment:', error);
     }
 
-    // Get account data from wallet
-    const walletDB = (wallet as any).walletDB;
-    let accountManager;
-    let secretKey;
-    let signingPrivateKey;
-    let salt;
+    // Get account data from walletDB
+    console.log('Retrieving account data from walletDB...');
+    const accountData = await walletDB.retrieveAccount(accountAddress);
+    if (!accountData) {
+      throw new Error(`No account data found for ${accountAddress.toString()}`);
+    }
 
-    if (walletDB) {
+    const secretKey = accountData.secretKey;
+    const signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
+    const salt = accountData.salt;
+
+    if (!secretKey || !signingPrivateKey) {
+      throw new Error('Missing required account data for deployment');
+    }
+
+    // Create account manager
+    console.log('Creating account manager...');
+    const { getEcdsaKAccount } = await import('@aztec/accounts/ecdsa/lazy');
+    const accountManager = await getEcdsaKAccount(
+      pxe,
+      secretKey,
+      signingPrivateKey,
+      salt
+    );
+    console.log('Account manager created successfully');
+
+    // Prepare fee payment method
+    console.log('Preparing fee payment method...');
+    const { prepareForFeePayment } = await import('../../../utils/fees');
+    const feePaymentMethod = await prepareForFeePayment(pxe, wallet);
+    console.log('Fee payment method prepared successfully');
+
+    // Deploy the account
+    console.log('Deploying account contract...');
+    try {
+      const deployTx = await accountManager.deploy({
+        fee: { paymentMethod: feePaymentMethod }
+      });
+      console.log('Deployment transaction sent, waiting for confirmation...');
+      await deployTx.wait();
+      console.log('Deployment transaction confirmed');
+
+      // Verify deployment status
+      console.log('Verifying deployment status...');
+      let isDeployed = false;
       try {
-        secretKey = await walletDB.retrieveAccountMetadata(accountAddress, 'secretKey');
-        signingPrivateKey = await walletDB.retrieveAccountMetadata(accountAddress, 'signingPrivateKey');
-        salt = await walletDB.retrieveAccountMetadata(accountAddress, 'salt');
-
-        if (secretKey && signingPrivateKey) {
-          const { getEcdsaKAccount } = await import('@aztec/accounts/ecdsa/lazy');
-          accountManager = await getEcdsaKAccount(
-            pxe,
-            secretKey,
-            signingPrivateKey,
-            salt
-          );
-        }
-      } catch (error) {
-        console.log('Error retrieving account data:', error);
+        const metadata = await pxe.getContractMetadata(accountAddress);
+        isDeployed = metadata.isContractPubliclyDeployed;
+        console.log(`Deployment verification: ${isDeployed ? 'successful' : 'failed'}`);
+      } catch (e) {
+        console.error('Error verifying deployment status:', e);
       }
+
+      // Update deployment status in walletDB
+      await walletDB.storeAccountMetadata(
+        accountAddress,
+        'deploymentStatus',
+        Buffer.from(isDeployed ? 'deployed' : 'registered')
+      );
+      console.log(`Account marked as ${isDeployed ? 'deployed' : 'registered'} in database.`);
+
+      return accountAddress;
+    } catch (deployError) {
+      console.error('Error deploying account:', deployError);
+      throw deployError;
     }
-
-    // If we don't have accountManager, try with PXE registration data
-    if (!accountManager) {
-      const pxeAccounts = await pxe.getRegisteredAccounts();
-      const matchingAccount = pxeAccounts.find(acct => acct.address.equals(accountAddress));
-
-      if (!matchingAccount) {
-        throw new Error(`Account ${accountAddress.toString()} not found in PXE. Cannot deploy.`);
-      }
-
-      console.log(`Account ${accountAddress.toString()} found in PXE registry.`);
-
-      // Try to deploy using wallet capabilities
-      try {
-        if ((wallet as any).deployAccountContract) {
-          console.log('Sending deployment transaction...');
-          const tx = await (wallet as any).deployAccountContract({
-            fee: { paymentMethod: feePaymentMethod }
-          });
-          await tx.wait();
-          console.log(`Account ${accountAddress.toString()} deployment transaction completed.`);
-
-          // Update deployment status in walletDB
-          if (walletDB) {
-            // Verify the actual deployment status
-            let isDeployed = false;
-            try {
-              const metadata = await pxe.getContractMetadata(accountAddress);
-              isDeployed = metadata.isContractPubliclyDeployed;
-            } catch (e) {
-              // If check fails, assume not deployed
-            }
-
-            // Store accurate deployment status
-            await walletDB.storeAccountMetadata(
-              accountAddress,
-              'deploymentStatus',
-              Buffer.from(isDeployed ? 'deployed' : 'registered')
-            );
-            console.log(`Account marked as ${isDeployed ? 'deployed' : 'registered'} in database.`);
-          }
-
-          return accountAddress;
-        }
-      } catch (error) {
-        console.log('Error deploying using wallet capabilities:', error);
-      }
-    }
-
-    // Deploy using the account manager if available
-    if (accountManager) {
-      console.log(`Deploying account contract using account manager...`);
-      try {
-        const deployTx = await accountManager.deploy({ fee: { paymentMethod: feePaymentMethod } });
-        await deployTx.wait();
-
-        // Verify deployment status
-        let isDeployed = false;
-        try {
-          const metadata = await pxe.getContractMetadata(accountAddress);
-          isDeployed = metadata.isContractPubliclyDeployed;
-        } catch (e) {
-          // If check fails, assume not deployed
-        }
-
-        // Update deployment status in walletDB
-        if (walletDB) {
-          await walletDB.storeAccountMetadata(
-            accountAddress,
-            'deploymentStatus',
-            Buffer.from(isDeployed ? 'deployed' : 'registered')
-          );
-          console.log(`Account marked as ${isDeployed ? 'deployed' : 'registered'} in database.`);
-        }
-
-        return accountAddress;
-      } catch (deployError) {
-        console.error('Error deploying account:', deployError);
-
-        // Still return the address since the account is registered
-        return accountAddress;
-      }
-    }
-
-    // If we got here, we failed to deploy but the account is registered
-    console.log(`Account ${accountAddress.toString()} is registered but could not be deployed.`);
-    return accountAddress;
   } catch (error) {
     console.error('Error in account deployment process:', error);
     throw error;
@@ -186,20 +124,12 @@ async function checkAccountDeployment(pxe: PXE, accountAddress: AztecAddress): P
 }
 
 export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
-  console.log('=== LOADING ACCOUNTS ===');
 
   try {
-    // Get existing accounts from the wallet database
     const aliasedBuffers = await walletDB.listAliases('accounts');
     const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
-    console.log('Found stored accounts:', aliasedAccounts);
 
-    // Use ECDSA K test accounts
     const testAccountData = await getInitialEcdsaKTestAccounts();
-    console.log('Test account data prepared:', testAccountData.length);
-
-    // Get the list of accounts registered with the PXE
-    console.log('Getting registered accounts from PXE...');
     let pxeAccounts = await pxe.getRegisteredAccounts();
     console.log('PXE registered accounts:', pxeAccounts.map(a => a.address.toString()));
 
@@ -234,8 +164,6 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
             const wallet = await account.getWallet();
             console.log(`Successfully created wallet for ${alias}`);
 
-            // Store account in database with proper format
-            console.log(`Storing account ${alias} in database...`);
             await walletDB.storeAccount(account.getAddress(), {
               type: 'ecdsasecp256k1',
               secretKey: secret,
@@ -243,13 +171,10 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
               salt,
             });
 
-            // Store the signing key as metadata
-            console.log(`Storing signing key for account ${alias}...`);
             await walletDB.storeAccountMetadata(account.getAddress(), 'signingPrivateKey', signingKey);
 
-            // For ECDSA-K accounts, avoid deploying them as contracts to prevent note handling errors
-            console.log(`Account ${alias} successfully registered with PXE, skipping deployment to avoid note handling errors`);
-            await walletDB.storeAccountMetadata(account.getAddress(), 'deploymentStatus', Buffer.from('registered_only'));
+            // Store initial deployment status as registered
+            await walletDB.storeAccountMetadata(account.getAddress(), 'deploymentStatus', Buffer.from('registered'));
           } catch (err) {
             console.error(`Error registering account ${alias}:`, err);
             console.log(`Falling back to basic storage for ${alias}...`);
@@ -272,7 +197,6 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
           }
 
           console.log(`Test account ${alias} created and registered successfully!`);
-          console.log(`=== ACCOUNT ${alias} CREATION COMPLETE ===\n`);
         } catch (error) {
           console.error(`Error creating test account ${i}:`, error);
         }
@@ -410,9 +334,6 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
           console.log(`Added 0x prefix for matching: ${addressValue}`);
         }
 
-        // Log this to help with debugging
-        console.log(`Processing alias ${alias.key} with value: ${addressValue}`);
-
         if (!addressValue || addressValue.length < 10) {
           console.error(`Invalid address value for ${alias.key}: "${addressValue}". Skipping...`);
           continue; // Skip invalid addresses
@@ -440,7 +361,6 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
           });
         } else {
           // If this is an account but not registered, treat it as an account anyway
-          // This allows us to register it with PXE when selected
           if (alias.key.includes('ecdsa') || alias.key.includes('account')) {
             console.log(`Account ${alias.key} not registered with PXE but treating as account`);
             ourAccounts.push({
@@ -448,8 +368,8 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
               value: address.toString() // Use the proper AztecAddress string format
             });
           } else {
-            console.log(`Account ${alias.key} is not registered with PXE, treating as sender`);
-            senders.push(alias.key, address.toString()); // Use the proper AztecAddress string format
+            console.log(`Account ${alias.key} is not registered with PXE`);
+            senders.push(alias.key, address.toString());
           }
         }
       } catch (e) {
@@ -459,11 +379,10 @@ export async function getAccountsAndSenders(walletDB: WalletDB, pxe: PXE) {
 
     console.log('Our accounts:', ourAccounts);
     console.log('Senders:', senders);
-    console.log('=== ACCOUNTS LOADED SUCCESSFULLY ===');
 
     return { ourAccounts, senders };
   } catch (error) {
-    console.error('=== ERROR LOADING ACCOUNTS ===', error);
+    console.error('Error loading accounts', error);
     return { ourAccounts: [], senders: [] };
   }
 }
@@ -501,24 +420,16 @@ export function parseAliasedBuffersAsString(aliasedBuffers: { key: string; value
     // Ensure the buffer is properly converted to string for AztecAddress handling
     let valueStr = value.toString();
 
-    // Debug log to help diagnose issues
-    console.log(`Parsing alias ${key} with value length ${value.length}, value: ${valueStr}`);
-
-    // Check if this is a buffer that was incorrectly converted to a comma-separated string
     if (valueStr.includes(',') && key.includes('account')) {
-      console.log(`Detected comma-separated value for ${key}, attempting to fix`);
       try {
         // Parse the comma-separated values back into a buffer
         const byteValues = valueStr.split(',').map(val => parseInt(val.trim(), 10));
         const buf = Buffer.from(byteValues);
-        // Try to get a hex string out of it
         valueStr = buf.toString();
-        console.log(`Converted to: ${valueStr}`);
 
         // If it doesn't start with 0x, add it
         if (!valueStr.startsWith('0x')) {
           valueStr = '0x' + valueStr;
-          console.log(`Added 0x prefix: ${valueStr}`);
         }
       } catch (e) {
         console.error(`Error fixing comma-separated value for ${key}:`, e);

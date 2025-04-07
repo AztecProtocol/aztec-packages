@@ -27,7 +27,6 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
 import Tooltip from '@mui/material/Tooltip';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-
 import FindInPageIcon from '@mui/icons-material/FindInPage';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
 import { DeployContractDialog } from './components/deployContractDialog';
@@ -43,464 +42,42 @@ import { parse } from 'buffer-json';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import SearchIcon from '@mui/icons-material/Search';
 import { LoadingModal } from '../common/LoadingModal';
-
-const container = css({
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  height: '100%',
-  background: '#E9E9E9',
-  borderRadius: '10px',
-  padding: '45px',
-  overflow: 'hidden',
-  '@media (max-width: 1100px)': {
-    width: 'auto',
-    padding: '24px',
-  },
-});
-
-const headerSection = css({
-  width: '100%',
-  marginBottom: '24px',
-});
-
-const descriptionText = css({
-  fontFamily: '"Space Grotesk", sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '18px',
-  lineHeight: '120%',
-  display: 'flex',
-  alignItems: 'center',
-  textAlign: 'center',
-  color: '#000000',
-  marginBottom: '25px',
-  width: '100%',
-});
-
-const buttonContainer = css({
-  display: 'flex',
-  justifyContent: 'center',
-  gap: '24px',
-  marginBottom: '25px',
-});
-
-const actionButton = css({
-  boxSizing: 'border-box',
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '20px 32px',
-  gap: '8px',
-  width: '230px',
-  height: '56px',
-  background: '#CDD1D5',
-  borderRadius: '12px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 600,
-  fontSize: '17px',
-  lineHeight: '16px',
-  color: '#000000',
-  '&:hover': {
-    backgroundColor: '#BCC0C4',
-  }
-});
-
-const dropZoneContainer = css({
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  height: '80%',
-  border: '3px dashed #9894FF',
-  borderRadius: '15px',
-  margin: '2rem 0',
-  backgroundColor: 'rgba(152, 148, 255, 0.04)',
-  alignItems: 'center',
-  justifyContent: 'center',
-});
-
-const uploadIcon = css({
-  fontSize: '64px',
-  color: '#9894FF',
-  marginBottom: '1rem',
-});
-
-const contractFnContainer = css({
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  flex: '1 1 auto',
-  height: '0',
-  minHeight: '0',
-  overflow: 'auto',
-});
-
-const tokenSection = css({
-  marginTop: '50px',
-  marginBottom: '25px',
-});
-
-const tokenHeader = css({
-  fontFamily: '"Space Grotesk", sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 700,
-  fontSize: '48px',
-  lineHeight: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  letterSpacing: '0.02em',
-  color: '#2D2D2D',
-  marginBottom: '25px',
-});
-
-const searchContainer = css({
-  width: '361px',
-  height: '36px',
-  background: 'rgba(250, 250, 250, 0.93)',
-  borderRadius: '6px',
-  display: 'flex',
-  alignItems: 'center',
-  padding: '8px',
-  marginBottom: '15px',
-});
-
-const filterContainer = css({
-  display: 'flex',
-  flexDirection: 'row',
-  gap: '7px',
-  marginBottom: '25px',
-});
-
-const filterButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '6px 5px',
-  gap: '11px',
-  height: '36px',
-  background: '#CDD1D5',
-  borderRadius: '6px',
-  cursor: 'pointer',
-  position: 'relative',
-});
-
-const filterCheckbox = css({
-  width: '24px',
-  height: '24px',
-  background: '#CDD1D5',
-  border: '2px solid rgba(255, 255, 255, 0.2)',
-  borderRadius: '6px',
-  marginLeft: '5px',
-});
-
-const filterLabel = css({
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 500,
-  fontSize: '16px',
-  lineHeight: '19px',
-  textAlign: 'center',
-  color: '#000000',
-});
-
-const filterHelpIcon = css({
-  fontSize: '16px',
-  marginLeft: '4px',
-  color: '#666',
-  display: 'none',
-});
-
-const functionCard = css({
-  boxSizing: 'border-box',
-  width: '100%',
-  background: '#CDD1D5',
-  border: '2px solid #DEE2E6',
-  borderRadius: '20px',
-  marginBottom: '20px',
-  overflow: 'hidden',
-});
-
-const functionTypeLabel = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '6px 16px',
-  gap: '10px',
-  width: '88px',
-  height: '20px',
-  background: '#9894FF',
-  borderRadius: '30px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 500,
-  fontSize: '12px',
-  lineHeight: '120%',
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: '#FFFFFF',
-  marginBottom: '10px',
-});
-
-const functionName = css({
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 600,
-  fontSize: '22px',
-  lineHeight: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  letterSpacing: '0.02em',
-  color: '#2D2D2D',
-  marginBottom: '10px',
-});
-
-const functionDescription = css({
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '14px',
-  lineHeight: '120%',
-  color: '#4A4A4A',
-  marginBottom: '20px',
-});
-
-const parametersLabel = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '6px 16px',
-  gap: '10px',
-  width: '123px',
-  height: '20px',
-  background: '#9894FF',
-  borderRadius: '30px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 500,
-  fontSize: '12px',
-  lineHeight: '120%',
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: '#FFFFFF',
-  marginBottom: '10px',
-});
-
-const parameterInput = css({
-  background: '#FFFFFF',
-  border: '2px solid #DEE2E6',
-  borderRadius: '8px',
-  height: '48px',
-  padding: '0 24px',
-  display: 'flex',
-  alignItems: 'center',
-  marginRight: '16px',
-  marginBottom: '16px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 600,
-  fontSize: '16px',
-  lineHeight: '19px',
-  color: '#3F444A',
-  '& .MuiOutlinedInput-notchedOutline': {
-    border: 'none',
-  },
-  '& .MuiInputBase-root': {
-    '&.Mui-focused fieldset': {
-      border: 'none',
-    }
-  }
-});
-
-const actionButtonsContainer = css({
-  display: 'flex',
-  flexDirection: 'row',
-  gap: '12px',
-  marginTop: '15px',
-});
-
-const simulateButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '16px 20px',
-  gap: '9px',
-  height: '38px',
-  background: '#9894FF',
-  borderRadius: '8px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '16px',
-  lineHeight: '19px',
-  color: '#000000',
-  border: 'none',
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: '#8C7EFF',
-  },
-  '&:disabled': {
-    backgroundColor: '#CDD1D5',
-    color: '#808080',
-    cursor: 'not-allowed',
-  }
-});
-
-const sendButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '16px 20px',
-  gap: '9px',
-  height: '38px',
-  background: '#9894FF',
-  borderRadius: '8px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '16px',
-  lineHeight: '19px',
-  color: '#000000',
-  border: 'none',
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: '#8C7EFF',
-  },
-  '&:disabled': {
-    backgroundColor: '#CDD1D5',
-    color: '#808080',
-    cursor: 'not-allowed',
-  }
-});
-
-const authwitButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '16px 20px',
-  gap: '9px',
-  height: '38px',
-  background: '#9894FF',
-  borderRadius: '8px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '16px',
-  lineHeight: '19px',
-  color: '#000000',
-  border: 'none',
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: '#8C7EFF',
-  },
-  '&:disabled': {
-    backgroundColor: '#CDD1D5',
-    color: '#808080',
-    cursor: 'not-allowed',
-  }
-});
-
-const loadingArtifactContainer = css({
-  display: 'flex',
-  flexDirection: 'column',
-  textAlign: 'center',
-  alignItems: 'center',
-  justifyContent: 'center',
-  gap: '2rem',
-  height: '100%',
-});
-
-const headerContainer = css({
-  display: 'flex',
-  flexDirection: 'column',
-  width: '100%',
-  marginBottom: '25px',
-});
-
-const functionListContainer = css({
-  width: '100%',
-  padding: '0',
-});
-
-const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
-
-const PREDEFINED_CONTRACTS = {
-  SIMPLE_VOTING: 'simple_voting',
-  SIMPLE_TOKEN: 'simple_token',
-  CUSTOM_UPLOAD: 'custom_upload'
-};
+import { PREDEFINED_CONTRACTS, FORBIDDEN_FUNCTIONS, TOKEN_ALLOWED_FUNCTIONS, FUNCTION_DESCRIPTIONS } from './constants';
+import {
+  container,
+  headerSection,
+  descriptionText,
+  buttonContainer,
+  actionButton,
+  dropZoneContainer,
+  uploadIcon,
+  contractFnContainer,
+  tokenSection,
+  tokenHeader,
+  searchContainer,
+  filterContainer,
+  filterButton,
+  filterCheckbox,
+  filterLabel,
+  filterHelpIcon,
+  functionCard,
+  functionTypeLabel,
+  functionName,
+  functionDescription,
+  parametersLabel,
+  parameterInput,
+  actionButtonsContainer,
+  simulateButton,
+  sendButton,
+  authwitButton,
+  loadingArtifactContainer,
+  headerContainer,
+  functionListContainer
+} from './styles';
 
 interface ExtendedFunctionAbi extends FunctionAbi {
   originalName?: string;
 }
-
-const TOKEN_FUNCTION_MAPPING = {};
-
-const TOKEN_ALLOWED_FUNCTIONS = [
-  // Primary functions in specified order
-  'mint_privately',
-  'mint_publicly',
-  'private_transfer',
-  'public_transfer',
-  'transfer_from_private_to_public',
-  'transfer_from_public_to_private',
-  // Other functions after the primary ones
-  'name',
-  'symbol',
-  'decimals',
-  'public_get_name',
-  'public_get_symbol',
-  'public_get_decimals',
-  'public_total_supply',
-  'public_balance_of',
-  'private_balance_of',
-  'burn_public',
-  'burn_private',
-  'prepare_private_balance_increase',
-  'finalize_transfer_to_private',
-  'finalize_mint_to_private',
-  'cancel_authwit'
-];
-
-const MOCK_SIMPLE_TOKEN_ARTIFACT = {
-  name: 'SimpleToken',
-  version: '0.1.0',
-  functions: [
-    {
-      name: 'transfer',
-      functionType: 'private',
-      parameters: [
-        { name: 'to', type: 'address' },
-        { name: 'amount', type: 'field' }
-      ],
-      returnType: 'bool'
-    },
-    {
-      name: 'balance_of',
-      functionType: 'public',
-      parameters: [
-        { name: 'account', type: 'address' }
-      ],
-      returnType: 'field'
-    },
-    {
-      name: 'mint',
-      functionType: 'public',
-      parameters: [
-        { name: 'to', type: 'address' },
-        { name: 'amount', type: 'field' }
-      ],
-      returnType: 'bool'
-    }
-  ]
-};
 
 // Define the missing enum values if not present in the imported FunctionType
 declare namespace FunctionTypeExtended {
@@ -510,38 +87,6 @@ declare namespace FunctionTypeExtended {
     UTILITY = "utility"
   }
 }
-
-// Function descriptions for SimpleVoting and SimpleToken contracts
-const FUNCTION_DESCRIPTIONS = {
-  // SimpleVoting functions
-  constructor: "Initialize the voting contract with an admin who can end the vote.",
-  cast_vote: "Cast a private vote for a candidate without revealing who you voted for.",
-  end_vote: "End the voting process and prevent further vote submissions.",
-  get_vote: "View the total number of votes for a specific candidate.",
-
-  // SimpleToken functions
-  mint_privately: "Create new tokens privately for a specified address.",
-  mint_publicly: "Create new tokens publicly for a specified address.",
-  private_transfer: "Transfer tokens without revealing the amount or participants, with complete privacy.",
-  public_transfer: "Transfer tokens publicly where amounts and participants are visible to everyone.",
-  transfer_from_private_to_public: "Move tokens from private to public state, revealing them on-chain.",
-  transfer_from_public_to_private: "Move tokens from public to private state, hiding them from public view.",
-  name: "Get the name of the token.",
-  symbol: "Get the token's ticker symbol.",
-  decimals: "Get the number of decimal places supported by the token.",
-  public_get_name: "Get the token name from a public function.",
-  public_get_symbol: "Get the token symbol from a public function.",
-  public_get_decimals: "Get the token decimals from a public function.",
-  public_total_supply: "View the total number of tokens in circulation.",
-  public_balance_of: "View the public token balance of a specific address.",
-  private_balance_of: "View the private token balance of a specific address.",
-  burn_public: "Destroy tokens from a public balance, reducing total supply.",
-  burn_private: "Destroy tokens from a private balance, reducing total supply.",
-  prepare_private_balance_increase: "Prepare for a private balance increase operation.",
-  finalize_transfer_to_private: "Complete a previously initiated transfer to private state.",
-  finalize_mint_to_private: "Complete a previously initiated private mint operation.",
-  cancel_authwit: "Cancel a previously created authorization witness."
-};
 
 export function ContractComponent() {
   const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
@@ -585,27 +130,6 @@ export function ContractComponent() {
     setIsWorking,
   } = useContext(AztecContext);
 
-  const logContractState = (message: string = 'Contract State', contract = currentContract) => {
-    console.log(`=== ${message} ===`);
-    console.log('Current Contract Address:', currentContractAddress ? currentContractAddress.toString() : 'None');
-    console.log('Contract Artifact:', contractArtifact ? {
-      name: contractArtifact.name,
-      functions: functionAbis.length
-    } : 'None');
-    console.log('Selected Predefined Contract:', selectedPredefinedContract || 'None');
-    console.log('Wallet Connected:', wallet ? `Yes (${wallet.getAddress().toString()})` : 'No');
-    console.log('Functions:', functionAbis.map(fn => fn.name));
-
-    if (contract) {
-      console.log('Contract Methods:', Object.keys(contract.methods));
-      console.log('Contract Address:', contract.address.toString());
-    }
-
-    console.log('Is Working:', isWorking);
-    console.log('Contract Interface Loaded:', contractArtifact ? 'Yes' : 'No');
-    console.log('====================');
-  };
-
   useEffect(() => {
     if (selectedPredefinedContract === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
       setShowUploadArea(true);
@@ -614,26 +138,19 @@ export function ContractComponent() {
     } else {
       setShowUploadArea(false);
       // Immediately clear the current contract artifact and set loading state
-      // when a new contract is selected to provide immediate feedback
+      // when a new contract is selected
       if (selectedPredefinedContract) {
         setContractArtifact(null);
         setFunctionAbis([]);
         setIsLoadingArtifact(true);
       }
     }
-    if (selectedPredefinedContract) {
-      logContractState('Predefined Contract Selected');
-    }
   }, [selectedPredefinedContract]);
 
   useEffect(() => {
     console.log('Wallet:', wallet);
     console.log('Current Contract:', currentContract);
-    console.log('Is Working:', isWorking);
-    if (currentContract) {
-      logContractState('Contract Updated');
-    }
-  }, [wallet, currentContract, isWorking]);
+  }, [wallet, currentContract]);
 
   const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
     if (contractName === 'SimplePrivateVoting' || contractName === 'EasyPrivateVoting') {
@@ -667,28 +184,11 @@ export function ContractComponent() {
         if (indexA !== -1) return -1;
         if (indexB !== -1) return 1;
 
-        // Otherwise keep original order for functions not in our list
         return 0;
       });
     }
 
     return functions;
-  };
-
-
-  const filterTokenFunctions = (functions: FunctionAbi[]): ExtendedFunctionAbi[] => {
-    return functions
-      .filter(fn => TOKEN_ALLOWED_FUNCTIONS.includes(fn.name))
-      .map(fn => {
-        if (TOKEN_FUNCTION_MAPPING[fn.name]) {
-          return {
-            ...fn,
-            name: TOKEN_FUNCTION_MAPPING[fn.name],
-            originalName: fn.name
-          };
-        }
-        return fn;
-      });
   };
 
   const registerContractClassWithPXE = async (artifact: ContractArtifact) => {
@@ -703,7 +203,25 @@ export function ContractComponent() {
       console.log('Contract class pre-registered successfully');
     } catch (error) {
       console.error('Error pre-registering contract class:', error);
-      // Don't throw - we want to continue even if this fails
+    }
+  };
+
+  const loadContractArtifactFromFile = async (contractName: string) => {
+    try {
+      const response = await fetch(`/contracts/${contractName}.json`, {
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      if (!response.ok) {
+        throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
+      }
+      const artifact = await response.json();
+      return loadContractArtifact(artifact);
+    } catch (err) {
+      console.error(`Error loading ${contractName} artifact:`, err);
+      return null;
     }
   };
 
@@ -714,39 +232,9 @@ export function ContractComponent() {
       let contractArtifact;
 
       if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING) {
-        try {
-          // Use simplified filenames in the public/contracts directory
-          const response = await fetch('/contracts/EasyPrivateVoting.json', {
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
-          if (!response.ok) {
-            throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
-          }
-          const artifact = await response.json();
-          contractArtifact = loadContractArtifact(artifact);
-        } catch (err) {
-          console.error('Error loading EasyPrivateVoting artifact:', err);
-        }
+        contractArtifact = await loadContractArtifactFromFile('EasyPrivateVoting');
       } else if (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN) {
-        try {
-          // Use simplified filenames in the public/contracts directory
-          const response = await fetch('/contracts/SimpleToken.json', {
-            headers: {
-              'Content-Type': 'application/json',
-              'Cache-Control': 'no-cache'
-            }
-          });
-          if (!response.ok) {
-            throw new Error(`Failed to fetch contract: ${response.status} ${response.statusText}`);
-          }
-          const artifact = await response.json();
-          contractArtifact = loadContractArtifact(artifact);
-        } catch (err) {
-          console.error('Error loading SimpleToken artifact:', err);
-        }
+        contractArtifact = await loadContractArtifactFromFile('SimpleToken');
       }
 
       if (contractArtifact) {
@@ -754,16 +242,6 @@ export function ContractComponent() {
         setContractArtifact(contractArtifact);
 
         let functionAbis = getAllFunctionAbis(contractArtifact);
-
-        // Add debug logging to show all available functions
-        console.log('All contract functions:', functionAbis.map(fn => ({
-          name: fn.name,
-          type: fn.functionType,
-          parameters: fn.parameters.map(p => `${p.name}: ${p.type}`)
-        })));
-
-        // Don't filter any functions - we want to see all of them
-        // The only filtering we do is through the UI checkboxes
 
         functionAbis = sortFunctions(functionAbis, contractArtifact.name);
 
@@ -831,15 +309,6 @@ export function ContractComponent() {
     }
   }, [currentContractAddress]);
 
-  useEffect(() => {
-    console.log('DEBUG INFO:');
-    console.log('- Contract Artifact:', contractArtifact ? contractArtifact.name : 'None');
-    console.log('- Function ABIs Count:', functionAbis.length);
-    console.log('- Function Types:', functionAbis.map(fn => fn.functionType));
-    console.log('- Current Contract:', currentContract ? 'Available' : 'None');
-    console.log('- Filters:', filters);
-  }, [contractArtifact, functionAbis, currentContract, filters]);
-
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
       if (!files || files.length === 0) return;
@@ -882,14 +351,6 @@ export function ContractComponent() {
 
           setShowUploadArea(false);
 
-          if (wallet) {
-            setTimeout(() => {
-              if (confirm('Would you like to deploy this contract now?')) {
-                setOpenDeployContractDialog(true);
-              }
-            }, 500);
-          }
-
         } catch (error) {
           console.error('Error parsing contract artifact:', error);
           alert(`Failed to load contract artifact: ${error.message || 'Unknown error'}`);
@@ -924,7 +385,6 @@ export function ContractComponent() {
   };
 
   const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
-    console.log('=== POST-DEPLOYMENT SETUP STARTED ===');
     console.log('Contract instance received:', contract ? 'Yes' : 'No');
     console.log('Alias:', alias);
 
@@ -934,7 +394,6 @@ export function ContractComponent() {
     if (contract) {
       setIsWorking(true); // Set isWorking to true when deployment starts
 
-      // Set up a current transaction object for the deployment to track status
       const deploymentTx = {
         status: 'proving' as const,
         fnName: 'deploy',
@@ -958,7 +417,7 @@ export function ContractComponent() {
           console.log('Contract class registered successfully with PXE');
         } catch (err) {
           // Log the error but continue
-          console.error('Error registering contract class - continuing anyway:', err);
+          console.error('Error registering contract class:', err);
         }
 
         console.log('Initializing Contract instance at the deployed address...');
@@ -974,23 +433,16 @@ export function ContractComponent() {
         await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
         console.log('Contract stored successfully');
 
-        // List available methods
-        console.log('Contract methods available:');
-        const methods = Object.keys(deployedContract.methods);
-        methods.forEach(method => console.log(`- ${method}`));
-
         // Update transaction status to success
         setCurrentTx({
           ...deploymentTx,
-          status: 'sending' as const, // Use a valid status from the allowed types
+          status: 'sending' as const,
         });
 
-        console.log('=== POST-DEPLOYMENT SETUP COMPLETED SUCCESSFULLY ===');
         console.log('Successfully deployed contract at address:', deployedContract.address.toString());
       } catch (error) {
         // Log the error directly
-        console.error('=== DEPLOYMENT ERROR ===');
-        console.error(error);
+        console.error('Deployment error:', error);
 
         // Mark that we had an error
         hasError = true;
@@ -1012,7 +464,7 @@ export function ContractComponent() {
 
   const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract && alias) {
-      setIsWorking(true); // Set isWorking to true when contract registration starts
+      setIsWorking(true);
 
       // Set up a current transaction object for the registration to track status
       const registrationTx = {
@@ -1059,8 +511,6 @@ export function ContractComponent() {
   };
 
   const simulate = async (fnName: string) => {
-    console.log(`=== SIMULATING FUNCTION: ${fnName} ===`);
-
     if (!currentContract) {
       console.error('Simulation failed: No contract instance available');
 
@@ -1103,14 +553,12 @@ export function ContractComponent() {
       console.error(`Method ${realFnName} not found in contract instance`);
       console.log('Available methods:', Object.keys(currentContract.methods));
 
-      // Use error modal instead of alert
       setCurrentTx({
         status: 'error' as const,
         fnName: fnName,
         error: `Method ${realFnName} not found in contract instance`,
         contractAddress: currentContract.address // Add contractAddress property
       });
-      // Don't set isWorking to false on error to keep modal visible
       return;
     }
 
@@ -1133,10 +581,8 @@ export function ContractComponent() {
         ...simulationResults,
         ...{ [fnName]: { success: true, data: result } },
       });
-      console.log('=== SIMULATION COMPLETED SUCCESSFULLY ===');
     } catch (error) {
-      console.error('=== SIMULATION ERROR ===');
-      console.error(error);
+      console.error('Error simulating function call:', error);
 
       setSimulationResults({
         ...simulationResults,
@@ -1276,10 +722,9 @@ export function ContractComponent() {
           error: receipt.error,
         },
       });
-      console.log('=== TRANSACTION COMPLETED ===');
+      console.log('Transaction completed successfully');
     } catch (error) {
-      console.error('=== TRANSACTION ERROR ===');
-      console.error(error);
+      console.error('Transaction error:', error);
 
       // Show error in modal
       setCurrentTx({
@@ -1358,7 +803,7 @@ export function ContractComponent() {
 
   const resetPXEDatabase = async () => {
     try {
-      console.log('=== RESETTING PXE DATABASE ===');
+      console.log('Resetting PXE database');
 
       // Clear IndexedDB database that's causing issues
       const dbs = await window.indexedDB.databases();

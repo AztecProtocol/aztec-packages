@@ -41,11 +41,6 @@ export function RegisterContractDialog({
   const register = async () => {
     setRegistering(true);
     setIsWorking(true);
-    console.log('=== CONTRACT REGISTRATION STARTED ===');
-    console.log('Contract Name:', contractArtifact.name);
-    console.log('Contract Address:', address);
-    console.log('Alias:', alias);
-    console.log('Wallet Address:', wallet?.getAddress().toString());
 
     try {
       // First, register the contract class in the PXE to fix potential "No artifact found" errors
@@ -75,11 +70,9 @@ export function RegisterContractDialog({
       console.log('Creating Contract instance...');
       const contract = await Contract.at(contractAddress, contractArtifact, wallet);
       console.log('Contract instance created successfully');
-      console.log('=== CONTRACT REGISTRATION COMPLETED SUCCESSFULLY ===');
 
       onClose(contract.instance, alias);
     } catch (error) {
-      console.error('=== CONTRACT REGISTRATION FAILED ===');
       console.error('Error type:', error.constructor.name);
       console.error('Error message:', error.message);
       console.error('Error stack:', error.stack);

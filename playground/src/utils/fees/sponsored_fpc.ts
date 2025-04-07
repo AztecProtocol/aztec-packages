@@ -4,6 +4,8 @@ import {
   type PXE,
   getContractInstanceFromDeployParams,
   SponsoredFeePaymentMethod,
+  type AccountWalletWithSecretKey,
+  AztecAddress,
 } from '@aztec/aztec.js';
 import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
 
@@ -11,17 +13,21 @@ export { SponsoredFeePaymentMethod };
 
 const SPONSORED_FPC_SALT = new Fr(0);
 
+// Track registration state
+let isRegistered = false;
+let registrationPromise: Promise<AztecAddress> | null = null;
+
 export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
   return await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
     salt: SPONSORED_FPC_SALT,
   });
 }
 
-export async function getSponsoredFPCAddress() {
+export async function getSponsoredFPCAddress(): Promise<AztecAddress> {
   return (await getSponsoredFPCInstance()).address;
 }
 
-export async function getDeployedSponsoredFPCAddress(pxe: PXE) {
+export async function getDeployedSponsoredFPCAddress(pxe: PXE): Promise<AztecAddress> {
   const fpc = await getSponsoredFPCAddress();
   const contracts = await pxe.getContracts();
   if (!contracts.find(c => c.equals(fpc))) {
@@ -30,94 +36,67 @@ export async function getDeployedSponsoredFPCAddress(pxe: PXE) {
   return fpc;
 }
 
-/**
- * Registers the EXISTING SponsoredFPC contract with the PXE to enable fee payment functionality.
- * This function DOES NOT deploy a new contract - it assumes the contract is already deployed and funded.
- *
- * @param pxe The PXE instance to register with
- * @param wallet The wallet to use for registering the contract class
- * @param node The node URL or instance (not used for registration)
- * @returns Promise that resolves to the address of the registered SponsoredFPC
- */
-export async function registerSponsoredFPC(pxe: any, wallet: any, node: any) {
-  console.log('Checking if SponsoredFPC is available in PXE...');
-  try {
-    console.log('Registering SponsoredFPC contract class...');
+export async function registerSponsoredFPC(pxe: PXE, wallet: AccountWalletWithSecretKey): Promise<AztecAddress> {
+  if (isRegistered) {
+    return await getSponsoredFPCAddress();
+  }
+
+  if (registrationPromise) {
+    return registrationPromise;
+  }
+
+  // Start new registration
+  registrationPromise = (async () => {
     try {
+      const fpcAddress = await getSponsoredFPCAddress();
+      console.log(`Looking for SponsoredFPC at address ${fpcAddress.toString()}`);
+
+      // Check if already registered
+      const contracts = await pxe.getContracts();
+      if (contracts.some(c => c.equals(fpcAddress))) {
+        console.log(`SponsoredFPC already registered with PXE at ${fpcAddress.toString()}`);
+        isRegistered = true;
+        return fpcAddress;
+      }
+
+      // Register contract class
+      console.log('Registering SponsoredFPC contract class...');
       await wallet.registerContractClass(SponsoredFPCContract.artifact);
-      console.log('SponsoredFPC contract class registered successfully');
-    } catch (classRegisterError) {
-      console.warn('Error registering SponsoredFPC contract class:', classRegisterError.message);
-      console.warn('Continuing with contract registration anyway');
-    }
 
-    const fpcAddress = await getSponsoredFPCAddress();
-    console.log(`Looking for SponsoredFPC at address ${fpcAddress.toString()}`);
-
-    const contracts = await pxe.getContracts();
-    const isRegistered = contracts.some(c => c.equals(fpcAddress));
-
-    if (isRegistered) {
-      console.log(`SponsoredFPC already registered with PXE at ${fpcAddress.toString()}`);
-      return fpcAddress;
-    }
-
-    console.log(`SponsoredFPC not registered in PXE, registering now...`);
-
-    const sponsoredFPC = await getSponsoredFPCInstance();
-
-    try {
-      console.log('Registering SponsoredFPC contract with PXE...');
+      // Register contract instance
+      console.log('Registering SponsoredFPC instance...');
+      const sponsoredFPC = await getSponsoredFPCInstance();
       await pxe.registerContract({
         instance: sponsoredFPC,
         artifact: SponsoredFPCContract.artifact
       });
-      console.log(`SponsoredFPC registered with PXE at ${fpcAddress.toString()}`);
 
+      // Verify registration
       const updatedContracts = await pxe.getContracts();
-      const nowRegistered = updatedContracts.some(c => c.equals(fpcAddress));
-
-      if (!nowRegistered) {
-        console.warn('SponsoredFPC registration reported success but contract not found in PXE contracts list');
+      if (!updatedContracts.some(c => c.equals(fpcAddress))) {
+        throw new Error('SponsoredFPC registration failed - contract not found in PXE');
       }
 
+      console.log(`SponsoredFPC registered with PXE at ${fpcAddress.toString()}`);
+      isRegistered = true;
       return fpcAddress;
-    } catch (registerError) {
-      console.error('Error registering SponsoredFPC with PXE:', registerError);
-      throw registerError;
+    } catch (error) {
+      isRegistered = false;
+      registrationPromise = null;
+      throw error;
     }
-  } catch (error) {
-    console.error('Error checking SponsoredFPC status:', error);
-    throw error;
-  }
+  })();
+
+  return registrationPromise;
 }
 
-/**
- * Prepares a SponsoredFeePaymentMethod for use with contract deployments and transactions.
- * This handles all the necessary setup steps in one function.
- *
- * @param pxe The PXE instance to register with
- * @param wallet The wallet to use for registering the contract class
- * @param node The node URL or instance
- * @returns A configured SponsoredFeePaymentMethod ready to use
- */
-export async function prepareForFeePayment(pxe: any, wallet: any, node: any): Promise<SponsoredFeePaymentMethod> {
+export async function prepareForFeePayment(pxe: PXE, wallet: AccountWalletWithSecretKey): Promise<SponsoredFeePaymentMethod> {
   try {
-    console.log('Preparing SponsoredFeePaymentMethod...');
-
-    // First register the contract and class
-    const fpcAddress = await registerSponsoredFPC(pxe, wallet, node);
+    const fpcAddress = await registerSponsoredFPC(pxe, wallet);
     console.log(`SponsoredFPC registered at address: ${fpcAddress.toString()}`);
-
-    // Create the payment method
-    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(fpcAddress);
-    console.log('SponsoredFeePaymentMethod created successfully');
-
-    return sponsoredPaymentMethod;
+    return new SponsoredFeePaymentMethod(fpcAddress);
   } catch (error) {
     console.error('Error preparing SponsoredFeePaymentMethod:', error);
-    console.error('Error details:', error.message);
-    // Re-throw so caller can handle it
     throw error;
   }
 }

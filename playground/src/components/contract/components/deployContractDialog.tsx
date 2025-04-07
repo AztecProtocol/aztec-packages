@@ -103,8 +103,6 @@ export function DeployContractDialog({
     onClose();
 
     try {
-      console.log('=== CONTRACT DEPLOYMENT STARTED ===');
-
       // Register the contract class with PXE
       console.log('Registering contract class...');
       try {
@@ -151,7 +149,7 @@ export function DeployContractDialog({
       if (useSponsoredFees) {
         try {
           const { prepareForFeePayment } = await import('../../../utils/fees');
-          const sponsoredPaymentMethod = await prepareForFeePayment(pxe, wallet, node);
+          const sponsoredPaymentMethod = await prepareForFeePayment(pxe, wallet);
           deploymentOptions = {
             fee: {
               paymentMethod: sponsoredPaymentMethod
@@ -234,7 +232,8 @@ export function DeployContractDialog({
                 ))}
             </Select>
             <FormHelperText>
-              Select the initializer function to use for deployment. A contract can only be initialized once.
+              Select the initializer function to use for deployment.
+              <br /> A contract can only be initialized once.
             </FormHelperText>
           </FormControl>
         )}
