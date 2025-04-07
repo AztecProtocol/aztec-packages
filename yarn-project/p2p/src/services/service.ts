@@ -108,5 +108,5 @@ export interface PeerDiscoveryService extends EventEmitter {
 
   getEnr(): ENR | undefined;
 
-  bootstrapNodes: string[];
+  bootstrapNodeEnrs: ENR[];
 }

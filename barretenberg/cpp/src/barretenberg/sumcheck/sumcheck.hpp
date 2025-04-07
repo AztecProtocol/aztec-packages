@@ -114,7 +114,7 @@ transcript. These operations are taken care of by \ref bb::BaseTranscript "Trans
 ## Output
 The Sumcheck output is specified by \ref bb::SumcheckOutput< Flavor >.
  */
-template <typename Flavor> class SumcheckProver {
+template <typename Flavor, const size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class SumcheckProver {
   public:
     using FF = typename Flavor::FF;
     // PartiallyEvaluatedMultivariates OR ProverPolynomials
@@ -231,9 +231,9 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size CONST_PROOF_SIZE_LOG_N.
+        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-        for (size_t idx = multivariate_d; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
             transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             FF round_challenge = transcript->template get_challenge<FF>("Sumcheck:u_" + std::to_string(idx));
             multivariate_challenge.emplace_back(round_challenge);
@@ -369,9 +369,9 @@ template <typename Flavor> class SumcheckProver {
         }
         vinfo("completed ", multivariate_d, " rounds of sumcheck");
 
-        // Zero univariates are used to pad the proof to the fixed size CONST_PROOF_SIZE_LOG_N.
+        // Zero univariates are used to pad the proof to the fixed size virtual_log_n.
         auto zero_univariate = bb::Univariate<FF, Flavor::BATCHED_RELATION_PARTIAL_LENGTH>::zero();
-        for (size_t idx = multivariate_d; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        for (size_t idx = multivariate_d; idx < virtual_log_n; idx++) {
             if constexpr (!IsGrumpkinFlavor<Flavor>) {
                 transcript->send_to_verifier("Sumcheck:univariate_" + std::to_string(idx), zero_univariate);
             } else {
@@ -593,7 +593,7 @@ u_{d-1})\right)\f}
   \snippet cpp/src/barretenberg/sumcheck/sumcheck.hpp Final Verification Step
 
  */
-template <typename Flavor> class SumcheckVerifier {
+template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class SumcheckVerifier {
 
   public:
     using Utils = bb::RelationUtils<Flavor>;
@@ -683,8 +683,8 @@ template <typename Flavor> class SumcheckVerifier {
         }
 
         std::vector<FF> multivariate_challenge;
-        multivariate_challenge.reserve(multivariate_d);
-        for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
+        multivariate_challenge.reserve(virtual_log_n);
+        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
             // Obtain the round univariate from the transcript
             std::string round_univariate_label = "Sumcheck:univariate_" + std::to_string(round_idx);
             round_univariate =
@@ -800,12 +800,12 @@ template <typename Flavor> class SumcheckVerifier {
         const FF libra_challenge = transcript->template get_challenge<FF>("Libra:Challenge");
 
         std::vector<FF> multivariate_challenge;
-        multivariate_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
+        multivariate_challenge.reserve(virtual_log_n);
         // if Flavor has ZK, the target total sum is corrected by Libra total sum multiplied by the Libra
         // challenge
         round.target_total_sum = libra_total_sum * libra_challenge;
 
-        for (size_t round_idx = 0; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
+        for (size_t round_idx = 0; round_idx < virtual_log_n; round_idx++) {
             // Obtain the round univariate from the transcript
             const std::string round_univariate_comm_label = "Sumcheck:univariate_comm_" + std::to_string(round_idx);
             const std::string univariate_eval_label_0 = "Sumcheck:univariate_" + std::to_string(round_idx) + "_eval_0";
@@ -876,16 +876,12 @@ template <typename Flavor> class SumcheckVerifier {
             full_honk_purported_value.self_reduce();
 
             // Populate claimed evaluations of Sumcheck Round Unviariates at the round challenges. These will be
-            // checked as a part of Shplemini and pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
-            for (size_t round_idx = 1; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
-                round_univariate_evaluations[round_idx - 1][2] = FF::conditional_assign(
-                    dummy_round,
-                    full_honk_purported_value,
-                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1]);
+            // checked as a part of Shplemini.
+            for (size_t round_idx = 1; round_idx < virtual_log_n; round_idx++) {
+                round_univariate_evaluations[round_idx - 1][2] =
+                    round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
             };
-
+            round_univariate_evaluations[virtual_log_n - 1][2] = full_honk_purported_value;
             first_sumcheck_round_evaluations_sum.self_reduce();
             round.target_total_sum.self_reduce();
 
@@ -913,10 +909,9 @@ template <typename Flavor> class SumcheckVerifier {
                     round_univariate_evaluations[round_idx][0] + round_univariate_evaluations[round_idx][1];
             };
 
-            // Pad claimed evaluations to the CONST_PROOF_SIZE_LOG_N
-            for (size_t round_idx = multivariate_d; round_idx < CONST_PROOF_SIZE_LOG_N; round_idx++) {
-                round_univariate_evaluations[round_idx - 1][2] = full_honk_purported_value;
-            };
+            // The verifier uses the `full_honk_purported_value` as a claimed evaluation of the last Sumcheck Round
+            // Univariate. The correctness of this value is checked in Shplemini.
+            round_univariate_evaluations[virtual_log_n - 1][2] = full_honk_purported_value;
 
             // Ensure that the sum of the evaluations of the first Sumcheck Round Univariate is equal to the claimed
             // target total sum

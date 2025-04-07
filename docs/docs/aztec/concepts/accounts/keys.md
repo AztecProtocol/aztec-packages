@@ -80,7 +80,7 @@ However if one wants to implement authorization logic containing signatures (e.g
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code is_valid_impl noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code is_valid_impl noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
 ### Storing signing keys
 
@@ -94,7 +94,7 @@ Storing the signing public key in a private note makes it accessible from the `e
 
 Using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers or new commitments per transaction. However, it does not allow the user to rotate their key.
 
-#include_code public_key noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code public_key noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
 :::note
 When it comes to storing the signing key in a private note, there are several details that rely on the wallets:
