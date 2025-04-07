@@ -295,20 +295,20 @@ template <typename Curve> class ShpleminiVerifier_ {
         // These represent the denominators of the summand terms in Shplonk partially evaluated polynomial Q_z
         const std::vector<Fr> inverse_vanishing_evals = ShplonkVerifier::compute_inverted_gemini_denominators(
             shplonk_evaluation_challenge, gemini_eval_challenge_powers);
+<<<<<<< HEAD
         // Compute the Shplonk denominator for the interleaved opening claims 1/(z − r^s) where s is the group size
         // s group size = 16 and this denominator in the inverse_vanishing_evals, so we can get it from there
         Fr interleaving_vanishing_eval;
         if (claim_batcher.interleaved) {
             interleaving_vanishing_eval = inverse_vanishing_evals[INTERLEAVED_DENOMINATOR_INDEX];
         }
+=======
+>>>>>>> ab7a9ecb15 (interleaving fix)
 
         // Compute the additional factors to be multiplied with unshifted and shifted commitments when lazily
         // reconstructing the commitment of Q_z
-        claim_batcher.compute_scalars_for_each_batch(inverse_vanishing_evals[0], // 1/(z − r)
-                                                     inverse_vanishing_evals[1], // 1/(z + r)
-                                                     shplonk_batching_challenge,
-                                                     gemini_evaluation_challenge,
-                                                     interleaving_vanishing_eval);
+        claim_batcher.compute_scalars_for_each_batch(
+            inverse_vanishing_evals, shplonk_batching_challenge, gemini_evaluation_challenge);
 
         if (has_zk) {
             commitments.emplace_back(hiding_polynomial_commitment);
@@ -336,8 +336,8 @@ template <typename Curve> class ShpleminiVerifier_ {
             const size_t interleaved_neg_index = interleaved_pos_index + 1;
             shplonk_batching_pos = shplonk_batching_challenge_powers[interleaved_pos_index];
             shplonk_batching_neg = shplonk_batching_challenge_powers[interleaved_neg_index];
-            constant_term_accumulator += p_pos * interleaving_vanishing_eval * shplonk_batching_pos +
-                                         p_neg * interleaving_vanishing_eval * shplonk_batching_neg;
+            constant_term_accumulator += claim_batcher.interleaved->shplonk_denominator *
+                                         (p_pos * shplonk_batching_pos + p_neg * shplonk_batching_neg);
         }
         // Update the commitments and scalars vectors as well as the batched evaluation given the present batches
         claim_batcher.update_batch_mul_inputs_and_batched_evaluation(commitments,
