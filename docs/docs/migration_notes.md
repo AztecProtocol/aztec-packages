@@ -6,6 +6,49 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [noir-contracts] Reference Noir contracts directory structure change
+
+`noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
+If you import contract from the directory make sure to update the paths accordingly.
+E.g. for a token contract:
+
+```diff
+#[dependencies]
+-token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/src/token_contract" }
++token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
+```
+
+### [Aztec.nr] #[utility] functions
+
+We've introduced a new type of contract function macro called #[utility].
+Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
+They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
+These function were originally referred to as top-level unconstrained.
+
+Now all the contract functions have to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
+For this reason you need to apply #[utility] macro to functions which were originally macro-free:
+
+```diff
++    #[utility]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+        storage.balances.at(owner).balance_of()
+    }
+```
+
+With this change the `UnconstrainedContext` has been renamed as `UtilityContext`.
+This led us to rename the `unkonstrained` method on `TestEnvironment` as `utility` so you will need to update your tests using that:
+
+```diff
+-     SharedMutable::new(env.unkonstrained(), storage_slot)
++     SharedMutable::new(env.utility(), storage_slot)
+```
+
+### [AuthRegistry] function name change
+
+As part of the broader transition from "top-level unconstrained" to "utility" name (detailed in the note above), the `unconstrained_is_consumable` function in AuthRegistry has been renamed to `utility_is_consumable`. The function's signature and behavior remain unchanged - only the name has been updated to align with the new convention. If you're currently using this function, a simple rename in your code will suffice.
+
 ## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change

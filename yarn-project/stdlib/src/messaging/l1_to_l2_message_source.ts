@@ -1,5 +1,7 @@
 import type { Fr } from '@aztec/foundation/fields';
 
+import type { L2Tips } from '../block/l2_block_source.js';
+
 /**
  * Interface of classes allowing for the retrieval of L1 to L2 messages.
  */
@@ -23,4 +25,9 @@ export interface L1ToL2MessageSource {
    * @returns The number of the latest L2 block processed by the implementation.
    */
   getBlockNumber(): Promise<number>;
+
+  /**
+   * Returns the tips of the L2 chain.
+   */
+  getL2Tips(): Promise<L2Tips>;
 }

@@ -36,7 +36,7 @@ export class ContractClassNotFoundError extends Error {
 }
 
 /**
- * The interface for the data layer required to perform private and unconstrained execution.
+ * The interface for the data layer required to perform private and utility execution.
  */
 export interface ExecutionDataProvider extends CommitmentsDBInterface {
   /**
@@ -259,7 +259,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void>;
 

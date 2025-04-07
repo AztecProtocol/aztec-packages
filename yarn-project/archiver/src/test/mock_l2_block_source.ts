@@ -1,15 +1,19 @@
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, L2BlockHash, type L2BlockSource, type L2Tips } from '@aztec/stdlib/block';
+import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import { type L1RollupConstants, getSlotRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
 import { type BlockHeader, TxHash, TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
 /**
  * A mocked implementation of L2BlockSource to be used in tests.
  */
-export class MockL2BlockSource implements L2BlockSource {
+export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   protected l2Blocks: L2Block[] = [];
 
   private provenBlockNumber: number = 0;
@@ -124,8 +128,8 @@ export class MockL2BlockSource implements L2BlockSource {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   public async getTxEffect(txHash: TxHash) {
     const match = this.l2Blocks
@@ -135,7 +139,12 @@ export class MockL2BlockSource implements L2BlockSource {
       return Promise.resolve(undefined);
     }
     const [txEffect, block] = match;
-    return { data: txEffect, l2BlockNumber: block.number, l2BlockHash: (await block.hash()).toString() };
+    return {
+      data: txEffect,
+      l2BlockNumber: block.number,
+      l2BlockHash: (await block.hash()).toString(),
+      txIndexInBlock: block.body.txEffects.indexOf(txEffect),
+    };
   }
 
   /**
@@ -219,6 +228,30 @@ export class MockL2BlockSource implements L2BlockSource {
    */
   public stop(): Promise<void> {
     this.log.verbose('Stopping mock L2 block source');
+    return Promise.resolve();
+  }
+
+  getContractClass(_id: Fr): Promise<ContractClassPublic | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getBytecodeCommitment(_id: Fr): Promise<Fr | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getContract(_address: AztecAddress, _blockNumber?: number): Promise<ContractInstanceWithAddress | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  getContractClassIds(): Promise<Fr[]> {
+    return Promise.resolve([]);
+  }
+
+  getDebugFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string | undefined> {
+    return Promise.resolve(undefined);
+  }
+
+  registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {
     return Promise.resolve();
   }
 }

@@ -20,6 +20,7 @@ include "ff_gt.pil";
 include "context.pil";
 include "context_stack.pil";
 include "public_data_read.pil";
+include "update_check.pil";
 
 namespace execution;
 

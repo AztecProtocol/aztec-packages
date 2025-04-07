@@ -1,5 +1,5 @@
 use crate::{
-    context::{PrivateContext, PublicContext, UnconstrainedContext},
+    context::{PrivateContext, PublicContext, UtilityContext},
     state_vars::storage::Storage,
     utils::with_hash::WithHash,
 };
@@ -92,12 +92,12 @@ impl<T> PublicImmutable<T, &mut PublicContext> {
     // docs:end:public_immutable_struct_read
 }
 
-impl<T> PublicImmutable<T, UnconstrainedContext> {
+impl<T> PublicImmutable<T, UtilityContext> {
     pub unconstrained fn read<let T_PACKED_LEN: u32>(self) -> T
     where
         T: Packable<T_PACKED_LEN> + Eq,
     {
-        WithHash::unconstrained_public_storage_read(self.context, self.storage_slot)
+        WithHash::utility_public_storage_read(self.context, self.storage_slot)
     }
 }
 
