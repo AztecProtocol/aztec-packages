@@ -64,16 +64,7 @@ function release_preview {
 
 function release_prod {
   echo_header "docs release"
-
-  # If we download cached docs, we may not have netlify CLI in node_modules. Install in case.
-  yarn install
-
-  # if [ $(dist_tag) != "latest" ]; then
-    # TODO attach to github release
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev
-  # else
-  #   do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
-  # fi
+  do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
 }
 
 function docs_cut_version {
