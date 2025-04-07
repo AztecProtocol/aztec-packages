@@ -16,7 +16,6 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -36,7 +35,14 @@ import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
-import { PrivateExecutionResult, Tx, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import {
+  type IndexedTxEffect,
+  PrivateExecutionResult,
+  Tx,
+  TxHash,
+  TxReceipt,
+  TxSimulationResult,
+} from '../tx/index.js';
 import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -396,7 +402,7 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  async getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
     return {
       data: await TxEffect.random(),

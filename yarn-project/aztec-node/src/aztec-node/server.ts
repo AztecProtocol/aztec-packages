@@ -67,9 +67,9 @@ import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreim
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
-  TxEffect,
   type TxHash,
   TxReceipt,
   TxStatus,
@@ -501,7 +501,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return txReceipt;
   }
 
-  public getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.blockSource.getTxEffect(txHash);
   }
 

@@ -9,7 +9,6 @@ import omit from 'lodash.omit';
 import type { ContractArtifact } from '../abi/abi.js';
 import { FunctionSelector } from '../abi/function_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -28,6 +27,7 @@ import { PrivateLog } from '../logs/private_log.js';
 import { TxScopedL2Log } from '../logs/tx_scoped_l2_log.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
 import { BlockHeader } from '../tx/block_header.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
@@ -271,7 +271,7 @@ class MockArchiver implements ArchiverApi {
       },
     ];
   }
-  async getTxEffect(_txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
+  async getTxEffect(_txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(_txHash).toBeInstanceOf(TxHash);
     return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
   }

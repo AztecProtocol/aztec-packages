@@ -5,10 +5,9 @@ import { z } from 'zod';
 
 import type { L1RollupConstants } from '../epoch-helpers/index.js';
 import type { BlockHeader } from '../tx/block_header.js';
-import type { TxEffect } from '../tx/tx_effect.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import type { TxHash } from '../tx/tx_hash.js';
 import type { TxReceipt } from '../tx/tx_receipt.js';
-import type { InBlock } from './in_block.js';
 import type { L2Block } from './l2_block.js';
 import type { PublishedL2Block } from './published_l2_block.js';
 
@@ -69,9 +68,9 @@ export interface L2BlockSource {
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found) along with its index in the block.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets a receipt of a settled tx.

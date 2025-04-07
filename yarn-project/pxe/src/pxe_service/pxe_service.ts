@@ -26,7 +26,7 @@ import {
 } from '@aztec/stdlib/abi';
 import type { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import {
   CompleteAddress,
   type ContractClassWithId,
@@ -54,11 +54,11 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   PublicSimulationOutput,
   Tx,
-  type TxEffect,
   TxExecutionRequest,
   type TxHash,
   TxProfileResult,
@@ -209,7 +209,7 @@ export class PXEService implements PXE {
     return this.node.getTxReceipt(txHash);
   }
 
-  public getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.node.getTxEffect(txHash);
   }
 

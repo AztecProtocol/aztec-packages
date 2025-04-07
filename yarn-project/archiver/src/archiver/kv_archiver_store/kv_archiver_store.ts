@@ -197,7 +197,7 @@ export class KVArchiverDataStore implements ArchiverDataStore {
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found) along with its index in the block.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   getTxEffect(txHash: TxHash) {
     return this.#blockStore.getTxEffect(txHash);

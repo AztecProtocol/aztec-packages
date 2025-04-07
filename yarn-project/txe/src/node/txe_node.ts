@@ -44,6 +44,7 @@ import {
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
+  type IndexedTxEffect,
   type PublicSimulationOutput,
   type Tx,
   type TxEffect,
@@ -89,9 +90,9 @@ export class TXENode implements AztecNode {
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found) along with its index in the block.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     const txEffect = this.#txEffectsByTxHash.get(txHash.toString());
 
     return Promise.resolve(txEffect);

@@ -19,7 +19,6 @@ import {
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type InBlock,
   type L2Block,
   type L2BlockId,
   type L2BlockSource,
@@ -48,7 +47,7 @@ import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec
 import type { L2LogsSource } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, type LogFilter, type PrivateLog, type PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf, L1ToL2MessageSource } from '@aztec/stdlib/messaging';
-import { type BlockHeader, TxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
+import { type BlockHeader, type IndexedTxEffect, TxHash, TxReceipt } from '@aztec/stdlib/tx';
 import { Attributes, type TelemetryClient, type Traceable, type Tracer, trackSpan } from '@aztec/telemetry-client';
 
 import { EventEmitter } from 'events';
@@ -1122,7 +1121,7 @@ class ArchiverStoreHelper
   getBlockHeaders(from: number, limit: number): Promise<BlockHeader[]> {
     return this.store.getBlockHeaders(from, limit);
   }
-  getTxEffect(txHash: TxHash): Promise<(InBlock<TxEffect> & { txIndexInBlock: number }) | undefined> {
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.store.getTxEffect(txHash);
   }
   getSettledTxReceipt(txHash: TxHash): Promise<TxReceipt | undefined> {

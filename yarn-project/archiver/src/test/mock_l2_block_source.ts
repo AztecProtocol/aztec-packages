@@ -129,7 +129,7 @@ export class MockL2BlockSource implements L2BlockSource, ContractDataSource {
   /**
    * Gets a tx effect.
    * @param txHash - The hash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found) along with its index in the block.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
   public async getTxEffect(txHash: TxHash) {
     const match = this.l2Blocks
