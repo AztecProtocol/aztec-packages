@@ -18,7 +18,7 @@ describe('HttpBlobSinkClient', () => {
     await server.start();
 
     const client = new HttpBlobSinkClient({
-      blobSinkUrl: `http://localhost:${server.port}`,
+      blobSinkUrl: `http://127.0.0.1:${server.port}`,
     });
 
     return {
@@ -30,7 +30,7 @@ describe('HttpBlobSinkClient', () => {
   });
 
   it('should handle server connection errors gracefully', async () => {
-    const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://localhost:12345' }); // Invalid port
+    const client = new HttpBlobSinkClient({ blobSinkUrl: 'http://127.0.0.1:12345' }); // Invalid port
     const blob = await Blob.fromFields([Fr.random()]);
     const blobHash = blob.getEthVersionedBlobHash();
 
