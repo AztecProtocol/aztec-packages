@@ -3,10 +3,12 @@
 #include <cassert>
 #include <gmock/gmock.h>
 #include <optional>
+#include <span>
 
 namespace bb::avm2::simulation {
 
 class MockContractDB : public ContractDBInterface {
+  public:
     // https://google.github.io/googletest/gmock_cook_book.html#making-the-compilation-faster
     MockContractDB();
     ~MockContractDB() override;
@@ -19,6 +21,7 @@ class MockContractDB : public ContractDBInterface {
 };
 
 class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
+  public:
     // https://google.github.io/googletest/gmock_cook_book.html#making-the-compilation-faster
     MockLowLevelMerkleDB();
     ~MockLowLevelMerkleDB() override;
@@ -52,14 +55,26 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
                 insert_indexed_leaves_nullifier_tree,
                 (const crypto::merkle_tree::NullifierLeafValue& leaf_value),
                 (override));
+    MOCK_METHOD(void, append_leaves, (world_state::MerkleTreeId tree_id, std::span<const FF> leaves), (override));
+    MOCK_METHOD(void, create_checkpoint, (), (override));
+    MOCK_METHOD(void, commit_checkpoint, (), (override));
+    MOCK_METHOD(void, revert_checkpoint, (), (override));
 };
 
 class MockHighLevelMerkleDB : public HighLevelMerkleDBInterface {
+  public:
     // https://google.github.io/googletest/gmock_cook_book.html#making-the-compilation-faster
     MockHighLevelMerkleDB();
     ~MockHighLevelMerkleDB() override;
 
+    MOCK_METHOD(const TreeSnapshots&, get_tree_roots, (), (const, override));
     MOCK_METHOD(FF, storage_read, (const FF& key), (const, override));
+
+    MOCK_METHOD(void, create_checkpoint, (), (override));
+    MOCK_METHOD(void, commit_checkpoint, (), (override));
+    MOCK_METHOD(void, revert_checkpoint, (), (override));
+
+    MOCK_METHOD(LowLevelMerkleDBInterface&, as_unconstrained, (), (const, override));
 };
 
 } // namespace bb::avm2::simulation

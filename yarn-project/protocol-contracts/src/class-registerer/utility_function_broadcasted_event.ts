@@ -1,6 +1,6 @@
 import {
   ARTIFACT_FUNCTION_TREE_MAX_HEIGHT,
-  MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
+  MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
 } from '@aztec/constants';
 import { removeArrayPaddingEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -10,7 +10,7 @@ import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
 import type { UtilityFunction, UtilityFunctionWithMembershipProof } from '@aztec/stdlib/contract';
 import type { ContractClassLog } from '@aztec/stdlib/logs';
 
-import { REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
+import { REGISTERER_UTILITY_FUNCTION_BROADCASTED_TAG } from '../protocol_contract_data.js';
 
 /** Event emitted from the ContractClassRegisterer. */
 export class UtilityFunctionBroadcastedEvent {
@@ -24,7 +24,7 @@ export class UtilityFunctionBroadcastedEvent {
   ) {}
 
   static isUtilityFunctionBroadcastedEvent(log: ContractClassLog) {
-    return log.fields[0].equals(REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_TAG);
+    return log.fields[0].equals(REGISTERER_UTILITY_FUNCTION_BROADCASTED_TAG);
   }
 
   static fromLog(log: ContractClassLog) {
@@ -92,7 +92,7 @@ export class BroadcastedUtilityFunction implements UtilityFunction {
     const selector = FunctionSelector.fromField(reader.readField());
     const metadataHash = reader.readField();
     // The '* 1' removes the 'Type instantiation is excessively deep and possibly infinite. ts(2589)' err
-    const encodedBytecode = reader.readFieldArray(MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS * 1);
+    const encodedBytecode = reader.readFieldArray(MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS * 1);
     const bytecode = bufferFromFields(encodedBytecode);
     return new BroadcastedUtilityFunction(selector, metadataHash, bytecode);
   }

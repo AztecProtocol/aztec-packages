@@ -127,7 +127,7 @@ export async function broadcastUtilityFunction(
     MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
   );
   return registerer.methods
-    .broadcast_unconstrained_function(
+    .broadcast_utility_function(
       contractClass.id,
       artifactMetadataHash,
       privateFunctionsArtifactTreeRoot,

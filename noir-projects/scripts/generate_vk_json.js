@@ -157,9 +157,7 @@ async function generateVKData(
     honk_recursion = 1;
   }
 
-  const writeVkCommand = `${BB_BIN_PATH} ${write_vk_flow} -h ${honk_recursion} -b "${artifactPath}" -o "${binaryVkPath}" ${
-    isRecursive ? "--recursive" : ""
-  }`;
+  const writeVkCommand = `${BB_BIN_PATH} ${write_vk_flow} -h ${honk_recursion} -b "${artifactPath}" -o "${binaryVkPath}"`;
 
   console.log("WRITE VK CMD: ", writeVkCommand);
 
