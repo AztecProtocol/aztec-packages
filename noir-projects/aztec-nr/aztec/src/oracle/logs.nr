@@ -21,7 +21,7 @@ pub unconstrained fn store_private_event_log(
     contract_address: AztecAddress,
     recipient: AztecAddress,
     event_selector: EventSelector,
-    log_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
     log_index_in_tx: Field,
 ) {
@@ -29,7 +29,7 @@ pub unconstrained fn store_private_event_log(
         contract_address,
         recipient,
         event_selector,
-        log_content,
+        msg_content,
         tx_hash,
         log_index_in_tx,
     )
@@ -40,7 +40,7 @@ unconstrained fn store_private_event_log_oracle(
     contract_address: AztecAddress,
     recipient: AztecAddress,
     event_selector: EventSelector,
-    log_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
     log_index_in_tx: Field,
 ) {}
