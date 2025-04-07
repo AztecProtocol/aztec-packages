@@ -207,6 +207,8 @@ class WorkerClientManager {
         (_, ind) => ind !== clientIndex && ind < Math.min(this.peerEnrs.length, 10),
       );
 
+      this.logger.info(`Changing port for client ${clientIndex} to ${newPort} with other nodes `, otherNodes);
+
       const config = this.createClientConfig(clientIndex, newPort, otherNodes);
       const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
 

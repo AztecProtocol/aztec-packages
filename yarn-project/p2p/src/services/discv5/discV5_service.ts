@@ -140,7 +140,9 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
       // Do this conversion once since it involves an async function call
       this.bootstrapNodePeerIds = await Promise.all(this.bootstrapNodeEnrs.map(enr => enr.peerId()));
       this.logger.info(
-        `Adding ${this.bootstrapNodeEnrs.length} bootstrap nodes ENRs: ${this.bootstrapNodeEnrs.join(', ')}`,
+        `Adding ${this.bootstrapNodeEnrs.length} bootstrap nodes ENRs: ${this.bootstrapNodeEnrs
+          .map(enr => enr.encodeTxt())
+          .join(', ')}`,
       );
       for (const enr of this.bootstrapNodeEnrs) {
         try {
@@ -196,16 +198,6 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   public isBootstrapPeer(peerId: PeerId): boolean {
     return this.bootstrapNodePeerIds.some(node => node.equals(peerId));
-  }
-
-  public async removeBootstrapPeer(peerId: PeerId): Promise<void> {
-    this.bootstrapNodePeerIds = this.bootstrapNodePeerIds.filter(node => !node.equals(peerId));
-    this.bootstrapNodeEnrs = await Promise.all(
-      this.bootstrapNodeEnrs.filter(async enr => {
-        const peerIdFromEnr = await enr.peerId();
-        return peerIdFromEnr.toString() !== peerId.toString();
-      }),
-    );
   }
 
   public async stop(): Promise<void> {

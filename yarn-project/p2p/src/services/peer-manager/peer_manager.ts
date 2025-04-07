@@ -65,13 +65,8 @@ export class PeerManager {
     // Handle Discovered peers
     this.handlers = {
       handleConnectedPeerEvent: this.handleConnectedPeerEvent.bind(this),
-      handleDisconnectedPeerEvent: (event: CustomEvent<PeerId>) => {
-        void this.handleDisconnectedPeerEvent(event).catch(e =>
-          this.logger.error('Error handling disconnected peer', e),
-        );
-      },
-      handleDiscoveredPeer: (enr: ENR) =>
-        this.handleDiscoveredPeer(enr).catch(e => this.logger.error('Error handling discovered peer', e)),
+      handleDisconnectedPeerEvent: this.handleDisconnectedPeerEvent.bind(this),
+      handleDiscoveredPeer: this.handleDiscoveredPeer.bind(this),
     };
 
     // Handle new established connections
@@ -149,11 +144,10 @@ export class PeerManager {
    * Simply logs the type of disconnected peer.
    * @param e - The disconnected peer event.
    */
-  private async handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
+  private handleDisconnectedPeerEvent(e: CustomEvent<PeerId>) {
     const peerId = e.detail;
     if (this.peerDiscoveryService.isBootstrapPeer(peerId)) {
       this.logger.verbose(`Disconnected from bootstrap peer ${peerId.toString()}`);
-      await this.peerDiscoveryService.removeBootstrapPeer(peerId);
     } else {
       this.logger.verbose(`Disconnected from transaction peer ${peerId.toString()}`);
     }

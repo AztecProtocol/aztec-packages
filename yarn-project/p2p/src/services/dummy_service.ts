@@ -125,10 +125,6 @@ export class DummyPeerDiscoveryService extends EventEmitter implements PeerDisco
     return false;
   }
 
-  public removeBootstrapPeer(_: PeerId): Promise<void> {
-    return Promise.resolve();
-  }
-
   public getStatus(): PeerDiscoveryState {
     return this.currentState;
   }
