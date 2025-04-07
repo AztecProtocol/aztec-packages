@@ -18,7 +18,7 @@ if semver check $REF_NAME; then
   export COMMIT_TAG=$REF_NAME
 fi
 
-function build_and_preview {
+function build_docs {
   if [ "${CI:-0}" -eq 1 ] && [ $(arch) == arm64 ]; then
     echo "Not building docs for arm64 in CI."
     return
@@ -28,13 +28,9 @@ function build_and_preview {
     return
   fi
   npm_install_deps
+  denoise "yarn run version::stables"
   denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
-
-  if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
-    # Included as part of build step so we can skip this consistently if the build was cached.
-    release_preview
-  fi
 }
 
 # If we're an AMD64 CI run and have a PR, do a preview release.
@@ -67,18 +63,95 @@ function release_preview {
   fi
 }
 
-function release {
+function release_prod {
   echo_header "docs release"
 
   # If we download cached docs, we may not have netlify CLI in node_modules. Install in case.
   yarn install
 
-  if [ $(dist_tag) != "latest" ]; then
+  # if [ $(dist_tag) != "latest" ]; then
     # TODO attach to github release
     do_or_dryrun yarn netlify deploy --site aztec-docs-dev
-  else
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
-  fi
+  # else
+  #   do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
+  # fi
+}
+
+function docs_cut_version {
+    cleanup() {
+    # Function to clean up temporary files on exit/error
+    echo "Cleaning up temporary build artifacts..."
+    # Only remove build cache, keep generated versioned docs/sidebars/versions.json on error for inspection?
+    # For now, just clean cache.
+    rm -rf processed-docs processed-docs-cache
+    }
+
+    echo_header "docs version"
+
+    if [ -z "$1" ]; then
+        echo "Usage: $1 <version>"
+        exit 1
+    fi
+
+    # Store the current branch to return to later
+    current_branch=$(git rev-parse --abbrev-ref HEAD)
+    echo "Original branch: $current_branch"
+
+    COMMIT_TAG=$1
+    echo "Starting docs versioning for $COMMIT_TAG"
+
+    # Stash any unrelated local changes before starting
+    echo "Stashing local changes"
+    stash_message="docs-version-stash-$(date +%s)"
+    git stash push -m "$stash_message"
+    local stashed=$? # Check if something was stashed
+
+    # Setup cleanup trap *after* stashing
+    trap cleanup EXIT
+
+
+    echo "Processing tag: $COMMIT_TAG"
+
+    # Checkout the tag, discarding local changes from previous build artifacts
+    # Use --force to overwrite potentially modified tracked files from the build process
+    echo "Checking out tag $COMMIT_TAG..."
+    if ! git checkout --force "$COMMIT_TAG"; then
+        echo "Error checking out tag $tag. Aborting."
+        # Go back to original branch and restore stash before exiting
+        git checkout "$current_branch"
+        if [ $stashed -eq 0 ]; then git stash pop; fi
+        exit 1
+    fi
+
+    # Prepare for docusaurus build/versioning for this tag
+    echo "[]" > versions.json # Docusaurus versioning might need this cleared
+    echo "Running preprocess and build for $COMMIT_TAG..."
+    yarn preprocess # Assuming this doesn't modify tracked files in a conflicting way
+    yarn docusaurus build # This might modify tracked files
+
+    # Create the versioned docs for this tag
+    echo "Creating documentation version for $COMMIT_TAG..."
+    # Pass COMMIT_TAG env var specifically if needed by the command
+    if ! COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version "$COMMIT_TAG"; then
+        echo "Error creating docs version for $COMMIT_TAG. Aborting."
+        # Go back to original branch and restore stash before exiting
+        git checkout "$current_branch"
+        if [ $stashed -eq 0 ]; then git stash pop; fi
+        exit 1
+    fi
+
+    trap - EXIT
+
+    # Checkout the original branch
+    echo "Checking out original branch: $current_branch"
+    git checkout "$current_branch"
+
+    # Regenerate versions.json based on the *now existing* versioned docs
+    echo "Regenerating versions.json on $current_branch..."
+    yarn run version::stables
+
+    echo "Docs versioning complete"
+
 }
 
 case "$cmd" in
@@ -86,21 +159,22 @@ case "$cmd" in
     git clean -fdx
     ;;
   ""|"full"|"fast")
-    build_and_preview
+    build_docs
+    release_preview
     ;;
   "hash")
     echo "$hash"
     ;;
-  "release-preview")
-    release_preview
+  "docs-release-prod")
+    build_docs
+    release_prod
     ;;
-  "release")
-    release
-    ;;
-  "docs-release")
-    release
+  "docs-cut-version")
+    build_docs
+    docs_cut_version "$2"
     ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
 esac
+

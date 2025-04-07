@@ -332,9 +332,9 @@ case "$cmd" in
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
-  "docs-release")
+  "docs-release-prod"|"docs-cut-version")
     build
-    docs/bootstrap.sh docs-release
+    docs/bootstrap.sh $cmd "$@"
     ;;
   *)
     echo "Unknown command: $cmd"
