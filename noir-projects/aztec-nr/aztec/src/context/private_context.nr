@@ -260,8 +260,9 @@ impl PrivateContext {
     }
 
     fn request_sk_app(&mut self, pk_m_hash: Field, key_index: Field) -> Field {
-        let cached_request =
-            self.last_key_validation_requests[key_index as u32].unwrap_or(KeyValidationRequest::empty());
+        let cached_request = self.last_key_validation_requests[key_index as u32].unwrap_or(
+            KeyValidationRequest::empty(),
+        );
 
         if cached_request.pk_m.hash() == pk_m_hash {
             // We get a match so the cached request is the latest one
