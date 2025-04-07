@@ -18,7 +18,6 @@ import type {
   BatchInsertionResult,
   IndexedTreeId,
   MerkleTreeLeafType,
-  MerkleTreeReadOperations,
   MerkleTreeWriteOperations,
   SequentialInsertionResult,
   TreeInfo,
@@ -393,7 +392,7 @@ class ForwardMerkleTree implements MerkleTreeWriteOperations {
 export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInterface {
   private logger = createLogger('simulator:public-trees-db');
 
-  constructor(public db: MerkleTreeWriteOperations) {
+  constructor(private readonly db: MerkleTreeWriteOperations) {
     super(db);
   }
 
@@ -404,7 +403,22 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
    * @returns The current value in the storage slot.
    */
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
-    return await readPublicState(this.db, contract, slot);
+    const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
+
+    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
+    if (!lowLeafResult) {
+      throw new Error('Low leaf not found');
+    }
+
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.PUBLIC_DATA_TREE, lowLeafResult.index);
+    // Unconditionally fetching the preimage for the hints. Move it to the hinting layer?
+    const preimage = (await this.getLeafPreimage(
+      MerkleTreeId.PUBLIC_DATA_TREE,
+      lowLeafResult.index,
+    )) as PublicDataTreeLeafPreimage;
+
+    return lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
   }
 
   /**
@@ -417,12 +431,15 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
   public async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
     const publicDataWrite = new PublicDataWrite(leafSlot, newValue);
-    await this.db.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
+    await this.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
   }
 
   public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
-    const leafValue = await this.db.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    const leafValue = await this.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+
     this.logger.debug(`[DB] Fetched L1 to L2 message leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -433,7 +450,10 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
 
   public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
-    const leafValue = await this.db.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    const leafValue = await this.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+
     this.logger.debug(`[DB] Fetched note hash leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -444,7 +464,16 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
 
   public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
     const timer = new Timer();
-    const index = (await this.db.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
+    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!lowLeafResult) {
+      throw new Error('Low leaf not found');
+    }
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    const index = lowLeafResult.alreadyPresent ? lowLeafResult.index : undefined;
+
     this.logger.debug(`[DB] Fetched nullifier index`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -452,20 +481,4 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     } satisfies PublicDBAccessStats);
     return index;
   }
-}
-
-export async function readPublicState(db: MerkleTreeReadOperations, contract: AztecAddress, slot: Fr): Promise<Fr> {
-  const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
-
-  const lowLeafResult = await db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-  if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-    return Fr.ZERO;
-  }
-
-  const preimage = (await db.getLeafPreimage(
-    MerkleTreeId.PUBLIC_DATA_TREE,
-    lowLeafResult.index,
-  )) as PublicDataTreeLeafPreimage;
-
-  return preimage.value;
 }

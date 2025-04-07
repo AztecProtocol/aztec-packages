@@ -65,7 +65,21 @@ spec:
               done
               echo "PXE service is ready!"
               set -e
-              LOG_LEVEL=debug node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait
+
+              TEST_ACCOUNTS=${TEST_ACCOUNTS:-false}
+              TEST_ACCOUNTS_ARG=""
+              if [ "$TEST_ACCOUNTS" = "true" ]; then
+                TEST_ACCOUNTS_ARG="--testAccounts"
+              fi
+
+              SPONSORED_FPC=${SPONSORED_FPC:-false}
+              SPONSORED_FPC_ARG=""
+              if [ "$SPONSORED_FPC" = "true" ]; then
+                SPONSORED_FPC_ARG="--sponsoredFPC"
+              fi
+
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js setup-protocol-contracts --skipProofWait $TEST_ACCOUNTS_ARG $SPONSORED_FPC_ARG
+
               echo "L2 contracts initialized"
           env:
             - name: K8S_POD_UID
@@ -80,10 +94,16 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: TEST_ACCOUNTS
+              value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: TELEMETRY
               value: "{{ .Values.telemetry.enabled }}"
             - name: LOG_LEVEL
-              value: "debug"
+              value: "debug; info: aztec:simulator, json-rpc"
+            - name: LOG_JSON
+              value: "false"
             - name: NETWORK_PUBLIC
               value: "{{ .Values.network.public }}"
             - name: NAMESPACE

@@ -36,7 +36,6 @@ class GoblinProver {
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
 
-    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = MergeProver::MergeProof;
 
@@ -63,12 +62,8 @@ class GoblinProver {
 
   public:
     GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
-    { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
-      // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
-      // first round of the merge protocol. To be removed once the issue has been resolved.
-        commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-    }
+        : commitment_key(bn254_commitment_key)
+    {}
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
@@ -153,6 +148,8 @@ class GoblinProver {
 
         PROFILE_THIS_NAME("Goblin::prove");
 
+        info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
+
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
             PROFILE_THIS_NAME("prove_eccvm");
@@ -174,10 +171,9 @@ class GoblinVerifier {
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
     using Builder = MegaCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
-    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
+    using AggregationObject = RecursiveMergeVerifier::AggregationObject;
 
     struct VerifierInput {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
@@ -204,9 +200,9 @@ class GoblinVerifier {
      * @brief Append recursive verification of a merge proof to a provided circuit
      *
      * @param circuit_builder
-     * @return PairingPoints
+     * @return AggregationObject Inputs to the final pairing check
      */
-    static PairingPoints recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
+    static AggregationObject recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };

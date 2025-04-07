@@ -166,6 +166,18 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     _forks[fork->_forkId] = fork;
 }
 
+void WorldState::copy_stores(const std::string& dstPath, bool compact) const
+{
+    auto copyStore = [&](const LMDBTreeStore::SharedPtr& store) {
+        std::filesystem::path directory = dstPath;
+        directory /= store->get_name();
+        std::filesystem::create_directories(directory);
+        store->copy_store(directory, compact);
+    };
+
+    std::for_each(_persistentStores->begin(), _persistentStores->end(), copyStore);
+}
+
 Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
 {
     std::unique_lock lock(mtx);
@@ -255,8 +267,10 @@ Fork::SharedPtr WorldState::create_new_fork(const block_number_t& blockNumber)
     }
     {
         uint32_t levels = _tree_heights.at(MerkleTreeId::L1_TO_L2_MESSAGE_TREE);
-        auto store = std::make_unique<FrStore>(
-            getMerkleTreeName(L1_TO_L2_MESSAGE_TREE), levels, blockNumber, _persistentStores->messageStore);
+        auto store = std::make_unique<FrStore>(getMerkleTreeName(MerkleTreeId::L1_TO_L2_MESSAGE_TREE),
+                                               levels,
+                                               blockNumber,
+                                               _persistentStores->messageStore);
         auto tree = std::make_unique<FrTree>(std::move(store), _workers);
         fork->_trees.insert({ MerkleTreeId::L1_TO_L2_MESSAGE_TREE, TreeWithStore(std::move(tree)) });
     }

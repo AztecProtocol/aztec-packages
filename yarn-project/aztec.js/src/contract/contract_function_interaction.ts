@@ -5,45 +5,13 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { Capsule, HashedValues, TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import type { Wallet } from '../wallet/wallet.js';
-import {
-  BaseContractInteraction,
-  type RequestMethodOptions,
-  type SendMethodOptions,
-} from './base_contract_interaction.js';
-
-export type { SendMethodOptions };
-
-/**
- * Represents the options for simulating a contract function interaction.
- * Allows specifying the address from which the view method should be called.
- * Disregarded for simulation of public functions
- */
-export type ProfileMethodOptions = Pick<
+import { BaseContractInteraction } from './base_contract_interaction.js';
+import type {
+  ProfileMethodOptions,
+  RequestMethodOptions,
   SendMethodOptions,
-  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
-> & {
-  /** Whether to return gates information or the bytecode/witnesses. */
-  profileMode: 'gates' | 'execution-steps' | 'full';
-  /** The sender's Aztec address. */
-  from?: AztecAddress;
-};
-
-/**
- * Represents the options for simulating a contract function interaction.
- * Allows specifying the address from which the method should be called.
- * Disregarded for simulation of public functions
- */
-export type SimulateMethodOptions = Pick<
-  SendMethodOptions,
-  'authWitnesses' | 'capsules' | 'fee' | 'nonce' | 'cancellable'
-> & {
-  /** The sender's Aztec address. */
-  from?: AztecAddress;
-  /** Simulate without checking for the validity of the resulting transaction, e.g. whether it emits any existing nullifiers. */
-  skipTxValidation?: boolean;
-  /** Whether to ensure the fee payer is not empty and has enough balance to pay for the fee. */
-  skipFeeEnforcement?: boolean;
-};
+  SimulateMethodOptions,
+} from './interaction_options.js';
 
 /**
  * This is the class that is returned when calling e.g. `contract.methods.myMethod(arg0, arg1)`.
@@ -72,10 +40,10 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns A Promise that resolves to a transaction instance.
    */
-  public async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
+  public override async create(options: SendMethodOptions = {}): Promise<TxExecutionRequest> {
     // docs:end:create
-    if (this.functionDao.functionType === FunctionType.UNCONSTRAINED) {
-      throw new Error("Can't call `create` on an unconstrained function.");
+    if (this.functionDao.functionType === FunctionType.UTILITY) {
+      throw new Error("Can't call `create` on a utility  function.");
     }
     const requestWithoutFee = await this.request(options);
 
@@ -92,7 +60,7 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * @param options - An optional object containing additional configuration for the request generation.
    * @returns An execution payload wrapped in promise.
    */
-  public async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
+  public override async request(options: RequestMethodOptions = {}): Promise<ExecutionPayload> {
     // docs:end:request
     const args = encodeArguments(this.functionDao, this.args);
     const calls = [
@@ -120,15 +88,15 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
    * Simulate a transaction and get its return values
    * Differs from prove in a few important ways:
    * 1. It returns the values of the function execution
-   * 2. It supports `unconstrained`, `private` and `public` functions
+   * 2. It supports `utility`, `private` and `public` functions
    *
    * @param options - An optional object containing additional configuration for the transaction.
    * @returns The result of the transaction as returned by the contract function.
    */
   public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
     // docs:end:simulate
-    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      return this.wallet.simulateUnconstrained(
+    if (this.functionDao.functionType == FunctionType.UTILITY) {
+      return this.wallet.simulateUtility(
         this.functionDao.name,
         this.args,
         this.contractAddress,
@@ -166,13 +134,13 @@ export class ContractFunctionInteraction extends BaseContractInteraction {
 
   /**
    * Simulate a transaction and profile the gate count for each function in the transaction.
-   * @param options - Same options as `simulate`.
+   * @param options - Same options as `simulate`, plus profiling method
    *
    * @returns An object containing the function return value and profile result.
    */
   public async profile(options: ProfileMethodOptions = { profileMode: 'gates' }): Promise<TxProfileResult> {
-    if (this.functionDao.functionType == FunctionType.UNCONSTRAINED) {
-      throw new Error("Can't profile an unconstrained function.");
+    if (this.functionDao.functionType == FunctionType.UTILITY) {
+      throw new Error("Can't profile a utility function.");
     }
     const { authWitnesses, capsules, fee } = options;
 

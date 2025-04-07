@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -123,7 +123,6 @@ TEST(Sha256ConstrainingTest, Interaction)
     LookupIntoIndexedByClk<lookup_sha256_round_relation::Settings>().process(trace);
 
     check_relation<sha256>(trace);
-    check_interaction<lookup_sha256_round_relation>(trace);
 }
 
 } // namespace

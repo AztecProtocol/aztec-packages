@@ -18,6 +18,18 @@ pub(crate) comptime fn is_fn_public(f: FunctionDefinition) -> bool {
     f.has_named_attribute("public")
 }
 
+pub(crate) comptime fn is_fn_utility(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("utility")
+}
+
+pub(crate) comptime fn is_fn_contract_library_method(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("contract_library_method")
+}
+
+pub(crate) comptime fn is_fn_test(f: FunctionDefinition) -> bool {
+    f.has_named_attribute("test")
+}
+
 pub(crate) comptime fn is_fn_view(f: FunctionDefinition) -> bool {
     f.has_named_attribute("view")
 }

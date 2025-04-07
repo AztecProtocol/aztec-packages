@@ -6,15 +6,15 @@ import { Sequencer } from '../sequencer/sequencer.js';
 import type { SequencerTimetable } from '../sequencer/timetable.js';
 
 class TestSequencer_ extends Sequencer {
-  public override publicProcessorFactory!: PublicProcessorFactory;
-  public override timetable!: SequencerTimetable;
-  public override publisher!: SequencerPublisher;
+  public declare publicProcessorFactory: PublicProcessorFactory;
+  public declare timetable: SequencerTimetable;
+  public declare publisher: SequencerPublisher;
 }
 
 export type TestSequencer = TestSequencer_;
 
 class TestSequencerClient_ extends SequencerClient {
-  public override sequencer!: TestSequencer;
+  public declare sequencer: TestSequencer;
 }
 
 export type TestSequencerClient = TestSequencerClient_;

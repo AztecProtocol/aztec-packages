@@ -23,7 +23,9 @@ class ExecutionComponentsProviderInterface {
     // TODO: Update this, these params are temporary
     virtual std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                                   AztecAddress msg_sender,
-                                                                  std::span<const FF> calldata,
+                                                                  ContextInterface& parent_context,
+                                                                  MemoryAddress cd_offset_addr,
+                                                                  MemoryAddress cd_size_addr,
                                                                   bool is_static) = 0;
 
     virtual std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
@@ -38,16 +40,16 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
   public:
     ExecutionComponentsProvider(TxBytecodeManagerInterface& tx_bytecode_manager,
                                 EventEmitterInterface<MemoryEvent>& memory_events,
-                                EventEmitterInterface<ContextStackEvent>& ctx_stack_events,
                                 const InstructionInfoDBInterface& instruction_info_db)
         : tx_bytecode_manager(tx_bytecode_manager)
         , memory_events(memory_events)
-        , ctx_stack_events(ctx_stack_events)
         , instruction_info_db(instruction_info_db)
     {}
     std::unique_ptr<ContextInterface> make_nested_context(AztecAddress address,
                                                           AztecAddress msg_sender,
-                                                          std::span<const FF> calldata,
+                                                          ContextInterface& parent_context,
+                                                          uint32_t cd_offset_addr,
+                                                          uint32_t cd_size_addr,
                                                           bool is_static) override;
     std::unique_ptr<ContextInterface> make_enqueued_context(AztecAddress address,
                                                             AztecAddress msg_sender,
@@ -60,7 +62,6 @@ class ExecutionComponentsProvider : public ExecutionComponentsProviderInterface 
 
     TxBytecodeManagerInterface& tx_bytecode_manager;
     EventEmitterInterface<MemoryEvent>& memory_events;
-    EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
     const InstructionInfoDBInterface& instruction_info_db;
 
     // Sadly someone has to own these.

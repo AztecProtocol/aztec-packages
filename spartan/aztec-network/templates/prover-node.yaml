@@ -75,16 +75,6 @@ spec:
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
 
-              if [ "${PROVER_BROKER_ENABLED}" == "false" ]; then
-                until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
-                  echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
-                  sleep 5
-                done
-                echo "Broker is ready!"
-              else
-                echo "Using built-in job broker"
-              fi
-
               # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
               if [ -n "{{ .Values.aztec.contracts.registryAddress }}" ] && [ -n "{{ .Values.aztec.bootstrapENRs }}" ]; then
                 echo "Registry address and bootstrap nodes already set, skipping wait for services"
@@ -102,9 +92,6 @@ spec:
           volumeMounts:
             - name: config
               mountPath: /shared/config
-          env:
-            - name: PROVER_BROKER_ENABLED
-              value: "{{ .Values.proverNode.proverBroker.enabled }}"
 
         - name: configure-prover-env
           {{- include "aztec-network.image" . | nindent 10 }}
@@ -182,8 +169,6 @@ spec:
               value: "{{ .Values.proverNode.proverAgent.pollIntervalMs }}"
             - name: PROVER_AGENT_PROOF_TYPES
               value: {{ join "," .Values.proverNode.proverAgent.proofTypes | quote }}
-            - name: PROVER_BROKER_ENABLED
-              value: "{{ .Values.proverNode.proverBroker.enabled }}"
             - name: PROVER_BROKER_POLL_INTERVAL_MS
               value: "{{ .Values.proverNode.proverBroker.pollIntervalMs }}"
             - name: PROVER_BROKER_JOB_TIMEOUT_MS
@@ -234,12 +219,16 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
           ports:
             - containerPort: {{ .Values.proverNode.service.nodePort }}
             - containerPort: {{ .Values.proverNode.service.p2pPort }}

@@ -7,7 +7,7 @@ import type {
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
@@ -221,7 +221,7 @@ export interface ArchiverDataStore {
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean>;
 
   /**
@@ -244,4 +244,10 @@ export interface ArchiverDataStore {
    * Estimates the size of the store in bytes.
    */
   estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+
+  /** Backups the archiver db to the target folder. Returns the path to the db file. */
+  backupTo(path: string): Promise<string>;
+
+  /** Closes the underlying data store. */
+  close(): Promise<void>;
 }

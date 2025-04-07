@@ -29,30 +29,30 @@ function inject_version {
 # Build all native binaries, including tests.
 function build_native {
   set -eu
-  if ! cache_download barretenberg-release-$hash.tar.gz; then
+  if ! cache_download barretenberg-release-$hash.zst; then
     ./format.sh check
     rm -f build/CMakeCache.txt
     cmake --preset $preset
     cmake --build --preset $preset
-    cache_upload barretenberg-release-$hash.tar.gz build/bin
+    cache_upload barretenberg-release-$hash.zst build/bin
   fi
 }
 
 function build_nodejs_module {
   set -eu
   (cd src/barretenberg/nodejs_module && yarn --frozen-lockfile --prefer-offline)
-  if ! cache_download barretenberg-release-nodejs-module-$hash.tar.gz; then
+  if ! cache_download barretenberg-release-nodejs-module-$hash.zst; then
     rm -f build-pic/CMakeCache.txt
     cmake --preset $pic_preset -DCMAKE_BUILD_TYPE=RelWithAssert
     cmake --build --preset $pic_preset --target nodejs_module
-    cache_upload barretenberg-release-nodejs-module-$hash.tar.gz build-pic/lib/nodejs_module.node
+    cache_upload barretenberg-release-nodejs-module-$hash.zst build-pic/lib/nodejs_module.node
   fi
 }
 
 function build_darwin {
   set -eu
   local arch=${1:-$(arch)}
-  if ! cache_download barretenberg-darwin-$hash.tar.gz; then
+  if ! cache_download barretenberg-darwin-$hash.zst; then
     # Download sdk.
     local osx_sdk="MacOSX14.0.sdk"
     if ! [ -d "/opt/osxcross/SDK/$osx_sdk" ]; then
@@ -65,18 +65,29 @@ function build_darwin {
     rm -f build-darwin-$arch/CMakeCache.txt
     cmake --preset darwin-$arch
     cmake --build --preset darwin-$arch --target bb
-    cache_upload barretenberg-darwin-$hash.tar.gz build-darwin-$arch/bin
+    cache_upload barretenberg-darwin-$hash.zst build-darwin-$arch/bin
   fi
 }
 
 # Build single threaded wasm. Needed when no shared mem available.
 function build_wasm {
   set -eu
-  if ! cache_download barretenberg-wasm-$hash.tar.gz; then
+  if ! cache_download barretenberg-wasm-$hash.zst; then
     rm -f build-wasm/CMakeCache.txt
     cmake --preset wasm
     cmake --build --preset wasm
-    cache_upload barretenberg-wasm-$hash.tar.gz build-wasm/bin
+    cache_upload barretenberg-wasm-$hash.zst build-wasm/bin
+  fi
+}
+
+# Build multi-threaded wasm. Requires shared memory.
+function build_wasm_threads {
+  set -eu
+  if ! cache_download barretenberg-wasm-threads-$hash.zst; then
+    rm -f build-wasm-threads/CMakeCache.txt
+    cmake --preset wasm-threads
+    cmake --build --preset wasm-threads
+    cache_upload barretenberg-wasm-threads-$hash.zst build-wasm-threads/bin
   fi
 }
 
@@ -85,25 +96,27 @@ function build_wasm {
 # as they were useful historically, and we have sanitizers.
 function build_gcc_syntax_check_only {
   set -eu
-  if cache_download barretenberg-gcc-$hash.tar.gz; then
+  if cache_download barretenberg-gcc-$hash.zst; then
     return
   fi
   cmake --preset gcc -DSYNTAX_ONLY=1
   cmake --build --preset gcc --target bb
   # Note: There's no real artifact here, we fake one for consistency.
   echo success > build-gcc/syntax-check-success.flag
-  cache_upload barretenberg-gcc-$hash.tar.gz build-gcc/syntax-check-success.flag
+  cache_upload barretenberg-gcc-$hash.zst build-gcc/syntax-check-success.flag
 }
 
-# Build multi-threaded wasm. Requires shared memory.
-function build_wasm_threads {
+# Do basic tests that the fuzzing preset still compiles (does not do optimization or create object files).
+function build_fuzzing_syntax_check_only {
   set -eu
-  if ! cache_download barretenberg-wasm-threads-$hash.tar.gz; then
-    rm -f build-wasm-threads/CMakeCache.txt
-    cmake --preset wasm-threads
-    cmake --build --preset wasm-threads
-    cache_upload barretenberg-wasm-threads-$hash.tar.gz build-wasm-threads/bin
+  if cache_download barretenberg-fuzzing-$hash.zst; then
+    return
   fi
+  cmake --preset fuzzing -DSYNTAX_ONLY=1
+  cmake --build --preset fuzzing
+  # Note: There's no real artifact here, we fake one for consistency.
+  echo success > build-fuzzing/syntax-check-success.flag
+  cache_upload barretenberg-fuzzing-$hash.zst build-fuzzing/syntax-check-success.flag
 }
 
 # Download ignition transcripts. Only needed for tests.
@@ -133,7 +146,7 @@ function build_release {
   fi
 }
 
-export -f build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only download_old_crs
+export -f build_native build_darwin build_nodejs_module build_wasm build_wasm_threads build_gcc_syntax_check_only build_fuzzing_syntax_check_only download_old_crs
 
 function build {
   echo_header "bb cpp build"
@@ -146,7 +159,7 @@ function build {
   )
   if [ "$(arch)" == "amd64" ] && [ "$CI" -eq 1 ]; then
     # TODO figure out why this is failing on arm64 with ultra circuit builder string op overflow.
-    builds+=(build_gcc_syntax_check_only)
+    builds+=(build_gcc_syntax_check_only build_fuzzing_syntax_check_only)
   fi
   if [ "$CI_FULL" -eq 1 ]; then
     builds+=(build_darwin)
@@ -179,11 +192,11 @@ function test {
 
 function build_benchmarks {
   set -eu
-  if ! cache_download barretenberg-benchmarks-$hash.tar.gz; then
+  if ! cache_download barretenberg-benchmarks-$hash.zst; then
     parallel --line-buffered --tag -v "denoise \
       'cmake --preset {} && cmake --build --preset {} --target ultra_honk_bench --target client_ivc_bench'" ::: \
       clang16-assert wasm-threads op-count op-count-time
-    cache_upload barretenberg-benchmarks-$hash.tar.gz \
+    cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads,build-op-count,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
   fi
 }
@@ -198,10 +211,6 @@ function bench {
   export GRUMPKIN_CRS_PATH=./srs_db/grumpkin
 
   rm -rf bench-out && mkdir -p bench-out
-
-  # A bit pattern breaking, but the best code to instrument our private IVC flows exists in yarn-project,
-  # while the best code for benchmarking these IVC flows exists here.
-  ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
 
   # Ultra honk.
   function ultra_honk_release {
@@ -243,34 +252,6 @@ function bench {
         --benchmark_out=./bench-out/client_ivc_wasm.json \
         --benchmark_filter="ClientIVCBench/Full/6$"
   }
-  function client_ivc_flow {
-    set -eu
-    local flow=$1
-    local inputs_folder="$capture_ivc_folder/$flow"
-    local start=$(date +%s%N)
-    mkdir -p "bench-out/$flow-proof-files"
-    # TODO(AD) this should verify but doesn't!
-    if [ "$flow" == "amm-add-liquidity" ]; then
-      set +e
-    fi
-    ./build/bin/bb prove -o "bench-out/$flow-proof-files" -b "$inputs_folder/acir.msgpack" -w "$inputs_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
-    set -e
-    echo "$flow has proven."
-    local end=$(date +%s%N)
-    local elapsed_ns=$(( end - start ))
-    local elapsed_ms=$(( elapsed_ns / 1000000 ))
-    cat > "./bench-out/$flow-ivc.json" <<EOF
-    {
-      "benchmarks": [
-      {
-        "name": "$flow-ivc-proof",
-        "time_unit": "ms",
-        "real_time": ${elapsed_ms}
-      }
-      ]
-    }
-EOF
-  }
 
   function run_benchmark {
     set -eu
@@ -280,7 +261,7 @@ EOF
     taskset -c $start_core-$end_core bash -c "$2"
   }
 
-  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm client_ivc_flow run_benchmark
+  export -f ultra_honk_release ultra_honk_wasm client_ivc_17_in_20_release client_ivc_release client_ivc_op_count client_ivc_op_count_time client_ivc_wasm run_benchmark
 
   local num_cpus=$(get_num_cpus)
   local jobs=$((num_cpus / HARDWARE_CONCURRENCY))
@@ -318,22 +299,25 @@ case "$cmd" in
     build
     test
     ;;
-  download_e2e_ivc_inputs)
+  e2e_ivc_bench)
     # Download the inputs for the private flows.
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
-    export AZTEC_CACHE_COMMIT=${1:-origin/master}
-
-    # Error if the inputs are not found in cache.
-    export DOWNLOAD_ONLY=${DOWNLOAD_ONLY:-1}
+    if [ -n "${1:-}" ]; then
+      echo "Downloading inputs from commit $1."
+      export AZTEC_CACHE_COMMIT=$1
+      export DOWNLOAD_ONLY=1
+      # Since this path doesn't otherwise need a non-bb bootstrap, we make sure the one dependency is built.
+      yarn --cwd ../../yarn-project/bb-prover generate
+    fi
     ../../yarn-project/end-to-end/bootstrap.sh generate_example_app_ivc_inputs
-    echo "Downloaded inputs for private flows to $capture_ivc_folder"
+    ../../barretenberg/cpp/scripts/ci_benchmark_ivc_flows.sh $(pwd)/../../yarn-project/end-to-end/example-app-ivc-inputs-out $(pwd)/bench-out
     ;;
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench|release|build_native|build_wasm|build_wasm_threads|build_darwin|build_release|inject_version)
+  test|test_cmds|bench|release|build_native|build_wasm|build_wasm_threads|build_gcc_syntax_check_only|build_fuzzing_syntax_check_only|build_darwin|build_release|inject_version)
     $cmd "$@"
     ;;
   *)

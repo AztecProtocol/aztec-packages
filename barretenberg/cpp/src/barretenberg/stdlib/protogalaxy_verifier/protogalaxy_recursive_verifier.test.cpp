@@ -337,7 +337,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
         auto recursive_result =
             native_decider_verifier.accumulator->verification_key->pcs_verification_key->pairing_check(
-                pairing_points[0].get_value(), pairing_points[1].get_value());
+                pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);
 
         if constexpr (!IsSimulator<OuterBuilder>) {

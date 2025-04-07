@@ -101,6 +101,7 @@ void write_standalone_vk(const std::string& output_data_type,
     using VerificationKey = ClientIVC::MegaVerificationKey;
     using Program = acir_format::AcirProgram;
     using ProgramMetadata = acir_format::ProgramMetadata;
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -117,13 +118,15 @@ void write_standalone_vk(const std::string& output_data_type,
     Builder builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Add public inputs corresponding to pairing point accumulator
-    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
+    AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
     Prover prover{ proving_key };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    ProofAndKey<VerificationKey> to_write{ {}, std::make_shared<VerificationKey>(prover.proving_key->proving_key) };
+    PubInputsProofAndKey<VerificationKey> to_write{
+        PublicInputsVector{}, HonkProof{}, std::make_shared<VerificationKey>(prover.proving_key->proving_key)
+    };
 
     write(to_write, output_data_type, "vk", output_path);
 }
@@ -283,6 +286,7 @@ void ClientIVCAPI::prove(const Flags& flags,
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
+                          [[maybe_unused]] const std::filesystem::path& public_inputs_path,
                           const std::filesystem::path& proof_path,
                           const std::filesystem::path& vk_path)
 {

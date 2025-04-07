@@ -119,6 +119,7 @@ export class SequencerClient {
           aztecSlotDuration: config.aztecSlotDuration,
           ethereumSlotDuration: config.ethereumSlotDuration,
           aztecEpochDuration: config.aztecEpochDuration,
+          aztecProofSubmissionWindow: config.aztecProofSubmissionWindow,
         },
         { dateProvider: deps.dateProvider },
       ));
@@ -140,6 +141,14 @@ export class SequencerClient {
     const publicProcessorFactory = new PublicProcessorFactory(contractDataSource, deps.dateProvider, telemetryClient);
 
     const ethereumSlotDuration = config.ethereumSlotDuration;
+
+    const rollupManaLimit = await rollupContract.getManaLimit();
+    const sequencerManaLimit = config.maxL2BlockGas ?? Number(rollupManaLimit);
+    if (sequencerManaLimit > Number(rollupManaLimit)) {
+      throw new Error(
+        `provided maxL2BlockGas of ${sequencerManaLimit} is greater than the maximum allowed by the L1 (${rollupManaLimit})`,
+      );
+    }
 
     // When running in anvil, assume we can post a tx up until the very last second of an L1 slot.
     // Otherwise, assume we must have broadcasted the tx before the slot started (we use a default
@@ -170,7 +179,7 @@ export class SequencerClient {
       contractDataSource,
       l1Constants,
       deps.dateProvider,
-      { ...config, maxL1TxInclusionTimeIntoSlot },
+      { ...config, maxL1TxInclusionTimeIntoSlot, maxL2BlockGas: sequencerManaLimit },
       telemetryClient,
     );
     await validatorClient?.start();
@@ -219,5 +228,9 @@ export class SequencerClient {
 
   get validatorAddress(): EthAddress | undefined {
     return this.sequencer.getValidatorAddress();
+  }
+
+  get maxL2BlockGas(): number | undefined {
+    return this.sequencer.maxL2BlockGas;
   }
 }

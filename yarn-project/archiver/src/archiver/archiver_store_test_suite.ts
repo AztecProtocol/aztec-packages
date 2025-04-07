@@ -8,6 +8,7 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
+import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
 import {
@@ -21,7 +22,7 @@ import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
-  makeUnconstrainedFunctionWithMembershipProof,
+  makeUtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -254,6 +255,20 @@ export function describeArchiverDataStore(
       it('returns undefined if tx is not found', async () => {
         await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
       });
+
+      it('does not fail if the block is unwound while requesting a tx', async () => {
+        const expectedTx = await wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block);
+        let done = false;
+        void (async () => {
+          while (!done) {
+            void store.getTxEffect(expectedTx.data.txHash);
+            await sleep(1);
+          }
+        })();
+        await store.unwindBlocks(blocks.length, blocks.length);
+        done = true;
+        expect(await store.getTxEffect(expectedTx.data.txHash)).toEqual(undefined);
+      });
     });
 
     describe('L1 to L2 Messages', () => {
@@ -418,19 +433,19 @@ export function describeArchiverDataStore(
         expect(stored?.privateFunctions).toEqual(fns);
       });
 
-      it('adds new unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('adds new utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
 
-      it('does not duplicate unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('does not duplicate utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
     });
 

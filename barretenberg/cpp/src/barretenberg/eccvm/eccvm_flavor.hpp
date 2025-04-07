@@ -46,6 +46,8 @@ class ECCVMFlavor {
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
     // Fixed size of the ECCVM circuits used in ClientIVC
+    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // they become too small.
     static constexpr size_t ECCVM_FIXED_SIZE = 1UL << CONST_ECCVM_LOG_N;
 
     static constexpr size_t NUM_WIRES = 85;
@@ -107,7 +109,6 @@ class ECCVMFlavor {
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/989): refine access specifiers in flavors, this is
     // public as it is also used in the recursive flavor but the two could possibly me unified eventually
-  public:
     /**
      * @brief A base class labelling precomputed entities and (ordered) subsets of interest.
      * @details Used to build the proving key and verification key.
@@ -353,16 +354,7 @@ class ECCVMFlavor {
                         public WitnessEntities<DataType>,
                         public ShiftedEntities<DataType> {
       public:
-        // Initialize members
-        AllEntities()
-            : PrecomputedEntities<DataType>{}
-            , WitnessEntities<DataType>{}
-            , ShiftedEntities<DataType>{}
-        {}
-        // get_wires is inherited
-
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
-        // Gemini-specific getters.
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
@@ -372,7 +364,6 @@ class ECCVMFlavor {
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); };
     };
 
-  public:
     /**
      * @brief A field element for each entity of the flavor.  These entities represent the prover polynomials
      * evaluated at one point.
@@ -538,8 +529,7 @@ class ECCVMFlavor {
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
 
             if ((fixed_size) && (ECCVM_FIXED_SIZE < dyadic_num_rows)) {
-                info("The ECCVM circuit size has exceeded the fixed upper bound");
-                ASSERT(false);
+                throw_or_abort("The ECCVM circuit size has exceeded the fixed upper bound");
             }
 
             dyadic_num_rows = fixed_size ? ECCVM_FIXED_SIZE : dyadic_num_rows;

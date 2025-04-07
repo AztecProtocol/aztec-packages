@@ -13,6 +13,7 @@ use dep::protocol_types::{
     address::AztecAddress,
     constants::PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
     debug_log::debug_log_format,
+    hash::sha256_to_field,
     traits::{Deserialize, Serialize, ToField},
 };
 
@@ -24,8 +25,9 @@ pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
     MAX_LOG_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN;
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
-// TODO(#11630): come up with some sort of slot allocation scheme.
-pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = 77;
+pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
+    "AZTEC_NR::DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT".as_bytes(),
+);
 
 /// Public logs contain an extra field at the beginning with the address of the contract that emitted them, and partial
 /// notes emit their completion tag in the log, resulting in the first two fields in the public log not being part of

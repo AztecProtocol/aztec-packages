@@ -49,21 +49,21 @@ export class LogStore {
       const txHash = txEffect.txHash;
       const dataStartIndexForTx = dataStartIndexForBlock + txIndex * MAX_NOTE_HASHES_PER_TX;
 
-      txEffect.privateLogs.forEach(log => {
+      txEffect.privateLogs.forEach((log, logIndex) => {
         const tag = log.fields[0];
         this.#log.debug(`Found private log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log).toBuffer());
+        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, log).toBuffer());
         taggedLogs.set(tag.toString(), currentLogs);
       });
 
-      txEffect.publicLogs.forEach(log => {
+      txEffect.publicLogs.forEach((log, logIndex) => {
         const tag = log.log[0];
         this.#log.debug(`Found public log with tag ${tag.toString()} in block ${block.number}`);
 
         const currentLogs = taggedLogs.get(tag.toString()) ?? [];
-        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, block.number, log).toBuffer());
+        currentLogs.push(new TxScopedL2Log(txHash, dataStartIndexForTx, logIndex, block.number, log).toBuffer());
         taggedLogs.set(tag.toString(), currentLogs);
       });
     });
