@@ -48,7 +48,7 @@ describe('Port Change', () => {
     // wait a bit longer for all peers to be ready
     await sleep(10000);
     logger.info('Workers Ready');
-  });
+  }, 30 * 1000);
 
   it(
     'should change port and propagate the gossip message correctly',
