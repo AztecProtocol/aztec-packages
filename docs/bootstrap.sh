@@ -28,7 +28,6 @@ function build_docs {
     return
   fi
   npm_install_deps
-  denoise "yarn run version::stables"
   denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
 }
@@ -165,7 +164,7 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "docs-release-prod")
+  "release")
     build_docs
     release_prod
     ;;
