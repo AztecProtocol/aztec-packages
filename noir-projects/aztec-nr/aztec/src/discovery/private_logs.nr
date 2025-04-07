@@ -12,7 +12,7 @@ use crate::{
         encoding::from_expanded_metadata,
         encrypt::aes128::AES128,
         log_encryption::LogEncryption,
-        log_type::{
+        msg_type::{
             PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
         },
     },

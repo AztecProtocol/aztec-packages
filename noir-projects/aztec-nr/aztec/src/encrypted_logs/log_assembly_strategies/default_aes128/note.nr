@@ -5,7 +5,7 @@ use crate::{
         encrypt::aes128::AES128,
         log_assembly_strategies::default_aes128::utils::prefix_with_tag,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
+        msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
 };
