@@ -46,6 +46,9 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
 
     // Unconstrained.
     const TreeSnapshots& get_tree_roots() const override;
+    void create_checkpoint() override;
+    void commit_checkpoint() override;
+    void revert_checkpoint() override;
 
     // Constrained.
     // TODO: When actually using this, consider siloing inside (and taking a silo gadget in the constructor).

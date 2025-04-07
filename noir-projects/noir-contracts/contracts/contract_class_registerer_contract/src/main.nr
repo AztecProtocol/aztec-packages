@@ -9,7 +9,7 @@ pub contract ContractClassRegisterer {
         constants::{
             ARTIFACT_FUNCTION_TREE_MAX_HEIGHT, CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
             FUNCTION_TREE_HEIGHT, MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS,
-            MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS,
+            MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS,
             MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS, REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
         },
         contract_class_id::ContractClassId,
@@ -27,9 +27,8 @@ pub contract ContractClassRegisterer {
         private_function_broadcasted::{
             ClassPrivateFunctionBroadcasted, InnerPrivateFunction, PrivateFunction,
         },
-        unconstrained_function_broadcasted::{
-            ClassUnconstrainedFunctionBroadcasted, InnerUnconstrainedFunction,
-            UnconstrainedFunction,
+        utility_function_broadcasted::{
+            ClassUtilityFunctionBroadcasted, InnerUtilityFunction, UtilityFunction,
         },
     };
 
@@ -119,7 +118,7 @@ pub contract ContractClassRegisterer {
     fn broadcast_private_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
-        unconstrained_functions_artifact_tree_root: Field,
+        utility_functions_artifact_tree_root: Field,
         private_function_tree_sibling_path: [Field; FUNCTION_TREE_HEIGHT],
         private_function_tree_leaf_index: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
@@ -137,7 +136,7 @@ pub contract ContractClassRegisterer {
         let event = ClassPrivateFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
-            unconstrained_functions_artifact_tree_root,
+            utility_functions_artifact_tree_root,
             private_function_tree_sibling_path,
             private_function_tree_leaf_index,
             artifact_function_tree_sibling_path,
@@ -154,7 +153,7 @@ pub contract ContractClassRegisterer {
             [
                 contract_class_id.to_field(),
                 artifact_metadata_hash,
-                unconstrained_functions_artifact_tree_root,
+                utility_functions_artifact_tree_root,
                 function_data.selector.to_field(),
                 function_data.vk_hash,
                 function_data.metadata_hash,
@@ -164,35 +163,35 @@ pub contract ContractClassRegisterer {
     }
 
     #[private]
-    fn broadcast_unconstrained_function(
+    fn broadcast_utility_function(
         contract_class_id: ContractClassId,
         artifact_metadata_hash: Field,
         private_functions_artifact_tree_root: Field,
         artifact_function_tree_sibling_path: [Field; ARTIFACT_FUNCTION_TREE_MAX_HEIGHT],
         artifact_function_tree_leaf_index: Field,
-        function_data: InnerUnconstrainedFunction,
+        function_data: InnerUtilityFunction,
     ) {
-        let unconstrained_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS] = unsafe {
+        let utility_bytecode: [Field; MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS] = unsafe {
             capsules::load(
                 context.this_address(),
                 REGISTERER_CONTRACT_BYTECODE_CAPSULE_SLOT,
             )
                 .unwrap()
         };
-        let event = ClassUnconstrainedFunctionBroadcasted {
+        let event = ClassUtilityFunctionBroadcasted {
             contract_class_id,
             artifact_metadata_hash,
             private_functions_artifact_tree_root,
             artifact_function_tree_sibling_path,
             artifact_function_tree_leaf_index,
-            function: UnconstrainedFunction {
+            function: UtilityFunction {
                 selector: function_data.selector,
                 metadata_hash: function_data.metadata_hash,
-                bytecode: unconstrained_bytecode,
+                bytecode: utility_bytecode,
             },
         };
         dep::aztec::oracle::debug_log::debug_log_format(
-            "ClassUnconstrainedFunctionBroadcasted: {}",
+            "ClassUtilityFunctionBroadcasted: {}",
             [
                 contract_class_id.to_field(),
                 artifact_metadata_hash,

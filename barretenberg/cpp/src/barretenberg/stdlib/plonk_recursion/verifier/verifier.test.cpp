@@ -57,7 +57,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         std::conditional_t<is_ultra_to_ultra, recursive_settings, ultra_to_standard_recursive_settings>;
 
     struct circuit_outputs {
-        recursion::aggregation_state<outer_curve> aggregation_state;
+        recursion::aggregation_state<OuterBuilder> aggregation_state;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
@@ -268,7 +268,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         plonk::transcript::Manifest recursive_manifest =
             InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        stdlib::recursion::aggregation_state<outer_curve> output =
+        stdlib::recursion::aggregation_state<OuterBuilder> output =
             stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 
@@ -386,7 +386,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
         EXPECT_EQ(outer_circuit.failed(), false);
 
         check_pairing(circuit_output);
@@ -404,7 +404,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
         EXPECT_EQ(outer_circuit.failed(), false);
 
         check_pairing(circuit_output);
@@ -440,14 +440,14 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         ASSERT(a2.get_msb() <= 68);
         ASSERT(a3.get_msb() <= 68);
 
-        circuit_output_a.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output_a.aggregation_state.assign_object_to_proof_outputs_for_plonk();
 
         auto circuit_output_b = create_outer_circuit(inner_circuit_b, mid_circuit_b);
 
-        circuit_output_b.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output_b.aggregation_state.assign_object_to_proof_outputs_for_plonk();
 
         auto circuit_output = create_double_outer_circuit(mid_circuit_a, mid_circuit_b, outer_circuit);
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);

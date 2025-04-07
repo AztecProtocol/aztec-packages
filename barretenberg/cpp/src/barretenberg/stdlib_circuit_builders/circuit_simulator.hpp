@@ -51,20 +51,6 @@ class CircuitSimulatorBN254 {
     std::vector<FF> public_inputs;
     std::vector<uint32_t> used_witnesses;
 
-    void add_pairing_point_accumulator(const PairingPointAccumulatorIndices& proof_element_limbs)
-    {
-
-        if (contains_pairing_point_accumulator) {
-            failure("added recursive proof when one already exists");
-        }
-        contains_pairing_point_accumulator = true;
-
-        for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
-            set_public_input(proof_element_limbs[idx]);
-            pairing_point_accumulator_public_input_indices[idx] = static_cast<uint32_t>(public_inputs.size() - 1);
-        }
-    }
-
     inline uint32_t add_variable([[maybe_unused]] const bb::fr index) const { return 1028; }
     inline bb::fr get_variable([[maybe_unused]] const uint32_t index) const { return 1028; }
 

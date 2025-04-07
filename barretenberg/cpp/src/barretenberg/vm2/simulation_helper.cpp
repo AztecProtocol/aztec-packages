@@ -125,7 +125,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
 
     Alu alu(alu_emitter);
     Execution execution(alu, execution_components, instruction_info_db, execution_emitter, context_stack_emitter);
-    TxExecution tx_execution(execution);
+    TxExecution tx_execution(execution, merkle_db);
     Sha256 sha256(sha256_compression_emitter);
 
     tx_execution.simulate(inputs.hints.tx);

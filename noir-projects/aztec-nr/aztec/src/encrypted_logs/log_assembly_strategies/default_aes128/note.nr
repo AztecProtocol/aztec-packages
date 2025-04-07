@@ -2,7 +2,8 @@ use crate::{
     context::PrivateContext,
     encrypted_logs::{
         encoding::to_expanded_metadata,
-        log_assembly_strategies::default_aes128::{aes128::AES128, utils::prefix_with_tag},
+        encrypt::aes128::AES128,
+        log_assembly_strategies::default_aes128::utils::prefix_with_tag,
         log_encryption::LogEncryption,
         log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
     },

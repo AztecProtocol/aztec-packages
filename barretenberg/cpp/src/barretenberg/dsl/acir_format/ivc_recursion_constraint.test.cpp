@@ -25,6 +25,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
     using QUEUE_TYPE = ClientIVC::QUEUE_TYPE;
     using VerificationQueue = ClientIVC::VerificationQueue;
     using ArithmeticConstraint = AcirFormat::PolyTripleConstraint;
+    using AggregationObject = ClientIVC::AggregationObject;
 
     /**
      * @brief Constuct a simple arbitrary circuit to represent a mock app circuit
@@ -119,7 +120,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         const ProgramMetadata metadata{ mock_ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         // Note: adding pairing point normally happens in accumulate()
-        kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+        AggregationObject::add_default_pairing_points_to_public_inputs(kernel);
 
         // Manually construct the VK for the kernel circuit
         auto proving_key = std::make_shared<ClientIVC::DeciderProvingKey>(kernel, trace_settings);
@@ -240,7 +241,7 @@ TEST_F(IvcRecursionConstraintTest, GenerateVK)
         const ProgramMetadata metadata{ ivc };
         Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
         // Note that this would normally happen in accumulate()
-        kernel.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(kernel));
+        AggregationObject::add_default_pairing_points_to_public_inputs(kernel);
 
         auto proving_key = std::make_shared<DeciderProvingKey_<MegaFlavor>>(kernel, trace_settings);
         MegaProver prover(proving_key);

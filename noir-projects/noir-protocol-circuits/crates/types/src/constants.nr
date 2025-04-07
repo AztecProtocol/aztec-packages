@@ -146,12 +146,12 @@ pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
-// Same for unconstrained functions: the size is per function.
-pub global MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS: u32 = 3000;
+// Same for utility functions: the size is per function.
+pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000;
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
 pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
-// How many fields are on the serialized ClassUnconstrainedFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS.
-pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+// How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
+pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
 // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
 // This is just a stopgap until we implement proper selectors.
 // sha224sum 'struct ContractClassRegistered {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
@@ -160,8 +160,8 @@ pub global REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE: Field =
 // sha224sum 'struct ClassPrivateFunctionBroadcasted'
 pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0x1b70e95fde0b70adc30496b90a327af6a5e383e028e7a43211a07bcd;
-// sha224sum 'struct ClassUnconstrainedFunctionBroadcasted'
-pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
+// sha224sum 'struct ClassUtilityFunctionBroadcasted'
+pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0xe7af816635466f128568edb04c9fa024f6c87fb9010fdbffa68b3d99;
 
 // CONTRACT INSTANCE CONSTANTS
