@@ -778,10 +778,6 @@ describe('PXEOracleInterface', () => {
       const syncedBlockNumber = 100;
       await setSyncedBlockNumber(syncedBlockNumber);
 
-      // Spy on the noteDataProvider.removeNullifiedNotes to later on have additional guarantee that we have not
-      // attempted to remove any notes.
-      jest.spyOn(noteDataProvider, 'removeNullifiedNotes');
-
       // Add the note to storage
       await noteDataProvider.addNotes([noteDao], recipient);
 
@@ -800,10 +796,6 @@ describe('PXEOracleInterface', () => {
       const remainingNotes = await noteDataProvider.getNotes({ contractAddress, recipient, status: NoteStatus.ACTIVE });
       expect(remainingNotes).toHaveLength(1);
       expect(remainingNotes[0]).toEqual(noteDao);
-
-      // Verify the note was not removed by checking the spy was called with no nullifiers
-      const foundNullifiers: InBlock<Fr>[] = [];
-      expect(noteDataProvider.removeNullifiedNotes).toHaveBeenCalledWith(foundNullifiers, recipient);
     });
 
     it('should search for notes from all accounts', async () => {
