@@ -223,7 +223,7 @@ function bump_noir_repo_ref {
 
   # Build nargo and run formatter on `noir-projects`
   build_native
-  ../noir-projects/scripts/format.sh
+  ../noir-projects/bootstrap.sh format
   git add .
   git commit -m "chore: Update noir-repo-ref to $ref" || true
   do_or_dryrun git push --set-upstream origin $branch
