@@ -276,11 +276,6 @@ pub contract DocsExample {
     // docs:end:get_note-private-immutable
 
     #[utility]
-    unconstrained fn view_imm_card() -> CardNote {
-        storage.private_immutable.view_note()
-    }
-
-    #[utility]
     unconstrained fn is_priv_imm_initialized() -> bool {
         storage.private_immutable.is_initialized()
     }

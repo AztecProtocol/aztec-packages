@@ -17,7 +17,7 @@ describe('e2e_state_vars', () => {
   let teardown: () => Promise<void>;
   let contract: StateVarsContract;
 
-  const VALUE = 1n;
+  const VALUE = 2n;
   const RANDOMNESS = 2n;
 
   beforeAll(async () => {
@@ -126,9 +126,9 @@ describe('e2e_state_vars', () => {
 
     it('read initialized PrivateMutable', async () => {
       expect(await contract.methods.is_private_mutable_initialized().simulate()).toEqual(true);
-      const { value, randomness } = await contract.methods.get_private_mutable().simulate();
+      const { value, owner } = await contract.methods.get_private_mutable().simulate();
       expect(value).toEqual(VALUE);
-      expect(randomness).toEqual(RANDOMNESS);
+      expect(owner).toEqual(wallet.getAddress());
     });
 
     it('replace with same value', async () => {
@@ -146,7 +146,6 @@ describe('e2e_state_vars', () => {
 
       expect(noteBefore.owner).toEqual(noteAfter.owner);
       expect(noteBefore.value).toEqual(noteAfter.value);
-      expect(noteBefore.randomness).toEqual(noteAfter.randomness);
     });
 
     it('replace PrivateMutable with other values', async () => {
@@ -162,9 +161,9 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the nullifier of the previous note
       expect(txEffects?.data.nullifiers.length).toEqual(2);
 
-      const { value, randomness } = await contract.methods.get_private_mutable().simulate();
+      const { value, owner } = await contract.methods.get_private_mutable().simulate();
       expect(value).toEqual(VALUE + 1n);
-      expect(randomness).toEqual(RANDOMNESS + 2n);
+      expect(owner).toEqual(wallet.getAddress());
     });
 
     it('replace PrivateMutable dependent on prior value', async () => {
@@ -178,16 +177,16 @@ describe('e2e_state_vars', () => {
       // 1 for the tx, another for the nullifier of the previous note
       expect(txEffects?.data.nullifiers.length).toEqual(2);
 
-      const { value, randomness } = await contract.methods.get_private_mutable().simulate();
+      const { value, owner } = await contract.methods.get_private_mutable().simulate();
       expect(value).toEqual(noteBefore.value + 1n);
-      expect(randomness).toEqual(noteBefore.randomness);
+      expect(owner).toEqual(wallet.getAddress());
     });
   });
 
   describe('PrivateImmutable', () => {
     it('fail to read uninitialized PrivateImmutable', async () => {
       expect(await contract.methods.is_priv_imm_initialized().simulate()).toEqual(false);
-      await expect(contract.methods.view_imm_card().simulate()).rejects.toThrow();
+      await expect(contract.methods.view_private_immutable().simulate()).rejects.toThrow();
     });
 
     it('initialize PrivateImmutable', async () => {
@@ -210,9 +209,9 @@ describe('e2e_state_vars', () => {
 
     it('read initialized PrivateImmutable', async () => {
       expect(await contract.methods.is_priv_imm_initialized().simulate()).toEqual(true);
-      const { value, randomness } = await contract.methods.view_imm_card().simulate();
+      const { value, owner } = await contract.methods.view_private_immutable().simulate();
       expect(value).toEqual(VALUE);
-      expect(randomness).toEqual(RANDOMNESS);
+      expect(owner).toEqual(wallet.getAddress());
     });
   });
 

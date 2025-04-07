@@ -99,9 +99,9 @@ pub contract StateVars {
 
     #[private]
     fn initialize_private_immutable(randomness: Field, value: Field) {
-        let new_card = ValueNote::new(value, context.msg_sender());
+        let new_note = ValueNote::new(value, context.msg_sender());
 
-        storage.private_immutable.initialize(new_card).emit(encode_and_encrypt_note(
+        storage.private_immutable.initialize(new_note).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
             context.msg_sender(),
@@ -160,7 +160,7 @@ pub contract StateVars {
     }
 
     #[utility]
-    unconstrained fn view_imm_card() -> ValueNote {
+    unconstrained fn view_private_immutable() -> ValueNote {
         storage.private_immutable.view_note()
     }
 
