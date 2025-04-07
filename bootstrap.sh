@@ -269,8 +269,7 @@ function release {
     boxes
     aztec-up
     playground
-    # Blocking release.
-    # docs
+    docs
     release-image
   )
   if [ $(arch) == arm64 ]; then
