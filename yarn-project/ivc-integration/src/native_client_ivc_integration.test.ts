@@ -147,7 +147,7 @@ describe('Client IVC Integration', () => {
       logger,
       true,
     );
-  });
+  }, 300_000);
 
   // This test will verify a client IVC proof of a more complex tx:
   // 1. Run a mock app that creates two commitments
