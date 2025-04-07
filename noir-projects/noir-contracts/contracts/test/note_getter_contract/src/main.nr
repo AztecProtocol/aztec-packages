@@ -44,8 +44,13 @@ pub contract NoteGetter {
     }
 
     #[utility]
-    unconstrained fn read_note(comparator: u8, value: Field) -> BoundedVec<ValueNote, 10> {
+    unconstrained fn read_note_values(comparator: u8, value: Field) -> BoundedVec<Field, 10> {
         let mut options = NoteViewerOptions::new();
-        storage.set.view_notes(options.select(ValueNote::properties().value, comparator, value))
+        let notes = storage.set.view_notes(options.select(
+            ValueNote::properties().value,
+            comparator,
+            value,
+        ));
+        notes.map(|note| note.value())
     }
 }
