@@ -2,8 +2,8 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
-#include "barretenberg/op_queue/ecc_ops_table.hpp"
-#include "barretenberg/op_queue/eccvm_row_tracker.hpp"
+#include "barretenberg/op_queue//ecc_ops_table.hpp"
+#include "barretenberg/op_queue//eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 namespace bb {

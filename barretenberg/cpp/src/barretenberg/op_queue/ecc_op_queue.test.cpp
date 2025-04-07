@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue//ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;

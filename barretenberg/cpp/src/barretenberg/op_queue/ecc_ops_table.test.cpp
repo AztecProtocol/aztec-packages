@@ -1,7 +1,7 @@
-#include "barretenberg/op_queue/ecc_ops_table.hpp"
+#include "barretenberg/op_queue//ecc_ops_table.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/op_queue//ecc_op_queue.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
 #include <ranges>
