@@ -240,7 +240,7 @@ std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& fo
 
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit);
+        ivc->accumulate(circuit, program.precomputed_vk);
     }
 
     return ivc;

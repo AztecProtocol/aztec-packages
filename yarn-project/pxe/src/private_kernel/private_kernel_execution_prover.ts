@@ -123,6 +123,7 @@ export class PrivateKernelExecutionProver {
             functionName: 'private_kernel_reset',
             bytecode: output.bytecode,
             witness: output.outputWitness,
+            vk: output.verificationKey,
           });
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,

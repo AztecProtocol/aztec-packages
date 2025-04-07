@@ -4,7 +4,7 @@ import type { WitnessMap } from '@aztec/noir-acvm_js';
 import { z } from 'zod';
 
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import type { VerificationKeyAsFields } from '../vks/verification_key.js';
+import { type VerificationKeyAsFields, VerificationKeyData } from '../vks/verification_key.js';
 import type { PrivateKernelCircuitPublicInputs } from './private_kernel_circuit_public_inputs.js';
 import type { PrivateKernelTailCircuitPublicInputs } from './private_kernel_tail_circuit_public_inputs.js';
 
@@ -13,6 +13,7 @@ export const PrivateExecutionStepSchema = z.object({
   gateCount: z.number().optional(),
   bytecode: bufferSchema,
   witness: mapSchema(z.number(), z.string()),
+  verificationKey: VerificationKeyData.schema,
 });
 
 /**
@@ -23,6 +24,7 @@ export interface PrivateExecutionStep {
   gateCount?: number;
   bytecode: Buffer;
   witness: WitnessMap;
+  verificationKey: VerificationKeyData;
 }
 
 /** Represents the output of proven PrivateKernelSimulateOutput.*/

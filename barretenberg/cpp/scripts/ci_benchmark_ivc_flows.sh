@@ -84,7 +84,7 @@ function client_ivc_flow {
 
   run_bb_cli_bench "$runtime" "$output" "prove -o $output -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc --input_type runtime_stack"
 
-  if [ ! -f "$output/op-counts.json" ]; then
+  if [ -f "$output/op-counts.json" ]; then
     scripts/google-bench/summarize-op-counts "$output/op-counts.json"
   fi
 
