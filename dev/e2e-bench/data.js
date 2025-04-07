@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744017008729,
+  "lastUpdate": 1744024246258,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "7f96676164d348cbfb0f8d7c23b88f4844f5a804",
-          "message": "feat(avm): merkle db hints (part 3) (#13199)\n\nSequential inserts for `PUBLIC_DATA_TREE` and `NULLIFIER_TREE`.\n\nBulk test yields\n```\nInitializing HintedRawMerkleDB with...\n * get_sibling_path hints: 39\n * get_previous_value_index hints: 37\n * get_leaf_preimage hints_public_data_tree: 28\n * get_leaf_preimage hints_nullifier_tree: 9\n * get_leaf_value_hints: 0\n * sequential_insert_hints_public_data_tree: 7\n * sequential_insert_hints_nullifier_tree: 2\n```",
-          "timestamp": "2025-04-02T17:00:37Z",
-          "tree_id": "f4548af3dbe89eb17f9e6da1302ff1adce0ed8cc",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7f96676164d348cbfb0f8d7c23b88f4844f5a804"
-        },
-        "date": 1743617011029,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 8415,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.21400316895892593,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 112204,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1939,6 +1900,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 151091,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "2e6cebde0308f3a4e4fbb0b7cb36e354b23924fa",
+          "message": "chore: improve re-ex flake (#13301)\n\nPasses a parallel with 100 iterations on mainframe\n\n**What was happening**\n\n- For the second test, we mock the `publicProcessorFactory.create` which\nis run every time a block will be built.\n- The happy path expects this to get called by the proposer, trigger the\nmapping switch, leading the rest of the calls to trigger a timeout.\n- Every 100 of so times the test is run, the proposer ends up building\nthe block before we mock, which means that not all of the validators run\nthe timeout, so only 2 of them time out, not 3 as the test requires\n\nIn the interests of keeping the test short, and not cleaning out state\nbetween each run, we simply relax the condition that all validators must\nexperience an error, since we assert that the transaction fails to mine",
+          "timestamp": "2025-04-07T10:36:17Z",
+          "tree_id": "f4d43e0a3ccacd7c8e96718fede34f4e908c20b8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/2e6cebde0308f3a4e4fbb0b7cb36e354b23924fa"
+        },
+        "date": 1744024245213,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9508,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.24180960637023227,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 156068,
             "unit": "us"
           }
         ]
