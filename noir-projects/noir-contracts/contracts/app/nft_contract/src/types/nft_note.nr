@@ -1,8 +1,6 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    encrypted_logs::{
-        log_assembly_strategies::default_aes128, log_type::PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID,
-    },
+    encrypted_logs::log_assembly_strategies::default_aes128,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
     note::note_interface::{NoteHash, NoteType},

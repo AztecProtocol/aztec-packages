@@ -805,7 +805,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
   ): Promise<void> {
@@ -824,7 +824,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
