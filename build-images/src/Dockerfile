@@ -99,7 +99,7 @@ RUN curl -L https://foundry.paradigm.xyz | bash \
 # You should use the devbox image for development and CI runs.
 # We favour using the devbox in CI as we can drop into a familiar environment on error.
 # It also means we're effectively testing the devbox in CI.
-# We use this image for test isolation
+# We use this image for test isolation.
 FROM base-build AS build
 RUN apt update && \
     apt install -y \
@@ -115,6 +115,7 @@ RUN apt update && \
         xz-utils \
         lsof \
         xxd \
+        zstd \
         # C++ (clang=18, which we will move to. 16 is for current build.)
         build-essential \
         cmake \
@@ -131,7 +132,7 @@ RUN apt update && \
         # Python (clang bindings for wasm bindgen.)
         python3 \
         python3-clang \
-        # Unminimize ubuntu installation, recently removed from base images
+        # Unminimize ubuntu installation.
         unminimize \
     && apt-get -y autoremove \
     && apt-get clean \
@@ -165,7 +166,7 @@ RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "aws
     ./aws/install --bin-dir /usr/local/bin --install-dir /usr/local/aws-cli --update && \
     rm -rf aws awscliv2.zip
 
-# Install gcloud cli
+# Install gcloud cli.
 RUN apt-get update && apt-get install apt-transport-https gnupg -y \
     && curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
     && echo "deb [signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" | tee -a /etc/apt/sources.list.d/google-cloud-sdk.list \
@@ -195,7 +196,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/opt/ms-playwright
 # We want to produce downstream images: devbox and sysbox. This image is the base image for each.
 # It contains a suite of tools that developers might use to develop aztec.
 FROM build AS basebox
-RUN apt install unminimize && yes | unminimize
+RUN yes | unminimize
 
 # Install stuff devs need.
 RUN apt update && \

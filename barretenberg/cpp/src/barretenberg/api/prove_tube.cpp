@@ -2,6 +2,7 @@
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/api/init_srs.hpp"
 #include "barretenberg/common/map.hpp"
+#include "barretenberg/honk/proof_system/types/proof.hpp"
 #include "barretenberg/stdlib/client_ivc_verifier/client_ivc_recursive_verifier.hpp"
 
 namespace bb {
@@ -11,14 +12,14 @@ namespace bb {
  * @param output_path the working directory from which the proof and verification data are read
  * @param num_unused_public_inputs
  */
-void prove_tube(const std::string& output_path)
+void prove_tube(const std::string& output_path, const std::string& vk_path)
 {
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
     using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
-    std::string vkPath = output_path + "/vk";
     std::string proof_path = output_path + "/proof";
 
     // Note: this could be decreased once we optimise the size of the ClientIVC recursive verifier
@@ -26,8 +27,8 @@ void prove_tube(const std::string& output_path)
     init_grumpkin_crs(1 << 18);
 
     // Read the proof  and verification data from given files
-    auto proof = from_buffer<ClientIVC::Proof>(read_file(proof_path));
-    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vkPath));
+    auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
+    auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
     // verify IPA. The + 1 is to satisfy IPA verification key requirements.
@@ -50,12 +51,9 @@ void prove_tube(const std::string& output_path)
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    PairingPointAccumulatorIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
-    builder->add_pairing_point_accumulator(current_aggregation_object);
+    AggregationObject::add_default_pairing_points_to_public_inputs(*builder);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());
@@ -66,14 +64,27 @@ void prove_tube(const std::string& output_path)
     using Verifier = UltraVerifier_<UltraRollupFlavor>;
     Prover tube_prover{ *builder };
     auto tube_proof = tube_prover.construct_proof();
+    std::string tubePublicInputsPath = output_path + "/public_inputs";
     std::string tubeProofPath = output_path + "/proof";
-    write_file(tubeProofPath, to_buffer<true>(tube_proof));
+    PublicInputsAndProof public_inputs_and_proof{
+        PublicInputsVector(tube_proof.begin(),
+                           tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs)),
+        HonkProof(tube_proof.begin() + static_cast<std::ptrdiff_t>(num_inner_public_inputs), tube_proof.end())
+    };
+    write_file(tubePublicInputsPath, to_buffer(public_inputs_and_proof.public_inputs));
+    write_file(tubeProofPath, to_buffer(public_inputs_and_proof.proof));
 
+    std::string tubePublicInputsAsFieldsPath = output_path + "/public_inputs_fields.json";
     std::string tubeProofAsFieldsPath = output_path + "/proof_fields.json";
     const auto to_json = [](const std::vector<bb::fr>& data) {
+        if (data.empty()) {
+            return std::string("[]");
+        }
         return format("[", join(map(data, [](auto fr) { return format("\"", fr, "\""); })), "]");
     };
-    auto proof_data = to_json(tube_proof);
+    auto public_inputs_data = to_json(public_inputs_and_proof.public_inputs);
+    auto proof_data = to_json(public_inputs_and_proof.proof);
+    write_file(tubePublicInputsAsFieldsPath, { public_inputs_data.begin(), public_inputs_data.end() });
     write_file(tubeProofAsFieldsPath, { proof_data.begin(), proof_data.end() });
 
     std::string tubeVkPath = output_path + "/vk";

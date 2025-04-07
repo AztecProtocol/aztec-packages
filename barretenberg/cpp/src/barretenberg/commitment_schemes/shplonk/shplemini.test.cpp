@@ -36,38 +36,6 @@ template <class Flavor> class ShpleminiTest : public CommitmentTest<typename Fla
     using GroupElement = typename Flavor::Curve::Element;
     using Commitment = typename Flavor::Curve::AffineElement;
     using CK = typename Flavor::CommitmentKey;
-
-    void compute_sumcheck_opening_data(std::vector<bb::Polynomial<Fr>>& round_univariates,
-                                       std::vector<Commitment>& sumcheck_commitments,
-                                       std::vector<std::array<Fr, 3>>& sumcheck_evaluations,
-                                       std::vector<Fr>& challenge,
-                                       std::shared_ptr<CK>& ck)
-    {
-        // Generate valid sumcheck polynomials of given length
-        auto mock_sumcheck_polynomials = ZKSumcheckData<Flavor>(log_n, sumcheck_univariate_length);
-        for (size_t idx = 0; idx < log_n; idx++) {
-            bb::Polynomial<Fr> round_univariate = mock_sumcheck_polynomials.libra_univariates[idx];
-
-            round_univariate.at(0) += mock_sumcheck_polynomials.libra_running_sum;
-
-            sumcheck_commitments.push_back(ck->commit(round_univariate));
-
-            sumcheck_evaluations.push_back({ round_univariate.at(0),
-                                             round_univariate.evaluate(Fr(1)),
-                                             round_univariate.evaluate(challenge[idx]) });
-
-            mock_sumcheck_polynomials.update_zk_sumcheck_data(challenge[idx], idx);
-            round_univariates.push_back(round_univariate);
-        }
-
-        // Simulate the `const proof size` logic
-        auto round_univariate = bb::Polynomial<Fr>(this->n);
-        for (size_t idx = this->log_n; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
-            round_univariates.push_back(round_univariate);
-            sumcheck_commitments.push_back(ck->commit(round_univariate));
-            sumcheck_evaluations.push_back({ Fr(0), Fr(0), Fr(0) });
-        }
-    }
 };
 
 using TestSettings = ::testing::Types<BN254Settings, GrumpkinSettings>;
@@ -196,6 +164,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr rho = Fr::random_element();
     Fr gemini_eval_challenge = Fr::random_element();
     Fr shplonk_batching_challenge = Fr::random_element();
+
+    std::vector<Fr> shplonk_batching_challenge_powers =
+        compute_shplonk_batching_challenge_powers(shplonk_batching_challenge, this->log_n);
+
     Fr shplonk_eval_challenge = Fr::random_element();
 
     std::vector<Fr> mle_opening_point = this->random_evaluation_point(this->log_n);
@@ -239,32 +211,44 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     std::vector<Fr> r_squares = gemini::powers_of_evaluation_challenge(gemini_eval_challenge, this->log_n);
 
     GroupElement expected_result = GroupElement::zero();
-    std::vector<Fr> expected_inverse_vanishing_evals(this->log_n + 1);
+    std::vector<Fr> expected_inverse_vanishing_evals;
+    expected_inverse_vanishing_evals.reserve(2 * this->log_n);
     // Compute expected inverses
-    expected_inverse_vanishing_evals[0] = (shplonk_eval_challenge - r_squares[0]).invert();
-    for (size_t idx = 1; idx < this->log_n + 1; idx++) {
-        expected_inverse_vanishing_evals[idx] = (shplonk_eval_challenge + r_squares[idx - 1]).invert();
+    for (size_t idx = 0; idx < this->log_n; idx++) {
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge - r_squares[idx]).invert());
+        expected_inverse_vanishing_evals.emplace_back((shplonk_eval_challenge + r_squares[idx]).invert());
     }
 
     Fr current_challenge{ shplonk_batching_challenge * shplonk_batching_challenge };
     for (size_t idx = 0; idx < prover_commitments.size(); ++idx) {
-        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[idx + 2];
+        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[2 * idx + 2];
+        current_challenge *= shplonk_batching_challenge;
+        expected_result -= prover_commitments[idx] * current_challenge * expected_inverse_vanishing_evals[2 * idx + 3];
         current_challenge *= shplonk_batching_challenge;
     }
 
     // Run the ShepliminiVerifier batching method
     std::vector<Fr> inverse_vanishing_evals =
-        ShplonkVerifier::compute_inverted_gemini_denominators(this->log_n + 1, shplonk_eval_challenge, r_squares);
+        ShplonkVerifier::compute_inverted_gemini_denominators(shplonk_eval_challenge, r_squares);
 
+    Fr expected_constant_term_accumulator{ 0 };
+
+    std::vector<Fr> gemini_fold_pos_evaluations =
+        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(this->log_n,
+                                                             expected_constant_term_accumulator,
+                                                             mle_opening_point,
+                                                             r_squares,
+                                                             prover_evaluations,
+                                                             expected_constant_term_accumulator);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
-    Fr expected_constant_term_accumulator{ 0 };
 
     ShpleminiVerifier::batch_gemini_claims_received_from_prover(this->log_n,
                                                                 prover_commitments,
                                                                 prover_evaluations,
+                                                                gemini_fold_pos_evaluations,
                                                                 inverse_vanishing_evals,
-                                                                shplonk_batching_challenge,
+                                                                shplonk_batching_challenge_powers,
                                                                 commitments,
                                                                 scalars,
                                                                 expected_constant_term_accumulator);
@@ -407,9 +391,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
 
-    // Generate Sumcheck challenge, current implementation of Sumcheck Round Univariates batching in Shplemini assumes
-    // that the challenge is of CONST_PROOF_SIZE_LOG_N
-    std::vector<Fr> challenge = this->random_evaluation_point(CONST_PROOF_SIZE_LOG_N);
+    // Generate Sumcheck challenge
+    std::vector<Fr> challenge = this->random_evaluation_point(this->log_n);
 
     auto prover_transcript = TypeParam::Transcript::prover_init_empty();
 
@@ -420,7 +403,7 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
 
     // Generate valid sumcheck polynomials of given length
     mock_claims.template compute_sumcheck_opening_data<TypeParam>(
-        this->n, this->log_n, this->sumcheck_univariate_length, challenge, ck);
+        this->log_n, this->sumcheck_univariate_length, challenge, ck);
 
     // Compute the sum of the Libra constant term and Libra univariates evaluated at Sumcheck challenges
     const Fr claimed_inner_product =

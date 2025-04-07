@@ -209,6 +209,12 @@ describe('ServerWorldStateSynchronizer', () => {
   it('throws if you try to immediate sync when not running', async () => {
     await expect(server.syncImmediate(3)).rejects.toThrow(/is not running/i);
   });
+
+  it('throws if handling blocks fails', async () => {
+    void server.start();
+    merkleTreeDb.handleL2BlockAndMessages.mockRejectedValue(new Error('Test error'));
+    await expect(pushBlocks(1, 5)).rejects.toThrow(/Test error/i);
+  });
 });
 
 class TestWorldStateSynchronizer extends ServerWorldStateSynchronizer {

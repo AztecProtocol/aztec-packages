@@ -1,6 +1,6 @@
-#!/bin/bash
-set -e
-source ../utils/setup.sh
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Tx management"
 
@@ -19,6 +19,3 @@ section Last transaction hash is ${TX_HASH}
 TX_STATUS=$(aztec-wallet get-tx ${TX_HASH} | grep "Status: " | awk '{print $2}')
 
 assert_eq ${TX_STATUS} "success"
-
-
-

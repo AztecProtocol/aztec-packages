@@ -1,18 +1,18 @@
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { InBlock, L2Block } from '@aztec/stdlib/block';
+import type { L2Block } from '@aztec/stdlib/block';
 import type {
   ContractClassPublic,
   ContractInstanceUpdateWithAddress,
   ContractInstanceWithAddress,
   ExecutablePrivateFunctionWithMembershipProof,
-  UnconstrainedFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/contract';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from '@aztec/stdlib/interfaces/client';
 import type { LogFilter, PrivateLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import type { InboxLeaf } from '@aztec/stdlib/messaging';
-import { BlockHeader, type TxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
+import { BlockHeader, type IndexedTxEffect, type TxHash, type TxReceipt } from '@aztec/stdlib/tx';
 
 import type { DataRetrieval } from './structs/data_retrieval.js';
 import type { PublishedL2Block } from './structs/published.js';
@@ -68,10 +68,10 @@ export interface ArchiverDataStore {
 
   /**
    * Gets a tx effect.
-   * @param txHash - The txHash of the tx corresponding to the tx effect.
-   * @returns The requested tx effect (or undefined if not found).
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets a receipt of a settled tx.
@@ -87,23 +87,6 @@ export interface ArchiverDataStore {
    */
   addLogs(blocks: L2Block[]): Promise<boolean>;
   deleteLogs(blocks: L2Block[]): Promise<boolean>;
-
-  /**
-   * Append new nullifiers to the store's list.
-   * @param blocks - The blocks for which to add the nullifiers.
-   * @returns True if the operation is successful.
-   */
-  addNullifiers(blocks: L2Block[]): Promise<boolean>;
-  deleteNullifiers(blocks: L2Block[]): Promise<boolean>;
-
-  /**
-   * Returns the provided nullifier indexes scoped to the block
-   * they were first included in, or undefined if they're not present in the tree
-   * @param blockNumber Max block number to search for the nullifiers
-   * @param nullifiers Nullifiers to get
-   * @returns The block scoped indexes of the provided nullifiers, or undefined if the nullifier doesn't exist in the tree
-   */
-  findNullifiersIndexesWithBlock(blockNumber: number, nullifiers: Fr[]): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
    * Append L1 to L2 messages to the store.
@@ -238,7 +221,7 @@ export interface ArchiverDataStore {
   addFunctions(
     contractClassId: Fr,
     privateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    unconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    utilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean>;
 
   /**
@@ -255,10 +238,16 @@ export interface ArchiverDataStore {
   //        artifact supplied to the node out of band. This should be reviewed and potentially removed as part of
   //        the node api cleanup process.
   registerContractFunctionSignatures(address: AztecAddress, signatures: string[]): Promise<void>;
-  getContractFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
+  getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 
   /**
    * Estimates the size of the store in bytes.
    */
   estimateSize(): Promise<{ mappingSize: number; actualSize: number; numItems: number }>;
+
+  /** Backups the archiver db to the target folder. Returns the path to the db file. */
+  backupTo(path: string): Promise<string>;
+
+  /** Closes the underlying data store. */
+  close(): Promise<void>;
 }

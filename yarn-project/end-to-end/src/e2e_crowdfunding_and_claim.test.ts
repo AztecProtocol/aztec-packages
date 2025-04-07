@@ -148,28 +148,21 @@ describe('e2e_crowdfunding_and_claim', () => {
   it('full donor flow', async () => {
     const donationAmount = 1000n;
 
-    // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
+    // 1) We create an authwit so that the Crowdfunding contract can transfer donor's DNT and donate
     {
       const action = donationToken
         .withWallet(donorWallets[0])
         .methods.transfer_in_private(donorWallets[0].getAddress(), crowdfundingContract.address, donationAmount, 0);
       const witness = await donorWallets[0].createAuthWit({ caller: crowdfundingContract.address, action });
-      await donorWallets[0].addAuthWitness(witness);
-    }
-
-    // 2) We donate to the crowdfunding contract
-    {
       const donateTxReceipt = await crowdfundingContract
         .withWallet(donorWallets[0])
         .methods.donate(donationAmount)
-        .send()
-        .wait({
-          debug: true,
-        });
+        .send({ authWitnesses: [witness] })
+        .wait();
 
       // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
       await crowdfundingContract.withWallet(donorWallets[0]).methods.sync_notes().simulate();
-      const notes = await donorWallets[0].getNotes({ txHash: donateTxReceipt.txHash });
+      const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
       const filteredNotes = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
       expect(filteredNotes!.length).toEqual(1);
 
@@ -177,11 +170,8 @@ describe('e2e_crowdfunding_and_claim', () => {
       uintNote = processUniqueNote(filteredNotes![0]);
     }
 
-    // 3) We claim the reward token via the Claim contract
+    // 2) We claim the reward token via the Claim contract
     {
-      // We allow the donor wallet to use the crowdfunding contract's notes
-      donorWallets[0].setScopes([donorWallets[0].getAddress(), crowdfundingContract.address]);
-
       await claimContract
         .withWallet(donorWallets[0])
         .methods.claim(uintNote, donorWallets[0].getAddress())
@@ -198,9 +188,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       .simulate();
     expect(balanceDNTBeforeWithdrawal).toEqual(0n);
 
-    // We allow the operator wallet to use the crowdfunding contract's notes
-    operatorWallet.setScopes([operatorWallet.getAddress(), crowdfundingContract.address]);
-    // 4) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
+    // 3) At last, we withdraw the raised funds from the crowdfunding contract to the operator's address
     await crowdfundingContract.methods.withdraw(donationAmount).send().wait();
 
     const balanceDNTAfterWithdrawal = await donationToken.methods
@@ -224,43 +212,35 @@ describe('e2e_crowdfunding_and_claim', () => {
     const donorWallet = donorWallets[1];
     const unrelatedWallet = donorWallets[0];
 
-    // 1) We permit the crowdfunding contract to pull the donation amount from the donor's wallet
-    {
-      const action = donationToken
-        .withWallet(donorWallet)
-        .methods.transfer_in_private(donorWallet.getAddress(), crowdfundingContract.address, donationAmount, 0);
-      const witness = await donorWallet.createAuthWit({ caller: crowdfundingContract.address, action });
-      await donorWallet.addAuthWitness(witness);
-    }
+    // 1) We permit the crowdfunding contract to pull the donation amount from the donor's wallet, and we donate
 
-    // 2) We donate to the crowdfunding contract
+    const action = donationToken
+      .withWallet(donorWallet)
+      .methods.transfer_in_private(donorWallet.getAddress(), crowdfundingContract.address, donationAmount, 0);
+    const witness = await donorWallet.createAuthWit({ caller: crowdfundingContract.address, action });
     const donateTxReceipt = await crowdfundingContract
       .withWallet(donorWallet)
       .methods.donate(donationAmount)
-      .send()
-      .wait({
-        debug: true,
-      });
+      .send({ authWitnesses: [witness] })
+      .wait();
 
     // Get the notes emitted by the Crowdfunding contract and check that only 1 was emitted (the UintNote)
     await crowdfundingContract.withWallet(unrelatedWallet).methods.sync_notes().simulate();
-    const notes = await unrelatedWallet.getNotes({ txHash: donateTxReceipt.txHash });
+    const notes = await pxe.getNotes({ txHash: donateTxReceipt.txHash });
     const filtered = notes.filter(x => x.contractAddress.equals(crowdfundingContract.address));
     expect(filtered!.length).toEqual(1);
 
     // Set the UintNote in a format which can be passed to claim function
     const anotherDonationNote = processUniqueNote(filtered![0]);
 
-    // 3) We try to claim the reward token via the Claim contract with the unrelated wallet
-    {
-      await expect(
-        claimContract
-          .withWallet(unrelatedWallet)
-          .methods.claim(anotherDonationNote, donorWallet.getAddress())
-          .send()
-          .wait(),
-      ).rejects.toThrow('Note does not belong to the sender');
-    }
+    // 2) We try to claim the reward token via the Claim contract with the unrelated wallet
+    await expect(
+      claimContract
+        .withWallet(unrelatedWallet)
+        .methods.claim(anotherDonationNote, donorWallet.getAddress())
+        .send()
+        .wait(),
+    ).rejects.toThrow('Note does not belong to the sender');
   });
 
   it('cannot claim with a non-existent note', async () => {
@@ -291,9 +271,9 @@ describe('e2e_crowdfunding_and_claim', () => {
       const receipt = await testContract.methods
         .call_create_note(arbitraryValue, owner, sender, arbitraryStorageSlot)
         .send()
-        .wait({ debug: true });
+        .wait();
       await testContract.methods.sync_notes().simulate();
-      const notes = await wallets[0].getNotes({ txHash: receipt.txHash });
+      const notes = await pxe.getNotes({ txHash: receipt.txHash });
       expect(notes.length).toEqual(1);
       note = processUniqueNote(notes[0]);
     }
@@ -315,12 +295,13 @@ describe('e2e_crowdfunding_and_claim', () => {
       .withWallet(donorWallets[1])
       .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
     const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
-    await donorWallets[1].addAuthWitness(witness);
 
     // 2) We donate to the crowdfunding contract
-    await crowdfundingContract.withWallet(donorWallets[1]).methods.donate(donationAmount).send().wait({
-      debug: true,
-    });
+    await crowdfundingContract
+      .withWallet(donorWallets[1])
+      .methods.donate(donationAmount)
+      .send({ authWitnesses: [witness] })
+      .wait();
 
     // Calling the function normally will fail as msg_sender != operator
     await expect(
@@ -331,7 +312,7 @@ describe('e2e_crowdfunding_and_claim', () => {
     const [call] = (await crowdfundingContract.withWallet(donorWallets[1]).methods.withdraw(donationAmount).request())
       .calls;
     // ...using the withdraw fn as our entrypoint
-    const entrypointHashedValues = await HashedValues.fromValues(call.args);
+    const entrypointHashedValues = await HashedValues.fromArgs(call.args);
     const maxFeesPerGas = await pxe.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,
@@ -347,9 +328,6 @@ describe('e2e_crowdfunding_and_claim', () => {
     // This does not protect fully against impersonation as the contract could just call context.end_setup() and the below would pass.
     // => the private_init msg_sender assertion is required (#7190, #7404)
 
-    // We allow the donor wallet to use the crowdfunding contract's notes
-    donorWallets[1].setScopes([donorWallets[1].getAddress(), crowdfundingContract.address]);
-
     await expect(donorWallets[1].simulateTx(request, true, operatorWallet.getAddress())).rejects.toThrow(
       'Circuit execution failed: Users cannot set msg_sender in first call',
     );
@@ -359,20 +337,22 @@ describe('e2e_crowdfunding_and_claim', () => {
     const donationAmount = 1000n;
 
     // 1) We add authwit so that the Crowdfunding contract can transfer donor's DNT
-    {
-      const action = donationToken
-        .withWallet(donorWallets[1])
-        .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
-      const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
-      await donorWallets[1].addAuthWitness(witness);
-    }
+
+    const action = donationToken
+      .withWallet(donorWallets[1])
+      .methods.transfer_in_private(donorWallets[1].getAddress(), crowdfundingContract.address, donationAmount, 0);
+    const witness = await donorWallets[1].createAuthWit({ caller: crowdfundingContract.address, action });
 
     // 2) We set next block timestamp to be after the deadline
     await cheatCodes.eth.warp(deadline + 1);
 
     // 3) We donate to the crowdfunding contract
     await expect(
-      crowdfundingContract.withWallet(donorWallets[1]).methods.donate(donationAmount).send().wait(),
+      crowdfundingContract
+        .withWallet(donorWallets[1])
+        .methods.donate(donationAmount)
+        .send({ authWitnesses: [witness] })
+        .wait(),
     ).rejects.toThrow();
   });
 });

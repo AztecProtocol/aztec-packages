@@ -1,12 +1,11 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { RollupAbi } from '@aztec/l1-artifacts';
+import { RollupContract } from '@aztec/ethereum';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
-import { getContract } from 'viem';
 
 import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
@@ -33,6 +32,7 @@ describe('e2e_p2p_reqresp_tx', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
       },
     });
     await t.setupAccount();
@@ -66,7 +66,6 @@ describe('e2e_p2p_reqresp_tx', () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
-    const contexts: NodeContext[] = [];
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
@@ -101,15 +100,20 @@ describe('e2e_p2p_reqresp_tx', () => {
 
     t.logger.info('Submitting transactions');
 
+    const contextPromises: Promise<NodeContext>[] = [];
+    // Send to the first two proposers
     for (const nodeIndex of proposerIndexes.slice(0, 2)) {
-      const context = await createPXEServiceAndSubmitTransactions(
+      const context = createPXEServiceAndSubmitTransactions(
         t.logger,
         nodes[nodeIndex],
         NUM_TXS_PER_NODE,
         t.fundedAccount,
       );
-      contexts.push(context);
+      contextPromises.push(context);
     }
+    const contexts: NodeContext[] = await Promise.all(contextPromises);
+
+    // Wait for transactions to be sent
 
     t.logger.info('Waiting for transactions to be mined');
     await Promise.all(
@@ -130,25 +134,24 @@ describe('e2e_p2p_reqresp_tx', () => {
    */
   async function getProposerIndexes() {
     // Get the nodes for the next set of slots
-    const rollupContract = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues.publicClient,
-    });
+    const rollupContract = new RollupContract(
+      t.ctx.deployL1ContractsValues.publicClient,
+      t.ctx.deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+    );
 
-    const attesters = await rollupContract.read.getAttesters();
+    const attesters = await rollupContract.getAttesters();
     const mappedProposers = await Promise.all(
-      attesters.map(async attester => await rollupContract.read.getProposerForAttester([attester])),
+      attesters.map(async attester => await rollupContract.getProposerForAttester(attester)),
     );
 
     const currentTime = await t.ctx.cheatCodes.eth.timestamp();
-    const slotDuration = await rollupContract.read.getSlotDuration();
+    const slotDuration = await rollupContract.getSlotDuration();
 
     const proposers = [];
 
     for (let i = 0; i < 3; i++) {
       const nextSlot = BigInt(currentTime) + BigInt(i) * BigInt(slotDuration);
-      const proposer = await rollupContract.read.getProposerAt([nextSlot]);
+      const proposer = await rollupContract.getProposerAt(nextSlot);
       proposers.push(proposer);
     }
     // Get the indexes of the nodes that are responsible for the next two slots

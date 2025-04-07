@@ -297,7 +297,7 @@ All projects have at least a "build hash". This is computed using `cache_content
 
 Some projects will also have a "test hash". The test hash is part of the input to deciding if a test should be re-run. So this might also include files that don't make up the build hash, but are used as part of testing.
 
-To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`./../noir/.rebuild_patterns`), and the test programs themselves (`../../noir/.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
+To give a concrete example, take `barretenberg/acir_tests`. Here we have a build hash that consists of what makes up `nargo` (`../../noir/.rebuild_patterns` and `../noir/.noir-repo.rebuild_patterns`, but do make use of `../../noir/bootstrap.sh hash` to compute it correctly), and the test programs themselves (`../../noir/.noir-repo.rebuild_patterns_tests`) as they are actually compiled using nargo with the results stored in the build cache. The "test hash" then additionally adds barretenbergs cpp and ts code, because both are used in the actual _running_ of the tests.
 
 If a test successfully runs in CI, it won't be run again unless its redis key changes. This key consists of the "test hash" and the "test command". Here's an example:
 

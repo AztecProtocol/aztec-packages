@@ -8,7 +8,8 @@
 // with the non-constexpr setting. Right now everything is more or less duplicated across BarycentricDataCompileTime and
 // BarycentricDataRunTime. There should be a way to share more of the logic.
 
-/* IMPROVEMENT(Cody): This could or should be improved in various ways. In no particular order:
+/* TODO(https://github.com/AztecProtocol/barretenberg/issues/10): This could or should be improved in various ways. In
+   no particular order:
    1) Edge cases are not considered. One non-use case situation (I forget which) leads to a segfault.
 
    2) Precomputing for all possible size pairs is probably feasible and might be a better solution than instantiating

@@ -21,6 +21,7 @@ library Errors {
   // Inbox
   error Inbox__Unauthorized(); // 0xe5336a6b
   error Inbox__ActorTooLarge(bytes32 actor); // 0xa776a06e
+  error Inbox__VersionMismatch(uint256 expected, uint256 actual); // 0x47452014
   error Inbox__ContentTooLarge(bytes32 content); // 0x47452014
   error Inbox__SecretHashTooLarge(bytes32 secretHash); // 0xecde7e2c
   error Inbox__MustBuildBeforeConsume(); // 0xc4901999
@@ -28,7 +29,7 @@ library Errors {
   // Outbox
   error Outbox__Unauthorized(); // 0x2c9490c2
   error Outbox__InvalidChainId(); // 0x577ec7c4
-  error Outbox__InvalidVersion(uint256 entry, uint256 message); // 0x7915cac3
+  error Outbox__VersionMismatch(uint256 expected, uint256 actual);
   error Outbox__NothingToConsume(bytes32 messageHash); // 0xfb4fb506
   error Outbox__IncompatibleEntryArguments(
     bytes32 messageHash,
@@ -96,6 +97,7 @@ library Errors {
 
   // SampleLib
   error SampleLib__IndexOutOfBounds(uint256 requested, uint256 bound); // 0xa12fc559
+  error SampleLib__SampleLargerThanIndex(uint256 sample, uint256 index); // 0xa11b0f79
 
   // Sequencer Selection (ValidatorSelection)
   error ValidatorSelection__EpochNotSetup(); // 0x10816cae

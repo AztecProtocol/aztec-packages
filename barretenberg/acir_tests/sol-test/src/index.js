@@ -216,27 +216,42 @@ const killAnvil = () => {
   console.log(testName, " complete");
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1316): Clean this code up. We are trying to use this logic for three different flows: bb plonk, bb honk, and bbjs honk, and all three have different setups.
 try {
-  const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-  const proofAsFields = readFileSync(proofAsFieldsPath);
-  const [numPublicInputs, publicInputs] = readPublicInputs(
-    JSON.parse(proofAsFields.toString())
-  );
-
   const proofPath = getEnvVar("PROOF");
-  const proof = readFileSync(proofPath);
 
-  // Cut the number of public inputs out of the proof string
-  let proofStr = proof.toString("hex");
-  if (testingHonk) {
-    // Cut off the serialised buffer size at start
-    proofStr = proofStr.substring(8);
-    // Get the part after the public inputs
-    proofStr = proofStr.substring(64 * numPublicInputs);
+  let proofStr = "";
+
+  const proof = readFileSync(proofPath);
+  proofStr = proof.toString("hex");
+
+  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
+    "PUBLIC_INPUTS_AS_FIELDS"
+  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
+  var publicInputs;
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
+  let numExtraPublicInputs = 0;
+  let extraPublicInputs = [];
+  if (proofAsFieldsPath) {
+    const proofAsFields = readFileSync(proofAsFieldsPath);
+    // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
+    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
+      JSON.parse(proofAsFields.toString())
+    );
+  }
+  // We need to do this because plonk doesn't define this path
+  if (publicInputsAsFieldsPath) {
+    const innerPublicInputs = JSON.parse(
+      readFileSync(publicInputsAsFieldsPath).toString()
+    ); // assumes JSON array of PI hex strings
+
+    publicInputs = innerPublicInputs.concat(extraPublicInputs);
   } else {
-    proofStr = proofStr.substring(64 * numPublicInputs);
+    // for plonk, the extraPublicInputs are all of the public inputs
+    publicInputs = extraPublicInputs;
   }
 
+  proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
   const key =

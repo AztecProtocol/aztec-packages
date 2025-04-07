@@ -4,8 +4,6 @@
 > [!WARNING]
 > :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
-![banner](../.github/img/bb_banner.png)
-
 # Barretenberg
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
@@ -77,13 +75,6 @@ bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
 ```
 
 If successful, the verification will complete in silence.
-
-### MegaHonk
-
-The usage with MegaHonk is similar to the above UltraHonk. Refer to all the available `bb` commands, using the `bb <command>_mega_honk` syntax.
-
-> [!WARNING]
-> MegaHonk generates insecure recursion circuits when Goblin recursive verifiers are not present.
 
 ### Solidity verifier
 
@@ -394,6 +385,12 @@ cmake --build --preset default --target run_ecc_bench
 
 ### Debugging
 
+#### Running Realistic ClientIVC from barretenberg folder
+One can now run (for example, any master commit that has finished benchmarking can be used):
+`barretenberg/cpp/bootstrap.sh e2e_ivc_bench 88c0e046ccb8381910a4615ac6218dcdbf04d898`
+
+If one doesn't provide the commit this (if yarn project is bootstrapped) generate these IVC inputs on the fly.
+
 #### Debugging Verifification Failures
 
 The CircuitChecker::check_circuit function is used to get the gate index and block information about a failing circuit constraint.
@@ -472,6 +469,11 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 ```
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
+
+
+#### Debugging and profiling realistic ClientIVC flows
+
+To download realistic ClientIVC benchmark inputs from last master, use `./barretenberg/cpp/bootstrap.sh download_e2e_ivc_inputs` and run ClientIVC proving with --input runtime_stack on those inputs. By default, tries to pull from last master, but you can pass a historic commit as an argument.
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 

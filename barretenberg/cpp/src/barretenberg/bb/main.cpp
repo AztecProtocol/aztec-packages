@@ -84,6 +84,7 @@ int main(int argc, char* argv[])
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
+    std::filesystem::path public_inputs_path{ "./target/public_inputs" };
     std::filesystem::path proof_path{ "./target/proof" };
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
@@ -171,9 +172,9 @@ int main(int argc, char* argv[])
             subcommand
                 ->add_option("--input_type",
                              flags.input_type,
-                             "Specify the type of input circuit. Options are: single_circuit, compiletime_stack, "
-                             "runtime_stack")
-                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"));
+                             "Is the input a single circuit, a compile-time stack or a run-time stack?")
+                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"))
+                ->default_val("single_circuit");
         return input_type_option;
     };
 
@@ -201,6 +202,11 @@ int main(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
+    const auto add_public_inputs_path_option = [&](CLI::App* subcommand) {
+        return subcommand->add_option(
+            "--public_inputs_path, -i", public_inputs_path, "Path to public inputs.") /* ->check(CLI::ExistingFile) */;
+    };
+
     const auto add_proof_path_option = [&](CLI::App* subcommand) {
         return subcommand->add_option(
             "--proof_path, -p", proof_path, "Path to a proof.") /* ->check(CLI::ExistingFile) */;
@@ -209,6 +215,19 @@ int main(int argc, char* argv[])
     const auto add_vk_path_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--vk_path, -k", vk_path, "Path to a verification key.")
             /* ->check(CLI::ExistingFile) */;
+    };
+
+    const auto add_verifier_type_option = [&](CLI::App* subcommand) {
+        return subcommand
+            ->add_option("--verifier_type",
+                         flags.verifier_type,
+                         "Is a verification key for use a standalone single circuit verifier (e.g. a SNARK or folding "
+                         "recursive verifier) or is it for an ivc verifier? `standalone` produces a verification key "
+                         "is sufficient for verifying proofs about a single circuit (including the non-encsapsulated "
+                         "use case where an IVC scheme is manually constructed via recursive UltraHonk proof "
+                         "verification). `ivc` produces a verification key for verifying the stack of run though a "
+                         "dedicated ivc verifier class (currently the only option is the ClientIVC class) ")
+            ->check(CLI::IsMember({ "standalone", "ivc" }).name("is_member"));
     };
 
     const auto add_verbose_flag = [&](CLI::App* subcommand) {
@@ -310,12 +329,14 @@ int main(int argc, char* argv[])
     add_ipa_accumulation_flag(write_vk);
     add_honk_recursion_option(write_vk);
     add_recursive_flag(write_vk);
+    add_verifier_type_option(write_vk)->default_val("standalone");
 
     /***************************************************************************************************************
      * Subcommand: verify
      ***************************************************************************************************************/
     CLI::App* verify = app.add_subcommand("verify", "Verify a proof.");
 
+    add_public_inputs_path_option(verify);
     add_proof_path_option(verify);
     add_vk_path_option(verify);
 
@@ -632,6 +653,7 @@ int main(int argc, char* argv[])
     add_verbose_flag(prove_tube_command);
     add_debug_flag(prove_tube_command);
     add_crs_path_option(prove_tube_command);
+    add_vk_path_option(prove_tube_command);
     std::string prove_tube_output_path{ "./target" };
     add_output_path_option(prove_tube_command, prove_tube_output_path);
 
@@ -656,6 +678,7 @@ int main(int argc, char* argv[])
     verbose_logging = debug_logging || flags.verbose;
 
     print_active_subcommands(app);
+    info("Scheme is: ", flags.scheme);
     if (CLI::App* deepest = find_deepest_subcommand(&app)) {
         print_subcommand_options(deepest);
     }
@@ -679,7 +702,9 @@ int main(int argc, char* argv[])
             return 0;
         }
         if (verify->parsed()) {
-            return api.verify(flags, proof_path, vk_path) ? 0 : 1;
+            const bool verified = api.verify(flags, public_inputs_path, proof_path, vk_path);
+            vinfo("verified: ", verified);
+            return verified ? 0 : 1;
         }
         if (write_solidity_verifier->parsed()) {
             api.write_solidity_verifier(flags, output_path, vk_path);
@@ -735,12 +760,16 @@ int main(int argc, char* argv[])
 #endif
         // TUBE
         else if (prove_tube_command->parsed()) {
-            prove_tube(prove_tube_output_path);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1201): Potentially remove this extra logic.
+            prove_tube(prove_tube_output_path, vk_path);
         } else if (verify_tube_command->parsed()) {
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Remove verify_tube logic.
+            auto tube_public_inputs_path = tube_proof_and_vk_path + "/public_inputs";
             auto tube_proof_path = tube_proof_and_vk_path + "/proof";
             auto tube_vk_path = tube_proof_and_vk_path + "/vk";
             UltraHonkAPI api;
-            return api.verify({ .ipa_accumulation = true }, tube_proof_path, tube_vk_path) ? 0 : 1;
+            return api.verify({ .ipa_accumulation = true }, tube_public_inputs_path, tube_proof_path, tube_vk_path) ? 0
+                                                                                                                    : 1;
         }
         // CLIENT IVC EXTRA COMMAND
         else if (OLD_API_gates_for_ivc->parsed()) {

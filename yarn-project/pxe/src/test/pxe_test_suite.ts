@@ -81,7 +81,9 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     it('refuses to register a contract with a class that has not been registered', async () => {
       const instance = await randomContractInstanceWithAddress();
-      await expect(pxe.registerContract({ instance })).rejects.toThrow(/DB has no contract class with id/i);
+      await expect(pxe.registerContract({ instance })).rejects.toThrow(
+        /Artifact not found when registering an instance/,
+      );
     });
 
     it('refuses to register a contract with an artifact with mismatching class id', async () => {
@@ -90,8 +92,8 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
-    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUnconstrained` here as it requires
-    //       a larger setup and it's sufficiently tested in the e2e tests.
+    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUtility` here as it
+    //       requires a larger setup and it's sufficiently tested in the e2e tests.
 
     // Note: Not testing `getContractData`, `getPublicLogs` and `getPublicStorageAt` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.
@@ -103,7 +105,7 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
 
     it('successfully gets node info', async () => {
       const nodeInfo = await pxe.getNodeInfo();
-      expect(typeof nodeInfo.protocolVersion).toEqual('number');
+      expect(typeof nodeInfo.rollupVersion).toEqual('number');
       expect(typeof nodeInfo.l1ChainId).toEqual('number');
       expect(nodeInfo.l1ContractAddresses.rollupAddress.toString()).toMatch(/0x[a-fA-F0-9]+/);
     });

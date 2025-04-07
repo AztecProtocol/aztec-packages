@@ -6,8 +6,11 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
@@ -164,6 +167,14 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * A list of trusted peers.
    */
   trustedPeers: string[];
+
+  /**
+   * The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+   */
+  p2pStoreMapSizeKb?: number;
+
+  /** Which calls are allowed in the public setup phase of a tx. */
+  txPublicSetupAllowList: AllowedElement[];
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -331,6 +342,18 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'A list of trusted peers ENRs. Separated by commas.',
     defaultValue: [],
   },
+  p2pStoreMapSizeKb: {
+    env: 'P2P_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.',
+  },
+  txPublicSetupAllowList: {
+    env: 'TX_PUBLIC_SETUP_ALLOWLIST',
+    parseEnv: (val: string) => parseAllowList(val),
+    description: 'The list of functions calls allowed to run in setup',
+    printDefault: () =>
+      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+  },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
 };
@@ -361,6 +384,7 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'p2pIp',
   'p2pPort',
+  'listenAddress',
   'peerIdPrivateKey',
   'dataDirectory',
   'dataStoreMapSizeKB',
@@ -372,3 +396,53 @@ export const bootnodeConfigMappings = pickConfigMappings(
   { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );
+
+/**
+ * Parses a string to a list of allowed elements.
+ * Each encoded is expected to be of one of the following formats
+ * `I:${address}`
+ * `I:${address}:${selector}`
+ * `C:${classId}`
+ * `C:${classId}:${selector}`
+ *
+ * @param value The string to parse
+ * @returns A list of allowed elements
+ */
+export function parseAllowList(value: string): AllowedElement[] {
+  const entries: AllowedElement[] = [];
+
+  if (!value) {
+    return entries;
+  }
+
+  for (const val of value.split(',')) {
+    const [typeString, identifierString, selectorString] = val.split(':');
+    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+
+    if (typeString === 'I') {
+      if (selector) {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+        });
+      }
+    } else if (typeString === 'C') {
+      if (selector) {
+        entries.push({
+          classId: Fr.fromHexString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          classId: Fr.fromHexString(identifierString),
+        });
+      }
+    }
+  }
+
+  return entries;
+}

@@ -1,5 +1,6 @@
 import {
   EthCheatCodes,
+  RollupContract,
   createEthereumChain,
   getExpectedAddress,
   getL1ContractsConfigEnvVars,
@@ -181,30 +182,26 @@ export async function fastForwardEpochs({
 export async function debugRollup({ rpcUrls, chainId, rollupAddress, log }: RollupCommandArgs & LoggerArgs) {
   const config = getL1ContractsConfigEnvVars();
   const publicClient = getPublicClient(rpcUrls, chainId);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
-    client: publicClient,
-  });
+  const rollup = new RollupContract(publicClient, rollupAddress);
 
-  const pendingNum = await rollup.read.getPendingBlockNumber();
+  const pendingNum = await rollup.getBlockNumber();
   log(`Pending block num: ${pendingNum}`);
-  const provenNum = await rollup.read.getProvenBlockNumber();
+  const provenNum = await rollup.getProvenBlockNumber();
   log(`Proven block num: ${provenNum}`);
-  const validators = await rollup.read.getAttesters();
+  const validators = await rollup.getAttesters();
   log(`Validators: ${validators.map(v => v.toString()).join(', ')}`);
-  const committee = await rollup.read.getCurrentEpochCommittee();
+  const committee = await rollup.getCurrentEpochCommittee();
   log(`Committee: ${committee.map(v => v.toString()).join(', ')}`);
-  const archive = await rollup.read.archive();
+  const archive = await rollup.archive();
   log(`Archive: ${archive}`);
-  const epochNum = await rollup.read.getCurrentEpoch();
+  const epochNum = await rollup.getEpochNumber();
   log(`Current epoch: ${epochNum}`);
-  const slot = await rollup.read.getCurrentSlot();
+  const slot = await rollup.getSlotNumber();
   log(`Current slot: ${slot}`);
-  const proposerDuringPrevL1Block = await rollup.read.getCurrentProposer();
+  const proposerDuringPrevL1Block = await rollup.getCurrentProposer();
   log(`Proposer during previous L1 block: ${proposerDuringPrevL1Block}`);
   const nextBlockTS = BigInt((await publicClient.getBlock()).timestamp + BigInt(config.ethereumSlotDuration));
-  const proposer = await rollup.read.getProposerAt([nextBlockTS]);
+  const proposer = await rollup.getProposerAt(nextBlockTS);
   log(`Proposer NOW: ${proposer.toString()}`);
 }
 

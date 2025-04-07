@@ -41,11 +41,25 @@ export async function deployAccount(
   let txReceipt;
 
   const deployOpts: DeployAccountOptions = {
-    ...(await feeOpts.toDeployAccountOpts(wallet)),
     skipInitialization: false,
+    skipPublicDeployment: false,
+    ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
+
   if (feeOpts.estimateOnly) {
-    const gas = await (await account.getDeployMethod(deployOpts.deployWallet)).estimateGas(deployOpts);
+    /*
+     * This is usually handled by accountManager.deploy(), but we're accessing the lower
+     * level method to get the gas estimates. That means we have to replicate some of the logic here.
+     * In case we're deploying our own account, we need to hijack the payment method for the fee,
+     * wrapping it in the one that will make use of the freshly deployed account's
+     * entrypoint. For reference, see aztec.js/src/account_manager.ts:deploy()
+     */
+    const fee =
+      !deployOpts?.deployWallet && deployOpts?.fee
+        ? { ...deployOpts.fee, paymentMethod: await account.getSelfPaymentMethod(deployOpts.fee.paymentMethod) }
+        : deployOpts?.fee;
+    const deployMethod = await account.getDeployMethod(deployOpts.deployWallet);
+    const gas = await deployMethod.estimateGas({ ...deployOpts, fee, universalDeploy: true });
     if (json) {
       out.fee = {
         gasLimits: {

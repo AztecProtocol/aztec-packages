@@ -17,7 +17,7 @@ template <typename Flavor> class AvmRecursiveVerifier_ {
     using PCS = typename Flavor::PCS;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
-    using AggregationObject = bb::stdlib::recursion::aggregation_state<Curve>;
+    using AggregationObject = bb::stdlib::recursion::aggregation_state<Builder>;
 
   public:
     explicit AvmRecursiveVerifier_(Builder* builder,

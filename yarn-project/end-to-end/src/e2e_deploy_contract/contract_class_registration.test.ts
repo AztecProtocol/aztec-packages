@@ -1,4 +1,3 @@
-import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   AztecAddress,
   type AztecNode,
@@ -17,14 +16,13 @@ import {
 } from '@aztec/aztec.js';
 import {
   broadcastPrivateFunction,
-  broadcastUnconstrainedFunction,
+  broadcastUtilityFunction,
   deployInstance,
   registerContractClass,
 } from '@aztec/aztec.js/deployment';
 import { writeTestData } from '@aztec/foundation/testing/files';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
-import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
 import { FunctionSelector, FunctionType } from '@aztec/stdlib/abi';
 import type { ContractClassIdPreimage } from '@aztec/stdlib/contract';
 import { PublicKeys } from '@aztec/stdlib/keys';
@@ -52,56 +50,31 @@ describe('e2e_deploy_contract contract class registration', () => {
 
   beforeAll(async () => {
     artifact = StatefulTestContract.artifact;
-    registrationTxReceipt = await registerContractClass(wallet, artifact, false).then(c => c.send().wait());
+    registrationTxReceipt = await registerContractClass(wallet, artifact).then(c => c.send().wait());
     contractClass = await getContractClassFromArtifact(artifact);
-
-    // TODO(#10007) Remove this call. Node should get the bytecode from the event broadcast.
-    expect(await aztecNode.getContractClass(contractClass.id)).toBeUndefined();
-    await aztecNode.addContractClass({ ...contractClass, privateFunctions: [], unconstrainedFunctions: [] });
+    expect(await aztecNode.getContractClass(contractClass.id)).toBeDefined();
   });
 
   describe('registering a contract class', () => {
-    it('optionally emits public bytecode', async () => {
-      const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact, true).then(c =>
+    it('emits public bytecode', async () => {
+      const registrationTxReceipt = await registerContractClass(wallet, TestContract.artifact).then(c =>
         c.send().wait(),
       );
       const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
       expect(logs.logs.length).toEqual(1);
-
-      // TODO(#10007): The below is temporary as it's commented out on a below test
-      const logData = logs.logs[0].log.toBuffer();
-      writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
-    });
-
-    // TODO(#10007) Remove this test. We should always broadcast public bytecode.
-    it('bypasses broadcast if exceeds bytecode limit for event size', async () => {
-      const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
-      expect(logs.logs.length).toEqual(0);
-    });
-
-    // TODO(#10007) Remove this test as well.
-    it('starts archiver with pre-registered common contracts', async () => {
-      const { id: classId } = await getContractClassFromArtifact(TokenContractArtifact);
-      // The node checks the registration nullifier
-      expect(await aztecNode.getContractClass(classId)).toBeUndefined();
-      // But the archiver does not
-      const archiver = (aztecNode as AztecNodeService).getContractDataSource();
-      expect(await archiver.getContractClass(classId)).toBeDefined();
     });
 
     it('registers the contract class on the node', async () => {
-      // TODO(#10007) Enable this.
-      // const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
-      // expect(logs.logs.length).toEqual(1);
-      // const logData = logs.logs[0].log.toBuffer();
-      // writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
+      const logs = await aztecNode.getContractClassLogs({ txHash: registrationTxReceipt.txHash });
+      expect(logs.logs.length).toEqual(1);
+      const logData = logs.logs[0].log.toBuffer();
+      writeTestData('yarn-project/protocol-contracts/fixtures/ContractClassRegisteredEventData.hex', logData);
 
       const registeredClass = await aztecNode.getContractClass(contractClass.id);
       expect(registeredClass).toBeDefined();
       expect(registeredClass!.artifactHash.toString()).toEqual(contractClass.artifactHash.toString());
       expect(registeredClass!.privateFunctionsRoot.toString()).toEqual(contractClass.privateFunctionsRoot.toString());
       expect(registeredClass!.packedBytecode.toString('hex')).toEqual(contractClass.packedBytecode.toString('hex'));
-      expect(registeredClass!.publicFunctions).toEqual(contractClass.publicFunctions);
       expect(registeredClass!.privateFunctions).toEqual([]);
     });
 
@@ -128,16 +101,16 @@ describe('e2e_deploy_contract contract class registration', () => {
       expect(fetchedFunction.selector).toEqual(selector);
     });
 
-    it('broadcasts an unconstrained function', async () => {
-      const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UNCONSTRAINED)!;
+    it('broadcasts a utility function', async () => {
+      const functionArtifact = artifact.functions.find(fn => fn.functionType === FunctionType.UTILITY)!;
       const selector = await FunctionSelector.fromNameAndParameters(functionArtifact);
-      const tx = await (await broadcastUnconstrainedFunction(wallet, artifact, selector)).send().wait();
+      const tx = await (await broadcastUtilityFunction(wallet, artifact, selector)).send().wait();
       const logs = await pxe.getContractClassLogs({ txHash: tx.txHash });
       const logData = logs.logs[0].log.toBuffer();
-      writeTestData('yarn-project/protocol-contracts/fixtures/UnconstrainedFunctionBroadcastedEventData.hex', logData);
+      writeTestData('yarn-project/protocol-contracts/fixtures/UtilityFunctionBroadcastedEventData.hex', logData);
 
       const fetchedClass = await aztecNode.getContractClass(contractClass.id);
-      const fetchedFunction = fetchedClass!.unconstrainedFunctions[0]!;
+      const fetchedFunction = fetchedClass!.utilityFunctions[0]!;
       expect(fetchedFunction).toBeDefined();
       expect(fetchedFunction.selector).toEqual(selector);
     });

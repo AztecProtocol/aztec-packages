@@ -4,9 +4,6 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Performs recursive verification of the Client IVC proof.
- *
- * @todo (https://github.com/AztecProtocol/barretenberg/issues/934):  Add logic for accumulating the pairing points
- * produced by the verifiers (and potentially IPA accumulators for ECCVM verifier)
  */
 ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
@@ -14,8 +11,7 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
     auto stdlib_mega_vk = std::make_shared<RecursiveVerificationKey>(builder.get(), ivc_verification_key.mega);
 
     // Dummy aggregation object until we do proper aggregation
-    aggregation_state<typename RecursiveFlavor::Curve> agg_obj =
-        init_default_aggregation_state<Builder, typename RecursiveFlavor::Curve>(*builder);
+    auto agg_obj = aggregation_state<Builder>::construct_default(*builder);
 
     // Perform recursive decider verification
     MegaVerifier verifier{ builder.get(), stdlib_mega_vk };

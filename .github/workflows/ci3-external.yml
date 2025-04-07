@@ -2,21 +2,24 @@
 name: CI3 (External)
 
 on:
+  # This check is skipped in merge queue, but we need it to run (even skipped) for status checks.
+  merge_group:
   # For external devs. Workflow file edits won't take effect in the PR.
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 concurrency:
-  # Only allow one run per <forked-repo>/<branch>.
+  # Only allow one run per <forked-repo>/<branch> and full concurrency on merge queue.
   group: |
-    ci3-external-${{format('{0}/{1}', github.event.pull_request.head.repo.full_name, github.head_ref)}}
+    ci3-external-${{ github.event_name == 'pull_request' && format('{0}/{1}', github.event.pull_request.head.repo.full_name, github.head_ref)
+                                                         || github.run_id }}
   cancel-in-progress: true
 
 jobs:
   ci-external:
     runs-on: ubuntu-latest
     # exclusive with ci3.yml, only run on forks.
-    if: github.event.pull_request.head.repo.full_name != github.repository
+    if: github.event.pull_request.head.repo.fork
     steps:
       #############
       # Prepare Env
@@ -28,14 +31,11 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Fail If Draft
-        if: github.event.pull_request.draft && (github.event.action != 'labeled' || github.event.label.name != 'trigger-workflow')
+        if: github.event.pull_request.draft
         run: echo "CI is not run on drafts." && exit 1
 
       - name: External Contributor Checks
         # Run only if a pull request event type and we have a forked repository origin.
-        if: |
-          (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
-          github.event.pull_request.head.repo.full_name != github.repository
         run: |
           set -o pipefail
           git fetch origin ${{ github.event.pull_request.base.ref }} --depth=1 &>/dev/null
@@ -48,7 +48,7 @@ jobs:
             echo "Error: External PRs can only target master, targeted: ${{ github.event.pull_request.base.ref }}."
             exit 1
           fi
-          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || contains(github.event.pull_request.labels.*.name, 'ci-external-once')}}"
+          labeled="${{contains(github.event.pull_request.labels.*.name, 'ci-external') || github.event.label.name == 'ci-external-once'}}"
           if [ "$labeled" = false ]; then
             echo "External PRs need the 'ci-external' or 'ci-external-once' labels to run."
             exit 1
@@ -84,6 +84,6 @@ jobs:
           REF_NAME: repo-fork/${{ github.repository }}/${{ github.head_ref }}
           # We only test on amd64.
           ARCH: amd64
-          LOG_ID: ${{ github.run_id }}
+          RUN_ID: ${{ github.run_id }}
         run: |
           ./ci.sh ec2

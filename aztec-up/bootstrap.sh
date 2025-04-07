@@ -11,6 +11,18 @@ function build_dind_image {
   denoise "docker build -t aztecprotocol/dind ."
 }
 
+function update_manifest {
+  # We update the manifest to point to the latest arch specific images, pushed above.
+  local image=aztecprotocol/dind:latest
+  # Remove any old local manifest if present.
+  docker manifest rm $image || true
+  # Create new manifest and push.
+  docker manifest create $image \
+    --amend aztecprotocol/dind:latest-amd64 \
+    --amend aztecprotocol/dind:latest-arm64
+  docker manifest push $image
+}
+
 function test_cmds {
   echo "$hash aztec-up/scripts/run_test.sh basic_install"
   echo "$hash aztec-up/scripts/run_test.sh counter_contract"
@@ -28,12 +40,12 @@ function release {
   # Read the current version from S3.
   local current_version=$(aws s3 cp s3://install.aztec.network/VERSION - 2>/dev/null || echo "0.0.0")
 
-  if [ $(dist_tag) != latest ]; then
+  # Temporary: while alpha-testnet is the main release, include it (later it should only push to $version)
+  if [[ $(dist_tag) != "latest" && $(dist_tag) != "alpha-testnet" ]]; then
     echo_stderr -e "${yellow}Not uploading aztec-up scripts for dist-tag $(dist_tag). They are expected to still be compatible with latest."
     return
   fi
 
-  # Check if new version is greater than current version.
   if [ $(semver sort "$version" "$current_version" | tail -1) == "$version" ]; then
     echo "Uploading new version: $version"
 
@@ -47,14 +59,13 @@ function release {
   fi
 
   # Always create a version directory and upload files there.
-  do_or_dryrun aws s3 sync ./bin s3://install.aztec.network/$version/
+  do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$version/"
 }
 
 case "$cmd" in
   ""|"full"|"fast")
-    build_dind_image
     ;;
-  test_cmds|test|release)
+  test_cmds|test|release|build_dind_image|update_manifest)
     $cmd
     ;;
   *)

@@ -3,6 +3,7 @@ import { defaultReporter } from '@web/test-runner';
 import { playwrightLauncher } from '@web/test-runner-playwright';
 import { fileURLToPath } from 'url';
 
+/** @type {import('@web/test-runner').TestRunnerConfig} */
 export default {
   browsers: [
     playwrightLauncher({ product: 'chromium' }),
@@ -18,4 +19,10 @@ export default {
   rootDir: fileURLToPath(new URL('../', import.meta.url)),
   nodeResolve: true,
   reporters: [defaultReporter()],
+  concurrency: 1,
+  concurrentBrowsers: 1,
+  browserLogs: true,
+  // log everything to debug CI flakes
+  filterBrowserLogs: () => true,
+  logger: console,
 };

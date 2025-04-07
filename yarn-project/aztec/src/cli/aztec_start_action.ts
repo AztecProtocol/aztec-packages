@@ -11,7 +11,6 @@ import { getOtelJsonRpcPropagationMiddleware } from '@aztec/telemetry-client';
 
 import { createSandbox } from '../sandbox/index.js';
 import { github, splash } from '../splash.js';
-import { enrichEnvironmentWithChainConfig } from './chain_l2_config.js';
 import { getCliVersion } from './release_version.js';
 import { extractNamespacedOptions, installSignalHandlers } from './util.js';
 import { getVersions } from './versioning.js';
@@ -20,12 +19,14 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
   // list of 'stop' functions to call when process ends
   const signalHandlers: Array<() => Promise<void>> = [];
   const services: NamespacedApiHandlers = {};
+  const adminServices: NamespacedApiHandlers = {};
   let config: ChainConfig | undefined = undefined;
 
   if (options.sandbox) {
     const cliVersion = getCliVersion();
     const sandboxOptions = extractNamespacedOptions(options, 'sandbox');
     const nodeOptions = extractNamespacedOptions(options, 'node');
+    sandboxOptions.testAccounts = true;
     userLog(`${splash}\n${github}\n\n`);
     userLog(`Setting up Aztec Sandbox ${cliVersion}, please stand by...`);
 
@@ -36,6 +37,7 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
         l1Salt: nodeOptions.deployAztecContractsSalt,
         noPXE: sandboxOptions.noPXE,
         testAccounts: sandboxOptions.testAccounts,
+        realProofs: false,
       },
       userLog,
     );
@@ -49,13 +51,9 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
       userLog(`Not exposing PXE API through JSON-RPC server`);
     }
   } else {
-    // If a network is specified, enrich the environment with the chain config
-    if (options.network) {
-      await enrichEnvironmentWithChainConfig(options.network);
-    }
     if (options.node) {
       const { startNode } = await import('./cmds/start_node.js');
-      ({ config } = await startNode(options, signalHandlers, services, userLog));
+      ({ config } = await startNode(options, signalHandlers, services, adminServices, userLog));
     } else if (options.bot) {
       const { startBot } = await import('./cmds/start_bot.js');
       await startBot(options, signalHandlers, services, userLog);
@@ -97,6 +95,8 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
 
   installSignalHandlers(debugLogger.info, signalHandlers);
   const versions = getVersions(config);
+
+  // Start the main JSON-RPC server
   if (Object.entries(services).length > 0) {
     const rpcServer = createNamespacedSafeJsonRpcServer(services, {
       http200OnError: false,
@@ -105,5 +105,16 @@ export async function aztecStart(options: any, userLog: LogFn, debugLogger: Logg
     });
     const { port } = await startHttpRpcServer(rpcServer, { port: options.port });
     debugLogger.info(`Aztec Server listening on port ${port}`, versions);
+  }
+
+  // If there are any admin services, start a separate JSON-RPC server for them
+  if (Object.entries(adminServices).length > 0) {
+    const rpcServer = createNamespacedSafeJsonRpcServer(adminServices, {
+      http200OnError: false,
+      log: debugLogger,
+      middlewares: [getOtelJsonRpcPropagationMiddleware(), getVersioningMiddleware(versions)],
+    });
+    const { port } = await startHttpRpcServer(rpcServer, { port: options.adminPort });
+    debugLogger.info(`Aztec Server admin API listening on port ${port}`, versions);
   }
 }

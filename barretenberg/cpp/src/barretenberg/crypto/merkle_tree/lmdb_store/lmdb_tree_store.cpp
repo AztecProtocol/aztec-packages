@@ -89,6 +89,11 @@ LMDBTreeStore::LMDBTreeStore(std::string directory, std::string name, uint64_t m
     }
 }
 
+const std::string& LMDBTreeStore::get_name() const
+{
+    return _name;
+}
+
 void LMDBTreeStore::get_stats(TreeDBStats& stats, ReadTransaction& tx)
 {
     stats.mapSize = _environment->get_map_size();

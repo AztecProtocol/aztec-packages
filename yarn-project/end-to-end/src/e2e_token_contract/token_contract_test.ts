@@ -1,5 +1,5 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
 import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
@@ -28,6 +28,7 @@ export class TokenContractTest {
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
   badAccount!: DocsExampleContract;
+  node!: AztecNode;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
@@ -48,7 +49,8 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe }) => {
+      async ({ deployedAccounts }, { pxe, aztecNode }) => {
+        this.node = aztecNode;
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.accounts = this.wallets.map(w => w.getCompleteAddress());
       },

@@ -1,8 +1,15 @@
 import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import {
+  type GenesisStateConfig,
+  type L1ContractAddresses,
+  genesisStateConfigMappings,
+  l1ContractAddressesMapping,
+} from '@aztec/ethereum';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type SharedNodeConfig, sharedNodeConfigMappings } from '@aztec/node-lib/config';
 import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p/config';
-import { type ProverClientConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
+import { type ProverClientUserConfig, proverClientConfigMappings } from '@aztec/prover-client/config';
 import { type SequencerClientConfig, sequencerClientConfigMappings } from '@aztec/sequencer-client/config';
 import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client/config';
 import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-state/config';
@@ -10,6 +17,8 @@ import { type WorldStateConfig, worldStateConfigMappings } from '@aztec/world-st
 import { readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
+
+import { type SentinelConfig, sentinelConfigMappings } from '../sentinel/config.js';
 
 export { sequencerClientConfigMappings, type SequencerClientConfig };
 
@@ -19,33 +28,38 @@ export { sequencerClientConfigMappings, type SequencerClientConfig };
 export type AztecNodeConfig = ArchiverConfig &
   SequencerClientConfig &
   ValidatorClientConfig &
-  ProverClientConfig &
+  ProverClientUserConfig &
   WorldStateConfig &
-  Pick<ProverClientConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
+  Pick<ProverClientUserConfig, 'bbBinaryPath' | 'bbWorkingDirectory' | 'realProofs'> &
   P2PConfig &
-  DataStoreConfig & {
+  DataStoreConfig &
+  SentinelConfig &
+  SharedNodeConfig &
+  GenesisStateConfig & {
+    /** L1 contracts addresses */
+    l1Contracts: L1ContractAddresses;
     /** Whether the validator is disabled for this node */
     disableValidator: boolean;
-    /** Whether to populate the genesis state with initial fee juice for the test accounts */
-    testAccounts: boolean;
   };
 
 export const aztecNodeConfigMappings: ConfigMappingsType<AztecNodeConfig> = {
+  ...dataConfigMappings,
   ...archiverConfigMappings,
   ...sequencerClientConfigMappings,
   ...validatorClientConfigMappings,
   ...proverClientConfigMappings,
   ...worldStateConfigMappings,
   ...p2pConfigMappings,
-  ...dataConfigMappings,
+  ...sentinelConfigMappings,
+  ...sharedNodeConfigMappings,
+  ...genesisStateConfigMappings,
+  l1Contracts: {
+    description: 'The deployed L1 contract addresses',
+    nested: l1ContractAddressesMapping,
+  },
   disableValidator: {
     env: 'VALIDATOR_DISABLED',
     description: 'Whether the validator is disabled for this node.',
-    ...booleanConfigHelper(),
-  },
-  testAccounts: {
-    env: 'TEST_ACCOUNTS',
-    description: 'Whether to populate the genesis state with initial fee juice for the test accounts.',
     ...booleanConfigHelper(),
   },
 };

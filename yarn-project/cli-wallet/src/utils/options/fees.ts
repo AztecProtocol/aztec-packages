@@ -15,7 +15,6 @@ import { Option } from 'commander';
 
 import type { WalletDB } from '../../storage/wallet_db.js';
 import { createOrRetrieveAccount } from '../accounts.js';
-import { SponsoredFeePaymentMethod } from '../sponsored_fee_payment.js';
 import { aliasedAddressParser } from './options.js';
 
 export type CliFeeArgs = {
@@ -78,7 +77,11 @@ function printOptionParams(params: OptionParams) {
       params[name].default ? `Default: ${params[name].default}` : '',
     ].join(' '),
   );
-  return descriptionList.length ? `\n   Parameters:\n${descriptionList.join('\n')}` : '';
+  return descriptionList.length
+    ? `\n   Parameters:\n${descriptionList.join('\n')}\nFormat: --payment ${Object.keys(params)
+        .slice(0, 3)
+        .map(name => `${name}=${params[name].type}`)} ${Object.keys(params).length > 3 ? '...' : ''}`
+    : '';
 }
 
 function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
@@ -123,11 +126,7 @@ function getFeePaymentMethodParams(allowCustomFeePayer: boolean): OptionParams {
 
 function getPaymentMethodOption(allowCustomFeePayer: boolean) {
   const params = getFeePaymentMethodParams(allowCustomFeePayer);
-  const paramList = Object.keys(params).map(name => `${name}=${params[name].type}`);
-  return new Option(
-    `--payment <${paramList.join(',')}>`,
-    `Fee payment method and arguments.${printOptionParams(params)}`,
-  );
+  return new Option(`--payment <options>`, `Fee payment method and arguments.${printOptionParams(params)}`);
 }
 
 function getFeeOptions(allowCustomFeePayer: boolean) {
@@ -325,6 +324,8 @@ export function parsePaymentMethod(
       }
       case 'fpc-sponsored': {
         const sponsor = getFpc();
+        log(`Using sponsored fee payment with sponsor ${sponsor}`);
+        const { SponsoredFeePaymentMethod } = await import('@aztec/aztec.js/fee/testing');
         return new SponsoredFeePaymentMethod(sponsor);
       }
       case undefined:

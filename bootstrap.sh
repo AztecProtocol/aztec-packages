@@ -24,7 +24,7 @@ function encourage_dev_container {
 # Developers should probably use the dev container in /build-images to ensure the smoothest experience.
 function check_toolchains {
   # Check for various required utilities.
-  for util in jq parallel awk git curl; do
+  for util in jq parallel awk git curl zstd; do
     if ! command -v $util > /dev/null; then
       encourage_dev_container
       echo "Utility $util not found."
@@ -114,7 +114,7 @@ function install_hooks {
   echo "./noir-projects/precommit.sh" >>$hooks_dir/pre-commit
   echo "./yarn-project/constants/precommit.sh" >>$hooks_dir/pre-commit
   chmod +x $hooks_dir/pre-commit
-  echo "(cd noir && ./postcheckout.sh $@)" >$hooks_dir/post-checkout
+  echo "(cd noir && ./postcheckout.sh \$@)" >$hooks_dir/post-checkout
   chmod +x $hooks_dir/post-checkout
 }
 
@@ -123,22 +123,29 @@ function test_cmds {
     # Ordered with longest running first, to ensure they get scheduled earliest.
     set -- spartan yarn-project/end-to-end aztec-up yarn-project noir-projects boxes playground barretenberg l1-contracts noir
   fi
-  parallel -k --line-buffer './{}/bootstrap.sh test_cmds 2>/dev/null' ::: $@ | filter_test_cmds
+  parallel -k --line-buffer './{}/bootstrap.sh test_cmds' ::: $@ | filter_test_cmds
 }
 
 function start_txes {
   # Starting txe servers with incrementing port numbers.
-  trap 'kill -SIGTERM $(jobs -p) &>/dev/null || true' EXIT
+  trap 'kill -SIGTERM $txe_pids &>/dev/null || true' EXIT
   for i in $(seq 0 $((NUM_TXES-1))); do
-    existing_pid=$(lsof -ti :$((45730 + i)) || true)
-    [ -n "$existing_pid" ] && kill -9 $existing_pid
-    dump_fail "cd $root/yarn-project/txe && LOG_LEVEL=info TXE_PORT=$((45730 + i)) node --no-warnings ./dest/bin/index.js" &
+    port=$((45730 + i))
+    existing_pid=$(lsof -ti :$port || true)
+    if [ -n "$existing_pid" ]; then
+      echo "Killing existing process $existing_pid on port: $port"
+      kill -9 $existing_pid &>/dev/null || true
+      while kill -0 $existing_pid &>/dev/null; do sleep 0.1; done
+    fi
+    dump_fail "LOG_LEVEL=info TXE_PORT=$port retry 'strace -e trace=network node --no-warnings ./yarn-project/txe/dest/bin/index.js'" &
+    txe_pids+="$! "
   done
+
   echo "Waiting for TXE's to start..."
   for i in $(seq 0 $((NUM_TXES-1))); do
       local j=0
       while ! nc -z 127.0.0.1 $((45730 + i)) &>/dev/null; do
-        [ $j == 15 ] && echo_stderr "Warning: TXE's taking too long to start. Check them manually." && exit 1
+        [ $j == 60 ] && echo_stderr "TXE $i took too long to start. Exiting." && exit 1
         sleep 1
         j=$((j+1))
       done
@@ -148,11 +155,12 @@ export -f start_txes
 
 function test {
   echo_header "test all"
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
+
+  start_txes
 
   # Make sure KIND starts so it is running by the time we do spartan tests.
   spartan/bootstrap.sh kind &>/dev/null &
-
-  start_txes
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,
@@ -170,6 +178,8 @@ function test {
 function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
+  echo_header "sync noir repo"
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   check_toolchains
 
@@ -186,7 +196,8 @@ function build {
     yarn-project
     boxes
     playground
-    docs
+    # Blocking release.
+    # docs
     release-image
     aztec-up
   )
@@ -198,7 +209,7 @@ function build {
 
 function bench {
   # TODO bench for arm64.
-  if [ "$CI_FULL" -eq 0 ] || [ $(arch) == arm64 ]; then
+  if [ $(arch) == arm64 ]; then
     return
   fi
   denoise "barretenberg/bootstrap.sh bench"
@@ -236,7 +247,7 @@ function release {
   #     + noir
   #     + yarn-project => NPM publish to dist tag, version is our REF_NAME without a leading v.
   #   aztec-up => upload scripts to prod if dist tag is latest
-  #   docs => publish docs if dist tag is latest. TODO Link build in github release.
+  #   docs, playground => publish if dist tag is latest. TODO Link build in github release.
   #   release-image => push docker image to dist tag.
   #   boxes/l1-contracts => mirror repo to branch equal to dist tag (master if latest). Also mirror to tag equal to REF_NAME.
 
@@ -258,11 +269,12 @@ function release {
     boxes
     aztec-up
     playground
-    docs
+    # Blocking release.
+    # docs
     release-image
   )
   if [ $(arch) == arm64 ]; then
-    echo "Only deploying packages with platform-specific binaries on arm64."
+    echo "Only releasing packages with platform-specific binaries on arm64."
     projects=(
       barretenberg/cpp
       release-image
@@ -319,6 +331,10 @@ case "$cmd" in
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
+    ;;
+  "docs-release")
+    build
+    docs/bootstrap.sh docs-release
     ;;
   *)
     echo "Unknown command: $cmd"

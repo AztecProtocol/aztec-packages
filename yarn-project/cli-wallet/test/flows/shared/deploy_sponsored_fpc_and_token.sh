@@ -6,7 +6,7 @@ section "Deploying token contract (alias: $TOKEN_ALIAS) and creating a sponsored
 aztec-wallet import-test-accounts
 aztec-wallet deploy sponsored_fpc_contract@SponsoredFPC -f test0 -a $FPC_ALIAS --no-init
 
-CLAIM=$(aztec-wallet bridge-fee-juice 100000000000000000 contracts:$FPC_ALIAS --mint --no-wait --json)
+CLAIM=$(aztec-wallet bridge-fee-juice 1000000000000000000 contracts:$FPC_ALIAS --mint --no-wait --json)
 
 retrieve () {
   echo "$CLAIM" | grep "\"$1\"" | awk -F ': ' '{print $2}' | tr -d '",'
@@ -17,7 +17,7 @@ claimSecret=$(retrieve claimSecret)
 messageLeafIndex=$(retrieve messageLeafIndex)
 
 # The following produces two blocks, allowing the claim to be used in the next block.
-source $TEST_FOLDER/shared/deploy_token.sh $TOKEN_ALIAS test1
+source $flows/shared/deploy_token.sh $TOKEN_ALIAS test1
 
 # Claim the fee juice by calling the fee juice contract directly (address = 5).
 feeJuice=0x0000000000000000000000000000000000000000000000000000000000000005

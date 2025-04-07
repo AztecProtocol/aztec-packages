@@ -387,14 +387,20 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
+     * @details There is an underlying assumption that the relevant start index in the vector
+     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
+     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
+     *
+     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     *
      * @tparam T a convertible type
      * @param vec the vector
      */
     template <typename T> void copy_vector(const std::vector<T>& vec)
     {
         ASSERT(vec.size() <= end_index());
-        for (size_t i : indices()) {
-            ASSERT(i < vec.size());
+        ASSERT(vec.size() - start_index() <= size());
+        for (size_t i = start_index(); i < vec.size(); i++) {
             at(i) = vec[i];
         }
     }

@@ -1,15 +1,8 @@
-use dep::protocol_types::{
-    address::aztec_address::AztecAddress,
-    point::{Point, POINT_LENGTH},
-    traits::Deserialize,
-};
+use protocol_types::{address::aztec_address::AztecAddress, point::Point};
 
 // TODO(#12656): return an app-siloed secret + document this
 #[oracle(getSharedSecret)]
-unconstrained fn get_shared_secret_oracle(
-    address: AztecAddress,
-    ephPk: Point,
-) -> [Field; POINT_LENGTH] {}
+unconstrained fn get_shared_secret_oracle(address: AztecAddress, ephPk: Point) -> Point {}
 
 /// Returns an app-siloed shared secret between `address` and someone who knows the secret key behind an
 /// ephemeral public key `ephPk`. The app-siloing means that contracts cannot retrieve secrets that belong to
@@ -21,6 +14,5 @@ unconstrained fn get_shared_secret_oracle(
 /// where `ivsk + h` is the 'preaddress' i.e. the preimage of the address, also called the address secret.
 /// TODO(#12656): app-silo this secret
 pub unconstrained fn get_shared_secret(address: AztecAddress, ephPk: Point) -> Point {
-    let fields = get_shared_secret_oracle(address, ephPk);
-    Point::deserialize(fields)
+    get_shared_secret_oracle(address, ephPk)
 }

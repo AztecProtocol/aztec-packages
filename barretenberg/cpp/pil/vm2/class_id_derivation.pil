@@ -28,7 +28,7 @@ namespace class_id_derivation;
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[CLASS_ID_POSEIDON2_1]
-    sel { public_bytecode_commitment, precomputed.zero, precomputed.zero, class_id}
+    sel { public_bytecode_commitment, precomputed.zero, precomputed.zero, class_id }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
 

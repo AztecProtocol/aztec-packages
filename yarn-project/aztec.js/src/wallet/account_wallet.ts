@@ -1,14 +1,15 @@
+import type { FeeOptions, TxExecutionOptions } from '@aztec/entrypoints/interfaces';
+import type { ExecutionPayload } from '@aztec/entrypoints/payload';
 import { Fr } from '@aztec/foundation/fields';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { type ABIParameterVisibility, type FunctionAbi, FunctionType } from '@aztec/stdlib/abi';
-import type { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { PXE } from '@aztec/stdlib/interfaces/client';
 import type { TxExecutionRequest } from '@aztec/stdlib/tx';
 
 import type { AccountInterface } from '../account/interface.js';
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import type { ExecutionRequestInit } from '../entrypoint/entrypoint.js';
 import {
   type IntentAction,
   type IntentInnerHash,
@@ -22,11 +23,15 @@ import { BaseWallet } from './base_wallet.js';
  */
 export class AccountWallet extends BaseWallet {
   constructor(pxe: PXE, protected account: AccountInterface) {
-    super(pxe, [account.getAddress()]);
+    super(pxe);
   }
 
-  createTxExecutionRequest(exec: ExecutionRequestInit): Promise<TxExecutionRequest> {
-    return this.account.createTxExecutionRequest(exec);
+  createTxExecutionRequest(
+    exec: ExecutionPayload,
+    fee: FeeOptions,
+    options: TxExecutionOptions,
+  ): Promise<TxExecutionRequest> {
+    return this.account.createTxExecutionRequest(exec, fee, options);
   }
 
   getChainId(): Fr {
@@ -35,10 +40,6 @@ export class AccountWallet extends BaseWallet {
 
   getVersion(): Fr {
     return this.account.getVersion();
-  }
-
-  override isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean> {
-    return this.pxe.isL1ToL2MessageSynced(l1ToL2Message);
   }
 
   /**
@@ -61,9 +62,7 @@ export class AccountWallet extends BaseWallet {
       messageHash = await this.getMessageHash(messageHashOrIntent);
     }
 
-    const witness = await this.account.createAuthWit(messageHash);
-    await this.pxe.addAuthWitness(witness);
-    return witness;
+    return this.account.createAuthWit(messageHash);
   }
 
   /**
@@ -132,12 +131,13 @@ export class AccountWallet extends BaseWallet {
    *
    * @param onBehalfOf - The address of the "approver"
    * @param intent - The consumer and inner hash or the caller and action to lookup
-   *
+   * @param witness - The computed authentication witness to check
    * @returns - A struct containing the validity of the authwit in private and public contexts.
    */
   async lookupValidity(
     onBehalfOf: AztecAddress,
     intent: IntentInnerHash | IntentAction,
+    witness: AuthWitness,
   ): Promise<{
     /** boolean flag indicating if the authwit is valid in private context */
     isValidInPrivate: boolean;
@@ -150,13 +150,14 @@ export class AccountWallet extends BaseWallet {
     const results = { isValidInPrivate: false, isValidInPublic: false };
 
     // Check private
-    const witness = await this.getAuthWitness(messageHash);
-    if (witness !== undefined) {
+    try {
       results.isValidInPrivate = (await new ContractFunctionInteraction(this, onBehalfOf, this.getLookupValidityAbi(), [
         consumer,
         innerHash,
-      ]).simulate()) as boolean;
-    }
+      ]).simulate({ authWitnesses: [witness] })) as boolean;
+      // TODO: Narrow down the error to make sure simulation failed due to an invalid authwit
+      // eslint-disable-next-line no-empty
+    } catch {}
 
     // check public
     results.isValidInPublic = (await new ContractFunctionInteraction(
@@ -207,7 +208,7 @@ export class AccountWallet extends BaseWallet {
     return {
       name: 'lookup_validity',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.UTILITY,
       isInternal: false,
       isStatic: false,
       parameters: [{ name: 'message_hash', type: { kind: 'field' }, visibility: 'private' as ABIParameterVisibility }],
@@ -218,9 +219,9 @@ export class AccountWallet extends BaseWallet {
 
   private getIsConsumableAbi(): FunctionAbi {
     return {
-      name: 'unconstrained_is_consumable',
+      name: 'utility_is_consumable',
       isInitializer: false,
-      functionType: FunctionType.UNCONSTRAINED,
+      functionType: FunctionType.UTILITY,
       isInternal: false,
       isStatic: false,
       parameters: [

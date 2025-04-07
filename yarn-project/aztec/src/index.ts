@@ -3,5 +3,4 @@ export {
   getDeployedBananaCoinAddress,
   getDeployedBananaFPCAddress,
   getDeployedSponsoredFPCAddress,
-  SponsoredFeePaymentMethod,
 } from './sandbox/index.js';

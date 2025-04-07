@@ -2,14 +2,12 @@ import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/acco
 import type { AztecNodeService } from '@aztec/aztec-node';
 import {
   type AccountWallet,
-  AccountWalletWithSecretKey,
   type AztecAddress,
   type AztecNode,
   ContractDeployer,
   ContractFunctionInteraction,
   Fr,
   type GlobalVariables,
-  L1EventPayload,
   type Logger,
   type PXE,
   TxStatus,
@@ -33,9 +31,10 @@ import {
   PublicProcessorFactory,
   type PublicTreesDB,
   type PublicTxResult,
-  PublicTxSimulator,
+  TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
-import type { Tx } from '@aztec/stdlib/tx';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
@@ -52,6 +51,7 @@ describe('e2e_block_building', () => {
   let owner: Wallet;
   let minter: Wallet;
   let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin;
   let sequencer: TestSequencerClient;
   let dateProvider: TestDateProvider | undefined;
   let cheatCodes: CheatCodes;
@@ -69,11 +69,13 @@ describe('e2e_block_building', () => {
 
     beforeAll(async () => {
       let sequencerClient: SequencerClient | undefined;
+      let maybeAztecNodeAdmin: AztecNodeAdmin | undefined;
       ({
         teardown,
         pxe,
         logger,
         aztecNode,
+        aztecNodeAdmin: maybeAztecNodeAdmin,
         wallets: [owner, minter],
         sequencer: sequencerClient,
         dateProvider,
@@ -85,16 +87,17 @@ describe('e2e_block_building', () => {
         blockCheckIntervalMS: 200,
       }));
       sequencer = sequencerClient! as TestSequencerClient;
+      aztecNodeAdmin = maybeAztecNodeAdmin!;
     });
 
-    afterEach(() => aztecNode.setConfig({ minTxsPerBlock: 1 }));
+    afterEach(() => aztecNodeAdmin.setConfig({ minTxsPerBlock: 1 }));
     afterAll(() => teardown());
 
     it('assembles a block with multiple txs', async () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 8;
-      await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
       const deployer = new ContractDeployer(artifact, owner);
 
       const ownerAddress = owner.getCompleteAddress().address;
@@ -140,7 +143,7 @@ describe('e2e_block_building', () => {
       // Assemble N contract deployment txs
       // We need to create them sequentially since we cannot have parallel calls to a circuit
       const TX_COUNT = 4;
-      await aztecNode.setConfig({ minTxsPerBlock: TX_COUNT });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: TX_COUNT });
 
       const methods = times(TX_COUNT, i => contract.methods.increment_public_value(ownerAddress, i));
       const provenTxs = [];
@@ -168,7 +171,7 @@ describe('e2e_block_building', () => {
       const contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
       const another = await TestContract.deploy(owner).send().deployed();
 
-      await aztecNode.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 16, maxTxsPerBlock: 16 });
 
       // Flood nullifiers to grow the size of the nullifier tree.
       // Can probably do this more efficiently by batching multiple emit_nullifier calls
@@ -181,7 +184,7 @@ describe('e2e_block_building', () => {
       await Promise.all(sentNullifierTxs.map(tx => tx.wait({ timeout: 600 })));
       logger.info(`Nullifier txs sent`);
 
-      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       // Now send public functions
       const TX_COUNT = 128;
@@ -207,7 +210,7 @@ describe('e2e_block_building', () => {
       // We also set enforceTimetable so the deadline makes sense, otherwise we may be starting the
       // block too late into the slot, and start processing when the deadline has already passed.
       logger.info(`Updating aztec node config`);
-      await aztecNode.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 1, maxTxsPerBlock: TX_COUNT, enforceTimeTable: true });
 
       // We tweak the sequencer so it uses a fake simulator that adds a delay to every public tx.
       const archiver = (aztecNode as AztecNodeService).getContractDataSource();
@@ -245,7 +248,7 @@ describe('e2e_block_building', () => {
 
     it.skip('can call public function from different tx in same block as deployed', async () => {
       // Ensure both txs will land on the same block
-      await aztecNode.setConfig({ minTxsPerBlock: 2 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
       // Deploy a contract in the first transaction
       // In the same block, call a public method on the contract
@@ -366,7 +369,9 @@ describe('e2e_block_building', () => {
       it('private -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          TX_ERROR_EXISTING_NULLIFIER,
+        );
       });
 
       it('public -> public', async () => {
@@ -388,7 +393,9 @@ describe('e2e_block_building', () => {
       it('public -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          TX_ERROR_EXISTING_NULLIFIER,
+        );
       });
     });
   });
@@ -415,13 +422,27 @@ describe('e2e_block_building', () => {
     afterAll(() => teardown());
 
     it('calls a method with nested encrypted logs', async () => {
-      const thisWallet = new AccountWalletWithSecretKey(pxe, ownerWallet, owner.secret, owner.salt);
       const address = owner.address;
 
+      const values = {
+        value0: 5n,
+        value1: 4n,
+        value2: 3n,
+        value3: 2n,
+        value4: 1n,
+      };
+      const nestedValues = {
+        value0: 0n,
+        value1: 0n,
+        value2: 0n,
+        value3: 0n,
+        value4: 0n,
+      };
+
       // call test contract
-      const values = [new Fr(5), new Fr(4), new Fr(3), new Fr(2), new Fr(1)];
-      const nestedValues = [new Fr(0), new Fr(0), new Fr(0), new Fr(0), new Fr(0)];
-      const action = testContract.methods.emit_array_as_encrypted_log(values, address, address, true);
+      const valuesAsArray = Object.values(values);
+
+      const action = testContract.methods.emit_array_as_encrypted_log(valuesAsArray, address, address, true);
       const tx = await action.prove();
       const rct = await tx.send().wait();
 
@@ -431,16 +452,23 @@ describe('e2e_block_building', () => {
       expect(privateLogs.length).toBe(3);
 
       // The first two logs are encrypted.
-      const event0 = (await L1EventPayload.decryptAsIncoming(privateLogs[0], await thisWallet.getEncryptionSecret()))!;
-      expect(event0.event.items).toEqual(values);
-
-      const event1 = (await L1EventPayload.decryptAsIncoming(privateLogs[1], await thisWallet.getEncryptionSecret()))!;
-      expect(event1.event.items).toEqual(nestedValues);
+      const events = await pxe.getPrivateEvents(
+        testContract.address,
+        TestContract.events.ExampleEvent,
+        rct.blockNumber!,
+        1,
+        [address],
+      );
+      expect(events[0]).toEqual(values);
+      expect(events[1]).toEqual(nestedValues);
 
       // The last log is not encrypted.
       // The first field is the first value and is siloed with contract address by the kernel circuit.
-      const expectedFirstField = await poseidon2Hash([testContract.address, values[0]]);
-      expect(privateLogs[2].fields.slice(0, 5)).toEqual([expectedFirstField, ...values.slice(1)]);
+      const expectedFirstField = await poseidon2Hash([testContract.address, valuesAsArray[0]]);
+      expect(privateLogs[2].fields.slice(0, 5).map((f: Fr) => f.toBigInt())).toEqual([
+        expectedFirstField.toBigInt(),
+        ...valuesAsArray.slice(1),
+      ]);
     }, 60_000);
   });
 
@@ -493,7 +521,7 @@ describe('e2e_block_building', () => {
         .deployed();
 
       logger.info('Updating txs per block to 4');
-      await aztecNode.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
+      await aztecNodeAdmin.setConfig({ minTxsPerBlock: 4, maxTxsPerBlock: 4 });
 
       logger.info('Spamming the network with public txs');
       const txs = [];
@@ -503,7 +531,7 @@ describe('e2e_block_building', () => {
       }
 
       logger.info('Waiting for txs to be mined');
-      await Promise.all(txs.map(tx => tx.wait({ proven: false, timeout: 600 })));
+      await Promise.all(txs.map(tx => tx.wait({ timeout: 600 })));
     });
   });
 
@@ -603,7 +631,7 @@ async function sendAndWait(calls: ContractFunctionInteraction[]) {
 
 const TEST_PUBLIC_TX_SIMULATION_DELAY_MS = 300;
 
-class TestPublicTxSimulator extends PublicTxSimulator {
+class TestPublicTxSimulator extends TelemetryPublicTxSimulator {
   public override async simulate(tx: Tx): Promise<PublicTxResult> {
     await sleep(TEST_PUBLIC_TX_SIMULATION_DELAY_MS);
     return super.simulate(tx);
@@ -617,7 +645,7 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
-  ): PublicTxSimulator {
+  ) {
     return new TestPublicTxSimulator(
       treesDB,
       contractsDB,

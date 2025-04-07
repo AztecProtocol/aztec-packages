@@ -97,7 +97,7 @@ function update_path_env_var {
     SHELL_PROFILE=""
     case $SHELL in
     */bash)
-      SHELL_PROFILE="$HOME/.bashrc"
+      SHELL_PROFILE="$HOME/.bash_profile"
       ;;
     */zsh)
       SHELL_PROFILE="$HOME/.zshrc"

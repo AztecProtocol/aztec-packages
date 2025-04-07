@@ -35,25 +35,23 @@ describe('e2e_token_contract transfer private', () => {
       .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce);
 
     const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
-    await wallets[1].addAuthWitness(witness);
-    expect(await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action })).toEqual({
+    expect(
+      await wallets[0].lookupValidity(wallets[0].getAddress(), { caller: accounts[1].address, action }, witness),
+    ).toEqual({
       isValidInPrivate: true,
       isValidInPublic: false,
     });
     // docs:end:authwit_transfer_example
 
-    // We give wallets[1] access to wallets[0]'s notes to be able to transfer the notes.
-    wallets[1].setScopes([wallets[1].getAddress(), wallets[0].getAddress()]);
-
     // Perform the transfer
-    await action.send().wait();
+    await action.send({ authWitnesses: [witness] }).wait();
     tokenSim.transferPrivate(accounts[0].address, accounts[1].address, amount);
 
     // Perform the transfer again, should fail
     const txReplay = asset
       .withWallet(wallets[1])
       .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce)
-      .send();
+      .send({ authWitnesses: [witness] });
     await expect(txReplay.wait()).rejects.toThrow(DUPLICATE_NULLIFIER_ERROR);
   });
 
@@ -83,10 +81,9 @@ describe('e2e_token_contract transfer private', () => {
       // await wallet.signAndAddAuthWitness(messageHash, );
       // But doing it in two actions to show the flow.
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
-      await wallets[1].addAuthWitness(witness);
 
       // Perform the transfer
-      await expect(action.simulate()).rejects.toThrow('Assertion failed: Balance too low');
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow('Assertion failed: Balance too low');
       expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
       expect(await asset.methods.balance_of_private(accounts[1].address).simulate()).toEqual(balance1);
     });
@@ -140,12 +137,8 @@ describe('e2e_token_contract transfer private', () => {
       );
 
       const witness = await wallets[0].createAuthWit({ caller: accounts[1].address, action });
-      await wallets[2].addAuthWitness(witness);
 
-      // We give wallets[2] access to wallets[0]'s notes to test the authwit.
-      wallets[2].setScopes([wallets[2].getAddress(), wallets[0].getAddress()]);
-
-      await expect(action.simulate()).rejects.toThrow(
+      await expect(action.simulate({ authWitnesses: [witness] })).rejects.toThrow(
         `Unknown auth witness for message hash ${expectedMessageHash.toString()}`,
       );
       expect(await asset.methods.balance_of_private(accounts[0].address).simulate()).toEqual(balance0);
@@ -165,17 +158,16 @@ describe('e2e_token_contract transfer private', () => {
       const intent = { caller: accounts[1].address, action };
 
       const witness = await wallets[0].createAuthWit(intent);
-      await wallets[1].addAuthWitness(witness);
 
-      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
         isValidInPrivate: true,
         isValidInPublic: false,
       });
 
-      const innerHash = await computeInnerAuthWitHashFromAction(accounts[1].address, (await action.request()).calls[0]);
+      const innerHash = await computeInnerAuthWitHashFromAction(accounts[1].address, action);
       await asset.withWallet(wallets[0]).methods.cancel_authwit(innerHash).send().wait();
 
-      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent)).toEqual({
+      expect(await wallets[0].lookupValidity(wallets[0].getAddress(), intent, witness)).toEqual({
         isValidInPrivate: false,
         isValidInPublic: false,
       });
@@ -184,7 +176,7 @@ describe('e2e_token_contract transfer private', () => {
       const txCancelledAuthwit = asset
         .withWallet(wallets[1])
         .methods.transfer_in_private(accounts[0].address, accounts[1].address, amount, nonce)
-        .send();
+        .send({ authWitnesses: [witness] });
       await expect(txCancelledAuthwit.wait()).rejects.toThrowError(DUPLICATE_NULLIFIER_ERROR);
     });
 

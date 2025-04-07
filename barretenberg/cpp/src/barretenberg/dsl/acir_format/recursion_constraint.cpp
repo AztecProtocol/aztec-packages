@@ -17,7 +17,7 @@ using verification_key_ct = stdlib::recursion::verification_key<bn254>;
 using field_ct = stdlib::field_t<Builder>;
 using Composer = plonk::UltraComposer;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = stdlib::recursion::aggregation_state<bn254>;
+using aggregation_state_ct = stdlib::recursion::aggregation_state<Builder>;
 
 using namespace plonk;
 
@@ -166,7 +166,7 @@ PairingPointAccumulatorIndices create_recursion_constraints(
     // Assign correct witness value to the verification key hash
     vkey->hash().assert_equal(field_ct::from_witness_index(&builder, input.key_hash));
 
-    return result.get_witness_indices();
+    return result.get_witness_indices_for_plonk();
 }
 
 /**

@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -19,9 +19,9 @@ DEFAULT_BIND_MOUNT_DIR="$HOME/aztec-data"
 
 # unset these to avoid conflicts with the host's environment
 ETHEREUM_HOSTS=
+L1_CONSENSUS_HOST_URLS=
 IMAGE=
 BOOTNODE_URL=
-DEFAULT_L1_CONSENSUS_HOST_URL="https://eth-beacon-chain-sepolia.drpc.org/rest"
 LOG_LEVEL=info
 # Parse command line arguments
 parse_args() {
@@ -43,8 +43,8 @@ parse_args() {
       ETHEREUM_HOSTS="$2"
       shift 2
       ;;
-    -l | --l1-consensus-host-url)
-      L1_CONSENSUS_HOST_URL="$2"
+    -l | --l1-consensus-host-urls)
+      L1_CONSENSUS_HOST_URLS="$2"
       shift 2
       ;;
     -p | --port)
@@ -151,13 +151,18 @@ configure_environment() {
     done
   fi
 
-    if [ -n "$L1_CONSENSUS_HOST_URL" ]; then
-    L1_CONSENSUS_HOST_URL="$L1_CONSENSUS_HOST_URL"
+  if [ -n "$L1_CONSENSUS_HOST_URLS" ]; then
+    L1_CONSENSUS_HOST_URLS="$L1_CONSENSUS_HOST_URLS"
   else
-    read -p "L1 Consensus Host URL [$DEFAULT_L1_CONSENSUS_HOST_URL]: " L1_CONSENSUS_HOST_URL
-    L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-$DEFAULT_L1_CONSENSUS_HOST_URL}
+    while true; do
+      read -p "L1 Consensus Host URLs: " L1_CONSENSUS_HOST_URLS
+      if [ -z "$L1_CONSENSUS_HOST_URLS" ]; then
+        echo -e "${RED}Error: L1 Consensus Host URLs are required${NC}"
+      else
+        break
+      fi
+    done
   fi
-
 
   # # get the node info
   # get_node_info
@@ -239,8 +244,9 @@ configure_environment() {
 
   # Generate .env file
   cat >.env <<EOF
-P2P_UDP_ANNOUNCE_ADDR=${IP}:${P2P_PORT}
-P2P_TCP_ANNOUNCE_ADDR=${IP}:${P2P_PORT}
+P2P_IP=${IP}
+P2P_PORT=${P2P_PORT}
+P2P_LISTEN_ADDR=0.0.0.0
 VALIDATOR_DISABLED=false
 VALIDATOR_PRIVATE_KEY=${KEY}
 SEQ_PUBLISHER_PRIVATE_KEY=${KEY}
@@ -255,14 +261,12 @@ PXE_PROVER_ENABLED=true
 ETHEREUM_SLOT_DURATION=12
 AZTEC_SLOT_DURATION=36
 ETHEREUM_HOSTS=${ETHEREUM_HOSTS}
-L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL}
+L1_CONSENSUS_HOST_URLS=${L1_CONSENSUS_HOST_URLS}
 AZTEC_EPOCH_DURATION=32
 AZTEC_PROOF_SUBMISSION_WINDOW=64
 BOOTSTRAP_NODES=${BOOTSTRAP_NODES}
 REGISTRY_CONTRACT_ADDRESS=${REGISTRY_CONTRACT_ADDRESS}
 SLASH_FACTORY_CONTRACT_ADDRESS=0x0f216a792a4cc3691010e7870ae2c0f4fadd952a
-P2P_UDP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
-P2P_TCP_LISTEN_ADDR=0.0.0.0:${P2P_PORT}
 DATA_DIRECTORY=/var/lib/aztec
 PEER_ID_PRIVATE_KEY=${PEER_ID_PRIVATE_KEY}
 COINBASE=${COINBASE}

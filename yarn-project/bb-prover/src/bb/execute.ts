@@ -8,10 +8,12 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import type { UltraHonkFlavor } from '../honk.js';
-import { CLIENT_IVC_PROOF_FILE_NAME, CLIENT_IVC_VK_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
+import { CLIENT_IVC_PROOF_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
+export const PUBLIC_INPUTS_FILENAME = 'public_inputs';
+export const PUBLIC_INPUTS_FIELDS_FILENAME = 'public_inputs_fields.json';
 export const PROOF_FILENAME = 'proof';
 export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
@@ -62,6 +64,7 @@ type BBExecResult = {
  * @param command - The command to execute
  * @param args - The arguments to pass
  * @param logger - A log function
+ * @param timeout - An optional timeout before killing the BB process
  * @param resultParser - An optional handler for detecting success or failure
  * @returns The completed partial witness outputted from the circuit
  */
@@ -70,6 +73,7 @@ export function executeBB(
   command: string,
   args: string[],
   logger: LogFn,
+  timeout?: number,
   resultParser = (code: number) => code === 0,
 ): Promise<BBExecResult> {
   return new Promise<BBExecResult>(resolve => {
@@ -80,6 +84,18 @@ export function executeBB(
     const bb = proc.spawn(pathToBB, [command, ...args], {
       env,
     });
+
+    let timeoutId: NodeJS.Timeout | undefined;
+    if (timeout !== undefined) {
+      timeoutId = setTimeout(() => {
+        logger(`BB execution timed out after ${timeout}ms, killing process`);
+        if (bb.pid) {
+          bb.kill('SIGKILL');
+        }
+        resolve({ status: BB_RESULT.FAILURE, exitCode: -1, signal: 'TIMEOUT' });
+      }, timeout);
+    }
+
     bb.stdout.on('data', data => {
       const message = data.toString('utf-8').replace(/\n$/, '');
       logger(message);
@@ -89,6 +105,9 @@ export function executeBB(
       logger(message);
     });
     bb.on('close', (exitCode: number, signal?: string) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
       if (resultParser(exitCode)) {
         resolve({ status: BB_RESULT.SUCCESS, exitCode, signal });
       } else {
@@ -98,13 +117,13 @@ export function executeBB(
   }).catch(_ => ({ status: BB_RESULT.FAILURE, exitCode: -1, signal: undefined }));
 }
 
-// TODO(#7369) comment this etc (really just take inspiration from this and rewrite it all O:))
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
   bytecodeStackPath: string,
   witnessStackPath: string,
   log: LogFn,
+  writeVk = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -140,8 +159,10 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
-      '--write_vk',
     ];
+    if (writeVk) {
+      args.push('--write_vk');
+    }
 
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -275,17 +296,13 @@ export async function generateProof(
 /**
  * Used for generating proofs of the tube circuit
  * It is assumed that the working directory is a temporary and/or random directory used solely for generating this proof.
- * @param pathToBB - The full path to the bb binary
- * @param workingDirectory - A working directory for use by bb
- * @param circuitName - An identifier for the circuit
- * @param bytecode - The compiled circuit bytecode
- * @param inputWitnessFile - The circuit input witness
- * @param log - A logging function
+ *
  * @returns An object containing a result indication, the location of the proof and the duration taken
  */
 export async function generateTubeProof(
   pathToBB: string,
   workingDirectory: string,
+  vkPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -295,8 +312,7 @@ export async function generateTubeProof(
     return { status: BB_RESULT.FAILURE, reason: `Working directory ${workingDirectory} does not exist` };
   }
 
-  // // Paths for the inputs
-  const vkPath = join(workingDirectory, CLIENT_IVC_VK_FILE_NAME);
+  // Paths for the inputs
   const proofPath = join(workingDirectory, CLIENT_IVC_PROOF_FILE_NAME);
 
   // The proof is written to e.g. /workingDirectory/proof
@@ -313,10 +329,10 @@ export async function generateTubeProof(
   }
 
   try {
-    if (!(await filePresent(vkPath)) || !(await filePresent(proofPath))) {
+    if (!(await filePresent(proofPath))) {
       return { status: BB_RESULT.FAILURE, reason: `Client IVC input files not present in  ${workingDirectory}` };
     }
-    const args = ['-o', outputPath, '-v'];
+    const args = ['-o', outputPath, '-k', vkPath, '-v'];
 
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -655,8 +671,19 @@ async function verifyProofInternal(
     logger.verbose(`bb-prover (verify) BB out - ${message}`);
   };
 
+  // take proofFullPath and remove the suffix past the / to get the directory
+  const proofDir = proofFullPath.substring(0, proofFullPath.lastIndexOf('/'));
+  const publicInputsFullPath = join(proofDir, '/public_inputs');
+
+  logger.debug(`public inputs path: ${publicInputsFullPath}`);
   try {
-    const args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    let args;
+    // Specify the public inputs path in the case of UH verification.
+    if (command == 'verify') {
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, '-i', publicInputsFullPath, ...extraArgs];
+    } else {
+      args = ['-p', proofFullPath, '-k', verificationKeyPath, ...extraArgs];
+    }
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {

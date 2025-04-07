@@ -29,6 +29,11 @@ telemetry:
   useGcloudLogging: true
   excludeMetrics: ""
 
+snapshots:
+  uploadLocation:
+  syncUrl:
+  frequency:
+
 images:
   aztec:
     image: aztecprotocol/aztec
@@ -51,14 +56,17 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
+    rollupAddress: "" # only needed for blob sink
+    feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
   proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
   realProofs: false
 
-  l1Salt: "42" # leave empty for random salt
+  l1Salt: "" # leave empty for random salt
   testAccounts: true
+  sponsoredFPC: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
   manaTarget: "" # use default value
 
@@ -113,6 +121,7 @@ fullNode:
   service:
     p2pPort: 40400
     nodePort: 8080
+    adminPort: 8880
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
@@ -137,6 +146,7 @@ fullNode:
   stakingAssetAddress: ""
   storageSize: "1Gi"
   dataDir: "/data"
+  sentinelEnabled: false
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -149,7 +159,6 @@ validator:
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
-    maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 0
     maxTxsPerBlock: 4
     enforceTimeTable: true
@@ -212,6 +221,7 @@ proverNode:
 
 pxe:
   enabled: true
+  nodeUrl: ""
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -222,6 +232,7 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
+  resources: {}
 
 bot:
   enabled: true
@@ -236,6 +247,7 @@ bot:
   followChain: "NONE"
   botNoStart: false
   feePaymentMethod: "fee_juice"
+  ammTxs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -250,9 +262,11 @@ bot:
   gke:
     spotEnabled: true
   maxOldSpaceSize: "4608"
+  resources: {}
 
 ethereum:
   acceleratedTestDeployments: false
+  genesisBasePath: "out"
   replicas: 1
   chainId: 1337
   blockTime: 12

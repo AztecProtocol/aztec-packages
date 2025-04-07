@@ -5,17 +5,21 @@ import { bufferToHex } from '@aztec/foundation/string';
 
 import { type RpcBlock, createPublicClient, fallback, http } from 'viem';
 
+import { createBlobArchiveClient } from '../archive/factory.js';
+import type { BlobArchiveClient } from '../archive/interface.js';
 import { outboundTransform } from '../encoding/index.js';
 import { type BlobSinkConfig, getBlobSinkConfigFromEnv } from './config.js';
 import type { BlobSinkClientInterface } from './interface.js';
 
 export class HttpBlobSinkClient implements BlobSinkClientInterface {
-  private readonly log: Logger;
-  private readonly config: BlobSinkConfig;
-  private readonly fetch: typeof fetch;
+  protected readonly log: Logger;
+  protected readonly config: BlobSinkConfig;
+  protected readonly archiveClient: BlobArchiveClient | undefined;
+  protected readonly fetch: typeof fetch;
 
   constructor(config?: BlobSinkConfig) {
     this.config = config ?? getBlobSinkConfigFromEnv();
+    this.archiveClient = createBlobArchiveClient(this.config);
     this.log = createLogger('aztec:blob-sink-client');
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
@@ -74,9 +78,9 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * If requesting from the beacon node, we send the slot number
    *
    * 1. First atttempts to get blobs from a configured blob sink
-   * 2. If no blob sink is configured, attempts to get blobs from a configured consensus host
-   *
-   * 3. If none configured, fails
+   * 2. On failure, attempts to get blobs from the list of configured consensus hosts
+   * 3. On failure, attempts to get blobs from an archive client (eg blobscan)
+   * 4. Else, fails
    *
    * @param blockHash - The block hash
    * @param indices - The indices of the blobs to get
@@ -85,10 +89,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   public async getBlobSidecar(blockHash: `0x${string}`, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
     let blobs: Blob[] = [];
 
-    const { blobSinkUrl, l1ConsensusHostUrl } = this.config;
+    const { blobSinkUrl, l1ConsensusHostUrls } = this.config;
     const ctx = { blockHash, blobHashes: blobHashes.map(bufferToHex), indices };
 
     if (blobSinkUrl) {
+      this.log.trace(`Attempting to get blobs from blob sink`, { blobSinkUrl, ...ctx });
       blobs = await this.getBlobSidecarFrom(blobSinkUrl, blockHash, blobHashes, indices);
       this.log.debug(`Got ${blobs.length} blobs from blob sink`, { blobSinkUrl, ...ctx });
       if (blobs.length > 0) {
@@ -96,23 +101,51 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       }
     }
 
-    if (blobs.length == 0 && l1ConsensusHostUrl) {
+    if (blobs.length == 0 && l1ConsensusHostUrls && l1ConsensusHostUrls.length > 0) {
       // The beacon api can query by slot number, so we get that first
+      const consensusCtx = { l1ConsensusHostUrls, ...ctx };
+      this.log.trace(`Attempting to get slot number for block hash`, consensusCtx);
       const slotNumber = await this.getSlotNumber(blockHash);
-      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, {
-        blockHash,
-        l1ConsensusHostUrl,
-      });
+      this.log.debug(`Got slot number ${slotNumber} from consensus host for querying blobs`, consensusCtx);
+
       if (slotNumber) {
-        const blobs = await this.getBlobSidecarFrom(l1ConsensusHostUrl, slotNumber, blobHashes, indices);
-        this.log.debug(`Got ${blobs.length} blobs from consensus host`, { l1ConsensusHostUrl, slotNumber, ...ctx });
-        if (blobs.length > 0) {
-          return blobs;
+        let l1ConsensusHostUrl: string;
+        for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
+          l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
+          this.log.trace(`Attempting to get blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
+          const blobs = await this.getBlobSidecarFrom(
+            l1ConsensusHostUrl,
+            slotNumber,
+            blobHashes,
+            indices,
+            undefined,
+            l1ConsensusHostIndex,
+          );
+          this.log.debug(`Got ${blobs.length} blobs from consensus host`, { slotNumber, l1ConsensusHostUrl, ...ctx });
+          if (blobs.length > 0) {
+            return blobs;
+          }
         }
       }
     }
 
-    this.log.verbose('No blob sources available');
+    if (blobs.length == 0 && this.archiveClient) {
+      const archiveCtx = { archiveUrl: this.archiveClient.getBaseUrl(), ...ctx };
+      this.log.trace(`Attempting to get blobs from archive`, archiveCtx);
+      const allBlobs = await this.archiveClient.getBlobsFromBlock(blockHash);
+      if (!allBlobs) {
+        this.log.debug('No blobs found from archive client', archiveCtx);
+        return [];
+      }
+      this.log.trace(`Got ${allBlobs.length} blobs from archive client before filtering`, archiveCtx);
+      blobs = await getRelevantBlobs(allBlobs, blobHashes, this.log);
+      this.log.debug(`Got ${blobs.length} blobs from archive client`, archiveCtx);
+      if (blobs.length > 0) {
+        return blobs;
+      }
+    }
+
+    this.log.debug('No blob sources available');
     return [];
   }
 
@@ -122,6 +155,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     blobHashes: Buffer[],
     indices?: number[],
     maxRetries = 10,
+    l1ConsensusHostIndex?: number,
   ): Promise<Blob[]> {
     try {
       let baseUrl = `${hostUrl}/eth/v1/beacon/blob_sidecars/${blockHashOrSlot}`;
@@ -129,7 +163,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         baseUrl += `?indices=${indices.join(',')}`;
       }
 
-      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config);
+      const { url, ...options } = getBeaconNodeFetchOptions(baseUrl, this.config, l1ConsensusHostIndex);
 
       this.log.debug(`Fetching blob sidecar for ${blockHashOrSlot}`, { url, ...options });
       const res = await this.fetch(url, options);
@@ -173,12 +207,13 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
    * @returns The slot number
    */
   private async getSlotNumber(blockHash: `0x${string}`): Promise<number | undefined> {
-    if (!this.config.l1ConsensusHostUrl) {
+    const { l1ConsensusHostUrls, l1RpcUrls } = this.config;
+    if (!l1ConsensusHostUrls || l1ConsensusHostUrls.length === 0) {
       this.log.debug('No consensus host url configured');
       return undefined;
     }
 
-    if (!this.config.l1RpcUrls) {
+    if (!l1RpcUrls || l1RpcUrls.length === 0) {
       this.log.debug('No execution host url configured');
       return undefined;
     }
@@ -186,7 +221,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     // Ping execution node to get the parentBeaconBlockRoot for this block
     let parentBeaconBlockRoot: string | undefined;
     const client = createPublicClient({
-      transport: fallback(this.config.l1RpcUrls.map(url => http(url))),
+      transport: fallback(l1RpcUrls.map(url => http(url))),
     });
     try {
       const res: RpcBlock = await client.request({
@@ -207,21 +242,26 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     }
 
     // Query beacon chain to get the slot number for that block root
-    try {
-      const { url, ...options } = getBeaconNodeFetchOptions(
-        `${this.config.l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`,
-        this.config,
-      );
-      const res = await this.fetch(url, options);
+    let l1ConsensusHostUrl: string;
+    for (let l1ConsensusHostIndex = 0; l1ConsensusHostIndex < l1ConsensusHostUrls.length; l1ConsensusHostIndex++) {
+      l1ConsensusHostUrl = l1ConsensusHostUrls[l1ConsensusHostIndex];
+      try {
+        const { url, ...options } = getBeaconNodeFetchOptions(
+          `${l1ConsensusHostUrl}/eth/v1/beacon/headers/${parentBeaconBlockRoot}`,
+          this.config,
+          l1ConsensusHostIndex,
+        );
+        const res = await this.fetch(url, options);
 
-      if (res.ok) {
-        const body = await res.json();
+        if (res.ok) {
+          const body = await res.json();
 
-        // Add one to get the slot number of the original block hash
-        return Number(body.data.header.message.slot) + 1;
+          // Add one to get the slot number of the original block hash
+          return Number(body.data.header.message.slot) + 1;
+        }
+      } catch (err) {
+        this.log.error(`Error getting slot number`, err);
       }
-    } catch (err) {
-      this.log.error(`Error getting slot number`, err);
     }
 
     return undefined;
@@ -234,6 +274,7 @@ async function getRelevantBlobs(data: any, blobHashes: Buffer[], logger: Logger)
     .filter((b: BlobJson) => {
       const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
       const blobHash = Blob.getEthVersionedBlobHash(commitment);
+      logger.trace(`Filtering blob with hash ${blobHash.toString('hex')}`);
       return blobHashes.some(hash => hash.equals(blobHash));
     })
     // Attempt to deserialise the blob
@@ -261,17 +302,26 @@ async function getRelevantBlobs(data: any, blobHashes: Buffer[], logger: Logger)
   return filteredBlobs;
 }
 
-function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig) {
+function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1ConsensusHostIndex?: number) {
+  const { l1ConsensusHostApiKeys, l1ConsensusHostApiKeyHeaders } = config;
+  const l1ConsensusHostApiKey =
+    l1ConsensusHostIndex !== undefined && l1ConsensusHostApiKeys && l1ConsensusHostApiKeys[l1ConsensusHostIndex];
+  const l1ConsensusHostApiKeyHeader =
+    l1ConsensusHostIndex !== undefined &&
+    l1ConsensusHostApiKeyHeaders &&
+    l1ConsensusHostApiKeyHeaders[l1ConsensusHostIndex];
+
   let formattedUrl = url;
-  if (config.l1ConsensusHostApiKey && !config.l1ConsensusHostApiKeyHeader) {
-    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${config.l1ConsensusHostApiKey}`;
+  if (l1ConsensusHostApiKey && !l1ConsensusHostApiKeyHeader) {
+    formattedUrl += `${formattedUrl.includes('?') ? '&' : '?'}key=${l1ConsensusHostApiKey}`;
   }
+
   return {
     url: formattedUrl,
-    ...(config.l1ConsensusHostApiKey &&
-      config.l1ConsensusHostApiKeyHeader && {
+    ...(l1ConsensusHostApiKey &&
+      l1ConsensusHostApiKeyHeader && {
         headers: {
-          [config.l1ConsensusHostApiKeyHeader]: config.l1ConsensusHostApiKey,
+          [l1ConsensusHostApiKeyHeader]: l1ConsensusHostApiKey,
         },
       }),
   };

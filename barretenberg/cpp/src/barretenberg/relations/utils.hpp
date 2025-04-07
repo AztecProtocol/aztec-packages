@@ -64,7 +64,7 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scale Univaraites, each representing a subrelation, by different challenges
+     * @brief Scale Univariates, each representing a subrelation, by different challenges
      *
      * @param tuple Tuple of tuples of Univariates
      * @param challenge Array of NUM_SUBRELATIONS - 1 challenges (because the first subrelation doesn't need to be
@@ -85,7 +85,7 @@ template <typename Flavor> class RelationUtils {
     }
 
     /**
-     * @brief Scale Univaraites by consecutive powers of the provided challenge
+     * @brief Scale Univariates by consecutive powers of the provided challenge
      *
      * @param tuple Tuple of tuples of Univariates
      * @param challenge
@@ -150,7 +150,6 @@ template <typename Flavor> class RelationUtils {
      * thesis).
      */
     template <typename Parameters>
-    // TODO(#224)(Cody): Input should be an array?
     inline static void accumulate_relation_evaluations_without_skipping(const PolynomialEvaluations& evaluations,
                                                                         RelationEvaluations& relation_evaluations,
                                                                         const Parameters& relation_parameters,
@@ -173,7 +172,6 @@ template <typename Flavor> class RelationUtils {
      * thesis).
      */
     template <typename Parameters>
-    // TODO(#224)(Cody): Input should be an array?
     inline static RelationEvaluations accumulate_relation_evaluations(const PolynomialEvaluations& evaluations,
                                                                       const Parameters& relation_parameters,
                                                                       const FF& partial_evaluation_result)

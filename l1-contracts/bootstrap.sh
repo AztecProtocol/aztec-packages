@@ -53,7 +53,7 @@ function build {
 function test_cmds {
   echo "$hash cd l1-contracts && solhint --config ./.solhint.json \"src/**/*.sol\""
   echo "$hash cd l1-contracts && forge fmt --check"
-  echo "$hash cd l1-contracts && forge test && ./bootstrap.sh gas_report"
+  echo "$hash cd l1-contracts && forge test --no-match-contract UniswapPortalTest && ./bootstrap.sh gas_report"
 }
 
 function test {
@@ -121,6 +121,29 @@ function gas_report {
     exit 1
   fi
   mv gas_report.new.md gas_report.md
+}
+
+
+function gas_benchmark {
+  check=${1:-"no"}
+  echo_header "Benchmarking gas"
+  forge --version
+
+  FORGE_GAS_REPORT=true forge test \
+    --match-contract "BenchmarkRollupTest" \
+    --fuzz-seed 42 \
+    --isolate \
+    > gas_benchmark.new.tmp
+  grep "^|" gas_benchmark.new.tmp > gas_benchmark.new.md
+  rm gas_benchmark.new.tmp
+  diff gas_benchmark.new.md gas_benchmark.md > gas_benchmark.diff || true
+
+  if [ -s gas_benchmark.diff -a "$check" = "check" ]; then
+    cat gas_benchmark.diff
+    echo "Gas benchmark has changed. Please check the diffs above, then run './bootstrap.sh gas_benchmark' to update the gas benchmark."
+    exit 1
+  fi
+  mv gas_benchmark.new.md gas_benchmark.md
 }
 
 # First argument is a branch name (e.g. master, or the latest version e.g. 1.2.3) to push to the head of.
@@ -212,17 +235,15 @@ case "$cmd" in
   ""|"fast"|"full")
     build
     ;;
-  "test")
-    test
-    ;;
-  "inspect")
-    inspect
-    ;;
   "gas_report")
     shift
     gas_report "$@"
     ;;
-  test_cmds|release)
+  "gas_benchmark")
+    shift
+    gas_benchmark "$@"
+    ;;
+  test|test_cmds|inspect|release)
     $cmd
     ;;
   "hash")

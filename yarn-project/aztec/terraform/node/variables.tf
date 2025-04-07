@@ -55,16 +55,6 @@ variable "SEQ_MIN_TX_PER_BLOCK" {
   default = 2
 }
 
-variable "SEQ_MAX_SECONDS_BETWEEN_BLOCKS" {
-  type    = string
-  default = 0
-}
-
-variable "SEQ_MIN_SECONDS_BETWEEN_BLOCKS" {
-  type    = string
-  default = 0
-}
-
 variable "P2P_MAX_PEERS" {
   type    = string
   default = 100

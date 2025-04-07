@@ -7,11 +7,13 @@
 # If there is no owner for failed test the build will fail, regardless of if it matches in this file.
 # When a failing test matches one or more of the "regex" properties below,
 # a message is sent to slack channel #aztec3-ci tagging the owners.
+# If an optional error_regex is provided, the output file must match for the test to be considered a flake.
 
 names:
   - adam: &adam "U04BM8H25NJ"
   - alex: &alex "U05QWV669JB"
   - charlie: &charlie "UKUMA5J7K"
+  - grego: &grego "U0689QRCE9L"
   - lasse: &lasse "U03E5SYLY3Z"
   - leila: &leila "UBLTU1NJ3"
   - luke: &luke "U03JYU7AQET"
@@ -20,6 +22,9 @@ names:
   - phil: &phil "U02G4KAD57Y"
   - sean: &sean "U04DT239VQU"
   - tom: &tom "U04LLT331NK"
+  - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
 
 tests:
   # barretenberg
@@ -32,12 +37,23 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
+    error_regex: "field_t::range_constraint"
     owners:
       - *luke
-
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    owners:
+      - *luke
+  - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
+    error_regex: "Failed to fetch"
+    owners:
+      - *adam
   # Sumcheck is failing for some reason
-  - regex: "barretenberg/acir_tests/run_test.sh ram_blowup_regression"
+  - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
+    owners:
+      - *tom
+  - regex: "tests::execution_success::test_ram_blowup_regression"
+    error_regex: "assertion `left == right` failed"
     owners:
       - *tom
 
@@ -52,120 +68,147 @@ tests:
     owners:
       - *charlie
   # Sometimes see this on ARM. But not when run on it's own...
-  # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
-  #                                                                                                                                                                                running 1 test
-  # test tests::debug_ram_blowup_regression has been running for over 60 seconds                                                                                                   test tests::debug_ram_blowup_regression ... FAILED
-  #                                                                                                                                                                                failures:
-  #                                                                                                                                                                                ---- tests::debug_ram_blowup_regression stdout ----
-  # thread 'tests::debug_ram_blowup_regression' panicked at tooling/debugger/tests/debug.rs:27:14:                                                                                 Could not start debugger: Timeout { expected: "Regex: \".*\Starting debugger.*\"", got: "`^`[?2004l`\r``\r``\n`
-  # Waiting for lock on Nargo.toml...`\r``\n`                                                                                                                                      ", timeout: 30s }
-  # note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-  #                                                                                                                                                                                failures:
-  #     tests::debug_ram_blowup_regression
-  # test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
     owners:
       - *charlie
 
-  # Seen this error on all the below.
-  # e.g. to grind: seq 1 16 | parallel --bar --tag --halt now,fail=1 ci3/dump_fail "NAME_POSTFIX=_{} yarn-project/end-to-end/scripts/run_test.sh simple e2e_p2p/gossip_network >/dev/null"
-  # FAIL  e2e_p2p/reqresp.test.ts
-  #  ● e2e_p2p_reqresp_tx › should produce an attestation by requesting tx data over the p2p network
-
-  #    TypeError: Cannot read properties of null (reading 'address')
-
-  #      19 |
-  #      20 |   get(): T | undefined {
-  #    > 21 |     return this.#db.get(this.#slot);
-  #         |                     ^
-  #      22 |   }
-  #      23 |
-  #      24 |   getAsync(): Promise<T | undefined> {
-
-  #      at LMDBStore.getBinaryFast (../../node_modules/lmdb/read.js:90:9)
-  #      at LMDBStore.get (../../node_modules/lmdb/read.js:334:22)
-  #      at LmdbAztecSingleton.get (../../kv-store/src/lmdb/singleton.ts:21:21)
-  #      at initStoreForRollup (../../kv-store/src/utils.ts:26:82)
-  #      at createStore (../../kv-store/src/lmdb/index.ts:25:12)
-  #      at createArchiver (../../archiver/src/factory.ts:30:25)
-  #      at Function.createAndSync (../../aztec-node/src/aztec-node/server.ts:157:28)
-  #      at createAndSync (fixtures/setup_p2p_test.ts:72:33)
-  #          at async Promise.all (index 0)
-  #      at Object.<anonymous> (e2e_p2p/reqresp.test.ts:66:13)
-  - regex: "simple e2e_p2p/"
+  # e2e tests
+  - regex: "simple e2e_p2p"
+    error_regex: "could not listen on any available address"
     owners:
       - *sean
-
+  - regex: "simple e2e_p2p/reex"
+    error_regex: "Received promise resolved instead of rejected"
+    owners:
+      - *sean
+  - regex: "simple e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting blocks mined"
+    owners:
+      - *palla
+  - regex: "simple e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
+  - regex: "simple e2e_p2p/gossip_network"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
   - regex: "simple e2e_fees/private_payments"
     owners:
       - *phil
-
-  # Summary of all failing tests
-  #  FAIL  ./e2e_cheat_codes.test.ts
-  #   ● e2e_cheat_codes › L1 cheatcodes › setNextBlockTimestamp
-  #
-  #     expect(received).toBe(expected) // Object.is equality
-  #
-  #     Expected: 28
-  #     Received: 29
-  #
-  #       65 |       await cc.eth.mine();
-  #       66 |
-  #     > 67 |       expect(await cc.eth.blockNumber()).toBe(blockNumber + 1);
-  #          |                                          ^
-  #       68 |       expect(await cc.eth.timestamp()).toBe(timestamp + increment);
-  #       69 |     });
-  #       70 |
-  #
-  #       at toBe (e2e_cheat_codes.test.ts:67:42)
-  #
-  #
-  # Test Suites: 1 failed, 1 total
-  # Tests:       1 failed, 4 skipped, 13 passed, 18 total
-  # Snapshots:   0 total
-  # Time:        28.241 s
-  # Ran all test suites matching /e2e_cheat_codes/i.
-  - regex: "simple e2e_cheat_codes"
+  # http://ci.aztec-labs.com/7a5104e136578d64
+  # The "loop that wastes 5m" thing.
+  - regex: "simple e2e_fees/failures"
+    error_regex: "Exceeded timeout"
+    owners:
+      - *palla
+  - regex: "simple e2e_lending_contract"
+    error_regex: "✕ Depositing"
     owners:
       - *lasse
-
-  - regex: "prover-client/src/test/bb_prover_parity.test.ts"
+  - regex: "simple e2e_lending_contract"
+    error_regex: "✕ Repay"
+    owners:
+      - *lasse
+  - regex: "simple e2e_cross_chain_messaging/token_bridge_private"
+    error_regex: "✕ Claim secret is enough to consume the message"
+    owners:
+      - *lasse
+  - regex: "simple e2e_cross_chain_messaging/token_bridge_public"
+    error_regex: "✕ Someone else can mint funds to me on my behalf"
+    owners:
+      - *lasse
+  - regex: "simple e2e_block_building"
+    error_regex: "Cannot read properties of undefined"
+    owners:
+      - *jan
+  - regex: "simple e2e_block_building"
+    error_regex: "Could not retrieve body for block"
     owners:
       - *palla
-  - regex: "prover-client/src/proving_broker/broker_prover_facade.test.ts"
+  - regex: "composed/integration_l1_publisher"
+    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "prover-client/src/orchestrator/orchestrator_errors.test.ts"
+  - regex: "simple e2e_sequencer_config"
+    error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
 
   # yarn-project tests
-  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+  - regex: "p2p/src/services/discv5/discv5_service.test.ts"
+    error_regex: "Timeout: Failed to connect to"
     owners:
       - *sean
-  - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
+  - regex: "p2p/src/client/p2p_client.test.ts"
+    error_regex: "Exceeded timeout of 120000"
     owners:
-      - *lasse
-  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+      - *sean
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "✕ should stop after max retry attempts"
+    owners:
+      - *sean
+  - regex: "p2p/src/testbench/port_change.test.ts"
+    error_regex: "Timeout waiting for worker"
+    owners:
+      - *sean
+  - regex: "yarn-project/kv-store"
+    error_regex: "Could not import your test module"
+    owners:
+      - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "timeout: sending signal TERM to command"
+    owners:
+      - *alex
+  - regex: "yarn-project/kv-store"
+    error_regex: "Failed to fetch dynamically imported module"
+    owners:
+      - *alex
+  - regex: "ethereum/src/deploy_l1_contracts.test.ts"
+    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "yarn-project/kv-store"
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ calculates correct gas prices for initial attempt"
+    owners:
+      - *spyros
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "✕ keeps the jobs in progress while it is alive"
     owners:
       - *alex
 
+  # boxes
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "Test timeout of 90000ms exceeded."
+    owners:
+      - *grego
+
   # kind tests
-
-  - regex: "spartan/bootstrap.sh test-kind-4epochs"
-    owners:
-      - *leila
-
-  - regex: "spartan/bootstrap.sh test-local"
+  - regex: "spartan/bootstrap.sh"
+    # Will skip all kind tests for now. Too unstable, blocking merge queue.
     skip: true
+    error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *adam
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "cp: cannot create regular file"
+    owners:
+      - *alex
+  - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
+    owners:
+      - *alex
+
+  # aztec-up
+  - regex: "aztec-up/scripts/run_test.sh"
+    error_regex: "Is the docker daemon running"
+    owners:
+      - *charlie
 
   # Slack testing.
   - regex: "nonsense to match"
+    error_regex: "something else"
     owners:
       - *charlie
+      - *adam

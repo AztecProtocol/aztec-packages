@@ -1,4 +1,4 @@
-namespace range_check(256);
+namespace range_check;
     // Range check selector
     pol commit sel;
     sel * (1 - sel) = 0;
@@ -143,7 +143,7 @@ namespace range_check(256);
 
     // This lookup does 2 things (1) Indirectly range checks dyn_rng_chk_bits to not have underflowed and (2) Simplified calculation of 2^dyn_rng_chk_bits
     #[DYN_RNG_CHK_POW_2]
-    sel {dyn_rng_chk_bits, dyn_rng_chk_pow_2} in precomputed.sel_range_8 {precomputed.clk, precomputed.power_of_2};
+    sel { dyn_rng_chk_bits, dyn_rng_chk_pow_2 } in precomputed.sel_range_8 { precomputed.clk, precomputed.power_of_2 };
     // NOTE: `sel_range_8` is chosen because it gives us rows [0, 256] which will give us all of the powers we need (plus many we don't need)
 
     // Now we need to perform the dynamic range check itself

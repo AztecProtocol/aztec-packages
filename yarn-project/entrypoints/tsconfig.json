@@ -7,7 +7,7 @@
   },
   "references": [
     {
-      "path": "../aztec.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"

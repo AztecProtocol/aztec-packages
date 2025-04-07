@@ -73,6 +73,10 @@ export class RollupContract {
     return this.rollup.address;
   }
 
+  getContract(): GetContractReturnType<typeof RollupAbi, ViemPublicClient> {
+    return this.rollup;
+  }
+
   @memoize
   public async getSlashingProposer() {
     const slasherAddress = await this.rollup.read.getSlasher();
@@ -127,12 +131,26 @@ export class RollupContract {
   }
 
   @memoize
+  getProvingCostPerManaInFeeAsset() {
+    return this.rollup.read.getProvingCostPerManaInFeeAsset();
+  }
+
+  @memoize
   getManaLimit() {
     return this.rollup.read.getManaLimit();
   }
 
+  @memoize
+  getVersion() {
+    return this.rollup.read.getVersion();
+  }
+
+  getSlasher() {
+    return this.rollup.read.getSlasher();
+  }
+
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.rollup.read.getSlasher();
+    const slasherAddress = await this.getSlasher();
     const slasher = getContract({
       address: getAddress(slasherAddress.toString()),
       abi: SlasherAbi,
@@ -153,8 +171,15 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
-  getCommitteeAt(timestamp: bigint) {
-    return this.rollup.read.getCommitteeAt([timestamp]);
+  async getCommitteeAt(timestamp: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCommitteeAt',
+      args: [timestamp],
+    });
+
+    return result;
   }
 
   getSampleSeedAt(timestamp: bigint) {
@@ -165,16 +190,52 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
-  getCurrentEpochCommittee() {
-    return this.rollup.read.getCurrentEpochCommittee();
+  getCurrentEpoch() {
+    return this.rollup.read.getCurrentEpoch();
   }
 
-  getCurrentProposer() {
-    return this.rollup.read.getCurrentProposer();
+  async getCurrentEpochCommittee() {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCurrentEpochCommittee',
+      args: [],
+    });
+
+    return result;
   }
 
-  getProposerAt(timestamp: bigint) {
-    return this.rollup.read.getProposerAt([timestamp]);
+  async getCurrentProposer() {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCurrentProposer',
+      args: [],
+    });
+
+    return result;
+  }
+
+  async getProposerAt(timestamp: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getProposerAt',
+      args: [timestamp],
+    });
+
+    return result;
+  }
+
+  async getEpochCommittee(epoch: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getEpochCommittee',
+      args: [epoch],
+    });
+
+    return result;
   }
 
   getBlock(blockNumber: bigint) {
@@ -224,6 +285,10 @@ export class RollupContract {
     };
   }
 
+  public async getFeeJuicePortal() {
+    return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
+  }
+
   public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
     return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
@@ -249,7 +314,13 @@ export class RollupContract {
     account: `0x${string}` | Account,
   ): Promise<void> {
     try {
-      await this.rollup.read.validateHeader(args, { account });
+      await this.client.simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'validateHeader',
+        args,
+        account,
+      });
     } catch (error: unknown) {
       throw formatViemError(error);
     }
@@ -274,10 +345,16 @@ export class RollupContract {
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
     try {
-      const [slot, blockNumber] = await this.rollup.read.canProposeAtTime(
-        [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
-        { account },
-      );
+      const {
+        result: [slot, blockNumber],
+      } = await this.client.simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'canProposeAtTime',
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        account,
+      });
+
       return [slot, blockNumber];
     } catch (err: unknown) {
       throw formatViemError(err);
@@ -285,7 +362,74 @@ export class RollupContract {
   }
 
   /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
-  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: EthAddress) {
-    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover.toString()]);
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: Hex | EthAddress) {
+    if (prover instanceof EthAddress) {
+      prover = prover.toString();
+    }
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover]);
+  }
+
+  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
+    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  }
+
+  getSlotAt(timestamp: bigint) {
+    return this.rollup.read.getSlotAt([timestamp]);
+  }
+
+  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    return this.rollup.read.status([blockNumber], options);
+  }
+
+  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    return this.rollup.read.canPruneAtTime([timestamp], options);
+  }
+
+  archive() {
+    return this.rollup.read.archive();
+  }
+
+  archiveAt(blockNumber: bigint) {
+    return this.rollup.read.archiveAt([blockNumber]);
+  }
+
+  getSequencerRewards(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getSequencerRewards([address]);
+  }
+
+  getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress) {
+    if (prover instanceof EthAddress) {
+      prover = prover.toString();
+    }
+    return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
+  }
+
+  getAttesters() {
+    return this.rollup.read.getAttesters();
+  }
+
+  getInfo(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getInfo([address]);
+  }
+
+  getBlobPublicInputsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  }
+
+  getStakingAsset() {
+    return this.rollup.read.getStakingAsset();
+  }
+
+  getProposerForAttester(attester: Hex | EthAddress) {
+    if (attester instanceof EthAddress) {
+      attester = attester.toString();
+    }
+    return this.rollup.read.getProposerForAttester([attester]);
   }
 }

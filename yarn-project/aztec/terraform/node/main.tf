@@ -131,7 +131,7 @@ resource "aws_efs_mount_target" "public_az2" {
 data "template_file" "user_data" {
   count    = local.node_count
   template = <<EOF
-#!/bin/bash
+#!/usr/bin/env bash
 echo ECS_CLUSTER=${data.terraform_remote_state.setup_iac.outputs.ecs_cluster_name} >> /etc/ecs/ecs.config
 echo 'ECS_INSTANCE_ATTRIBUTES={"group": "${var.DEPLOY_TAG}-aztec-node-${count.index + 1}"}' >> /etc/ecs/ecs.config
 EOF
@@ -253,6 +253,10 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "80"
         },
         {
+          name  = "AZTEC_ADMIN_PORT"
+          value = "8880"
+        },
+        {
           name  = "ETHEREUM_HOSTS"
           value = "${local.eth_host}"
         },
@@ -283,14 +287,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "SEQ_MIN_TX_PER_BLOCK"
           value = var.SEQ_MIN_TX_PER_BLOCK
-        },
-        {
-          name  = "SEQ_MAX_SECONDS_BETWEEN_BLOCKS"
-          value = var.SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-        },
-        {
-          name  = "SEQ_MIN_SECONDS_BETWEEN_BLOCKS"
-          value = var.SEQ_MIN_SECONDS_BETWEEN_BLOCKS
         },
         {
           name  = "SEQ_PUBLISHER_PRIVATE_KEY"
@@ -415,10 +411,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
         {
           name  = "PROVER_AGENT_ENABLED"
           value = "false"
-        },
-        {
-          name  = "PROVER_AGENT_CONCURRENCY",
-          value = "0"
         },
         {
           name  = "PROVER_REAL_PROOFS"

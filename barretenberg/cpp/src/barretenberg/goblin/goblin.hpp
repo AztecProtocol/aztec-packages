@@ -36,7 +36,6 @@ class GoblinProver {
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
 
-    using MergeProver = MergeProver_<MegaFlavor>;
     using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = MergeProver::MergeProof;
 
@@ -63,12 +62,8 @@ class GoblinProver {
 
   public:
     GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
-    { // Mocks the interaction of a first circuit with the op queue due to the inability to currently handle zero
-      // commitments (https://github.com/AztecProtocol/barretenberg/issues/871) which would otherwise appear in the
-      // first round of the merge protocol. To be removed once the issue has been resolved.
-        commitment_key = bn254_commitment_key ? bn254_commitment_key : nullptr;
-        GoblinMockCircuits::perform_op_queue_interactions_for_mock_first_circuit(op_queue);
-    }
+        : commitment_key(bn254_commitment_key)
+    {}
 
     /**
      * @brief Construct a merge proof for the goblin ECC ops in the provided circuit
@@ -92,33 +87,35 @@ class GoblinProver {
         return merge_proof;
     };
 
+    void construct_eccvm_prover()
+    {
+        PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
+
+        auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
+        eccvm_key = eccvm_prover->key;
+    }
+
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
-     *
      */
     void prove_eccvm()
     {
-        {
+        construct_eccvm_prover();
+        goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
+        goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
+    }
 
-            PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
-
-            auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-            // As is it used in ClientIVC, we make it fixed size = 2^{CONST_ECCVM_LOG_N}
-            eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder, /*fixed_size =*/true);
-        }
-        {
-
-            PROFILE_THIS_NAME("Construct ECCVM Proof");
-
-            goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
-        }
-
-        {
-
-            PROFILE_THIS_NAME("Assign Translation Evaluations");
-
-            goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
-        }
+    void construct_translator_prover(const fq& translation_batching_challenge_v,
+                                     const fq& evaluation_challenge_x,
+                                     const std::shared_ptr<Transcript>& transcript)
+    {
+        PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
+        auto translator_builder =
+            std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
+        translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
+        translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
+        eccvm_prover = nullptr;
     }
 
     /**
@@ -127,28 +124,16 @@ class GoblinProver {
      */
     void prove_translator()
     {
-        fq translation_batching_challenge_v = eccvm_prover->batching_challenge_v;
-        fq evaluation_challenge_x = eccvm_prover->evaluation_challenge_x;
-        std::shared_ptr<Transcript> transcript = eccvm_prover->transcript;
-        eccvm_key = eccvm_prover->key;
-        eccvm_prover = nullptr;
-        {
-
-            PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
-
-            auto translator_builder =
-                std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-            translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
-            translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
-        }
-
-        {
-
-            PROFILE_THIS_NAME("Construct Translator Proof");
-
-            goblin_proof.translator_proof = translator_prover->construct_proof();
-        }
+        construct_translator_prover(
+            eccvm_prover->batching_challenge_v, eccvm_prover->evaluation_challenge_x, eccvm_prover->transcript);
+        goblin_proof.translator_proof = translator_prover->construct_proof();
     }
+
+    void construct_vks()
+    {
+        construct_eccvm_prover();
+        construct_translator_prover(0, 0, nullptr);
+    };
 
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
@@ -161,6 +146,8 @@ class GoblinProver {
     {
 
         PROFILE_THIS_NAME("Goblin::prove");
+
+        info("Constructing a Goblin proof with num ultra ops = ", op_queue->get_ultra_ops_table_num_rows());
 
         goblin_proof.merge_proof = merge_proof_in.empty() ? std::move(merge_proof) : std::move(merge_proof_in);
         {
@@ -183,10 +170,9 @@ class GoblinVerifier {
   public:
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using MergeVerifier = bb::MergeVerifier_<MegaFlavor>;
     using Builder = MegaCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
-    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
+    using AggregationObject = RecursiveMergeVerifier::AggregationObject;
 
     struct VerifierInput {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
@@ -213,9 +199,9 @@ class GoblinVerifier {
      * @brief Append recursive verification of a merge proof to a provided circuit
      *
      * @param circuit_builder
-     * @return PairingPoints
+     * @return AggregationObject Inputs to the final pairing check
      */
-    static PairingPoints recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
+    static AggregationObject recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
@@ -241,8 +227,7 @@ class GoblinVerifier {
 
         bool accumulator_construction_verified = translator_verifier.verify_proof(
             proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/799): Ensure translation_evaluations are passed
-        // correctly
+
         bool translation_verified = translator_verifier.verify_translation(
             proof.translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 

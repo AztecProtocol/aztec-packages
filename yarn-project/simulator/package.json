@@ -5,6 +5,7 @@
   "exports": {
     "./server": "./dest/server.js",
     "./client": "./dest/client.js",
+    "./testing": "./dest/testing.js",
     "./public/fixtures": "./dest/public/fixtures/index.js"
   },
   "typedocOptions": {

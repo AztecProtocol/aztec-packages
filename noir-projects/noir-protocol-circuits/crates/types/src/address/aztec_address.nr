@@ -10,13 +10,13 @@ use crate::{
     hash::poseidon2_hash_with_separator,
     public_keys::{IvpkM, NpkM, OvpkM, PublicKeys, ToPoint, TpkM},
     traits::{Deserialize, Empty, FromField, Packable, Serialize, ToField},
+    utils::field::{pow, sqrt},
 };
 
 // We do below because `use crate::point::Point;` does not work
 use dep::std::embedded_curve_ops::EmbeddedCurvePoint as Point;
 
 use crate::public_keys::AddressPoint;
-use ec::{pow, sqrt};
 use std::{
     embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key},
     ops::Add,

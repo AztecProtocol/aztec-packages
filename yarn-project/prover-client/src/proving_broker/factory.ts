@@ -6,9 +6,10 @@ import { InMemoryBrokerDatabase } from './proving_broker_database/memory.js';
 import { KVBrokerDatabase } from './proving_broker_database/persisted.js';
 
 export async function createAndStartProvingBroker(
-  config: ProverBrokerConfig,
+  _config: ProverBrokerConfig,
   client: TelemetryClient,
 ): Promise<ProvingBroker> {
+  const config = { ..._config, dataStoreMapSizeKB: _config.proverBrokerStoreMapSizeKB ?? _config.dataStoreMapSizeKB };
   const database = config.dataDirectory ? await KVBrokerDatabase.new(config, client) : new InMemoryBrokerDatabase();
 
   const broker = new ProvingBroker(database, config, client);

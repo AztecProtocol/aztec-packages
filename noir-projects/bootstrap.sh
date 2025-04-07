@@ -3,6 +3,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 
 cmd=${1:-}
 
+export NOIR_HASH=${NOIR_HASH-$(../noir/bootstrap.sh hash)}
+
 function build {
   echo_header "noir-projects build"
 
@@ -44,7 +46,7 @@ case "$cmd" in
     $cmd
     ;;
   "hash")
-    cache_content_hash .rebuild_patterns ../noir/.rebuild_patterns
+    hash_str $(../noir/bootstrap.sh hash) $(cache_content_hash .rebuild_patterns)
     ;;
   *)
     echo_stderr "Unknown command: $cmd"

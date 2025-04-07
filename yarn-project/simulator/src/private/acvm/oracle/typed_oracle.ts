@@ -1,13 +1,13 @@
 import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import type { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
 import type { ContractClassLog, IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { Note, NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import type { MessageLoadOracleInputs } from '../../../common/message_load_oracle_inputs.js';
 
@@ -47,8 +47,8 @@ export abstract class TypedOracle {
     return Fr.random();
   }
 
-  storeInExecutionCache(_values: Fr[]): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('storeInExecutionCache'));
+  storeInExecutionCache(_values: Fr[], _hash: Fr): void {
+    throw new OracleMethodNotAvailableError('storeInExecutionCache');
   }
 
   loadFromExecutionCache(_hash: Fr): Promise<Fr[]> {
@@ -87,8 +87,8 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('getNullifierMembershipWitness'));
   }
 
-  getPublicDataTreeWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
-    return Promise.reject(new OracleMethodNotAvailableError('getPublicDataTreeWitness'));
+  getPublicDataWitness(_blockNumber: number, _leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+    return Promise.reject(new OracleMethodNotAvailableError('getPublicDataWitness'));
   }
 
   getLowNullifierMembershipWitness(
@@ -180,24 +180,22 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('callPrivateFunction'));
   }
 
-  enqueuePublicFunctionCall(
+  notifyEnqueuedPublicFunctionCall(
     _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
+    _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-  ): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('enqueuePublicFunctionCall'));
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('notifyEnqueuedPublicFunctionCall'));
   }
 
-  setPublicTeardownFunctionCall(
+  notifySetPublicTeardownFunctionCall(
     _targetContractAddress: AztecAddress,
-    _functionSelector: FunctionSelector,
-    _argsHash: Fr,
+    _calldataHash: Fr,
     _sideEffectCounter: number,
     _isStaticCall: boolean,
-  ): Promise<Fr> {
-    return Promise.reject(new OracleMethodNotAvailableError('setPublicTeardownFunctionCall'));
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('notifySetPublicTeardownFunctionCall'));
   }
 
   notifySetMinRevertibleSideEffectCounter(_minRevertibleSideEffectCounter: number): void {
@@ -216,7 +214,7 @@ export abstract class TypedOracle {
     return Promise.reject(new OracleMethodNotAvailableError('incrementAppTaggingSecretIndexAsSender'));
   }
 
-  syncNotes(): Promise<void> {
+  syncNotes(_pendingTaggedLogArrayBaseSlot: Fr): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('syncNotes'));
   }
 
@@ -227,7 +225,7 @@ export abstract class TypedOracle {
     _content: Fr[],
     _noteHash: Fr,
     _nullifier: Fr,
-    _txHash: Fr,
+    _txHash: TxHash,
     _recipient: AztecAddress,
   ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('deliverNote'));
@@ -259,5 +257,16 @@ export abstract class TypedOracle {
 
   getSharedSecret(_address: AztecAddress, _ephPk: Point): Promise<Point> {
     return Promise.reject(new OracleMethodNotAvailableError('getSharedSecret'));
+  }
+
+  storePrivateEventLog(
+    _contractAddress: AztecAddress,
+    _recipient: AztecAddress,
+    _eventSelector: EventSelector,
+    _logContent: Fr[],
+    _txHash: TxHash,
+    _logIndexInTx: number,
+  ): Promise<void> {
+    return Promise.reject(new OracleMethodNotAvailableError('storePrivateEventLog'));
   }
 }

@@ -4,7 +4,7 @@ import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/st
 import type { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
-import type { PublicContractsDB, PublicTreesDB } from '../../public/public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../side_effect_trace_interface.js';
 
 export function mockTraceFork(trace: PublicSideEffectTraceInterface, nestedTrace?: PublicSideEffectTraceInterface) {
@@ -28,7 +28,7 @@ export function mockStorageReadWithMap(worldStateDB: PublicTreesDB, mockedStorag
 }
 
 export function mockNoteHashExists(worldStateDB: PublicTreesDB, _leafIndex: Fr, value?: Fr) {
-  (worldStateDB as jest.Mocked<PublicTreesDB>).getCommitmentValue.mockImplementation((index: bigint) => {
+  (worldStateDB as jest.Mocked<PublicTreesDB>).getNoteHash.mockImplementation((index: bigint) => {
     if (index == _leafIndex.toBigInt()) {
       return Promise.resolve(value);
     } else {
