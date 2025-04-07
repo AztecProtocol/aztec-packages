@@ -14,7 +14,7 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 If you import contract from the directory make sure to update the paths accordingly.
 E.g. for a token contract:
 
-```
+```diff
 #[dependencies]
 -token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/src/token_contract" }
 +token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
