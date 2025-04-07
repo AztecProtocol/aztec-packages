@@ -82,23 +82,6 @@ class ECCVMTranscriptBuilder {
         Element msm_accumulator = offset_generator();
         bool is_accumulator_empty = true;
     };
-    struct Opcode {
-        bool add;
-        bool mul;
-        bool eq;
-        bool reset;
-        [[nodiscard]] uint32_t value() const
-        {
-            auto res = static_cast<uint32_t>(add);
-            res += res;
-            res += static_cast<uint32_t>(mul);
-            res += res;
-            res += static_cast<uint32_t>(eq);
-            res += res;
-            res += static_cast<uint32_t>(reset);
-            return res;
-        }
-    };
 
     /**
      * @brief Computes the ECCVM transcript rows.
@@ -338,7 +321,7 @@ class ECCVMTranscriptBuilder {
         row.z2 = entry.mul ? entry.z2 : 0;
         row.z1_zero = entry.z1 == 0;
         row.z2_zero = entry.z2 == 0;
-        row.opcode = Opcode{ .add = entry.add, .mul = entry.mul, .eq = entry.eq, .reset = entry.reset }.value();
+        row.opcode = entry.opcode.value();
     }
 
     /**
