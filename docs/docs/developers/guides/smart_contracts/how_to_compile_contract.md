@@ -441,7 +441,7 @@ An Aztec.nr contract can [call a function](./writing_contracts/call_contracts.md
 
 To make this easier, the compiler automatically generates interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one.
 
-Below is an example of interface usage generated from the [Token (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) contract, used from the [FPC (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/fpc_contract/src/main.nr):
+Below is an example of interface usage generated from the [Token (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) contract, used from the [FPC (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr):
 
 ```rust
 contract FPC {

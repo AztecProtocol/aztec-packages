@@ -158,7 +158,7 @@ Since private calls are always run in a user's device, it is not possible to per
 
 Public functions in other contracts can be called both regularly and statically, just like on the EVM.
 
-#include_code public_call /noir-projects/noir-contracts/contracts/app/fpc_contract/src/main.nr rust
+#include_code public_call /noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 :::note
 This is the same function that was called by privately enqueuing a call to it! Public functions can be called either directly in a public context, or asynchronously by enqueuing in a private context.

@@ -144,14 +144,14 @@ We can see the complete implementation of creating and completing partial notes 
 
 #### `fee_entrypoint_private`
 
-#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/app/fpc_contract/src/main.nr rust
+#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 The `fee_entrypoint_private` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`).
 This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-#include_code complete_refund noir-projects/noir-contracts/contracts/app/fpc_contract/src/main.nr rust
+#include_code complete_refund noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 ## Note discovery
 
