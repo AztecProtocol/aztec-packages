@@ -3,7 +3,7 @@ use crate::{
     encrypted_logs::{
         encoding::to_expanded_metadata, encrypt::aes128::AES128,
         log_assembly_strategies::default_aes128::utils::prefix_with_tag,
-        log_encryption::LogEncryption, log_type::PRIVATE_EVENT_LOG_TYPE_ID,
+        log_encryption::LogEncryption, log_type::PRIVATE_EVENT_MSG_TYPE_ID,
     },
     event::event_interface::EventInterface,
     prelude::AztecAddress,
@@ -19,10 +19,10 @@ where
 
     let mut fields = [0; N + 1];
 
-    // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
-    // where the value gets decoded.
+    // We pack message type id and message metadata into the first field. Search for `decode_log_plaintext` function to
+    // see where the value gets decoded.
     fields[0] = to_expanded_metadata(
-        PRIVATE_EVENT_LOG_TYPE_ID,
+        PRIVATE_EVENT_MSG_TYPE_ID,
         Event::get_event_type_id().to_field() as u64,
     );
     for i in 0..serialized_event.len() {
