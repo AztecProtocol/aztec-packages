@@ -716,14 +716,10 @@ class TranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey() = default;
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-            : VerificationKey_(circuit_size, num_public_inputs)
-        {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = 1UL << CONST_TRANSLATOR_LOG_N;
+            this->circuit_size = 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
             this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
@@ -733,7 +729,8 @@ class TranslatorFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,

@@ -95,11 +95,13 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
     class VerificationKey
         : public VerificationKey_<FF, TranslatorFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey(const size_t num_public_inputs) { this->num_public_inputs = num_public_inputs; }
-
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // ?
+            this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };
+            this->circuit_size.convert_constant_to_fixed_witness(builder);
+            this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };
+            this->log_circuit_size.convert_constant_to_fixed_witness(builder);
             this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
             this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 

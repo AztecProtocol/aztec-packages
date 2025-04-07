@@ -419,6 +419,11 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 template <typename T> concept IsECCVMRecursiveFlavor = IsAnyOf<T, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;
 
+// Required to avoid redundant const proof size logic in Translator
+template <typename T> concept IsTranslatorFlavor = IsAnyOf<T, TranslatorFlavor,
+                                                              TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                                              TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
+                                                              TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
 
 
 template <typename T> concept IsFoldingFlavor = IsAnyOf<T, UltraFlavor,
