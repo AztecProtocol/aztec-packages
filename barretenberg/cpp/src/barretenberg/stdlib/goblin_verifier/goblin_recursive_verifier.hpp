@@ -32,7 +32,7 @@ class GoblinRecursiveVerifier {
     // ECCVM and Translator verification keys
     using VerifierInput = GoblinVerifier::VerifierInput;
 
-    GoblinRecursiveVerifier(Builder* builder, VerifierInput& verification_keys)
+    GoblinRecursiveVerifier(Builder* builder, const VerifierInput& verification_keys)
         : builder(builder)
         , verification_keys(verification_keys){};
 

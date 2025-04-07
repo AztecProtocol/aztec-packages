@@ -40,6 +40,9 @@ jobs:
           ref: ${{ env.BRANCH_NAME  }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
+      - name: Run corepack enable
+        run: corepack enable
+
       - name: Cut a new version
         working-directory: ./docs
         run: yarn run version ${{ env.BRANCH_NAME }}
