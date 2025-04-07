@@ -225,19 +225,11 @@ try {
   const proof = readFileSync(proofPath);
   proofStr = proof.toString("hex");
 
-  let publicInputsAsFieldsPath; // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
-  try {
-    publicInputsAsFieldsPath = getEnvVar("PUBLIC_INPUTS_AS_FIELDS");
-  } catch (e) {
-    // noop
-  }
+  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
+    "PUBLIC_INPUTS_AS_FIELDS"
+  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
   var publicInputs;
-  let proofAsFieldsPath; // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
-  try {
-    proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-  } catch (e) {
-    // noop
-  }
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
   let numExtraPublicInputs = 0;
   let extraPublicInputs = [];
   if (proofAsFieldsPath) {

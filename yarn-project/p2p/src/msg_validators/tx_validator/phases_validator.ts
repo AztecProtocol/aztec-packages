@@ -4,6 +4,8 @@ import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { AllowedElement } from '@aztec/stdlib/interfaces/server';
 import {
   type PublicCallRequestWithCalldata,
+  TX_ERROR_DURING_VALIDATION,
+  TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED,
   Tx,
   TxExecutionPhase,
   type TxValidationResult,
@@ -42,11 +44,14 @@ export class PhasesTxValidator implements TxValidator<Tx> {
             { allowList: this.setupAllowList },
           );
 
-          return { result: 'invalid', reason: ['Setup function not on allow list'] };
+          return { result: 'invalid', reason: [TX_ERROR_SETUP_FUNCTION_NOT_ALLOWED] };
         }
       }
 
       return { result: 'valid' };
+    } catch (err) {
+      this.#log.error(`Error validating phases for tx`, err);
+      return { result: 'invalid', reason: [TX_ERROR_DURING_VALIDATION] };
     } finally {
       this.contractsDB.clearContractsForTx();
     }

@@ -19,7 +19,7 @@ using namespace bb;
 using namespace bb::stdlib::recursion::honk;
 using field_ct = stdlib::field_t<Builder>;
 using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<bn254>;
+using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
 
 namespace {
 /**
@@ -41,6 +41,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
                                  const std::vector<field_ct>& key_fields,
                                  const std::vector<field_ct>& proof_fields)
 {
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
     ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
@@ -94,9 +95,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset++;
     }
     // The aggregation object
-    PairingPointAccumulatorIndices agg_obj = stdlib::recursion::init_default_agg_obj_indices(builder);
-    for (auto idx : agg_obj) {
-        builder.assert_equal(idx, proof_fields[offset].witness_index);
+    for (size_t i = 0; i < AggregationObject::PUBLIC_INPUTS_SIZE; i++) {
+        builder.assert_equal(builder.add_variable(fr::random_element()), proof_fields[offset].witness_index);
         offset++;
     }
 
@@ -209,7 +209,7 @@ template <typename Flavor>
 HonkRecursionConstraintOutput create_honk_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
     bool has_valid_witness_assignments)
 {
     using RecursiveVerificationKey = Flavor::VerificationKey;
@@ -258,14 +258,12 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    aggregation_state_ct input_agg_obj = bb::stdlib::recursion::convert_witness_indices_to_agg_obj<Builder, bn254>(
-        builder, input_aggregation_object_indices);
     HonkRecursionConstraintOutput output;
     UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
 
-    output.agg_obj_indices = verifier_output.agg_obj.get_witness_indices();
+    output.agg_obj = verifier_output.agg_obj;
     if constexpr (HasIPAAccumulator<Flavor>) {
         ASSERT(HasIPAAccumulator<Flavor>);
         output.ipa_claim = verifier_output.ipa_opening_claim;
@@ -277,13 +275,13 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
 template HonkRecursionConstraintOutput create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
     bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
     Builder& builder,
     const RecursionConstraint& input,
-    PairingPointAccumulatorIndices input_aggregation_object_indices,
+    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
     bool has_valid_witness_assignments);
 
 } // namespace acir_format

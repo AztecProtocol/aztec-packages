@@ -173,7 +173,7 @@ class GoblinVerifier {
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using Builder = MegaCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
-    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
+    using AggregationObject = RecursiveMergeVerifier::AggregationObject;
 
     struct VerifierInput {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
@@ -200,9 +200,9 @@ class GoblinVerifier {
      * @brief Append recursive verification of a merge proof to a provided circuit
      *
      * @param circuit_builder
-     * @return PairingPoints
+     * @return AggregationObject Inputs to the final pairing check
      */
-    static PairingPoints recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
+    static AggregationObject recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };
