@@ -1,6 +1,6 @@
 use aztec::macros::aztec;
 
-/// Used to test note getter functionality
+/// Used to test note getter in e2e_note_getter.test.ts
 #[aztec]
 pub contract NoteGetter {
     use aztec::{
