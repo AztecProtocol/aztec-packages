@@ -14,7 +14,7 @@ import { computeAddress, computeAppTaggingSecret, deriveKeys } from '@aztec/stdl
 import { IndexedTaggingSecret, PrivateLog, PublicLog, TxScopedL2Log } from '@aztec/stdlib/logs';
 import { NoteStatus } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
-import { BlockHeader, GlobalVariables, TxEffect, TxHash } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables, TxEffect, TxHash, randomIndexedTxEffect } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -638,11 +638,9 @@ describe('PXEOracleInterface', () => {
   describe('getLogByTag', () => {
     const tag = Fr.random();
     let scopedLog: TxScopedL2Log;
-    let txEffect: TxEffect;
 
     beforeEach(async () => {
       scopedLog = await TxScopedL2Log.random();
-      txEffect = await TxEffect.random();
       aztecNode.getLogsByTags.mockReset();
       aztecNode.getTxEffect.mockReset();
     });
@@ -656,17 +654,18 @@ describe('PXEOracleInterface', () => {
 
     it('returns log data when single log found', async () => {
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLog]]);
+      const indexedTxEffect = await randomIndexedTxEffect();
       aztecNode.getTxEffect.mockImplementation((txHash: TxHash) =>
-        txHash.equals(scopedLog.txHash) ? Promise.resolve(randomInBlock(txEffect)) : Promise.resolve(undefined),
+        txHash.equals(scopedLog.txHash) ? Promise.resolve(indexedTxEffect) : Promise.resolve(undefined),
       );
 
       const result = await pxeOracleInterface.getLogByTag(tag);
 
       // The implementation returns hex strings, not Buffer objects
       expect(result?.logContent).toEqual(scopedLog.log.toFields());
-      expect(result?.uniqueNoteHashesInTx).toEqual(txEffect.noteHashes);
+      expect(result?.uniqueNoteHashesInTx).toEqual(indexedTxEffect.data.noteHashes);
       expect(result?.txHash).toEqual(scopedLog.txHash);
-      expect(result?.firstNullifierInTx).toEqual(txEffect.nullifiers[0]);
+      expect(result?.firstNullifierInTx).toEqual(indexedTxEffect.data.nullifiers[0]);
 
       expect(aztecNode.getLogsByTags).toHaveBeenCalledWith([tag]);
       expect(aztecNode.getTxEffect).toHaveBeenCalledWith(scopedLog.txHash);
@@ -701,7 +700,7 @@ describe('PXEOracleInterface', () => {
       );
 
       aztecNode.getLogsByTags.mockResolvedValue([[scopedLogWithPadding]]);
-      aztecNode.getTxEffect.mockResolvedValue(randomInBlock(txEffect));
+      aztecNode.getTxEffect.mockResolvedValue(await randomIndexedTxEffect());
 
       const result = await pxeOracleInterface.getLogByTag(tag);
 
