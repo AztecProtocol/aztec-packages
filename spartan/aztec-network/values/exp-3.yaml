@@ -1,4 +1,4 @@
-## 192 validators - large transactions (192kb) - 1 tps
+## 192 validators - 1 tps - 208 full nodes
 network:
   public: false
 
