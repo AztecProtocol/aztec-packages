@@ -73,7 +73,11 @@ tests:
     owners:
       - *charlie
   # CI3 is breaking noir tests due to handling of paths.
-  - regex: "tests::{compile_failure,execution_success}"
+  - regex: "tests::execution_success"
+    skip: true
+    owners:
+      - *tom
+  - regex: "tests::compile_failure"
     skip: true
     owners:
       - *tom
