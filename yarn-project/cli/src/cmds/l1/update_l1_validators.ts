@@ -8,7 +8,7 @@ import {
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, ForwarderBytecode, StakingAssetHandlerAbi, RollupAbi } from '@aztec/l1-artifacts';
 
 import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
@@ -19,7 +19,7 @@ export interface RollupCommandArgs {
   privateKey?: string;
   mnemonic?: string;
   rollupAddress: EthAddress;
-  withdrawerAddress?: EthAddress;
+  stakingAssetHandlerAddress: EthAddress;
 }
 
 export interface LoggerArgs {
@@ -43,42 +43,25 @@ export async function addL1Validator({
   privateKey,
   mnemonic,
   validatorAddress,
-  rollupAddress,
-  withdrawerAddress,
+  stakingAssetHandlerAddress,
   log,
   debugLogger,
 }: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
-  const config = getL1ContractsConfigEnvVars();
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
+  const stakingAssetHandler = getContract({
+    address: stakingAssetHandlerAddress.toString(),
+    abi: StakingAssetHandlerAbi,
     client: walletClient,
   });
 
-  const stakingAsset = getContract({
-    address: await rollup.read.getStakingAsset(),
-    abi: TestERC20Abi,
-    client: walletClient,
-  });
-
-  await Promise.all(
-    [
-      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
-      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
-    ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
-  );
-
-  dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.deposit([
+  dualLog(`Adding validator ${validatorAddress.toString()} to rollup`);
+  const txHash = await stakingAssetHandler.write.addValidator([
     validatorAddress.toString(),
     // TODO(#11451): custom forwarders
     getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
       .address,
-    withdrawerAddress?.toString() ?? validatorAddress.toString(),
-    config.minimumStake,
   ]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
