@@ -57,17 +57,17 @@ function test_cmds {
   # TODO figure out why these take long sometimes.
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
-    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    # echo "$hash:timeout=20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
-    # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    # echo "$hash:timeout=30m ./spartan/bootstrap.sh test-kind-4epochs"
+    # echo "$hash:timeout=30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+    # echo "$hash:timeout=30m ./spartan/bootstrap.sh test-prod-deployment"
     echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
   fi
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
-    echo "$hash timeout -v 50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
-    echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-proving"
+    echo "$hash:timeout=50m ./spartan/bootstrap.sh test-kind-4epochs-sepolia"
+    echo "$hash:timeout=30m ./spartan/bootstrap.sh test-kind-proving"
   fi
 }
 

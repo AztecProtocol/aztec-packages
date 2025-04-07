@@ -7,11 +7,13 @@ name=docker-isolate-$(echo "$*" | sed 's/_/-/g; s/[^A-Za-z0-9-]//g')
 [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
 trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
 docker rm -f $name &>/dev/null || true
+[ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
 
 docker run --rm \
   ${name_arg:-} \
   --cpus=${CPUS:-4} \
   --memory=${MEM:-8g} \
+  ${cpuset_arg:-} \
   --user $(id -u):$(id -g) \
   -v$HOME:$HOME \
   --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
