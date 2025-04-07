@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 set -eu
 
+export NARGO=${NARGO:-../noir/noir-repo/target/release/nargo}
+
 cd $(dirname "$0")/../
 
-nargo fmt --program-dir ./aztec-nr
-nargo fmt --program-dir ./noir-contracts
-nargo fmt --program-dir ./noir-protocol-circuits
-nargo fmt --program-dir ./mock-protocol-circuits
+$NARGO fmt --program-dir ./aztec-nr
+$NARGO fmt --program-dir ./noir-contracts
+cd ./noir-protocol-circuits && yarn && node ./scripts/generate_variants.js
+$NARGO fmt --program-dir ./noir-protocol-circuits
+$NARGO fmt --program-dir ./mock-protocol-circuits
