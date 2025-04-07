@@ -10,8 +10,8 @@
 #include "translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/op_queue//ecc_op_queue.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <cstddef>
 namespace bb {
 

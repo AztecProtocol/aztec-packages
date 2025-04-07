@@ -8,9 +8,9 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/op_queue//ecc_op_queue.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 
