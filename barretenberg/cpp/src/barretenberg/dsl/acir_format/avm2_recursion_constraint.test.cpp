@@ -68,11 +68,13 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
     /**
      * @brief Create a circuit that recursively verifies one or more inner avm2 circuits
      */
-    static OuterBuilder create_outer_circuit(const std::vector<InnerCircuitData>& inner_circuits)
+    static AcirProgram construct_avm_verifier_program(const std::vector<InnerCircuitData>& inner_circuits)
     {
         std::vector<RecursionConstraint> avm_recursion_constraints;
 
-        SlabVector<fr> witness;
+        AcirProgram program;
+
+        SlabVector<fr>& witness = program.witness;
 
         for (const auto& inner_circuit_data : inner_circuits) {
             std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();
@@ -107,16 +109,15 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         std::vector<size_t> avm_recursion_opcode_indices(avm_recursion_constraints.size());
         std::iota(avm_recursion_opcode_indices.begin(), avm_recursion_opcode_indices.end(), 0);
 
-        AcirFormat constraint_system;
+        AcirFormat& constraint_system = program.constraints;
         constraint_system.varnum = static_cast<uint32_t>(witness.size());
         constraint_system.num_acir_opcodes = static_cast<uint32_t>(avm_recursion_constraints.size());
         constraint_system.avm_recursion_constraints = avm_recursion_constraints;
         constraint_system.original_opcode_indices = create_empty_original_opcode_indices();
 
         mock_opcode_indices(constraint_system);
-        auto outer_circuit =
-            create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness, /*honk_recursion=*/1);
-        return outer_circuit;
+
+        return program;
     }
 };
 
@@ -124,7 +125,9 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
 {
     std::vector<InnerCircuitData> layer_1_circuits;
     layer_1_circuits.push_back(create_inner_circuit_data());
-    auto layer_2_circuit = create_outer_circuit(layer_1_circuits);
+    AcirProgram avm_verifier_program = construct_avm_verifier_program(layer_1_circuits);
+    const ProgramMetadata metadata{ .honk_recursion = 1 };
+    auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
 
     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
@@ -135,6 +138,58 @@ TEST_F(AcirAvm2RecursionConstraint, TestBasicSingleAvm2RecursionConstraint)
     auto verification_key = std::make_shared<OuterVerificationKey>(proving_key->proving_key);
     OuterVerifier verifier(verification_key);
     EXPECT_EQ(verifier.verify_proof(proof), true);
+}
+
+/**
+ * @brief Ensure that an AVM2 recursive verifier circuit VK can be constructed from a corresponding acir program without
+ * a witness.
+ * @details This is the logic required, for example, to write the VK of the public base circuit without knowledge of a
+ * particular satisfying witness.
+ *
+ */
+TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
+{
+    // First, construct an AVM2 recursive verifier circuit VK by providing a valid program witness
+    std::shared_ptr<OuterVerificationKey> expected_vk;
+    {
+        auto layer_1_circuit = create_inner_circuit_data();
+        AcirProgram avm_verifier_program = construct_avm_verifier_program({ layer_1_circuit });
+        const ProgramMetadata metadata{ .honk_recursion = 1 };
+        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
+
+        info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+
+        auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+        OuterProver prover(proving_key);
+        info("prover gates = ", proving_key->proving_key.circuit_size);
+        expected_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
+    }
+
+    // Now, construct the AVM2 recursive verifier circuit VK by providing the program without a witness
+    std::shared_ptr<OuterVerificationKey> actual_vk;
+    {
+        auto layer_1_circuit = create_inner_circuit_data();
+        AcirProgram avm_verifier_program = construct_avm_verifier_program({ layer_1_circuit });
+
+        // Clear the program witness then construct the bberg circuit as normal
+        avm_verifier_program.witness.clear();
+        const ProgramMetadata metadata{ .honk_recursion = 1 };
+        auto layer_2_circuit = create_circuit(avm_verifier_program, metadata);
+
+        info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+
+        auto proving_key = std::make_shared<DeciderProvingKey>(layer_2_circuit);
+        OuterProver prover(proving_key);
+        info("prover gates = ", proving_key->proving_key.circuit_size);
+        actual_vk = std::make_shared<OuterVerificationKey>(prover.proving_key->proving_key);
+    }
+
+    // PCS verification key adresses will in general not match so set to null before comparing
+    expected_vk->pcs_verification_key = nullptr;
+    actual_vk->pcs_verification_key = nullptr;
+
+    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
 }
 
 #endif // DISABLE_AZTEC_VM
