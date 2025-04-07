@@ -2,7 +2,7 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import type { InitialAccountData } from '@aztec/accounts/testing';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { Fr, type Logger, ProvenTx, type SentTx, TxStatus, getContractInstanceFromDeployParams } from '@aztec/aztec.js';
-import { times } from '@aztec/foundation/collection';
+import { timesAsync } from '@aztec/foundation/collection';
 import type { SpamContract } from '@aztec/noir-contracts.js/Spam';
 import { TestContract, TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { PXEService, createPXEService, getPXEServiceConfig as getRpcConfig } from '@aztec/pxe/server';
@@ -83,14 +83,12 @@ export async function createPXEServiceAndPrepareTransactions(
   await wallet.registerContract({ instance: testContractInstance, artifact: TestContractArtifact });
   const contract = await TestContract.at(testContractInstance.address, wallet);
 
-  const txs = await Promise.all(
-    times(numTxs, async () => {
-      const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ skipPublicSimulation: true });
-      const txHash = await tx.getTxHash();
-      logger.info(`Tx prepared with hash ${txHash}`);
-      return tx;
-    }),
-  );
+  const txs = await timesAsync(numTxs, async () => {
+    const tx = await contract.methods.emit_nullifier(Fr.random()).prove({ skipPublicSimulation: true });
+    const txHash = await tx.getTxHash();
+    logger.info(`Tx prepared with hash ${txHash}`);
+    return tx;
+  });
 
   return { txs, pxeService: pxe, node };
 }

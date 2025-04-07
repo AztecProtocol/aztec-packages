@@ -1,5 +1,5 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
-import { sleep } from '@aztec/aztec.js';
+import { SentTx, sleep } from '@aztec/aztec.js';
 import { RollupContract } from '@aztec/ethereum';
 import { timesAsync } from '@aztec/foundation/collection';
 
@@ -34,13 +34,13 @@ describe('e2e_p2p_reqresp_tx', () => {
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
         listenAddress: '127.0.0.1',
-        aztecEpochDuration: 48, // no reorgs please
+        aztecEpochDuration: 64, // stable committee
+        aztecProofSubmissionWindow: 64 * 2, // and no reorgs
       },
     });
     await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
-    await t.removeInitialNode();
   });
 
   afterEach(async () => {
@@ -69,6 +69,14 @@ describe('e2e_p2p_reqresp_tx', () => {
       throw new Error('Bootstrap node ENR is not available');
     }
 
+    t.logger.info('Preparing transactions to send');
+    const contexts = await timesAsync(2, () =>
+      createPXEServiceAndPrepareTransactions(t.logger, t.ctx.aztecNode, NUM_TXS_PER_NODE, t.fundedAccount),
+    );
+
+    t.logger.info('Removing initial node');
+    await t.removeInitialNode();
+
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
@@ -84,13 +92,9 @@ describe('e2e_p2p_reqresp_tx', () => {
     t.logger.info('Sleeping to allow nodes to connect');
     await sleep(4000);
 
-    t.logger.info('Preparing transactions to send');
-    const contexts = await timesAsync(2, i =>
-      createPXEServiceAndPrepareTransactions(t.logger, nodes[i], NUM_TXS_PER_NODE, t.fundedAccount),
-    );
-
     t.logger.info('Starting fresh slot');
-    await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+    const [timestamp] = await t.ctx.cheatCodes.rollup.advanceToNextSlot();
+    t.ctx.dateProvider.setTime(Number(timestamp) * 1000);
 
     const { proposerIndexes, nodesToTurnOffTxGossip } = await getProposerIndexes();
     t.logger.info(`Turning off tx gossip for nodes: ${nodesToTurnOffTxGossip}`);
@@ -105,8 +109,16 @@ describe('e2e_p2p_reqresp_tx', () => {
         .mockImplementation(() => Promise.resolve());
     }
 
-    t.logger.info('Sending transactions');
-    const sentTxs = contexts.map(c => c.txs.map(tx => tx.send()));
+    // We send the tx to the proposer nodes directly, ignoring the pxe and node in each context
+    // We cannot just call tx.send since they were created using a pxe wired to the first node which is now stopped
+    t.logger.info('Sending transactions through proposer nodes');
+    const sentTxs = contexts.map((c, i) =>
+      c.txs.map(tx => {
+        const node = nodes[proposerIndexes[i]];
+        void node.sendTx(tx).catch(err => t.logger.error(`Error sending tx: ${err}`));
+        return new SentTx(node, tx.getTxHash());
+      }),
+    );
 
     t.logger.info('Waiting for all transactions to be mined');
     await Promise.all(
