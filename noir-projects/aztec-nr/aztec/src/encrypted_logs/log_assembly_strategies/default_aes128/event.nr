@@ -1,9 +1,9 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::{
-        encrypt::aes128::AES128, log_assembly_strategies::default_aes128::utils::prefix_with_tag,
+        encoding::to_expanded_metadata, encrypt::aes128::AES128,
+        log_assembly_strategies::default_aes128::utils::prefix_with_tag,
         log_encryption::LogEncryption, log_type::PRIVATE_EVENT_LOG_TYPE_ID,
-        metadata_packing::to_expanded_metadata,
     },
     event::event_interface::EventInterface,
     prelude::AztecAddress,
@@ -22,8 +22,8 @@ where
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
     fields[0] = to_expanded_metadata(
-        Event::get_event_type_id().to_field() as u64,
         PRIVATE_EVENT_LOG_TYPE_ID,
+        Event::get_event_type_id().to_field() as u64,
     );
     for i in 0..serialized_event.len() {
         fields[i + 1] = serialized_event[i];

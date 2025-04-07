@@ -1,11 +1,11 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::{
+        encoding::to_expanded_metadata,
         encrypt::aes128::AES128,
         log_assembly_strategies::default_aes128::utils::prefix_with_tag,
         log_encryption::LogEncryption,
         log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
-        metadata_packing::to_expanded_metadata,
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
 };
@@ -40,7 +40,7 @@ where
 
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
-    fields[0] = to_expanded_metadata(Note::get_id() as u64, log_type_id);
+    fields[0] = to_expanded_metadata(log_type_id, Note::get_id() as u64);
     fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
