@@ -46,15 +46,10 @@ export const createP2PClient = async <T extends P2PClientType>(
     // TODO: pass config params in as object?
     txPool:
       deps.txPool ??
-      new AztecKVTxPool(
-        store,
-        archive,
-        worldStateSynchronizer,
-        telemetry,
-        config.maxTxPoolCount,
-        config.maxTxPoolSize,
-        config.archivedTxLimit,
-      ),
+      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+        maxTxPoolSize: config.maxTxPoolSize,
+        archivedTxLimit: config.archivedTxLimit,
+      }),
     attestationPool:
       clientType === P2PClientType.Full
         ? ((deps.attestationPool ?? new InMemoryAttestationPool(telemetry)) as T extends P2PClientType.Full

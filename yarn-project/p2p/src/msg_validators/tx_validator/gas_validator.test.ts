@@ -107,4 +107,6 @@ describe('GasTxValidator', () => {
     gasFees.feePerL2Gas = gasFees.feePerL2Gas.add(new Fr(1));
     await expectSkipped(tx, TX_ERROR_INSUFFICIENT_FEE_PER_GAS);
   });
+
+  // TODO: add tests for min gas limit
 });

@@ -179,12 +179,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   txPublicSetupAllowList: AllowedElement[];
 
   /**
-   * The maximum number of pending txs to keep in the tx pool before evicting lower priority ones.
-   */
-  maxTxPoolCount: number;
-
-  /**
-   * The maximum cumulative tx size of pending txs before evicting lower priority txs.
+   * The maximum cumulative tx size in bytes of pending txs before evicting lower priority txs.
    */
   maxTxPoolSize: number;
 }
@@ -366,20 +361,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
   },
-  // TODO: should P2P_MAX_TX_POOL_COUNT/P2P_MAX_TX_POOL_SIZE be configurable or a global constant?
-  // TODO: what should we do if the value is 0? Should we allow unbounded mempools?
-  maxTxPoolCount: {
-    env: 'P2P_MAX_TX_POOL_COUNT',
-    description:
-      'The maximum number of pending txs to keep in the tx pool before evicting lower priority ones. If set to 0, the tx pool will not have a maximum limit.',
-    ...numberConfigHelper(100),
-  },
   maxTxPoolSize: {
     env: 'P2P_MAX_TX_POOL_SIZE',
     description:
       'The maximum cumulative tx size of pending txs before evicting lower priority txs. If set to 0, the tx pool will not have a maximum size limit.',
-    // TODO: what to use as default?
-    ...numberConfigHelper(10_000),
+    ...numberConfigHelper(100_000_000), // 100MB
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

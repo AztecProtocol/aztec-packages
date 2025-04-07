@@ -1,4 +1,4 @@
-import { MIN_TX_GAS_LIMIT } from '@aztec/constants';
+import { FIXED_DA_GAS, FIXED_L2_GAS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee-juice';
 import { getCallRequestsWithCalldataByPhase } from '@aztec/simulator/server';
@@ -67,7 +67,7 @@ export class GasTxValidator implements TxValidator<Tx> {
    */
   #validateMinGasLimit(tx: Tx): TxValidationResult {
     const gasLimits = tx.data.constants.txContext.gasSettings.gasLimits;
-    const minGasLimits = new Gas(MIN_TX_GAS_LIMIT, MIN_TX_GAS_LIMIT);
+    const minGasLimits = new Gas(FIXED_DA_GAS, FIXED_L2_GAS);
 
     if (minGasLimits.gtAny(gasLimits)) {
       this.#log.warn(`Rejecting transaction due to the gas limit(s) not being above the minimum gas limit`, {
