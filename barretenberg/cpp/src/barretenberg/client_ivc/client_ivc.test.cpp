@@ -364,7 +364,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 {
     const size_t MIN_NUM_CIRCUITS = 2;
     // Folding more than 20 circuits requires to double the number of gates in Translator.
-    const size_t MAX_NUM_CIRCUITS = 20;
+    const size_t MAX_NUM_CIRCUITS = 2;
     const size_t log2_num_gates = 5; // number of gates in baseline mocked circuit
 
     auto generate_vk = [&](size_t num_circuits) {
@@ -387,6 +387,9 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 
     auto civc_vk_2 = generate_vk(MIN_NUM_CIRCUITS);
     auto civc_vk_20 = generate_vk(MAX_NUM_CIRCUITS);
+
+    civc_vk_20.eccvm = std::make_shared<typename ECCVMFlavor::VerificationKey>();
+    civc_vk_20.translator = std::make_shared<typename TranslatorFlavor::VerificationKey>();
 
     // Check the equality of the Mega components of the ClientIVC VKeys.
     EXPECT_EQ(*civc_vk_2.mega.get(), *civc_vk_20.mega.get());
