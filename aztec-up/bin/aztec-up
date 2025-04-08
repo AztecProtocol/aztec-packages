@@ -38,8 +38,18 @@ fi
 
 if [ -n "$VERSION" ] && [ "$VERSION" != "latest" ]; then
   install_url="$INSTALL_URI/$VERSION/aztec-install"
-else
+elif [ -n "$VERSION" ] && [ "$VERSION" = "latest" ]; then
   install_url="$INSTALL_URI/aztec-install"
+else
+  echo "Installing latest testnet version..."
+
+  # Temporary: We want installs without specifying version to default to alpha-testnet. This will change.
+  install_url="$INSTALL_URI/alpha-testnet/aztec-install"
+  if ! curl --output /dev/null --silent --head --fail "$install_url"; then
+    echo "Testnet version not found... Falling back to latest released version."
+
+    install_url="$INSTALL_URI/aztec-install"
+  fi
 fi
 
 bash <(curl -s $install_url)
