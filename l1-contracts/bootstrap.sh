@@ -39,7 +39,7 @@ function build {
     forge build $(find src test -name '*.sol')
 
     # Step 1.5: Output storage information for the rollup contract.
-    forge inspect src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
+    forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
 
     # Step 2: Build the the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \
@@ -77,20 +77,18 @@ function inspect {
                 methods_output=$(forge inspect "$full_path" methodIdentifiers 2>/dev/null)
                 errors_output=$(forge inspect "$full_path" errors 2>/dev/null)
 
-                # Only display if we have methods or errors
-                if [ "$methods_output" != "{}" ] || [ "$errors_output" != "{}" ]; then
+                # Only display if we have methods or errors (empty table output is 5 lines)
+                if [ $(echo "$methods_output" | wc -l) != 5 ] || [ $(echo "$errors_output" | wc -l) != 5 ]; then
                     echo "----------------------------------------"
                     echo "Inspecting $full_path"
                     echo "----------------------------------------"
 
-                    if [ "$methods_output" != "{}" ]; then
-                        echo "Methods:"
+                    if [ $(echo "$methods_output" | wc -l) != 5 ]; then
                         echo "$methods_output"
                         echo ""
                     fi
 
-                    if [ "$errors_output" != "{}" ]; then
-                        echo "Errors:"
+                    if [ $(echo "$errors_output" | wc -l) != 5 ]; then
                         echo "$errors_output"
                         echo ""
                     fi
