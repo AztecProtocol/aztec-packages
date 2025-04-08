@@ -88,12 +88,6 @@ function docs_cut_version {
     yarn preprocess
     yarn run build
 
-    # Stash any unrelated local changes before starting
-    echo "Stashing local changes"
-    stash_message="docs-version-stash-$(date +%s)"
-    git stash push -m "$stash_message"
-    local stashed=$? # Check if something was stashed
-
     COMMIT_TAG=$1
     echo "Starting docs versioning for $COMMIT_TAG"
     echo "Processing tag: $COMMIT_TAG"
@@ -101,7 +95,7 @@ function docs_cut_version {
     # Checkout the tag, discarding local changes from previous build artifacts
     # Use --force to overwrite potentially modified tracked files from the build process
     echo "Checking out tag $COMMIT_TAG..."
-    git checkout --force "$COMMIT_TAG"
+    git checkout --force "$COMMIT_TAG" docs src
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
