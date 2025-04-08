@@ -87,7 +87,15 @@ function get_public_balance() {
   echo "$balance"
 }
 
-get_prover() {
+function get_fee_method() {
+    if [ "$1" = "true" ]; then
+        echo "$SPONSORED_FPC_PAYMENT_METHOD"
+    else
+        echo ""
+    fi
+}
+
+function get_prover() {
   if [[ "$1" = "true" || "$1" = "1" ]]; then
     echo "-p native"
   else
@@ -96,7 +104,7 @@ get_prover() {
 }
 
 
-aztec-wallet() {
+function aztec-wallet() {
   command aztec-wallet --node-url "$NODE_URL" "$@"
 }
 export -f aztec-wallet

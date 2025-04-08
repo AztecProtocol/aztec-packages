@@ -14,6 +14,7 @@ if [ "$total_account_count" -lt "$max_accounts" ]; then
       --register-only \
       --json \
       | grep -Pzo '(?s)\{.*\}')
+
     new_account=$(echo "$new_account" | jq '. + {"needs_setup": true}')
 
     echo "$new_account" | jq '.'

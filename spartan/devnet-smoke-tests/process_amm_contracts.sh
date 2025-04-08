@@ -10,7 +10,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
   # We should use the sponsored fpc flow for one account at least, this flag is true at the start
   # but set false after the first account has been processed
-  fee_method_override=$([ "$use_sponsored_fpc" = "true" ] && echo "$SPONSORED_FPC_PAYMENT_METHOD" || echo "")
+  fee_method_override=$(get_fee_method "$use_sponsored_fpc")
 
   # Register all AMM related contracts for each account
   jq -c '.contracts | map(select(.type=="amm"))[]' state.json | while read -r contract; do

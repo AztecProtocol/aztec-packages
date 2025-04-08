@@ -3,7 +3,8 @@ set -eu -o pipefail
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
-# This script assumes the presence of state.json, which is structured something like this { "accounts": [], "contracts": [] }
+# This script assumes the presence of state.json if trying to recreate from existing state. It is expected to
+# be structured something like this { "accounts": [], "contracts": [] }
 
 source "$SCRIPT_DIR/utils.sh"
 
