@@ -122,6 +122,7 @@ function docs_cut_version {
     echo "Regenerating versions.json on $current_branch..."
     yarn run version::stables
 
+
     echo "Docs versioning complete"
 
 }
