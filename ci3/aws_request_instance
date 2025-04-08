@@ -37,10 +37,10 @@ cpu_map=(
 
 if [ "$arch" == "x86_64" ] || [ "$arch" == "amd64" ]; then
   instances=("${instance_types_amd64[@]}")
-  ami=${ami:-$(cat ./aws/ami_id_amd64)}
+  ami=${AMI:-$(cat ./aws/ami_id_amd64)}
 elif [ "$arch" == "arm64" ]; then
   instances=("${instance_types_arm64[@]}")
-  ami=${ami:-$(cat ./aws/ami_id_arm64)}
+  ami=${AMI:-$(cat ./aws/ami_id_arm64)}
 else
   echo "Unsupported arch: $arch" >&2
   exit 1
