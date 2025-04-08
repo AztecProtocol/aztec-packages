@@ -64,7 +64,7 @@ pub fn encode_message<let N: u32>(
     message
 }
 
-/// Decodes a standard aztec-nr message, e.g. one created via `encode_message`, returning the original encoded values.
+/// Decodes a standard aztec-nr message, i.e. one created via `encode_message`, returning the original encoded values.
 ///
 /// Note that `encode_message` returns a fixed size array while this function takes a `BoundedVec`: this is because
 /// prior to decoding the message type is unknown, and consequentially not known at compile time. If working with
