@@ -225,6 +225,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'BOOTSTRAP_NODES',
     parseEnv: (val: string) => val.split(','),
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
+    defaultValue: [],
   },
   bootstrapNodeEnrVersionCheck: {
     env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',

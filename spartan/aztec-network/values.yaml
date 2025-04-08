@@ -9,7 +9,6 @@ network:
   # I.e. the sum of the number of validator, boot node, and prover nodes must be
   # less than the number of physical nodes in the cluster.
   public: false
-  setupL2Contracts: true
 
   # If true, pods are scheduled onto specific node pools using selectors
   # This is only applicable to GKE deployments
