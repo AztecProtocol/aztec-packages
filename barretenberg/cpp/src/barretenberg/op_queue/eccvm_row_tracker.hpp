@@ -12,7 +12,6 @@ namespace bb {
  */
 class EccvmRowTracker {
     using Curve = curve::BN254;
-    using ECCVMOperation = bb::VMOperation<Curve::Group>;
 
     uint32_t cached_num_muls = 0;
     uint32_t cached_active_msm_count = 0;

@@ -148,6 +148,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:numeric_objects>
+    $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:plonk_objects>
     $<TARGET_OBJECTS:plonk_honk_shared_objects>
     $<TARGET_OBJECTS:polynomials_objects>

@@ -1,5 +1,4 @@
 #pragma once
-#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/ultra_execution_trace.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"

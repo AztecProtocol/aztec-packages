@@ -106,8 +106,12 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         if (op_code.eq && op_code.reset) {
             return equality_op_idx;
         }
+        if (!op_code.add && !op_code.mul && !op_code.eq && !op_code.reset) {
+            return null_op_idx;
+        }
 
-        return null_op_idx;
+        throw_or_abort("Invalid op code");
+        return 0;
     }
 
     void finalize_circuit(const bool ensure_nonzero);

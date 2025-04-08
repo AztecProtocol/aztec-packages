@@ -125,7 +125,6 @@ TEST(EccOpsTableTest, UltraOpsTable)
 // Ensure EccvmOpsTable correctly constructs a concatenated table from successively prepended subtables
 TEST(EccOpsTableTest, EccvmOpsTable)
 {
-    using ECCVMOperation = bb::VMOperation<curve::BN254::Group>;
 
     // Construct sets of eccvm ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;

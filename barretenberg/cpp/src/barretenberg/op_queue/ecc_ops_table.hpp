@@ -134,6 +134,10 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
+/***
+ * @brief A VM operation is represented as one row with 6 columns in the ECCVM version of the Op Queue.
+ * | OP | X | Y | z_1 | z_2 | mul_scalar_full |
+ */
 using EccvmOpsTable = EccOpsTable<ECCVMOperation>;
 
 /**
