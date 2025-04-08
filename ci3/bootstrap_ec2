@@ -200,7 +200,7 @@ function run {
     # Capture net status.
     echo Installing and starting sysdig...
     sudo apt-get update &>/dev/null
-    sudo apt-get install -y sysdig &>/dev/null
+    sudo apt-get install -y sysdig net-tools &>/dev/null
     sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
     netfile_pid=\$!
 
