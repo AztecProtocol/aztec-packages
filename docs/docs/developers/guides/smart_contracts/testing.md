@@ -132,10 +132,14 @@ To call the public `transfer_in_public` function:
 Utility functions can be directly called from the contract interface. Notice that we need to set the contract address to the specific token contract that we are calling before making the call. This is to ensure that `view_notes` works properly.
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 #include_code txe_test_call_utility /noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr rust
 =======
 #include_code txe_test_call_unconstrained /noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr rust
 >>>>>>> 60fd705e6d (restoring paths)
+=======
+#include_code txe_test_call_utility /noir-projects/noir-contracts/contracts/app/token_contract/src/test/utils.nr rust
+>>>>>>> 007811df98 (docs: update utility fn docs (#13310))
 
 ### Creating accounts
 
