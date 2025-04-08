@@ -1,6 +1,4 @@
-import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
-import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';

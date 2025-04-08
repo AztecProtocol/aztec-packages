@@ -1,11 +1,11 @@
-import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { areArraysEqual, times } from '@aztec/foundation/collection';
+import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import { type Tuple } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -145,7 +145,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }) {
-    const { fromBlock, toBlock, publicInputs, proof } = args;
+    const { fromBlock, toBlock, publicInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
