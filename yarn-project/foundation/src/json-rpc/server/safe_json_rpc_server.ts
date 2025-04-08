@@ -240,7 +240,7 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
       const nestedSchemaFn = nestedSchema[methodKey];
       assert(schemaKeyIsFunction(nestedSchemaFn), `Method ${methodKey} in object ${objKey} is not a function`);
       const args = await parseWithOptionals(jsonParams, nestedSchemaFn.parameters());
-      ret = await handlerFn.apply(this.handler, args);
+      ret = await handlerFn.apply(this.handler[objKey as keyof T], args);
     }
 
     this.log.debug(format('response', key, ret));

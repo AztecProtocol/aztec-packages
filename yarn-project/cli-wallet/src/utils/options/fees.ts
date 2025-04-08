@@ -54,7 +54,7 @@ function getEstimatedCost(estimate: Pick<GasSettings, 'gasLimits' | 'teardownGas
 
 async function parseGasSettings(args: CliFeeArgs, pxe: PXE) {
   const gasLimits = args.gasLimits ? parseGasLimits(args.gasLimits) : {};
-  const maxFeesPerGas = args.maxFeesPerGas ? parseGasFees(args.maxFeesPerGas) : await pxe.getCurrentBaseFees();
+  const maxFeesPerGas = args.maxFeesPerGas ? parseGasFees(args.maxFeesPerGas) : await pxe.node.getCurrentBaseFees();
   const maxPriorityFeesPerGas = args.maxPriorityFeesPerGas ? parseGasFees(args.maxPriorityFeesPerGas) : undefined;
   return GasSettings.default({
     ...gasLimits,
