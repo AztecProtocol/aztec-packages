@@ -500,6 +500,7 @@ export class Oracle {
     [msgContentLength]: ACVMField[],
     [txHash]: ACVMField[],
     [logIndexInTx]: ACVMField[],
+    [txIndexInBlock]: ACVMField[],
   ) {
     await this.typedOracle.storePrivateEventLog(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
@@ -508,6 +509,7 @@ export class Oracle {
       fromBoundedVec(msgContentBVecStorage, msgContentLength),
       new TxHash(Fr.fromString(txHash)),
       Fr.fromString(logIndexInTx).toNumber(),
+      Fr.fromString(txIndexInBlock).toNumber(),
     );
     return [];
   }

@@ -266,6 +266,7 @@ export abstract class TypedOracle {
     _logContent: Fr[],
     _txHash: TxHash,
     _logIndexInTx: number,
+    _txIndexInBlock: number,
   ): Promise<void> {
     return Promise.reject(new OracleMethodNotAvailableError('storePrivateEventLog'));
   }

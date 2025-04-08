@@ -19,6 +19,7 @@ pub(crate) struct PendingTaggedLog {
     pub first_nullifier_in_tx: Field,
     pub recipient: AztecAddress,
     pub log_index_in_tx: Field,
+    pub tx_index_in_block: Field,
 }
 
 mod test {
@@ -33,6 +34,7 @@ mod test {
         let first_nullifier = 6;
         let recipient = AztecAddress::from_field(789);
         let log_index_in_tx = 10;
+        let tx_index_in_block = 11;
         let pending_log = PendingTaggedLog {
             log,
             tx_hash,
@@ -40,6 +42,7 @@ mod test {
             first_nullifier_in_tx: first_nullifier,
             recipient,
             log_index_in_tx,
+            tx_index_in_block,
         };
 
         let serialized = pending_log.serialize();
@@ -135,6 +138,7 @@ mod test {
             0x0000000000000000000000000000000000000000000000000000000000000006,
             0x0000000000000000000000000000000000000000000000000000000000000315,
             0x000000000000000000000000000000000000000000000000000000000000000a,
+            0x000000000000000000000000000000000000000000000000000000000000000b,
         ];
 
         assert_eq(serialized, serialized_pending_tagged_log_from_typescript);

@@ -2,9 +2,9 @@ use crate::{
     capsules::CapsuleArray,
     discovery::{
         ComputeNoteHashAndNullifier,
-        MAX_MESSAGE_CONTENT_LEN,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
     },
+    encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
     oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
 };

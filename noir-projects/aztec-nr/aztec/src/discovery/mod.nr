@@ -1,4 +1,3 @@
-use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod nonce_discovery;
@@ -6,13 +5,6 @@ pub mod partial_notes;
 pub mod pending_tagged_log;
 pub mod private_logs;
 pub mod private_notes;
-
-/// The expanded message metadata takes up a single field.
-global PRIVATE_MESSAGE_EXPANDED_METADATA_LEN: u32 = 1;
-
-/// The maximum length of a message's content, i.e. not including the expanded message metadata.
-pub global MAX_MESSAGE_CONTENT_LEN: u32 =
-    PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - PRIVATE_MESSAGE_EXPANDED_METADATA_LEN;
 
 use private_notes::MAX_NOTE_PACKED_LEN;
 
