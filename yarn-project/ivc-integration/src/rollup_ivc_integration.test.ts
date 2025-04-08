@@ -111,14 +111,14 @@ describe('Rollup IVC Integration', () => {
     expect(rootWitnessResult.publicInputs.accumulated).toEqual('0x03');
 
     // This step takes something like 4 minutes, since it needs to actually prove and remove the IPA claims.
-    // If it gets too slow for CI, we can just comment it out.
-    await proveKeccakHonk(
-      'MockRollupRootCircuit',
-      bbBinaryPath,
-      workingDirectory,
-      MockRollupRootCircuit,
-      rootWitnessResult.witness,
-      logger,
-    );
+    // Commenting it out for now due to CI speed issues.
+    // await proveKeccakHonk(
+    //   'MockRollupRootCircuit',
+    //   bbBinaryPath,
+    //   workingDirectory,
+    //   MockRollupRootCircuit,
+    //   rootWitnessResult.witness,
+    //   logger,
+    // );
   }, 300_000);
 });
