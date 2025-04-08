@@ -1,6 +1,5 @@
 ---
 title: Contract Deployment
-sidebar_position: 1
 tags: [contracts, protocol]
 ---
 

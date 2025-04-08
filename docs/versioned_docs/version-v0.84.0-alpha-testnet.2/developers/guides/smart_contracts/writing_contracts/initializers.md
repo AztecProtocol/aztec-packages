@@ -35,7 +35,7 @@ fn constructor(){
 
 Initializers are commonly used to set an admin, such as this example:
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[public]
 #[initializer]
 fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>, decimals: u8) {

@@ -27,7 +27,7 @@ compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-```rust title="token_all" showLineNumbers 
+```rust title="token_all" showLineNumbers
 mod types;
 mod test;
 

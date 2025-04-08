@@ -17,7 +17,7 @@ In this tutorial you will learn how to:
 - Handle different private note types
 - Pass data between private and public state
 
-We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr), and explain what is being added as we go.
+We are going to start with a blank project and fill in the token contract source code defined [here (GitHub Link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr), and explain what is being added as we go.
 
 ## Requirements
 
@@ -135,7 +135,7 @@ Before we can implement the functions, we need set up the contract storage, and 
 
 :::info Copy required files
 
-We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
+We will be going over the code in `main.nr` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src). If you are following along and want to compile `main.nr` yourself, you need to add the other files in the directory as they contain imports that are used in `main.nr`.
 
 :::
 
@@ -185,7 +185,7 @@ We are importing:
 
 ### Types files
 
-We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src).
+We are also importing types from a `types.nr` file, which imports types from the `types` folder. You can view them [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src).
 
 :::note
 
@@ -218,7 +218,7 @@ struct Storage<Context> {
     public_owners: Map<Field, PublicMutable<AztecAddress, Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L47-L65" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L47-L65</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L47-L65" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L47-L65</a></sub></sup>
 
 
 ## Custom Notes
@@ -245,7 +245,7 @@ pub struct NFTNote {
     token_id: Field,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr#L25-L42" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr#L25-L42</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/types/nft_note.nr#L25-L42" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/types/nft_note.nr#L25-L42</a></sub></sup>
 
 
 ## Functions
@@ -267,7 +267,7 @@ fn constructor(admin: AztecAddress, name: str<31>, symbol: str<31>) {
     storage.symbol.initialize(FieldCompressedString::from_string(symbol));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L67-L77" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L67-L77</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L67-L77" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L67-L77</a></sub></sup>
 
 
 ### Public function implementations
@@ -289,7 +289,7 @@ fn set_admin(new_admin: AztecAddress) {
     storage.admin.write(new_admin);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L79-L85" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L79-L85</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L79-L85" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L79-L85</a></sub></sup>
 
 
 #### `set_minter`
@@ -303,7 +303,7 @@ fn set_minter(minter: AztecAddress, approve: bool) {
     storage.minters.at(minter).write(approve);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L87-L93" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L87-L93</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L87-L93" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L87-L93</a></sub></sup>
 
 
 #### `mint`
@@ -322,7 +322,7 @@ fn mint(to: AztecAddress, token_id: Field) {
     storage.public_owners.at(token_id).write(to);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L95-L106" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L95-L106</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L95-L106" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L95-L106</a></sub></sup>
 
 
 #### `transfer_in_public`
@@ -342,7 +342,7 @@ fn transfer_in_public(from: AztecAddress, to: AztecAddress, token_id: Field, non
     public_owners_storage.write(to);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L148-L162" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L148-L162</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L148-L162" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L148-L162</a></sub></sup>
 
 
 ##### Authorizing token spends (via authwits)
@@ -362,7 +362,7 @@ fn finalize_transfer_to_private(token_id: Field, partial_note: PartialNFTNote) {
     _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L229-L235" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L229-L235</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L229-L235" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L229-L235</a></sub></sup>
 
 
 ### Private function implementations
@@ -397,7 +397,7 @@ fn transfer_to_private(to: AztecAddress, token_id: Field) {
     nft._finalize_transfer_to_private_unsafe(from, token_id, partial_note).enqueue(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L165-L179" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L165-L179</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L165-L179" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L165-L179</a></sub></sup>
 
 
 #### `prepare_private_balance_increase`
@@ -443,7 +443,7 @@ fn _prepare_private_balance_increase(
     partial_note
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L183-L213" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L183-L213</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L183-L213" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L183-L213</a></sub></sup>
 
 
 #### `cancel_authwit`
@@ -458,7 +458,7 @@ fn cancel_authwit(inner_hash: Field) {
     context.push_nullifier(nullifier);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L275-L282" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L275-L282</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L275-L282" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L275-L282</a></sub></sup>
 
 
 #### `transfer_in_private`
@@ -486,7 +486,7 @@ fn transfer_in_private(from: AztecAddress, to: AztecAddress, token_id: Field, no
     nfts.at(to).insert(new_note).emit(encode_and_encrypt_note(&mut context, to, from));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L284-L304" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L284-L304</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L284-L304" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L284-L304</a></sub></sup>
 
 
 #### `transfer_to_public`
@@ -512,7 +512,7 @@ fn transfer_to_public(from: AztecAddress, to: AztecAddress, token_id: Field, non
     );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L306-L324" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L306-L324</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L306-L324" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L306-L324</a></sub></sup>
 
 
 ### Internal function implementations
@@ -536,7 +536,7 @@ fn _store_nft_set_partial_note(partial_note: PartialNFTNote) {
     context.storage_write(partial_note.commitment(), true);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L215-L225" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L215-L225</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L215-L225" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L215-L225</a></sub></sup>
 
 
 #### `_finalize_transfer_to_private_unsafe`
@@ -554,7 +554,7 @@ fn _finalize_transfer_to_private_unsafe(
     _finalize_transfer_to_private(from, token_id, partial_note, &mut context, storage);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L237-L247" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L237-L247</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L237-L247" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L237-L247</a></sub></sup>
 
 
 #### `_finish_transfer_to_public`
@@ -568,7 +568,7 @@ fn _finish_transfer_to_public(to: AztecAddress, token_id: Field) {
     storage.public_owners.at(token_id).write(to);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L326-L332" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L326-L332</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L326-L332" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L326-L332</a></sub></sup>
 
 
 ### View function implementations
@@ -588,7 +588,7 @@ fn get_admin() -> Field {
     storage.admin.read().to_field()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L132-L138" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L132-L138</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L132-L138" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L132-L138</a></sub></sup>
 
 
 #### `is_minter`
@@ -602,7 +602,7 @@ fn is_minter(minter: AztecAddress) -> bool {
     storage.minters.at(minter).read()
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L140-L146" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L140-L146</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L140-L146" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L140-L146</a></sub></sup>
 
 
 #### `owner_of`
@@ -654,7 +654,7 @@ unconstrained fn get_private_nfts(
     (owned_nft_ids, page_limit_reached)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L345-L365" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L345-L365</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/nft_contract/src/main.nr#L345-L365" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/nft_contract/src/main.nr#L345-L365</a></sub></sup>
 
 
 ## Compiling

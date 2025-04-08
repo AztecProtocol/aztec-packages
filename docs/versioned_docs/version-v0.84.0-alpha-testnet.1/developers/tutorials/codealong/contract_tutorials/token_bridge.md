@@ -124,7 +124,7 @@ fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_inde
     Token::at(config.token).mint_to_public(to, amount).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
 
 
 What's happening here?
@@ -167,7 +167,7 @@ fn exit_to_l1_public(
     Token::at(config.token).burn_public(context.msg_sender(), amount, nonce).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L73-L92" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L73-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L73-L92" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L73-L92</a></sub></sup>
 
 
 #### `exit_to_L1_private` (TokenBridge.nr)
@@ -198,7 +198,7 @@ fn exit_to_l1_private(
     Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
 
 
 Since this is a private method, it can't read what token is publicly stored. So instead the user passes a token address, and `_assert_token_is_same()` checks that this user provided address is same as the one in storage.

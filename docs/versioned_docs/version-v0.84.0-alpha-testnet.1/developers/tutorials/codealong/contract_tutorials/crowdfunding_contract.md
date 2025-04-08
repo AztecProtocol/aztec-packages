@@ -69,7 +69,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 pub contract Crowdfunding {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L3-L8" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L3-L8</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L3-L8" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L3-L8</a></sub></sup>
 
 
 Replace the example functions with an initializer that takes the required campaign info as parameters. Notice use of `#[aztec(...)]` macros inform the compiler that the function is a public initializer.
@@ -127,7 +127,7 @@ struct Storage<Context> {
     donation_receipts: PrivateSet<UintNote, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L38-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L38-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L38-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L38-L45</a></sub></sup>
 
 
 The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
@@ -149,7 +149,7 @@ fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
     storage.config.initialize(Config { donation_token, operator, deadline });
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L48-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L48-L59</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L48-L59" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L48-L59</a></sub></sup>
 
 
 You can compile the code so far with `aztec-nargo compile`.
@@ -165,7 +165,7 @@ We read the deadline from public storage in private and use the router contract 
 ```rust title="call-check-deadline" showLineNumbers
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
 
 
 We perform this check via the router contract to not reveal which contract is performing the check - this is achieved by calling a private function on the router contract which then enqueues a call to a public function on the router contract. The result is that `msg_sender` in the public call will then be the router contract.
@@ -193,7 +193,7 @@ use router::utils::privately_check_timestamp;
 use std::meta::derive;
 use token::Token;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L11-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L11-L29</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L11-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L11-L29</a></sub></sup>
 
 
 Like before, you can find these and other `aztec::protocol_types` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-protocol-circuits/crates/types/src).
@@ -205,7 +205,7 @@ The token being used for donations is stored simply as an `AztecAddress` (named 
 Add this `Token` contract to Nargo.toml:
 
 ```
-token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.84.0-alpha-testnet.1", directory="noir-projects/noir-contracts/contracts/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.84.0-alpha-testnet.1", directory="noir-projects/noir-contracts/contracts/app/token_contract" }
 ```
 
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract.
@@ -240,7 +240,7 @@ fn donate(amount: u128) {
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L61-L90" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L61-L90</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L61-L90" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L61-L90</a></sub></sup>
 
 
 ### 3. Operator withdrawals
@@ -273,7 +273,7 @@ fn withdraw(amount: u128) {
         .enqueue(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L92-L109" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L92-L109</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L92-L109" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L92-L109</a></sub></sup>
 
 
 You should be able to compile successfully with `aztec-nargo compile`.
@@ -282,7 +282,7 @@ You should be able to compile successfully with `aztec-nargo compile`.
 
 ## Conclusion
 
-For comparison, the full Crowdfunding contract can be found [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract).
+For comparison, the full Crowdfunding contract can be found [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract).
 
 If a new token wishes to honour donors with free tokens based on donation amounts, this is possible via the donation_receipts (a `PrivateSet`).
 See [claim_contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/claim_contract).

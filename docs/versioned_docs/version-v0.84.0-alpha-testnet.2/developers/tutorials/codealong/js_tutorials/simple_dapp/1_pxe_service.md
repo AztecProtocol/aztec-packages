@@ -19,7 +19,7 @@ To test the connection works, we'll request and print the node's chain id.
 
 Let's create our first file `src/index.mjs` with the following contents:
 
-```javascript title="all" showLineNumbers 
+```javascript title="all" showLineNumbers
 import { createPXEClient } from '@aztec/aztec.js';
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -59,7 +59,7 @@ Should the above fail due to a connection error, make sure the Sandbox is runnin
 In sandbox PXE comes with a set of pre-initialized accounts that you can use from your app.
 Let's try loading the accounts:
 
-```javascript title="showAccounts" showLineNumbers 
+```javascript title="showAccounts" showLineNumbers
 async function showAccounts(pxe) {
   const accounts = await pxe.getRegisteredAccounts();
   console.log(`User accounts:\n${accounts.map(a => a.address).join('\n')}`);

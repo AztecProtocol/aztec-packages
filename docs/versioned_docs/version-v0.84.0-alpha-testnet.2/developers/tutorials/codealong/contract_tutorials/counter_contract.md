@@ -78,7 +78,7 @@ We need to define some imports.
 
 Write this within your contract at the top:
 
-```rust title="imports" showLineNumbers 
+```rust title="imports" showLineNumbers
 use aztec::macros::{functions::{initializer, private, utility}, storage::storage};
 use aztec::prelude::{AztecAddress, Map};
 use aztec::protocol_types::traits::{FromField, ToField};
@@ -106,7 +106,7 @@ This allows us to store our counter in a way that acts as an integer, abstractin
 
 Add this below the imports. It declares the storage variables for our contract. We are going to store a mapping of values for each `AztecAddress`.
 
-```rust title="storage_struct" showLineNumbers 
+```rust title="storage_struct" showLineNumbers
 #[storage]
 struct Storage<Context> {
     counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
@@ -121,7 +121,7 @@ Now we’ve got a mechanism for storing our private state, we can start using it
 
 Let’s create a constructor method to run on deployment that assigns an initial count to a specified owner. This function is called `initialize`, but behaves like a constructor. It is the `#[initializer]` decorator that specifies that this function behaves like a constructor. Write this:
 
-```rust title="constructor" showLineNumbers 
+```rust title="constructor" showLineNumbers
 #[initializer]
 #[private]
 // We can name our initializer anything we want as long as it's marked as aztec(initializer)
@@ -141,7 +141,7 @@ We have annotated this and other functions with `#[private]` which are ABI macro
 
 Now let’s implement the `increment` function we defined in the first step.
 
-```rust title="increment" showLineNumbers 
+```rust title="increment" showLineNumbers
 #[private]
 fn increment(owner: AztecAddress, sender: AztecAddress) {
     unsafe {
@@ -167,7 +167,7 @@ Because our counters are private, the network can't directly verify if a note wa
 
 The last thing we need to implement is the function in order to retrieve a counter. In the `getCounter` we defined in the first step, write this:
 
-```rust title="get_counter" showLineNumbers 
+```rust title="get_counter" showLineNumbers
 #[utility]
 unconstrained fn get_counter(owner: AztecAddress) -> Field {
     let counters = storage.counters;

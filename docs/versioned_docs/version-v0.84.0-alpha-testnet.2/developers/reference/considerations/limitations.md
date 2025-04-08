@@ -189,7 +189,7 @@ Due to the rigidity of zk-SNARK circuits, there are upper bounds on the amount o
 
 Here are the current constants:
 
-```rust title="constants" showLineNumbers 
+```rust title="constants" showLineNumbers
 // "PER CALL" CONSTANTS
 pub global MAX_NOTE_HASHES_PER_CALL: u32 = 16;
 pub global MAX_NULLIFIERS_PER_CALL: u32 = 16;

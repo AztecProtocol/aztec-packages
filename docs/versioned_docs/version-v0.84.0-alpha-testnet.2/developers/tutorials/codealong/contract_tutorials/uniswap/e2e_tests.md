@@ -5,7 +5,7 @@ sidebar_position: 3
 
 ## Private flow test
 
-```typescript title="uniswap_private" showLineNumbers 
+```typescript title="uniswap_private" showLineNumbers
 it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', async () => {
   const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
 
@@ -194,7 +194,7 @@ it('should uniswap trade on L1 from L2 funds privately (swaps WETH -> DAI)', asy
 
 ## Public flow test
 
-```typescript title="uniswap_public" showLineNumbers 
+```typescript title="uniswap_public" showLineNumbers
 // it('should uniswap trade on L1 from L2 funds publicly (swaps WETH -> DAI)', async () => {
 //   const wethL1BeforeBalance = await wethCrossChainHarness.getL1BalanceOf(ownerEthAddress);
 

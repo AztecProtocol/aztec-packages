@@ -105,7 +105,7 @@ Private functions from other contracts can be called either regularly or statica
 ```rust title="private_call" showLineNumbers
 let _ = Token::at(stable_coin).burn_private(from, amount, nonce).call(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/lending_contract/src/main.nr#L254-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/lending_contract/src/main.nr#L254-L256</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L254-L256</a></sub></sup>
 
 
 Unlike the EVM however, private execution doesn't revert in the traditional way: in case of error (e.g. a failed assertion, a state changing operation in a static context, etc.) the proof generation simply fails and no transaction request is generated, spending no network gas or user funds.
@@ -121,7 +121,7 @@ Lending::at(context.this_address())
     ._deposit(AztecAddress::from_field(on_behalf_of), amount, collateral_asset)
     .enqueue(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/lending_contract/src/main.nr#L119-L123</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/lending_contract/src/main.nr#L119-L123</a></sub></sup>
 
 
 It is also possible to create public functions that can _only_ be invoked by privately enqueueing a call from the same contract, which can be very useful to update public state after private execution (e.g. update a token's supply after privately minting). This is achieved by annotating functions with `#[internal]`.
@@ -131,7 +131,7 @@ A common pattern is to enqueue public calls to check some validity condition on 
 ```rust title="enqueueing" showLineNumbers
 Router::at(ROUTER_ADDRESS).check_block_number(operation, value).call(context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/router_contract/src/utils.nr#L17-L19" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/router_contract/src/utils.nr#L17-L19</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/router_contract/src/utils.nr#L17-L19" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/router_contract/src/utils.nr#L17-L19</a></sub></sup>
 
 
 Note that this reveals what public function is being called on what contract, and perhaps more importantly which contract enqueued the call during private execution.
@@ -142,7 +142,7 @@ An example of how a deadline can be checked using the router contract follows:
 ```rust title="call-check-deadline" showLineNumbers
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
 
 
 `privately_check_timestamp` and `privately_check_block_number` are helper functions around the call to the router contract:
@@ -162,7 +162,7 @@ pub fn privately_check_block_number(operation: u8, value: Field, context: &mut P
     Router::at(ROUTER_ADDRESS).check_block_number(operation, value).call(context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/router_contract/src/utils.nr#L5-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/router_contract/src/utils.nr#L5-L21</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/router_contract/src/utils.nr#L5-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/router_contract/src/utils.nr#L5-L21</a></sub></sup>
 
 
 This is what the implementation of the check timestamp functionality looks like:
@@ -217,7 +217,7 @@ Token::at(config.accepted_asset)
     .transfer_in_public(context.msg_sender(), context.this_address(), max_fee, nonce)
     .enqueue(&mut context);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr#L156-L160" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr#L156-L160</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L156-L160" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr#L156-L160</a></sub></sup>
 
 
 :::note

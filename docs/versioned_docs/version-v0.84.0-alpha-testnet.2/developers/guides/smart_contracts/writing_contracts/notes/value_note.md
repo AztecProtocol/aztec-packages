@@ -9,7 +9,7 @@ ValueNotes hold one main property - a `value` - and have utils useful for manipu
 
 This is the ValueNote struct:
 
-```rust title="value-note-def" showLineNumbers 
+```rust title="value-note-def" showLineNumbers
 #[note]
 #[derive(Eq)]
 pub struct ValueNote {
@@ -31,7 +31,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="mast
 
 ### In your contract
 
-```rust title="import_valuenote" showLineNumbers 
+```rust title="import_valuenote" showLineNumbers
 use dep::value_note::value_note::ValueNote;
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L14-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L14-L16</a></sub></sup>
@@ -46,7 +46,7 @@ Creating a new `ValueNote` takes the following args:
 - `value` (`Field`): the value of the ValueNote
 - `owner` (`AztecAddress`): owner is the party whose nullifying key can be used to spend the note
 
-```rust title="valuenote_new" showLineNumbers 
+```rust title="valuenote_new" showLineNumbers
 let note = ValueNote::new(new_value, owner);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L60-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L60-L62</a></sub></sup>
@@ -58,7 +58,7 @@ A user may have multiple notes in a set that all refer to the same content (e.g.
 
 It takes one argument - the set of notes.
 
-```rust title="get_balance" showLineNumbers 
+```rust title="get_balance" showLineNumbers
 // Return the sum of all notes in the set.
 balance_utils::get_balance(owner_balance)
 ```
@@ -71,7 +71,7 @@ This can only be used in an unconstrained function.
 
 Both `increment` and `decrement` functions take the same args:
 
-```rust title="increment_args" showLineNumbers 
+```rust title="increment_args" showLineNumbers
 balance: PrivateSet<ValueNote, &mut PrivateContext>,
 amount: Field,
 ```
@@ -80,7 +80,7 @@ amount: Field,
 
 Note that this will create a new note in the set of notes passed as the first argument.
 For example:
-```rust title="increment_valuenote" showLineNumbers 
+```rust title="increment_valuenote" showLineNumbers
 increment(storage.notes.at(owner), value, owner, sender);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/benchmarking_contract/src/main.nr#L24-L26" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/benchmarking_contract/src/main.nr#L24-L26</a></sub></sup>

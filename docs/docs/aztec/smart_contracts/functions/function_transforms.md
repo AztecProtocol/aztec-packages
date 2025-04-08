@@ -1,6 +1,6 @@
 ---
 title: Inner Workings of Functions
-sidebar_position: 2
+sidebar_position: 3
 tags: [functions]
 ---
 

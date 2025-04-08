@@ -154,7 +154,7 @@ unconstrained fn deliver_transparent_note(
     recipient: AztecAddress,
 ) {
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr#L304-L315" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr#L304-L315</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr#L304-L315</a></sub></sup>
 
 
 ### Revealing encrypted logs conditionally
@@ -252,5 +252,5 @@ fn cast_vote(candidate: Field) {
     );
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr#L38-L51</a></sub></sup>
 

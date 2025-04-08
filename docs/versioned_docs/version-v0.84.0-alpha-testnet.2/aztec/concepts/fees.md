@@ -52,7 +52,7 @@ import { Gas_Settings_Components, Gas_Settings, Tx_Teardown_Phase } from '/compo
 
 These are:
 
-```javascript title="gas_settings_vars" showLineNumbers 
+```javascript title="gas_settings_vars" showLineNumbers
 /** Gas usage and fees limits set by the transaction sender for different dimensions and phases. */
 export class GasSettings {
   constructor(

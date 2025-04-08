@@ -82,7 +82,7 @@ pub contract SchnorrHardcodedAccount {
     }
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr#L1-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr#L1-L55</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L1-L55</a></sub></sup>
 
 
 The important part of this contract is the `entrypoint` function, which will be the first function executed in any transaction originated from this account. This function has two main responsibilities: authenticating the transaction and executing calls. It receives a `payload` with the list of function calls to execute, and requests a corresponding authentication witness from an oracle to validate it. Authentication witnesses are used for authorizing actions for an account, whether it is just checking a signature, like in this case, or granting authorization for another account to act on an accounts behalf (e.g. token approvals). You will find this logic implemented in the `AccountActions` module, which use the `AppPayload` and `FeePayload` structs:
@@ -154,7 +154,7 @@ fn is_valid_impl(_context: &mut PrivateContext, outer_hash: Field) -> bool {
     schnorr::verify_signature(public_key, signature, outer_hash.to_be_bytes::<32>())
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr#L37-L53" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/schnorr_hardcoded_account_contract/src/main.nr#L37-L53</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L37-L53" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/account/schnorr_hardcoded_account_contract/src/main.nr#L37-L53</a></sub></sup>
 
 
 For our account contract, we will take the hash of the action to authorize, request the corresponding auth witness from the oracle, and validate it against our hardcoded public key. If the signature is correct, we authorize the action.

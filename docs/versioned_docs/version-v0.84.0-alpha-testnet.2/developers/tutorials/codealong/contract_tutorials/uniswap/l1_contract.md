@@ -7,7 +7,7 @@ This page goes over the code in the L1 contract for Uniswap, which works alongsi
 
 ## Setup
 
-```solidity title="setup" showLineNumbers 
+```solidity title="setup" showLineNumbers
 import {TokenPortal} from "./TokenPortal.sol";
 import {ISwapRouter} from "../external/ISwapRouter.sol";
 
@@ -49,7 +49,7 @@ contract UniswapPortal {
 
 ## Public swap
 
-```solidity title="solidity_uniswap_swap_public" showLineNumbers 
+```solidity title="solidity_uniswap_swap_public" showLineNumbers
 /**
  * @notice Exit with funds from L2, perform swap on L1 and deposit output asset to L2 again publicly
  * @dev `msg.value` indicates fee to submit message to inbox. Currently, anyone can call this method on your behalf.
@@ -177,7 +177,7 @@ You can find the corresponding function on the [L2 contracts page](./l2_contract
 
 This works very similarly to the public flow.
 
-```solidity title="solidity_uniswap_swap_private" showLineNumbers 
+```solidity title="solidity_uniswap_swap_private" showLineNumbers
   /**
    * @notice Exit with funds from L2, perform swap on L1 and deposit output asset to L2 again privately
    * @dev `msg.value` indicates fee to submit message to inbox. Currently, anyone can call this method on your behalf.

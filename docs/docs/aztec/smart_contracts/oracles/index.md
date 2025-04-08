@@ -1,6 +1,5 @@
 ---
 title: Oracle Functions
-sidebar_position: 3
 tags: [functions, oracles]
 ---
 

@@ -9,7 +9,7 @@ This page goes over the code in the L2 contract for Uniswap, which works alongsi
 
 ### Setup and constructor
 
-```rust title="uniswap_setup" showLineNumbers 
+```rust title="uniswap_setup" showLineNumbers
 mod util;
 
 // Demonstrates how to use portal contracts to swap on L1 Uniswap with funds on L2
@@ -50,7 +50,7 @@ We just need to store the portal address for the token that we want to swap.
 
 ### Public swap
 
-```rust title="swap_public" showLineNumbers 
+```rust title="swap_public" showLineNumbers
 #[public]
 fn swap_public(
     sender: AztecAddress,
@@ -150,7 +150,7 @@ You can find the corresponding function on the [L1 contracts page](./l1_contract
 
 ### Private swap
 
-```rust title="swap_private" showLineNumbers 
+```rust title="swap_private" showLineNumbers
 #[private]
 fn swap_private(
     input_asset: AztecAddress, // since private, we pass here and later assert that this is as expected by input_bridge
@@ -239,7 +239,7 @@ This flow works similarly to the public flow with a few notable changes:
 
 Both public and private swap functions call this function:
 
-```rust title="authwit_uniswap_set" showLineNumbers 
+```rust title="authwit_uniswap_set" showLineNumbers
 // This helper method approves the bridge to burn this contract's funds and exits the input asset to L1
 // Assumes contract already has funds.
 // Assume `token` relates to `token_bridge` (ie token_bridge.token == token)
@@ -283,7 +283,7 @@ fn _approve_bridge_and_exit_input_asset_to_L1(
 
 ### Compute content hash for public
 
-```rust title="uniswap_public_content_hash" showLineNumbers 
+```rust title="uniswap_public_content_hash" showLineNumbers
 use dep::aztec::prelude::{AztecAddress, EthAddress};
 use dep::aztec::protocol_types::{hash::sha256_to_field, traits::ToField};
 
@@ -348,7 +348,7 @@ This method computes the L2 to L1 message content hash for the public. To find o
 
 ### Compute content hash for private
 
-```rust title="compute_swap_private_content_hash" showLineNumbers 
+```rust title="compute_swap_private_content_hash" showLineNumbers
 // This method computes the L2 to L1 message content hash for the private
 // refer `l1-contracts/test/portals/UniswapPortal.sol` on how L2 to L1 message is expected
 pub fn compute_swap_private_content_hash(

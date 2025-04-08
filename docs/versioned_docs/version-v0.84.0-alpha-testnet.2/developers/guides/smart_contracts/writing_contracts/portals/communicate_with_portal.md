@@ -21,7 +21,7 @@ When sending messages, we need to specify quite a bit of information beyond just
 
 With all that information at hand, we can call the `sendL2Message` function on the Inbox. The function will return a `field` (inside `bytes32`) that is the hash of the message. This hash can be used as an identifier to spot when your message has been included in a rollup block.
 
-```solidity title="send_l1_to_l2_message" showLineNumbers 
+```solidity title="send_l1_to_l2_message" showLineNumbers
 /**
  * @notice Inserts a new message into the Inbox
  * @dev Emits `MessageSent` with data for easy access by the sequencer
@@ -53,7 +53,7 @@ To consume the message, we can use the `consume_l1_to_l2_message` function withi
 Note that while the `secret` and the `content` are both hashed, they are actually hashed with different hash functions!
 :::
 
-```rust title="context_consume_l1_to_l2_message" showLineNumbers 
+```rust title="context_consume_l1_to_l2_message" showLineNumbers
 pub fn consume_l1_to_l2_message(
     &mut self,
     content: Field,
@@ -69,7 +69,7 @@ pub fn consume_l1_to_l2_message(
 
 Computing the `content` must currently be done manually, as we are still adding a number of bytes utilities. A good example exists within the [Token bridge example (codealong tutorial)](../../../../../developers/tutorials/codealong/contract_tutorials/token_bridge.md).
 
-```rust title="claim_public" showLineNumbers 
+```rust title="claim_public" showLineNumbers
 // Consumes a L1->L2 message and calls the token contract to mint the appropriate amount publicly
 #[public]
 fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_index: Field) {
@@ -93,7 +93,7 @@ The `content_hash` is a sha256 truncated to a field element (~ 254 bits). In Azt
 
 ### Token portal hash library
 
-```rust title="mint_to_public_content_hash_nr" showLineNumbers 
+```rust title="mint_to_public_content_hash_nr" showLineNumbers
 use dep::aztec::prelude::{AztecAddress, EthAddress};
 use dep::aztec::protocol_types::{hash::sha256_to_field, traits::ToField};
 
@@ -129,13 +129,13 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: u128) -> Fie
 
 In Solidity, you can use our `Hash.sha256ToField()` method:
 
-```solidity title="content_hash_sol_import" showLineNumbers 
+```solidity title="content_hash_sol_import" showLineNumbers
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/test/portals/TokenPortal.sol#L12-L14" target="_blank" rel="noopener noreferrer">Source code: l1-contracts/test/portals/TokenPortal.sol#L12-L14</a></sub></sup>
 
 
-```solidity title="deposit_public" showLineNumbers 
+```solidity title="deposit_public" showLineNumbers
 /**
  * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
  * @param _to - The aztec address of the recipient
@@ -170,7 +170,7 @@ The portal must ensure that the sender is as expected. One flexible solution is 
 
 To send a message to L1 from your Aztec contract, you must use the `message_portal` function on the `context`. When messaging to L1, only the `content` is required (as a `Field`).
 
-```rust title="context_message_portal" showLineNumbers 
+```rust title="context_message_portal" showLineNumbers
 pub fn message_portal(&mut self, recipient: EthAddress, content: Field) {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/context/private_context.nr#L293-L295" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/aztec/src/context/private_context.nr#L293-L295</a></sub></sup>
@@ -186,7 +186,7 @@ Access control on the L1 portal contract is essential to prevent consumption of 
 
 As earlier, we can use a token bridge as an example. In this case, we are burning tokens on L2 and sending a message to the portal to free them on L1.
 
-```rust title="exit_to_l1_private" showLineNumbers 
+```rust title="exit_to_l1_private" showLineNumbers
 // Burns the appropriate amount of tokens and creates a L2 to L1 withdraw message privately
 // Requires `msg.sender` (caller of the method) to give approval to the bridge to burn tokens on their behalf using witness signatures
 #[private]
@@ -215,7 +215,7 @@ fn exit_to_l1_private(
 
 When the transaction is included in a rollup block and published to Ethereum the message will be inserted into the `Outbox` on Ethereum, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
 
-```solidity title="l2_to_l1_msg" showLineNumbers 
+```solidity title="l2_to_l1_msg" showLineNumbers
 /**
  * @notice Struct containing a message from L2 to L1
  * @param sender - The sender of the message
@@ -234,7 +234,7 @@ struct L2ToL1Msg {
 
 #### Outbox `consume`
 
-```solidity title="outbox_consume" showLineNumbers 
+```solidity title="outbox_consume" showLineNumbers
 /**
  * @notice Consumes an entry from the Outbox
  * @dev Only useable by portals / recipients of messages
@@ -262,7 +262,7 @@ As noted earlier, the portal contract should check that the sender is as expecte
 
 It is possible to support multiple senders from L2. You could use a have `mapping(address => bool) allowed` and check that `allowed[msg.sender]` is `true`.
 
-```solidity title="token_portal_withdraw" showLineNumbers 
+```solidity title="token_portal_withdraw" showLineNumbers
 /**
  * @notice Withdraw funds from the portal
  * @dev Second part of withdraw, must be initiated from L2 first as it will consume a message from outbox

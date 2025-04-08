@@ -84,7 +84,7 @@ fn claim_public(to: AztecAddress, amount: u128, secret: Field, message_leaf_inde
     Token::at(config.token).mint_to_public(to, amount).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L57-L71</a></sub></sup>
 
 
 :::info
@@ -122,7 +122,7 @@ pub fn get_mint_to_public_content_hash(owner: AztecAddress, amount: u128) -> Fie
     content_hash
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr#L1-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_portal_content_hash_lib/src/lib.nr#L1-L29</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr#L1-L29" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/libs/token_portal_content_hash_lib/src/lib.nr#L1-L29</a></sub></sup>
 
 
 ### Token Portal contract
@@ -210,7 +210,7 @@ fn exit_to_l1_private(
     Token::at(token).burn_private(context.msg_sender(), amount, nonce).call(&mut context);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr#L125-L150</a></sub></sup>
 
 
 When the transaction is included in a rollup block and published to Ethereum the message will be inserted into the `Outbox` on Ethereum, where the recipient portal can consume it from. When consuming, the `msg.sender` must match the `recipient` meaning that only portal can actually consume the message.
@@ -376,4 +376,4 @@ Designated callers are enforced at the contract level for contracts that are not
 
 - Token bridge (Portal contract built for L1 -> L2, i.e., a non-native L2 asset)
   - [Portal contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/l1-contracts/test/portals/TokenPortal.sol)
-  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr)
+  - [Aztec contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr)

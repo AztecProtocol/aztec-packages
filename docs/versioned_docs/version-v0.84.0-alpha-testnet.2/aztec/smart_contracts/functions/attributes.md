@@ -18,7 +18,7 @@ To help illustrate how this interacts with the internals of Aztec and its kernel
 
 #### Before expansion
 
-```rust title="simple_macro_example" showLineNumbers 
+```rust title="simple_macro_example" showLineNumbers
 #[private]
 fn simple_macro_example(a: Field, b: Field) -> Field {
     a + b
@@ -29,7 +29,7 @@ fn simple_macro_example(a: Field, b: Field) -> Field {
 
 #### After expansion
 
-```rust title="simple_macro_example_expanded" showLineNumbers 
+```rust title="simple_macro_example_expanded" showLineNumbers
 fn simple_macro_example_expanded(
     // ************************************************************
     // The private context inputs are made available to the circuit by the kernel
@@ -69,7 +69,7 @@ fn simple_macro_example_expanded(
 Viewing the expanded Aztec contract uncovers a lot about how Aztec contracts interact with the kernel. To aid with developing intuition, we will break down each inserted line.
 
 **Receiving context from the kernel.**
-```rust title="context-example-inputs" showLineNumbers 
+```rust title="context-example-inputs" showLineNumbers
 inputs: PrivateContextInputs,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L340-L342" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L340-L342</a></sub></sup>
@@ -81,7 +81,7 @@ For example, within each private function we can access some global variables. T
 The kernel checks that all of the values passed to each circuit in a function call are the same.
 
 **Returning the context to the kernel.**
-```rust title="context-example-return" showLineNumbers 
+```rust title="context-example-return" showLineNumbers
 ) -> PrivateCircuitPublicInputs {
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L348-L350" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L348-L350</a></sub></sup>
@@ -95,7 +95,7 @@ The contract function must return information about the execution back to the ke
 This structure contains a host of information about the executed program. It will contain any newly created nullifiers, any messages to be sent to l2 and most importantly it will contain the return values of the function.
 
 **Hashing the function inputs.**
-```rust title="context-example-hasher" showLineNumbers 
+```rust title="context-example-hasher" showLineNumbers
 let mut args_hasher = dep::aztec::hash::ArgsHasher::new();
 args_hasher.add(a);
 args_hasher.add(b);
@@ -108,7 +108,7 @@ _What is the hasher and why is it needed?_
 Inside the kernel circuits, the inputs to functions are reduced to a single value; the inputs hash. This prevents the need for multiple different kernel circuits; each supporting differing numbers of inputs. The hasher abstraction that allows us to create an array of all of the inputs that can be reduced to a single value.
 
 **Creating the function's context.**
-```rust title="context-example-context" showLineNumbers 
+```rust title="context-example-context" showLineNumbers
 let mut context = PrivateContext::new(inputs, args_hasher.hash());
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L359-L361" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L359-L361</a></sub></sup>
@@ -116,7 +116,7 @@ let mut context = PrivateContext::new(inputs, args_hasher.hash());
 
 Each Aztec function has access to a [context](context) object. This object, although labelled a global variable, is created locally on a users' device. It is initialized from the inputs provided by the kernel, and a hash of the function's inputs.
 
-```rust title="context-example-context-return" showLineNumbers 
+```rust title="context-example-context-return" showLineNumbers
 let mut return_hasher = dep::aztec::hash::ArgsHasher::new();
 return_hasher.add(result);
 context.set_return_hash(return_hasher);
@@ -128,7 +128,7 @@ We use the kernel to pass information between circuits. This means that the retu
 We achieve this by pushing return values to the execution context, which we then pass to the kernel.
 
 **Making the contract's storage available**
-```rust title="storage-example-context" showLineNumbers 
+```rust title="storage-example-context" showLineNumbers
 let mut storage = Storage::init(&mut context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L362-L364" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L362-L364</a></sub></sup>
@@ -139,7 +139,7 @@ When a `Storage` struct is declared within a contract, the `storage` keyword is 
 Any state variables declared in the `Storage` struct can now be accessed as normal struct members.
 
 **Returning the function context to the kernel.**
-```rust title="context-example-finish" showLineNumbers 
+```rust title="context-example-finish" showLineNumbers
 context.finish()
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L376-L378" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L376-L378</a></sub></sup>
@@ -162,7 +162,7 @@ To generate the environment, the simulator gets the blockheader from the [PXE da
 
 Once the execution environment is created, `execute_unconstrained_function` is invoked:
 
-```typescript title="execute_unconstrained_function" showLineNumbers 
+```typescript title="execute_unconstrained_function" showLineNumbers
 /**
  * Runs a utility function.
  * @param call - The function call to execute.
@@ -223,7 +223,7 @@ This:
 
 Beyond using them inside your other functions, they are convenient for providing an interface that reads storage, applies logic and returns values to a UI or test. Below is a snippet from exposing the `balance_of_private` function from a token implementation, which allows a user to easily read their balance, similar to the `balanceOf` function in the ERC20 standard.
 
-```rust title="balance_of_private" showLineNumbers 
+```rust title="balance_of_private" showLineNumbers
 #[utility]
 pub(crate) unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
     storage.balances.at(owner).balance_of()
@@ -246,7 +246,7 @@ All data inserted into private storage from a public function will be publicly v
 
 To create a public function you can annotate it with the `#[public]` attribute. This will make the public context available within the function's execution scope.
 
-```rust title="set_minter" showLineNumbers 
+```rust title="set_minter" showLineNumbers
 #[public]
 fn set_minter(minter: AztecAddress, approve: bool) {
     assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");

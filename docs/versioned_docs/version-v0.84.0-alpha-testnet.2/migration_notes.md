@@ -2345,7 +2345,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers 
+```rust title="prelude" showLineNumbers
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{

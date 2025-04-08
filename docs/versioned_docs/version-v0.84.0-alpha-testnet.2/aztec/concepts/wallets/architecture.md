@@ -19,7 +19,7 @@ In code, this translates to a wallet implementing an **AccountInterface** interf
 
 The account interface is used for creating an _execution request_ out of one or more _function calls_ requested by a dapp, as well as creating an _auth witness_ for a given message hash. Account contracts are expected to handle multiple function calls per transaction, since dapps may choose to batch multiple actions into a single request to the wallet.
 
-```typescript title="account-interface" showLineNumbers 
+```typescript title="account-interface" showLineNumbers
 
 /**
  * Handler for interfacing with an account. Knows how to create transaction execution
@@ -46,7 +46,7 @@ export interface AccountInterface extends EntrypointInterface, AuthWitnessProvid
 
 A wallet exposes the PXE interface to dapps by running a PXE instance. The PXE requires a keystore and a database implementation for storing keys, private state, and recipient encryption public keys.
 
-```typescript title="pxe-interface" showLineNumbers 
+```typescript title="pxe-interface" showLineNumbers
 /**
  * Private eXecution Environment (PXE) runs locally for each user, providing functionality for all the operations
  * needed to interact with the Aztec network, including account management, private data management,
