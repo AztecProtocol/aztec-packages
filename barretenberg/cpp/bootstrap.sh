@@ -124,7 +124,7 @@ function build_fuzzing_syntax_check_only {
 # TODO: Use the flattened crs. These old transcripts are a pain. Delete this.
 function download_old_crs {
   cd ./srs_db
-  retry ./download_ignition.sh 3
+  retry "./download_ignition.sh 3"
   retry ./download_grumpkin.sh
 }
 
