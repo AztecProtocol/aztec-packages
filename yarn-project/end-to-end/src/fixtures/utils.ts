@@ -82,7 +82,7 @@ import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContra
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { DEFAULT_BLOB_SINK_PORT, MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -492,11 +492,12 @@ export async function setup(
         rollupAddress: config.l1Contracts.rollupAddress,
         dataDirectory: config.dataDirectory,
         dataStoreMapSizeKB: config.dataStoreMapSizeKB,
+        port: parseInt(DEFAULT_BLOB_SINK_PORT),
       },
       telemetry,
     );
     await blobSink.start();
-    config.blobSinkUrl = `http://127.0.0.1:5052`;
+    config.blobSinkUrl = `http://127.0.0.1:${DEFAULT_BLOB_SINK_PORT}`;
 
     logger.verbose('Creating and synching an aztec node...');
 
