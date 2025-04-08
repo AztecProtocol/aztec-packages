@@ -4,9 +4,11 @@ import {
   PUBLIC_INPUTS_FILENAME,
   type UltraHonkFlavor,
   VK_FILENAME,
+  executeBbClientIvcProof,
   extractVkData,
   generateProof,
   generateTubeProof,
+  readClientIVCProofFromOutputDirectory,
   readProofAsFields,
   verifyProof,
 } from '@aztec/bb-prover';
@@ -14,34 +16,40 @@ import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, TUBE
 import type { Logger } from '@aztec/foundation/log';
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
-import type { Proof } from '@aztec/stdlib/proofs';
+import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
+import { encode } from '@msgpack/msgpack';
 import * as fs from 'fs/promises';
-import { ungzip } from 'pako';
 import * as path from 'path';
 
-function base64ToUint8Array(base64: string): Uint8Array {
-  return Uint8Array.from(atob(base64), c => c.charCodeAt(0));
-}
-
-export async function proveThenVerifyAztecClient(
-  bytecodes: string[],
+export async function proveClientIVC(
+  bbBinaryPath: string,
+  bbWorkingDirectory: string,
   witnessStack: Uint8Array[],
-  threads?: number,
-): Promise<boolean> {
-  const { AztecClientBackend } = await import('@aztec/bb.js');
-  const backend = new AztecClientBackend(
-    bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-    { threads },
+  bytecodes: string[],
+  logger: Logger,
+): Promise<ClientIvcProof> {
+  await fs.writeFile(
+    path.join(bbWorkingDirectory, 'acir.msgpack'),
+    encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
   );
-  try {
-    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
-    const verified = await backend.verify(proof, vk);
-    return verified;
-  } finally {
-    await backend.destroy();
+
+  await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
+  const provingResult = await executeBbClientIvcProof(
+    bbBinaryPath,
+    bbWorkingDirectory,
+    path.join(bbWorkingDirectory, 'acir.msgpack'),
+    path.join(bbWorkingDirectory, 'witnesses.msgpack'),
+    logger.info,
+    true,
+  );
+
+  if (provingResult.status === BB_RESULT.FAILURE) {
+    throw new Error(provingResult.reason);
   }
+
+  return readClientIVCProofFromOutputDirectory(bbWorkingDirectory);
 }
 
 async function verifyProofWithKey(
@@ -83,18 +91,17 @@ export async function proveTube(pathToBB: string, workingDirectory: string, logg
   return makeProofAndVerificationKey(tubeProof, tubeVK);
 }
 
-export async function proveRollupHonk(
+async function proveRollupCircuit<T extends UltraHonkFlavor, ProofLength extends number>(
   name: string,
   pathToBB: string,
   workingDirectory: string,
   circuit: NoirCompiledCircuit,
   witness: Uint8Array,
   logger: Logger,
-  root = false,
+  flavor: T,
+  proofLength: ProofLength,
 ) {
   await fs.writeFile(path.join(workingDirectory, 'witness.gz'), witness);
-  const flavor = root ? 'ultra_keccak_honk' : 'ultra_rollup_honk';
-  const proofLength = root ? NESTED_RECURSIVE_PROOF_LENGTH : RECURSIVE_ROLLUP_HONK_PROOF_LENGTH;
   const proofResult = await generateProof(
     pathToBB,
     workingDirectory,
@@ -116,4 +123,44 @@ export async function proveRollupHonk(
   await verifyProofWithKey(pathToBB, workingDirectory, vk, proof.binaryProof, flavor, logger);
 
   return makeProofAndVerificationKey(proof, vk);
+}
+
+export function proveRollupHonk(
+  name: string,
+  pathToBB: string,
+  workingDirectory: string,
+  circuit: NoirCompiledCircuit,
+  witness: Uint8Array,
+  logger: Logger,
+) {
+  return proveRollupCircuit(
+    name,
+    pathToBB,
+    workingDirectory,
+    circuit,
+    witness,
+    logger,
+    'ultra_rollup_honk',
+    RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  );
+}
+
+export function proveKeccakHonk(
+  name: string,
+  pathToBB: string,
+  workingDirectory: string,
+  circuit: NoirCompiledCircuit,
+  witness: Uint8Array,
+  logger: Logger,
+) {
+  return proveRollupCircuit(
+    name,
+    pathToBB,
+    workingDirectory,
+    circuit,
+    witness,
+    logger,
+    'ultra_keccak_honk',
+    NESTED_RECURSIVE_PROOF_LENGTH,
+  );
 }

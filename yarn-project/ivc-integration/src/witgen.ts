@@ -37,6 +37,7 @@ import type {
   MockPrivateKernelTailInputType,
   MockRollupBasePrivateInputType,
   MockRollupBasePublicInputType,
+  MockRollupMergeInputType,
   MockRollupRootInputType,
   PrivateKernelPublicInputs,
   RollupPublicInputs,
@@ -169,6 +170,17 @@ export async function witnessGenMockRollupBasePrivateCircuit(
   args: MockRollupBasePrivateInputType,
 ): Promise<WitnessGenResult<RollupPublicInputs>> {
   const program = new Noir(MockRollupBasePrivateCircuit);
+  const { witness, returnValue } = await program.execute(args, foreignCallHandler);
+  return {
+    witness,
+    publicInputs: returnValue as RollupPublicInputs,
+  };
+}
+
+export async function witnessGenMockRollupMergeCircuit(
+  args: MockRollupMergeInputType,
+): Promise<WitnessGenResult<RollupPublicInputs>> {
+  const program = new Noir(MockRollupMergeCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
     witness,
