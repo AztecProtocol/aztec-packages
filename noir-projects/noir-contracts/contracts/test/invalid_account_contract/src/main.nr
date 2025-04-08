@@ -9,6 +9,7 @@ pub contract InvalidAccount {
     #[private]
     #[view]
     fn verify_private_authwit(inner_hash: Field) -> Field {
+        // Any return value that is not IS_VALID_SELECTOR (0x47dacd73) means 'invalid authwit'
         1
     }
 }
