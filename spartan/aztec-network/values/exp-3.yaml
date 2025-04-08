@@ -15,7 +15,7 @@ images:
 
 validator:
   storageSize: "300Gi"
-  replicas: 192
+  replicas: 256
   resources:
     requests:
       memory: "5Gi"
@@ -29,7 +29,7 @@ validator:
 
 fullNode:
   storageSize: "300Gi"
-  replicas: 208
+  replicas: 512
   resources:
     requests:
       memory: "5Gi"
