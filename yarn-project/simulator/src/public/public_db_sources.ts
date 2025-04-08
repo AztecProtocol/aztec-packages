@@ -1,3 +1,4 @@
+import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -24,7 +25,7 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
-import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierLeaf, PublicDataTreeLeaf, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
 import type { PublicContractsDBInterface, PublicStateDBInterface } from '../common/db_interfaces.js';
@@ -480,5 +481,32 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
       operation: 'get-nullifier-index',
     } satisfies PublicDBAccessStats);
     return index;
+  }
+
+  public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {
+    switch (treeId) {
+      // Indexed trees.
+      case MerkleTreeId.NULLIFIER_TREE:
+        await this.batchInsert(
+          treeId,
+          Array(leavesToInsert).fill(NullifierLeaf.empty().toBuffer()),
+          NULLIFIER_SUBTREE_HEIGHT,
+        );
+        break;
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        await this.batchInsert(
+          treeId,
+          Array(leavesToInsert).fill(PublicDataTreeLeaf.empty().toBuffer()),
+          PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
+        break;
+      // Non-indexed trees.
+      case MerkleTreeId.L1_TO_L2_MESSAGE_TREE:
+      case MerkleTreeId.NOTE_HASH_TREE:
+        await this.appendLeaves(treeId, Array(leavesToInsert).fill(Fr.ZERO));
+        break;
+      default:
+        throw new Error(`Padding not supported for tree ${treeId}`);
+    }
   }
 }

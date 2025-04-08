@@ -59,6 +59,7 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
                 append_leaves,
                 (world_state::MerkleTreeId tree_id, std::span<const FF> leaves),
                 (override));
+    MOCK_METHOD(void, pad_tree, (world_state::MerkleTreeId tree_id, size_t num_leaves), (override));
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));

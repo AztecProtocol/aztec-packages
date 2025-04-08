@@ -59,6 +59,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) override;
     std::vector<AppendLeafResult> append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) override;
+    void pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves) override;
 
     void create_checkpoint() override;
     void commit_checkpoint() override;
@@ -104,6 +105,7 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
 
     // Private helper methods.
     const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
+    AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id);
     AppendLeafResult appendLeafInternal(world_state::MerkleTreeId tree_id, const FF& leaf);
 };
 
