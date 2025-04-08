@@ -45,6 +45,23 @@ std::string get_tree_name(world_state::MerkleTreeId tree_id)
     return "UNKNOWN"; // To make GCC happy.
 }
 
+// We need this helper to avoid having const and non-const versions methods in the class.
+auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
+{
+    switch (tree_id) {
+    case world_state::MerkleTreeId::NULLIFIER_TREE:
+        return tree_roots.nullifierTree;
+    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
+        return tree_roots.publicDataTree;
+    case world_state::MerkleTreeId::NOTE_HASH_TREE:
+        return tree_roots.noteHashTree;
+    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
+        return tree_roots.l1ToL2MessageTree;
+    default:
+        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
+    }
+}
+
 } // namespace
 
 // HintedRawContractDB starts.
@@ -226,18 +243,12 @@ HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnap
 
 const AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id) const
 {
-    switch (tree_id) {
-    case world_state::MerkleTreeId::NULLIFIER_TREE:
-        return tree_roots.nullifierTree;
-    case world_state::MerkleTreeId::PUBLIC_DATA_TREE:
-        return tree_roots.publicDataTree;
-    case world_state::MerkleTreeId::NOTE_HASH_TREE:
-        return tree_roots.noteHashTree;
-    case world_state::MerkleTreeId::L1_TO_L2_MESSAGE_TREE:
-        return tree_roots.l1ToL2MessageTree;
-    default:
-        throw std::runtime_error("AVM cannot process tree id: " + std::to_string(static_cast<uint64_t>(tree_id)));
-    }
+    return get_tree_info_helper(tree_id, tree_roots);
+}
+
+AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTreeId tree_id)
+{
+    return get_tree_info_helper(tree_id, tree_roots);
 }
 
 crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
@@ -541,6 +552,15 @@ std::vector<AppendLeafResult> HintedRawMerkleDB::append_leaves(world_state::Merk
     }
 
     return results;
+}
+
+void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves)
+{
+    auto& tree_info = get_tree_info(tree_id);
+    auto size_before = tree_info.nextAvailableLeafIndex;
+    tree_info.nextAvailableLeafIndex += num_leaves;
+
+    debug("Padded tree ", get_tree_name(tree_id), " from size ", size_before, " to ", tree_info.nextAvailableLeafIndex);
 }
 
 AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId tree_id, const FF& leaf)

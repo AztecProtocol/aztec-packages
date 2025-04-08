@@ -55,6 +55,8 @@ class LowLevelMerkleDBInterface {
     virtual std::vector<AppendLeafResult> append_leaves(world_state::MerkleTreeId tree_id,
                                                         std::span<const FF> leaves) = 0;
 
+    virtual void pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves) = 0;
+
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
     virtual void revert_checkpoint() = 0;
