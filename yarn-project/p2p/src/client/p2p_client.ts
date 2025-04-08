@@ -372,6 +372,11 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info('P2P client stopped.');
   }
 
+  /** Triggers a sync to the archiver. Used for testing. */
+  public async sync() {
+    await this.blockStream.sync();
+  }
+
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
     [Attributes.BLOCK_NUMBER]: proposal.blockNumber.toNumber(),
     [Attributes.SLOT_NUMBER]: proposal.slotNumber.toNumber(),
