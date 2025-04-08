@@ -74,7 +74,7 @@ pub unconstrained fn decode_message(
 ) -> (u64, u64, BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>) {
     assert(
         message.len() >= MESSAGE_EXPANDED_METADATA_LEN,
-        f"Invalid message: it must have least {MESSAGE_EXPANDED_METADATA_LEN} fields",
+        f"Invalid message: it must have at least {MESSAGE_EXPANDED_METADATA_LEN} fields",
     );
 
     // If MESSAGE_EXPANDED_METADATA_LEN is changed, causing the assertion below to fail, then the destructuring of
