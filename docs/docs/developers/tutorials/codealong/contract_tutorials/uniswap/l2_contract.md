@@ -9,12 +9,12 @@ This page goes over the code in the L2 contract for Uniswap, which works alongsi
 
 ### Setup and constructor
 
-#include_code uniswap_setup noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
+#include_code uniswap_setup noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 We just need to store the portal address for the token that we want to swap.
 
 ### Public swap
 
-#include_code swap_public noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
+#include_code swap_public noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
 1. We check that `msg.sender()` has appropriate approval to call this on behalf of the sender by constructing an authwit message and checking if `from` has given the approval (read more about authwit [here](../../../../../aztec/concepts/advanced/authwit.md)).
 2. We fetch the underlying aztec token that needs to be swapped.
@@ -39,7 +39,7 @@ You can find the corresponding function on the [L1 contracts page](./l1_contract
 
 ### Private swap
 
-#include_code swap_private noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
+#include_code swap_private noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
 This uses a util function `compute_swap_private_content_hash()` - find that [here](#utils)
 
@@ -55,19 +55,19 @@ This flow works similarly to the public flow with a few notable changes:
 
 Both public and private swap functions call this function:
 
-#include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr rust
+#include_code authwit_uniswap_set noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr rust
 
 ## Utils
 
 ### Compute content hash for public
 
-#include_code uniswap_public_content_hash noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr rust
+#include_code uniswap_public_content_hash noir-projects/noir-contracts/contracts/uniswap_contract/src/util.nr rust
 
 This method computes the L2 to L1 message content hash for the public. To find out how it is consumed on L1, view the [L1 contracts page](./l1_contract.md)
 
 ### Compute content hash for private
 
-#include_code compute_swap_private_content_hash noir-projects/noir-contracts/contracts/app/uniswap_contract/src/util.nr rust
+#include_code compute_swap_private_content_hash noir-projects/noir-contracts/contracts/uniswap_contract/src/util.nr rust
 
 This method computes the L2 to L1 message content hash for the private. To find out how it is consumed on L1, view the [L1 contracts page](./l1_contract.md).
 
