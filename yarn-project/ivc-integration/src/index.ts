@@ -27,7 +27,7 @@ import type {
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
-  MockPublicBaseInputType, // Removed as it is not exported from './types/index.js'
+  MockRollupBasePublicInputType,
   PrivateKernelPublicInputs,
   u8,
 } from './types/index.js';
@@ -130,7 +130,9 @@ export async function witnessGenMockPrivateKernelTailCircuit(
   };
 }
 
-export async function witnessGenMockPublicBaseCircuit(args: MockPublicBaseInputType): Promise<WitnessGenResult<u8>> {
+export async function witnessGenMockPublicBaseCircuit(
+  args: MockRollupBasePublicInputType,
+): Promise<WitnessGenResult<u8>> {
   const program = new Noir(MockPublicBaseCircuit);
   const { witness, returnValue } = await program.execute(args, foreignCallHandler);
   return {
