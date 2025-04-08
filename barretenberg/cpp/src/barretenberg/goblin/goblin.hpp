@@ -92,8 +92,7 @@ class GoblinProver {
         PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
 
         auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        // As is it used in ClientIVC, we make it fixed size = 2^{CONST_ECCVM_LOG_N}
-        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder, /*fixed_size =*/true);
+        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
         eccvm_key = eccvm_prover->key;
     }
 
@@ -173,7 +172,7 @@ class GoblinVerifier {
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using Builder = MegaCircuitBuilder;
     using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
-    using PairingPoints = RecursiveMergeVerifier::PairingPoints;
+    using AggregationObject = RecursiveMergeVerifier::AggregationObject;
 
     struct VerifierInput {
         std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
@@ -200,9 +199,9 @@ class GoblinVerifier {
      * @brief Append recursive verification of a merge proof to a provided circuit
      *
      * @param circuit_builder
-     * @return PairingPoints
+     * @return AggregationObject Inputs to the final pairing check
      */
-    static PairingPoints recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
+    static AggregationObject recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
     {
         PROFILE_THIS_NAME("Goblin::merge");
         RecursiveMergeVerifier merge_verifier{ &circuit_builder };

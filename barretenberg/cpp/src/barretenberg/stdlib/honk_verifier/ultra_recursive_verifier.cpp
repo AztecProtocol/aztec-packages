@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -47,6 +48,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
+    using PublicAggState = PublicInputComponent<aggregation_state<Builder>>;
 
     Output output;
     StdlibProof<Builder> honk_proof;
@@ -77,26 +79,11 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     }
 
     // Parse out the aggregation object using the key->pairing_point_accumulator_public_input_indices
-    AggregationObject nested_agg_obj;
-    size_t idx = 0;
-    std::array<typename Curve::Group, 2> nested_pairing_points;
-    for (size_t i = 0; i < 2; i++) {
-        std::array<typename Curve::BaseField, 2> base_field_vals;
-        for (size_t j = 0; j < 2; j++) {
-            std::array<FF, 4> bigfield_limbs;
-            for (size_t k = 0; k < 4; k++) {
-                bigfield_limbs[k] =
-                    verification_key->public_inputs[key->pairing_point_accumulator_public_input_indices[idx]];
-                idx++;
-            }
-            base_field_vals[j] = Curve::BaseField::construct_from_limbs(
-                bigfield_limbs[0], bigfield_limbs[1], bigfield_limbs[2], bigfield_limbs[3]);
-        }
-        nested_pairing_points[i] = typename Curve::Group(base_field_vals[0], base_field_vals[1]);
-    }
-
-    nested_agg_obj.P0 = nested_pairing_points[0];
-    nested_agg_obj.P1 = nested_pairing_points[1];
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually vk stores public input key directly.
+    const PublicComponentKey pairing_point_public_input_key{ key->pairing_point_accumulator_public_input_indices[0],
+                                                             true };
+    AggregationObject nested_agg_obj =
+        PublicAggState::reconstruct(verification_key->public_inputs, pairing_point_public_input_key);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/995): generate this challenge properly.
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));

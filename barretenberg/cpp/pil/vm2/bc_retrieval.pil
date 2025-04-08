@@ -1,4 +1,6 @@
 include "bc_hashing.pil";
+include "address_derivation.pil";
+include "update_check.pil";
 
 // Bytecode retrieval.
 namespace bc_retrieval;
@@ -18,7 +20,8 @@ pol commit address;  // contract address.
 // See barretenberg/cpp/src/barretenberg/vm2/common/aztec_types.hpp
 pol commit salt;
 pol commit deployer_addr;
-pol commit class_id;
+pol commit current_class_id;
+pol commit original_class_id;
 pol commit init_hash;
 // public keys
 pol commit nullifier_key_x;
@@ -36,29 +39,39 @@ pol commit artifact_hash;
 pol commit private_function_root;
 pol commit public_bytecode_commitment;
 
+// current state
+pol commit block_number;
+pol commit public_data_tree_root;
+
 // TODO: Probably some latch is also needed.
 // TODO: Selector needs to be guarded by error flag.
-// #[LOOKUP_ADDRESS_DERIVATION]
-// sel {
-//   address, salt, deployer_addr, class_id, init_hash,
-//   nullifier_key_x, nullifier_key_y,
-//   incoming_viewing_key_x, incoming_viewing_key_y,
-//   outgoing_viewing_key_x, outgoing_viewing_key_y,
-//   tagging_key_x, tagging_key_y
-// } in address_derivation.sel {
-//   address_derivation.address, address_derivation.salt, address_derivation.deployer_addr, address_derivation.class_id, address_derivation.init_hash,
-//   address_derivation.nullifier_key_x, address_derivation.nullifier_key_y,
-//   address_derivation.incoming_viewing_key_x, address_derivation.incoming_viewing_key_y,
-//   address_derivation.outgoing_viewing_key_x, address_derivation.outgoing_viewing_key_y,
-//   address_derivation.tagging_key_x, address_derivation.tagging_key_y
-// }
+#[ADDRESS_DERIVATION]
+sel {
+  address, salt, deployer_addr, original_class_id, init_hash,
+  nullifier_key_x, nullifier_key_y,
+  incoming_viewing_key_x, incoming_viewing_key_y,
+  outgoing_viewing_key_x, outgoing_viewing_key_y,
+  tagging_key_x, tagging_key_y
+} in address_derivation.sel {
+  address_derivation.address, address_derivation.salt, address_derivation.deployer_addr, address_derivation.class_id, address_derivation.init_hash,
+  address_derivation.nullifier_key_x, address_derivation.nullifier_key_y,
+  address_derivation.incoming_viewing_key_x, address_derivation.incoming_viewing_key_y,
+  address_derivation.outgoing_viewing_key_x, address_derivation.outgoing_viewing_key_y,
+  address_derivation.tagging_key_x, address_derivation.tagging_key_y
+};
 
-// Observe the folowing also connects the class_id of the instance to the class members.
+// TODO: Probably some latch is also needed.
+// TODO: Selector needs to be guarded by error flag.
+#[UPDATE_CHECK]
+sel { address, current_class_id, original_class_id, public_data_tree_root, block_number }
+in update_check.sel { update_check.address, update_check.current_class_id, update_check.original_class_id, update_check.public_data_tree_root, update_check.block_number };
+
+// Observe the folowing also connects the current_class_id of the instance to the class members.
 // TODO: Probably some latch is also needed.
 // TODO: Selector needs to be guarded by error flag.
 #[CLASS_ID_DERIVATION]
 sel {
-  class_id,
+  current_class_id,
   artifact_hash,
   private_function_root,
   public_bytecode_commitment

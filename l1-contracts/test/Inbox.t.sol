@@ -3,7 +3,8 @@
 pragma solidity >=0.8.27;
 
 import {Test} from "forge-std/Test.sol";
-
+import {TestERC20} from "src/mock/TestERC20.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {IInbox} from "@aztec/core/interfaces/messagebridge/IInbox.sol";
 import {InboxHarness} from "./harnesses/InboxHarness.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
@@ -26,7 +27,8 @@ contract InboxTest is Test {
 
   function setUp() public {
     address rollup = address(this);
-    inbox = new InboxHarness(rollup, version, HEIGHT);
+    IERC20 feeAsset = new TestERC20("Fee Asset", "FA", address(this));
+    inbox = new InboxHarness(rollup, feeAsset, version, HEIGHT);
     emptyTreeRoot = inbox.getEmptyRoot();
   }
 

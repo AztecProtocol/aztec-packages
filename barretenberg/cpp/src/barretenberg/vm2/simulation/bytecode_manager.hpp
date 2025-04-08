@@ -19,6 +19,7 @@
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 #include "barretenberg/vm2/simulation/range_check.hpp"
 #include "barretenberg/vm2/simulation/siloing.hpp"
+#include "barretenberg/vm2/simulation/update_check.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -43,6 +44,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
                       SiloingInterface& siloing,
                       BytecodeHashingInterface& bytecode_hasher,
                       RangeCheckInterface& range_check,
+                      UpdateCheckInterface& update_check,
+                      uint32_t current_block_number,
                       EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events,
                       EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events,
                       EventEmitterInterface<InstructionFetchingEvent>& fetching_events)
@@ -51,6 +54,8 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
         , siloing(siloing)
         , bytecode_hasher(bytecode_hasher)
         , range_check(range_check)
+        , update_check(update_check)
+        , current_block_number(current_block_number)
         , retrieval_events(retrieval_events)
         , decomposition_events(decomposition_events)
         , fetching_events(fetching_events)
@@ -65,6 +70,9 @@ class TxBytecodeManager : public TxBytecodeManagerInterface {
     SiloingInterface& siloing;
     BytecodeHashingInterface& bytecode_hasher;
     RangeCheckInterface& range_check;
+    UpdateCheckInterface& update_check;
+    // We need the current block number for the update check interaction
+    uint32_t current_block_number;
     EventEmitterInterface<BytecodeRetrievalEvent>& retrieval_events;
     EventEmitterInterface<BytecodeDecompositionEvent>& decomposition_events;
     EventEmitterInterface<InstructionFetchingEvent>& fetching_events;

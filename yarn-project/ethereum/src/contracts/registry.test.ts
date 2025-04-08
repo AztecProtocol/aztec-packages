@@ -25,7 +25,6 @@ describe('Registry', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: Fr;
   let publicClient: L1Clients['publicClient'];
   let walletClient: L1Clients['walletClient'];
   let registry: RegistryContract;
@@ -38,7 +37,6 @@ describe('Registry', () => {
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    l2FeeJuiceAddress = Fr.random();
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -49,7 +47,6 @@ describe('Registry', () => {
       salt: originalVersionSalt,
       vkTreeRoot,
       protocolContractTreeRoot,
-      l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
       genesisBlockHash: Fr.random(),
     });
@@ -129,7 +126,6 @@ describe('Registry', () => {
         salt: newVersionSalt,
         vkTreeRoot,
         protocolContractTreeRoot,
-        l2FeeJuiceAddress,
         genesisArchiveRoot: Fr.random(),
         genesisBlockHash: Fr.random(),
       },

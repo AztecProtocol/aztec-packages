@@ -877,6 +877,7 @@ __metadata:
     mocha: "npm:^10.8.2"
     mocha-each: "npm:^2.0.1"
     msgpackr: "npm:^1.11.2"
+    ohash: "npm:^2.0.11"
     ordered-binary: "npm:^1.5.3"
     sinon: "npm:^19.0.2"
     ts-node: "npm:^10.9.1"
@@ -1082,8 +1083,10 @@ __metadata:
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@chainsafe/discv5": "npm:9.0.0"
@@ -17344,6 +17347,13 @@ __metadata:
   version: 1.1.2
   resolution: "obuf@npm:1.1.2"
   checksum: 10/53ff4ab3a13cc33ba6c856cf281f2965c0aec9720967af450e8fd06cfd50aceeefc791986a16bcefa14e7898b3ca9acdfcf15b9d9a1b9c7e1366581a8ad6e65e
+  languageName: node
+  linkType: hard
+
+"ohash@npm:^2.0.11":
+  version: 2.0.11
+  resolution: "ohash@npm:2.0.11"
+  checksum: 10/6b0423f42cc95c3d643f390a88364aac824178b7788dccb4e8c64e2124463d0069e60d4d90bad88ed9823808368d051e088aa27058ca4722b1397a201ffbfa4b
   languageName: node
   linkType: hard
 
