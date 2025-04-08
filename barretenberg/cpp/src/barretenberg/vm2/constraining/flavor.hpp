@@ -105,10 +105,24 @@ class AvmFlavor {
     static constexpr size_t NUM_FRS_FR = field_conversion::calc_num_bn254_frs<FF>();
 
     // After any circuit changes, hover `COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS` in your IDE
-    // to see its value and then update `AVM_PROOF_LENGTH_IN_FIELDS` in constants.nr.
+    // to see its value and then update `AVM_V2_PROOF_LENGTH_IN_FIELDS` in constants.nr.
     static constexpr size_t COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS =
         (NUM_WITNESS_ENTITIES + 1) * NUM_FRS_COM + (NUM_ALL_ENTITIES + 1) * NUM_FRS_FR +
         CONST_PROOF_SIZE_LOG_N * (NUM_FRS_COM + NUM_FRS_FR * (BATCHED_RELATION_PARTIAL_LENGTH + 1));
+
+    static_assert(AVM_V2_PROOF_LENGTH_IN_FIELDS == COMPUTED_AVM_PROOF_LENGTH_IN_FIELDS,
+                  "\nUnexpected AVM V2 proof length. This might be due to some changes in the\n"
+                  "AVM circuit layout. In this case, modify AVM_V2_PROOF_LENGTH_IN_FIELDS \n"
+                  "in constants.nr accordingly.");
+
+    // VK is composed of
+    // - circuit size encoded as a fr field element
+    // - num of inputs encoded as a fr field element
+    // - NUM_PRECOMPUTED_ENTITIES commitments
+    static_assert(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS == 2 * NUM_FRS_FR + NUM_PRECOMPUTED_ENTITIES * NUM_FRS_COM,
+                  "\nUnexpected AVM V2 VK length. This might be due to some changes in the\n"
+                  "AVM circuit. In this case, modify AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS \n"
+                  "in constants.nr accordingly.");
 
     template <typename DataType> class PrecomputedEntities {
       public:

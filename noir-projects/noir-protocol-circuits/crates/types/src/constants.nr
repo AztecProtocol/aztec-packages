@@ -506,6 +506,15 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 5452;
+pub global AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE: u32 = 1;
+// VK is composed of
+// - circuit size encoded as a fr field element (32 bytes)
+// - num of inputs encoded as a fr field element (32 bytes)
+// - 45 affine elements (curve base field fq) encoded as fr elements takes (45 * 4 * 32 bytes)
+// 45 above refers to the constant AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES
+pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
+
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;

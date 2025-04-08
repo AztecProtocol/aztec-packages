@@ -58,6 +58,11 @@ template <typename Flavor, typename VK = typename Flavor::VerificationKey>
 PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
                                      const std::filesystem::path& witness_path)
 {
+    // TODO: Evaluate a better place for this
+    if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        // Initialize the crs for the vm2 goblinized recursive verifier
+        init_bn254_crs(1 << 23);
+    }
     auto prover = _compute_prover<Flavor>(bytecode_path.string(), witness_path.string());
     return { PublicInputsVector{}, HonkProof{}, std::make_shared<VK>(prover.proving_key->proving_key) };
 }
