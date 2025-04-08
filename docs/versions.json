@@ -4,5 +4,9 @@
   "v0.84.0-alpha-testnet.2"
 =======
   "v0.84.0-alpha-testnet.1"
+<<<<<<< HEAD
 >>>>>>> 67c121aea0 (chore(docs): making docs versioning manual, but building them on master)
 ]
+=======
+]
+>>>>>>> d331e44f5d (making next version be called next, for now)

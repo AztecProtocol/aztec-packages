@@ -85,13 +85,16 @@ function docs_cut_version {
     COMMIT_TAG=$1
     echo "Starting docs versioning for $COMMIT_TAG"
 
+    # Rebuilding docs at the tip
+    rm -rf processed-docs processed-docs-cache
+    yarn preprocess
+    yarn docusaurus build
+
     # Stash any unrelated local changes before starting
     echo "Stashing local changes"
     stash_message="docs-version-stash-$(date +%s)"
     git stash push -m "$stash_message"
     local stashed=$? # Check if something was stashed
-
-    rm -rf processed-docs processed-docs-cache
 
     echo "Processing tag: $COMMIT_TAG"
 
