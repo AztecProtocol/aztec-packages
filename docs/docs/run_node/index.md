@@ -35,7 +35,7 @@ In this section, you can explore how governance works on Aztec, the types of nod
 ## Run a node
 
 <div className="card-container">
-  <Card shadow='tl' link='run_node/guides/run_nodes/how_to_run_validator_sequencer'>
+  <Card shadow='tl' link='run_node/guides/run_nodes/how_to_run_sequencer'>
     <CardHeader>
       <h3>Run a validator node (sequencer)</h3>
     </CardHeader>
