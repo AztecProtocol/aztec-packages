@@ -181,7 +181,7 @@ template <typename Curve> class ShpleminiProver_ {
  *
  */
 
-template <typename Curve> class ShpleminiVerifier_ {
+template <typename Curve, bool use_padding> class ShpleminiVerifier_ {
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
     using Commitment = typename Curve::AffineElement;
@@ -346,12 +346,12 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., d - 1 from the batched evaluation of the multilinear polynomials and
         // Aᵢ(−r²ⁱ) for i = 0, ..., d - 1. In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
         const std::vector<Fr> gemini_fold_pos_evaluations =
-            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_n,
-                                                                 batched_evaluation,
-                                                                 multivariate_challenge,
-                                                                 gemini_eval_challenge_powers,
-                                                                 gemini_fold_neg_evaluations,
-                                                                 p_neg);
+            GeminiVerifier_<Curve>::template compute_fold_pos_evaluations<use_padding>(log_n,
+                                                                                       batched_evaluation,
+                                                                                       multivariate_challenge,
+                                                                                       gemini_eval_challenge_powers,
+                                                                                       gemini_fold_neg_evaluations,
+                                                                                       p_neg);
 
         // Place the commitments to Gemini fold polynomials Aᵢ in the vector of batch_mul commitments, compute the
         // contributions from Aᵢ(−r²ⁱ) for i=1, … , d − 1 to the constant term accumulator, add corresponding scalars
@@ -465,7 +465,7 @@ template <typename Curve> class ShpleminiVerifier_ {
                                                          std::vector<Fr>& scalars,
                                                          Fr& constant_term_accumulator)
     {
-        const size_t virtual_log_n = gemini_neg_evaluations.size();
+        const size_t virtual_log_n = use_padding ? gemini_neg_evaluations.size() : log_n;
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1159): Decouple constants from primitives.
         // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
         // polynomials. The corresponding evaluations are also handled separately.
@@ -485,8 +485,7 @@ template <typename Curve> class ShpleminiVerifier_ {
             constant_term_accumulator +=
                 scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
-            // If `virtual_log_n` == `log_n`, as in the case of ECCVM and Translator, the padding is not needed.
-            if (virtual_log_n != log_n) {
+            if constexpr (use_padding) {
                 if constexpr (Curve::is_stdlib_type) {
                     auto builder = gemini_neg_evaluations[0].get_context();
                     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!

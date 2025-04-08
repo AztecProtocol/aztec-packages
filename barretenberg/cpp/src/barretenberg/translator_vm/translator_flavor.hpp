@@ -40,7 +40,9 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
+    // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
 
     // The log of the full Translator circuit size. It determines MINI_CIRCUIT_SIZE and, in the current design,

@@ -150,7 +150,8 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
 {
     using Curve = TypeParam::Curve;
     using GeminiProver = GeminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    static constexpr bool USE_PADDING = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
     using ShplonkVerifier = ShplonkVerifier_<Curve>;
     using Fr = typename Curve::ScalarField;
     using GroupElement = typename Curve::Element;
@@ -234,12 +235,12 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfGeminiClaimBatching)
     Fr expected_constant_term_accumulator{ 0 };
 
     std::vector<Fr> gemini_fold_pos_evaluations =
-        GeminiVerifier_<Curve>::compute_fold_pos_evaluations(this->log_n,
-                                                             expected_constant_term_accumulator,
-                                                             mle_opening_point,
-                                                             r_squares,
-                                                             prover_evaluations,
-                                                             expected_constant_term_accumulator);
+        GeminiVerifier_<Curve>::template compute_fold_pos_evaluations<USE_PADDING>(this->log_n,
+                                                                                   expected_constant_term_accumulator,
+                                                                                   mle_opening_point,
+                                                                                   r_squares,
+                                                                                   prover_evaluations,
+                                                                                   expected_constant_term_accumulator);
     std::vector<Commitment> commitments;
     std::vector<Fr> scalars;
 
@@ -269,7 +270,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKNoSumcheckOpenings)
     using ZKData = ZKSumcheckData<TypeParam>;
     using Curve = TypeParam::Curve;
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    static constexpr bool USE_PADDING = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
     using Fr = typename Curve::ScalarField;
     using Commitment = typename Curve::AffineElement;
     using CK = typename TypeParam::CommitmentKey;
@@ -387,7 +389,8 @@ TYPED_TEST(ShpleminiTest, ShpleminiZKWithSumcheckOpenings)
     using CK = typename TypeParam::CommitmentKey;
 
     using ShpleminiProver = ShpleminiProver_<Curve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    static constexpr bool USE_PADDING = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
 
     std::shared_ptr<CK> ck = create_commitment_key<CK>(4096);
 

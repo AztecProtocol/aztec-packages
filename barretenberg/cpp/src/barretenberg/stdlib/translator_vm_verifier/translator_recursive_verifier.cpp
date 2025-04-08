@@ -63,7 +63,7 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
     using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using ClaimBatcher = ClaimBatcher_<Curve>;

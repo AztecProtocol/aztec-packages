@@ -43,6 +43,8 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
 
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = true;
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = TranslatorFlavor::USE_PADDING;
     // None of this parameters can be changed
 
     // Number of bits in a binary limb

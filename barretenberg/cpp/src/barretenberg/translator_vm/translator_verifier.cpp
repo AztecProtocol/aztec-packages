@@ -53,7 +53,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 {
     using Curve = Flavor::Curve;
     using PCS = Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;

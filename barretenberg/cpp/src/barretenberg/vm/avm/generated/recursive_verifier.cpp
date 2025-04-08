@@ -78,7 +78,7 @@ AvmRecursiveVerifier_<Flavor>::AggregationObject AvmRecursiveVerifier_<Flavor>::
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using RelationParams = ::bb::RelationParameters<typename Flavor::FF>;
     using Transcript = typename Flavor::Transcript;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
 
