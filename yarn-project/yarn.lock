@@ -1025,6 +1025,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/noir-test-contracts.js@workspace:noir-test-contracts.js":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-test-contracts.js@workspace:noir-test-contracts.js"
+  dependencies:
+    "@aztec/aztec.js": "workspace:^"
+    "@aztec/builder": "workspace:^"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/jest": "npm:^29.5.0"
+    jest: "npm:^29.5.0"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.0.4"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/noir-types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-types@portal:../noir/packages/types::locator=%40aztec%2Faztec3-packages%40workspace%3A."
