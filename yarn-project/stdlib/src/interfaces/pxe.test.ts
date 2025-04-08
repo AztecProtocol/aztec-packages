@@ -112,6 +112,16 @@ describe('PXESchema', () => {
     expect(response!.data).toBeInstanceOf(TxEffect);
   });
 
+  it('getNodeInfo', async () => {
+    const result = await context.client.getNodeInfo();
+    expect(result).toEqual(await handler.getNodeInfo());
+  });
+
+  it('getL1ToL2MembershipWitness', async () => {
+    const result = await context.client.getL1ToL2MembershipWitness(address, Fr.random(), Fr.random());
+    expect(result).toEqual([expect.any(BigInt), expect.any(SiblingPath)]);
+  });
+
   it('registerAccount', async () => {
     const result = await context.client.registerAccount(Fr.random(), Fr.random());
     expect(result).toBeInstanceOf(CompleteAddress);
