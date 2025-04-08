@@ -1,4 +1,4 @@
-## 192 validators - 1 tps - 208 full nodes
+## 208 validators - 1 tps - 640 full nodes
 network:
   public: false
 
@@ -15,7 +15,7 @@ images:
 
 validator:
   storageSize: "300Gi"
-  replicas: 256
+  replicas: 208
   resources:
     requests:
       memory: "5Gi"
@@ -29,7 +29,7 @@ validator:
 
 fullNode:
   storageSize: "300Gi"
-  replicas: 512
+  replicas: 640
   resources:
     requests:
       memory: "5Gi"
