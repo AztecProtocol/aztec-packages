@@ -125,6 +125,7 @@ unconstrained fn process_log<Env>(
             msg_content,
             pending_tagged_log.tx_hash,
             pending_tagged_log.log_index_in_tx,
+            pending_tagged_log.tx_index_in_block,
         );
     } else {
         debug_log_format("Unknown msg type id {0}", [msg_type_id as Field]);
