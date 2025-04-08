@@ -111,7 +111,7 @@ describe('SafeJsonRpcServer', () => {
 
     beforeEach(() => {
       lettersState = testState;
-      numbersState = new TestState([new TestNote('1'), new TestNote('2')]);
+      numbersState = new TestState([new TestNote('1'), new TestNote('2')], 2);
       server = createNamespacedSafeJsonRpcServer({
         letters: makeHandler<TestStateApi>(lettersState, TestStateSchema),
         numbers: makeHandler<TestStateApi>(numbersState, TestStateSchema),
@@ -150,7 +150,7 @@ describe('SafeJsonRpcServer', () => {
 
       const response2 = await send({ method: 'numbers_meta_getVersion', params: [] });
       expect(response2.status).toBe(200);
-      expect(response2.text).toEqual(JSON.stringify({ result: 1 }));
+      expect(response2.text).toEqual(JSON.stringify({ result: 2 }));
     });
   });
 });

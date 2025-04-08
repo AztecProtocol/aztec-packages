@@ -41,9 +41,8 @@ export type ApiSchemaFor<T> = {
     : ApiSchemaFor<T[K]>;
 };
 
-export function schemaKeyIsFunction<K extends keyof ApiSchema>(
-  maybeFn: ApiSchema[K],
-): maybeFn is ZodFunctionFor<any, any> {
+export function schemaKeyIsFunction<T>(schema: ApiSchemaFor<T>, key: string) {
+  const maybeFn = schema[key as keyof T];
   return (
     maybeFn !== undefined &&
     typeof (maybeFn as ZodFunctionFor<any, any>).parameters === 'function' &&
@@ -55,10 +54,13 @@ export function schemaKeyIsFunction<K extends keyof ApiSchema>(
  * Return whether an API schema defines a valid getter schema for a given method name,
  * or if a nested schema does with a prefixed method name.
  */
-export function schemaHasKey(schema: ApiSchema, key: string) {
+export function schemaHasKey<T>(schema: ApiSchemaFor<T>, key: string) {
   const hasOwnKey = Object.hasOwn(schema, key);
 
   const [nestedObj, nestedKey] = key.split('_');
-  const hasNestedKey = Object.hasOwn(schema, nestedObj) && Object.hasOwn(schema[nestedObj], nestedKey);
+  const hasNestedKey =
+    Object.hasOwn(schema, nestedObj) &&
+    typeof schema[nestedObj as keyof T] === 'object' &&
+    Object.hasOwn(schema[nestedObj as keyof T], nestedKey);
   return typeof key === 'string' && (hasOwnKey || hasNestedKey);
 }

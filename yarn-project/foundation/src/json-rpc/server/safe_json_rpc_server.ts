@@ -13,6 +13,7 @@ import { promiseWithResolvers } from '../../promise/utils.js';
 import {
   type ApiSchema,
   type ApiSchemaFor,
+  type ZodFunctionFor,
   parseWithOptionals,
   schemaHasKey,
   schemaKeyIsFunction,
@@ -205,10 +206,10 @@ interface Proxy {
  */
 export class SafeJsonProxy<T extends object = any> implements Proxy {
   private log = createLogger('json-rpc:proxy');
-  private schema: ApiSchema;
+  private schema: ApiSchemaFor<T>;
 
   constructor(private handler: T, schema: ApiSchemaFor<T>) {
-    this.schema = schema as ApiSchema;
+    this.schema = schema;
   }
 
   /**
@@ -221,24 +222,29 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
     this.log.debug(format(`request`, key, jsonParams));
 
     assert(schemaHasKey(this.schema, key), `Key ${key} not found in schema`);
-    const schemaFnOrGetter = this.schema[key];
     let ret;
-    if (schemaKeyIsFunction(schemaFnOrGetter)) {
+    if (schemaKeyIsFunction(this.schema, key)) {
+      const schemaFn = this.schema[key as keyof T] as ZodFunctionFor<any, any>;
       const handlerFn = this.handler[key as keyof T];
       assert(Array.isArray(jsonParams), `Params to ${key} is not an array: ${jsonParams}`);
       assert(typeof handlerFn === 'function', `Method ${key} is not a function`);
-      const args = await parseWithOptionals(jsonParams, schemaFnOrGetter.parameters());
+      const args = await parseWithOptionals(jsonParams, schemaFn.parameters());
       ret = await handlerFn.apply(this.handler, args);
     } else {
-      const [objKey, methodKey] = key.split('_');
+      const [objKeyStr, methodKeyStr] = key.split('_');
+      const objKey = objKeyStr as keyof T;
       const obj = this.handler[objKey as keyof T];
+      assert(obj !== null && typeof obj === 'object', `Object ${objKeyStr} not found in handler`);
+      const methodKey = methodKeyStr as keyof typeof obj;
       const handlerFn = obj[methodKey as keyof typeof obj];
-      assert(typeof handlerFn === 'function', `Method ${methodKey} in object ${objKey} is not a function`);
-      const nestedSchema = this.schema[objKey] as ApiSchema;
-      this.log.info(`Nested schema ${objKey} found for ${key}`);
-      assert(nestedSchema !== undefined, `Object ${objKey} not found in schema`);
-      const nestedSchemaFn = nestedSchema[methodKey];
-      assert(schemaKeyIsFunction(nestedSchemaFn), `Method ${methodKey} in object ${objKey} is not a function`);
+      assert(typeof handlerFn === 'function', `Method ${methodKeyStr} in object ${objKeyStr} is not a function`);
+      const nestedSchema = this.schema[objKey] as ApiSchemaFor<typeof obj>;
+      assert(nestedSchema !== null && typeof nestedSchema === 'object', `Object ${objKeyStr} not found in schema`);
+      assert(
+        schemaKeyIsFunction(nestedSchema, methodKeyStr),
+        `Method ${methodKeyStr} in object ${objKeyStr} not found in schema`,
+      );
+      const nestedSchemaFn = nestedSchema[methodKey as keyof typeof nestedSchema] as ZodFunctionFor<any, any>;
       const args = await parseWithOptionals(jsonParams, nestedSchemaFn.parameters());
       ret = await handlerFn.apply(this.handler[objKey as keyof T], args);
     }

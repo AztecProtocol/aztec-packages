@@ -49,8 +49,10 @@ export interface TestStateApi {
 }
 
 export class TestMetaState implements TestMeta {
+  constructor(private version: number) {}
+
   getVersion(): Promise<number> {
-    return Promise.resolve(1);
+    return Promise.resolve(this.version);
   }
   veryPrivate(): Promise<string> {
     return Promise.resolve('secret');
@@ -65,8 +67,8 @@ export class TestMetaState implements TestMeta {
 export class TestState implements TestStateApi {
   public meta: TestMeta;
 
-  constructor(public notes: TestNote[]) {
-    this.meta = new TestMetaState();
+  constructor(public notes: TestNote[], version = 1) {
+    this.meta = new TestMetaState(version);
   }
   /**
    * Retrieve the TestNote instance at the specified index from the notes array.

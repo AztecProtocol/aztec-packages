@@ -44,7 +44,7 @@ export function createSafeJsonRpcClient<T extends object>(
 
   let id = 0;
   const request = async (key: string, params: any[]): Promise<any> => {
-    if (!schemaHasKey(schema as ApiSchema, key)) {
+    if (!schemaHasKey(schema, key)) {
       throw new Error(`Unspecified key ${key} in client schema`);
     }
 
@@ -70,10 +70,10 @@ export function createSafeJsonRpcClient<T extends object>(
 
   const proxy: any = {};
   for (const key of Object.keys(schema)) {
-    if (schemaKeyIsFunction((schema as ApiSchema)[key])) {
+    if (schemaKeyIsFunction(schema, key)) {
       proxy[key] = (...params: any[]) => request(key, params);
     } else {
-      const subSchema = schema[key as keyof ApiSchemaFor<T>];
+      const subSchema = schema[key as keyof T];
       proxy[key] = createSafeJsonRpcClient(host, subSchema as ApiSchemaFor<typeof subSchema>, {
         ...config,
         namespaceMethods: `${namespaceMethods ? `${namespaceMethods}_` : ''}${key}`,
