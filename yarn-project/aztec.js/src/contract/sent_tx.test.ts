@@ -2,6 +2,7 @@ import { Fr } from '@aztec/foundation/fields';
 import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
 import { TxHash, type TxReceipt, TxStatus } from '@aztec/stdlib/tx';
 
+import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { SentTx } from './sent_tx.js';
@@ -14,9 +15,14 @@ describe('SentTx', () => {
   let sentTx: SentTx;
 
   beforeEach(() => {
-    pxe = mock();
     node = mock();
+    pxe = mock();
+    Object.defineProperty(pxe, 'node', { get: () => node });
     txHashPromise = Promise.resolve(new TxHash(new Fr(1n)));
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('wait with PXE', () => {

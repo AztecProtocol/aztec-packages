@@ -31,7 +31,8 @@ export class SentTx {
   constructor(protected pxeWalletOrNode: Wallet | AztecNode | PXE, protected txHashPromise: Promise<TxHash>) {}
 
   private getTxReceipt(txHash: TxHash) {
-    const isPXE = (value: Wallet | AztecNode | PXE): value is PXE => (value as PXE).node !== undefined;
+    const isPXE = (value: Wallet | AztecNode | PXE): value is PXE =>
+      (value as PXE).node !== undefined && typeof (value as PXE).node.getTxReceipt === 'function';
     return isPXE(this.pxeWalletOrNode)
       ? this.pxeWalletOrNode.node.getTxReceipt(txHash)
       : this.pxeWalletOrNode.getTxReceipt(txHash);
