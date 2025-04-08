@@ -162,10 +162,8 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
     // Construct in-circuit representation of the verification key, proof and public inputs
     const auto key_fields = fields_from_witnesses(input.key);
     const auto proof_fields = fields_from_witnesses(input.proof);
-    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
-
     // We assume a single public input value for now (reverted flag)
-    // const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
+    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
@@ -175,6 +173,10 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(builder, vkey);
+
+    // TODO: We currently pass public_inputs_flattened as a single column.
+    //       Once we deploy multiple public inputs columns, we will have to transform the
+    //       public_inputs_flattened vector to a vector of vectors.
     aggregation_state_ct output_agg_object =
         verifier.verify_proof(proof_fields, { public_inputs_flattened }, input_aggregation_object);
 
@@ -182,7 +184,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
 }
 
 /**
- * @brief Add constraints associated with recursive verification an AVM2 proof using Goblin
+ * @brief Add constraints associated with recursive verification of an AVM2 proof using Goblin
  *
  * @param builder
  * @param input
@@ -212,10 +214,8 @@ HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
     // Construct in-circuit representations of the verification key, proof and public inputs
     const auto key_fields = fields_from_witnesses(input.key);
     const auto proof_fields = fields_from_witnesses(input.proof);
-    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
-
     // We assume a single public input value for now (reverted flag)
-    // const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
+    const auto public_inputs_flattened = fields_from_witnesses(input.public_inputs);
 
     // Populate the key fields and proof fields with dummy values to prevent issues (e.g. points must be on curve).
     if (!has_valid_witness_assignments) {
@@ -224,6 +224,10 @@ HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
 
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder, key_fields);
+
+    // TODO: We currently pass public_inputs_flattened as a single column.
+    //       Once we deploy multiple public inputs columns, we will have to transform the
+    //       public_inputs_flattened vector to a vector of vectors.
     auto output_agg_object = verifier.verify_proof(proof_fields, { public_inputs_flattened }, input_aggregation_object);
 
     HonkRecursionConstraintOutput result{ .agg_obj = output_agg_object.aggregation_object,

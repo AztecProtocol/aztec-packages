@@ -287,10 +287,12 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        GateCounter<MegaCircuitBuilder>& gate_counter);
 
 #ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       bool has_valid_witness_assignments,
-                                       GateCounter<Builder>& gate_counter);
+stdlib::recursion::aggregation_state<Builder> process_avm_recursion_constraints(
+    Builder& builder,
+    AcirFormat& constraint_system,
+    bool has_valid_witness_assignments,
+    GateCounter<Builder>& gate_counter,
+    stdlib::recursion::aggregation_state<Builder> current_aggregation_object);
 #endif
 
 } // namespace acir_format

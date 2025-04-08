@@ -8,7 +8,6 @@
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
@@ -56,7 +55,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
 
         InnerProver prover;
         const auto [proof, vk_data] = prover.prove(std::move(trace));
-        const auto verification_key = prover.create_verification_key(vk_data);
+        const auto verification_key = InnerProver::create_verification_key(vk_data);
 
         const auto public_inputs_cols = public_inputs.to_columns();
         const bool verified = prover.verify(proof, public_inputs, vk_data);
@@ -81,6 +80,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
             std::vector<fr> proof_witnesses = inner_circuit_data.proof;
 
             // We assume a single public input column for now (containing the flag reverted)
+            // TODO: Multiple public input columns support.
             std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_cols[0];
 
             // Helper to append some values to the witness vector and return their corresponding indices
@@ -188,7 +188,7 @@ TEST_F(AcirAvm2RecursionConstraint, TestGenerateVKFromConstraintsWithoutWitness)
     expected_vk->pcs_verification_key = nullptr;
     actual_vk->pcs_verification_key = nullptr;
 
-    // Compare the VK constructed via running the IVc with the one constructed via mocking
+    // Compare the VK constructed via running the IVC with the one constructed via mocking
     EXPECT_EQ(*actual_vk.get(), *expected_vk.get());
 }
 
