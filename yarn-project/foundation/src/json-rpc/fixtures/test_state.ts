@@ -1,4 +1,3 @@
-import type { Test } from 'supertest';
 import { z } from 'zod';
 
 import { type ApiSchemaFor, optional, schemas } from '../../schemas/index.js';

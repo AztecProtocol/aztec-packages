@@ -1,5 +1,5 @@
 import { retryUntil } from '@aztec/foundation/retry';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { AztecNode } from '@aztec/stdlib/interfaces/client';
 
 import type { TxReceipt } from '../index.js';
 import { DefaultWaitOpts } from './sent_tx.js';

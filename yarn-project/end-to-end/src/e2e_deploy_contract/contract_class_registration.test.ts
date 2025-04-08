@@ -7,7 +7,6 @@ import {
   type FieldsOf,
   Fr,
   type Logger,
-  type PXE,
   type TxReceipt,
   TxStatus,
   type Wallet,
@@ -33,13 +32,12 @@ import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 describe('e2e_deploy_contract contract class registration', () => {
   const t = new DeployTest('contract class');
 
-  let pxe: PXE;
   let logger: Logger;
   let wallet: Wallet;
   let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ pxe, logger, wallet, aztecNode } = await t.setup());
+    ({ logger, wallet, aztecNode } = await t.setup());
   });
 
   afterAll(() => t.teardown());

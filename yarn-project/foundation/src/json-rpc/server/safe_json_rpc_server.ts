@@ -8,7 +8,7 @@ import type { AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
-import { type Logger, createLogger, logger } from '../../log/index.js';
+import { type Logger, createLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import {
   type ApiSchema,

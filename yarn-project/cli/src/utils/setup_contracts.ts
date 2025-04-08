@@ -4,9 +4,7 @@ import {
   type PXE,
   SignerlessWallet,
   SponsoredFeePaymentMethod,
-  type WaitForProvenOpts,
   getContractInstanceFromDeployParams,
-  waitForProven,
 } from '@aztec/aztec.js';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
