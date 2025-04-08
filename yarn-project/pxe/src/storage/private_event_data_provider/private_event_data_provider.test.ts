@@ -7,7 +7,7 @@ import { TxHash } from '@aztec/stdlib/tx';
 
 import { PrivateEventDataProvider } from './private_event_data_provider.js';
 
-const getRandomLogContent = () => {
+const getRandomMsgContent = () => {
   return [Fr.random(), Fr.random(), Fr.random()];
 };
 
@@ -15,7 +15,7 @@ describe('PrivateEventDataProvider', () => {
   let privateEventDataProvider: PrivateEventDataProvider;
   let contractAddress: AztecAddress;
   let recipient: AztecAddress;
-  let logContent: Fr[];
+  let msgContent: Fr[];
   let blockNumber: number;
   let eventSelector: EventSelector;
   let txHash: TxHash;
@@ -26,7 +26,7 @@ describe('PrivateEventDataProvider', () => {
     privateEventDataProvider = new PrivateEventDataProvider(store);
     contractAddress = await AztecAddress.random();
     recipient = await AztecAddress.random();
-    logContent = getRandomLogContent();
+    msgContent = getRandomMsgContent();
     blockNumber = 123;
     eventSelector = EventSelector.random();
     txHash = TxHash.random();
@@ -38,7 +38,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -50,7 +50,7 @@ describe('PrivateEventDataProvider', () => {
       [recipient],
       eventSelector,
     );
-    expect(events).toEqual([logContent]);
+    expect(events).toEqual([msgContent]);
   });
 
   it('ignores duplicate events with same txHash and logIndexInTx', async () => {
@@ -58,7 +58,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -67,7 +67,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -79,7 +79,7 @@ describe('PrivateEventDataProvider', () => {
       [recipient],
       eventSelector,
     );
-    expect(events).toEqual([logContent]);
+    expect(events).toEqual([msgContent]);
   });
 
   it('allows multiple events with same content but different txHash', async () => {
@@ -88,7 +88,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -97,7 +97,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       otherTxHash,
       logIndexInTx,
       blockNumber,
@@ -109,7 +109,7 @@ describe('PrivateEventDataProvider', () => {
       [recipient],
       eventSelector,
     );
-    expect(events).toEqual([logContent, logContent]);
+    expect(events).toEqual([msgContent, msgContent]);
   });
 
   it('filters events by block range', async () => {
@@ -117,7 +117,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      getRandomLogContent(),
+      getRandomMsgContent(),
       TxHash.random(),
       logIndexInTx,
       100,
@@ -126,7 +126,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       TxHash.random(),
       logIndexInTx,
       200,
@@ -135,7 +135,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      getRandomLogContent(),
+      getRandomMsgContent(),
       TxHash.random(),
       logIndexInTx,
       300,
@@ -149,7 +149,7 @@ describe('PrivateEventDataProvider', () => {
       eventSelector,
     );
 
-    expect(events).toEqual([logContent]); // Only includes event from block 200
+    expect(events).toEqual([msgContent]); // Only includes event from block 200
   });
 
   it('filters events by recipient', async () => {
@@ -158,7 +158,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -167,7 +167,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       otherRecipient,
       eventSelector,
-      logContent,
+      msgContent,
       TxHash.random(),
       logIndexInTx,
       blockNumber,
@@ -180,7 +180,7 @@ describe('PrivateEventDataProvider', () => {
       [recipient],
       eventSelector,
     );
-    expect(events).toEqual([logContent]);
+    expect(events).toEqual([msgContent]);
   });
 
   it('returns empty array when no events match criteria', async () => {
@@ -201,7 +201,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -212,7 +212,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
       blockNumber,
@@ -223,7 +223,7 @@ describe('PrivateEventDataProvider', () => {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       TxHash.random(),
       logIndexInTx,
       blockNumber,
