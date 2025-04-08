@@ -104,6 +104,9 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     EXPECT_EQ(builder.blocks.ecc_op.size(), 6);
 
     // Check that the expected op codes have been correctly recorded in the 1st op wire
+    for (size_t i = 0; i < builder.blocks.ecc_op.w_l().size(); ++i) {
+        info("Op code: ", builder.blocks.ecc_op.w_l()[i]);
+    }
     EXPECT_EQ(builder.blocks.ecc_op.w_l()[0], (EccOpCode{ .add = true }).value());
     EXPECT_EQ(builder.blocks.ecc_op.w_l()[2], (EccOpCode{ .mul = true }).value());
     EXPECT_EQ(builder.blocks.ecc_op.w_l()[4], (EccOpCode{ .eq = true, .reset = true }).value());
