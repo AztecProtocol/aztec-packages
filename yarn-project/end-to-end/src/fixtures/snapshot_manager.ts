@@ -44,7 +44,7 @@ import path, { join } from 'path';
 import { type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
-import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { DEFAULT_BLOB_SINK_PORT, MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { setupL1Contracts } from './setup_l1_contracts.js';
@@ -317,7 +317,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${DEFAULT_BLOB_SINK_PORT}`;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -414,6 +414,7 @@ async function setupFromFresh(
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       dataDirectory: aztecNodeConfig.dataDirectory,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      port: parseInt(DEFAULT_BLOB_SINK_PORT),
     },
     telemetry,
   );
@@ -486,7 +487,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     reviver,
   );
   aztecNodeConfig.dataDirectory = statePath;
-  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:5052`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${DEFAULT_BLOB_SINK_PORT}`;
   aztecNodeConfig.listenAddress = '127.0.0.1';
 
   const initialFundedAccounts: InitialAccountData[] =
@@ -533,6 +534,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
       rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
       dataDirectory: statePath,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
+      port: parseInt(DEFAULT_BLOB_SINK_PORT),
     },
     telemetry,
   );

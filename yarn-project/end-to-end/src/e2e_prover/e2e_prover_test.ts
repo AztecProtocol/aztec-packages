@@ -172,7 +172,7 @@ export class FullProverTest {
     } = this.context);
     this.aztecNodeAdmin = this.context.aztecNode;
 
-    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://localhost:${this.blobSink.port}` });
+    const blobSinkClient = createBlobSinkClient({ blobSinkUrl: `http://127.0.0.1:${this.blobSink.port}` });
 
     // Configure a full prover PXE
     let acvmConfig: Awaited<ReturnType<typeof getACVMConfig>> | undefined;
