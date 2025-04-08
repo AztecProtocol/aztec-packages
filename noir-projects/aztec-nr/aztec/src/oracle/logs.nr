@@ -1,4 +1,4 @@
-use crate::discovery::MAX_MESSAGE_CONTENT_LEN;
+use crate::encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN;
 use protocol_types::{abis::event_selector::EventSelector, address::AztecAddress};
 
 /// The below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
