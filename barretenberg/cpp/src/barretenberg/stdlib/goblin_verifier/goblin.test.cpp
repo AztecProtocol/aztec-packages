@@ -49,8 +49,8 @@ TEST_F(GoblinTests, MultipleCircuits)
 
     // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
     // respective proving keys)
-    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vkey = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>();
+    auto translator_vkey = std::make_shared<TranslatorVerificationKey>();
     GoblinVerifier goblin_verifier{};
     bool verified = goblin_verifier.verify(proof);
 

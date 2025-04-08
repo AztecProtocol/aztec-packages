@@ -53,9 +53,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(),
-                 { std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                   std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) } };
+        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 

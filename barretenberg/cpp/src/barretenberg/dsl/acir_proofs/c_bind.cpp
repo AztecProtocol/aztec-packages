@@ -282,8 +282,8 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
     *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);

@@ -232,8 +232,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the goblin proof in the Ultra circuit
         auto mega_vk = std::make_shared<MegaVerificationKey>(mega_prover.proving_key->proving_key);
-        GoblinVerifier::VerifierInput goblin_vk{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                                                 std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) };
+        GoblinVerifier::VerifierInput goblin_vk{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
 
         return {
             .mega_proof = mega_proof,

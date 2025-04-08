@@ -170,9 +170,7 @@ class AvmGoblinRecursiveVerifier {
         auto outer_verifier_output = outer_verifier.verify_proof(ultra_proof, input_agg_obj);
 
         // Recursively verify the goblin proof in the Ultra circuit
-        GoblinVerifier::VerifierInput goblin_vinput{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                                                     std::make_shared<TranslatorVK>(
-                                                         goblin.get_translator_proving_key()) };
+        GoblinVerifier::VerifierInput goblin_vinput{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
         GoblinRecursiveVerifier gverifier{ ultra_builder, goblin_vinput };
         GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(goblin_proof);
 

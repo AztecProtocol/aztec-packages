@@ -45,18 +45,13 @@ class GoblinProver {
     MergeProof merge_proof;
     GoblinProof goblin_proof;
 
-    std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
-    std::shared_ptr<TranslatorProvingKey::ProvingKey> get_translator_proving_key() const
-    {
-        return translator_key->proving_key;
-    }
+    // fq translation_batching_challenge_v;
+    // fq evaluation_challenge_x;
+    // std::shared_ptr<Transcript> transcript;
 
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
-    std::unique_ptr<TranslatorProver> translator_prover;
     std::unique_ptr<ECCVMProver> eccvm_prover;
-    std::shared_ptr<ECCVMProvingKey> eccvm_key;
-    std::shared_ptr<TranslatorProvingKey> translator_key;
 
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
@@ -87,53 +82,35 @@ class GoblinProver {
         return merge_proof;
     };
 
-    void construct_eccvm_prover()
-    {
-        PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
-
-        auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
-        eccvm_key = eccvm_prover->key;
-    }
-
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
      */
     void prove_eccvm()
     {
-        construct_eccvm_prover();
+        auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
+        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
+        // translation_batching_challenge_v = eccvm_prover->batching_challenge_v;
+        // evaluation_challenge_x = eccvm_prover->evaluation_challenge_x;
+        // transcript = eccvm_prover->transcript;
         goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
         goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
-    }
-
-    void construct_translator_prover(const fq& translation_batching_challenge_v,
-                                     const fq& evaluation_challenge_x,
-                                     const std::shared_ptr<Transcript>& transcript)
-    {
-        PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
-        auto translator_builder =
-            std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-        translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
-        translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
-        eccvm_prover = nullptr;
     }
 
     /**
      * @brief Construct a translator proof
      *
      */
-    void prove_translator()
+    void prove_translator(const fq& translation_batching_challenge_v,
+                          const fq& evaluation_challenge_x,
+                          const std::shared_ptr<Transcript>& transcript)
     {
-        construct_translator_prover(
-            eccvm_prover->batching_challenge_v, eccvm_prover->evaluation_challenge_x, eccvm_prover->transcript);
-        goblin_proof.translator_proof = translator_prover->construct_proof();
+        PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
+        TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
+        auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
+        TranslatorProver translator_prover(translator_key, transcript);
+        eccvm_prover = nullptr;
+        goblin_proof.translator_proof = translator_prover.construct_proof();
     }
-
-    void construct_vks()
-    {
-        construct_eccvm_prover();
-        construct_translator_prover(0, 0, nullptr);
-    };
 
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
@@ -159,7 +136,8 @@ class GoblinProver {
         {
             PROFILE_THIS_NAME("prove_translator");
             vinfo("prove translator...");
-            prove_translator();
+            prove_translator(
+                eccvm_prover->batching_challenge_v, eccvm_prover->evaluation_challenge_x, eccvm_prover->transcript);
             vinfo("finished translator proving.");
         }
         return goblin_proof;

@@ -241,9 +241,7 @@ class ClientIVC {
 
     VerificationKey get_vk() const
     {
-        return { honk_vk,
-                 std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),
-                 std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key()) };
+        return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
     }
 };
 } // namespace bb

@@ -445,8 +445,8 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
     write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
 }
 
