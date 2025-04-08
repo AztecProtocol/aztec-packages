@@ -82,13 +82,11 @@ function docs_cut_version {
     current_branch=$(git rev-parse --abbrev-ref HEAD)
     echo "Original branch: $current_branch"
 
-    COMMIT_TAG=$1
-    echo "Starting docs versioning for $COMMIT_TAG"
 
     # Rebuilding docs at the tip
-    rm -rf processed-docs processed-docs-cache
+    rm -rf processed-docs processed-docs-cache build
     yarn preprocess
-    yarn docusaurus build
+    yarn run build
 
     # Stash any unrelated local changes before starting
     echo "Stashing local changes"
@@ -96,24 +94,22 @@ function docs_cut_version {
     git stash push -m "$stash_message"
     local stashed=$? # Check if something was stashed
 
+    COMMIT_TAG=$1
+    echo "Starting docs versioning for $COMMIT_TAG"
     echo "Processing tag: $COMMIT_TAG"
 
     # Checkout the tag, discarding local changes from previous build artifacts
     # Use --force to overwrite potentially modified tracked files from the build process
     echo "Checking out tag $COMMIT_TAG..."
-    if ! git checkout --force "$COMMIT_TAG"; then
-        echo "Error checking out tag $tag. Aborting."
-        # Go back to original branch and restore stash before exiting
-        git checkout "$current_branch"
-        if [ $stashed -eq 0 ]; then git stash pop; fi
-        exit 1
-    fi
+    git checkout --force "$COMMIT_TAG" docs
+    yarn run build
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
     echo "Running preprocess and build for $COMMIT_TAG..."
-    yarn preprocess # Assuming this doesn't modify tracked files in a conflicting way
-    yarn docusaurus build # This might modify tracked files
+
+    rm -rf processed-docs processed-docs-cache build
+    yarn run build # This might modify tracked files
 
     # Create the versioned docs for this tag
     echo "Creating documentation version for $COMMIT_TAG..."
