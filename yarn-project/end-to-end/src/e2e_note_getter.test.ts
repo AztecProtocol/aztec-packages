@@ -31,17 +31,13 @@ describe('e2e_note_getter', () => {
     });
 
     it('inserts notes from 0-9, then makes multiple queries specifying the total suite of comparators', async () => {
-      // ISSUE #4243
-      // Calling this function does not work like this
-      // const numbers = [...Array(10).keys()];
-      // await Promise.all(numbers.map(number => contract.methods.insert_note(number).send().wait()));
-      // It causes a race condition complaining about root mismatch
+      await Promise.all(
+        Array(10)
+          .fill(0)
+          .map((_, i) => contract.methods.insert_note(i).send().wait()),
+      );
 
-      // Note: Separated the below into calls of 3 to avoid reaching logs per call limit
-      await contract.methods.insert_notes([0, 1, 2]).send().wait();
-      await contract.methods.insert_notes([3, 4, 5]).send().wait();
-      await contract.methods.insert_notes([6, 7, 8]).send().wait();
-      await contract.methods.insert_note(9).send().wait();
+      // We insert a note with value 5 twice to better test the comparators
       await contract.methods.insert_note(5).send().wait();
 
       const [returnEq, returnNeq, returnLt, returnGt, returnLte, returnGte] = await Promise.all([

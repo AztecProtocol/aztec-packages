@@ -31,18 +31,6 @@ pub contract NoteGetter {
         ));
     }
 
-    #[private]
-    fn insert_notes(values: [Field; 3]) {
-        for i in 0..values.len() {
-            let note = ValueNote::new(values[i], context.msg_sender());
-            storage.set.insert(note).emit(encode_and_encrypt_note(
-                &mut context,
-                context.msg_sender(),
-                context.msg_sender(),
-            ));
-        }
-    }
-
     #[utility]
     unconstrained fn read_note_values(comparator: u8, value: Field) -> BoundedVec<Field, 10> {
         let mut options = NoteViewerOptions::new();
