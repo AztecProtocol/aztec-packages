@@ -16,7 +16,7 @@ import MockPrivateKernelInitCircuit from '../artifacts/mock_private_kernel_init.
 import MockPrivateKernelInnerCircuit from '../artifacts/mock_private_kernel_inner.json' assert { type: 'json' };
 import MockPrivateKernelResetCircuit from '../artifacts/mock_private_kernel_reset.json' assert { type: 'json' };
 import MockPrivateKernelTailCircuit from '../artifacts/mock_private_kernel_tail.json' assert { type: 'json' };
-import MockPublicBaseCircuit from '../artifacts/mock_public_base.json' assert { type: 'json' };
+import MockPublicBaseCircuit from '../artifacts/mock_rollup_base_public.json' assert { type: 'json' };
 import type {
   AppCreatorInputType,
   AppPublicInputs,
@@ -27,7 +27,7 @@ import type {
   MockPrivateKernelInnerInputType,
   MockPrivateKernelResetInputType,
   MockPrivateKernelTailInputType,
-  MockPublicBaseInputType,
+  MockPublicBaseInputType, // Removed as it is not exported from './types/index.js'
   PrivateKernelPublicInputs,
   u8,
 } from './types/index.js';
