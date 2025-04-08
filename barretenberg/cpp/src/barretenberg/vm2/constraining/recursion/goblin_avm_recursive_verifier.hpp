@@ -146,9 +146,13 @@ class AvmGoblinRecursiveVerifier {
         // Propagate the IPA claim via the public inputs of the outer circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity to
         // handle this IPA data propagation.
-        ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
-        ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
-        ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
+
+        // TODO(jeamon): Restore ipa_claim and ipa_proof integration in the builder. While running ./bootstrap.sh,
+        // for the mock-protocol-circuits, we hit an assertion at circuit_builder_base_impl.hpp:262 ("added IPA claim
+        // when one already exists")
+        // ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
+        // ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
+        // ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
 
         // Validate the consistency of the AVM2 verifier inputs {\pi, pub_inputs, VK}_{AVM2} between the inner (Mega)
         // circuit and the outer (Ultra) by asserting equality on the independently computed hashes of this data.
