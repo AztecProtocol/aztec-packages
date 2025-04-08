@@ -14,8 +14,6 @@ mkdir -p $OUT_DIR
 # Extract test contract names from Nargo.toml
 TEST_CONTRACTS=$(grep "contracts/test/" ../../noir-projects/noir-contracts/Nargo.toml | sed 's/.*contracts\/test\/\([^"]*\)_contract.*/\1/')
 
-echo "TEST_CONTRACTS: $TEST_CONTRACTS"
-
 # Check for .json files existence
 if ! ls ../../noir-projects/noir-contracts/target/*.json >/dev/null 2>&1; then
   echo "Error: No .json files found in noir-contracts/target folder."
@@ -38,8 +36,9 @@ EOF
 
 # Process only test contracts
 for contract in $TEST_CONTRACTS; do
-  ABI="../../noir-projects/noir-contracts/target/${contract}_*.json"
-  if [ -f "$ABI" ]; then
+  # Find the matching ABI file for this contract
+  ABI=$(find "../../noir-projects/noir-contracts/target" -name "${contract}_*.json" | head -n 1)
+  if [ -n "$ABI" ]; then
     # Extract the filename from the path
     filename=$(basename "$ABI")
     dts_file=$(echo $filename | sed 's/.json/.d.json.ts/g');
