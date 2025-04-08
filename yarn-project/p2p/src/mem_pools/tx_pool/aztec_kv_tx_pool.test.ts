@@ -133,7 +133,7 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3, { numberOfNonRevertiblePublicCallRequests: 1 });
     const tx4 = await mockTx(4, { numberOfNonRevertiblePublicCallRequests: 1 });
 
-    // simulate a situation where tx1 and tx2 have the same nullifier
+    // simulate a situation where tx1, tx2, and tx3 have the same nullifier
     tx2.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] =
       tx1.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
     tx3.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0] =

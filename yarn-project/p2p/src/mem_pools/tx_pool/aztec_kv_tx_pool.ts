@@ -149,26 +149,35 @@ export class AztecKVTxPool implements TxPool {
     }
 
     let markedAsPending = 0;
-    return this.#store.transactionAsync(async () => {
-      for (const hash of txHashes) {
-        const key = hash.toString();
-        await this.#minedTxHashToBlock.delete(key);
+    return this.#store
+      .transactionAsync(async () => {
+        let pendingTxSize = (await this.#pendingTxSize.getAsync()) ?? 0;
+        for (const hash of txHashes) {
+          const key = hash.toString();
+          await this.#minedTxHashToBlock.delete(key);
 
-        // Rehydrate the tx in the in-memory pending txs mapping
-        const tx = await this.getPendingTxByHash(hash);
-        if (tx) {
-          await this.addPendingTxIndices(tx, key);
-          markedAsPending++;
+          // Rehydrate the tx in the in-memory pending txs mapping
+          const tx = await this.getPendingTxByHash(hash);
+          if (tx) {
+            await this.addPendingTxIndices(tx, key);
+            pendingTxSize += tx.getSize();
+            markedAsPending++;
+          }
         }
-      }
 
-      const numInvalidTxsEvicted = await this.evictInvalidTxsAfterReorg(txHashes);
-      const { numLowPriorityTxsEvicted, numNewTxsEvicted } = await this.evictLowPriorityTxs(txHashes);
+        await this.#pendingTxSize.set(pendingTxSize);
+      })
+      .then(async () => {
+        const numInvalidTxsEvicted = await this.evictInvalidTxsAfterReorg(txHashes);
+        const { numLowPriorityTxsEvicted, numNewTxsEvicted } = await this.evictLowPriorityTxs(txHashes);
 
-      this.#metrics.recordAddedObjects(markedAsPending - numNewTxsEvicted, 'pending');
-      this.#metrics.recordRemovedObjects(numInvalidTxsEvicted + numLowPriorityTxsEvicted - numNewTxsEvicted, 'pending');
-      this.#metrics.recordRemovedObjects(markedAsPending, 'mined');
-    });
+        this.#metrics.recordAddedObjects(markedAsPending - numNewTxsEvicted, 'pending');
+        this.#metrics.recordRemovedObjects(
+          numInvalidTxsEvicted + numLowPriorityTxsEvicted - numNewTxsEvicted,
+          'pending',
+        );
+        this.#metrics.recordRemovedObjects(markedAsPending, 'mined');
+      });
   }
 
   public async getPendingTxHashes(): Promise<TxHash[]> {
@@ -545,8 +554,7 @@ export class AztecKVTxPool implements TxPool {
         continue;
       }
 
-      const archive = headerHash ? Fr.fromString(headerHash) : await tx.data.constants.historicalHeader.hash();
-      const [index] = await archiveCache.getArchiveIndices([archive]);
+      const [index] = await archiveCache.getArchiveIndices([Fr.fromString(headerHash)]);
       if (index === undefined) {
         this.#log.verbose(`Evicting tx ${txHash} from pool due to an invalid archive root`);
         txsToEvict.push(TxHash.fromString(txHash));
