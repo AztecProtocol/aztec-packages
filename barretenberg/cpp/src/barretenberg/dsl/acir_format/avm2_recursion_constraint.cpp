@@ -150,7 +150,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
 
     ASSERT(input.proof_type == AVM);
 
-    auto fields_from_witnesses = [&](std::vector<uint32_t> const& input) {
+    auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
         std::vector<field_ct> result;
         result.reserve(input.size());
         for (const auto& idx : input) {
@@ -202,7 +202,7 @@ HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
 
     ASSERT(input.proof_type == AVM);
 
-    auto fields_from_witnesses = [&](std::vector<uint32_t> const& input) {
+    auto fields_from_witnesses = [&](const std::vector<uint32_t>& input) {
         std::vector<field_ct> result;
         result.reserve(input.size());
         for (const auto& idx : input) {
