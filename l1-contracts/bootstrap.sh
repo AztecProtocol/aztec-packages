@@ -19,7 +19,7 @@ function build {
     rm -rf broadcast cache out serve generated
 
     # Install
-    forge install --no-commit
+    forge install
 
     # Ensure libraries are at the correct version
     git submodule update --init --recursive ./lib
