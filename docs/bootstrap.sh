@@ -33,10 +33,10 @@ function build_docs {
 }
 
 function deploy {
-  if [ $(dist_tag) != "latest" ]; then
-    release_preview
-  else
+  if [ $(dist_tag) == "latest" ]; then
     do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
+  else
+    release_preview
   fi
 }
 
