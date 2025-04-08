@@ -63,12 +63,12 @@ Open the project in your preferred editor. If using VSCode and the LSP, you'll b
 
 In `main.nr`, rename the contract from `Main`, to `Crowdfunding`.
 
-#include_code empty-contract /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code empty-contract /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 Replace the example functions with an initializer that takes the required campaign info as parameters. Notice use of `#[aztec(...)]` macros inform the compiler that the function is a public initializer.
 
 ```rust
-#include_code init-header /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
+#include_code init-header /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr raw
   //...
 }
 ```
@@ -78,7 +78,7 @@ Replace the example functions with an initializer that takes the required campai
 When you compile the contracts by running `aztec-nargo compile` in your project directory, you'll notice it cannot resolve `AztecAddress`. (Or hovering over in VSCode)
 
 ```rust
-#include_code init-header-error /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr raw
+#include_code init-header-error /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr raw
   //...
 }
 ```
@@ -107,7 +107,7 @@ The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.c
 
 To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct:
 
-#include_code storage /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code storage /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 The `ValueNote` type is in the top-level of the Aztec.nr framework, namely [noir-projects/aztec-nr (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/value-note/src/value_note.nr). Like before, you'll need to add the crate to Nargo.toml
 
@@ -121,7 +121,7 @@ use dep::value_note::value_note::ValueNote;
 
 Now complete the initializer by setting the storage variables with the parameters:
 
-#include_code init /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code init /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 You can compile the code so far with `aztec-nargo compile`.
 
@@ -133,7 +133,7 @@ To check that the donation occurs before the campaign deadline, we must access t
 
 We read the deadline from public storage in private and use the router contract to assert that the current `timestamp` is before the deadline.
 
-#include_code call-check-deadline /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code call-check-deadline /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 We perform this check via the router contract to not reveal which contract is performing the check - this is achieved by calling a private function on the router contract which then enqueues a call to a public function on the router contract. The result is that `msg_sender` in the public call will then be the router contract.
 Note that the privacy here is dependent upon what deadline value is chosen by the Crowdfunding contract deployer.
@@ -141,7 +141,7 @@ If it's unique to this contract, then there'll be a privacy leak regardless, as 
 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 
-#include_code all-deps /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code all-deps /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 Like before, you can find these and other `aztec::protocol_types` [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-protocol-circuits/crates/types/src).
 
@@ -152,7 +152,7 @@ The token being used for donations is stored simply as an `AztecAddress` (named 
 Add this `Token` contract to Nargo.toml:
 
 ```
-token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/token_contract" }
+token = { git="https://github.com/AztecProtocol/aztec-packages/", tag="#include_aztec_version", directory="noir-projects/noir-contracts/contracts/app/token_contract" }
 ```
 
 With the dependency already `use`d at the start of the contract, the token contract can be called to make the transfer from msg sender to this contract.
@@ -161,7 +161,7 @@ With the dependency already `use`d at the start of the contract, the token contr
 
 The last thing to do is create a new value note and add it to the `donation_receipts`. So the full donation function is now
 
-#include_code donate /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code donate /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 ### 3. Operator withdrawals
 
@@ -175,7 +175,7 @@ The last point is achieved by emitting an unencrypted event log.
 
 Copy the last function into your Crowdfunding contract:
 
-#include_code operator-withdrawals /noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr rust
+#include_code operator-withdrawals /noir-projects/noir-contracts/contracts/app/crowdfunding_contract/src/main.nr rust
 
 You should be able to compile successfully with `aztec-nargo compile`.
 
@@ -183,7 +183,7 @@ You should be able to compile successfully with `aztec-nargo compile`.
 
 ## Conclusion
 
-For comparison, the full Crowdfunding contract can be found [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/crowdfunding_contract).
+For comparison, the full Crowdfunding contract can be found [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/crowdfunding_contract).
 
 If a new token wishes to honour donors with free tokens based on donation amounts, this is possible via the donation_receipts (a `PrivateSet`).
 See [claim_contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/claim_contract).
