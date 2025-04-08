@@ -34,9 +34,9 @@ function build_docs {
 
 function deploy {
   if [ $(dist_tag) != "latest" ]; then
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
-  else
     release_preview
+  else
+    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
   fi
 }
 
@@ -81,23 +81,16 @@ function docs_cut_version {
     # Store the current branch to return to later
     current_branch=$(git rev-parse --abbrev-ref HEAD)
     echo "Original branch: $current_branch"
-
-    # Rebuilding docs at the tip
     yarn run build
 
     COMMIT_TAG=$1
     echo "Starting docs versioning for $COMMIT_TAG"
-    echo "Processing tag: $COMMIT_TAG"
-
-    # Checkout the tag, discarding local changes from previous build artifacts
-    # Use --force to overwrite potentially modified tracked files from the build process
     echo "Checking out tag $COMMIT_TAG..."
-    git checkout --force "$COMMIT_TAG" docs src ../noir-projects
+    git checkout --force "$COMMIT_TAG"
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
     echo "Building for $COMMIT_TAG..."
-
     # Rebuild everything on the tag we checked out (because of include_code links, etc)
     yarn run build
 
@@ -112,8 +105,6 @@ function docs_cut_version {
         exit 1
     fi
 
-    trap - EXIT
-
     # Checkout the original branch
     echo "Checking out original branch: $current_branch"
     git checkout "$current_branch"
@@ -122,9 +113,7 @@ function docs_cut_version {
     echo "Regenerating versions.json on $current_branch..."
     yarn run version::stables
 
-
     echo "Docs versioning complete"
-
 }
 
 case "$cmd" in
@@ -139,7 +128,6 @@ case "$cmd" in
     echo "$hash"
     ;;
   "docs-cut-version")
-    build_docs
     docs_cut_version "$2"
     ;;
   *)
