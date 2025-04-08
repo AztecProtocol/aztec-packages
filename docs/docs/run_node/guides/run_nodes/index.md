@@ -7,7 +7,7 @@ title: Run a Node, Sequencer, or Prover
 ## Running Aztec Nodes
 
 <div className="card-container">
-  <Card shadow='tl' link='./run_nodes/how_to_run_validator_sequencer'>
+  <Card shadow='tl' link='./run_nodes/how_to_run_sequencer'>
     <CardHeader>
       <h3>Run Aztec Validator Nodes</h3>
     </CardHeader>

@@ -26,7 +26,7 @@ Sequencing involves grabbing values from both L2 and L1. It is intended that you
 - An Ethereum _execution_ node RPC. For example from [DRPC](https://drpc.org/chainlist/ethereum) or [Alchemy](https://www.alchemy.com/ethereum). This is where the new state will be sent and verified when you produce a block.
 - An Ethereum _beacon_ node RPC. For example [DRPC](https://drpc.org/chainlist/eth-beacon-chain#eth-beacon-chain-sepolia) provides one. The beacon node is required in order to grab data from the blob space.
 
-:::warn
+:::warning
 
 The `free` route will likely get you rate-limited and you won't be able to sync. You will need to set up a paid plan or `pay-as-you-go`.
 
@@ -63,13 +63,11 @@ As of the alpha testnet, there's no fast sync, so your node will actually sync e
 
 Feel free to leave it syncing as you get ready to restart it using the sequencer configuration.
 
-### Sparta
+:::info sparta
 
-Sparta is a useful bot to get things done on the testnet. You'll need it to register yourself and to be part of the community. Head to the Aztec Discord and choose the "Operator" role. This will give you access to the `#sequencer-and-prover` channel, where Sparta tends to hang around.
+Sparta is a useful bot to get things done on the testnet. You'll need it to register yourself and to be part of the community. Head to the Aztec Discord and head to the `#this-is-spartaa` channel. Sparta tends to hang around alone there.
 
-:::info
-
-Actually, if you're syncing your node, this is a great time to use some Spartan energy. Type /get-info: the mighty Spartan will hopefully print out the latest stats, for example:
+If you're syncing your node, this is a great time to use some Spartan energy. Type `/get-info`: the mighty Spartan will hopefully print out the latest stats, for example:
 
 ```md
 Pending block: 11067
@@ -112,7 +110,7 @@ It should sync any blocks you may have missed. Check with Sparta that you're at 
 
 ## Registering
 
-Being a decentralized testnet means anyone can deposit TST and become a validator. To make our tester's life easier, the Aztec Labs team will provides a faucet you can use, as long as you pass a simple challenge: provide a proof that your node is synced with a recent block. This will give you the "Amateur Operator" role on Discord.
+Being a decentralized testnet means anyone can deposit TST and become a validator. To make our tester's life easier, Sparta will register your node on your behalf, as long as you pass a simple challenge: provide a proof that your node is synced with a recent block
 
 Fire up a terminal and call your own node, like:
 
@@ -128,10 +126,6 @@ curl -s -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method
 
 It will return a long base64-encoded string. Note it down and head to Discord.
 
-On the `#sequencer-and-prover` testnet, run `/validator register`. The Spartan will ask you for your node address (the one above), as well as the block number and the proof. Paste those. If all goes well, Sparta will give you a new shiny role: "Amateur Operator".
+On the `#this-is-spartaa` discord channel, run `/validator register`. The Spartan will ask you for your node address (the one above), as well as the block number and the proof. Paste those. Done!
 
-New achievement unlocked, huh? Well, you can now ask Sparta to drip you some testnet tokens so you can register yourself on the network! Sparta will allow you to run `/validator faucet`.
-
-## Tweak it
-
-Maybe you want different parameters, different ports, a specific data directory, or other tweaks. Check out the [reference guide for nodes](../../reference/node.md) and [sequencers](../../reference/sequencer.md).
+On your logs, you will eventually see shiny new blocks being made by you. The provernet will then listen and prove them for you.

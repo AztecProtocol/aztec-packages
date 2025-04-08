@@ -9,10 +9,8 @@ Running a prover means having deep understanding of blockchain technology, crypt
 
 ## Prerequisites
 
-- You need to fully understand the [protocol specs](../../../protocol-specs/intro.md).
+- You need to fully understand the [concepts](../../concepts/provers-and-sequencers/) on proving and sequencing.
 - Your confidence level is expected to be around "I'd be able to run a Prover _without_ this guide"
-
-TODO hardware prerequisites
 
 ## Getting started
 
@@ -51,81 +49,38 @@ flowchart TD
     prover-client --"rw"--> world-state
     proving-job --publish-proof--> l1-publisher
     prover-client --"push-job"--> proving-queue
-    %%prover-agent --"pull-job"--> proving-queue
-        proving-queue <--"pull-jobs"--o prover-agent
+    prover-agent --"pull-jobs"---> proving-queue
     subgraph "Prover Agent"
         prover-agent --"prove"--> bb
     end
-
-    %% p2p-client --> tx-pool --"save-tx"--> tx-db
-    %% p2p-client --get-blocks--> l2-block-source
 ```
 
-As complex as it is, the command is actually fairly straightforward thanks to the modular nature of the `aztec start` command:
+As complex as it is, the command is actually fairly straightforward thanks to the modular nature of the `aztec start` command. There are still some flags you need to provide that are common to the [sequencers](./how_to_run_sequencer.md):
+
+- `--archiver` - Just like with the sequencer, you need to run an archiver to store the L2 data
+- `--prover-node` - The node that connects to both networks to fetch jobs and transactions
+- `--prover-broker` - Talks with the node and the prover agents to assign jobs. This is useful if you intend to run provers in different machines
+- `--prover-agent` - The actual prover that will fetch jobs from the broker and prove them with Barretenberg
+- `--proverNode.p2pIp` - Same as for the sequencer, you need to prove an IP for your agents to find you
+- `--proverNode.publisherPrivateKey` - You'll want to set this one too, so you can sign your proofs for L1
+
+You can run them on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
+
+For example:
 
 ```bash
-aztec start --prover-node --archiver
+aztec start --network alpha-testnet --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/key --prover-node --prover-broker --prover-agent --archiver --proverNode.p2pIp \<ip\> --proverNode.publisherPrivateKey 0xkey
 ```
-
-This will start the prover node, which doesn't mean it proves anything. To prove, it needs agents. To run a prover agent, add the `--prover` flag to the command above to start an in-process prover.
-
-
-
-## Configuration
-
-The Aztec client is configured via environment variables, the following ones being relevant for the prover node:
-
-- **ETHEREUM_HOSTS**: List of URLs of Ethereum nodes (comma separated).
-- **L1_CHAIN_ID**: Chain ID for the L1 Ethereum chain.
-- **DATA_DIRECTORY**: Local folder where archive and world state data is stored.
-- **AZTEC_PORT**: Port where the JSON-RPC APIs will be served.
-- **PROVER_PUBLISHER_PRIVATE_KEY**: Private key used for publishing proofs to L1. Ensure it corresponds to an address with ETH to pay for gas.
-- **PROVER_AGENT_ENABLED**: Whether to run a prover agent process on the same host running the Prover Node. We recommend setting to `false` and running prover agents on separate hosts.
-- **P2P_ENABLED**: Set to `true` so that your node can discover peers, receive tx data and gossip quotes to sequencers.
-- **PROVER_COORDINATION_NODE_URL**: Send quotes via http. Only used if `P2P_ENABLED` is `false`.
-- **BOOT_NODE_URL**: The URL of the boot node for peer discovery.
-- **AZTEC_NODE_URL**: Used by the Prover Node to fetch the L1 contract addresses if they were not manually set via environment variables.
-
-:::note
-For S&P Testnet, we will be providing an Ethereum host, a Boot Node URL and a specific Aztec Image.
-:::
-
-The prover agent, on the other hand, relies on the following environment variables:
-
-- **PROVER_BROKER_HOST**: URL to the Prover Node that acts as a proving job source.
-- **PROVER_AGENT_CONCURRENCY**: Maximum concurrency for this given prover agent. Defaults to `1`.
-
-Both the prover node and agent also rely on the following:
-
-- **PROVER_REAL_PROOFS**: Whether to generate actual proofs, as opposed to only simulating the circuit and outputting fake proofs. **Set to `true` for the scope of the S&P Testnet.**
-- **LOG_LEVEL**: One of `debug`, `verbose`, `info`, `warn`, or `error`.
-- **LOG_JSON**: Set to `true` to output logs in JSON format (unreleased).
-- **OTEL_EXPORTER_OTLP_METRICS_ENDPOINT**: Optional URL for pushing telemetry data to a remote OpenTelemetry data collector.
-
-
-
-
-### Prover Config
-
-Please refer to the [Prover Guide](./how_to_run_prover.md) for info on how to setup your prover node.
-
-## Governance Upgrades
-
-During a governance upgrade, we'll announce details on the discord. At some point we'll also write AZIPs (Aztec Improvement Proposals) and post them to either the github or forum to collect feedback.
-
-We'll deploy the payload to the L1 and share the address of the payload with the sequencers on discord.
-
-To participate in the governance vote, sequencers must change the variable `GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS` in the Sequencer Client to vote during the L2 slot they've been assigned sequencer duties.
 
 ## Troubleshooting
 
 :::tip
-Please make sure you are in the Discord server and that you have been assigned the role `S&P Participant`. Say gm in the `sequencer-and-prover` channel and turn on notifications for the announcements channel.
+Please make sure you are in the Discord server and that you have been assigned one of the testnet roles. Turn on notifications for the announcements channel.
 :::
 
 If you encounter any errors or bugs, please try basic troubleshooting steps like restarting your node, checking ports and configs.
 
-If issue persists, please share on the sequencer-and-prover channel and tag [Amin](discordapp.com/users/65773032211231539).
+If issue persists, please share on the discord channel you've been assigned to.
 
 Some issues are fairly light, the group and ourselves can help you within 60 minutes. If the issue isn't resolved, please send more information:
 
