@@ -12,28 +12,27 @@ import { AztecKVTxPool } from './aztec_kv_tx_pool.js';
 import { describeTxPool } from './tx_pool_test_suite.js';
 
 describe('KV TX pool', () => {
-  let txPool: AztecKVTxPool;
+  let txPool: TestAztecKVTxPool;
   let worldState: MockProxy<WorldStateSynchronizer>;
   let db: MockProxy<MerkleTreeReadOperations>;
-
-  const mockValidateTxFee = () => Promise.resolve({ result: 'valid' } as TxValidationResult);
-  const mockGetArchiveIndices = () => Promise.resolve([BigInt(1)]);
 
   beforeEach(async () => {
     worldState = worldState = mock<WorldStateSynchronizer>();
     db = mock<MerkleTreeReadOperations>();
     worldState.getCommitted.mockReturnValue(db);
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
 
-    GasTxValidator.prototype.validateTxFee = mockValidateTxFee;
-    ArchiveCache.prototype.getArchiveIndices = mockGetArchiveIndices;
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState);
+    txPool.mockGasTxValidator.validateTxFee.mockImplementation(() =>
+      Promise.resolve({ result: 'valid' } as TxValidationResult),
+    );
+    txPool.mockArchiveCache.getArchiveIndices.mockImplementation(() => Promise.resolve([BigInt(1)]));
   });
 
   describeTxPool(() => txPool);
 
   it('Returns archived txs and purges archived txs once the archived tx limit is reached', async () => {
     // set the archived tx limit to 2
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       archivedTxLimit: 2,
     });
 
@@ -65,7 +64,7 @@ describe('KV TX pool', () => {
   });
 
   it('Evicts low priority txs to satisfy the pending tx size limit', async () => {
-    txPool = new AztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
+    txPool = new TestAztecKVTxPool(await openTmpStore('p2p'), await openTmpStore('archive'), worldState, undefined, {
       maxTxPoolSize: 15000,
     });
 
@@ -151,12 +150,13 @@ describe('KV TX pool', () => {
     const tx3 = await mockTx(3);
     const tx4 = await mockTx(4);
 
-    // modify tx1 to have an insufficient fee payer balance
-    GasTxValidator.prototype.validateTxFee = async (tx: Tx) => {
+    // modify tx1 to have the same fee payer as the mined tx and an insufficient fee payer balance
+    tx1.data.feePayer = tx4.data.feePayer;
+    txPool.mockGasTxValidator.validateTxFee.mockImplementation(async (tx: Tx) => {
       return Promise.resolve({
         result: (await tx.getTxHash()).equals(await tx1.getTxHash()) ? 'invalid' : 'valid',
       } as TxValidationResult);
-    };
+    });
 
     await txPool.addTxs([tx1, tx2, tx3, tx4]);
     await txPool.markAsMined([await tx4.getTxHash()], 1);
@@ -187,12 +187,12 @@ describe('KV TX pool', () => {
     // modify tx1 to return no archive indices
     tx1.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(1);
     const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
-    ArchiveCache.prototype.getArchiveIndices = (archives: Fr[]) => {
+    txPool.mockArchiveCache.getArchiveIndices.mockImplementationOnce((archives: Fr[]) => {
       if (archives[0].equals(tx1HeaderHash)) {
         return Promise.resolve([]);
       }
       return Promise.resolve([BigInt(1)]);
-    };
+    });
 
     await txPool.addTxs([tx1, tx2, tx3]);
     const txHashes = [await tx1.getTxHash(), await tx2.getTxHash(), await tx3.getTxHash()];
@@ -204,3 +204,16 @@ describe('KV TX pool', () => {
     expect(pendingTxHashes).toHaveLength(2);
   });
 });
+
+class TestAztecKVTxPool extends AztecKVTxPool {
+  public mockGasTxValidator: MockProxy<GasTxValidator> = mock<GasTxValidator>();
+  public mockArchiveCache: MockProxy<ArchiveCache> = mock<ArchiveCache>();
+
+  protected override createGasTxValidator(_db: MerkleTreeReadOperations): GasTxValidator {
+    return this.mockGasTxValidator;
+  }
+
+  protected override createArchiveCache(_db: MerkleTreeReadOperations): ArchiveCache {
+    return this.mockArchiveCache;
+  }
+}

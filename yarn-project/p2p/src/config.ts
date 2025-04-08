@@ -179,7 +179,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   txPublicSetupAllowList: AllowedElement[];
 
   /**
-   * The maximum cumulative tx size in bytes of pending txs before evicting lower priority txs.
+   * The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs.
    */
   maxTxPoolSize: number;
 }
@@ -363,8 +363,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   maxTxPoolSize: {
     env: 'P2P_MAX_TX_POOL_SIZE',
-    description:
-      'The maximum cumulative tx size of pending txs before evicting lower priority txs. If set to 0, the tx pool will not have a maximum size limit.',
+    description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
     ...numberConfigHelper(100_000_000), // 100MB
   },
   ...p2pReqRespConfigMappings,
