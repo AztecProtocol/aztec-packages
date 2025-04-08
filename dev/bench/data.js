@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744116879228,
+  "lastUpdate": 1744116881702,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "5425d16b5f0cfa3b0fd98560800918fd98ca2e0e",
-          "message": "chore(bb): add fr container hashing benchmark (#13295)\n\n```\n-----------------------------------------------------------\nBenchmark         Time            CPU         Iterations\n-----------------------------------------------------------\nhash_bench        564 ns          563 ns      1243422\n```",
-          "timestamp": "2025-04-04T11:29:35Z",
-          "tree_id": "f1ee7e10af213a3d6c476822b55c7d38b6259c41",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/5425d16b5f0cfa3b0fd98560800918fd98ca2e0e"
-        },
-        "date": 1743767794616,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 29114,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17772,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9002,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10781,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12502,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2908,6 +2854,60 @@ window.BENCHMARK_DATA = {
             "value": "2249.56",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "d68800a69e03280e0276dc3310c15a8ca528fb35",
+          "message": "fix: mega zk in hiding circuit + bug fixes (#13262)\n\nFixed the bugs discovered by Taceo + it was long overdue to switch from\nMega to MegaZK for proving the hiding circuit.\n\n\nCloses https://github.com/AztecProtocol/aztec-packages/issues/13117\nCloses https://github.com/AztecProtocol/aztec-packages/issues/13116",
+          "timestamp": "2025-04-08T11:51:35Z",
+          "tree_id": "d48158c1a82f4464081440cc98f1e2ea63dd8f69",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/d68800a69e03280e0276dc3310c15a8ca528fb35"
+        },
+        "date": 1744116880776,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 30196,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18027,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 9224,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10851,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12899,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
         ]
       }
