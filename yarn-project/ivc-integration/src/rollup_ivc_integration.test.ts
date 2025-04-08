@@ -10,7 +10,6 @@ import { fileURLToPath } from 'url';
 import {
   MockRollupBasePrivateCircuit,
   MockRollupMergeCircuit,
-  MockRollupRootCircuit,
   generate3FunctionTestingIVCStack,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
@@ -18,7 +17,7 @@ import {
   witnessGenMockRollupMergeCircuit,
   witnessGenMockRollupRootCircuit,
 } from './index.js';
-import { proveClientIVC, proveKeccakHonk, proveRollupHonk, proveTube } from './prove_native.js';
+import { proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
