@@ -330,7 +330,7 @@ case "$cmd" in
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
-  "docs-cut-version"
+  "docs-cut-version")
     docs/bootstrap.sh $cmd "$@"
     ;;
   *)
