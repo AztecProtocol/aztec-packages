@@ -120,7 +120,7 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     EXPECT_EQ(P1_y, uint256_t(P1.y));
 
     // Check that we can reconstruct the coordinates of P2 from the op_wires
-    auto P2_x_lo = uint256_t(builder.variables[builder.bloc / ks.ecc_op.w_r()[2]]);
+    auto P2_x_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[2]]);
     auto P2_x_hi = uint256_t(builder.variables[builder.blocks.ecc_op.w_o()[2]]);
     auto P2_x = P2_x_lo + (P2_x_hi << CHUNK_SIZE);
     EXPECT_EQ(P2_x, uint256_t(P2.x));
