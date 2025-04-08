@@ -142,7 +142,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             PROFILE_THIS_NAME("constructing lookup table polynomials");
 
             construct_lookup_table_polynomials<Flavor>(
-                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, MASKING_OFFSET);
+                proving_key.polynomials.get_tables(), circuit, dyadic_circuit_size, NUM_DISABLED_ROWS_IN_SUMCHECK);
         }
 
         {

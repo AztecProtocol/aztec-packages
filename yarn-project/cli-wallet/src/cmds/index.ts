@@ -149,12 +149,16 @@ export function injectCommands(
     .option('--json', 'Emit output as json')
     // `options.wait` is default true. Passing `--no-wait` will set it to false.
     // https://github.com/tj/commander.js#other-option-types-negatable-boolean-and-booleanvalue
-    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction');
+    .option('--no-wait', 'Skip waiting for the contract to be deployed. Print the hash of deployment transaction')
+    .option(
+      '--register-class',
+      'Register the contract class (useful for when the contract class has not been deployed yet).',
+    );
 
   addOptions(deployAccountCommand, FeeOptsWithFeePayer.getOptions()).action(async (_options, command) => {
     const { deployAccount } = await import('./deploy_account.js');
     const options = command.optsWithGlobals();
-    const { rpcUrl, wait, from: parsedFromAddress, json } = options;
+    const { rpcUrl, wait, from: parsedFromAddress, json, registerClass } = options;
 
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db);
@@ -162,6 +166,7 @@ export function injectCommands(
     await deployAccount(
       account,
       wait,
+      registerClass,
       await FeeOptsWithFeePayer.fromCli(options, client, log, db),
       json,
       debugLogger,
