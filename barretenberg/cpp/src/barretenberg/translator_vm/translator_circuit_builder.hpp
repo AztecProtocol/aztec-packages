@@ -11,7 +11,7 @@
 #include "barretenberg/common/constexpr_utils.hpp"
 #include "barretenberg/ecc/curves/bn254/fq.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
-#include "barretenberg/op_queue//ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/execution_trace_block.hpp"
 #include "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp"
 
@@ -73,7 +73,6 @@ class TranslatorCircuitBuilder : public CircuitBuilderBase<bb::fr> {
     // We don't need templating for Goblin
     using Fr = bb::fr;
     using Fq = bb::fq;
-    using ECCVMOperation = ECCOpQueue::ECCVMOperation;
 
   public:
     static constexpr size_t NUM_WIRES = 81;

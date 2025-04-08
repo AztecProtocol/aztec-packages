@@ -6,13 +6,12 @@
 #include <deque>
 namespace bb {
 
-enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
-
-struct OpCode {
+struct EccOpCode {
     bool add = false;
     bool mul = false;
     bool eq = false;
     bool reset = false;
+    bool operator==(const EccOpCode& other) const = default;
 
     [[nodiscard]] uint32_t value() const
     {
@@ -29,7 +28,7 @@ struct OpCode {
 
 struct UltraOp {
     using Fr = curve::BN254::ScalarField;
-    OpCode op_code;
+    EccOpCode op_code;
     Fr x_lo;
     Fr x_hi;
     Fr y_lo;
@@ -40,13 +39,20 @@ struct UltraOp {
 };
 
 template <typename CycleGroup> struct VMOperation {
-    OpCode op_code;
+    EccOpCode op_code = {};
     typename CycleGroup::affine_element base_point = typename CycleGroup::affine_element{ 0, 0 };
     uint256_t z1 = 0;
     uint256_t z2 = 0;
     typename CycleGroup::subgroup_field mul_scalar_full = 0;
     bool operator==(const VMOperation<CycleGroup>& other) const = default;
 
+    /**
+     * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
+     * infinity whose coordinates are set to (0,0).
+     *
+     * @details These are represented as uint265_t to make chunking easier, the function being used in translator
+     * where each coordinate is chunked to efficiently be represented in the scalar field.
+     */
     std::array<uint256_t, 2> get_base_point_standard_form() const
     {
         uint256_t x(base_point.x);
@@ -128,7 +134,7 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
-using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
+using EccvmOpsTable = EccOpsTable<ECCVMOperation>;
 
 /**
  * @brief Stores a table of elliptic curve operations represented in the Ultra format

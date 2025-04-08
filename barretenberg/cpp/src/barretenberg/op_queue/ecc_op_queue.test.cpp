@@ -1,4 +1,4 @@
-#include "barretenberg/op_queue//ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -32,7 +32,7 @@ TEST(ECCOpQueueTest, Basic)
     op_queue.empty_row_for_testing();
     const auto& eccvm_ops = op_queue.get_eccvm_ops();
     EXPECT_EQ(eccvm_ops[0].base_point, G1::one());
-    EXPECT_EQ(eccvm_ops[1].add, false);
+    EXPECT_EQ(eccvm_ops[1].op_code.add, false);
 }
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)

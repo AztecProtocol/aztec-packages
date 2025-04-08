@@ -2,8 +2,8 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
-#include "barretenberg/op_queue//ecc_ops_table.hpp"
-#include "barretenberg/op_queue//eccvm_row_tracker.hpp"
+#include "barretenberg/op_queue/ecc_ops_table.hpp"
+#include "barretenberg/op_queue/eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 namespace bb {
@@ -40,6 +40,7 @@ class ECCOpQueue {
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
+  public:
     // Constructor that instantiates an initial ECC op subtable
     ECCOpQueue() { initialize_new_subtable(); }
 
@@ -127,7 +128,8 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
-        append_eccvm_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
+        EccOpCode op_code{ .eq = true, .reset = true };
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = Point::random_element() });
     }
 
     /**
@@ -148,7 +150,7 @@ class ECCOpQueue {
     {
         // Update the accumulator natively
         accumulator = accumulator + to_add;
-        OpCode op_code{ .add = true };
+        EccOpCode op_code{ .add = true };
         // Store the eccvm operation
         append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = to_add });
 
@@ -165,7 +167,7 @@ class ECCOpQueue {
     {
         // Update the accumulator natively
         accumulator = accumulator + to_mul * scalar;
-        OpCode op_code{ .mul = true };
+        EccOpCode op_code{ .mul = true };
 
         // Construct and store the operation in the ultra op format
         UltraOp ultra_op = construct_and_populate_ultra_ops(op_code, to_mul, scalar);
@@ -188,9 +190,9 @@ class ECCOpQueue {
      */
     UltraOp no_op()
     {
-        OpCode op_code{};
+        EccOpCode op_code{};
         // Store eccvm operation
-        append_eccvm_op(op_code);
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(op_code, accumulator);
@@ -205,9 +207,9 @@ class ECCOpQueue {
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
-        OpCode op_code{ .eq = true, .reset = true };
+        EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{ op_code, .base_point = expected });
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });
 
         // Construct and store the operation in the ultra op format
         return construct_and_populate_ultra_ops(op_code, expected);
@@ -231,7 +233,7 @@ class ECCOpQueue {
      * @param scalar
      * @return UltraOp
      */
-    UltraOp construct_and_populate_ultra_ops(OpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
+    UltraOp construct_and_populate_ultra_ops(EccOpCode op_code, const Point& point, const Fr& scalar = Fr::zero())
     {
         UltraOp ultra_op;
         ultra_op.op_code = op_code;

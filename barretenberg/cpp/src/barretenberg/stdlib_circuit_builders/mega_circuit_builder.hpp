@@ -1,7 +1,7 @@
 #pragma once
 #include <utility>
 
-#include "barretenberg/op_queue//ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
@@ -97,24 +97,16 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      */
     uint32_t get_ecc_op_idx(const EccOpCode& op_code)
     {
-        switch (op_code) {
-        case NULL_OP: {
-            return null_op_idx;
-        }
-        case ADD_ACCUM: {
+        if (op_code.add) {
             return add_accum_op_idx;
         }
-        case MUL_ACCUM: {
+        if (op_code.mul) {
             return mul_accum_op_idx;
         }
-        case EQUALITY: {
+        if (op_code.eq && op_code.reset) {
             return equality_op_idx;
         }
-        default: {
-            ASSERT(false);
-            break;
-        }
-        }
+
         return null_op_idx;
     }
 
