@@ -294,7 +294,7 @@ export class RollupContract {
   }
 
   getEpochProofPublicInputs(
-    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`, `0x${string}`],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
   }

@@ -185,10 +185,7 @@ export class ProverNodePublisher {
 
     // Compare the public inputs computed by the contract with the ones injected
     const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(this.getSubmitEpochProofArgs(args));
-    const aggregationObject = proof.isEmpty()
-      ? times(AGGREGATION_OBJECT_LENGTH, Fr.zero)
-      : proof.extractAggregationObject();
-    const argsPublicInputs = [...publicInputs.toFields(), ...aggregationObject];
+    const argsPublicInputs = [...publicInputs.toFields()];
 
     if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
       const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
@@ -214,7 +211,6 @@ export class ProverNodePublisher {
         args: argsArray[2],
         fees: argsArray[3],
         blobPublicInputs: argsArray[4],
-        aggregationObject: argsArray[5],
         proof: proofHex,
       },
     ] as const;
@@ -277,7 +273,6 @@ export class ProverNodePublisher {
         .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
         .map(b => b.toString())
         .join(``)}`,
-      `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 

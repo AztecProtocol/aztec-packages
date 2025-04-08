@@ -152,7 +152,7 @@ describe('prover-node-publisher', () => {
       ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
 
       // Return our public inputs
-      const totalFields = ourPublicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
+      const totalFields = ourPublicInputs.toFields();
       rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
 
       const result = await publisher
