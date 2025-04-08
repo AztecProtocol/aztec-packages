@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744146100643,
+  "lastUpdate": 1744152401434,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "98505400+ledwards2225@users.noreply.github.com",
-            "name": "ledwards2225",
-            "username": "ledwards2225"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "8c58c96e8d806c162dc81c5302ae9f57bc744f84",
-          "message": "feat: improved pairing point accumulator (#13226)\n\nClean up and refactor the use of `aggregation_state` in preparation to\nperform pairing point aggregation in all of the places its needed. The\nclass now has equivalent support for Ultra and Mega.\n\nThe main components of this work:\n- Use the component-owned methods `set_public` and\n`reconstruct_from_public` to define serialization/deserialization\nmethods for `aggregation_state` rather than relying on one-off\nimplementations and builder methods\n- Avoid explicit use of the underlying witness indices and PairingPoints\n(array of group elements) in favor of an `aggregation_state` instance\n- Template `aggregation_state` on Builder instead of Curve (since only\nbn254 is relevant)\n\n---------\n\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
-          "timestamp": "2025-04-04T21:19:26Z",
-          "tree_id": "aaf9f511434c89b17ad178c18e2e9b42de1fb298",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8c58c96e8d806c162dc81c5302ae9f57bc744f84"
-        },
-        "date": 1743805221690,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 29167,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17708,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9002,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10623,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12506,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2906,6 +2852,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12773,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "sirasistant@gmail.com",
+            "name": "Álvaro Rodríguez",
+            "username": "sirasistant"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "0ec191783554672ed3a182a1726d2c913a887dd9",
+          "message": "feat: Add rollup IVC testing suite (#13371)\n\nAdds mock bases, merge and root rollups that use the rollup ivc scheme.\nThese are testing the IVC integration for rollup honk and will be used\nto test the integration of goblinized AVM recursive verifiers into\nrollup honk.",
+          "timestamp": "2025-04-08T22:08:13Z",
+          "tree_id": "36b25e12ce9ef5e15bcee03d6a04aa57736f6030",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/0ec191783554672ed3a182a1726d2c913a887dd9"
+        },
+        "date": 1744152393397,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 30026,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18011,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 9196,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10876,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12746,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
