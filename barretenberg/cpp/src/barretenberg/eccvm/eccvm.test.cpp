@@ -168,3 +168,23 @@ TEST_F(ECCVMTests, CommittedSumcheck)
 
     EXPECT_TRUE(verifier_output.verified);
 }
+
+// Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit
+TEST_F(ECCVMTests, FixedVK)
+{
+    // Generate a circuit and its verification key (computed at runtime from the proving key)
+    ECCVMCircuitBuilder builder = generate_circuit(&engine);
+    ECCVMProver prover(builder);
+    auto pk = std::make_shared<ECCVMFlavor::ProvingKey>(builder);
+    ECCVMVerifier verifier(prover.key);
+
+    // Generate the default fixed VK
+    ECCVMFlavor::VerificationKey fixed_vk{};
+
+    // Set verifier PCS key to null in both the fixed VK and the generated VK
+    fixed_vk.pcs_verification_key = nullptr;
+    verifier.key->pcs_verification_key = nullptr;
+
+    // Check that the fixed VK is equal to the generated VK
+    EXPECT_EQ(fixed_vk, *verifier.key.get());
+}

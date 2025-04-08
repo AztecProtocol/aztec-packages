@@ -33,6 +33,8 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
+    using ECCVMVerificationKey = typename ECCVMFlavor::VerificationKey;
+    using TranslatorVerificationKey = typename TranslatorFlavor::VerificationKey;
 
     /**
      * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1
@@ -364,7 +366,7 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 {
     const size_t MIN_NUM_CIRCUITS = 2;
     // Folding more than 20 circuits requires to double the number of gates in Translator.
-    const size_t MAX_NUM_CIRCUITS = 2;
+    const size_t MAX_NUM_CIRCUITS = 20;
     const size_t log2_num_gates = 5; // number of gates in baseline mocked circuit
 
     auto generate_vk = [&](size_t num_circuits) {
@@ -388,9 +390,6 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
     auto civc_vk_2 = generate_vk(MIN_NUM_CIRCUITS);
     auto civc_vk_20 = generate_vk(MAX_NUM_CIRCUITS);
 
-    civc_vk_20.eccvm = std::make_shared<typename ECCVMFlavor::VerificationKey>();
-    civc_vk_20.translator = std::make_shared<typename TranslatorFlavor::VerificationKey>();
-
     // Check the equality of the Mega components of the ClientIVC VKeys.
     EXPECT_EQ(*civc_vk_2.mega.get(), *civc_vk_20.mega.get());
 
@@ -399,6 +398,15 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
 
     // Check the equality of the Translator components of the ClientIVC VKeys.
     EXPECT_EQ(*civc_vk_2.translator.get(), *civc_vk_20.translator.get());
+
+    // WORKTODO: this wont make sense once I use the default in Goblin...
+    // Check that the runtime computed ECCVM/Translator VKs agree with the cprresponding fixed default VKs
+    ECCVMVerificationKey eccvm_fixed_vk{};
+    TranslatorVerificationKey translator_fixed_vk{};
+    eccvm_fixed_vk.pcs_verification_key = nullptr;
+    translator_fixed_vk.pcs_verification_key = nullptr;
+    EXPECT_EQ(*civc_vk_2.eccvm.get(), eccvm_fixed_vk);
+    EXPECT_EQ(*civc_vk_2.translator.get(), translator_fixed_vk);
 };
 
 /**
