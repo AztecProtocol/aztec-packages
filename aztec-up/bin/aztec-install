@@ -20,8 +20,8 @@ fi
 AZTEC_PATH=$HOME/.aztec
 BIN_PATH=${BIN_PATH:-$AZTEC_PATH/bin}
 
-# Define version if specified, otherwise set to "latest".
-VERSION=${VERSION:-"latest"}
+# Define version if specified, otherwise set to "alpha-testnet".
+VERSION=${VERSION:-"alpha-testnet"}
 INSTALL_URI=${INSTALL_URI:-https://install.aztec.network}
 if [ "$VERSION" != "latest" ]; then
   INSTALL_URI+="/$VERSION"

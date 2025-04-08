@@ -15,6 +15,7 @@ fi
 export SKIP_PULL=1
 export NO_NEW_SHELL=1
 export INSTALL_URI=file:///home/ubuntu/aztec-packages/aztec-up/bin
+export VERSION=latest
 
 if [ -t 0 ]; then
   bash_args="-i"
