@@ -78,7 +78,7 @@ function check_toolchains {
   # Check foundry version.
   local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep "$foundry_version" > /dev/null; then
+    if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       if [ "${CI:-0}" = "1" ]; then
         echo "Installing foundry version $foundry_version in CI environment..."
         curl -L https://foundry.paradigm.xyz | bash
