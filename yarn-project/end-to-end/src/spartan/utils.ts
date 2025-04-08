@@ -1,11 +1,14 @@
 import { createLogger, sleep } from '@aztec/aztec.js';
 import type { RollupCheatCodes } from '@aztec/aztec.js/testing';
+import type { EnvVar } from '@aztec/foundation/config';
 import type { Logger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import type { SequencerConfig } from '@aztec/sequencer-client';
 import { createAztecNodeAdminClient } from '@aztec/stdlib/interfaces/client';
 
 import { ChildProcess, exec, execSync, spawn } from 'child_process';
+import { readFileSync } from 'fs';
+import { load as yamlLoad } from 'js-yaml';
 import path from 'path';
 import { promisify } from 'util';
 import { z } from 'zod';
@@ -42,6 +45,7 @@ const k8sLocalConfigSchema = z.object({
   CONTAINER_PROVER_NODE_PORT: z.coerce.number().default(8080),
   CONTAINER_PXE_PORT: z.coerce.number().default(8080),
   CONTAINER_ETHEREUM_PORT: z.coerce.number().default(8545),
+  CONTAINER_ETHEREUM_CONSENSUS_PORT: z.coerce.number().default(5052),
   CONTAINER_METRICS_PORT: z.coerce.number().default(80),
   GRAFANA_PASSWORD: z.string().optional(),
   METRICS_API_PATH: z.string().default('/api/datasources/proxy/uid/spartan-metrics-prometheus/api/v1'),
@@ -50,6 +54,8 @@ const k8sLocalConfigSchema = z.object({
   L1_ACCOUNT_MNEMONIC: z.string().default('test test test test test test test test test test test junk'),
   SEPOLIA_RUN: z.string().default('false'),
   K8S: z.literal('local'),
+  VALUES_FILE: z.string(),
+  AZTEC_DOCKER_TAG: z.string(),
 });
 
 const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
@@ -113,6 +119,34 @@ function runScript(path: string, args: string[], logger: Logger, env?: Record<st
   });
 }
 
+/**
+ * @param path - The path to the script, relative to the project root
+ * @param args - The arguments to pass to the script
+ * @param logger - The logger to use
+ * @returns The exit code and stdout output of the script
+ */
+function runScriptWithOutput(path: string, args: string[], logger: Logger, env?: Record<string, string>) {
+  const childProcess = spawn(path, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: env ? { ...process.env, ...env } : process.env,
+  });
+
+  let stdoutData = '';
+
+  return new Promise<{ exitCode: number; output: string }>((resolve, reject) => {
+    childProcess.on('close', (code: number | null) => resolve({ exitCode: code ?? 0, output: stdoutData }));
+    childProcess.on('error', reject);
+    childProcess.stdout?.on('data', (data: Buffer) => {
+      const output = data.toString();
+      stdoutData += output;
+      logger.info(output);
+    });
+    childProcess.stderr?.on('data', (data: Buffer) => {
+      logger.error(data.toString());
+    });
+  });
+}
+
 export function getAztecBin() {
   return path.join(getGitProjectRoot(), 'yarn-project/aztec/dest/bin/index.js');
 }
@@ -128,9 +162,123 @@ export function runAztecBin(args: string[], logger: Logger, env?: Record<string,
   return runScript('node', [getAztecBin(), ...args], logger, env);
 }
 
+/**
+ * Runs the Aztec binary returning output
+ * @param args - The arguments to pass to the Aztec binary
+ * @param logger - The logger to use
+ * @param env - Optional environment variables to set for the process
+ * @returns The exit code and stdout output of the Aztec binary
+ */
+export function runAztecBinWithOutput(args: string[], logger: Logger, env?: Record<string, string>) {
+  return runScriptWithOutput('node', [getAztecBin(), ...args], logger, env);
+}
+
 export function runProjectScript(script: string, args: string[], logger: Logger, env?: Record<string, string>) {
   const scriptPath = script.startsWith('/') ? script : path.join(getGitProjectRoot(), script);
   return runScript(scriptPath, args, logger, env);
+}
+
+export function readFromValuesFile(chart: string, file: string, key: string) {
+  const valuesFilePath = path.join(getGitProjectRoot(), 'spartan', chart, 'values', file);
+  const defaultFilePath = path.join(getGitProjectRoot(), 'spartan', chart, 'values.yaml');
+
+  // Read the yaml file
+  const value = readYamlKey(valuesFilePath, key);
+  if (value === undefined) {
+    const defaultValue = readYamlKey(defaultFilePath, key);
+    if (defaultValue === undefined) {
+      throw new Error(`Key ${key} not found in ${valuesFilePath} or ${defaultFilePath}`);
+    }
+    return defaultValue;
+  }
+  return value;
+}
+
+function readYamlKey(filePath: string, key: string) {
+  const values = readYamlFile(filePath);
+
+  // Nested traverse of key
+  // e.g. key = "aztec.testAccounts"
+  // values = { aztec: { testAccounts: true } }
+  const keyPath = key.split('.');
+  let current = values;
+  for (const k of keyPath) {
+    current = current?.[k];
+  }
+
+  return current;
+}
+
+function readYamlFile(filePath: string) {
+  try {
+    return yamlLoad(readFileSync(filePath, 'utf8')) as Record<string, any>;
+  } catch (error) {
+    logger.error(`Error reading yaml file ${filePath}: ${error}`);
+    return null;
+  }
+}
+
+/**
+ * Run a function directly inside helm
+ */
+export async function kubectlRun(
+  containerName: string,
+  namespace: string,
+  imageTag: string,
+  envVars: Partial<Record<EnvVar, string>>,
+  containerCommand: string,
+  args: string[],
+) {
+  const envVarsArgs = Object.entries(envVars).map(([key, value]) => `--env=${key}=${value}`);
+
+  const kubectlArgs = [
+    'run',
+    containerName,
+    '--image',
+    imageTag,
+    '--namespace',
+    namespace,
+    '--restart',
+    'Never',
+    ...envVarsArgs,
+    '--command',
+    '--',
+    containerCommand,
+    ...args,
+  ];
+
+  logger.info(`Running command kubectl ${kubectlArgs.join('\n')}`);
+  const process = spawn('kubectl', kubectlArgs, {
+    detached: true,
+    windowsHide: true,
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  await new Promise<number>(resolve => {
+    process.stdout?.on('data', data => {
+      logger.silent(data.toString());
+    });
+    process.stderr?.on('data', data => {
+      logger.info(data.toString());
+      // It's a strange thing:
+      // If we don't pipe stderr, then the port forwarding does not work.
+      // Log to silent because this doesn't actually report errors,
+      // just extremely verbose debug logs.
+      logger.silent(data.toString());
+    });
+    process.on('close', () => {
+      logger.warn('Port forward closed before connection established');
+      resolve(0);
+    });
+    process.on('error', error => {
+      logger.error(`Port forward error: ${error}`);
+      resolve(0);
+    });
+    process.on('exit', code => {
+      logger.info(`Port forward exited with code ${code}`);
+      resolve(0);
+    });
+  });
 }
 
 export async function startPortForward({
@@ -267,9 +415,16 @@ export function getChartDir(spartanDir: string, chartName: string) {
   return path.join(spartanDir.trim(), chartName);
 }
 
-function valuesToArgs(values: Record<string, string | number>) {
+function valuesToArgs(values: Record<string, string | number | boolean | object | any[]>) {
   return Object.entries(values)
-    .map(([key, value]) => `--set ${key}=${value}`)
+    .map(([key, value]) => {
+      // For arrays and objects, use --set-json and JSON.stringify
+      if (Array.isArray(value) || (typeof value === 'object' && value !== null)) {
+        return `--set-json ${key}='${JSON.stringify(value)}'`;
+      }
+      // For simple values (strings, numbers, booleans), use normal --set
+      return `--set ${key}=${value}`;
+    })
     .join(' ');
 }
 
@@ -287,7 +442,7 @@ function createHelmCommand({
   namespace: string;
   valuesFile: string | undefined;
   timeout: string;
-  values: Record<string, string | number>;
+  values: Record<string, string | number | boolean | object | any[]>;
   reuseValues?: boolean;
 }) {
   const valuesFileArgs = valuesFile ? `--values ${helmChartDir}/values/${valuesFile}` : '';
@@ -297,7 +452,7 @@ function createHelmCommand({
   )}`;
 }
 
-async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
+export async function execHelmCommand(args: Parameters<typeof createHelmCommand>[0]) {
   const helmCommand = createHelmCommand(args);
   logger.info(`helm command: ${helmCommand}`);
   const { stdout } = await execAsync(helmCommand);
@@ -339,7 +494,7 @@ export async function installChaosMeshChart({
   chaosMeshNamespace?: string;
   timeout?: string;
   clean?: boolean;
-  values?: Record<string, string | number>;
+  values?: Record<string, string | number | boolean | object | any[]>;
   logger: Logger;
 }) {
   if (clean) {

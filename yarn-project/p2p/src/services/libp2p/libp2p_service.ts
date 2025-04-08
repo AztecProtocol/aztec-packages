@@ -310,10 +310,8 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
 
     // Get listen & announce addresses for logging
     const { p2pIp, p2pPort } = this.config;
-    if (!p2pIp) {
-      throw new Error('Announce address not provided.');
-    }
-    const announceTcpMultiaddr = convertToMultiaddr(p2pIp, p2pPort, 'tcp');
+    // Announce address can be undefined, as the discv5 service can discover it using enrUpdate
+    const announceTcpMultiaddr = p2pIp ? convertToMultiaddr(p2pIp, p2pPort, 'tcp') : undefined;
 
     // Start job queue, peer discovery service and libp2p node
     this.jobQueue.start();

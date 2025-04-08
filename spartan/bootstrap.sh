@@ -62,6 +62,7 @@ function test_cmds {
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-prod-deployment"
+    echo "$hash ./spartan/bootstrap.sh test-cli-add-validators"
     echo "$hash ./spartan/bootstrap.sh test-cli-upgrade"
   fi
 
@@ -158,6 +159,11 @@ case "$cmd" in
     OVERRIDES="telemetry.enabled=false,network.setupL2Contracts=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
+    ;;
+  "test-cli-add-validators")
+    OVERRIDES="telemetry.enabled=false" \
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
+      ./scripts/test_kind.sh src/spartan/add_additional_validators.test.ts add-validators.yaml add-validators${NAME_POSTFIX:-}
     ;;
   *)
     echo "Unknown command: $cmd"
