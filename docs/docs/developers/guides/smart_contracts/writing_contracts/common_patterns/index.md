@@ -58,7 +58,7 @@ contract Bridge {
         amount: Field,
     ) -> Field {
         ...
-    #include_code assert_token_is_same /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr raw
+    #include_code assert_token_is_same /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr raw
     }
 }
 ```
@@ -88,7 +88,7 @@ When you send someone a note, the note hash gets added to the note hash tree. To
 
 Note that this requires your contract to have a utility function that processes these notes and adds them to PXE.
 
-#include_code deliver_note_contract_method noir-projects/noir-contracts/contracts/token_blacklist_contract/src/main.nr rust
+#include_code deliver_note_contract_method noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr rust
 
 ### Revealing encrypted logs conditionally
 
@@ -150,4 +150,4 @@ E.g. for a voting contract, if your nullifier simply emits just the `user_addres
 
 Here is an example from the voting contract:
 
-#include_code cast_vote /noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code cast_vote /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust

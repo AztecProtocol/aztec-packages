@@ -20,7 +20,6 @@ import {
   type AllowedElement,
   SequencerConfigSchema,
   type WorldStateSynchronizer,
-  type WorldStateSynchronizerStatus,
 } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import { pickFromSchema } from '@aztec/stdlib/schemas';
@@ -293,7 +292,7 @@ export class Sequencer {
     );
 
     this.setState(SequencerState.INITIALIZING_PROPOSAL, slot);
-    this.log.verbose(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
+    this.log.debug(`Preparing proposal for block ${newBlockNumber} at slot ${slot}`, {
       chainTipArchive,
       blockNumber: newBlockNumber,
       slot,
@@ -321,8 +320,9 @@ export class Sequencer {
       });
       finishedFlushing = true;
     } else {
-      this.log.debug(
-        `Not enough txs to build block ${newBlockNumber} at slot ${slot}: got ${pendingTxCount} txs, need ${this.minTxsPerBlock}`,
+      this.log.verbose(
+        `Not enough txs to build block ${newBlockNumber} at slot ${slot} (got ${pendingTxCount} txs, need ${this.minTxsPerBlock})`,
+        { chainTipArchive, blockNumber: newBlockNumber, slot },
       );
     }
 
@@ -704,44 +704,37 @@ export class Sequencer {
    */
   protected async getChainTip(): Promise<{ blockNumber: number; archive: Fr } | undefined> {
     const syncedBlocks = await Promise.all([
-      this.worldState.status().then((s: WorldStateSynchronizerStatus) => {
-        return {
-          number: s.syncSummary.latestBlockNumber,
-          hash: s.syncSummary.latestBlockHash,
-        };
-      }),
+      this.worldState.status().then(({ syncSummary }) => ({
+        number: syncSummary.latestBlockNumber,
+        hash: syncSummary.latestBlockHash,
+      })),
       this.l2BlockSource.getL2Tips().then(t => t.latest),
       this.p2pClient.getStatus().then(p2p => p2p.syncedToL2Block),
-      this.l1ToL2MessageSource.getBlockNumber(),
+      this.l1ToL2MessageSource.getL2Tips().then(t => t.latest),
     ] as const);
 
     const [worldState, l2BlockSource, p2p, l1ToL2MessageSource] = syncedBlocks;
 
+    // The archiver reports 'undefined' hash for the genesis block
+    // because it doesn't have access to world state to compute it (facepalm)
     const result =
-      // check that world state has caught up with archiver
-      // note that the archiver reports undefined hash for the genesis block
-      // because it doesn't have access to world state to compute it (facepalm)
-      (l2BlockSource.hash === undefined || worldState.hash === l2BlockSource.hash) &&
-      // and p2p client and message source are at least at the same block
-      // this should change to hashes once p2p client handles reorgs
-      // and once we stop pretending that the l1tol2message source is not
-      // just the archiver under a different name
-      (!l2BlockSource.hash || p2p.hash === l2BlockSource.hash) &&
-      l1ToL2MessageSource === l2BlockSource.number;
+      l2BlockSource.hash === undefined
+        ? worldState.number === 0 && p2p.number === 0 && l1ToL2MessageSource.number === 0
+        : worldState.hash === l2BlockSource.hash &&
+          p2p.hash === l2BlockSource.hash &&
+          l1ToL2MessageSource.hash === l2BlockSource.hash;
 
     this.log.debug(`Sequencer sync check ${result ? 'succeeded' : 'failed'}`, {
-      worldStateNumber: worldState.number,
-      worldStateHash: worldState.hash,
-      l2BlockSourceNumber: l2BlockSource.number,
-      l2BlockSourceHash: l2BlockSource.hash,
-      p2pNumber: p2p.number,
-      p2pHash: p2p.hash,
-      l1ToL2MessageSourceNumber: l1ToL2MessageSource,
+      worldState,
+      l2BlockSource,
+      p2p,
+      l1ToL2MessageSource,
     });
 
     if (!result) {
       return undefined;
     }
+
     if (worldState.number >= INITIAL_L2_BLOCK_NUM) {
       const block = await this.l2BlockSource.getBlock(worldState.number);
       if (!block) {

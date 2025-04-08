@@ -259,7 +259,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void>;
 
@@ -329,16 +329,18 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param contractAddress - The address of the contract that emitted the log.
    * @param recipient - The address of the recipient.
    * @param eventSelector - The event selector of the event.
-   * @param logContent - The content of the private event log.
+   * @param msgContent - The content of the private event message.
    * @param txHash - The hash of the transaction that emitted the log.
    * @param logIndexInTx - The index of the log within the transaction.
+   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
    */
   storePrivateEventLog(
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void>;
 }

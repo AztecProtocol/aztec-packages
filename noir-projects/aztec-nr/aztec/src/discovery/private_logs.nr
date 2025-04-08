@@ -2,19 +2,17 @@ use crate::{
     capsules::CapsuleArray,
     discovery::{
         ComputeNoteHashAndNullifier,
-        MAX_LOG_CONTENT_LEN,
-        partial_notes::process_partial_note_private_log,
+        partial_notes::process_partial_note_private_msg,
         pending_tagged_log::{PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, PendingTaggedLog},
-        PRIVATE_LOG_EXPANDED_METADATA_LEN,
-        private_notes::process_private_note_log,
+        private_notes::process_private_note_msg,
     },
     encrypted_logs::{
-        log_assembly_strategies::default_aes128::aes128::AES128,
+        encoding::decode_message,
+        encrypt::aes128::AES128,
         log_encryption::LogEncryption,
-        log_type::{
-            PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_EVENT_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID,
+        msg_type::{
+            PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
         },
-        metadata_packing::from_expanded_metadata,
     },
     oracle::{logs::store_private_event_log, message_discovery::sync_notes},
     utils::array,
@@ -26,9 +24,6 @@ use protocol_types::{
     debug_log::{debug_log, debug_log_format},
     traits::FromField,
 };
-
-// TODO(#12750): don't make these values assume we're using AES.
-use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
 /// Searches for private logs that signal new private notes that are then delivered to PXE, or new partial notes that
 /// are stored in the PXE capsules so that `fetch_and_process_public_partial_note_completion_logs` can later search for
@@ -88,93 +83,46 @@ unconstrained fn process_log<Env>(
     // The first thing to do after decrypting the log is to determine what type of private log we're processing. We
     // have 3 log types: private note logs, partial note logs and event logs.
 
-    let (log_type_id, log_metadata, log_content) = decode_log_plaintext(log_plaintext);
+    let (msg_type_id, msg_metadata, msg_content) = decode_message(log_plaintext);
 
-    if log_type_id == PRIVATE_NOTE_LOG_TYPE_ID {
-        debug_log("Processing private note log");
+    if msg_type_id == PRIVATE_NOTE_MSG_TYPE_ID {
+        debug_log("Processing private note msg");
 
-        process_private_note_log(
+        process_private_note_msg(
             contract_address,
             pending_tagged_log.tx_hash,
             pending_tagged_log.unique_note_hashes_in_tx,
             pending_tagged_log.first_nullifier_in_tx,
             pending_tagged_log.recipient,
             compute_note_hash_and_nullifier,
-            log_metadata,
-            log_content,
+            msg_metadata,
+            msg_content,
         );
-    } else if log_type_id == PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID {
-        debug_log("Processing partial note private log");
+    } else if msg_type_id == PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID {
+        debug_log("Processing partial note private msg");
 
-        process_partial_note_private_log(
+        process_partial_note_private_msg(
             contract_address,
             pending_tagged_log.recipient,
-            log_metadata,
-            log_content,
+            msg_metadata,
+            msg_content,
         );
-    } else if log_type_id == PRIVATE_EVENT_LOG_TYPE_ID {
-        debug_log("Processing private event log");
+    } else if msg_type_id == PRIVATE_EVENT_MSG_TYPE_ID {
+        debug_log("Processing private event msg");
 
-        // In the case of event logs, the log metadata is the event selector.
-        let event_selector = EventSelector::from_field(log_metadata as Field);
+        // In the case of events, the msg metadata is the event selector.
+        let event_selector = EventSelector::from_field(msg_metadata as Field);
 
         store_private_event_log(
             contract_address,
             pending_tagged_log.recipient,
             event_selector,
-            log_content,
+            msg_content,
             pending_tagged_log.tx_hash,
             pending_tagged_log.log_index_in_tx,
+            pending_tagged_log.tx_index_in_block,
         );
     } else {
-        debug_log_format(
-            "Unknown log type id {0} (probably belonging to an event log)",
-            [log_type_id as Field],
-        );
+        debug_log_format("Unknown msg type id {0}", [msg_type_id as Field]);
     }
-}
-
-/// Decodes a log's plaintext following aztec-nr's standard log encoding.
-///
-/// The standard private log layout is composed of:
-///  - an initial field called the 'expanded metadata'
-///  - an arbitrary number of fields following that called the 'log content'
-///
-/// ```
-/// log_plaintext: [ log_expanded_metadata, ...log_content ]
-/// ```
-///
-/// The expanded metadata itself is (currently) interpreted as a u128, of which:
-///  - the upper 64 bits are the log type id
-///  - the lower 64 bits are called the 'log metadata'
-///
-/// ```
-/// log_expanded_metadata: [  log_type_id    |  log_metadata  ]
-///                        <---  64 bits --->|<--- 64 bits --->
-/// ```
-///
-/// The meaning of the log metadata and log content depend on the value of the log type id. Note that there is
-/// nothing special about the log metadata, it _can_ be considered part of the content. It just has a different name
-/// to make it distinct from the log content given that it is not a full field.
-unconstrained fn decode_log_plaintext(
-    log_plaintext: BoundedVec<Field, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS>,
-) -> (u64, u64, BoundedVec<Field, MAX_LOG_CONTENT_LEN>) {
-    assert(
-        log_plaintext.len() >= PRIVATE_LOG_EXPANDED_METADATA_LEN,
-        f"Invalid log plaintext: all logs must be decrypted into at least {PRIVATE_LOG_EXPANDED_METADATA_LEN} fields",
-    );
-
-    // If PRIVATE_LOG_EXPANDED_METADATA_LEN is changed, causing the assertion below to fail, then the destructuring of
-    // the log encoding below must be updated as well.
-    std::static_assert(
-        PRIVATE_LOG_EXPANDED_METADATA_LEN == 1,
-        "unexpected value for PRIVATE_LOG_EXPANDED_METADATA_LEN",
-    );
-
-    // See the documentation of this function for a description of the log layout
-    let expanded_log_metadata = log_plaintext.get(0);
-    let (log_metadata, log_type_id) = from_expanded_metadata(expanded_log_metadata);
-    let log_content = array::subbvec(log_plaintext, PRIVATE_LOG_EXPANDED_METADATA_LEN);
-
-    (log_type_id, log_metadata, log_content)
 }

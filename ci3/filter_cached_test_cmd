@@ -22,7 +22,7 @@ function process_batch {
     if [ -z "${results[$i]}" ]; then
       echo "${lines[$i]}"
     else
-      echo -e "${blue}SKIPPED${reset} (${yellow}http://ci.aztec-labs.com/${results[$i]}${reset}): ${lines[$i]}" >&3
+      echo -e "${blue}SKIPPED${reset} (${yellow}$(ci_term_link ${results[$i]})${reset}): ${lines[$i]}" >&3
     fi
   done
 }

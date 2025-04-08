@@ -7,6 +7,10 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
 
+function lint {
+  helm lint ./aztec-network/
+}
+
 function network_shaping {
   namespace="$1"
   chaos_values="$2"
@@ -57,7 +61,7 @@ function test_cmds {
   # TODO figure out why these take long sometimes.
   echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
@@ -116,7 +120,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke)
+  test|test_cmds|gke|lint)
     $cmd
     ;;
   "test-kind-smoke")

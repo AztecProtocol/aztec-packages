@@ -219,7 +219,7 @@ export class AccountWallet extends BaseWallet {
 
   private getIsConsumableAbi(): FunctionAbi {
     return {
-      name: 'unconstrained_is_consumable',
+      name: 'utility_is_consumable',
       isInitializer: false,
       functionType: FunctionType.UTILITY,
       isInternal: false,

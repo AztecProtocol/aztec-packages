@@ -49,4 +49,19 @@ FF MerkleDB::storage_read(const FF& leaf_slot) const
     return value;
 }
 
+void MerkleDB::create_checkpoint()
+{
+    raw_merkle_db.create_checkpoint();
+}
+
+void MerkleDB::commit_checkpoint()
+{
+    raw_merkle_db.commit_checkpoint();
+}
+
+void MerkleDB::revert_checkpoint()
+{
+    raw_merkle_db.revert_checkpoint();
+}
+
 } // namespace bb::avm2::simulation

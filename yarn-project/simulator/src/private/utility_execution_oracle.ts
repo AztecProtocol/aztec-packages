@@ -291,7 +291,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ) {
     // TODO(#10727): allow other contracts to deliver notes
@@ -370,17 +370,19 @@ export class UtilityExecutionOracle extends TypedOracle {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void> {
     return this.executionDataProvider.storePrivateEventLog(
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
     );
   }
 }

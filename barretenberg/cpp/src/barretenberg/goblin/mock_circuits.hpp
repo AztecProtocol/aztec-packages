@@ -183,13 +183,13 @@ class GoblinMockCircuits {
                                             const KernelInput& prev_kernel_accum)
     {
         PROFILE_THIS();
+        using AggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
 
         // Execute recursive aggregation of function proof
         auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
         auto proof = bb::convert_native_proof_to_stdlib(&builder, function_accum.proof);
         RecursiveVerifier verifier1{ &builder, verification_key };
-        verifier1.verify_proof(
-            proof, stdlib::recursion::init_default_aggregation_state<MegaBuilder, RecursiveFlavor::Curve>(builder));
+        verifier1.verify_proof(proof, AggregationObject::construct_default(builder));
 
         // Execute recursive aggregation of previous kernel proof if one exists
         if (!prev_kernel_accum.proof.empty()) {
@@ -197,8 +197,7 @@ class GoblinMockCircuits {
                 std::make_shared<RecursiveVerificationKey>(&builder, prev_kernel_accum.verification_key);
             auto proof = bb::convert_native_proof_to_stdlib(&builder, prev_kernel_accum.proof);
             RecursiveVerifier verifier2{ &builder, verification_key };
-            verifier2.verify_proof(
-                proof, stdlib::recursion::init_default_aggregation_state<MegaBuilder, RecursiveFlavor::Curve>(builder));
+            verifier2.verify_proof(proof, AggregationObject::construct_default(builder));
         }
     }
 };

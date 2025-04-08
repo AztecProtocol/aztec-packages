@@ -2,9 +2,9 @@ use crate::{
     capsules::CapsuleArray,
     discovery::{
         ComputeNoteHashAndNullifier,
-        MAX_LOG_CONTENT_LEN,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
     },
+    encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
     oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
 };
@@ -17,12 +17,12 @@ use dep::protocol_types::{
     traits::{Deserialize, Serialize, ToField},
 };
 
-global PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 2;
+global PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN: u32 = 2;
 
-/// Partial notes have a maximum packed length of their private fields bound by extra content in their private log (e.g.
-/// the storage slot, note completion log tag, etc.).
+/// Partial notes have a maximum packed length of their private fields bound by extra content in their private message
+/// (e.g. the storage slot, note completion log tag, etc.).
 pub global MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN: u32 =
-    MAX_LOG_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN;
+    MAX_MESSAGE_CONTENT_LEN - PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN;
 
 /// The slot in the PXE capsules where we store a `CapsuleArray` of `DeliveredPendingPartialNote`.
 pub global DELIVERED_PENDING_PARTIAL_NOTE_ARRAY_LENGTH_CAPSULES_SLOT: Field = sha256_to_field(
@@ -51,14 +51,14 @@ pub(crate) struct DeliveredPendingPartialNote {
     pub(crate) recipient: AztecAddress,
 }
 
-pub unconstrained fn process_partial_note_private_log(
+pub unconstrained fn process_partial_note_private_msg(
     contract_address: AztecAddress,
     recipient: AztecAddress,
-    log_metadata: u64,
-    log_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
+    msg_metadata: u64,
+    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) {
     let (note_type_id, storage_slot, note_completion_log_tag, packed_private_note_content) =
-        decode_partial_note_private_log(log_metadata, log_content);
+        decode_partial_note_private_msg(msg_metadata, msg_content);
 
     // We store the information of the partial note we found in a persistent capsule in PXE, so that we can later search
     // for the public log that will complete it.
@@ -124,8 +124,8 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
             );
 
             // Public fields are assumed to all be placed at the end of the packed representation, so we combine the
-            // private and public packed fields (i.e. the contents of the log sans the extra fields) to get the
-            // complete packed content.
+            // private and public packed fields (i.e. the contents of the private message and public log sans the extra
+            // fields) to get the complete packed content.
             let packed_public_note_content: BoundedVec<_, MAX_PUBLIC_PARTIAL_NOTE_PACKED_CONTENT_LENGTH> =
                 array::subbvec(log.log_content, NON_PACKED_CONTENT_FIELDS_IN_PUBLIC_LOG);
             let complete_packed_note = array::append(
@@ -181,30 +181,30 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
     }
 }
 
-fn decode_partial_note_private_log(
-    log_metadata: u64,
-    log_content: BoundedVec<Field, MAX_LOG_CONTENT_LEN>,
+fn decode_partial_note_private_msg(
+    msg_metadata: u64,
+    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
 ) -> (Field, Field, Field, BoundedVec<Field, MAX_PARTIAL_NOTE_PRIVATE_PACKED_LEN>) {
-    let note_type_id = log_metadata as Field; // TODO: make note type id not be a full field
+    let note_type_id = msg_metadata as Field; // TODO: make note type id not be a full field
 
     assert(
-        log_content.len() > PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN,
-        f"Invalid private note log: all partial note private logs must have at least {PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
+        msg_content.len() > PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN,
+        f"Invalid private note message: all partial note private messages must have at least {PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN} fields",
     );
 
-    // If PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the
-    // destructuring of the partial note private log encoding below must be updated as well.
+    // If PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN is changed, causing the assertion below to fail, then the
+    // destructuring of the partial note private message encoding below must be updated as well.
     std::static_assert(
-        PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN == 2,
-        "unexpected value for PARTIAL_NOTE_PRIVATE_LOG_CONTENT_NON_NOTE_FIELDS_LEN",
+        PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN == 2,
+        "unexpected value for PARTIAL_NOTE_PRIVATE_MSG_CONTENT_NON_NOTE_FIELDS_LEN",
     );
 
     // We currently have two fields that are not the partial note's packed representation, which are the storage slot
     // and the note completion log tag.
-    let storage_slot = log_content.get(0);
-    let note_completion_log_tag = log_content.get(1);
+    let storage_slot = msg_content.get(0);
+    let note_completion_log_tag = msg_content.get(1);
 
-    let packed_private_note_content = array::subbvec(log_content, 2);
+    let packed_private_note_content = array::subbvec(msg_content, 2);
 
     (note_type_id, storage_slot, note_completion_log_tag, packed_private_note_content)
 }
