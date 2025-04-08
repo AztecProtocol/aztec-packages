@@ -157,9 +157,7 @@ library EpochProofLib {
       }
     }
 
-    bytes32[] memory publicInputs = new bytes32[](
-      Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH
-    );
+    bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
 
     // Structure of the root rollup public inputs we need to reassemble:
     //
@@ -379,11 +377,7 @@ library EpochProofLib {
     }
 
     bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _args.start,
-      _args.end,
-      _args.args,
-      _args.fees,
-      _args.blobPublicInputs
+      _args.start, _args.end, _args.args, _args.fees, _args.blobPublicInputs
     );
 
     require(
