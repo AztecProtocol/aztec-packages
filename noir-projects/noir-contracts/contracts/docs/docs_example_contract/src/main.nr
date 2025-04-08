@@ -194,28 +194,6 @@ pub contract DocsExample {
         ));
     }
 
-    #[private]
-    fn insert_notes(amounts: [u8; 3]) {
-        for i in 0..amounts.len() {
-            let note = CardNote::new(amounts[i], 1, context.msg_sender());
-            storage.set.insert(note).emit(encode_and_encrypt_note(
-                &mut context,
-                context.msg_sender(),
-                context.msg_sender(),
-            ));
-        }
-    }
-    #[private]
-    fn insert_note(amount: u8, randomness: Field) {
-        let note = CardNote::new(amount, randomness, context.msg_sender());
-
-        storage.set.insert(note).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
-        ));
-    }
-
     // docs:start:state_vars-NoteGetterOptionsComparatorExampleNoir
     #[utility]
     unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
@@ -224,19 +202,6 @@ pub contract DocsExample {
     }
     // docs:end:state_vars-NoteGetterOptionsComparatorExampleNoir
 
-    #[private]
-    fn update_legendary_card(randomness: Field, points: u8) {
-        let new_card = CardNote::new(points, randomness, context.msg_sender());
-
-        storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
-            &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
-        ));
-        DocsExample::at(context.this_address()).update_leader(context.msg_sender(), points).enqueue(
-            &mut context,
-        );
-    }
     #[private]
     fn increase_legendary_points() {
         // Ensure `points` > current value
@@ -309,11 +274,6 @@ pub contract DocsExample {
         storage.private_immutable.get_note()
     }
     // docs:end:get_note-private-immutable
-
-    #[utility]
-    unconstrained fn view_imm_card() -> CardNote {
-        storage.private_immutable.view_note()
-    }
 
     #[utility]
     unconstrained fn is_priv_imm_initialized() -> bool {

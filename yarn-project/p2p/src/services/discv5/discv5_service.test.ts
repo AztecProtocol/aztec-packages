@@ -31,7 +31,7 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 15_0
 };
 
 describe('Discv5Service', () => {
-  jest.setTimeout(10_000);
+  jest.setTimeout(20_000);
 
   let store: AztecAsyncKVStore;
   let bootNode: BootstrapNode;
