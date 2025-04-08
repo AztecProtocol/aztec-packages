@@ -61,6 +61,7 @@ proverBroker:
       memory: "5Gi"
       cpu: "1"
   maxOldSpaceSize: "4608"
+  storageSize: "100Gi"
 
 proverNode:
   resources:
