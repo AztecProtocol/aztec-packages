@@ -215,7 +215,7 @@ class ECCVMCircuitBuilder {
     [[nodiscard]] size_t get_circuit_subgroup_size(const size_t num_rows) const
     {
 
-        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows + MASKING_OFFSET));
+        const auto num_rows_log2 = static_cast<size_t>(numeric::get_msb64(num_rows + NUM_DISABLED_ROWS_IN_SUMCHECK));
         size_t num_rows_pow2 = 1UL << (num_rows_log2 + (1UL << num_rows_log2 == num_rows ? 0 : 1));
         return num_rows_pow2;
     }

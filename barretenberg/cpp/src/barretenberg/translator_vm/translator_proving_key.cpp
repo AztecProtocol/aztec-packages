@@ -81,9 +81,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
     constexpr size_t num_interleaved_wires = Flavor::NUM_INTERLEAVED_WIRES;
 
     const size_t full_circuit_size = mini_circuit_dyadic_size * Flavor::INTERLEAVING_GROUP_SIZE;
-    const size_t mini_masking_offset = masking ? MASKING_OFFSET : 0;
-    const size_t full_masking_offset = masking ? mini_masking_offset * Flavor::INTERLEAVING_GROUP_SIZE : 0;
-    const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+    const size_t mini_NUM_DISABLED_ROWS_IN_SUMCHECK = masking ? NUM_DISABLED_ROWS_IN_SUMCHECK : 0;
+    const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK =
+        masking ? mini_NUM_DISABLED_ROWS_IN_SUMCHECK * Flavor::INTERLEAVING_GROUP_SIZE : 0;
+    const size_t real_circuit_size = full_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     // The value we have to end polynomials with, 2¹⁴ - 1
     constexpr uint32_t max_value = (1 << Flavor::MICRO_LIMB_BITS) - 1;
@@ -129,9 +130,10 @@ void TranslatorProvingKey::compute_translator_range_constraint_ordered_polynomia
         for (size_t j = 0; j < Flavor::INTERLEAVING_GROUP_SIZE; j++) {
 
             // Calculate the offset in the target vector
-            auto current_offset = j * (mini_circuit_dyadic_size - mini_masking_offset);
+            auto current_offset = j * (mini_circuit_dyadic_size - mini_NUM_DISABLED_ROWS_IN_SUMCHECK);
             // For each element in the polynomial
-            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_masking_offset; k++) {
+            for (size_t k = group[j].start_index(); k < group[j].end_index() - mini_NUM_DISABLED_ROWS_IN_SUMCHECK;
+                 k++) {
 
                 // Put it it the target polynomial
                 if ((current_offset + k) < free_space_before_runway) {

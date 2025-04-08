@@ -28,10 +28,12 @@ class ClientIVC {
   public:
     using Flavor = MegaFlavor;
     using MegaVerificationKey = Flavor::VerificationKey;
+    using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
@@ -226,7 +228,7 @@ class ClientIVC {
     void construct_vk();
     Proof prove();
 
-    std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, MergeProof> construct_hiding_circuit_key();
+    std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, MergeProof> construct_hiding_circuit_key();
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
