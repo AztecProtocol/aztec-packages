@@ -20,15 +20,9 @@ E.g. for a token contract:
 +token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
 ```
 
-### [Aztec.nr] #[utility] functions
+### [Aztec.nr] #[utility] contract functions
 
-We've introduced a new type of contract function macro called #[utility].
-Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
-They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
-These function were originally referred to as top-level unconstrained.
-
-Now all the contract functions have to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
-For this reason you need to apply #[utility] macro to functions which were originally macro-free:
+Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and what was sometimes called 'top-level unconstrained': an unmarked unconstrained function in the contract module. These are now called `[#utility]` functions, and must be explicitly marked as such:
 
 ```diff
 +    #[utility]
@@ -37,8 +31,11 @@ For this reason you need to apply #[utility] macro to functions which were origi
     }
 ```
 
-With this change the `UnconstrainedContext` has been renamed as `UtilityContext`.
-This led us to rename the `unkonstrained` method on `TestEnvironment` as `utility` so you will need to update your tests using that:
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+
+All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
+
+Additionally, the `UnconstrainedContext` type has been renamed to `UtilityContext`. This led us to rename the `unkonstrained` method on `TestEnvironment` to `utility`, so any tests using it also need updating:
 
 ```diff
 -     SharedMutable::new(env.unkonstrained(), storage_slot)

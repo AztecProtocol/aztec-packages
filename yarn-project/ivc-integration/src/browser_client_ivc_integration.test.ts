@@ -8,11 +8,8 @@ import {
   /* firefox, webkit */
 } from 'playwright';
 
-import {
-  generate3FunctionTestingIVCStack,
-  generate6FunctionTestingIVCStack,
-  proveThenVerifyAztecClient,
-} from './index.js';
+import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
+import { proveThenVerifyAztecClient } from './prove_wasm.js';
 
 /* eslint-disable camelcase */
 

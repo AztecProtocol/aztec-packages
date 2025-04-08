@@ -82,7 +82,7 @@ A `SharedMutable`'s storage **must** only be mutated via `schedule_value_change`
 
 ### `get_current_value`
 
-Returns the current value in a public, private or unconstrained execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
+Returns the current value in a public, private or utility execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
 
 #include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
