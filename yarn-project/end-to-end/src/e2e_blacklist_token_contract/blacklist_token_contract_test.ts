@@ -11,7 +11,7 @@ import {
   createLogger,
 } from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
@@ -67,7 +67,7 @@ export class BlacklistTokenContractTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
+  badAccount!: NoConstructorContract;
 
   admin!: AccountWallet;
   other!: AccountWallet;
@@ -119,7 +119,9 @@ export class BlacklistTokenContractTest {
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
+        // We use NoConstructorContract as a bad account here. Bad account in a sense that it does not implement
+        // an account entry point.
+        this.badAccount = await NoConstructorContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         await this.mineBlocks();
@@ -138,7 +140,7 @@ export class BlacklistTokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await NoConstructorContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
