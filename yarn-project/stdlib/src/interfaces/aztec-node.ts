@@ -38,14 +38,15 @@ import { NullifierMembershipWitness } from '../trees/nullifier_membership_witnes
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
   BlockHeader,
+  type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
   TxHash,
   TxReceipt,
   type TxValidationResult,
   TxValidationResultSchema,
+  indexedTxSchema,
 } from '../tx/index.js';
-import { TxEffect } from '../tx/tx_effect.js';
 import { ValidatorsStatsSchema } from '../validators/schemas.js';
 import type { ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
@@ -330,11 +331,11 @@ export interface AztecNode
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Method to retrieve pending txs.
@@ -516,7 +517,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
 
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
 

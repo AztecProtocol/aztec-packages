@@ -10,7 +10,6 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -29,10 +28,18 @@ import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import {
+  type IndexedTxEffect,
+  PrivateExecutionResult,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+  TxSimulationResult,
+  indexedTxSchema,
+} from '../tx/index.js';
 import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
-import { TxEffect } from '../tx/tx_effect.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
@@ -202,11 +209,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -470,10 +477,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(TxSimulationResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
-  getTxEffect: z
-    .function()
-    .args(TxHash.schema)
-    .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
   getL1ToL2MembershipWitness: z

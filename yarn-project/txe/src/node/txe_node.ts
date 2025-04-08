@@ -44,6 +44,7 @@ import {
 } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
+  type IndexedTxEffect,
   type PublicSimulationOutput,
   type Tx,
   type TxEffect,
@@ -56,7 +57,7 @@ import type { NativeWorldStateService } from '@aztec/world-state';
 
 export class TXENode implements AztecNode {
   #logsByTags = new Map<string, TxScopedL2Log[]>();
-  #txEffectsByTxHash = new Map<string, InBlock<TxEffect>>();
+  #txEffectsByTxHash = new Map<string, InBlock<TxEffect> & { txIndexInBlock: number }>();
   #txReceiptsByTxHash = new Map<string, TxReceipt>();
   #noteIndex = 0;
 
@@ -87,11 +88,11 @@ export class TXENode implements AztecNode {
   }
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     const txEffect = this.#txEffectsByTxHash.get(txHash.toString());
 
     return Promise.resolve(txEffect);
@@ -100,10 +101,11 @@ export class TXENode implements AztecNode {
   /**
    * Processes a tx effect and receipt for a given block number.
    * @param blockNumber - The block number that this tx effect resides.
+   * @param txIndexInBlock - The index of the tx in the block.
    * @param txHash - The transaction hash of the transaction.
    * @param effect - The tx effect to set.
    */
-  async processTxEffect(blockNumber: number, txHash: TxHash, effect: TxEffect) {
+  async processTxEffect(blockNumber: number, txIndexInBlock: number, txHash: TxHash, effect: TxEffect) {
     // We are not creating real blocks on which membership proofs can be constructed - we instead define its hash as
     // simply the hash of the block number.
     const blockHash = await poseidon2Hash([blockNumber]);
@@ -112,6 +114,7 @@ export class TXENode implements AztecNode {
       l2BlockHash: blockHash.toString(),
       l2BlockNumber: blockNumber,
       data: effect,
+      txIndexInBlock,
     });
 
     // We also set the receipt since we want to be able to serve `getTxReceipt` - we don't care about most values here,

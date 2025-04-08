@@ -5,7 +5,7 @@ use crate::{
         encrypt::aes128::AES128,
         log_assembly_strategies::default_aes128::utils::prefix_with_tag,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
+        msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
 };
@@ -29,7 +29,7 @@ fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u3
 fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
-    log_type_id: u64,
+    msg_type_id: u64,
 ) -> [Field; (N + 2)]
 where
     Note: NoteType + Packable<N>,
@@ -40,7 +40,7 @@ where
 
     // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
     // where the value gets decoded.
-    fields[0] = to_expanded_metadata(log_type_id, Note::get_id() as u64);
+    fields[0] = to_expanded_metadata(msg_type_id, Note::get_id() as u64);
     fields[1] = storage_slot;
     for i in 0..packed_note.len() {
         fields[i + 2] = packed_note[i];
@@ -63,7 +63,7 @@ where
         storage_slot,
         recipient,
         sender,
-        PRIVATE_NOTE_LOG_TYPE_ID,
+        PRIVATE_NOTE_MSG_TYPE_ID,
     )
 }
 
@@ -81,7 +81,7 @@ where
         storage_slot,
         recipient,
         sender,
-        PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID,
+        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
     )
 }
 
@@ -90,12 +90,12 @@ fn compute_log<Note, let N: u32>(
     storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
-    log_type_id: u64,
+    msg_type_id: u64,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Note: NoteType + Packable<N>,
 {
-    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot, log_type_id);
+    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot, msg_type_id);
 
     let ciphertext = AES128::encrypt_log(plaintext, recipient);
 
