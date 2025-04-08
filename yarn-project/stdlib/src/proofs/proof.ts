@@ -82,7 +82,7 @@ export class Proof {
     assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
     const numInnerPublicInputs = this.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
     const reader = BufferReader.asReader(this.buffer.subarray(0, Fr.SIZE_IN_BYTES * numInnerPublicInputs));
-    let publicInputs = reader.readArray(numInnerPublicInputs, Fr);
+    const publicInputs = reader.readArray(numInnerPublicInputs, Fr);
     return publicInputs;
   }
 
