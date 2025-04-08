@@ -738,7 +738,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.info(
       `Detected chain prune. Removing invalid txs count=${
         txsToDelete.length
-      } newLatestBlock=${latestBlock} previousLatestBlock=${this.getSyncedLatestBlockNum()}`,
+      } newLatestBlock=${latestBlock} previousLatestBlock=${await this.getSyncedLatestBlockNum()}`,
     );
 
     // delete invalid txs (both pending and mined)

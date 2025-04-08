@@ -44,7 +44,6 @@ template <typename Curve> class ShpleminiProver_ {
         std::vector<OpeningClaim> opening_claims = GeminiProver::prove(
             circuit_size, polynomial_batcher, multilinear_challenge, commitment_key, transcript, has_zk);
         // Create opening claims for Libra masking univariates and Sumcheck Round Univariates
-        OpeningClaim new_claim;
         std::vector<OpeningClaim> libra_opening_claims;
 
         if (has_zk) {

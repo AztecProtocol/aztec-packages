@@ -204,10 +204,22 @@ export class TXENode implements AztecNode {
     // hold a reference to them.
     // We should likely migrate this so that the trees are owned by the node.
 
-    // TODO: blockNumber is being passed as undefined, figure out why
+    if (blockNumber === undefined) {
+      throw new Error(
+        `This error should never happen. We are trying to 'findLeavesIndexes' in the TXe node with an undefined block number.`,
+      );
+    }
+
+    if (blockNumber === (await this.getBlockNumber())) {
+      throw new Error(
+        `The node is being requested for state that is currently being built (not committed). Note that in the TXe, the blockNumber is not the latest committed block. It's the current pending one.
+        Current block number is: ${blockNumber}.`,
+      );
+    }
+
     const db: MerkleTreeReadOperations =
-      blockNumber === (await this.getBlockNumber()) || blockNumber === 'latest' || blockNumber === undefined
-        ? this.baseFork
+      blockNumber === 'latest'
+        ? this.nativeWorldStateService.getCommitted()
         : this.nativeWorldStateService.getSnapshot(blockNumber);
 
     const maybeIndices = await db.findLeafIndices(
