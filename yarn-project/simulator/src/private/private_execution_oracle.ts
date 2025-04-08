@@ -31,12 +31,12 @@ import type { HashedValuesCache } from './hashed_values_cache.js';
 import { pickNotes } from './pick_notes.js';
 import { executePrivateFunction, verifyCurrentClassId } from './private_execution.js';
 import type { SimulationProvider } from './providers/simulation_provider.js';
-import { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
+import { UtilityExecutionOracle } from './utility_execution_oracle.js';
 
 /**
  * The execution oracle for the private part of a transaction.
  */
-export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
+export class PrivateExecutionOracle extends UtilityExecutionOracle {
   /**
    * New notes created during this execution.
    * It's possible that a note in this list has been nullified (in the same or other executions) and doesn't exist in the ExecutionNoteCache and the final proof data.
@@ -500,15 +500,8 @@ export class PrivateExecutionOracle extends UnconstrainedExecutionOracle {
     await this.executionDataProvider.incrementAppTaggingSecretIndexAsSender(this.contractAddress, sender, recipient);
   }
 
-  public override async syncNotes() {
-    const taggedLogsByRecipient = await this.executionDataProvider.syncTaggedLogs(this.contractAddress, this.scopes);
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.executionDataProvider.processTaggedLogs(
-        this.contractAddress,
-        taggedLogs,
-        AztecAddress.fromString(recipient),
-      );
-    }
+  public override async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+    await this.executionDataProvider.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot, this.scopes);
 
     await this.executionDataProvider.removeNullifiedNotes(this.contractAddress);
   }

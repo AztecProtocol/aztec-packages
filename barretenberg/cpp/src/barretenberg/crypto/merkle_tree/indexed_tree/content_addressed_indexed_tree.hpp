@@ -1,18 +1,5 @@
 #pragma once
-#include "../hash.hpp"
-#include "../hash_path.hpp"
-#include "../signal.hpp"
-#include "barretenberg/common/assert.hpp"
-#include "barretenberg/common/thread_pool.hpp"
-#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
-#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
-#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
-#include "barretenberg/crypto/merkle_tree/response.hpp"
-#include "barretenberg/crypto/merkle_tree/types.hpp"
-#include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/numeric/uint256/uint256.hpp"
-#include "indexed_leaf.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <cmath>
@@ -30,6 +17,22 @@
 #include <unordered_set>
 #include <utility>
 #include <vector>
+
+#include "barretenberg/common/assert.hpp"
+#include "barretenberg/common/thread_pool.hpp"
+#include "barretenberg/common/utils.hpp"
+#include "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp"
+#include "barretenberg/crypto/merkle_tree/hash.hpp"
+#include "barretenberg/crypto/merkle_tree/hash_path.hpp"
+#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
+#include "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp"
+#include "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp"
+#include "barretenberg/crypto/merkle_tree/response.hpp"
+#include "barretenberg/crypto/merkle_tree/signal.hpp"
+#include "barretenberg/crypto/merkle_tree/types.hpp"
+#include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 
 namespace bb::crypto::merkle_tree {
 
@@ -630,6 +633,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::add_or_update_values_int
             }
             TypedResponse<GetSiblingPathResponse> response;
             response.success = true;
+
             sibling_path_completion(response);
         }
     };
@@ -706,15 +710,17 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
 
     // We now kick off multiple workers to perform the low leaf updates
     // We create set of signals to coordinate the workers as the move up the tree
-    // We don';t want toflood the provided thread pool with jobs that can't be processed so we throttle the rate
+    // We don';t want to flood the provided thread pool with jobs that can't be processed so we throttle the rate
     // at which jobs are added to the thread pool. This enables other trees to utilise the same pool
-    std::shared_ptr<std::vector<Signal>> signals = std::make_shared<std::vector<Signal>>();
+    // NOTE: Wrapping signals with unique_ptr to make them movable (re: mac build).
+    // Feel free to reconsider and make Signal movable.
+    auto signals = std::make_shared<std::vector<std::unique_ptr<Signal>>>();
     std::shared_ptr<Status> status = std::make_shared<Status>();
     // The first signal is set to 0. This ensures the first worker up the tree is not impeded
-    signals->emplace_back(0);
+    signals->emplace_back(std::make_unique<Signal>(0));
     // Workers will follow their leaders up the tree, being triggered by the signal in front of them
     for (size_t i = 0; i < updates->size(); ++i) {
-        signals->emplace_back(uint32_t(1 + depth_));
+        signals->emplace_back(std::make_unique<Signal>(static_cast<uint32_t>(1 + depth_)));
     }
 
     {
@@ -752,8 +758,8 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates(
         for (uint32_t i = 0; i < updates->size(); ++i) {
             std::function<void()> op = [=, this]() {
                 LeafUpdate& update = (*updates)[i];
-                Signal& leaderSignal = (*signals)[i];
-                Signal& followerSignal = (*signals)[i + 1];
+                Signal& leaderSignal = *(*signals)[i];
+                Signal& followerSignal = *(*signals)[i + 1];
                 try {
                     auto& current_witness_data = update_witnesses->at(i);
                     current_witness_data.leaf = update.original_leaf;
@@ -828,7 +834,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::perform_updates_without_
     uint64_t numBatchesPower2Floor = numeric::get_msb(workers_->num_threads());
     index_t numBatches = static_cast<index_t>(std::pow(2UL, numBatchesPower2Floor));
     index_t batchSize = span / numBatches;
-    batchSize = std::max(batchSize, 2UL);
+    batchSize = std::max(batchSize, static_cast<index_t>(2));
     index_t startIndex = 0;
     indexPower2Ceil = log2Ceil(batchSize);
     uint32_t rootLevel = depth_ - static_cast<uint32_t>(indexPower2Ceil);
@@ -899,7 +905,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_hashes_for_appe
 template <typename Store, typename HashingPolicy>
 void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
     const std::shared_ptr<std::vector<std::pair<LeafValueType, index_t>>>& values_to_be_sorted,
-    const InsertionGenerationCallback& on_completion)
+    const InsertionGenerationCallback& completion)
 {
     execute_and_report<InsertionGenerationResponse>(
         [=, this](TypedResponse<InsertionGenerationResponse>& response) {
@@ -1064,7 +1070,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::generate_insertions(
                 }
             }
         },
-        on_completion);
+        completion);
 }
 
 template <typename Store, typename HashingPolicy>
@@ -1169,8 +1175,7 @@ void ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_batch_update(
     while (level > 0) {
         std::vector<index_t> next_indices;
         std::unordered_map<index_t, fr> next_hashes;
-        for (size_t i = 0; i < indices.size(); ++i) {
-            index_t index = indices[i];
+        for (index_t index : indices) {
             index_t parent_index = index >> 1;
             auto it = unique_indices.insert(parent_index);
             if (!it.second) {
@@ -1253,8 +1258,7 @@ std::pair<bool, fr> ContentAddressedIndexedTree<Store, HashingPolicy>::sparse_ba
     while (level > root_level) {
         std::vector<index_t> next_indices;
         std::unordered_map<index_t, fr> next_hashes;
-        for (size_t i = 0; i < indices.size(); ++i) {
-            index_t index = indices[i];
+        for (index_t index : indices) {
             index_t parent_index = index >> 1;
             auto it = unique_indices.insert(parent_index);
             if (!it.second) {

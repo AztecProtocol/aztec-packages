@@ -1,7 +1,12 @@
 import { Fr } from '@aztec/foundation/fields';
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
 import type { AnyTx, Tx } from '@aztec/stdlib/tx';
-import { MaxBlockNumber } from '@aztec/stdlib/tx';
+import {
+  MaxBlockNumber,
+  TX_ERROR_INCORRECT_CHAIN_ID,
+  TX_ERROR_INCORRECT_ROLLUP_VERSION,
+  TX_ERROR_INVALID_BLOCK_NUMBER,
+} from '@aztec/stdlib/tx';
 
 import { MetadataTxValidator } from './metadata_validator.js';
 
@@ -42,8 +47,8 @@ describe('MetadataTxValidator', () => {
 
     await expectValid(goodTxs[0]);
     await expectValid(goodTxs[1]);
-    await expectInvalid(badTxs[0], 'Incorrect chain id');
-    await expectInvalid(badTxs[1], 'Incorrect chain id');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CHAIN_ID);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CHAIN_ID);
   });
 
   it('allows only transactions for the right rollup', async () => {
@@ -62,8 +67,8 @@ describe('MetadataTxValidator', () => {
 
     await expectValid(goodTxs[0]);
     await expectValid(goodTxs[1]);
-    await expectInvalid(badTxs[0], 'Incorrect rollup version');
-    await expectInvalid(badTxs[1], 'Incorrect rollup version');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_ROLLUP_VERSION);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_ROLLUP_VERSION);
   });
 
   it.each([42, 43])('allows txs with valid max block number', async maxBlockNumber => {
@@ -90,6 +95,6 @@ describe('MetadataTxValidator', () => {
     badTx.data.constants.txContext.version = rollupVersion;
     badTx.data.rollupValidationRequests.maxBlockNumber = new MaxBlockNumber(true, blockNumber.sub(new Fr(1)));
 
-    await expectInvalid(badTx, 'Invalid block number');
+    await expectInvalid(badTx, TX_ERROR_INVALID_BLOCK_NUMBER);
   });
 });

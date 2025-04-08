@@ -56,5 +56,6 @@ export async function getGenesisValues(
     genesisArchiveRoot,
     genesisBlockHash,
     prefilledPublicData,
+    fundingNeeded: BigInt(initialAccounts.length) * initialAccountFeeJuice.toBigInt(),
   };
 }

@@ -36,6 +36,10 @@ export class NullifierLeafPreimage implements IndexedTreeLeafPreimage {
       .transform(({ leaf, nextKey, nextIndex }) => new NullifierLeafPreimage(leaf, nextKey, nextIndex));
   }
 
+  static get leafSchema() {
+    return NullifierLeaf.schema;
+  }
+
   getKey(): bigint {
     return this.leaf.getKey();
   }

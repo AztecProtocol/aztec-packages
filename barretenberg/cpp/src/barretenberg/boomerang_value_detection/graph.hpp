@@ -68,6 +68,23 @@ template <typename FF> class Graph_ {
     Graph_(const bb::StandardCircuitBuilder_<FF>& circuit_constructor);
     Graph_(bb::UltraCircuitBuilder& ultra_circuit_constructor);
 
+    /**
+     * @brief Convert a vector of variable indices to their real indices
+     * @param ultra_circuit_constructor The UltraCircuitBuilder instance
+     * @param variable_indices The vector of variable indices to convert
+     * @return std::vector<uint32_t> A vector of real variable indices
+     */
+    std::vector<uint32_t> to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor,
+                                  std::vector<uint32_t>& variable_indices)
+    {
+        std::vector<uint32_t> real_variable_indices;
+        real_variable_indices.reserve(variable_indices.size());
+        for (auto& variable_index : variable_indices) {
+            real_variable_indices.push_back(to_real(ultra_circuit_constructor, variable_index));
+        }
+        return real_variable_indices;
+    };
+
     uint32_t to_real(bb::UltraCircuitBuilder& ultra_circuit_constructor, const uint32_t& variable_index)
     {
         return ultra_circuit_constructor.real_variable_index[variable_index];
@@ -130,8 +147,7 @@ template <typename FF> class Graph_ {
                                              const uint32_t& var_index);
 
     void connect_all_variables_in_vector(bb::UltraCircuitBuilder& ultra_circuit_builder,
-                                         const std::vector<uint32_t>& variables_vector,
-                                         bool is_sorted_variables);
+                                         const std::vector<uint32_t>& variables_vector);
     bool check_is_not_constant_variable(bb::UltraCircuitBuilder& ultra_circuit_builder, const uint32_t& variable_index);
 
     std::pair<std::vector<uint32_t>, size_t> get_connected_component_with_index(

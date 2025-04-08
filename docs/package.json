@@ -15,7 +15,7 @@
     "typedoc": "docusaurus generate-typedoc",
     "rewrite": "node ./scripts/rewrite_paths.js",
     "version::stables": "node ./scripts/setStable.js",
-    "version": "yarn version::stables && ./scripts/cut_version.sh"
+    "version": "./scripts/cut_version.sh"
   },
   "dependencies": {
     "@babel/runtime": "^7.26.0",

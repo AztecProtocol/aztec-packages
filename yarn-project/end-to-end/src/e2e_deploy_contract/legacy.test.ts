@@ -12,6 +12,7 @@ import {
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
 import { TokenContractArtifact } from '@aztec/noir-contracts.js/Token';
+import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { DeployTest } from './deploy_test.js';
 
@@ -82,7 +83,7 @@ describe('e2e_deploy_contract legacy', () => {
     const deployer = new ContractDeployer(TestContractArtifact, wallet);
 
     await deployer.deploy().send({ contractAddressSalt }).wait({ wallet });
-    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(/dropped/);
+    await expect(deployer.deploy().send({ contractAddressSalt }).wait()).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
   });
 
   it('should not deploy a contract which failed the public part of the execution', async () => {

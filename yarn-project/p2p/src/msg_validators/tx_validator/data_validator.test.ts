@@ -5,7 +5,15 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ScopedLogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLog } from '@aztec/stdlib/logs';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { Tx } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
+  TX_ERROR_CALLDATA_COUNT_TOO_LARGE,
+  TX_ERROR_CONTRACT_CLASS_LOGS,
+  TX_ERROR_CONTRACT_CLASS_LOG_COUNT,
+  TX_ERROR_CONTRACT_CLASS_LOG_LENGTH,
+  TX_ERROR_INCORRECT_CALLDATA,
+  type Tx,
+} from '@aztec/stdlib/tx';
 
 import { DataTxValidator } from './data_validator.js';
 
@@ -98,7 +106,7 @@ describe('TxDataValidator', () => {
 
     for (let i = 0; i < badTxSettings.length; i++) {
       const badTx = await mockTx(2, badTxSettings[i]);
-      await expectInvalid(badTx, 'Total calldata too large for enqueued public calls');
+      await expectInvalid(badTx, TX_ERROR_CALLDATA_COUNT_TOO_LARGE);
     }
   });
 
@@ -110,8 +118,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Incorrect calldata for public call');
-    await expectInvalid(badTxs[1], 'Incorrect calldata for public call');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CALLDATA);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CALLDATA);
   });
 
   it('rejects txs with mismatch calldata for revertible public calls', async () => {
@@ -122,8 +130,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Incorrect calldata for public call');
-    await expectInvalid(badTxs[1], 'Incorrect calldata for public call');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CALLDATA);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CALLDATA);
   });
 
   it('rejects txs with mismatch calldata for teardown call', async () => {
@@ -134,8 +142,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Incorrect calldata for public call');
-    await expectInvalid(badTxs[1], 'Incorrect calldata for public call');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CALLDATA);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CALLDATA);
   });
 
   it('rejects txs with mismatch number of calldata', async () => {
@@ -148,8 +156,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Wrong number of calldata for public calls');
-    await expectInvalid(badTxs[1], 'Wrong number of calldata for public calls');
+    await expectInvalid(badTxs[0], TX_ERROR_CALLDATA_COUNT_MISMATCH);
+    await expectInvalid(badTxs[1], TX_ERROR_CALLDATA_COUNT_MISMATCH);
   });
 
   it('rejects txs with mismatch number of contract class logs', async () => {
@@ -169,8 +177,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Mismatched number of contract class logs');
-    await expectInvalid(badTxs[1], 'Mismatched number of contract class logs');
+    await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_COUNT);
+    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOG_COUNT);
   });
 
   // Can uncomment below if MAX_CONTRACT_CLASS_LOGS_PER_TX > 1:
@@ -201,8 +209,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Mismatched contract class logs');
-    await expectInvalid(badTxs[1], 'Mismatched contract class logs');
+    await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOGS);
+    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOGS);
   });
 
   it('rejects txs with mismatched contract class logs length', async () => {
@@ -217,7 +225,7 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Mismatched contract class logs length');
-    await expectInvalid(badTxs[1], 'Mismatched contract class logs length');
+    await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
+    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
   });
 });

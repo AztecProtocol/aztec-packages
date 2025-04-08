@@ -165,7 +165,7 @@ const AbiErrorTypeSchema = z.union([
 export enum FunctionType {
   PRIVATE = 'private',
   PUBLIC = 'public',
-  UNCONSTRAINED = 'unconstrained',
+  UTILITY = 'utility',
 }
 
 /** The abi entry of a function. */
@@ -339,7 +339,7 @@ export interface ContractArtifact {
   /** The name of the contract. */
   name: string;
 
-  /** The functions of the contract. Includes private and unconstrained functions, plus the public dispatch function. */
+  /** The functions of the contract. Includes private and utility functions, plus the public dispatch function. */
   functions: FunctionArtifact[];
 
   /** The public functions of the contract, excluding dispatch. */

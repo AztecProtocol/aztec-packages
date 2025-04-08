@@ -11,7 +11,7 @@ import {
 } from '@aztec/ethereum';
 import { createLogger } from '@aztec/foundation/log';
 import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { ChildProcess } from 'child_process';
@@ -82,7 +82,9 @@ describe('spartan_upgrade_rollup_version', () => {
       debugLogger.info(`l1WalletClient: ${l1WalletClient.account.address}`);
       const initialTestAccounts = await getInitialTestAccounts();
 
-      const { genesisBlockHash, genesisArchiveRoot } = await getGenesisValues(initialTestAccounts.map(a => a.address));
+      const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(
+        initialTestAccounts.map(a => a.address),
+      );
 
       const rollup = new RollupContract(l1PublicClient, originalL1ContractAddresses.rollupAddress.toString());
       const { rollup: newRollup } = await deployRollupForUpgrade(
@@ -94,7 +96,6 @@ describe('spartan_upgrade_rollup_version', () => {
           salt: Math.floor(Math.random() * 1000000),
           vkTreeRoot: getVKTreeRoot(),
           protocolContractTreeRoot,
-          l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice.toField(),
           genesisArchiveRoot,
           genesisBlockHash,
           ethereumSlotDuration: 12,
@@ -109,6 +110,7 @@ describe('spartan_upgrade_rollup_version', () => {
           governanceProposerRoundSize: 10,
           manaTarget: BigInt(100e6),
           provingCostPerMana: BigInt(100),
+          feeJuicePortalInitialBalance: fundingNeeded,
         },
         originalL1ContractAddresses.registryAddress,
         debugLogger,

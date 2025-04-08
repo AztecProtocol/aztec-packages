@@ -69,7 +69,7 @@ import type { CircuitProvingStats, CircuitWitnessGenerationStats } from '@aztec/
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 import { Attributes, type TelemetryClient, getTelemetryClient, trackSpan } from '@aztec/telemetry-client';
 
-import { assert } from 'console';
+import assert from 'assert';
 import crypto from 'crypto';
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -183,7 +183,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
    * @returns The proof.
    */
   @trackSpan('BBNativeRollupProver.getAvmProof', inputs => ({
-    [Attributes.APP_CIRCUIT_NAME]: inputs.functionName,
+    [Attributes.APP_CIRCUIT_NAME]: inputs.hints.tx.hash,
   }))
   public async getAvmProof(
     inputs: AvmCircuitInputs,
@@ -503,12 +503,12 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }
 
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
-    logger.info(`Proving avm-circuit for ${input.functionName}...`);
+    logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
     const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
-      logger.error(`Failed to generate AVM proof for ${input.functionName}: ${provingResult.reason}`);
+      logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
       throw new ProvingError(provingResult.reason, provingResult, provingResult.retry);
     }
 
@@ -556,10 +556,10 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       this.instrumentation.recordAvmSize('circuitSize', appCircuitName, verificationKey.circuitSize);
 
       logger.info(
-        `Generated proof for ${circuitType}(${input.functionName}) in ${Math.ceil(provingResult.durationMs)} ms`,
+        `Generated proof for ${circuitType}(${input.hints.tx.hash}) in ${Math.ceil(provingResult.durationMs)} ms`,
         {
           circuitName: circuitType,
-          appCircuitName: input.functionName,
+          appCircuitName: input.hints.tx.hash,
           // does not include reading the proof from disk
           duration: provingResult.durationMs,
           proofSize: avmProof.binaryProof.buffer.length,
@@ -697,8 +697,9 @@ export class BBNativeRollupProver implements ServerCircuitProver {
       const publicInputsFileName = path.join(bbWorkingDirectory, PUBLIC_INPUTS_FILENAME);
       const proofFileName = path.join(bbWorkingDirectory, PROOF_FILENAME);
       const verificationKeyPath = path.join(bbWorkingDirectory, VK_FILENAME);
-      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32 + 4));
-      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32 + 4));
+      // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13189): Put this proof parsing logic in the proof class.
+      await fs.writeFile(publicInputsFileName, proof.buffer.slice(0, proof.numPublicInputs * 32));
+      await fs.writeFile(proofFileName, proof.buffer.slice(proof.numPublicInputs * 32));
       await fs.writeFile(verificationKeyPath, verificationKey.keyAsBytes);
 
       const result = await verificationFunction(proofFileName, verificationKeyPath!);
@@ -745,25 +746,27 @@ export class BBNativeRollupProver implements ServerCircuitProver {
     const json = JSON.parse(proofString);
 
     let numPublicInputs = vkData.numPublicInputs - AGGREGATION_OBJECT_LENGTH;
+    assert(
+      proofLength == NESTED_RECURSIVE_PROOF_LENGTH || proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+      `Proof length must be one of the expected proof lengths, received ${proofLength}`,
+    );
     if (proofLength == NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH) {
       numPublicInputs -= IPA_CLAIM_LENGTH;
     }
 
-    assert(json.length == proofLength, 'Proof length mismatch');
+    assert(json.length == proofLength, `Proof length mismatch: ${json.length} != ${proofLength}`);
 
     const fieldsWithoutPublicInputs = json.map(Fr.fromHexString);
 
     // Concat binary public inputs and binary proof
-    // This buffer will have the form: [4 bytes of metadata for public inputs, binary public inputs, 4 bytes of metadata for proof, binary proof]
+    // This buffer will have the form: [binary public inputs, binary proof]
     const binaryProofWithPublicInputs = Buffer.concat([binaryPublicInputs, binaryProof]);
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Get rid of if possible.
-    const metadataLength = 4;
-    assert(
-      binaryProofWithPublicInputs.length ==
-        metadataLength + numPublicInputs * 32 + metadataLength + NESTED_RECURSIVE_PROOF_LENGTH * 32,
-    );
     logger.debug(
       `Circuit path: ${filePath}, complete proof length: ${json.length}, num public inputs: ${numPublicInputs}, circuit size: ${vkData.circuitSize}, is recursive: ${vkData.isRecursive}, raw length: ${binaryProofWithPublicInputs.length}`,
+    );
+    assert(
+      binaryProofWithPublicInputs.length == numPublicInputs * 32 + proofLength * 32,
+      `Proof length mismatch: ${binaryProofWithPublicInputs.length} != ${numPublicInputs * 32 + proofLength * 32}`,
     );
     return new RecursiveProof(
       fieldsWithoutPublicInputs,
