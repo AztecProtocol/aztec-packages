@@ -2,9 +2,6 @@
 network:
   public: false
 
-storage:
-  localSsd: true
-
 aztec:
   setupL2Contracts: true
   realProofs: false
