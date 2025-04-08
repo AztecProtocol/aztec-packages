@@ -55,21 +55,34 @@ contract GovScript is Test {
   }
 
   function miscLookup() public {
-    emit log("# Fee Asset");
+    emit log_named_address("# Registry", address(registry));
+    emit log_named_address("\tOwner", Ownable(address(registry)).owner());
+    emit log_named_uint("\tNumber of versions", registry.numberOfVersions());
+    emit log_named_address("\tCanonical rollup", address(registry.getCanonicalRollup()));
+
+    emit log_named_address("# Fee Asset", address(feeAsset));
     emit log_named_decimal_uint("\tMint Amount", feeAssetHandler.mintAmount(), 18);
 
-    emit log("# Staking Asset");
+    emit log_named_address("# Staking Asset", address(stakingAsset));
     emit log_named_decimal_uint("\tDeposit Amount   ", stakingAssetHandler.depositAmount(), 18);
     emit log_named_uint("\tMint Interval    ", stakingAssetHandler.mintInterval());
     emit log_named_uint("\tDeposits Per Mint", stakingAssetHandler.depositsPerMint());
     emit log_named_address("\tRollup           ", address(stakingAssetHandler.rollup()));
     emit log_named_address("\tWithdrawer       ", address(stakingAssetHandler.withdrawer()));
 
-    emit log("# Rollup");
+    emit log_named_address("# Rollup", address(rollup));
     uint256 baseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
     emit log_named_uint("\tBase fee", baseFee);
+    emit log_named_address("\tOwner", Ownable(address(rollup)).owner());
+    emit log_named_uint("\tPending block number", rollup.getPendingBlockNumber());
+    emit log_named_uint("\tProven block number ", rollup.getProvenBlockNumber());
+    // @todo
+    emit log_named_uint(
+      "\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount()
+    );
+    emit log_named_decimal_uint("\tMinimum stake", IStaking(address(rollup)).getMinimumStake(), 18);
 
-    emit log("# Governance");
+    emit log_named_address("# Governance", address(governance));
     DataStructures.Configuration memory config = governance.getConfiguration();
     emit log_named_decimal_uint("\tquorum           ", config.quorum, 18);
     emit log_named_decimal_uint("\tvote Differential", config.voteDifferential, 18);
@@ -80,6 +93,11 @@ contract GovScript is Test {
     emit log_named_uint("\tgracePeriod      ", Timestamp.unwrap(config.gracePeriod));
     emit log_named_uint("\tlockDelay        ", Timestamp.unwrap(config.proposeConfig.lockDelay));
     emit log_named_decimal_uint("\tlockAmount       ", config.proposeConfig.lockAmount, 18);
+
+    emit log_named_address("# Governance proposer", address(governanceProposer));
+    emit log_named_uint("\tLifetime in rounds", governanceProposer.LIFETIME_IN_ROUNDS());
+    emit log_named_uint("\tN", governanceProposer.N());
+    emit log_named_uint("\tM", governanceProposer.M());
   }
 
   function lookAtRounds() public {
@@ -91,8 +109,11 @@ contract GovScript is Test {
     emit log_named_uint("n       ", n);
     emit log_named_uint("m       ", m);
 
-    uint256 currentRound = governanceProposer.computeRound(validatorSelection.getCurrentSlot());
-    emit log_named_uint("currentRound", currentRound);
+    Slot currentSlot = validatorSelection.getCurrentSlot();
+    uint256 currentRound = governanceProposer.computeRound(currentSlot);
+    emit log_named_uint("currentSlot     ", Slot.unwrap(currentSlot));
+    emit log_named_uint("currentRound    ", currentRound);
+    emit log_named_uint("slots into round", 1 + Slot.unwrap(currentSlot) % m);
 
     uint256 lowerLimit = currentRound > lifetime ? currentRound - lifetime : 0;
     bool found = false;
@@ -101,16 +122,13 @@ contract GovScript is Test {
       (, IPayload leader, bool executed) = governanceProposer.rounds(address(rollup), i);
       uint256 yeaCount = governanceProposer.yeaCount(address(rollup), i, leader);
 
-      if (!executed) {
-        emit log_named_uint("Proposal at round", i);
-        emit log_named_uint("\tyeaCount", yeaCount);
-        emit log_named_address("\tleader", address(leader));
+      emit log_named_uint("Proposal at round", i);
+      emit log_named_uint("\tyeaCount", yeaCount);
+      emit log_named_address("\tleader", address(leader));
 
-        if (yeaCount >= n) {
-          emit log_named_uint("\tGood proposal at round", i);
-          found = true;
-          break;
-        }
+      if (!executed && yeaCount >= n) {
+        emit log_named_uint("\tGood proposal at round", i);
+        found = true;
       }
     }
 
@@ -140,6 +158,16 @@ contract GovScript is Test {
       : pendingThrough;
 
     emit log_named_decimal_uint("power            ", governance.powerAt(ME, ts), 18);
+  }
+
+  function lookAtPayload(address _payload) public {
+    emit log_named_address("Payload", _payload);
+    IPayload.Action[] memory actions = IPayload(_payload).getActions();
+
+    for (uint256 i = 0; i < actions.length; i++) {
+      emit log_named_address("\tTarget", actions[i].target);
+      emit log_named_bytes("\tData  ", actions[i].data);
+    }
   }
 
   /* -------------------------------------------------------------------------- */
@@ -224,7 +252,10 @@ contract GovScript is Test {
     vm.startBroadcast(ME);
     Ownable(address(registry)).transferOwnership(address(governance));
     vm.stopBroadcast();
-    emit log("Passed ownership of registry to governance");
+    assertEq(Ownable(address(registry)).owner(), address(governance));
+    emit log_named_address(
+      "Passed ownership of registry to governance", Ownable(address(registry)).owner()
+    );
   }
 
   // Deposit enough funds to be able to pass a vote
@@ -267,7 +298,7 @@ contract GovScript is Test {
       new RegisterNewRollupVersionPayload(registry, _instance);
     vm.stopBroadcast();
 
-    emit log_named_address("deployed payload to", address(payload));
+    lookAtPayload(address(payload));
 
     return payload;
   }
@@ -307,9 +338,13 @@ contract GovScript is Test {
   function executeProposal(uint256 _proposalId) public {
     emit log_named_uint("executing proposal", _proposalId);
 
+    emit log_named_uint("number of versions", registry.numberOfVersions());
+
     vm.startBroadcast(ME);
     governance.execute(_proposalId);
     vm.stopBroadcast();
+
+    emit log_named_uint("number of versions", registry.numberOfVersions());
   }
 
   /* -------------------------------------------------------------------------- */
@@ -328,9 +363,9 @@ contract GovScript is Test {
     // 5. We vote on the proposal (per update)
     // 6. We execute the proposal (per update)
 
-    passOwnership();
+    //    passOwnership();
 
-    deposit();
+    //    deposit();
 
     vm.broadcast();
     Fakerollup fakeRollup = new Fakerollup();
