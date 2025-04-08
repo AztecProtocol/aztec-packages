@@ -134,7 +134,7 @@ export class TXENode implements AztecNode {
     // Store the private logs
     effect.privateLogs.forEach((log, logIndexInTx) => {
       const tag = log.fields[0];
-      this.#logger.verbose(`Found private log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+      this.#logger.verbose('Found private log with tag %s in block %s', tag.toString(), this.getBlockNumber());
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
@@ -153,7 +153,7 @@ export class TXENode implements AztecNode {
     // Store the public logs
     effect.publicLogs.forEach((log, logIndexInTx) => {
       const tag = log.log[0];
-      this.#logger.verbose(`Found public log with tag ${tag.toString()} in block ${this.getBlockNumber()}`);
+      this.#logger.verbose('Found public log with tag %s in block %s', tag.toString(), this.getBlockNumber());
 
       const currentLogs = this.#logsByTags.get(tag.toString()) ?? [];
       const scopedLog = new TxScopedL2Log(
