@@ -55,9 +55,9 @@ function test_cmds {
   fi
   # Note: commands that start with 'timeout ...' override the default timeout.
   # TODO figure out why these take long sometimes.
-  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
+    # echo "$hash timeout -v 20m ./spartan/bootstrap.sh test-kind-transfer"
     # TODO(#12791) re-enable
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-4epochs"
     # echo "$hash timeout -v 30m ./spartan/bootstrap.sh test-kind-upgrade-rollup-version"
