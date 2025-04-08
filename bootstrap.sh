@@ -336,8 +336,7 @@ case "$cmd" in
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
     ;;
-  "docs-cut-version")
-    build
+  "docs-cut-version"
     docs/bootstrap.sh $cmd "$@"
     ;;
   *)
