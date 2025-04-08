@@ -38,6 +38,7 @@ function printProfileResult(result: TxProfileResult, log: LogFn) {
 async function _createClientIvcProofFiles(directory: string, executionSteps: PrivateExecutionStep[]) {
   const acirPath = path.join(directory, 'acir.msgpack');
   const witnessPath = path.join(directory, 'witnesses.msgpack');
+  const vkPath = path.join(directory, 'vks.msgpack');
   await fs.writeFile(acirPath, encode(executionSteps.map(map => map.bytecode)));
   await fs.writeFile(witnessPath, encode(executionSteps.map(map => serializeWitness(map.witness))));
   return {

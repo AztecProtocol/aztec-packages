@@ -152,6 +152,7 @@ async function main() {
     const bytecode = await readFile(join(ivcFolder, flow, 'acir.msgpack'));
     const acirStack = decode(bytecode) as Buffer[];
     const witnesses = await readFile(join(ivcFolder, flow, 'witnesses.json'));
+
     const witnessStack = JSON.parse(witnesses.toString()).map((witnessMap: Record<string, string>) => {
       return new Map<number, string>(Object.entries(witnessMap).map(([k, v]) => [Number(k), v]));
     });
@@ -162,6 +163,8 @@ async function main() {
       gateCount: step.gateCount,
       bytecode: acirStack[i],
       witness: witnessStack[i],
+      // This can be left empty. If so, the prover will generate a vk on the fly (~25% slower).
+      vk: Buffer.from([]),
     }));
     let stats: { duration: number; eventName: string; proofSize: number } | undefined;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

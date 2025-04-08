@@ -123,7 +123,7 @@ export class PrivateKernelExecutionProver {
             functionName: 'private_kernel_reset',
             bytecode: output.bytecode,
             witness: output.outputWitness,
-            verificationKey: output.verificationKey,
+            vk: output.verificationKey.keyAsBytes,
           });
           resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
             output,
@@ -147,7 +147,7 @@ export class PrivateKernelExecutionProver {
         functionName: functionName!,
         bytecode: currentExecution.acir,
         witness: currentExecution.partialWitness,
-        verificationKey: currentExecution.verificationKey,
+        vk: currentExecution.vk,
       });
 
       const privateCallData = await this.createPrivateCallData(currentExecution);
@@ -175,7 +175,7 @@ export class PrivateKernelExecutionProver {
           functionName: 'private_kernel_init',
           bytecode: output.bytecode,
           witness: output.outputWitness,
-          verificationKey: output.verificationKey,
+          vk: output.verificationKey.keyAsBytes,
         });
       } else {
         const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(
@@ -183,7 +183,7 @@ export class PrivateKernelExecutionProver {
         );
         const previousKernelData = new PrivateKernelData(
           output.publicInputs,
-          output.verificationKey.keyAsFields,
+          output.verificationKey,
           Number(previousVkMembershipWitness.leafIndex),
           assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
         );
@@ -199,7 +199,7 @@ export class PrivateKernelExecutionProver {
           functionName: 'private_kernel_inner',
           bytecode: output.bytecode,
           witness: output.outputWitness,
-          verificationKey: output.verificationKey,
+          vk: output.verificationKey.keyAsBytes,
         });
       }
       firstIteration = false;
@@ -222,7 +222,7 @@ export class PrivateKernelExecutionProver {
         functionName: 'private_kernel_reset',
         bytecode: output.bytecode,
         witness: output.outputWitness,
-        verificationKey: output.verificationKey,
+        vk: output.verificationKey.keyAsBytes,
       });
 
       resetBuilder = new PrivateKernelResetPrivateInputsBuilder(
@@ -243,7 +243,7 @@ export class PrivateKernelExecutionProver {
     const previousVkMembershipWitness = await this.oracle.getVkMembershipWitness(output.verificationKey.keyAsFields);
     const previousKernelData = new PrivateKernelData(
       output.publicInputs,
-      output.verificationKey.keyAsFields,
+      output.verificationKey,
       Number(previousVkMembershipWitness.leafIndex),
       assertLength<Fr, typeof VK_TREE_HEIGHT>(previousVkMembershipWitness.siblingPath, VK_TREE_HEIGHT),
     );
@@ -264,7 +264,7 @@ export class PrivateKernelExecutionProver {
       functionName: 'private_kernel_tail',
       bytecode: tailOutput.bytecode,
       witness: tailOutput.outputWitness,
-      verificationKey: tailOutput.verificationKey,
+      vk: tailOutput.verificationKey.keyAsBytes,
     });
 
     if (profileMode == 'gates' || profileMode == 'full') {
@@ -297,7 +297,7 @@ export class PrivateKernelExecutionProver {
       publicInputs: tailOutput.publicInputs,
       executionSteps,
       clientIvcProof,
-      verificationKey: tailOutput.verificationKey,
+      vk: tailOutput.verificationKey.keyAsBytes,
     };
   }
 

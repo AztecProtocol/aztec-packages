@@ -44,29 +44,26 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
   // Longer term we won't use this hacked together msgpack format
   // Leaving duplicated as this eventually bb will provide a serialization
   // helper for passing to a generic msgpack RPC endpoint.
-  private async _createClientIvcProofFiles(directory: string, executionSteps: PrivateExecutionStep[]) {
-    const acirPath = path.join(directory, 'acir.msgpack');
-    const witnessPath = path.join(directory, 'witnesses.msgpack');
-    await fs.writeFile(acirPath, encode(executionSteps.map(map => map.bytecode)));
-    await fs.writeFile(witnessPath, encode(executionSteps.map(map => serializeWitness(map.witness))));
-    return {
-      acirPath,
-      witnessPath,
+  private async _writeClientIvcProofInput(path: string, executionSteps: PrivateExecutionStep[]) {
+    // Prepare for msgpack serialization
+    const stepToStruct = (step: PrivateExecutionStep) => {
+      return {
+        bytecode: step.bytecode,
+        witness: serializeWitness(step.witness),
+        vk: step.vk,
+        functionName: step.functionName,
+      };
     };
+    await fs.writeFile(path, encode(executionSteps.map(stepToStruct)));
   }
 
   private async _createClientIvcProof(
     directory: string,
     executionSteps: PrivateExecutionStep[],
   ): Promise<ClientIvcProof> {
-    await this._createClientIvcProofFiles(directory, executionSteps);
-    const provingResult = await executeBbClientIvcProof(
-      this.bbBinaryPath,
-      directory,
-      path.join(directory, 'acir.msgpack'),
-      path.join(directory, 'witnesses.msgpack'),
-      this.log.info,
-    );
+    const inputsPath = path.join(directory, 'ivc-inputs.msgpack');
+    await this._writeClientIvcProofInput(inputsPath, executionSteps);
+    const provingResult = await executeBbClientIvcProof(this.bbBinaryPath, directory, inputsPath, this.log.info);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       this.log.error(`Failed to generate client ivc proof`);

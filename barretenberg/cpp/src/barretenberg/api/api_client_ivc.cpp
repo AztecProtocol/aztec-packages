@@ -182,47 +182,31 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
     }
 }
 
-std::vector<acir_format::AcirProgram> _build_folding_stack(const std::string& input_type,
-                                                           const std::filesystem::path& bytecode_path,
+std::vector<acir_format::AcirProgram> _build_folding_stack(const std::filesystem::path& h,
                                                            const std::filesystem::path& witness_path)
 {
     using namespace acir_format;
 
     std::vector<AcirProgram> folding_stack;
+    // WORKTODO add fixes https://github.com/AztecProtocol/barretenberg/issues/1162
+    std::vector<std::string> gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
+    std::vector<std::string> witness_data = unpack_from_file<std::vector<std::string>>(witness_path);
+    for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
+        // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a
+        // buffer in the future
+        std::vector<uint8_t> constraint_buf = decompress(bincode.data(), bincode.size()); // NOLINT
+        std::vector<uint8_t> witness_buf = decompress(wit.data(), wit.size());            // NOLINT
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1162): Efficiently unify ACIR stack parsing
-    // really a single circuit IS a compiletime stack but we want the input type distinction since it is meaningful
-    // for vk writing (maybe this is not ideal?)
-    if (input_type == "single_circuit" || input_type == "compiletime_stack") {
-        auto program_stack = acir_format::get_acir_program_stack(bytecode_path, witness_path, /*honk_recursion=*/0);
-        // Accumulate the entire program stack into the IVC
-        while (!program_stack.empty()) {
-            auto stack_item = program_stack.back();
-            folding_stack.push_back(AcirProgram{ stack_item.constraints, stack_item.witness });
-            program_stack.pop_back();
-        }
-    }
+        AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
+        WitnessVector witness = witness_buf_to_witness_data(witness_buf);
 
-    if (input_type == "runtime_stack") {
-        std::vector<std::string> gzipped_bincodes = unpack_from_file<std::vector<std::string>>(bytecode_path);
-        std::vector<std::string> witness_data = unpack_from_file<std::vector<std::string>>(witness_path);
-        for (auto [bincode, wit] : zip_view(gzipped_bincodes, witness_data)) {
-            // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a
-            // buffer in the future
-            std::vector<uint8_t> constraint_buf = decompress(bincode.data(), bincode.size()); // NOLINT
-            std::vector<uint8_t> witness_buf = decompress(wit.data(), wit.size());            // NOLINT
-
-            AcirFormat constraints = circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
-            WitnessVector witness = witness_buf_to_witness_data(witness_buf);
-
-            folding_stack.push_back(AcirProgram{ constraints, witness });
-        }
+        folding_stack.push_back(AcirProgram{ constraints, witness });
     }
 
     return folding_stack;
 }
 
-std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& folding_stack)
+std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& folding_stack, std::vector <)
 {
     using Builder = MegaCircuitBuilder;
     using Program = acir_format::AcirProgram;
@@ -240,23 +224,21 @@ std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& fo
 
         // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
         // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
-        ivc->accumulate(circuit, program.precomputed_vk);
+        ivc->accumulate(circuit, );
     }
 
     return ivc;
 }
 
 void ClientIVCAPI::prove(const Flags& flags,
-                         const std::filesystem::path& bytecode_path,
-                         const std::filesystem::path& witness_path,
+                         const std::filesystem::path& input_path,
                          const std::filesystem::path& output_dir)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
-    std::vector<acir_format::AcirProgram> folding_stack =
-        _build_folding_stack(flags.input_type, bytecode_path, witness_path);
+    std::vector<acir_format::AcirProgram> folding_stack = _build_folding_stack(input_pathh);
 
     std::shared_ptr<ClientIVC> ivc = _accumulate(folding_stack);
     ClientIVC::Proof proof = ivc->prove();
@@ -307,14 +289,8 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     return verified;
 }
 
-bool ClientIVCAPI::prove_and_verify(const Flags& flags,
-                                    const std::filesystem::path& bytecode_path,
-                                    const std::filesystem::path& witness_path)
+bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& witness_path)
 {
-    if (!(flags.input_type == "compiletime_stack" || flags.input_type == "runtime_stack")) {
-        throw_or_abort("No input_type or input_type not supported");
-    }
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);

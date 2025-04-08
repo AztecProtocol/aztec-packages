@@ -187,6 +187,7 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
 
 WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
                                                     uint8_t const* witness_stack,
+                                                    uint8_t const* vk_stack,
                                                     bool* verified)
 {
     using Program = acir_format::AcirProgram;
@@ -241,6 +242,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
 
 WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
                                          uint8_t const* witness_stack,
+                                         uint8_t const* vk_stack,
                                          uint8_t** out_proof,
                                          uint8_t** out_vk)
 {
@@ -248,6 +250,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
 
     std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
     std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+    std::vector<std::vector<uint8_t>> vks = from_buffer<std::vector<std::vector<uint8_t>>>(vk_stack);
     std::vector<Program> folding_stack;
 
     for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
@@ -255,6 +258,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
         acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
         folding_stack.push_back(Program{ constraints, witness });
     }
+
     TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
@@ -268,7 +272,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
         auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
 
         vinfo("done constructing circuit. calling ivc.accumulate...");
-        ivc->accumulate(circuit);
+        ivc->accumulate(circuit, );
         vinfo("done accumulating.");
     }
     auto end = std::chrono::steady_clock::now();
@@ -278,6 +282,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("calling ivc.prove ...");
     ClientIVC::Proof proof = ivc->prove();
     end = std::chrono::steady_clock::now();
+
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct, accumulate, prove all circuits: ", diff.count());
 

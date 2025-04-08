@@ -3,7 +3,6 @@ import type { ZodFor } from '@aztec/foundation/schemas';
 import { z } from 'zod';
 
 import { type PrivateExecutionStep, PrivateExecutionStepSchema } from '../kernel/private_kernel_prover_output.js';
-import { VerificationKeyData } from '../vks/verification_key.js';
 
 export class TxProfileResult {
   constructor(public executionSteps: PrivateExecutionStep[]) {}
@@ -22,7 +21,7 @@ export class TxProfileResult {
         functionName: 'random',
         bytecode: Buffer.from('random'),
         witness: new Map([[1, 'random']]),
-        verificationKey: VerificationKeyData.empty(),
+        vk: Buffer.from('random'),
       },
     ]);
   }

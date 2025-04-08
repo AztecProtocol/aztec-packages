@@ -120,8 +120,7 @@ export function executeBB(
 export async function executeBbClientIvcProof(
   pathToBB: string,
   workingDirectory: string,
-  bytecodeStackPath: string,
-  witnessStackPath: string,
+  inputsPath: string,
   log: LogFn,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
@@ -144,15 +143,12 @@ export async function executeBbClientIvcProof(
 
   try {
     // Write the bytecode to the working directory
-    log(`bytecodePath ${bytecodeStackPath}`);
-    log(`outputPath ${outputPath}`);
+    log(`inputsPath ${inputsPath}`);
     const args = [
       '-o',
       outputPath,
-      '-b',
-      bytecodeStackPath,
-      '-w',
-      witnessStackPath,
+      '-i',
+      inputsPath,
       '-v',
       '--scheme',
       'client_ivc',
