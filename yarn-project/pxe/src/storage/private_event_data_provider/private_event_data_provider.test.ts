@@ -245,4 +245,159 @@ describe('PrivateEventDataProvider', () => {
     );
     expect(await privateEventDataProvider.getSize()).toBe(2);
   });
+
+  describe('event ordering', () => {
+    let msgContent1: Fr[];
+    let msgContent2: Fr[];
+    let msgContent3: Fr[];
+
+    beforeAll(() => {
+      msgContent1 = getRandomMsgContent();
+      msgContent2 = getRandomMsgContent();
+      msgContent3 = getRandomMsgContent();
+    });
+
+    it('returns events in order across different blocks', async () => {
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent2,
+        TxHash.random(),
+        0, // logIndexInTx
+        0, // txIndexInBlock
+        200, // blockNumber
+      );
+
+      // Store events in different blocks
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent1,
+        TxHash.random(),
+        0, // logIndexInTx
+        0, // txIndexInBlock
+        100, // blockNumber
+      );
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent3,
+        TxHash.random(),
+        0, // logIndexInTx
+        0, // txIndexInBlock
+        300, // blockNumber
+      );
+
+      // Get events across all blocks
+      const events = await privateEventDataProvider.getPrivateEvents(
+        contractAddress,
+        0, // from
+        1000, // numBlocks
+        [recipient],
+        eventSelector,
+      );
+
+      expect(events).toEqual([msgContent1, msgContent2, msgContent3]);
+    });
+
+    it('returns events in order within same block but different transactions', async () => {
+      const sameBlockNumber = 400;
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent2,
+        TxHash.random(),
+        0, // logIndexInTx
+        1, // txIndexInBlock
+        sameBlockNumber,
+      );
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent1,
+        TxHash.random(),
+        0, // logIndexInTx
+        0, // txIndexInBlock
+        sameBlockNumber,
+      );
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent3,
+        TxHash.random(),
+        0, // logIndexInTx
+        2, // txIndexInBlock
+        sameBlockNumber,
+      );
+
+      // Get events from just that block
+      const sameBlockEvents = await privateEventDataProvider.getPrivateEvents(
+        contractAddress,
+        sameBlockNumber,
+        1, // numBlocks
+        [recipient],
+        eventSelector,
+      );
+
+      expect(sameBlockEvents).toEqual([msgContent1, msgContent2, msgContent3]);
+    });
+
+    it('returns events in order within the same transaction', async () => {
+      const sameTxHash = TxHash.random();
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent3,
+        sameTxHash,
+        2, // logIndexInTx
+        3, // txIndexInBlock
+        500, // blockNumber
+      );
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent1,
+        sameTxHash,
+        0, // logIndexInTx
+        3, // txIndexInBlock
+        500, // blockNumber
+      );
+
+      await privateEventDataProvider.storePrivateEventLog(
+        contractAddress,
+        recipient,
+        eventSelector,
+        msgContent2,
+        sameTxHash,
+        1, // logIndexInTx
+        3, // txIndexInBlock
+        500, // blockNumber
+      );
+
+      // Get events from just that block
+      const sameTxEvents = await privateEventDataProvider.getPrivateEvents(
+        contractAddress,
+        500, // from
+        1, // numBlocks
+        [recipient],
+        eventSelector,
+      );
+
+      expect(sameTxEvents).toEqual([msgContent1, msgContent2, msgContent3]);
+    });
+  });
 });
