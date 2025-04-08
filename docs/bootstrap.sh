@@ -32,43 +32,6 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
-function deploy {
-  if [ $(dist_tag) == "latest" ]; then
-    do_or_dryrun yarn netlify deploy --site aztec-docs-dev --prod
-  else
-    release_preview
-  fi
-}
-
-# If we're an AMD64 CI run and have a PR, do a preview release.
-function release_preview {
-  echo_header "docs release preview"
-
-  # Deploy and capture exit code and output.
-  if ! deploy_output=$(yarn netlify deploy --site aztec-docs-dev 2>&1); then
-    echo "Netlify deploy failed with error:"
-    echo "$deploy_output"
-    exit 1
-  fi
-
-  # Extract preview URL.
-  local docs_preview_url=$(echo "$deploy_output" | grep -E "https://.*aztec-docs-dev.netlify.app" | awk '{print $4}')
-  if [ -z "$docs_preview_url" ]; then
-    echo "Failed to extract preview URL from Netlify output."
-  else
-    echo "Docs preview URL: ${docs_preview_url}"
-  fi
-
-  local pr_number=$(gh pr list --head "$REF_NAME" --json number --jq '.[0].number')
-  if [ -n "$pr_number" ]; then
-    if [ -z "${GITHUB_TOKEN:-}" ]; then
-      echo_stderr "Not updating docs preview comment; no PR number."
-      return
-    fi
-    # We remove color from the URL before passing.
-    scripts/docs_preview_comment.sh $GITHUB_TOKEN $pr_number "$(echo $docs_preview_url | sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g')"
-  fi
-}
 
 function docs_cut_version {
     echo_header "docs version"
@@ -87,6 +50,7 @@ function docs_cut_version {
     echo "Starting docs versioning for $COMMIT_TAG"
     echo "Checking out tag $COMMIT_TAG..."
     git checkout --force "$COMMIT_TAG"
+    git checkout --force "$current_branch" scripts
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
@@ -122,13 +86,15 @@ case "$cmd" in
     ;;
   ""|"full"|"fast")
     build_docs
-    deploy
     ;;
   "hash")
     echo "$hash"
     ;;
   "docs-cut-version")
     docs_cut_version "$2"
+    ;;
+  "release-preview")
+    release_preview
     ;;
   *)
     echo "Unknown command: $cmd"
