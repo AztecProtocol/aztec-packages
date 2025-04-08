@@ -76,19 +76,20 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
+  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep "1.0.0" > /dev/null; then
+    if ! $tool --version 2> /dev/null | grep "$foundry_version" > /dev/null; then
       if [ "${CI:-0}" = "1" ]; then
-        echo "Installing foundry version 1.0.0 in CI environment..."
+        echo "Installing foundry version $foundry_version in CI environment..."
         curl -L https://foundry.paradigm.xyz | bash
         export PATH="$PATH:$HOME/.foundry/bin"
-        foundryup -i 1.0.0
+        foundryup -i $foundry_version
       else
         encourage_dev_container
-        echo "$tool not in PATH or incorrect version (requires 1.0.0)."
+        echo "$tool not in PATH or incorrect version (requires $foundry_version)."
         echo "Installation: https://book.getfoundry.sh/getting-started/installation"
         echo "  curl -L https://foundry.paradigm.xyz | bash"
-        echo "  foundryup -i 1.0.0"
+        echo "  foundryup -i $foundry_version"
         echo "If this is in a CI environment, the correct version will be installed automatically."
       fi
     fi
