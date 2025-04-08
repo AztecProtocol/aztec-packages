@@ -70,7 +70,7 @@ export async function proveCircuit1(
     const proverOutput = await backend.generateProof(witness);
     logger(`done generating recursive proof artifacts.`);
     return {
-      proof: proverOutput.proof as FixedLengthArray<string, 459>,
+      proof: proverOutput.proof as unknown as FixedLengthArray<string, 459>,
       public_inputs: proverOutput.publicInputs as FixedLengthArray<string, 2>,
     };
   } finally {
