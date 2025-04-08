@@ -75,7 +75,7 @@ proverNode:
   maxOldSpaceSize: "4608"
 
 bot:
-  replicas: 10
+  replicas: 3
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
