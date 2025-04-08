@@ -95,7 +95,7 @@ function docs_cut_version {
     # Checkout the tag, discarding local changes from previous build artifacts
     # Use --force to overwrite potentially modified tracked files from the build process
     echo "Checking out tag $COMMIT_TAG..."
-    git checkout --force "$COMMIT_TAG" docs src
+    git checkout --force "$COMMIT_TAG" docs src ../noir-projects
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
@@ -104,7 +104,6 @@ function docs_cut_version {
     rm -rf processed-docs processed-docs-cache build
 
     # Rebuild everything on the tag we checked out (because of include_code links, etc)
-    ../bootstrap.sh
     yarn run build
 
     # Create the versioned docs for this tag
