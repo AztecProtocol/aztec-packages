@@ -36,7 +36,6 @@ import {
   getContractClassFromArtifact,
 } from '@aztec/stdlib/contract';
 import { SimulationError } from '@aztec/stdlib/errors';
-import type { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
 import type {
   AztecNode,
@@ -50,7 +49,6 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
-  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   PublicSimulationOutput,
@@ -59,7 +57,6 @@ import {
   type TxHash,
   TxProfileResult,
   TxProvingResult,
-  TxReceipt,
   TxSimulationResult,
 } from '@aztec/stdlib/tx';
 
