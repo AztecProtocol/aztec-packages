@@ -61,7 +61,7 @@ As complex as it is, the command is actually fairly straightforward thanks to th
 - `--prover-node` - The node that connects to both networks to fetch jobs and transactions
 - `--prover-broker` - Talks with the node and the prover agents to assign jobs. This is useful if you intend to run provers in different machines
 - `--prover-agent` - The actual prover that will fetch jobs from the broker and prove them with Barretenberg
-- `--proverNode.p2pIp` - Same as for the sequencer, you need to prove an IP for your agents to find you
+- `--p2p.p2pIp` - Same as for the sequencer, you will receive transactions via this IP
 - `--proverNode.publisherPrivateKey` - You'll want to set this one too, so you can submit your proofs for L1
 
 You can run them on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
