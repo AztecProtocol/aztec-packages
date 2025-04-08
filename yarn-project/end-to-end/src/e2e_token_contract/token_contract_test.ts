@@ -1,6 +1,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
-import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
+import { InvalidAccountContract } from '@aztec/noir-contracts.js/InvalidAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -27,7 +27,7 @@ export class TokenContractTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
-  badAccount!: NoConstructorContract;
+  badAccount!: InvalidAccountContract;
   node!: AztecNode;
 
   constructor(testName: string) {
@@ -77,9 +77,9 @@ export class TokenContractTest {
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        // We use NoConstructorContract as a bad account here. Bad account in a sense that it does not implement
+        // We use InvalidAccountContract as a bad account here. Bad account in a sense that it does not implement
         // an account entry point.
-        this.badAccount = await NoConstructorContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
@@ -96,7 +96,7 @@ export class TokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await NoConstructorContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());
