@@ -3,6 +3,7 @@ mod types;
 
 use aztec::macros::aztec;
 
+/// This is a contract with no real functionality. It is only used in documentation to showcase concepts of Aztec.nr.
 #[aztec]
 pub contract DocsExample {
     // how to import dependencies defined in your workspace
