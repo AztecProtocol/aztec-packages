@@ -119,8 +119,6 @@ export class BlacklistTokenContractTest {
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        // We use InvalidAccountContract as a bad account here. Bad account in a sense that it does not implement
-        // an account entry point.
         this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
