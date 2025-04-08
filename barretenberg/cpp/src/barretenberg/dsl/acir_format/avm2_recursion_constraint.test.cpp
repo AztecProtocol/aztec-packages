@@ -60,7 +60,7 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
-        const auto public_inputs_flat = public_inputs.to_flat();
+        const auto public_inputs_flat = PublicInputs::columns_to_flat(public_inputs.to_columns());
         return { proof, verification_key, public_inputs_flat };
     }
 

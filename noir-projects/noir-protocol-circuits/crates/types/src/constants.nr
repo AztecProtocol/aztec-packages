@@ -515,6 +515,12 @@ pub global AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE: u32 = 1;
 // 45 above refers to the constant AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
 
+// We introduce padded version for two AVM constants and we will use the padded ones
+// until we freeze the number of columns in AVM.
+// TODO(#13390): Remove these constants and use the above ones in noir/TS.
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
+pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
+
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;

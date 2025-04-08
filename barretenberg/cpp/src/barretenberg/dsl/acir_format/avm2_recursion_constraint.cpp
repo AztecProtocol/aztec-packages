@@ -45,16 +45,23 @@ void create_dummy_vkey_and_proof(Builder& builder,
     using Flavor = avm2::AvmFlavor;
 
     // Relevant source for proof layout: AvmFlavor::Transcript::serialize_full_transcript()
+    // TODO(#13390): Revive this assertion (and remove the >= 0 one) once we freeze the number of colums in AVM.
+    // assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
+    //         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) %
+    //            (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
+    //        0);
     assert((proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
             (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) %
-               (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) ==
+               (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1)) >=
            0);
 
     // Derivation of circuit size based on the proof
-    const auto log_circuit_size =
-        (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
-         (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
-        (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
+    // TODO#13390): Revive the following code once we freeze the number of colums in AVM.
+    // const auto log_circuit_size =
+    //     (proof_size - Flavor::NUM_WITNESS_ENTITIES * Flavor::NUM_FRS_COM -
+    //      (Flavor::NUM_ALL_ENTITIES + 1) * Flavor::NUM_FRS_FR - Flavor::NUM_FRS_COM) /
+    //     (Flavor::NUM_FRS_COM + Flavor::NUM_FRS_FR * (Flavor::BATCHED_RELATION_PARTIAL_LENGTH + 1));
+    const auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
 
     // First key field is circuit size
     builder.assert_equal(builder.add_variable(1 << log_circuit_size), key_fields[0].witness_index);
@@ -126,7 +133,8 @@ void create_dummy_vkey_and_proof(Builder& builder,
         offset += 4;
     }
 
-    ASSERT(offset == proof_size);
+    // TODO(#13390): Revive the following assertion once we freeze the number of colums in AVM.
+    // ASSERT(offset == proof_size);
 }
 
 } // namespace
@@ -223,10 +231,9 @@ HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
     auto output_agg_object = verifier.verify_proof(
         proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_aggregation_object);
 
-    HonkRecursionConstraintOutput result{ .agg_obj = output_agg_object.aggregation_object,
-                                          .ipa_claim = output_agg_object.ipa_claim,
-                                          .ipa_proof = output_agg_object.ipa_proof };
-    return result;
+    return { .agg_obj = output_agg_object.aggregation_object,
+             .ipa_claim = output_agg_object.ipa_claim,
+             .ipa_proof = output_agg_object.ipa_proof };
 }
 
 } // namespace acir_format

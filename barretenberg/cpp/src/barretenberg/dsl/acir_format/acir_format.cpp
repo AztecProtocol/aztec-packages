@@ -262,8 +262,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         current_aggregation_object = output.agg_obj;
 
 #ifndef DISABLE_AZTEC_VM
-        current_aggregation_object = process_avm_recursion_constraints(
-            builder, constraint_system, has_valid_witness_assignments, gate_counter, current_aggregation_object);
+        current_aggregation_object = process_avm_recursion_constraints(builder,
+                                                                       constraint_system,
+                                                                       has_valid_witness_assignments,
+                                                                       gate_counter,
+                                                                       std::move(current_aggregation_object));
 #endif
         // If the circuit has either honk or avm recursion constraints, add the aggregation object. Otherwise, add a
         // default one if the circuit is recursive and honk_recursion is true.
