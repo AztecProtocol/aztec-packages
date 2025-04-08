@@ -51,8 +51,8 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                       const uint256_t& evaluation_input_x,
                                       const BF& batching_challenge_v)
 {
-    using Curve = typename Flavor::Curve;
-    using PCS = typename Flavor::PCS;
+    using Curve = Flavor::Curve;
+    using PCS = Flavor::PCS;
     using Shplemini = ShpleminiVerifier_<Curve>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
@@ -92,9 +92,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 
     // Execute Sumcheck Verifier
     const size_t log_circuit_size = numeric::get_msb(circuit_size);
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>(log_circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }

@@ -36,7 +36,7 @@ export class ContractClassNotFoundError extends Error {
 }
 
 /**
- * The interface for the data layer required to perform private and unconstrained execution.
+ * The interface for the data layer required to perform private and utility execution.
  */
 export interface ExecutionDataProvider extends CommitmentsDBInterface {
   /**
@@ -259,7 +259,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void>;
 
@@ -329,7 +329,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param contractAddress - The address of the contract that emitted the log.
    * @param recipient - The address of the recipient.
    * @param eventSelector - The event selector of the event.
-   * @param logContent - The content of the private event log.
+   * @param msgContent - The content of the private event message.
    * @param txHash - The hash of the transaction that emitted the log.
    * @param logIndexInTx - The index of the log within the transaction.
    */
@@ -337,7 +337,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
   ): Promise<void>;

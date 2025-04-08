@@ -66,7 +66,6 @@ describe('e2e_p2p_reqresp_tx', () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
-    const contexts: NodeContext[] = [];
 
     t.logger.info('Creating nodes');
     nodes = await createNodes(
@@ -101,15 +100,20 @@ describe('e2e_p2p_reqresp_tx', () => {
 
     t.logger.info('Submitting transactions');
 
+    const contextPromises: Promise<NodeContext>[] = [];
+    // Send to the first two proposers
     for (const nodeIndex of proposerIndexes.slice(0, 2)) {
-      const context = await createPXEServiceAndSubmitTransactions(
+      const context = createPXEServiceAndSubmitTransactions(
         t.logger,
         nodes[nodeIndex],
         NUM_TXS_PER_NODE,
         t.fundedAccount,
       );
-      contexts.push(context);
+      contextPromises.push(context);
     }
+    const contexts: NodeContext[] = await Promise.all(contextPromises);
+
+    // Wait for transactions to be sent
 
     t.logger.info('Waiting for transactions to be mined');
     await Promise.all(

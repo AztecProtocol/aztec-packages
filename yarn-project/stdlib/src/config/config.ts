@@ -2,7 +2,8 @@ import { l1ContractAddressesMapping } from '@aztec/ethereum/l1-contract-addresse
 import type { ConfigMappingsType } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
 
-export { type AllowedElement, type SequencerConfig, SequencerConfigSchema } from '../interfaces/configs.js';
+export { type SequencerConfig, SequencerConfigSchema } from '../interfaces/configs.js';
+export { type AllowedElement } from '../interfaces/allowed_element.js';
 
 export const emptyChainConfig: ChainConfig = {
   l1ChainId: 0,

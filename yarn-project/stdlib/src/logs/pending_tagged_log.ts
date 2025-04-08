@@ -2,6 +2,7 @@ import { MAX_NOTE_HASHES_PER_TX, PRIVATE_LOG_SIZE_IN_FIELDS } from '@aztec/const
 import { Fr } from '@aztec/foundation/fields';
 
 import type { AztecAddress } from '../aztec-address/index.js';
+import type { TxHash } from '../tx/tx_hash.js';
 
 /**
  * Represents a pending tagged log as it is stored in the pending tagged log array to which the syncNotes oracle
@@ -10,7 +11,7 @@ import type { AztecAddress } from '../aztec-address/index.js';
 export class PendingTaggedLog {
   constructor(
     public log: Fr[],
-    public txHash: Fr,
+    public txHash: TxHash,
     public uniqueNoteHashesInTx: Fr[],
     public firstNullifierInTx: Fr,
     public recipient: AztecAddress,
@@ -20,7 +21,7 @@ export class PendingTaggedLog {
   toFields(): Fr[] {
     return [
       ...serializeBoundedVec(this.log, PRIVATE_LOG_SIZE_IN_FIELDS),
-      this.txHash,
+      this.txHash.hash,
       ...serializeBoundedVec(this.uniqueNoteHashesInTx, MAX_NOTE_HASHES_PER_TX),
       this.firstNullifierInTx,
       this.recipient.toField(),

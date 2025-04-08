@@ -8,23 +8,13 @@
 
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/constraining/flavor.hpp"
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
-
 namespace bb::avm2 {
 namespace {
-
-template <typename FF> std::string field_to_string(const FF& ff)
-{
-    std::ostringstream os;
-    os << ff;
-    std::string raw = os.str();
-    auto first_not_zero = raw.find_first_not_of('0', 2);
-    std::string result = "0x" + (first_not_zero != std::string::npos ? raw.substr(first_not_zero) : "0");
-    return result;
-}
 
 std::vector<std::string> get_command()
 {

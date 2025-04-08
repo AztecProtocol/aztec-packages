@@ -398,7 +398,7 @@ export class Oracle {
       fromBoundedVec(content, contentLength),
       Fr.fromString(noteHash),
       Fr.fromString(nullifier),
-      Fr.fromString(txHash),
+      TxHash.fromString(txHash),
       AztecAddress.fromString(recipient),
     );
 
@@ -496,8 +496,8 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [recipient]: ACVMField[],
     [eventSelector]: ACVMField[],
-    logContentBVecStorage: ACVMField[],
-    [logContentLength]: ACVMField[],
+    msgContentBVecStorage: ACVMField[],
+    [msgContentLength]: ACVMField[],
     [txHash]: ACVMField[],
     [logIndexInTx]: ACVMField[],
   ) {
@@ -505,7 +505,7 @@ export class Oracle {
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       AztecAddress.fromField(Fr.fromString(recipient)),
       EventSelector.fromField(Fr.fromString(eventSelector)),
-      fromBoundedVec(logContentBVecStorage, logContentLength),
+      fromBoundedVec(msgContentBVecStorage, msgContentLength),
       new TxHash(Fr.fromString(txHash)),
       Fr.fromString(logIndexInTx).toNumber(),
     );

@@ -4,6 +4,7 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -98,7 +99,7 @@ export async function createLibp2pNode(
 export async function createTestLibP2PService<T extends P2PClientType>(
   clientType: T,
   boostrapAddrs: string[] = [],
-  l2BlockSource: L2BlockSource,
+  archiver: L2BlockSource & ContractDataSource,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCache,
   mempools: MemPools<T>,
@@ -131,7 +132,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     p2pNode as PubSubLibp2p,
     discoveryService,
     mempools,
-    l2BlockSource,
+    archiver,
     epochCache,
     proofVerifier,
     worldStateSynchronizer,

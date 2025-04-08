@@ -23,8 +23,6 @@ export * as transport from './transport/index.js';
 export * as trees from './trees/index.js';
 export * as types from './types/index.js';
 export * as url from './url/index.js';
-export * as wasm from './wasm/index.js';
-export * as worker from './worker/index.js';
 export * as testing from './testing/index.js';
 export * as config from './config/index.js';
 export * as buffer from './buffer/index.js';
