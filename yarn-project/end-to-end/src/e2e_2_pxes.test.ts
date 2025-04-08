@@ -3,7 +3,7 @@ import { type InitialAccountData, deployFundedSchnorrAccount } from '@aztec/acco
 // docs:start:import_aztecjs
 import { type AztecAddress, type AztecNode, Fr, type Logger, type PXE, type Wallet, sleep } from '@aztec/aztec.js';
 // docs:end:import_aztecjs
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { expect, jest } from '@jest/globals';

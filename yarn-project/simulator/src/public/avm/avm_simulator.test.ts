@@ -10,7 +10,7 @@ import {
 } from '@aztec/foundation/crypto';
 import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import type { Fieldable } from '@aztec/foundation/serialize';
-import { CounterContract } from '@aztec/noir-contracts.js/Counter';
+import { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
