@@ -370,17 +370,19 @@ export class UtilityExecutionOracle extends TypedOracle {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void> {
     return this.executionDataProvider.storePrivateEventLog(
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
     );
   }
 }

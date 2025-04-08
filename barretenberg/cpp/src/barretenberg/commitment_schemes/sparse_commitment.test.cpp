@@ -339,10 +339,11 @@ TYPED_TEST(CommitmentKeyTest, CommitStructuredMaskedWire)
     // To ensure that commit_structured is used.
     const uint32_t actual_size = circuit_size / 8;
 
-    // Create a polynomial with a block of zeroes between actual_size and circuit_size - MASKING_OFFSET.
+    // Create a polynomial with a block of zeroes between actual_size and circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK.
     // We subtract 1 to account for ZERO_ROW_OFFSET
-    std::vector<uint32_t> fixed_sizes = { circuit_size - 1 - MASKING_OFFSET, MASKING_OFFSET };
-    std::vector<uint32_t> actual_sizes = { actual_size, MASKING_OFFSET };
+    std::vector<uint32_t> fixed_sizes = { circuit_size - 1 - NUM_DISABLED_ROWS_IN_SUMCHECK,
+                                          NUM_DISABLED_ROWS_IN_SUMCHECK };
+    std::vector<uint32_t> actual_sizes = { actual_size, NUM_DISABLED_ROWS_IN_SUMCHECK };
 
     // Construct a random polynomial resembling a masked structured wire
     const bool non_zero_complement = false;
