@@ -1,7 +1,3 @@
-# Note that this file is loaded by multiple scripts:
-#       noir-projects/noir-contracts/bootstrap.sh
-#       yarn-project/noir-contracts.js/scripts/generate-types.sh
-#       yarn-project/noir-test-contracts.js/scripts/generate-types.sh
 [workspace]
 members = [
     "contracts/account/ecdsa_k_account_contract",
