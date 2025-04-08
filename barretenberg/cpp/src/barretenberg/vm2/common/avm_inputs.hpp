@@ -65,6 +65,12 @@ struct PublicInputs {
     static PublicInputs from(const std::vector<uint8_t>& data);
     // TODO: implement this.
     std::vector<std::vector<FF>> to_columns() const { return { { reverted } }; }
+    std::vector<FF> to_flat() const { return { reverted }; } // Flattened public inputs as a single vector.
+    template <typename FF_> static std::vector<std::vector<FF_>> flat_to_columns(const std::vector<FF_>& input)
+    {
+        return { input };
+    }
+
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables, startTreeSnapshots, reverted);

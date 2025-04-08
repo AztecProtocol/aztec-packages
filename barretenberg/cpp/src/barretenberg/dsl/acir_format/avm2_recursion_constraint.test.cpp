@@ -27,7 +27,7 @@ using namespace bb::avm2;
 struct InnerCircuitData {
     AvmProvingHelper::Proof proof;
     std::shared_ptr<AvmFlavor::VerificationKey> verification_key;
-    std::vector<std::vector<FF>> public_inputs_cols;
+    std::vector<FF> public_inputs_flat;
 };
 
 class AcirAvm2RecursionConstraint : public ::testing::Test {
@@ -57,11 +57,11 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         const auto [proof, vk_data] = prover.prove(std::move(trace));
         const auto verification_key = InnerProver::create_verification_key(vk_data);
 
-        const auto public_inputs_cols = public_inputs.to_columns();
         const bool verified = prover.verify(proof, public_inputs, vk_data);
         EXPECT_TRUE(verified) << "native proof verification failed";
 
-        return { proof, verification_key, public_inputs_cols };
+        const auto public_inputs_flat = public_inputs.to_flat();
+        return { proof, verification_key, public_inputs_flat };
     }
 
     /**
@@ -76,12 +76,9 @@ class AcirAvm2RecursionConstraint : public ::testing::Test {
         SlabVector<fr>& witness = program.witness;
 
         for (const auto& inner_circuit_data : inner_circuits) {
-            std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();
-            std::vector<fr> proof_witnesses = inner_circuit_data.proof;
-
-            // We assume a single public input column for now (containing the flag reverted)
-            // TODO: Multiple public input columns support.
-            std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_cols[0];
+            const std::vector<fr> key_witnesses = inner_circuit_data.verification_key->to_field_elements();
+            const std::vector<fr> proof_witnesses = inner_circuit_data.proof;
+            const std::vector<fr> public_inputs_witnesses = inner_circuit_data.public_inputs_flat;
 
             // Helper to append some values to the witness vector and return their corresponding indices
             auto add_to_witness_and_track_indices =
