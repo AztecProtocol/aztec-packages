@@ -103,13 +103,11 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     // Check number of ecc op "gates"/rows = 3 ops * 2 rows per op = 6
     EXPECT_EQ(builder.blocks.ecc_op.size(), 6);
 
-    // Check that the expected op codes have been correctly recorded in the 1st op wire
-    for (size_t i = 0; i < builder.blocks.ecc_op.w_l().size(); ++i) {
-        info("Op code: ", builder.blocks.ecc_op.w_l()[i]);
-    }
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[0], (EccOpCode{ .add = true }).value());
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[2], (EccOpCode{ .mul = true }).value());
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[4], (EccOpCode{ .eq = true, .reset = true }).value());
+    // Check that the expected op codes have been correctly recorded in the 1st op wires pointed by circuit indices
+    auto opcode_wire_indexes = builder.blocks.ecc_op.w_l();
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[0]), (EccOpCode{ .add = true }).value());
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[2]), (EccOpCode{ .mul = true }).value());
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[4]), (EccOpCode{ .eq = true, .reset = true }).value());
 
     // Check that we can reconstruct the coordinates of P1 from the op_wires
     auto P1_x_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[0]]);
@@ -122,7 +120,7 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     EXPECT_EQ(P1_y, uint256_t(P1.y));
 
     // Check that we can reconstruct the coordinates of P2 from the op_wires
-    auto P2_x_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[2]]);
+    auto P2_x_lo = uint256_t(builder.variables[builder.bloc / ks.ecc_op.w_r()[2]]);
     auto P2_x_hi = uint256_t(builder.variables[builder.blocks.ecc_op.w_o()[2]]);
     auto P2_x = P2_x_lo + (P2_x_hi << CHUNK_SIZE);
     EXPECT_EQ(P2_x, uint256_t(P2.x));
