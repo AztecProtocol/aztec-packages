@@ -37,7 +37,7 @@ EOF
 # Copy the artifacts to the artifacts folder
 for contract in $TEST_CONTRACTS; do
   # Find the matching ABI file for this contract
-  ABI=$(find "../../noir-projects/noir-contracts/target" -name "${contract}_*.json" | head -n 1)
+  ABI=$(find "../../noir-projects/noir-contracts/target" -name "${contract}_contract-*.json" | head -n 1)
   if [ -n "$ABI" ]; then
     # Extract the filename from the path
     filename=$(basename "$ABI")
