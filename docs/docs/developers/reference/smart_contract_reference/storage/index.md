@@ -77,7 +77,7 @@ numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
 
-#include_code storage_minters /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code storage_minters /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 ### `at`
 
@@ -85,7 +85,7 @@ When dealing with a Map, we can access the value at a given key using the `::at`
 
 This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
 
-#include_code read_minter /noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr rust
+#include_code read_minter /noir-projects/noir-contracts/contracts/token_contract/src/main.nr rust
 
 Above, we are specifying that we want to get the storage in the Map `at` the `msg_sender()`, read the value stored and check that `msg_sender()` is indeed a minter. Doing a similar operation in Solidity code would look like:
 

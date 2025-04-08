@@ -102,7 +102,10 @@ function docs_cut_version {
     echo "Running preprocess and build for $COMMIT_TAG..."
 
     rm -rf processed-docs processed-docs-cache build
-    yarn run build # This might modify tracked files
+
+    # Rebuild everything on the tag we checked out (because of include_code links, etc)
+    ../bootstrap.sh
+    yarn run build
 
     # Create the versioned docs for this tag
     echo "Creating documentation version for $COMMIT_TAG..."
