@@ -196,8 +196,7 @@ function build {
     yarn-project
     boxes
     playground
-    # Blocking release.
-    # docs
+    docs
     release-image
     aztec-up
   )
