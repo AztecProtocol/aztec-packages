@@ -23,7 +23,8 @@ pub contract NoConstructor {
         context.emit_public_log(/*message=*/ value);
     }
 
-    /// Arbitrary function used to test that we can call private functions on an uninitialized contract.
+    /// Arbitrary function used to test that we can call private functions on a contract with
+    /// no constructor/initializer.
     #[private]
     fn initialize_private_mutable(value: Field) {
         let note = ValueNote::new(value, context.msg_sender());
