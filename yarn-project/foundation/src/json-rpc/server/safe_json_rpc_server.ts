@@ -11,7 +11,6 @@ import { ZodError } from 'zod';
 import { type Logger, createLogger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
 import {
-  type ApiSchema,
   type ApiSchemaFor,
   type ZodFunctionFor,
   parseWithOptionals,
