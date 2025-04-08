@@ -187,7 +187,7 @@ describe('KV TX pool', () => {
     // modify tx1 to return no archive indices
     tx1.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(1);
     const tx1HeaderHash = await tx1.data.constants.historicalHeader.hash();
-    txPool.mockArchiveCache.getArchiveIndices.mockImplementationOnce((archives: Fr[]) => {
+    txPool.mockArchiveCache.getArchiveIndices.mockImplementation((archives: Fr[]) => {
       if (archives[0].equals(tx1HeaderHash)) {
         return Promise.resolve([]);
       }
@@ -198,6 +198,27 @@ describe('KV TX pool', () => {
     const txHashes = [await tx1.getTxHash(), await tx2.getTxHash(), await tx3.getTxHash()];
     await txPool.markAsMined(txHashes, 1);
     await txPool.markMinedAsPending(txHashes);
+
+    const pendingTxHashes = await txPool.getPendingTxHashes();
+    expect(pendingTxHashes).toEqual(expect.arrayContaining([await tx2.getTxHash(), await tx3.getTxHash()]));
+    expect(pendingTxHashes).toHaveLength(2);
+  });
+
+  it('Evicts txs with invalid fee payer balances after a reorg', async () => {
+    const tx1 = await mockTx(1);
+    const tx2 = await mockTx(2);
+    const tx3 = await mockTx(3);
+
+    await txPool.addTxs([tx1, tx2, tx3]);
+    await txPool.markAsMined([await tx2.getTxHash()], 1);
+
+    // modify tx1 to have an insufficient fee payer balance after the reorg
+    txPool.mockGasTxValidator.validateTxFee.mockImplementation(async (tx: Tx) => {
+      return Promise.resolve({
+        result: (await tx.getTxHash()).equals(await tx1.getTxHash()) ? 'invalid' : 'valid',
+      } as TxValidationResult);
+    });
+    await txPool.markMinedAsPending([await tx2.getTxHash()]);
 
     const pendingTxHashes = await txPool.getPendingTxHashes();
     expect(pendingTxHashes).toEqual(expect.arrayContaining([await tx2.getTxHash(), await tx3.getTxHash()]));
