@@ -82,10 +82,7 @@ function docs_cut_version {
     current_branch=$(git rev-parse --abbrev-ref HEAD)
     echo "Original branch: $current_branch"
 
-
     # Rebuilding docs at the tip
-    rm -rf processed-docs processed-docs-cache build
-    yarn preprocess
     yarn run build
 
     COMMIT_TAG=$1
@@ -99,9 +96,7 @@ function docs_cut_version {
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
-    echo "Running preprocess and build for $COMMIT_TAG..."
-
-    rm -rf processed-docs processed-docs-cache build
+    echo "Building for $COMMIT_TAG..."
 
     # Rebuild everything on the tag we checked out (because of include_code links, etc)
     yarn run build
