@@ -46,9 +46,8 @@ if [ "$total_account_count" -lt "$max_accounts" ]; then
     sleep 40s
 
     # We only use the prover on the first iteration of the loop to avoid duplicating identical proofs
-    # TODO(ek): Re-enable after testing
-    # prover_to_use=$([ $i -eq 1 ] && echo "-p native" || echo "-p none")
-    prover_to_use="-p none"
+    prover_to_use=$(get_prover $((i == 1)))
+
     aztec-wallet $prover_to_use \
      deploy-account \
      -f accounts:main \
@@ -74,9 +73,7 @@ aztec-wallet \
   -f accounts:sponsored-fpc \
   --salt 0
 
-# TODO(ek): Re-enable after testing
-# prover_to_use="-p native"
-prover_to_use="-p none"
+prover_to_use="-p native"
 aztec-wallet $prover_to_use \
   deploy-account \
   -f accounts:sponsored-fpc \

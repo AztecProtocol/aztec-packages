@@ -15,9 +15,7 @@ if [ "$token_contract_count" -lt "$max_token_contracts" ]; then
     token_name="Token_$((token_contract_count + i))"
 
     # We only use the prover on the first iteration of the loop to avoid duplicating identical proofs
-    # TODO(ek): Re-enable after testing
-    # prover_to_use=$([ $i -eq 1 ] && echo "-p native" || echo "-p none")
-    prover_to_use="-p none"
+    prover_to_use=$(get_prover $((i == 1)))
 
     new_token_contract_address=$(aztec-wallet $prover_to_use \
       deploy Token \

@@ -59,33 +59,42 @@ function add_to_state() {
 }
 
 function get_private_balance() {
-    local token_address="$1"
-    local user_address="$2"
+  local token_address="$1"
+  local user_address="$2"
 
-    local balance=$(aztec-wallet \
-        simulate balance_of_private \
-        -ca "$token_address" \
-        --args "$user_address" \
-        -f "$user_address" \
-        | get_simulation_result)
+  local balance=$(aztec-wallet \
+    simulate balance_of_private \
+    -ca "$token_address" \
+    --args "$user_address" \
+    -f "$user_address" \
+    | get_simulation_result)
 
-    echo "$balance"
+  echo "$balance"
 }
 
 function get_public_balance() {
-    local token_address="$1"
-    local user_address="$2"
-    local from_address="$3"
+  local token_address="$1"
+  local user_address="$2"
+  local from_address="$3"
 
-    local balance=$(aztec-wallet \
-        simulate balance_of_public \
-        -ca "$token_address" \
-        --args "$user_address" \
-        -f "$from_address" \
-        | get_simulation_result)
+  local balance=$(aztec-wallet \
+    simulate balance_of_public \
+    -ca "$token_address" \
+    --args "$user_address" \
+    -f "$from_address" \
+    | get_simulation_result)
 
-    echo "$balance"
+  echo "$balance"
 }
+
+get_prover() {
+  if [[ "$1" = "true" || "$1" = "1" ]]; then
+    echo "-p native"
+  else
+    echo "-p none"
+  fi
+}
+
 
 aztec-wallet() {
   command aztec-wallet --node-url "$NODE_URL" "$@"

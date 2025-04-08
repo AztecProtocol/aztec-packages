@@ -121,11 +121,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
     amount_0_min=1
     amount_1_min=1
 
-    prover_to_use_for_amm_flow=$([ "$should_prove_flow" = "true" ] && echo "-p native" || echo "-p none")
-
-    # TODO(ek): Re-enable after testing
-    # prover_to_use_for_amm_flow=$([ "$should_prove_flow" = "true" ] && echo "-p native" || echo "-p none")
-    prover_to_use_for_amm_flow="-p none"
+    prover_to_use_for_amm_flow=$(get_prover "$should_prove_flow")
 
     aztec-wallet $prover_to_use_for_amm_flow \
       send add_liquidity \

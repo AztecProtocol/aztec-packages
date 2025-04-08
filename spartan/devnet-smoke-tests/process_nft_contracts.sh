@@ -37,9 +37,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
         admin_and_minter=$(echo "$contract" | jq -r '.admin_and_minter')
 
         for i in $(seq 1 $((nfts_to_mint))); do
-          # TODO(ek): Re-enable after testing
-          # prover_to_use_for_minting_setup=$([ "$should_prove_mint" = "true" ] && echo "-p native" || echo "-p none")
-          prover_to_use_for_minting_setup="-p none"
+          prover_to_use_for_minting_setup=$(get_prover "$should_prove_mint")
 
           aztec-wallet $prover_to_use_for_minting_setup \
             send mint \
@@ -124,9 +122,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
       random_other_account_address=$(select_random_account "$other_accounts")
 
-      # TODO(ek): Re-enable after testing
-      # prover_to_use_for_transfer=$([ "$should_prove_transfer" = "true" ] && echo "-p native" || echo "-p none")
-      prover_to_use_for_transfer="-p none"
+      prover_to_use_for_transfer=$(get_prover "$should_prove_transfer")
 
       aztec-wallet $prover_to_use_for_transfer \
         send transfer_in_private \

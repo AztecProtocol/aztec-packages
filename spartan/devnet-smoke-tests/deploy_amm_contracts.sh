@@ -36,9 +36,7 @@ if [ "$amm_contract_count" -lt "$max_amm_contracts" ]; then
       | get_contract_address)
 
     # We only use the prover on the first iteration of the loop to avoid duplicating identical proofs
-    # TODO(ek): Re-enable after testing
-    # prover_to_use_when_deploying_amm=$([ $i -eq 1 ] && echo "-p native" || echo "-p none")
-    prover_to_use_when_deploying_amm="-p none"
+    prover_to_use_when_deploying_amm=$(get_prover $((i == 1)))
 
     amm_address=$(aztec-wallet $prover_to_use_when_deploying_amm \
       deploy AMM \

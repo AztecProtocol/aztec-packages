@@ -38,9 +38,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       echo "Minting for $current_user_address from token $token_address"
       echo "Minting to public balance for $current_user_address"
 
-      # TODO(ek): Re-enable after testing
-      # prover_to_use_for_minting=$([ "$should_prove_mint" = "true" ] && echo "-p native" || echo "-p none")
-      prover_to_use_for_minting="-p none"
+      prover_to_use_for_minting=$(get_prover "$should_prove_mint")
 
       aztec-wallet $prover_to_use_for_minting send mint_to_public \
         -ca $token_address \
@@ -97,9 +95,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
       echo "Token address: $token_address, Current address: $current_user_address, Other address: $other_address"
 
-      # TODO(ek): Re-enable after testing
-      # prover_to_use_for_transfer=$([ "$should_prove_transfer" = "true" ] && echo "-p native" || echo "-p none")
-      prover_to_use_for_transfer="-p none"
+      prover_to_use_for_transfer=$(get_prover "$should_prove_transfer")
 
       aztec-wallet $prover_to_use_for_transfer \
         send transfer_in_public \

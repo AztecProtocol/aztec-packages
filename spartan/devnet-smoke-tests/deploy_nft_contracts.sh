@@ -15,9 +15,7 @@ if [ "$nft_contract_count" -lt "$max_nft_contracts" ]; then
     nft_name="NonFungibullish_$((nft_contract_count + i))"
 
     # We only use the prover on the first iteration of the loop to avoid duplicating idential proofs
-    # TODO(ek): Re-enable after testing
-    # prover_to_use=$([ $i -eq 1 ] && echo "-p native" || echo "-p none")
-    prover_to_use="-p none"
+    prover_to_use=$(get_prover $((i == 1)))
 
     new_nft_contract_address=$(aztec-wallet $prover_to_use \
       deploy NFT \
