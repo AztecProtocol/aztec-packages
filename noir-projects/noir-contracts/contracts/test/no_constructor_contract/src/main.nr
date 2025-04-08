@@ -17,16 +17,17 @@ pub contract NoConstructor {
         private_mutable: PrivateMutable<ValueNote, Context>,
     }
 
+    /// Arbitrary public method used to test public deployment works for a contract with no constructor.
     #[public]
     fn emit_public(value: Field) {
         context.emit_public_log(/*message=*/ value);
     }
 
+    /// Arbitrary function used to test that we can call private functions on an uninitialized contract.
     #[private]
     fn initialize_private_mutable(value: Field) {
         let note = ValueNote::new(value, context.msg_sender());
 
-        // create and broadcast note
         storage.private_mutable.initialize(note).emit(encode_and_encrypt_note(
             &mut context,
             context.msg_sender(),
@@ -34,6 +35,7 @@ pub contract NoConstructor {
         ));
     }
 
+    /// Helper function used to test that call to `initialize_private_mutable` was successful or not yet performed.
     #[utility]
     unconstrained fn is_private_mutable_initialized() -> bool {
         storage.private_mutable.is_initialized()

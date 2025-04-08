@@ -4,6 +4,8 @@ mod test_note;
 // A contract used for testing a random hodgepodge of small features from simulator and end-to-end tests.
 use dep::aztec::macros::aztec;
 
+// DEPRECATED: This contract is deprecated now. If you want to test new features, create a simple new contract used
+// to test only that one feature (see NoConstructor contract for example.)
 #[aztec]
 pub contract Test {
     // Note: If you import a new kind of note you will most likely need to update the test_note_type_id test
