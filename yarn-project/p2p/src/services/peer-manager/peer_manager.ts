@@ -49,7 +49,7 @@ export class PeerManager {
     handleConnectedPeerEvent: (e: CustomEvent<PeerId>) => void;
     handleDisconnectedPeerEvent: (e: CustomEvent<PeerId>) => void;
     handleDiscoveredPeer: (enr: ENR) => Promise<void>;
-  } = {} as any;
+  };
 
   constructor(
     private libP2PNode: PubSubLibp2p,

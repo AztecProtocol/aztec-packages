@@ -50,6 +50,7 @@ import { getNonNullifiedL1ToL2MessageWitness } from '@aztec/stdlib/messaging';
 import { type NotesFilter, UniqueNote } from '@aztec/stdlib/note';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
+  type IndexedTxEffect,
   PrivateExecutionResult,
   PrivateSimulationResult,
   PublicSimulationOutput,
