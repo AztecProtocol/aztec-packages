@@ -44,6 +44,9 @@ export abstract class BaseBot {
     const receipt = await tx.wait({
       timeout: txMinedWaitSeconds,
     });
+    if (followChain === 'PROVEN') {
+      await waitForProven(this.pxe.node, receipt, { provenTimeout: txMinedWaitSeconds });
+    }
     this.successes++;
     this.log.info(
       `Tx #${this.attempts} ${receipt.txHash} successfully mined in block ${receipt.blockNumber} (stats: ${this.successes}/${this.attempts} success)`,

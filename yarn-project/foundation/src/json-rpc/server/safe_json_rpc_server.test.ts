@@ -92,6 +92,17 @@ describe('SafeJsonRpcServer', () => {
       const response = await send({ jsonrpc: '2.0', method: 'toString', params: [], id: 42 });
       expectError(response, 400, 'Method not found: toString');
     });
+
+    it('calls an RPC function on a nested schema', async () => {
+      const response = await send({ method: 'meta_getVersion', params: [] });
+      expect(response.status).toBe(200);
+      expect(response.text).toEqual(JSON.stringify({ result: 1 }));
+    });
+
+    it('fails if calls method in nested handler non defined in schema', async () => {
+      const response = await send({ jsonrpc: '2.0', method: 'meta_veryPrivate', params: [], id: 42 });
+      expectError(response, 400, 'Method not found: meta_veryPrivate');
+    });
   });
 
   describe('namespaced', () => {
@@ -130,6 +141,16 @@ describe('SafeJsonRpcServer', () => {
     it('fails if no namespace is provided', async () => {
       const response = await send({ method: 'getNote', params: [1] });
       expectError(response, 400, 'Method not found: getNote');
+    });
+
+    it('routes to the correct namespace when calling methods on nested schemas', async () => {
+      const response = await send({ method: 'letters_meta_getVersion', params: [] });
+      expect(response.status).toBe(200);
+      expect(response.text).toEqual(JSON.stringify({ result: 1 }));
+
+      const response2 = await send({ method: 'numbers_meta_getVersion', params: [] });
+      expect(response2.status).toBe(200);
+      expect(response2.text).toEqual(JSON.stringify({ result: 1 }));
     });
   });
 });

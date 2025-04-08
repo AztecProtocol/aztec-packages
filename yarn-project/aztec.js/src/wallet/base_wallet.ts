@@ -95,7 +95,7 @@ export abstract class BaseWallet implements Wallet {
     return this.pxe.sendTx(tx);
   }
   getCurrentBaseFees(): Promise<GasFees> {
-    return this.pxe.getCurrentBaseFees();
+    return this.pxe.node.getCurrentBaseFees();
   }
   simulateUtility(
     functionName: string,
@@ -120,7 +120,7 @@ export abstract class BaseWallet implements Wallet {
   }
 
   getTxReceipt(txHash: TxHash): Promise<TxReceipt> {
-    return this.pxe.getTxReceipt(txHash);
+    return this.pxe.node.getTxReceipt(txHash);
   }
 
   getPrivateEvents<T>(

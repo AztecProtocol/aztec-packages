@@ -44,12 +44,8 @@ export function createSafeJsonRpcClient<T extends object>(
 
   let id = 0;
   const request = async (key: string, params: any[]): Promise<any> => {
-    if (!schemaHasKey(schema, key)) {
-      throw new Error(`Unspecified method ${key} in client schema`);
-    }
-
-    if (!schemaKeyIsFunction(schema[key])) {
-      return createSafeJsonRpcClient(host, schema[key], config);
+    if (!schemaHasKey(schema as ApiSchema, key)) {
+      throw new Error(`Unspecified key ${key} in client schema`);
     }
 
     const method = namespaceMethods ? `${namespaceMethods}_${key}` : key;
@@ -73,8 +69,16 @@ export function createSafeJsonRpcClient<T extends object>(
   };
 
   const proxy: any = {};
-  for (const method of Object.keys(schema)) {
-    proxy[method] = (...params: any[]) => request(method, params);
+  for (const key of Object.keys(schema)) {
+    if (schemaKeyIsFunction((schema as ApiSchema)[key])) {
+      proxy[key] = (...params: any[]) => request(key, params);
+    } else {
+      const subSchema = schema[key as keyof ApiSchemaFor<T>];
+      proxy[key] = createSafeJsonRpcClient(host, subSchema as ApiSchemaFor<typeof subSchema>, {
+        ...config,
+        namespaceMethods: `${namespaceMethods ? `${namespaceMethods}_` : ''}${key}`,
+      });
+    }
   }
 
   return proxy as T;

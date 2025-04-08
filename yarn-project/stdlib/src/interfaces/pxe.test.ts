@@ -40,6 +40,8 @@ import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxExecutionRequest } from '../tx/tx_execution_request.js';
+import type { AztecNode } from './aztec-node.js';
+import { MockAztecNode } from './aztec-node.test.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
 import {
   type ContractClassMetadata,
@@ -54,6 +56,7 @@ jest.setTimeout(12_000);
 
 describe('PXESchema', () => {
   let handler: MockPXE;
+  let node: MockAztecNode;
   let context: JsonRpcTestContext<PXE>;
 
   let address: AztecAddress;
@@ -78,7 +81,8 @@ describe('PXESchema', () => {
       salt: Fr.random(),
       address,
     };
-    handler = new MockPXE(address, artifact, instance);
+    node = new MockAztecNode(artifact);
+    handler = new MockPXE(address, artifact, instance, node);
     context = await createJsonRpcTestSetup<PXE>(handler, PXESchema);
   });
 
@@ -92,8 +96,13 @@ describe('PXESchema', () => {
     expect([...tested].sort()).toEqual(all.sort());
   });
 
-  it('isL1ToL2MessageSynced', async () => {
-    await context.client.isL1ToL2MessageSynced(Fr.random());
+  it('node', async () => {
+    const l1ToL2Message = Fr.random();
+    const isL1ToL2MessageSynced = await context.client.node.isL1ToL2MessageSynced(l1ToL2Message);
+    expect(isL1ToL2MessageSynced).toEqual(await node.isL1ToL2MessageSynced(l1ToL2Message));
+    const txHash = TxHash.random();
+    const response = await context.client.node.getTxEffect(txHash);
+    expect(response!.data).toBeInstanceOf(TxEffect);
   });
 
   it('registerAccount', async () => {
@@ -182,19 +191,9 @@ describe('PXESchema', () => {
     expect(result).toEqual([expect.any(UniqueNote)]);
   });
 
-  it('getCurrentBaseFees', async () => {
-    const result = await context.client.getCurrentBaseFees();
-    expect(result).toEqual(GasFees.empty());
-  });
-
   it('simulateUtility', async () => {
     const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
     expect(result).toEqual(10n);
-  });
-
-  it('getNodeInfo', async () => {
-    const result = await context.client.getNodeInfo();
-    expect(result).toEqual(await handler.getNodeInfo());
   });
 
   it('getPXEInfo', async () => {
@@ -252,11 +251,9 @@ class MockPXE implements PXE {
     private address: AztecAddress,
     private artifact: ContractArtifact,
     private instance: ContractInstanceWithAddress,
+    public node: AztecNode,
   ) {}
 
-  isL1ToL2MessageSynced(_l1ToL2Message: Fr): Promise<boolean> {
-    return Promise.resolve(false);
-  }
   registerAccount(secretKey: Fr, partialAddress: Fr): Promise<CompleteAddress> {
     expect(secretKey).toBeInstanceOf(Fr);
     expect(partialAddress).toBeInstanceOf(Fr);

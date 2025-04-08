@@ -8,9 +8,15 @@ import type { AddressInfo } from 'net';
 import { format, inspect } from 'util';
 import { ZodError } from 'zod';
 
-import { type Logger, createLogger } from '../../log/index.js';
+import { type Logger, createLogger, logger } from '../../log/index.js';
 import { promiseWithResolvers } from '../../promise/utils.js';
-import { type ApiSchema, type ApiSchemaFor, parseWithOptionals, schemaHasMethod } from '../../schemas/index.js';
+import {
+  type ApiSchema,
+  type ApiSchemaFor,
+  parseWithOptionals,
+  schemaHasKey,
+  schemaKeyIsFunction,
+} from '../../schemas/index.js';
 import { jsonStringify } from '../convert.js';
 import { assert } from '../js_utils.js';
 
@@ -126,7 +132,7 @@ export class SafeJsonRpcServer {
     router.post('/', async (ctx: Koa.Context) => {
       const { params = [], jsonrpc, id, method } = ctx.request.body as any;
       // Fail if not a registered function in the proxy
-      if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasMethod(method)) {
+      if (typeof method !== 'string' || method === 'constructor' || !this.proxy.hasKey(method)) {
         ctx.status = 400;
         const code = -32601;
         const message = `Method not found: ${method}`;
@@ -189,7 +195,7 @@ export class SafeJsonRpcServer {
 export type StatusCheckFn = () => boolean | Promise<boolean>;
 
 interface Proxy {
-  hasMethod(methodName: string): boolean;
+  hasKey(key: string): boolean;
   call(methodName: string, jsonParams?: any[]): Promise<any>;
 }
 
@@ -202,7 +208,7 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
   private schema: ApiSchema;
 
   constructor(private handler: T, schema: ApiSchemaFor<T>) {
-    this.schema = schema;
+    this.schema = schema as ApiSchema;
   }
 
   /**
@@ -211,21 +217,38 @@ export class SafeJsonProxy<T extends object = any> implements Proxy {
    * @param jsonParams - The RPC parameters.
    * @returns The remote result.
    */
-  public async call(methodName: string, jsonParams: any[] = []) {
-    this.log.debug(format(`request`, methodName, jsonParams));
+  public async call(key: string, jsonParams: any[] = []) {
+    this.log.debug(format(`request`, key, jsonParams));
 
-    assert(Array.isArray(jsonParams), `Params to ${methodName} is not an array: ${jsonParams}`);
-    assert(schemaHasMethod(this.schema, methodName), `Method ${methodName} not found in schema`);
-    const method = this.handler[methodName as keyof T];
-    assert(typeof method === 'function', `Method ${methodName} is not a function`);
-    const args = await parseWithOptionals(jsonParams, this.schema[methodName].parameters());
-    const ret = await method.apply(this.handler, args);
-    this.log.debug(format('response', methodName, ret));
+    assert(schemaHasKey(this.schema, key), `Key ${key} not found in schema`);
+    const schemaFnOrGetter = this.schema[key];
+    let ret;
+    if (schemaKeyIsFunction(schemaFnOrGetter)) {
+      const handlerFn = this.handler[key as keyof T];
+      assert(Array.isArray(jsonParams), `Params to ${key} is not an array: ${jsonParams}`);
+      assert(typeof handlerFn === 'function', `Method ${key} is not a function`);
+      const args = await parseWithOptionals(jsonParams, schemaFnOrGetter.parameters());
+      ret = await handlerFn.apply(this.handler, args);
+    } else {
+      const [objKey, methodKey] = key.split('_');
+      const obj = this.handler[objKey as keyof T];
+      const handlerFn = obj[methodKey as keyof typeof obj];
+      assert(typeof handlerFn === 'function', `Method ${methodKey} in object ${objKey} is not a function`);
+      const nestedSchema = this.schema[objKey] as ApiSchema;
+      this.log.info(`Nested schema ${objKey} found for ${key}`);
+      assert(nestedSchema !== undefined, `Object ${objKey} not found in schema`);
+      const nestedSchemaFn = nestedSchema[methodKey];
+      assert(schemaKeyIsFunction(nestedSchemaFn), `Method ${methodKey} in object ${objKey} is not a function`);
+      const args = await parseWithOptionals(jsonParams, nestedSchemaFn.parameters());
+      ret = await handlerFn.apply(this.handler, args);
+    }
+
+    this.log.debug(format('response', key, ret));
     return ret;
   }
 
-  public hasMethod(methodName: string): boolean {
-    return schemaHasMethod(this.schema, methodName) && typeof this.handler[methodName as keyof T] === 'function';
+  public hasKey(key: string): boolean {
+    return schemaHasKey(this.schema, key);
   }
 }
 
@@ -239,17 +262,19 @@ class NamespacedSafeJsonProxy implements Proxy {
   }
 
   public call(namespacedMethodName: string, jsonParams: any[] = []) {
-    const [namespace, methodName] = namespacedMethodName.split('_', 2);
+    const [namespace, ...rest] = namespacedMethodName.split('_');
+    const methodName = rest.join('_');
     assert(namespace && methodName, `Invalid namespaced method name: ${namespacedMethodName}`);
     const handler = this.proxies[namespace];
     assert(handler, `Namespace not found: ${namespace}`);
     return handler.call(methodName, jsonParams);
   }
 
-  public hasMethod(namespacedMethodName: string): boolean {
-    const [namespace, methodName] = namespacedMethodName.split('_', 2);
+  public hasKey(namespacedMethodName: string): boolean {
+    const [namespace, ...rest] = namespacedMethodName.split('_');
+    const methodName = rest.join('_');
     const handler = this.proxies[namespace];
-    return handler?.hasMethod(methodName);
+    return handler?.hasKey(methodName);
   }
 }
 

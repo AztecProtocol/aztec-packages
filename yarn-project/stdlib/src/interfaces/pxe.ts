@@ -1,5 +1,7 @@
+import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
+import { SiblingPath } from '@aztec/foundation/trees';
 
 import { z } from 'zod';
 
@@ -20,13 +22,13 @@ import {
   type ProtocolContractAddresses,
   ProtocolContractAddressesSchema,
 } from '../contract/index.js';
-import { GasFees } from '../gas/gas_fees.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxSimulationResult } from '../tx/index.js';
 import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
+import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 
 // docs:start:pxe-interface
 /**
@@ -36,12 +38,10 @@ import { TxProvingResult } from '../tx/proven_tx.js';
  * is exposed to dapps for interacting with the network on behalf of the user.
  */
 export interface PXE {
-  /**
-   * Returns whether an L1 to L2 message is synced by archiver and if it's ready to be included in a block.
-   * @param l1ToL2Message - The L1 to L2 message to check.
-   * @returns Whether the message is synced and ready to be included in a block.
+  /*
+   * The node this PXE is connected to
    */
-  isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
+  get node(): AztecNode;
   /**
    * Registers a user account in PXE given its master encryption private key.
    * Once a new account is registered, the PXE Service will trial-decrypt all published notes on
@@ -179,16 +179,6 @@ export interface PXE {
   sendTx(tx: Tx): Promise<TxHash>;
 
   /**
-   * Fetches a transaction receipt for a given transaction hash. Returns a mined receipt if it was added
-   * to the chain, a pending receipt if it's still in the mempool of the connected Aztec node, or a dropped
-   * receipt if not found in the connected Aztec node.
-   *
-   * @param txHash - The transaction hash.
-   * @returns A receipt of the transaction.
-   */
-  getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
-
-  /**
    * Gets notes registered in this PXE based on the provided filter.
    * @param filter - The filter to apply to the notes.
    * @returns The requested notes.
@@ -196,10 +186,18 @@ export interface PXE {
   getNotes(filter: NotesFilter): Promise<UniqueNote[]>;
 
   /**
-   * Method to fetch the current base fees.
-   * @returns The current base fees.
+   * Fetches an L1 to L2 message from the node.
+   * @param contractAddress - Address of a contract by which the message was emitted.
+   * @param messageHash - Hash of the message.
+   * @param secret - Secret used to compute a nullifier.
+   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
+   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
    */
-  getCurrentBaseFees(): Promise<GasFees>;
+  getL1ToL2MembershipWitness(
+    contractAddress: AztecAddress,
+    messageHash: Fr,
+    secret: Fr,
+  ): Promise<[bigint, SiblingPath<typeof L1_TO_L2_MSG_TREE_HEIGHT>]>;
 
   /**
    * Simulate the execution of a contract utility function.
@@ -347,7 +345,7 @@ const PXEInfoSchema = z.object({
 }) satisfies ZodFor<PXEInfo>;
 
 export const PXESchema: ApiSchemaFor<PXE> = {
-  isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
+  node: AztecNodeApiSchema,
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
@@ -381,9 +379,11 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     )
     .returns(TxSimulationResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
-  getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
-  getCurrentBaseFees: z.function().returns(GasFees.schema),
+  getL1ToL2MembershipWitness: z
+    .function()
+    .args(schemas.AztecAddress, schemas.Fr, schemas.Fr)
+    .returns(z.tuple([schemas.BigInt, SiblingPath.schemaFor(L1_TO_L2_MSG_TREE_HEIGHT)])),
   simulateUtility: z
     .function()
     .args(

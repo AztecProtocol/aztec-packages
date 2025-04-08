@@ -345,7 +345,7 @@ describe('AztecNodeApiSchema', () => {
   });
 });
 
-class MockAztecNode implements AztecNode {
+export class MockAztecNode implements AztecNode {
   constructor(private artifact: ContractArtifact) {}
 
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {

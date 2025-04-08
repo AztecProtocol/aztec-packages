@@ -2,12 +2,12 @@ import type { AztecAddress, ContractArtifact, Fr } from '@aztec/aztec.js';
 import type { LogFn } from '@aztec/foundation/log';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { AztecNode, PXE } from '@aztec/stdlib/interfaces/client';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
 import { type ExtendedNote, NoteStatus } from '@aztec/stdlib/note';
 import type { TxHash } from '@aztec/stdlib/tx';
 
-export async function inspectBlock(node: AztecNode, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
-  const block = await node.getBlock(blockNumber);
+export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
+  const block = await pxe.node.getBlock(blockNumber);
   if (!block) {
     log(`No block found for block number ${blockNumber}`);
     return;
@@ -35,15 +35,15 @@ export async function inspectBlock(node: AztecNode, blockNumber: number, log: Lo
 }
 
 export async function inspectTx(
-  node: AztecNode,
+  pxe: PXE,
   txHash: TxHash,
   log: LogFn,
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
   const [receipt, effectsInBlock, getNotes] = await Promise.all([
-    node.getTxReceipt(txHash),
-    node.getTxEffect(txHash),
-    node.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
+    pxe.node.getTxReceipt(txHash),
+    pxe.node.getTxEffect(txHash),
+    pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data
   log(`Tx ${txHash.toString()}`);

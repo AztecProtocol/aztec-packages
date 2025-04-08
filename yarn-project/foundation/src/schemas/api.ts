@@ -29,6 +29,11 @@ export type ZodFunctionFor<Args, Ret> = z.ZodFunction<
   ZodReturnTypeFor<Ret>
 >;
 
+/** Generic Api schema not bounded to a specific implementation. */
+export type ApiSchema = {
+  [key: string]: ZodFunctionFor<any, any> | ApiSchemaFor<any>;
+};
+
 /** Maps all functions in an interface to their schema representation. */
 export type ApiSchemaFor<T> = {
   [K in keyof T]: T[K] extends (...args: infer Args) => Promise<infer Ret>
@@ -36,21 +41,24 @@ export type ApiSchemaFor<T> = {
     : ApiSchemaFor<T[K]>;
 };
 
-/** Generic Api schema not bounded to a specific implementation. */
-export type ApiSchema = {
-  [key: string]: ZodFunctionFor<any, any> | ApiSchema;
-};
-
 export function schemaKeyIsFunction<K extends keyof ApiSchema>(
   maybeFn: ApiSchema[K],
 ): maybeFn is ZodFunctionFor<any, any> {
   return (
+    maybeFn !== undefined &&
     typeof (maybeFn as ZodFunctionFor<any, any>).parameters === 'function' &&
     typeof (maybeFn as ZodFunctionFor<any, any>).returnType === 'function'
   );
 }
 
-/** Return whether an API schema defines a valid getter schema for a given method name. */
-export function schemaHasKey(schema: ApiSchema, methodName: string) {
-  return typeof methodName === 'string' && Object.hasOwn(schema, methodName);
+/**
+ * Return whether an API schema defines a valid getter schema for a given method name,
+ * or if a nested schema does with a prefixed method name.
+ */
+export function schemaHasKey(schema: ApiSchema, key: string) {
+  const hasOwnKey = Object.hasOwn(schema, key);
+
+  const [nestedObj, nestedKey] = key.split('_');
+  const hasNestedKey = Object.hasOwn(schema, nestedObj) && Object.hasOwn(schema[nestedObj], nestedKey);
+  return typeof key === 'string' && (hasOwnKey || hasNestedKey);
 }

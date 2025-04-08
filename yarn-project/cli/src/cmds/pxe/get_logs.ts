@@ -1,5 +1,5 @@
 import type { AztecAddress, LogFilter, LogId, TxHash } from '@aztec/aztec.js';
-import { createAztecNodeClient, createCompatibleClient } from '@aztec/aztec.js';
+import { createCompatibleClient } from '@aztec/aztec.js';
 import type { LogFn, Logger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
@@ -11,9 +11,10 @@ export async function getLogs(
   contractAddress: AztecAddress,
   rpcUrl: string,
   follow: boolean,
+  debugLogger: Logger,
   log: LogFn,
 ) {
-  const node = await createAztecNodeClient(rpcUrl);
+  const pxe = await createCompatibleClient(rpcUrl, debugLogger);
 
   if (follow) {
     if (txHash) {
@@ -27,7 +28,7 @@ export async function getLogs(
   const filter: LogFilter = { txHash, fromBlock, toBlock, afterLog, contractAddress };
 
   const fetchLogs = async () => {
-    const response = await node.getPublicLogs(filter);
+    const response = await pxe.node.getPublicLogs(filter);
     const logs = response.logs;
 
     if (!logs.length) {
