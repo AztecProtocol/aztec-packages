@@ -110,7 +110,7 @@ void write_standalone_vk(const std::string& output_data_type,
     Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
     auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
                                                ? nullptr
@@ -151,7 +151,7 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
     // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
     static constexpr size_t MAGIC_NUMBER = 16;
 
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
@@ -227,7 +227,7 @@ std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& fo
     using Program = acir_format::AcirProgram;
     using namespace acir_format;
 
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const ProgramMetadata metadata{ ivc };
@@ -375,7 +375,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // Initialize an SRS to make the ClientIVC constructor happy
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     size_t i = 0;
     for (const auto& constraint_system : constraint_systems) {
