@@ -3,6 +3,7 @@
 #include "barretenberg/common/std_array.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
+#include "barretenberg/eccvm//eccvm_fixed_vk.hpp"
 #include "barretenberg/eccvm/eccvm_circuit_builder.hpp"
 #include "barretenberg/flavor/flavor.hpp"
 #include "barretenberg/flavor/flavor_macros.hpp"
@@ -747,27 +748,16 @@ class ECCVMFlavor {
       public:
         bool operator==(const VerificationKey&) const = default;
 
-        // Default constuct the fixed VK that results from ECCVM_FIXED_SIZE
+        // Default construct the fixed VK that results from ECCVM_FIXED_SIZE
         VerificationKey()
             : VerificationKey_(ECCVM_FIXED_SIZE, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
 
-            // Populate the commitments of the precomputed polynomials
-            {
-                uint256_t x_val("0x1b38d3ca76ed177424415672027d98459a875ed1aa43bb969ecffd9e4428c0d1");
-                uint256_t y_val("0x1ee6866622f6e654361830d9f545e0943d26876e03aafa0c4cc6772d1c277d46");
-                this->lagrange_first = Commitment(x_val, y_val);
-            }
-            {
-                uint256_t x_val("0x28cc5109376bdec7cdea99ea99cd0b14151f735ed8cd1687f5154cafc5718900");
-                uint256_t y_val("0x13df90d6be58ebcfb1b767db72f4c3fe3b98afd7a0094d69cdea854128819bc9");
-                this->lagrange_second = Commitment(x_val, y_val);
-            }
-            {
-                uint256_t x_val("0x1a0f8fc6e94945c7036f59179a0fb25fdaf4dce29f9a9ad84ed4e17faa25903a");
-                uint256_t y_val("0x1d55ee861aa772391f6486f9a1f24f503b4905eb8c10555bd44c4f406259a913");
-                this->lagrange_last = Commitment(x_val, y_val);
+            // Populate the commitments of the precomputed polynomials using the fixed VK data
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), ECCVMFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
             }
         }
 
