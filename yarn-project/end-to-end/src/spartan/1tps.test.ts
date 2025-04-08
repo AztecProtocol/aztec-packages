@@ -112,7 +112,7 @@ describe('token transfer test', () => {
       .prove();
 
     const txs: ProvenTx[] = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 20; i++) {
       const clonedTxData = Tx.clone(baseTx);
 
       // Modify the first nullifier to make it unique
@@ -134,7 +134,7 @@ describe('token transfer test', () => {
     await Promise.all(
       txs.map(async (tx, i) => {
         const sentTx = tx.send();
-        console.log(`sent tx: ${i + 1}`);
+        console.log(`sent tx: #${i + 1}`);
         await sentTx.wait({ timeout: 600 });
         const receipt = await sentTx.getReceipt();
         console.log(`tx ${i + 1} included in block: ${receipt.blockNumber}`);
