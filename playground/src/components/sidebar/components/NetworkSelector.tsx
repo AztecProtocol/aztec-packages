@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
@@ -13,6 +12,7 @@ import { css } from '@emotion/react';
 import Link from '@mui/material/Link';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CircularProgress from '@mui/material/CircularProgress';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -74,6 +74,7 @@ export function NetworkSelector({
   const [isSandboxError, setIsSandboxError] = useState(false);
   const [isTestnetError, setIsTestnetError] = useState(false);
   const [errorText, setErrorText] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
 
   const getNetworkType = (networkUrl: string) => {
     // Check if this is a sandbox network
@@ -83,6 +84,12 @@ export function NetworkSelector({
     const isTestnet = networkUrl.includes('devnet') || networkUrl.includes('test');
 
     return { isSandbox, isTestnet };
+  };
+
+  const getCurrentNetworkName = () => {
+    if (!currentNodeURL) return '';
+    const network = networks.find(n => n.nodeURL === currentNodeURL);
+    return network ? network.name : 'Custom Network';
   };
 
   const handleNetworkChange = async (event: SelectChangeEvent) => {
@@ -121,8 +128,6 @@ export function NetworkSelector({
       } else {
         setErrorText('Failed to connect to network');
       }
-
-      setNodeURL(''); // Reset the node URL on failure
     } finally {
       setChangingNetworks(false);
       setIsLoading(false);
@@ -150,7 +155,7 @@ export function NetworkSelector({
       return (
         <>
           {errorText}
-          <br/> Do you have a sandbox running? Check out the <Link href="https://docs.aztec.network/developers/getting_started" target="_blank" rel="noopener">docs</Link>
+          <br/> Do you have a sandbox running? Check out the <Link href="https://docs.aztec.network" target="_blank" rel="noopener">docs</Link>
         </>
       );
     } else if (isTestnetError) {
@@ -158,7 +163,6 @@ export function NetworkSelector({
         <>
           {errorText}
           <br/><br/> Testnet may be down. Please see our Discord for updates.
-          <br/> In the meantime, you can try the sandbox network.
         </>
       );
     } else {
@@ -174,11 +178,23 @@ export function NetworkSelector({
   return (
     <div css={modalContainer}>
       <FormControl css={select}>
-        <InputLabel>Network</InputLabel>
         <Select
           fullWidth
           value={currentNodeURL || ''}
-          label="Network"
+          displayEmpty
+          IconComponent={KeyboardArrowDownIcon}
+          open={isOpen}
+          onOpen={() => setIsOpen(true)}
+          onClose={() => setIsOpen(false)}
+          renderValue={(selected) => {
+            if (isLoading) {
+              return 'Connecting to network...';
+            }
+            if (selected && currentNodeURL) {
+              return `Connected to ${getCurrentNetworkName()}`;
+            }
+            return 'Select Network';
+          }}
           disabled={isLoading}
           onChange={handleNetworkChange}
         >
@@ -190,7 +206,10 @@ export function NetworkSelector({
               </Typography>
             </MenuItem>
           ))}
-          <MenuItem key="create" value="" onClick={() => setOpenAddNetworksDialog(true)}>
+          <MenuItem key="create" value="" onClick={() => {
+            setIsOpen(false);
+            setOpenAddNetworksDialog(true);
+          }}>
             <AddIcon />
             &nbsp;Add custom network
           </MenuItem>

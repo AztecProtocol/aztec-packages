@@ -483,7 +483,7 @@ export default function Home() {
   const [isWorking, setIsWorking] = useState(false);
 
   // Track which sidebar section is active
-  const [activeSection, setActiveSection] = useState<'network' | 'account' | 'contract' | null>(null);
+  const [activeSection, setActiveSection] = useState<'network' | 'account' | 'contract' | ''>('');
 
   // Track network/account/contract status for button text
   const [isNetworkConnected, setIsNetworkConnected] = useState(false);
@@ -600,10 +600,8 @@ export default function Home() {
   };
 
   const handleSectionToggle = (section: 'network' | 'account' | 'contract') => {
-    // Always set the active section, don't toggle off when clicking the same section
-    setActiveSection(section);
-
-    // No more checks - allow all sections to be accessible regardless of network connection
+    // Toggle off when clicking the same section
+    setActiveSection(activeSection === section ? '' : section);
   };
 
   // Get the current network name
@@ -848,7 +846,7 @@ export default function Home() {
           css={docsButton}
           style={{ textDecoration: 'none' }}
         >
-          Go to Docs
+          Inspiration
         </a>
       </div>
 
@@ -862,7 +860,7 @@ export default function Home() {
           >
             {/* Network button with modal */}
             <ButtonWithModal
-              label="Connect to Network"
+              label="Select Network"
               isActive={activeSection === 'network'}
               isSelected={isNetworkConnected}
               isLoading={isConnecting}

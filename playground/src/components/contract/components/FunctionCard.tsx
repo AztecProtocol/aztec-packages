@@ -7,7 +7,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SendIcon from '@mui/icons-material/Send';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
 import { FunctionParameter } from '../../../components/common/fnParameter';
+import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
 
 const functionCard = css({
   boxSizing: 'border-box',
@@ -225,32 +228,38 @@ export function FunctionCard({
         {isWorking && <CircularProgress size={'1rem'} style={{ marginTop: '15px', color: '#9894FF' }} />}
 
         <div css={actionButtonsContainer}>
-          <button
-            css={actionButton}
-            disabled={!wallet || !currentContract || isWorking}
-            onClick={() => onSimulate(fn.name)}
-          >
-            SIMULATE
-            <PsychologyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-          </button>
-          <button
-            css={actionButton}
-            disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
-            onClick={() => onSend(fn.name)}
-          >
-            SEND
-            <SendIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-          </button>
-          <button
-            css={actionButton}
-            disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
-            onClick={() =>
-              onAuthwit(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
-            }
-          >
-            AUTHWIT
-            <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-          </button>
+          <Tooltip title="Run the transaction locally and generate a proof" placement="top">
+            <button
+              css={actionButton}
+              disabled={!wallet || !currentContract || isWorking}
+              onClick={() => onSimulate(fn.name)}
+            >
+              SIMULATE
+              <PsychologyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+            </button>
+          </Tooltip>
+          <Tooltip title="Generate a proof and send it to the aztec network" placement="top">
+            <button
+              css={actionButton}
+              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+              onClick={() => onSend(fn.name)}
+            >
+              SEND
+              <SendIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+            </button>
+          </Tooltip>
+          <Tooltip title="Authenticate another protocol to perform this on your behalf" placement="top">
+            <button
+              css={actionButton}
+              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+              onClick={() =>
+                onAuthwit(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
+              }
+            >
+              AUTHWIT
+              <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+            </button>
+          </Tooltip>
         </div>
       </div>
     </div>

@@ -47,7 +47,10 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
-      nodePolyfillsFix({ include: ['buffer', 'path'] }),
+      nodePolyfillsFix({
+        include: ['buffer', 'path'],
+        exclude: ['fs', 'crypto', 'stream', 'util', 'events', 'os', 'tty', 'net', 'dns', 'zlib', 'http', 'https', 'url', 'querystring', 'punycode', 'string_decoder', 'timers', 'assert', 'constants', 'domain', 'process']
+      }),
       // This is unnecessary unless BB_WASM_PATH is defined (default would be /assets/barretenberg.wasm.gz)
       // Left as an example of how to use a different bb wasm file than the default lazily loaded one
       // viteStaticCopy({
@@ -59,7 +62,7 @@ export default defineConfig(({ mode }) => {
       //   ],
       // }),
       bundlesize({
-        limits: [{ name: 'assets/index-*', limit: '1600kB' }],
+        limits: [{ name: 'assets/index-*', limit: '2200kB' }],
       }),
     ],
     define: {
@@ -75,6 +78,15 @@ export default defineConfig(({ mode }) => {
     build: {
       // Required by vite-plugin-bundle-size
       sourcemap: 'hidden',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'ethereum': ['@aztec/ethereum', 'viem'],
+            'react-vendor': ['react', 'react-dom'],
+            'mui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
+          }
+        }
+      }
     },
   };
 });

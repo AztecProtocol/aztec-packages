@@ -51,28 +51,6 @@ export function SidebarComponent() {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
-  // Connect to devnet when starting up
-  useEffect(() => {
-    if (!nodeURL && !changingNetworks && !isConnecting) {
-      setIsConnecting(true);
-      const defaultNetwork = NETWORKS[0].nodeURL;
-      connectToNetwork(
-        defaultNetwork,
-        setNodeURL,
-        setPXEInitialized,
-        setAztecNode,
-        setPXE,
-        setWalletDB,
-        setLogs
-      )
-        .then(() => setIsConnecting(false))
-        .catch(error => {
-          console.error('Error connecting to default network:', error);
-          setIsConnecting(false);
-        });
-    }
-  }, [nodeURL, changingNetworks, isConnecting]);
-
   // Load networks from storage
   useEffect(() => {
     loadNetworks()
@@ -355,20 +333,6 @@ export function SidebarComponent() {
       >
         PLAYGROUND
       </Typography>
-
-      {/* Network Selector */}
-      <NetworkSelector
-        networks={networks}
-        currentNodeURL={nodeURL}
-        onNetworksChange={setNetworks}
-        setNodeURL={setNodeURL}
-        setPXEInitialized={setPXEInitialized}
-        setAztecNode={setAztecNode}
-        setPXE={setPXE}
-        setWalletDB={setWalletDB}
-        setLogs={setLogs}
-        setChangingNetworks={setChangingNetworks}
-      />
 
       {/* Account Selector */}
       <AccountSelector
