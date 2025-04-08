@@ -8,7 +8,8 @@ describe('e2e_nested_contract manual_enqueue', () => {
   const t = new NestedContractTest('manual_enqueue');
   let { wallets, pxe, parentContract, childContract } = t;
 
-  const getChildStoredValue = (child: { address: AztecAddress }) => pxe.getPublicStorageAt(child.address, new Fr(1));
+  const getChildStoredValue = (child: { address: AztecAddress }) =>
+    pxe.node.getPublicStorageAt('latest', child.address, new Fr(1));
 
   beforeAll(async () => {
     await t.applyBaseSnapshots();

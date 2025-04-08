@@ -281,7 +281,7 @@ describe('e2e_sandbox_example', () => {
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC);
     // The payment method can also be initialized as follows:
     // const sponsoredPaymentMethod = await SponsoredFeePaymentMethod.new(pxe);
-    const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, pxe);
+    const initialFPCFeeJuice = await getFeeJuiceBalance(sponsoredFPC, pxe.node);
 
     const receiptForBob = await bananaCoin
       .withWallet(bobWallet)
@@ -298,6 +298,8 @@ describe('e2e_sandbox_example', () => {
     logger.info(`Bob's new balance: ${bobNewBalance}`);
     expect(bobNewBalance).toEqual(bobBalance - amountTransferToAlice);
 
-    expect(await getFeeJuiceBalance(sponsoredFPC, pxe)).toEqual(initialFPCFeeJuice - receiptForBob.transactionFee!);
+    expect(await getFeeJuiceBalance(sponsoredFPC, pxe.node)).toEqual(
+      initialFPCFeeJuice - receiptForBob.transactionFee!,
+    );
   });
 });

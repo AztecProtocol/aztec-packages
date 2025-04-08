@@ -21,12 +21,12 @@ describe('e2e_ordering', () => {
 
   const expectLogsFromLastBlockToBe = async (logMessages: bigint[]) => {
     // docs:start:get_logs
-    const fromBlock = await pxe.getBlockNumber();
+    const fromBlock = await pxe.node.getBlockNumber();
     const logFilter = {
       fromBlock,
       toBlock: fromBlock + 1,
     };
-    const publicLogs = (await pxe.getPublicLogs(logFilter)).logs;
+    const publicLogs = (await pxe.node.getPublicLogs(logFilter)).logs;
     // docs:end:get_logs
 
     const bigintLogs = publicLogs.map(extendedLog =>
@@ -89,7 +89,7 @@ describe('e2e_ordering', () => {
           await expectLogsFromLastBlockToBe(expectedOrder);
 
           // The final value of the child is the last one set
-          const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+          const value = await pxe.node.getPublicStorageAt('latest', child.address, new Fr(1));
           expect(value.toBigInt()).toBe(expectedOrder[1]); // final state should match last value set
         },
       );
@@ -114,7 +114,7 @@ describe('e2e_ordering', () => {
 
         await child.methods[method]().send().wait();
 
-        const value = await pxe.getPublicStorageAt(child.address, new Fr(1));
+        const value = await pxe.node.getPublicStorageAt('latest', child.address, new Fr(1));
         expect(value.toBigInt()).toBe(expectedOrder[expectedOrder.length - 1]); // final state should match last value set
       });
 

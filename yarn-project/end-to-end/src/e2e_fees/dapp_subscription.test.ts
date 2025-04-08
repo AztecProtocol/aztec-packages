@@ -188,7 +188,7 @@ describe('e2e_fees dapp_subscription', () => {
 
     return subscriptionContract
       .withWallet(aliceWallet)
-      .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
+      .methods.subscribe(aliceAddress, nonce, (await pxe.node.getBlockNumber()) + blockDelta, txCount)
       .send({ authWitnesses: [witness], fee: { paymentMethod } })
       .wait();
   }

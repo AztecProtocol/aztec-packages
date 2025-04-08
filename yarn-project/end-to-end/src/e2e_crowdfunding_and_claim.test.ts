@@ -313,7 +313,7 @@ describe('e2e_crowdfunding_and_claim', () => {
       .calls;
     // ...using the withdraw fn as our entrypoint
     const entrypointHashedValues = await HashedValues.fromArgs(call.args);
-    const maxFeesPerGas = await pxe.getCurrentBaseFees();
+    const maxFeesPerGas = await pxe.node.getCurrentBaseFees();
     const request = new TxExecutionRequest(
       call.to,
       call.selector,

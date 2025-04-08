@@ -547,7 +547,7 @@ describe('e2e_block_building', () => {
 
       ownerAddress = owner.getCompleteAddress().address;
       contract = await StatefulTestContract.deploy(owner, ownerAddress, ownerAddress, 1).send().deployed();
-      initialBlockNumber = await pxe.getBlockNumber();
+      initialBlockNumber = await aztecNode.getBlockNumber();
       logger.info(`Stateful test contract deployed at ${contract.address}`);
 
       await cheatCodes.rollup.advanceToNextEpoch();

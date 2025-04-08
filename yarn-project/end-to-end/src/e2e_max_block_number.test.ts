@@ -22,7 +22,7 @@ describe('e2e_max_block_number', () => {
     let maxBlockNumber: number;
 
     beforeEach(async () => {
-      maxBlockNumber = (await pxe.getBlockNumber()) + 20;
+      maxBlockNumber = (await pxe.node.getBlockNumber()) + 20;
     });
 
     describe('with no enqueued public calls', () => {
@@ -58,7 +58,7 @@ describe('e2e_max_block_number', () => {
     let maxBlockNumber: number;
 
     beforeEach(async () => {
-      maxBlockNumber = await pxe.getBlockNumber();
+      maxBlockNumber = await pxe.node.getBlockNumber();
     });
 
     describe('with no enqueued public calls', () => {

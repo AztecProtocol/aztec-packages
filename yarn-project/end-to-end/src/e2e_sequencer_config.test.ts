@@ -61,7 +61,7 @@ describe('e2e_sequencer_config', () => {
       const receipt: TxReceipt = (await bot.run()) as TxReceipt;
       expect(receipt).toBeDefined();
       expect(receipt.status).toBe('success');
-      const block = await pxe.getBlock(receipt.blockNumber!);
+      const block = await pxe.node.getBlock(receipt.blockNumber!);
       expect(block).toBeDefined();
       const totalManaUsed = block?.header.totalManaUsed!.toBigInt();
 

@@ -115,7 +115,7 @@ describe('e2e_fees private_payment', () => {
     await t.cheatCodes.rollup.advanceToNextEpoch();
 
     const receipt = await tx.wait({ timeout: 300, interval: 10 });
-    await waitForProven(pxe, receipt, { provenTimeout: 300 });
+    await waitForProven(pxe.node, receipt, { provenTimeout: 300 });
 
     // @note There is a potential race condition here if other tests send transactions that get into the same
     // epoch and thereby pays out fees at the same time (when proven).

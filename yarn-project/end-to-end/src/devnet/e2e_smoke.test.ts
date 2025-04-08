@@ -288,8 +288,8 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function waitForL1MessageToArrive() {
-    const targetBlockNumber = (await pxe.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
-    await retryUntil(async () => (await pxe.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
+    const targetBlockNumber = (await pxe.node.getBlockNumber()) + MIN_BLOCKS_FOR_BRIDGING;
+    await retryUntil(async () => (await pxe.node.getBlockNumber()) >= targetBlockNumber, 'wait_for_l1_message', 0, 10);
   }
 
   async function advanceChainWithEmptyBlocks(pxe: PXE) {

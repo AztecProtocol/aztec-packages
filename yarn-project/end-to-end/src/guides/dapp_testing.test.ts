@@ -101,7 +101,7 @@ describe('guides/dapp/testing', () => {
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );
-        const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
+        const balance = await pxe.node.getPublicStorageAt('latest', token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:public-storage
       });
@@ -114,7 +114,7 @@ describe('guides/dapp/testing', () => {
           fromBlock: tx.blockNumber!,
           limit: 1, // 1 log expected
         };
-        const logs = (await pxe.getPublicLogs(filter)).logs;
+        const logs = (await pxe.node.getPublicLogs(filter)).logs;
         expect(logs[0].log.log[0]).toEqual(value);
         // docs:end:public-logs
       });
@@ -162,7 +162,7 @@ describe('guides/dapp/testing', () => {
           TokenContract.storage.public_balances.slot,
           owner.getAddress(),
         );
-        const balance = await pxe.getPublicStorageAt(token.address, ownerPublicBalanceSlot);
+        const balance = await pxe.node.getPublicStorageAt('latest', token.address, ownerPublicBalanceSlot);
         expect(balance.value).toEqual(100n);
         // docs:end:pub-reverted
       });
