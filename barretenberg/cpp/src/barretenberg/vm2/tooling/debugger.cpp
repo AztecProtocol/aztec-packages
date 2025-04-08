@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/debugger.hpp"
+#include "barretenberg/vm2/tooling/debugger.hpp"
 
 #include <iostream>
 #include <optional>
@@ -13,6 +13,7 @@
 #include "barretenberg/vm2/constraining/full_row.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
 #include "barretenberg/vm2/tracegen/lib/trace_conversion.hpp"
+
 namespace bb::avm2 {
 namespace {
 

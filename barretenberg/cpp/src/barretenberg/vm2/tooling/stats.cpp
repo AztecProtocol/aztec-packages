@@ -1,4 +1,4 @@
-#include "barretenberg/vm2/common/stats.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 #include <chrono>
 #include <cstdint>
