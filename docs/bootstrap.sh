@@ -101,8 +101,7 @@ function docs_cut_version {
     # Checkout the tag, discarding local changes from previous build artifacts
     # Use --force to overwrite potentially modified tracked files from the build process
     echo "Checking out tag $COMMIT_TAG..."
-    git checkout --force "$COMMIT_TAG" docs
-    yarn run build
+    git checkout --force "$COMMIT_TAG"
 
     # Prepare for docusaurus build/versioning for this tag
     echo "[]" > versions.json # Docusaurus versioning might need this cleared
