@@ -100,6 +100,8 @@ template <typename BuilderType> class TranslatorRecursiveFlavor_ {
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(); // ?
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+            // `log_circuit_size` from MSGPACK and the verification key.
             this->circuit_size = FF{ 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N };
             this->circuit_size.convert_constant_to_fixed_witness(builder);
             this->log_circuit_size = FF{ uint64_t(TranslatorFlavor::CONST_TRANSLATOR_LOG_N) };

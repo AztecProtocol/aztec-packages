@@ -104,7 +104,8 @@ template <typename BuilderType> class ECCVMRecursiveFlavor_ {
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>(
                 builder, 1UL << CONST_ECCVM_LOG_N, native_key->pcs_verification_key);
-
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and
+            // `log_circuit_size` from MSGPACK and the verification key.
             this->circuit_size = FF{ 1UL << CONST_ECCVM_LOG_N };
             this->circuit_size.convert_constant_to_fixed_witness(builder);
             this->log_circuit_size = FF{ uint64_t(CONST_ECCVM_LOG_N) };

@@ -660,7 +660,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         bool verified(true);
 
         // Pad gate challenges for Protogalaxy DeciderVerifier
-        if constexpr (!IsTranslatorFlavor<Flavor>) {
+        if constexpr (Flavor::USE_PADDING) {
             round.pad_gate_challenges(gate_challenges);
         }
 
@@ -698,7 +698,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             // The recursive logic differs from the native one because of a hack making Sumcheck circuits in
             // Ultra, Mega, and their derivatives constant. Note that there's no artificial padding in
             // Translator
-            if constexpr (IsRecursiveFlavor<Flavor> && !IsTranslatorFlavor<Flavor>) {
+            if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
                 typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
                 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
                 stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);

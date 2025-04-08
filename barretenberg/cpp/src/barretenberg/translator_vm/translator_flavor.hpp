@@ -734,7 +734,7 @@ class TranslatorFlavor {
             }
         }
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
-        // from MSGPACK.
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,
