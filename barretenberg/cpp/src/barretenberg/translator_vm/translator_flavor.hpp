@@ -722,6 +722,7 @@ class TranslatorFlavor {
             : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
         {
             this->pub_inputs_offset = 0;
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
             // Populate the commitments of the precomputed polynomials
             for (auto [vk_commitment, fixed_commitment] :

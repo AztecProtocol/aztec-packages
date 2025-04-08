@@ -280,12 +280,6 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
     return { proof, merge_proof };
 }
 
-void ClientIVC::construct_vk()
-{
-    construct_hiding_circuit_key();
-    goblin.construct_vks();
-};
-
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
  *
@@ -299,13 +293,12 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
-
     // Verify the hiding circuit proof
     MegaVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    GoblinVerifier goblin_verifier{ vk.eccvm, vk.translator };
+    GoblinVerifier goblin_verifier{};
     bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
@@ -319,8 +312,8 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
  */
 bool ClientIVC::verify(const Proof& proof)
 {
-    auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
+    auto eccvm_vk = std::make_shared<ECCVMVerificationKey>();
+    auto translator_vk = std::make_shared<TranslatorVerificationKey>();
     return verify(proof, { honk_vk, eccvm_vk, translator_vk });
 }
 

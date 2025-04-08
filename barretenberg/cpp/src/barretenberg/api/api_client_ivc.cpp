@@ -165,10 +165,8 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
         ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
     ivc.accumulate(circuit_1);
 
-    ivc.construct_vk();
-
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
+    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
 
     const bool output_to_stdout = output_dir == "-";
     const auto vk = std::make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);

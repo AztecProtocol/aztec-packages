@@ -67,7 +67,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    GoblinVerifier verifier{ verifier_input };
+    GoblinVerifier verifier{};
 
     EXPECT_TRUE(verifier.verify(proof));
 }

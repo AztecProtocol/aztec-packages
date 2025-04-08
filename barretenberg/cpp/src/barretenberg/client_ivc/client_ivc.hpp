@@ -223,7 +223,6 @@ class ClientIVC {
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     const bool mock_vk = false);
 
-    void construct_vk();
     Proof prove();
 
     std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, MergeProof> construct_hiding_circuit_key();

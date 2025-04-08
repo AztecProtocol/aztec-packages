@@ -180,20 +180,23 @@ class GoblinVerifier {
     };
 
   private:
-    std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
-    std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
+    std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
+    std::shared_ptr<TranslatorVerificationKey> translator_verification_key =
+        std::make_shared<TranslatorVerificationKey>();
 
   public:
-    GoblinVerifier(std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key,
-                   std::shared_ptr<TranslatorVerificationKey> translator_verification_key)
-        : eccvm_verification_key(eccvm_verification_key)
-        , translator_verification_key(translator_verification_key)
-    {}
+    // default constructor
+    GoblinVerifier() = default;
+    // GoblinVerifier(std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key,
+    //                std::shared_ptr<TranslatorVerificationKey> translator_verification_key)
+    //     : eccvm_verification_key(eccvm_verification_key)
+    //     , translator_verification_key(translator_verification_key)
+    // {}
 
-    GoblinVerifier(VerifierInput input)
-        : eccvm_verification_key(input.eccvm_verification_key)
-        , translator_verification_key(input.translator_verification_key)
-    {}
+    // GoblinVerifier(VerifierInput input)
+    //     : eccvm_verification_key(input.eccvm_verification_key)
+    //     , translator_verification_key(input.translator_verification_key)
+    // {}
 
     /**
      * @brief Append recursive verification of a merge proof to a provided circuit
