@@ -22,6 +22,12 @@ class ContractDBInterface {
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
 };
 
+// The sibling path and root after the insertion.
+struct AppendLeafResult {
+    FF root;
+    crypto::merkle_tree::fr_sibling_path path;
+};
+
 // Low level access to a merkle db. In general these will not be constrained.
 class LowLevelMerkleDBInterface {
   public:
@@ -45,7 +51,9 @@ class LowLevelMerkleDBInterface {
     insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) = 0;
     virtual world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
     insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) = 0;
-    virtual void append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
+
+    virtual std::vector<AppendLeafResult> append_leaves(world_state::MerkleTreeId tree_id,
+                                                        std::span<const FF> leaves) = 0;
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
