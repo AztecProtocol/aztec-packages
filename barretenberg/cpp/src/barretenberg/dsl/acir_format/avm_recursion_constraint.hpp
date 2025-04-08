@@ -14,7 +14,7 @@ stdlib::recursion::aggregation_state<Builder> create_avm_recursion_constraints(
     stdlib::recursion::aggregation_state<Builder> input_aggregation_object,
     bool has_valid_witness_assignments);
 
-HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
+HonkRecursionConstraintOutput<Builder> create_avm_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     PairingPointAccumulatorIndices input_aggregation_object,

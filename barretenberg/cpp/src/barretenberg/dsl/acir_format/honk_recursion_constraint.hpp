@@ -8,18 +8,17 @@
 #include <vector>
 
 namespace acir_format {
-using Builder = bb::UltraCircuitBuilder;
 
 using namespace bb;
 
-struct HonkRecursionConstraintOutput {
+template <typename Builder> struct HonkRecursionConstraintOutput {
     stdlib::recursion::aggregation_state<Builder> agg_obj;
     OpeningClaim<stdlib::grumpkin<Builder>> ipa_claim;
     StdlibProof<Builder> ipa_proof;
 };
 
-template <typename Flavor>
-HonkRecursionConstraintOutput create_honk_recursion_constraints(
+template <typename Builder, typename Flavor>
+HonkRecursionConstraintOutput<Builder> create_honk_recursion_constraints(
     Builder& builder,
     const RecursionConstraint& input,
     stdlib::recursion::aggregation_state<Builder> input_aggregation_object,

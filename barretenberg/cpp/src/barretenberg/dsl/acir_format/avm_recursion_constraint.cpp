@@ -210,7 +210,7 @@ stdlib::recursion::aggregation_state<Builder> create_avm_recursion_constraints(
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
+HonkRecursionConstraintOutput<Builder> create_avm_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     stdlib::recursion::aggregation_state<Builder> input_agg_obj,
@@ -255,9 +255,9 @@ HonkRecursionConstraintOutput create_avm_recursion_constraints_goblin(
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public
     // inputs is important, like what the plonk recursion constraint does.
 
-    HonkRecursionConstraintOutput result{ .agg_obj = output_agg_object.aggregation_object,
-                                          .ipa_claim = output_agg_object.ipa_claim,
-                                          .ipa_proof = output_agg_object.ipa_proof };
+    HonkRecursionConstraintOutput<Builder> result{ .agg_obj = output_agg_object.aggregation_object,
+                                                   .ipa_claim = output_agg_object.ipa_claim,
+                                                   .ipa_proof = output_agg_object.ipa_proof };
     return result;
 }
 
