@@ -46,6 +46,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       amm_address=$(echo "$contracts_data" | jq -r '.amm_address')
       admin_and_minter=$(echo "$contract" | jq -r '.admin_and_minter')
 
+      # We don't want to prove any mint_to_privates because we already have done so in the token tests
       aztec-wallet -p none \
         send mint_to_private \
         -ca $token_0_address \
