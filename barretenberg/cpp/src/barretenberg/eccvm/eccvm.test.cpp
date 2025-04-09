@@ -77,7 +77,7 @@ void complete_proving_key_for_test(bb::RelationParameters<FF>& relation_paramete
         gamma * (gamma + beta_sqr) * (gamma + beta_sqr + beta_sqr) * (gamma + beta_sqr + beta_sqr + beta_sqr);
     relation_parameters.eccvm_set_permutation_delta = relation_parameters.eccvm_set_permutation_delta.invert();
 
-    const size_t unmasked_witness_size = pk->circuit_size - MASKING_OFFSET;
+    const size_t unmasked_witness_size = pk->circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
     // Compute z_perm and inverse polynomial for our logarithmic-derivative lookup method
     compute_logderivative_inverse<FF, ECCVMFlavor::LookupRelation>(
         pk->polynomials, relation_parameters, unmasked_witness_size);

@@ -603,6 +603,7 @@ export class PXEOracleInterface implements ExecutionDataProvider {
           txEffect.data.nullifiers[0],
           recipient,
           scopedLog.logIndexInTx,
+          txEffect.txIndexInBlock,
         );
 
         return pendingTaggedLog.toFields();
@@ -805,9 +806,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
     contractAddress: AztecAddress,
     recipient: AztecAddress,
     eventSelector: EventSelector,
-    logContent: Fr[],
+    msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void> {
     const txReceipt = await this.aztecNode.getTxReceipt(txHash);
     const blockNumber = txReceipt.blockNumber;
@@ -824,9 +826,10 @@ export class PXEOracleInterface implements ExecutionDataProvider {
       contractAddress,
       recipient,
       eventSelector,
-      logContent,
+      msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
       blockNumber,
     );
   }
