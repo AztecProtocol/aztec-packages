@@ -96,3 +96,9 @@ export const primaryButton = css({
     width: '100%',
   },
 });
+
+export const dropdownIconStyle = css({
+  fontSize: '20px',
+  marginLeft: '8px',
+  transition: 'transform 0.3s ease',
+});

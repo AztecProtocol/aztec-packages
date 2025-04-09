@@ -41,7 +41,7 @@ import { parse } from 'buffer-json';
 
 const container = css({
   display: 'flex',
-  height: 'calc(100vh - 50px)',
+  height: '100%',
   width: '100%',
   overflow: 'hidden',
   justifyContent: 'center',
@@ -125,7 +125,7 @@ const loadingArtifactContainer = css({
 const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
-  const [contractArtifact, setContractArtifact] = useState<ContractArtifact | null>(null);
+  const [currentContract, setCurrentContract] = useState<Contract | null>(null);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   const [filters, setFilters] = useState({
@@ -155,8 +155,8 @@ export function ContractComponent() {
     wallet,
     walletDB,
     currentContractAddress,
-    currentContract,
-    setCurrentContract,
+    currentContractArtifact,
+    setCurrentContractArtifact,
     setCurrentContractAddress,
     setCurrentTx,
   } = useContext(AztecContext);
@@ -167,8 +167,7 @@ export function ContractComponent() {
       const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
       const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
       const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
-      setCurrentContract(contract);
-      setContractArtifact(contract.artifact);
+      setCurrentContractArtifact(contract.artifact);
       setFunctionAbis(getAllFunctionAbis(contract.artifact));
       setFilters({
         searchTerm: '',
@@ -183,6 +182,20 @@ export function ContractComponent() {
     }
   }, [currentContractAddress]);
 
+  useEffect(() => {
+    if (currentContractArtifact !== null) {
+      setIsLoadingArtifact(true);
+      setFunctionAbis(getAllFunctionAbis(currentContractArtifact));
+      setFilters({
+        searchTerm: '',
+        private: true,
+        public: true,
+        utility: true,
+      });
+      setIsLoadingArtifact(false);
+    }
+  }, [currentContractArtifact]);
+
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
       const file = files[0];
@@ -190,7 +203,7 @@ export function ContractComponent() {
       setIsLoadingArtifact(true);
       reader.onload = async e => {
         const contractArtifact = loadContractArtifact(JSON.parse(e.target?.result as string));
-        setContractArtifact(contractArtifact);
+        setCurrentContractArtifact(contractArtifact);
         setFunctionAbis(getAllFunctionAbis(contractArtifact));
         setIsLoadingArtifact(false);
       };
@@ -207,8 +220,8 @@ export function ContractComponent() {
 
   const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
     if (contract && alias) {
-      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
-      setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
+      await walletDB.storeContract(contract.address, currentContractArtifact, undefined, alias);
+      setCurrentContract(await Contract.at(contract.address, currentContractArtifact, wallet));
       setCurrentContractAddress(contract.address);
     }
     setOpenDeployContractDialog(false);
@@ -307,7 +320,7 @@ export function ContractComponent() {
 
   return (
     <div css={container}>
-      {!contractArtifact ? (
+      {!currentContractArtifact ? (
         !isLoadingArtifact ? (
           <div css={dropZoneContainer}>
             <div {...getRootProps({ className: 'dropzone' })}>
@@ -326,7 +339,7 @@ export function ContractComponent() {
           <div css={headerContainer}>
             <div css={header}>
               <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
-                {contractArtifact.name}
+                {currentContractArtifact.name}
               </Typography>
               {!currentContract && wallet && (
                 <div css={contractActions}>
@@ -342,12 +355,12 @@ export function ContractComponent() {
                     Register
                   </Button>
                   <DeployContractDialog
-                    contractArtifact={contractArtifact}
+                    contractArtifact={currentContractArtifact}
                     open={openDeployContractDialog}
                     onClose={handleContractCreation}
                   />
                   <RegisterContractDialog
-                    contractArtifact={contractArtifact}
+                    contractArtifact={currentContractArtifact}
                     open={openRegisterContractDialog}
                     onClose={handleContractCreation}
                   />
@@ -361,7 +374,7 @@ export function ContractComponent() {
                     onClick={() => {
                       setCurrentContractAddress(null);
                       setCurrentContract(null);
-                      setContractArtifact(null);
+                      setCurrentContractArtifact(null);
                     }}
                   >
                     <ClearIcon />

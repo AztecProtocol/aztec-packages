@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { css, keyframes } from '@emotion/react';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { dropdownIconStyle } from '../styles';
 
 // Animation for the modal appearing
 const popupAnimation = keyframes`
@@ -41,8 +42,8 @@ const buttonStyle = css({
   padding: '12px 24px',
   fontFamily: "'Inter', sans-serif",
   fontWeight: 600,
-  fontSize: '17px',
-  lineHeight: '16px',
+  fontSize: '15px',
+  lineHeight: '15px',
   color: '#000000',
   cursor: 'pointer',
   '&:hover': {
@@ -60,13 +61,6 @@ const activeButtonStyle = css({
   '&:hover': {
     backgroundColor: '#8985FF',
   },
-});
-
-// Styles for the dropdown icon
-const dropdownIconStyle = css({
-  fontSize: '20px',
-  marginLeft: '8px',
-  transition: 'transform 0.3s ease',
 });
 
 // Styles for the modal content wrapper

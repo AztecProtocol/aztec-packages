@@ -14,6 +14,7 @@ import { formatFrAsString, parseAliasedBuffersAsString } from '../../../utils/co
 import { PREDEFINED_CONTRACTS } from '../types';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
+import { loadContractArtifact } from '@aztec/aztec.js';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -40,12 +41,14 @@ export function ContractSelector({}: ContractSelectorProps) {
   const [isContractChanging, setIsContractChanging] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
+  const [selectedPredefinedContract, setSelectedPredefinedContract] = useState<string | undefined>(undefined);
+
   const {
-    setCurrentContract,
-    setCurrentContractAddress,
     currentContractAddress,
     wallet,
     walletDB,
+    isPXEInitialized,
+    setCurrentContractArtifact,
     setShowContractInterface,
   } = useContext(AztecContext);
 
@@ -67,6 +70,7 @@ export function ContractSelector({}: ContractSelectorProps) {
 
     // If 'create' is clicked, don't proceed (it's just for showing the dialog)
     if (contractValue === 'create') {
+      setCurrentContractArtifact(undefined);
       return;
     }
 
@@ -75,29 +79,44 @@ export function ContractSelector({}: ContractSelectorProps) {
     try {
       if ([PREDEFINED_CONTRACTS.SIMPLE_VOTING, PREDEFINED_CONTRACTS.SIMPLE_TOKEN].includes(contractValue)) {
         setShowContractInterface(true);
-        let contract;
+        let contractArtifactJSON;
         switch (contractValue) {
           case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
-            contract = await import(`@aztec/noir-contracts.js/EasyPrivateVoting`);
+            ({ EasyPrivateVotingContractArtifact: contractArtifactJSON } = await import(
+              '@aztec/noir-contracts.js/EasyPrivateVoting'
+            ));
             break;
           case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
-            contract = await import(`@aztec/noir-contracts.js/SimpleToken`);
+            ({ SimpleTokenContractArtifact: contractArtifactJSON } = await import(
+              '@aztec/noir-contracts.js/SimpleToken'
+            ));
             break;
         }
-        setCurrentContract(contract);
-        return;
+        const contractArtifact = await loadContractArtifact(contractArtifactJSON);
+        setSelectedPredefinedContract(contractValue);
+        setCurrentContractArtifact(contractArtifact);
       }
     } finally {
       setIsContractChanging(false);
     }
   };
 
+  if (!isPXEInitialized || !wallet) {
+    return (
+      <div css={loadingContainer}>
+        <Typography variant="body2" color="warning.main">
+          Note: Connect to a network and account to deploy and interact with contracts
+        </Typography>
+      </div>
+    );
+  }
+
   return (
     <div css={modalContainer}>
       <FormControl css={select}>
         <InputLabel>Contracts</InputLabel>
         <Select
-          value={currentContractAddress?.toString() || ''}
+          value={currentContractAddress?.toString() ?? selectedPredefinedContract}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
@@ -139,13 +158,6 @@ export function ContractSelector({}: ContractSelectorProps) {
           <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
         )}
       </FormControl>
-      {!wallet && (
-        <div css={loadingContainer}>
-          <Typography variant="body2" color="warning.main">
-            Note: Connect to a network and account to deploy and interact with contracts
-          </Typography>
-        </div>
-      )}
     </div>
   );
 }

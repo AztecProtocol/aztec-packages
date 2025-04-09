@@ -7,6 +7,7 @@ import {
   type PXE,
   type Logger,
   createLogger,
+  type ContractArtifact,
 } from '@aztec/aztec.js';
 
 import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/client/lazy';
@@ -96,12 +97,12 @@ export const AztecContext = createContext<{
   isPXEInitialized: boolean;
   walletDB: WalletDB | null;
   currentContractAddress: AztecAddress;
-  currentContract: Contract;
   currentTx: ContractFunctionInteractionTx;
   logs: Log[];
   logsOpen: boolean;
   drawerOpen: boolean;
   showContractInterface: boolean;
+  currentContractArtifact: ContractArtifact;
   setShowContractInterface: (showContractInterface: boolean) => void;
   setConnecting: (connecting: boolean) => void;
   setDrawerOpen: (drawerOpen: boolean) => void;
@@ -114,7 +115,7 @@ export const AztecContext = createContext<{
   setPXE: (pxe: PXE) => void;
   setNetwork: (network: Network) => void;
   setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
-  setCurrentContract: (currentContract: Contract) => void;
+  setCurrentContractArtifact: (currentContract: ContractArtifact) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
 }>({
   pxe: null,
@@ -124,7 +125,7 @@ export const AztecContext = createContext<{
   wallet: null,
   isPXEInitialized: false,
   walletDB: null,
-  currentContract: null,
+  currentContractArtifact: null,
   currentContractAddress: null,
   currentTx: null,
   logs: [],
@@ -143,7 +144,7 @@ export const AztecContext = createContext<{
   setPXE: () => {},
   setAztecNode: () => {},
   setCurrentTx: () => {},
-  setCurrentContract: () => {},
+  setCurrentContractArtifact: () => {},
   setCurrentContractAddress: () => {},
 });
 

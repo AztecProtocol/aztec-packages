@@ -154,34 +154,12 @@ export function AccountSelector({}: AccountSelectorProps) {
   }
 
   // If PXE is not initialized or network is not connected, show a message
-  if (!isPXEInitialized || !pxe) {
+  if (!isPXEInitialized) {
     return (
-      <div css={modalContainer}>
-        <FormControl css={select}>
-          <InputLabel>Account</InputLabel>
-          <Select
-            fullWidth
-            value=""
-            label="Account"
-            onChange={e => {
-              // If "Create" is selected, open the create account dialog
-              if (e.target.value === 'create') {
-                setOpenCreateAccountDialog(true);
-              }
-            }}
-          >
-            <MenuItem key="create" value="create">
-              <AddIcon />
-              &nbsp;Create
-            </MenuItem>
-          </Select>
-        </FormControl>
-        <div css={loadingContainer}>
-          <Typography variant="body2" color="warning.main">
-            Note: Connect to a network first to create and use accounts
-          </Typography>
-        </div>
-        <CreateAccountDialog open={openCreateAccountDialog} onClose={() => setOpenCreateAccountDialog(false)} />
+      <div css={loadingContainer}>
+        <Typography variant="body2" color="warning.main">
+          Note: Connect to a network first to create and use accounts
+        </Typography>
       </div>
     );
   }

@@ -1,9 +1,7 @@
 import { css } from '@mui/styled-engine';
-import { type SelectChangeEvent } from '@mui/material/Select';
 import { AztecContext } from '../../aztecEnv';
 import { AztecAddress } from '@aztec/aztec.js';
 import { useContext, useEffect, useState } from 'react';
-import Divider from '@mui/material/Divider';
 import Typography from '@mui/material/Typography';
 import { formatFrAsString, parseAliasedBuffersAsString } from '../../utils/conversion';
 import { TxsPanel } from './components/TxsPanel';
@@ -12,9 +10,14 @@ import { AccountSelector } from './components/AccountSelector';
 import { AddressBook } from './components/AddressBook';
 import { ContractSelector } from './components/ContractSelector';
 import { ButtonWithModal } from './components/ButtonWithModal';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { dropdownIconStyle } from './styles';
+import { IconButton } from '@mui/material';
 
 const container = css({
-  width: '20%',
+  width: '25%',
+  height: '100%',
+  position: 'relative',
   backgroundColor: '#E9E9E9',
   overflow: 'auto',
   flexShrink: 0,
@@ -22,23 +25,42 @@ const container = css({
   borderRadius: '10px',
   display: 'flex',
   flexDirection: 'column',
-  position: 'relative',
   transition: 'all 0.3s ease-out',
   padding: '20px',
   margin: '0 24px 0 0',
   '@media (max-width: 1200px)': {
+    padding: '12px',
     width: 'auto',
-    maxHeight: '300px',
-    margin: 0,
+    maxHeight: '350px',
+    margin: '0 0 12px 0',
   },
 });
 
 export function SidebarComponent() {
-  const { connecting, network, wallet, walletDB, currentContractAddress } = useContext(AztecContext);
+  const {
+    connecting,
+    network,
+    wallet,
+    walletDB,
+    currentContractAddress,
+    currentContractArtifact,
+    drawerOpen,
+    setDrawerOpen,
+  } = useContext(AztecContext);
 
   const [isNetworkConnected, setIsNetworkConnected] = useState(false);
   const [walletAlias, setWalletAlias] = useState<string | undefined>(undefined);
   const [contractAlias, setContractAlias] = useState<string | undefined>(undefined);
+
+  const [smallScreen, setSmallScreen] = useState(window.matchMedia('(max-width: 1200px)').matches);
+
+  useEffect(() => {
+    window.matchMedia('(max-width: 1200px)').addEventListener('change', e => setSmallScreen(e.matches));
+  }, []);
+
+  useEffect(() => {
+    setDrawerOpen(!smallScreen);
+  }, [smallScreen]);
 
   useEffect(() => {
     setIsNetworkConnected(!connecting && !!network?.nodeURL);
@@ -90,45 +112,62 @@ export function SidebarComponent() {
   };
 
   const getContractButtonText = () => {
-    if (!currentContractAddress) return 'Select Contract';
-
-    return `${contractAlias || formatFrAsString(currentContractAddress.toString())} Contract`;
+    if (!currentContractArtifact) return 'Select Contract';
+    const name = currentContractArtifact.name;
+    if (currentContractAddress) {
+      return `${contractAlias ?? name} (${formatFrAsString(currentContractAddress.toString())})`;
+    } else {
+      return name;
+    }
   };
 
   return (
-    <div css={container}>
-      <Typography variant="overline">Connect</Typography>
-      <ButtonWithModal
-        label="Select Network"
-        isActive={activeSection === 'network'}
-        isSelected={isNetworkConnected}
-        isLoading={connecting}
-        connectionStatus={getNetworkButtonText()}
-        onClick={() => handleSectionToggle('network')}
-      >
-        <NetworkSelector />
-      </ButtonWithModal>
-      <ButtonWithModal
-        label="Connect Account"
-        isActive={activeSection === 'account'}
-        isSelected={!!wallet}
-        connectionStatus={getAccountButtonText()}
-        onClick={() => handleSectionToggle('account')}
-      >
-        <AccountSelector />
-      </ButtonWithModal>
-      <ButtonWithModal
-        label="Select Contract"
-        isActive={activeSection === 'contract'}
-        isSelected={!!currentContractAddress}
-        connectionStatus={getContractButtonText()}
-        onClick={() => handleSectionToggle('contract')}
-      >
-        <ContractSelector />
-      </ButtonWithModal>
-      <div css={{ flex: '1 0 auto', margin: 'auto' }} />
-      <AddressBook />
-      <TxsPanel css={{ marginBottom: 60 }} />
+    <div css={[container, !drawerOpen && { height: '60px' }]}>
+      <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Typography variant="overline">Tools</Typography>
+        {smallScreen && (
+          <IconButton sx={{ height: '24px', padding: 0, width: '24px' }} onClick={() => setDrawerOpen(!drawerOpen)}>
+            <KeyboardArrowDownIcon
+              css={[dropdownIconStyle, { margin: 0 }, drawerOpen && { transform: 'rotate(180deg)' }]}
+            />
+          </IconButton>
+        )}
+      </div>
+      {drawerOpen && (
+        <>
+          <ButtonWithModal
+            label="Select Network"
+            isActive={activeSection === 'network'}
+            isSelected={isNetworkConnected}
+            isLoading={connecting}
+            connectionStatus={getNetworkButtonText()}
+            onClick={() => handleSectionToggle('network')}
+          >
+            <NetworkSelector />
+          </ButtonWithModal>
+          <ButtonWithModal
+            label="Connect Account"
+            isActive={activeSection === 'account'}
+            isSelected={!!wallet}
+            connectionStatus={getAccountButtonText()}
+            onClick={() => handleSectionToggle('account')}
+          >
+            <AccountSelector />
+          </ButtonWithModal>
+          <ButtonWithModal
+            label="Select Contract"
+            isActive={activeSection === 'contract'}
+            isSelected={!!currentContractAddress}
+            connectionStatus={getContractButtonText()}
+            onClick={() => handleSectionToggle('contract')}
+          >
+            <ContractSelector />
+          </ButtonWithModal>
+          <div css={{ flex: '1 0 auto', margin: 'auto' }} />
+          <AddressBook />
+          <TxsPanel css={{ marginBottom: 60 }} />
+        </>
+      )}
     </div>
   );
 }

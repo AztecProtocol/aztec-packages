@@ -1,5 +1,5 @@
 import { css } from '@emotion/react';
-import { ContractComponent } from '../contract/contract';
+import { ContractComponent } from '../contract/Contract';
 import { SidebarComponent } from '../sidebar/Sidebar';
 import { useState } from 'react';
 import { AztecContext } from '../../aztecEnv';
@@ -10,7 +10,8 @@ import logoURL from '../../assets/aztec_logo.png';
 const layout = css({
   display: 'flex',
   flexDirection: 'column',
-  minHeight: 'calc(100vh - 60px)',
+  height: '100%',
+  overflow: 'hidden',
   width: '100%',
   flex: 1,
 });
@@ -18,10 +19,14 @@ const layout = css({
 const contentLayout = css({
   display: 'flex',
   flexDirection: 'row',
-  flex: 1,
+  position: 'relative',
+  flexShrink: 0,
+  height: 'calc(100% - 220px)',
   minHeight: 0,
+  overflow: 'hidden',
   margin: '24px 60px',
   '@media (max-width: 1200px)': {
+    height: 'calc(100% - 150px)',
     flexDirection: 'column',
     margin: '0 12px',
   },
@@ -50,7 +55,7 @@ const logo = css({
   '@media (max-width: 1200px)': {
     height: 'auto',
     width: '120px',
-    marginRight: '0.8rem',
+    marginRight: '0.1rem',
   },
 });
 
@@ -66,9 +71,9 @@ const headerTitle = css({
   color: '#2D2D2D',
   textDecoration: 'none',
   marginTop: '0.5rem',
+  padding: '1rem',
   '@media (max-width: 1200px)': {
-    marginTop: '0.2rem',
-    padding: 0,
+    marginTop: '0.3rem',
     fontSize: '20px',
     lineHeight: '20px',
   },
@@ -112,7 +117,7 @@ export default function Home() {
   const [isPXEInitialized, setPXEInitialized] = useState(false);
   const [walletAlias, setWalletAlias] = useState('');
   const [walletDB, setWalletDB] = useState(null);
-  const [currentContract, setCurrentContract] = useState(null);
+  const [currentContractArtifact, setCurrentContractArtifact] = useState(null);
   const [currentTx, setCurrentTx] = useState(null);
   const [currentContractAddress, setCurrentContractAddress] = useState(null);
   const [logs, setLogs] = useState([]);
@@ -129,7 +134,7 @@ export default function Home() {
     isPXEInitialized,
     walletAlias,
     walletDB,
-    currentContract,
+    currentContractArtifact,
     currentTx,
     node,
     currentContractAddress,
@@ -150,7 +155,7 @@ export default function Home() {
     setPXE,
     setShowContractInterface,
     setWalletAlias,
-    setCurrentContract,
+    setCurrentContractArtifact,
     setCurrentContractAddress,
   };
 
@@ -169,13 +174,13 @@ export default function Home() {
           Inspiration
         </a>
       </div>
-      <div css={contentLayout}>
-        <AztecContext.Provider value={AztecContextInitialValue}>
+      <AztecContext.Provider value={AztecContextInitialValue}>
+        <div css={contentLayout}>
           <SidebarComponent />
-          <LogPanel />
           {showContractInterface ? <ContractComponent /> : <Landing />}
-        </AztecContext.Provider>
-      </div>
+        </div>
+        <LogPanel />
+      </AztecContext.Provider>
     </div>
   );
 }
