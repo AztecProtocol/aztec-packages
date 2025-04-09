@@ -77,7 +77,7 @@ numbers: Map<AztecAddress, PrivateMutable<ValueNote>>,
 
 When declaring a public mapping in Storage, we have to specify that the type is public by declaring it as `PublicState` instead of specifying a note type like with private storage above.
 
-```rust title="storage_minters" showLineNumbers
+```rust title="storage_minters" showLineNumbers 
 minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L74-L76" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L74-L76</a></sub></sup>
@@ -89,7 +89,7 @@ When dealing with a Map, we can access the value at a given key using the `::at`
 
 This function behaves similarly for both private and public maps. An example could be if we have a map with `minters`, which is mapping addresses to a flag for whether they are allowed to mint tokens or not.
 
-```rust title="read_minter" showLineNumbers
+```rust title="read_minter" showLineNumbers 
 assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L198-L200" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L198-L200</a></sub></sup>

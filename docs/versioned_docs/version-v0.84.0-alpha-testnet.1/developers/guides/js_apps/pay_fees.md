@@ -192,7 +192,7 @@ const tx = await bananaCoin.methods
 
 In this example, thanks to the FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
 
-More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr)
+More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr)
 
 See this [section](../../reference/environment_reference/cli_wallet_reference.md#fee-paying-contract) for paying fees via an FPC using the CLI wallet.
 

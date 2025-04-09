@@ -528,7 +528,7 @@ Note: One Field element occupies a storage slot. Hence, structs with multiple fi
 
 #### Example
 
-```typescript title="load_private_cheatcode" showLineNumbers
+```typescript title="load_private_cheatcode" showLineNumbers 
 const mintAmount = 100n;
 
 await mintTokensToPrivate(token, wallet, admin, mintAmount);

@@ -509,31 +509,4 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
         throw new Error(`Padding not supported for tree ${treeId}`);
     }
   }
-
-  public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {
-    switch (treeId) {
-      // Indexed trees.
-      case MerkleTreeId.NULLIFIER_TREE:
-        await this.batchInsert(
-          treeId,
-          Array(leavesToInsert).fill(NullifierLeaf.empty().toBuffer()),
-          NULLIFIER_SUBTREE_HEIGHT,
-        );
-        break;
-      case MerkleTreeId.PUBLIC_DATA_TREE:
-        await this.batchInsert(
-          treeId,
-          Array(leavesToInsert).fill(PublicDataTreeLeaf.empty().toBuffer()),
-          PUBLIC_DATA_SUBTREE_HEIGHT,
-        );
-        break;
-      // Non-indexed trees.
-      case MerkleTreeId.L1_TO_L2_MESSAGE_TREE:
-      case MerkleTreeId.NOTE_HASH_TREE:
-        await this.appendLeaves(treeId, Array(leavesToInsert).fill(Fr.ZERO));
-        break;
-      default:
-        throw new Error(`Padding not supported for tree ${treeId}`);
-    }
-  }
 }

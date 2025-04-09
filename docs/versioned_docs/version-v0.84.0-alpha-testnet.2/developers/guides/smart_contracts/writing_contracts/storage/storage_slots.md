@@ -7,7 +7,7 @@ From the description of storage slots [in the Concepts](../../../../../aztec/con
 
 For the case of the example, we will look at what is inserted into the note hashes tree when adding a note in the Token contract. Specifically, we are looking at the last part of the `transfer` function:
 
-```rust title="increase_private_balance" showLineNumbers
+```rust title="increase_private_balance" showLineNumbers 
 storage.balances.at(from).sub(from, amount).emit(encode_and_encrypt_note(
     &mut context,
     from,

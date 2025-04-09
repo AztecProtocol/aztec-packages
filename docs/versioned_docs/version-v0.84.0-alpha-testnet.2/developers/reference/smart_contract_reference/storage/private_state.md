@@ -34,7 +34,7 @@ Notes are the fundamental elements in the private world.
 
 A note has to implement the following traits:
 
-```rust title="note_interfaces" showLineNumbers
+```rust title="note_interfaces" showLineNumbers 
 pub trait NoteType {
     /// Returns the unique identifier for the note type. This is typically used when processing note logs.
     fn get_id() -> Field;
@@ -107,7 +107,7 @@ Like for public state, we define the struct to have context and a storage slot. 
 
 An example of `PrivateMutable` usage in the account contracts is keeping track of public keys. The `PrivateMutable` is added to the `Storage` struct as follows:
 
-```rust title="storage-private-mutable-declaration" showLineNumbers
+```rust title="storage-private-mutable-declaration" showLineNumbers 
 legendary_card: PrivateMutable<CardNote, Context>,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L42-L44" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L42-L44</a></sub></sup>
@@ -117,7 +117,7 @@ legendary_card: PrivateMutable<CardNote, Context>,
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows at the specified storage slot.
 
-```rust title="start_vars_private_mutable" showLineNumbers
+```rust title="start_vars_private_mutable" showLineNumbers 
 legendary_card: PrivateMutable::new(context, 3),
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L69-L71" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L69-L71</a></sub></sup>
@@ -145,7 +145,7 @@ Extend on what happens if you try to use non-initialized state.
 
 An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
-```rust title="private_mutable_is_initialized" showLineNumbers
+```rust title="private_mutable_is_initialized" showLineNumbers 
 #[utility]
 unconstrained fn is_legendary_initialized() -> bool {
     storage.legendary_card.is_initialized()
@@ -160,7 +160,7 @@ To update the value of a `PrivateMutable`, we can use the `replace` method. The 
 
 An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
 
-```rust title="state_vars-PrivateMutableReplace" showLineNumbers
+```rust title="state_vars-PrivateMutableReplace" showLineNumbers 
 storage.legendary_card.replace(new_card).emit(encode_and_encrypt_note(
     &mut context,
     context.msg_sender(),
@@ -176,7 +176,7 @@ If two people are trying to modify the PrivateMutable at the same time, only one
 
 This function allows us to get the note of a PrivateMutable, essentially reading the value.
 
-```rust title="state_vars-PrivateMutableGet" showLineNumbers
+```rust title="state_vars-PrivateMutableGet" showLineNumbers 
 let card = storage.legendary_card.get_note().note;
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L244-L246" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L244-L246</a></sub></sup>
@@ -200,7 +200,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows, here at storage slot 1.
 
-```rust title="storage-private-immutable-declaration" showLineNumbers
+```rust title="storage-private-immutable-declaration" showLineNumbers 
 private_immutable: PrivateImmutable<CardNote, Context>,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L50-L52" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L50-L52</a></sub></sup>
@@ -218,7 +218,7 @@ For example, if the storage slot depends on the an address then it is possible t
 
 Set the value of an PrivateImmutable by calling the `initialize` method:
 
-```rust title="initialize-private-mutable" showLineNumbers
+```rust title="initialize-private-mutable" showLineNumbers 
 #[private]
 fn initialize_private_immutable(randomness: Field, points: u8) {
     let new_card = CardNote::new(points, randomness, context.msg_sender());
@@ -245,7 +245,7 @@ Similar to the `PrivateMutable`, we can use the `get_note` method to read the va
 
 Use this method to retrieve the value of an initialized PrivateImmutable.
 
-```rust title="get_note-private-immutable" showLineNumbers
+```rust title="get_note-private-immutable" showLineNumbers 
 #[private]
 fn get_imm_card() -> CardNote {
     storage.private_immutable.get_note()
@@ -270,7 +270,7 @@ You can view the implementation [here (GitHub link)](https://github.com/AztecPro
 
 And can be added to the `Storage` struct as follows. Here adding a set for a custom note.
 
-```rust title="storage-set-declaration" showLineNumbers
+```rust title="storage-set-declaration" showLineNumbers 
 set: PrivateSet<CardNote, Context>,
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L47-L49" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L47-L49</a></sub></sup>
@@ -282,7 +282,7 @@ The `new` method tells the contract how to operate on the underlying storage.
 
 We can initialize the set as follows:
 
-```rust title="storage-set-init" showLineNumbers
+```rust title="storage-set-init" showLineNumbers 
 set: PrivateSet::new(context, 5),
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L80-L82" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L80-L82</a></sub></sup>
@@ -294,7 +294,7 @@ Allows us to modify the storage by inserting a note into the `PrivateSet`.
 
 A hash of the note will be generated, and inserted into the note hash tree, allowing us to later use in contract interactions. Recall that the content of the note should be shared with the owner to allow them to use it, as mentioned this can be done via an encrypted log or offchain via web2, or completely offline.
 
-```rust title="insert" showLineNumbers
+```rust title="insert" showLineNumbers 
 self.set.insert(addend_note).emit(encode_and_encrypt_note(self.context, owner, sender));
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L31-L33" target="_blank" rel="noopener noreferrer">Source code: noir-projects/aztec-nr/easy-private-state/src/easy_private_uint.nr#L31-L33</a></sub></sup>
@@ -316,7 +316,7 @@ Because of this limit, we should always consider using the second argument `Note
 
 An example of such options is using the [filter_notes_min_sum (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/aztec-nr/value-note/src/filter.nr) to get "enough" notes to cover a given value. Essentially, this function will return just enough notes to cover the amount specified such that we don't need to read all our notes. For users with a lot of notes, this becomes increasingly important.
 
-```rust title="pop_notes" showLineNumbers
+```rust title="pop_notes" showLineNumbers 
 let options = NoteGetterOptions::with_filter(filter_notes_min_sum, subtrahend as Field);
 let notes = self.set.pop_notes(options);
 ```
@@ -337,7 +337,7 @@ Note that if you obtained the note you are about to remove via `get_notes` it's 
 
 Functionally similar to [`get_notes`](#get_notes), but executed unconstrained and can be used by the wallet to fetch notes for use by front-ends etc.
 
-```rust title="view_notes" showLineNumbers
+```rust title="view_notes" showLineNumbers 
 let mut options = NoteViewerOptions::new();
 let notes = set.view_notes(options.set_offset(offset));
 ```
@@ -434,7 +434,7 @@ This method sets the status of notes to retrieve (active or nullified).
 
 The following code snippet creates an instance of `NoteGetterOptions`, which has been configured to find the cards that belong to an account with nullifying key hash equal to `account_npk_m_hash`. The returned cards are sorted by their points in descending order, and the first `offset` cards with the highest points are skipped.
 
-```rust title="state_vars-NoteGetterOptionsSelectSortOffset" showLineNumbers
+```rust title="state_vars-NoteGetterOptionsSelectSortOffset" showLineNumbers 
 pub fn create_npk_card_getter_options<let N: u32>(
     account: AztecAddress,
     offset: u32,
@@ -454,7 +454,7 @@ where
 
 The first value of `.select` and `.sort` indicates the property of the note we're looking for. For this we use helper functions that are autogenerated from the note definition. `CardNote` that has the following fields:
 
-```rust title="state_vars-CardNote" showLineNumbers
+```rust title="state_vars-CardNote" showLineNumbers 
 // We derive the Serialize trait because this struct is returned from a contract function. When returned,
 // the struct is serialized using the Serialize trait and added to a hasher via the `add_to_hasher` utility.
 // We use a hash rather than the serialized struct itself to keep circuit inputs constant.
@@ -477,7 +477,7 @@ In the example, `.select(CardNote::properties().npk_m_hash, Comparator.EQ, accou
 
 There can be as many conditions as the number of fields a note type has. The following example finds cards whose fields match the three given values:
 
-```rust title="state_vars-NoteGetterOptionsMultiSelects" showLineNumbers
+```rust title="state_vars-NoteGetterOptionsMultiSelects" showLineNumbers 
 pub fn create_exact_card_getter_options<let N: u32>(
     points: u8,
     secret: Field,
@@ -498,7 +498,7 @@ where
 
 While `selects` lets us find notes with specific values, `filter` lets us find notes in a more dynamic way. The function below picks the cards whose points are at least `min_points`, although this now can be done by using the select function with a GTE comparator:
 
-```rust title="state_vars-OptionFilter" showLineNumbers
+```rust title="state_vars-OptionFilter" showLineNumbers 
 pub fn filter_min_points(
     cards: [Option<RetrievedNote<CardNote>>; MAX_NOTE_HASH_READ_REQUESTS_PER_CALL],
     min_points: u8,
@@ -519,7 +519,7 @@ pub fn filter_min_points(
 
 We can use it as a filter to further reduce the number of the final notes:
 
-```rust title="state_vars-NoteGetterOptionsFilter" showLineNumbers
+```rust title="state_vars-NoteGetterOptionsFilter" showLineNumbers 
 pub fn create_cards_with_min_points_getter_options<let N: u32>(
     min_points: u8,
 ) -> NoteGetterOptions<CardNote, N, Field, u8>
@@ -539,7 +539,7 @@ One thing to remember is, `filter` will be applied on the notes after they are p
 
 The limit is `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
 
-```rust title="state_vars-NoteGetterOptionsPickOne" showLineNumbers
+```rust title="state_vars-NoteGetterOptionsPickOne" showLineNumbers 
 pub fn create_largest_card_getter_options<let N: u32>() -> NoteGetterOptions<CardNote, N, Field, Field>
 where
     CardNote: Packable<N>,
@@ -555,7 +555,7 @@ where
 
 An example of how we can use a Comparator to select notes when calling a Noir contract from aztec.js is below.
 
-```typescript title="state_vars-NoteGetterOptionsComparatorExampleTs" showLineNumbers
+```typescript title="state_vars-NoteGetterOptionsComparatorExampleTs" showLineNumbers 
 contract.methods.read_note(Comparator.GTE, 5).simulate(),
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/e2e_note_getter.test.ts#L58-L60" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/e2e_note_getter.test.ts#L58-L60</a></sub></sup>
@@ -563,7 +563,7 @@ contract.methods.read_note(Comparator.GTE, 5).simulate(),
 
 In this example, we use the above typescript code to invoke a call to our Noir contract below. This Noir contract function takes an input to match with, and a comparator to use when fetching and selecting notes from storage.
 
-```rust title="state_vars-NoteGetterOptionsComparatorExampleNoir" showLineNumbers
+```rust title="state_vars-NoteGetterOptionsComparatorExampleNoir" showLineNumbers 
 #[utility]
 unconstrained fn read_note(comparator: u8, amount: Field) -> BoundedVec<CardNote, 10> {
     let mut options = NoteViewerOptions::new();

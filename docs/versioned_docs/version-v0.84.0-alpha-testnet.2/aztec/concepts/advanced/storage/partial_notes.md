@@ -144,7 +144,7 @@ We can see the complete implementation of creating and completing partial notes 
 
 #### `fee_entrypoint_private`
 
-```rust title="fee_entrypoint_private" showLineNumbers
+```rust title="fee_entrypoint_private" showLineNumbers 
 #[private]
 fn fee_entrypoint_private(max_fee: u128, nonce: Field) {
     let accepted_asset = storage.config.read().accepted_asset;
@@ -178,7 +178,7 @@ This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-```rust title="complete_refund" showLineNumbers
+```rust title="complete_refund" showLineNumbers 
 #[public]
 #[internal]
 fn _complete_refund(

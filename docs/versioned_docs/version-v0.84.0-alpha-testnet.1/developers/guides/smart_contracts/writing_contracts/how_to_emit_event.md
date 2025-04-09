@@ -21,7 +21,7 @@ Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
     from,
 ));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L291-L297" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L291-L297</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L291-L297" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L291-L297</a></sub></sup>
 
 
 - `encode_and_encrypt_event` Sends an encrypted message to `recipient` with the content of the event, which they will discover when processing private logs.
@@ -46,7 +46,7 @@ let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
 event0.emit(encode_event(&mut context));
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr#L53-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_log_contract/src/main.nr#L53-L57</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test_log_contract/src/main.nr#L53-L57" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test_log_contract/src/main.nr#L53-L57</a></sub></sup>
 
 
 ## Public Logs
@@ -62,7 +62,7 @@ context.emit_public_log(/*message=*/ value);
 context.emit_public_log(/*message=*/ [10, 20, 30]);
 context.emit_public_log(/*message=*/ "Hello, world!");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L389-L393" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L389-L393</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L389-L393" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L389-L393</a></sub></sup>
 
 
 ### Querying the unencrypted event

@@ -82,7 +82,7 @@ You can find the details of `PublicMutable` in the implementation [here (GitHub 
 For a version of `PublicMutable` that can also be read in private, head to [`SharedMutable`](./shared_state.md#sharedmutable).
 
 :::info
-An example using a larger struct can be found in the [lending example (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/lending_contract)'s use of an [`Asset` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/lending_contract/src/asset.nr).
+An example using a larger struct can be found in the [lending example (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/lending_contract)'s use of an [`Asset` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/lending_contract/src/asset.nr).
 :::
 
 ### `new`
@@ -96,7 +96,7 @@ Say that we wish to add `admin` public state variable into our storage struct. I
 ```rust title="storage-leader-declaration" showLineNumbers
 leader: PublicMutable<Leader, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L39-L41" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L39-L41</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L39-L41" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L39-L41</a></sub></sup>
 
 
 #### Mapping example
@@ -106,7 +106,7 @@ Say we want to have a group of `minters` that are able to mint assets in our con
 ```rust title="storage-minters-declaration" showLineNumbers
 minters: Map<AztecAddress, PublicMutable<bool, Context>, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L56-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L56-L58</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L56-L58" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L56-L58</a></sub></sup>
 
 
 ### `read`
@@ -120,7 +120,7 @@ For our `admin` example from earlier, this could be used as follows to check tha
 ```rust title="read_admin" showLineNumbers
 assert(storage.admin.read().eq(context.msg_sender()), "caller is not admin");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L186-L188" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L186-L188</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L186-L188" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L186-L188</a></sub></sup>
 
 
 #### Reading from our `minters` example
@@ -130,7 +130,7 @@ As we saw in the Map earlier, a very similar operation can be done to perform a 
 ```rust title="read_minter" showLineNumbers
 assert(storage.minters.at(context.msg_sender()).read(), "caller is not minter");
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L198-L200" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L198-L200</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L198-L200" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L198-L200</a></sub></sup>
 
 
 ### `write`
@@ -142,7 +142,7 @@ We have a `write` method on the `PublicMutable` struct that takes the value to w
 ```rust title="write_admin" showLineNumbers
 storage.admin.write(new_admin);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L109-L111" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L109-L111</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L109-L111" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L109-L111</a></sub></sup>
 
 
 #### Writing to our `minters` example
@@ -150,7 +150,7 @@ storage.admin.write(new_admin);
 ```rust title="write_minter" showLineNumbers
 storage.minters.at(minter).write(approve);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L189-L191" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L189-L191</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L189-L191" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L189-L191</a></sub></sup>
 
 
 ---
@@ -164,7 +164,7 @@ Just like the `PublicMutable` it is generic over the variable type `T`. The type
 ```rust title="storage-public-immutable-declaration" showLineNumbers
 public_immutable: PublicImmutable<Leader, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L53-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L53-L55</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L53-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L53-L55</a></sub></sup>
 
 
 You can find the details of `PublicImmutable` in the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/aztec-nr/aztec/src/state_vars/public_immutable.nr).
@@ -176,7 +176,7 @@ Is done exactly like the `PublicMutable` struct, but with the `PublicImmutable` 
 ```rust title="storage-public-immutable-declaration" showLineNumbers
 public_immutable: PublicImmutable<Leader, Context>,
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L53-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L53-L55</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L53-L55" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L53-L55</a></sub></sup>
 
 
 ### `initialize`
@@ -186,7 +186,7 @@ This function sets the immutable value. It can only be called once.
 ```rust title="initialize_decimals" showLineNumbers
 storage.decimals.initialize(decimals);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L99-L101" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L99-L101</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L99-L101" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L99-L101</a></sub></sup>
 
 
 :::warning
@@ -199,7 +199,7 @@ fn initialize_public_immutable(points: u8) {
     let mut new_leader = Leader { account: context.msg_sender(), points };
     storage.public_immutable.initialize(new_leader);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L103-L108" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L103-L108</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L103-L108" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L103-L108</a></sub></sup>
 
 
 ### `read`
@@ -211,5 +211,5 @@ Returns the stored immutable value. This function is available in public, privat
 unconstrained fn get_public_immutable() -> Leader {
     storage.public_immutable.read()
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L164-L168" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr#L164-L168</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L164-L168" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr#L164-L168</a></sub></sup>
 

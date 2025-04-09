@@ -133,7 +133,7 @@ await expect(provenCall2.send().wait()).rejects.toThrow(/dropped/);
 
 #### A public call fails locally
 
-Public function calls can be caught failing locally similar to how we catch private function calls. For this example, we use a [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) instead of a private one.
+Public function calls can be caught failing locally similar to how we catch private function calls. For this example, we use a [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) instead of a private one.
 
 ```typescript title="local-pub-fails" showLineNumbers
 const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
@@ -200,7 +200,7 @@ expect(balance).toEqual(100n);
 
 #### Querying public state
 
-Public state behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
+Public state behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
 
 ```typescript title="public-storage" showLineNumbers
 await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();

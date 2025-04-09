@@ -85,7 +85,7 @@ use aztec::protocol_types::traits::{FromField, ToField};
 use easy_private_state::EasyPrivateUint;
 use value_note::{balance_utils, value_note::ValueNote};
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L8-L14</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L8-L14" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L8-L14</a></sub></sup>
 
 
 `AztecAddress, Map`
@@ -112,7 +112,7 @@ struct Storage<Context> {
     counters: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L16-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L16-L21</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L16-L21" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L16-L21</a></sub></sup>
 
 
 ## Keep the counter private
@@ -130,7 +130,7 @@ fn initialize(headstart: u64, owner: AztecAddress) {
     counters.at(owner).add(headstart, owner, context.msg_sender());
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L23-L31" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L23-L31</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L23-L31" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L23-L31</a></sub></sup>
 
 
 This function accesses the counts from storage. Then it assigns the passed initial counter to the `owner`'s counter privately using `at().add()`.
@@ -154,7 +154,7 @@ fn increment(owner: AztecAddress, sender: AztecAddress) {
     counters.at(owner).add(1, owner, sender);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L33-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L33-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L33-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L33-L45</a></sub></sup>
 
 
 The `increment` function works very similarly to the `constructor`, but instead directly adds 1 to the counter rather than passing in an initial count parameter.
@@ -174,7 +174,7 @@ unconstrained fn get_counter(owner: AztecAddress) -> Field {
     balance_utils::get_balance(counters.at(owner).set)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/counter_contract/src/main.nr#L85-L92" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L85-L92</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L85-L92" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/counter_contract/src/main.nr#L85-L92</a></sub></sup>
 
 
 This function is `unconstrained` which allows us to fetch data from storage without a transaction. We retrieve a reference to the `owner`'s `counter` from the `counters` Map. The `get_balance` function then operates on the owner's counter. This yields a private counter that only the private key owner can decrypt.

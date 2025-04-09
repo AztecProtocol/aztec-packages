@@ -114,7 +114,7 @@ if (!from.eq(context.msg_sender())) {
     assert(nonce == 0, "invalid nonce");
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L366-L372" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L366-L372</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L366-L372" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L366-L372</a></sub></sup>
 
 
 ### Utilities for public calls
@@ -130,7 +130,7 @@ if (!from.eq(context.msg_sender())) {
     assert(nonce == 0, "invalid nonce");
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L226-L232" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L226-L232</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L226-L232" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L226-L232</a></sub></sup>
 
 
 ## Usage
@@ -155,7 +155,7 @@ use dep::authwit::auth::{
     compute_authwit_nullifier,
 };
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L40-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L40-L45</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L40-L45" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L40-L45</a></sub></sup>
 
 
 ### Private Functions
@@ -181,7 +181,7 @@ fn transfer_in_private(from: AztecAddress, to: AztecAddress, amount: u128, nonce
     storage.balances.at(to).add(to, amount).emit(encode_and_encrypt_note(&mut context, to, from));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L363-L383</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L363-L383" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L363-L383</a></sub></sup>
 
 
 The first thing we see in the snippet above, is that if `from` is not the call we are calling the `assert_current_call_valid_authwit` function from [earlier](#private-functions). If the call is not throwing, we are all good and can continue with the transfer.
@@ -230,7 +230,7 @@ fn transfer_in_public(from: AztecAddress, to: AztecAddress, amount: u128, nonce:
     storage.public_balances.at(to).write(to_balance);
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L208-L221</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L208-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L208-L221</a></sub></sup>
 
 
 #### Authenticating an action in TypeScript
@@ -297,7 +297,7 @@ fn _approve_bridge_and_exit_input_asset_to_L1(
         .call(&mut context)
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/app/uniswap_contract/src/main.nr#L185-L221</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr#L185-L221" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/uniswap_contract/src/main.nr#L185-L221</a></sub></sup>
 
 
 Outlining more of the `swap` flow: this simplified diagram shows how it will look for contracts that are not wallets but also need to support authentication witnesses.

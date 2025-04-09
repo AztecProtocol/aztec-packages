@@ -59,7 +59,7 @@ fn call_create_note(
     ));
 }
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L133-L154" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L133-L154</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L133-L154" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L133-L154</a></sub></sup>
 
 
 ## Get the note from the PXE
@@ -70,7 +70,7 @@ Retrieve the note from the user's PXE.
 let (retrieved_notes, _): (BoundedVec<RetrievedNote<ValueNote>, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>, BoundedVec<Field, MAX_NOTE_HASH_READ_REQUESTS_PER_CALL>) =
     get_notes(&mut context, storage_slot, options);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L169-L172" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L169-L172</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L169-L172" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L169-L172</a></sub></sup>
 
 
 In this example, we fetch notes located in the storage slot that we pass in from the function parameters. The notes also must match the criteria specified by the getter options that we declare and are able to customize.
@@ -100,7 +100,7 @@ You can easily nullify a note like so:
 ```rust title="nullify_note" showLineNumbers
 destroy_note_unsafe(&mut context, retrieved_note, note_hash);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L250-L252" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/test_contract/src/main.nr#L250-L252</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L250-L252" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test_contract/src/main.nr#L250-L252</a></sub></sup>
 
 
 This function gets a note from the PXE and nullifies it with `remove()`.

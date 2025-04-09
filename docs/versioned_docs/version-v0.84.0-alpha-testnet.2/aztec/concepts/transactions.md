@@ -57,7 +57,7 @@ Transaction requests are how transactions are constructed and sent to the networ
 
 In Aztec.js:
 
-```javascript title="constructor" showLineNumbers
+```javascript title="constructor" showLineNumbers 
 constructor(
   /** Sender. */
   public origin: AztecAddress,
@@ -101,7 +101,7 @@ And fee utilities:
 
 ##### `create`
 
-```javascript title="create" showLineNumbers
+```javascript title="create" showLineNumbers 
 /**
  * Create a transaction execution request that represents this call, encoded and authenticated by the
  * user's wallet, ready to be simulated.
@@ -115,7 +115,7 @@ public override async create(options: SendMethodOptions = {}): Promise<TxExecuti
 
 ##### `simulate`
 
-```javascript title="simulate" showLineNumbers
+```javascript title="simulate" showLineNumbers 
 /**
  * Simulate a transaction and get its return values
  * Differs from prove in a few important ways:
@@ -132,7 +132,7 @@ public async simulate(options: SimulateMethodOptions = {}): Promise<any> {
 
 ##### `prove`
 
-```javascript title="prove" showLineNumbers
+```javascript title="prove" showLineNumbers 
 /**
  * Proves a transaction execution request and returns a tx object ready to be sent.
  * @param options - optional arguments to be used in the creation of the transaction
@@ -145,7 +145,7 @@ public async prove(options: SendMethodOptions = {}): Promise<ProvenTx> {
 
 ##### `send`
 
-```javascript title="send" showLineNumbers
+```javascript title="send" showLineNumbers 
 /**
  * Sends a transaction to the contract function with the specified options.
  * This function throws an error if called on a utility function.
@@ -162,7 +162,7 @@ public send(options: SendMethodOptions = {}): SentTx {
 
 ##### `estimateGas`
 
-```javascript title="estimateGas" showLineNumbers
+```javascript title="estimateGas" showLineNumbers 
 /**
  * Estimates gas for a given tx request and returns gas limits for it.
  * @param opts - Options.
@@ -178,7 +178,7 @@ public async estimateGas(
 
 ##### `getFeeOptions`
 
-```javascript title="getFeeOptions" showLineNumbers
+```javascript title="getFeeOptions" showLineNumbers 
 /**
  * Return fee options based on the user opts, estimating tx gas if needed.
  * @param executionPayload - Execution payload to get the fee for

@@ -10,7 +10,7 @@ This guide explains how to create a new account using Aztec.js.
 
 You will need to import these libraries:
 
-```typescript title="create_account_imports" showLineNumbers
+```typescript title="create_account_imports" showLineNumbers 
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
@@ -20,7 +20,7 @@ import { Fr, GrumpkinScalar, createPXEClient } from '@aztec/aztec.js';
 
 ## Define arguments needed
 
-```typescript title="define_account_vars" showLineNumbers
+```typescript title="define_account_vars" showLineNumbers 
 const PXE_URL = process.env.PXE_URL || 'http://localhost:8080';
 const pxe = createPXEClient(PXE_URL);
 const secretKey = Fr.random();
@@ -31,7 +31,7 @@ const signingPrivateKey = GrumpkinScalar.random();
 
 ## Create the wallet with these args
 
-```typescript title="create_wallet" showLineNumbers
+```typescript title="create_wallet" showLineNumbers 
 // Use a pre-funded wallet to pay for the fees for the deployments.
 const wallet = (await getDeployedTestAccountsWallets(pxe))[0];
 const newAccount = await getSchnorrAccount(pxe, secretKey, signingPrivateKey);

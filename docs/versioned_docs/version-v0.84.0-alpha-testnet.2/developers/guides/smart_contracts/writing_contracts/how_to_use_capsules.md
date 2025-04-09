@@ -20,7 +20,7 @@ The capsules module provides these main functions:
 
 Import the capsules module:
 
-```rust title="import_capsules" showLineNumbers
+```rust title="import_capsules" showLineNumbers 
 use dep::aztec::oracle::capsules;
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/contract_class_registerer_contract/src/main.nr#L38-L40" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/contract_class_registerer_contract/src/main.nr#L38-L40</a></sub></sup>
@@ -30,7 +30,7 @@ use dep::aztec::oracle::capsules;
 
 You can store any type that implements `Serialize` and `Deserialize`:
 
-```rust title="load_capsule" showLineNumbers
+```rust title="load_capsule" showLineNumbers 
 let packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] = unsafe {
     capsules::load(
         context.this_address(),

@@ -17,7 +17,7 @@ npm install @aztec/aztec.js
 
 At the top of your JavaScript file, you can import what you need, eg:
 
-```typescript title="import_aztecjs" showLineNumbers
+```typescript title="import_aztecjs" showLineNumbers 
 import type { AztecNodeConfig } from '@aztec/aztec-node';
 import { type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from '@aztec/aztec.js';
 ```

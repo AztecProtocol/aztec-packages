@@ -12,7 +12,7 @@ For developers coming from solidity, this concept will be similar to how the glo
 
 ## Private Global Variables
 
-```rust title="tx-context" showLineNumbers
+```rust title="tx-context" showLineNumbers 
 pub struct TxContext {
     pub chain_id: Field,
     pub version: Field,
@@ -46,7 +46,7 @@ The gas limits set by the user for the transaction, the max fee per gas, and the
 
 ## Public Global Variables
 
-```rust title="global-variables" showLineNumbers
+```rust title="global-variables" showLineNumbers 
 pub struct GlobalVariables {
     pub chain_id: Field,
     pub version: Field,

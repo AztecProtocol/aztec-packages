@@ -32,54 +32,6 @@ function build_docs {
   cache_upload docs-$hash.tar.gz build
 }
 
-
-function docs_cut_version {
-    echo_header "docs version"
-
-    if [ -z "$1" ]; then
-        echo "Usage: $1 <version>"
-        exit 1
-    fi
-
-    # Store the current branch to return to later
-    current_branch=$(git rev-parse --abbrev-ref HEAD)
-    echo "Original branch: $current_branch"
-    yarn run build
-
-    COMMIT_TAG=$1
-    echo "Starting docs versioning for $COMMIT_TAG"
-    echo "Checking out tag $COMMIT_TAG..."
-    git checkout --force "$COMMIT_TAG"
-    git checkout --force "$current_branch" scripts
-
-    # Prepare for docusaurus build/versioning for this tag
-    echo "[]" > versions.json # Docusaurus versioning might need this cleared
-    echo "Building for $COMMIT_TAG..."
-    # Rebuild everything on the tag we checked out (because of include_code links, etc)
-    yarn run build
-
-    # Create the versioned docs for this tag
-    echo "Creating documentation version for $COMMIT_TAG..."
-    # Pass COMMIT_TAG env var specifically if needed by the command
-    if ! COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version "$COMMIT_TAG"; then
-        echo "Error creating docs version for $COMMIT_TAG. Aborting."
-        # Go back to original branch and restore stash before exiting
-        git checkout "$current_branch"
-        if [ $stashed -eq 0 ]; then git stash pop; fi
-        exit 1
-    fi
-
-    # Checkout the original branch
-    echo "Checking out original branch: $current_branch"
-    git checkout "$current_branch"
-
-    # Regenerate versions.json based on the *now existing* versioned docs
-    echo "Regenerating versions.json on $current_branch..."
-    yarn run version::stables
-
-    echo "Docs versioning complete"
-}
-
 case "$cmd" in
   "clean")
     git clean -fdx
@@ -90,9 +42,6 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
-  "docs-cut-version")
-    docs_cut_version "$2"
-    ;;
   "release-preview")
     release_preview
     ;;
@@ -100,4 +49,3 @@ case "$cmd" in
     echo "Unknown command: $cmd"
     exit 1
 esac
-

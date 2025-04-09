@@ -34,7 +34,7 @@ value_note = { git="https://github.com/AztecProtocol/aztec-packages/", tag="v0.8
 ```rust title="import_valuenote" showLineNumbers
 use dep::value_note::value_note::ValueNote;
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L14-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L14-L16</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L14-L16" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L14-L16</a></sub></sup>
 
 
 ## Working with ValueNote
@@ -49,7 +49,7 @@ Creating a new `ValueNote` takes the following args:
 ```rust title="valuenote_new" showLineNumbers
 let note = ValueNote::new(new_value, owner);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L60-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/child_contract/src/main.nr#L60-L62</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L60-L62" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/child_contract/src/main.nr#L60-L62</a></sub></sup>
 
 
 ### Getting a balance
@@ -62,7 +62,7 @@ It takes one argument - the set of notes.
 // Return the sum of all notes in the set.
 balance_utils::get_balance(owner_balance)
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr#L105-L108" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/stateful_test_contract/src/main.nr#L105-L108</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/stateful_test_contract/src/main.nr#L105-L108" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/stateful_test_contract/src/main.nr#L105-L108</a></sub></sup>
 
 
 This can only be used in an unconstrained function.
@@ -83,7 +83,7 @@ For example:
 ```rust title="increment_valuenote" showLineNumbers
 increment(storage.notes.at(owner), value, owner, sender);
 ```
-> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/test/benchmarking_contract/src/main.nr#L24-L26" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/test/benchmarking_contract/src/main.nr#L24-L26</a></sub></sup>
+> <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/noir-contracts/contracts/benchmarking_contract/src/main.nr#L24-L26" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/benchmarking_contract/src/main.nr#L24-L26</a></sub></sup>
 
 
 The `decrement` function works similarly except the `amount` is the number that the value will be decremented by, and it will fail if the sum of the selected notes is less than the amount.

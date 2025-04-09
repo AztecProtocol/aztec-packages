@@ -141,7 +141,7 @@ To add it as a dependency point to the aztec-packages repository instead:
 
 ```toml
 [dependencies]
-aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/router_contract/src" }
+aztec = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "#include_aztec_version", directory = "noir-projects/noir-contracts/contracts/protocol/router_contract/src" }
 ```
 
 :::

@@ -20,12 +20,12 @@ Read the following discussions for additional context:
 The structure of a contract class is defined as:
 
 <!-- prettier-ignore -->
-| Field                    | Type                                     | Description                                                                                                                                                                                                                                                                          |
-| ------------------------ | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `version`                | `u8`                                     | Version identifier. Initially one, bumped for any changes to the contract class struct.                                                                                                                                                                                              |
-| `artifact_hash`          | `Field`                                  | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to utility function code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. |
-| `private_functions`      | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included.                                                                                                                                                                                                                         |
-| `packed_public_bytecode` | `Field[]`                                | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract.                                                                                                          |
+| Field | Type | Description |
+|----------|----------|----------|
+| `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract class struct. |
+| `artifact_hash` | `Field` | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to utility function code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. |
+| `private_functions` | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included. |
+| `packed_public_bytecode` | `Field[]` | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract. |
 
 The public function are sorted in ascending order by their function selector before being packed. This is to ensure consistent hashing later.
 
@@ -78,10 +78,10 @@ contract_class_id_crh(
 The structure of each private function within the protocol is the following:
 
 <!-- prettier-ignore -->
-| Field               | Type    | Description                                                                                                                                    |
-| ------------------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `function_selector` | `u32`   | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. |
-| `vk_hash`           | `Field` | Hash of the verification key associated to this private function.                                                                              |
+| Field | Type | Description |
+|----------|----------|----------|
+| `function_selector` | `u32` | Selector of the function. Calculated as the hash of the method name and parameters. The specification of this is not enforced by the protocol. |
+| `vk_hash` | `Field` | Hash of the verification key associated to this private function. |
 
 Note the lack of visibility modifiers. Internal functions are specified as a macro, and the check is handled at the application circuit level by verifying that the `context.msg_sender` equals the contract current address.
 
@@ -142,7 +142,7 @@ artifact_crh(
   let artifact_hash: Field = sha256_modulo(
     VERSION, // 8-bits
     private_functions_artifact_tree_root, // 256-bits
-    unconstrained_functions_artifact_tree_root, // 256-bits
+    utility_functions_artifact_tree_root, // 256-bits
     artifact_metadata_hash
   );
 
@@ -265,7 +265,7 @@ Broadcasted function artifacts that do not match with their corresponding `artif
 fn broadcast_private_function(
   contract_class_id: Field,
   artifact_metadata_hash: Field,
-  unconstrained_functions_artifact_tree_root: Field,
+  utility_functions_artifact_tree_root: Field,
   private_function_tree_sibling_path: Field[],
   private_function_tree_leaf_index: Field,
   artifact_function_tree_sibling_path: Field[],
@@ -275,7 +275,7 @@ fn broadcast_private_function(
   emit_public_log ClassPrivateFunctionBroadcasted(
     contract_class_id,
     artifact_metadata_hash,
-    unconstrained_functions_artifact_tree_root,
+    utility_functions_artifact_tree_root,
     private_function_tree_sibling_path,
     private_function_tree_leaf_index,
     artifact_function_tree_sibling_path,
@@ -285,7 +285,7 @@ fn broadcast_private_function(
 ```
 
 ```rust
-fn broadcast_unconstrained_function(
+fn broadcast_utility_function(
   contract_class_id: Field,
   artifact_metadata_hash: Field,
   private_functions_artifact_tree_root: Field,
@@ -293,7 +293,7 @@ fn broadcast_unconstrained_function(
   artifact_function_tree_leaf_index: Field
   function: { selector: Field, metadata_hash: Field, bytecode: Field[] }[],
 )
-  emit_public_log ClassUnconstrainedFunctionBroadcasted(
+  emit_public_log ClassUtilityFunctionBroadcasted(
     contract_class_id,
     artifact_metadata_hash,
     private_functions_artifact_tree_root,
@@ -321,7 +321,7 @@ assert computed_private_function_tree_root == contract_class.private_function_ro
 // Compute artifact leaf and assert it belongs to the artifact
 artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
 computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
-computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
+computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, utility_functions_artifact_tree_root, artifact_metadata_hash)
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
 
@@ -344,15 +344,15 @@ It is strongly recommended for developers registering new classes to broadcast t
 
 ### Encoding Bytecode
 
-The `register`, `broadcast_unconstrained_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in contract class logs. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
+The `register`, `broadcast_utility_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in contract class logs. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
 
 - `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS`: 3000 field elements, used for a contract's public bytecode in the `register` function.
 - `MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS`: 3000 field elements, used for the ACIR and Brillig bytecode of a broadcasted private function in `broadcast_private_function`.
-- `MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS`: 3000 field elements, used for the Brillig bytecode of a broadcasted unconstrained function in `broadcast_unconstrained_function`.
+- `MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS`: 3000 field elements, used for the Brillig bytecode of a broadcasted utility function in `broadcast_utility_function`.
 
 To encode the bytecode into a fixed-length array of Fields, the bytecode is first split into 31-byte chunks, and each chunk interpreted big-endian as a field element. The total length in bytes is then prepended as an initial element, and then right-padded with zeroes.
 
-The log itself is prepended by the address of the contract that emitted it. This is not stictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
+The log itself is prepended by the address of the contract that emitted it. This is not strictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
 
 ```
 chunks = chunk bytecode into 31 bytes elements, last element right-padded with zeroes

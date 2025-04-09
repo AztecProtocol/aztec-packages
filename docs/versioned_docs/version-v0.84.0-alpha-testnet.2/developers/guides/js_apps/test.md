@@ -27,7 +27,7 @@ You can use `aztec.js` to write assertions about transaction statuses, about cha
 
 Import `aztecjs`. This is an example of some functions and types you might need in your test:
 
-```typescript title="imports" showLineNumbers
+```typescript title="imports" showLineNumbers 
 import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import { type AccountWallet, Fr, type PXE, TxStatus, createPXEClient, waitForPXE } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
@@ -37,7 +37,7 @@ import { CheatCodes } from '@aztec/aztec.js/testing';
 
 You should also import the [Typescript class you generated](../smart_contracts/how_to_compile_contract.md#typescript-interfaces):
 
-```typescript title="import_contract" showLineNumbers
+```typescript title="import_contract" showLineNumbers 
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L6-L8" target="_blank" rel="noopener noreferrer">Source code: yarn-project/end-to-end/src/guides/dapp_testing.test.ts#L6-L8</a></sub></sup>
@@ -47,7 +47,7 @@ import { TestContract } from '@aztec/noir-contracts.js/Test';
 
 Currently, testing Aztec.nr smart contracts means testing them against the PXE that runs in the local sandbox. Create a PXE client:
 
-```typescript title="create_pxe_client" showLineNumbers
+```typescript title="create_pxe_client" showLineNumbers 
 const pxe = createPXEClient(PXE_URL);
 await waitForPXE(pxe);
 ```
@@ -56,7 +56,7 @@ await waitForPXE(pxe);
 
 and use the accounts that are initialized with it:
 
-```typescript title="use-existing-wallets" showLineNumbers
+```typescript title="use-existing-wallets" showLineNumbers 
 pxe = createPXEClient(PXE_URL);
 [owner, recipient] = await getDeployedTestAccountsWallets(pxe);
 token = await TokenContract.deploy(owner, owner.getCompleteAddress(), 'TokenName', 'TokenSymbol', 18)
@@ -83,7 +83,7 @@ You can use the `debug` option in the `wait` method to get more information abou
 
 This debug information will be populated in the transaction receipt. You can log it to the console or use it to make assertions about the transaction.
 
-```typescript title="debug" showLineNumbers
+```typescript title="debug" showLineNumbers 
 const tx = await asset.methods.transfer(accounts[1].address, totalBalance).send().wait();
 const txEffects = await node.getTxEffect(tx.txHash);
 ```
@@ -98,7 +98,7 @@ You can also log directly from Aztec contracts. Read [this guide](../../referenc
 
 We can check that a call to a private function would fail by simulating it locally and expecting a rejection. Remember that all private function calls are only executed locally in order to preserve privacy. As an example, we can try transferring more tokens than we have, which will fail an assertion with the `Balance too low` error message.
 
-```typescript title="local-tx-fails" showLineNumbers
+```typescript title="local-tx-fails" showLineNumbers 
 const call = token.methods.transfer(recipient.getAddress(), 200n);
 await expect(call.prove()).rejects.toThrow(/Balance too low/);
 ```
@@ -107,7 +107,7 @@ await expect(call.prove()).rejects.toThrow(/Balance too low/);
 
 Under the hood, the `send()` method executes a simulation, so we can just call the usual `send().wait()` to catch the same failure.
 
-```typescript title="local-tx-fails-send" showLineNumbers
+```typescript title="local-tx-fails-send" showLineNumbers 
 const call = token.methods.transfer(recipient.getAddress(), 200n);
 await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
 ```
@@ -118,7 +118,7 @@ await expect(call.send().wait()).rejects.toThrow(/Balance too low/);
 
 We can have private transactions that work fine locally, but are dropped by the sequencer when tried to be included due to a double-spend. In this example, we simulate two different transfers that would succeed individually, but not when both are tried to be mined. Here we need to `send()` the transaction and `wait()` for it to be mined.
 
-```typescript title="tx-dropped" showLineNumbers
+```typescript title="tx-dropped" showLineNumbers 
 const call1 = token.methods.transfer(recipient.getAddress(), 80n);
 const call2 = token.methods.transfer(recipient.getAddress(), 50n);
 
@@ -135,7 +135,7 @@ await expect(provenCall2.send().wait()).rejects.toThrow(/dropped/);
 
 Public function calls can be caught failing locally similar to how we catch private function calls. For this example, we use a [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) instead of a private one.
 
-```typescript title="local-pub-fails" showLineNumbers
+```typescript title="local-pub-fails" showLineNumbers 
 const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
 await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 ```
@@ -146,7 +146,7 @@ await expect(call.prove()).rejects.toThrow(U128_UNDERFLOW_ERROR);
 
 We can ignore a local simulation error for a public function via the `skipPublicSimulation`. This will submit a failing call to the sequencer, who will include the transaction, but without any side effects from our application logic. Requesting the receipt for the transaction will also show it has a reverted status.
 
-```typescript title="pub-reverted" showLineNumbers
+```typescript title="pub-reverted" showLineNumbers 
 const call = token.methods.transfer_in_public(owner.getAddress(), recipient.getAddress(), 1000n, 0);
 const receipt = await call.send({ skipPublicSimulation: true }).wait({ dontThrowOnRevert: true });
 expect(receipt.status).toEqual(TxStatus.APP_LOGIC_REVERTED);
@@ -170,7 +170,7 @@ We can check private or public state directly rather than going through view-onl
 
 To query storage directly, you'll need to know the slot you want to access. This can be checked in the [contract's `Storage` definition](../../reference/smart_contract_reference/storage/index.md) directly for most data types. However, when it comes to mapping types, as in most EVM languages, we'll need to calculate the slot for a given key. To do this, we'll use the [`CheatCodes`](../../reference/environment_reference/cheat_codes.md) utility class:
 
-```typescript title="calc-slot" showLineNumbers
+```typescript title="calc-slot" showLineNumbers 
 cheats = await CheatCodes.create(ETHEREUM_HOSTS.split(','), pxe);
 // The balances mapping is indexed by user address
 ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.slot, ownerAddress);
@@ -182,7 +182,7 @@ ownerSlot = await cheats.aztec.computeSlotInMap(TokenContract.storage.balances.s
 
 Private state in the Aztec is represented via sets of [private notes](../../../aztec/concepts/storage/state_model.md#private-state). We can query the Private Execution Environment (PXE) for all notes encrypted for a given user in a contract slot. For example, this gets all notes encrypted for the `owner` user that are stored on the token contract address and on the slot that was calculated earlier. To calculate the actual balance, it extracts the `value` of each note, which is the third element, and sums them up.
 
-```typescript title="private-storage" showLineNumbers
+```typescript title="private-storage" showLineNumbers 
 await token.methods.sync_notes().simulate();
 const notes = await pxe.getNotes({
   recipient: owner.getAddress(),
@@ -202,7 +202,7 @@ expect(balance).toEqual(100n);
 
 Public state behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
 
-```typescript title="public-storage" showLineNumbers
+```typescript title="public-storage" showLineNumbers 
 await token.methods.mint_to_public(owner.getAddress(), 100n).send().wait();
 const ownerPublicBalanceSlot = await cheats.aztec.computeSlotInMap(
   TokenContract.storage.public_balances.slot,
@@ -222,7 +222,7 @@ You can check the logs of events emitted by contracts. Contracts in Aztec can em
 
 We can query the PXE for the public logs emitted in the block where our transaction is mined.
 
-```typescript title="public-logs" showLineNumbers
+```typescript title="public-logs" showLineNumbers 
 const value = Fr.fromHexString('ef'); // Only 1 bytes will make its way in there :( so no larger stuff
 const tx = await testContract.methods.emit_public(value).send().wait();
 const filter = {
