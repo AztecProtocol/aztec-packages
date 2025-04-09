@@ -94,11 +94,6 @@ jobs:
             ./yarn-project/bootstrap.sh fast
           fi
 
-      - name: Build docs
-        run: |
-          yarn install
-          yarn build
-
       - name: Deploy docs
         working-directory: ./docs
         run: |
