@@ -1,14 +1,9 @@
-import { Blob } from '@aztec/blob-lib';
 import { times, timesAsync } from '@aztec/foundation/collection';
-import { EthAddress } from '@aztec/foundation/eth-address';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
 import {
-  type Abi,
-  type GetContractReturnType,
   type Hex,
   createPublicClient,
   createWalletClient,
@@ -22,14 +17,10 @@ import { foundry } from 'viem/chains';
 
 import { deployL1Contract } from './deploy_l1_contracts.js';
 import { EthCheatCodes } from './eth_cheat_codes.js';
-import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
-import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
 import type { SimpleViemWalletClient, ViemPublicClient } from './types.js';
-import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
-const WEI_CONST = 1_000_000_000n;
 
 describe('EthCheatCodes', () => {
   let walletClient: SimpleViemWalletClient;
