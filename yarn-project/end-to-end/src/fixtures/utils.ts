@@ -76,7 +76,6 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 
 import type { Anvil } from '@viem/anvil';
 import fs from 'fs/promises';
-import getPort from 'get-port';
 import { tmpdir } from 'os';
 import * as path from 'path';
 import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
@@ -486,20 +485,18 @@ export async function setup(
     const telemetry = getTelemetryClient(opts.telemetryConfig);
 
     // Blob sink service - blobs get posted here and served from here
-    const blobSinkPort = await getPort();
     const blobSink = await createBlobSinkServer(
       {
         l1ChainId: config.l1ChainId,
         l1RpcUrls: config.l1RpcUrls,
         rollupAddress: config.l1Contracts.rollupAddress,
-        port: blobSinkPort,
         dataDirectory: config.dataDirectory,
         dataStoreMapSizeKB: config.dataStoreMapSizeKB,
       },
       telemetry,
     );
     await blobSink.start();
-    config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+    config.blobSinkUrl = `http://127.0.0.1:5052`;
 
     logger.verbose('Creating and synching an aztec node...');
 
