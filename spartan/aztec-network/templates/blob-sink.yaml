@@ -71,6 +71,8 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: contracts-env
+              mountPath: /shared/contracts
             - name: blob-sink-data
               mountPath: {{ .Values.blobSink.dataStoreConfig.dataDir }}
             - name: config
@@ -115,6 +117,10 @@ spec:
           configMap:
             name: {{ include "aztec-network.fullname" . }}-scripts
             defaultMode: 0755
+        - name: contracts-env
+          emptyDir: {}
+        - name: pxe-url
+          emptyDir: {}
         - name: config
           emptyDir: {}
       {{- if .Values.storage.localSsd }}

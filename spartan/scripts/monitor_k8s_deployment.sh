@@ -22,11 +22,27 @@ fi
 # Disable strict mode inside the monitoring function
 
 # Redirect all output to /dev/tty to force unbuffered output directly to terminal
-exec > /dev/tty 2> /dev/tty
+exec >/dev/tty 2>/dev/tty
+
+# Function to handle cleanup on exit
+function cleanup {
+  echo -e "\n==== Deployment monitoring complete. ====\n"
+  exit 0
+}
+
+# Set up trap for cleanup on script termination
+trap cleanup SIGTERM SIGINT EXIT
 
 echo "==== Starting status monitor for namespace $namespace ===="
 
+monitoring_complete=false
+
 for i in {1..100}; do
+  if [ "$monitoring_complete" = true ]; then
+    echo -e "\n==== Monitoring complete. Exiting. ====\n"
+    break
+  fi
+
   echo -e "\n==== STATUS UPDATE ($i) ====\n"
   echo "--- Pod status ---"
   kubectl get pods -n "$namespace" || true
@@ -51,6 +67,8 @@ for i in {1..100}; do
 
   sleep 5
 done
+
+echo "==== Monitoring complete. Exiting. ===="
 
 # Restore strict mode
 set -euo pipefail
