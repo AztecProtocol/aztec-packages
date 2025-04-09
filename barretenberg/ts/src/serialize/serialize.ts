@@ -137,7 +137,6 @@ export type Bufferable = boolean | Uint8Array | number | string | { toBuffer: ()
  * @returns A buffer list with the concatenation of all fields.
  */
 export function serializeBufferable(obj: Bufferable): Uint8Array {
-  console.log(obj)
   if (Array.isArray(obj)) {
     return serializeBufferArrayToVector(obj.map(serializeBufferable));
   } else if (obj instanceof RawBuffer) {
