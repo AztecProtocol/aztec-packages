@@ -11,8 +11,8 @@ function build_image {
   docker build -f release-image/Dockerfile -t aztecprotocol/aztec:$(git rev-parse HEAD) .
   docker tag aztecprotocol/aztec:$(git rev-parse HEAD) aztecprotocol/aztec:latest
 
-  # Remove all but the most recent image.
-  docker images aztecprotocol/aztec --format "{{.ID}}" | uniq | tail -n +2 | xargs -r docker rmi -f
+  # Remove all but the most recent couple of images
+  docker images aztecprotocol/aztec --format "{{.ID}}" | uniq | tail -n +5 | xargs -r docker rmi -f
 }
 export -f build_image
 
