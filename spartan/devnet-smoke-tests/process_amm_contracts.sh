@@ -98,6 +98,11 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
     # Adding liquidity
 
+    amount_0_max=$((private_balance_token_0/4))
+    amount_1_max=$((private_balance_token_1/4))
+    amount_0_min=1
+    amount_1_min=1
+
     aztec-wallet \
       create-secret \
       -a add-liquidity-nonce
@@ -115,11 +120,6 @@ jq -c '.accounts[]' state.json | while read -r account; do
       --args $current_user_address $amm_address $amount_1_max secrets:add-liquidity-nonce \
       -f $current_user_address \
       -a amm-lp-token-1
-
-    amount_0_max=$((private_balance_token_0/4))
-    amount_1_max=$((private_balance_token_1/4))
-    amount_0_min=1
-    amount_1_min=1
 
     prover_to_use_for_amm_flow=$(get_prover "$should_prove_flow")
 
