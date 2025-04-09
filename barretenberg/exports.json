@@ -128,6 +128,22 @@
     "isAsync": false
   },
   {
+    "functionName": "poseidon2_hash_accumulate",
+    "inArgs": [
+      {
+        "name": "inputs_buffer",
+        "type": "fr::vec_in_buf"
+      }
+    ],
+    "outArgs": [
+      {
+        "name": "output",
+        "type": "fr::out_buf"
+      }
+    ],
+    "isAsync": false
+  },
+  {
     "functionName": "blake2s",
     "inArgs": [
       {
