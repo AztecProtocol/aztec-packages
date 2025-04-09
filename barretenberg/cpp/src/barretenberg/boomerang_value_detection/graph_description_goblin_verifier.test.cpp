@@ -1,4 +1,4 @@
-#include "barretenberg/boomerang_value_detection/graph.hpp
+#include "barretenberg/boomerang_value_detection/graph.hpp"
 #include "barretenberg/stdlib/goblin_verifier/goblin_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
@@ -64,7 +64,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
  * @brief Construct and check a goblin recursive verification circuit
  *
  */
-TEST_F(GoblinRecursiveVerifierTests, Basic)
+TEST_F(GoblinRecursiveVerifierTests, graph_description_basic)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
@@ -77,16 +77,14 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     EXPECT_EQ(builder.failed(), false) << builder.err();
 
     // Construct and verify a proof for the Goblin Recursive Verifier circuit
-    {
-        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
-        OuterProver prover(proving_key);
-        auto verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
-        OuterVerifier verifier(verification_key);
-        auto proof = prover.construct_proof();
-        bool verified = verifier.verify_proof(proof);
-
-        ASSERT(verified);
-    }
+    builder.finalize_circuit(false);
+    info("start graph creation");
+    auto graph = cdg::Graph(builder);
+    info("graph creation is finished");
+    auto connected_components = graph.find_connected_components();
+    EXPECT_EQ(connected_components.size(), 4);
+    auto variables_in_one_gate = graph.show_variables_in_one_gate(builder);
+    info("first variables in one gate == ", std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0]);
 }
 
 } // namespace bb::stdlib::recursion::honk
