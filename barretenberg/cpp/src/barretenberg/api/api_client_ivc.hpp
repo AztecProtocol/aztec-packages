@@ -13,15 +13,6 @@ class ClientIVCAPI : public API {
   public:
     void prove(const std::filesystem::path& input_path, const std::filesystem::path& output_dir);
 
-    // // NOTE: We do not conform to the prove() API
-    // void prove(BB_UNUSED const Flags& flags,
-    //            BB_UNUSED const std::filesystem::path& bytecode_path,
-    //            BB_UNUSED const std::filesystem::path& witness_path,
-    //            BB_UNUSED const std::filesystem::path& output_dir) override
-    // {
-    //     THROW std::runtime_error("prove(bytecode, witness) not implemented for ClientIVCAPI");
-    // }
-
     bool verify(const Flags& flags,
                 const std::filesystem::path& public_inputs_path,
                 const std::filesystem::path& proof_path,
@@ -29,20 +20,16 @@ class ClientIVCAPI : public API {
 
     bool prove_and_verify(const std::filesystem::path& input_path);
 
-    // // NOTE: We do not conform to the prove_and_verify() API
-    // bool prove_and_verify(BB_UNUSED const Flags& flags,
-    //                       BB_UNUSED const std::filesystem::path& bytecode_path,
-    //                       BB_UNUSED const std::filesystem::path& witness_path) override
-    // {
-    //     THROW std::runtime_error("prove_and_verify in ClientIVCAPI takes a single input path");
-    // }
-
     void gates(const Flags& flags, const std::filesystem::path& bytecode_path) override;
 
     void write_solidity_verifier(const Flags& flags,
                                  const std::filesystem::path& output_path,
                                  const std::filesystem::path& vk_path) override;
 
+    // write a vk for verifying a folding stack based on the number of public inputs of the final circuit
+    void write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path);
+
+    // write a vk for a circuit
     void write_vk(const Flags& flags,
                   const std::filesystem::path& bytecode_path,
                   const std::filesystem::path& output_path) override;

@@ -16,55 +16,8 @@
 using namespace std;
 namespace bb {
 
-acir_format::WitnessVector witness_map_to_witness_vector(map<string, string> const& witness_map)
-{
-    acir_format::WitnessVector wv;
-    size_t index = 0;
-    for (auto& e : witness_map) {
-        uint64_t value = stoull(e.first);
-        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
-        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
-        // which do not exist within the `WitnessMap` with the dummy value of zero.
-        while (index < value) {
-            wv.push_back(fr(0));
-            index++;
-        }
-        wv.push_back(fr(uint256_t(e.second)));
-        index++;
-    }
-    return wv;
-}
-
-vector<uint8_t> decompress(const void* bytes, size_t size)
-{
-    vector<uint8_t> content;
-    // initial size guess
-    content.resize(1024ULL * 128ULL);
-    for (;;) {
-        auto decompressor =
-            unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{ libdeflate_alloc_decompressor(),
-                                                                                     libdeflate_free_decompressor };
-        size_t actual_size = 0;
-        libdeflate_result decompress_result =
-            libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
-        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
-            continue;
-        }
-        if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            THROW invalid_argument("bad gzip data in bb main");
-        }
-        content.resize(actual_size);
-        break;
-    }
-    return content;
-}
-
-template <typename T> shared_ptr<T> read_to_shared_ptr(const filesystem::path& path)
-{
-    return make_shared<T>(from_buffer<T>(read_file(path)));
-};
+// Open namespace local to this file.
+namespace {
 
 template <typename T> T unpack_from_file(const filesystem::path& filename)
 {
@@ -86,104 +39,6 @@ template <typename T> T unpack_from_file(const filesystem::path& filename)
     msgpack::unpack(encoded_data, fsize).get().convert(result);
     return result;
 }
-
-/**
- * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
- * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
- * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
- *
- * @param bytecode_path
- * @param witness_path
- */
-void write_standalone_vk(const string& output_data_type, const string& bytecode_path, const string& output_path)
-{
-    using Builder = ClientIVC::ClientCircuit;
-    using Prover = ClientIVC::MegaProver;
-    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
-    using VerificationKey = ClientIVC::MegaVerificationKey;
-    using Program = acir_format::AcirProgram;
-    using ProgramMetadata = acir_format::ProgramMetadata;
-
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
-    Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
-    auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
-
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
-
-    const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
-                                               ? nullptr
-                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
-    Builder builder = acir_format::create_circuit<Builder>(program, metadata);
-
-    // Add public inputs corresponding to pairing point accumulator
-    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
-
-    // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    auto proving_key = make_shared<DeciderProvingKey>(builder, trace_settings);
-    Prover prover{ proving_key };
-    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    PubInputsProofAndKey<VerificationKey> to_write{ PublicInputsVector{},
-                                                    HonkProof{},
-                                                    make_shared<VerificationKey>(prover.proving_key->proving_key) };
-
-    write(to_write, output_data_type, "vk", output_path);
-}
-
-size_t get_num_public_inputs_in_final_circuit(const filesystem::path& bytecode_path)
-{
-    using namespace acir_format;
-
-    const string bincode = unpack_from_file<vector<string>>(bytecode_path).back();
-    const vector<uint8_t> bincode_buf = decompress(bincode.data(), bincode.size());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bincode_buf, /*honk_recursion=*/0);
-    return constraints.public_inputs.size();
-}
-
-void write_vk_for_ivc(const string& bytecode_path, const filesystem::path& output_dir)
-{
-    init_bn254_crs(1 << CONST_PG_LOG_N);
-    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
-    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(bytecode_path);
-    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
-    // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
-    static constexpr size_t MAGIC_NUMBER = 16;
-
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    // We segfault if we only call accumulate once
-    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
-    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
-        ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
-    ivc.accumulate(circuit_1);
-
-    ivc.construct_vk();
-
-    auto eccvm_vk = make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-
-    const bool output_to_stdout = output_dir == "-";
-    const auto vk = make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
-    const auto buf = to_buffer(vk);
-
-    if (output_to_stdout) {
-        write_bytes_to_stdout(buf);
-    } else {
-        write_file(output_dir / "vk", buf);
-    }
-}
-
-// Open namespace local to this file.
-namespace {
 /**
  * @brief This is the msgpack encoding of the objects returned by the following typescript:
  *   const stepToStruct = (step: PrivateExecutionStep) => {
@@ -247,6 +102,146 @@ struct PrivateExecutionSteps {
     }
 };
 } // namespace
+
+acir_format::WitnessVector witness_map_to_witness_vector(map<string, string> const& witness_map)
+{
+    acir_format::WitnessVector wv;
+    size_t index = 0;
+    for (auto& e : witness_map) {
+        uint64_t value = stoull(e.first);
+        // ACIR uses a sparse format for WitnessMap where unused witness indices may be left unassigned.
+        // To ensure that witnesses sit at the correct indices in the `WitnessVector`, we fill any indices
+        // which do not exist within the `WitnessMap` with the dummy value of zero.
+        while (index < value) {
+            wv.push_back(fr(0));
+            index++;
+        }
+        wv.push_back(fr(uint256_t(e.second)));
+        index++;
+    }
+    return wv;
+}
+
+vector<uint8_t> decompress(const void* bytes, size_t size)
+{
+    vector<uint8_t> content;
+    // initial size guess
+    content.resize(1024ULL * 128ULL);
+    for (;;) {
+        auto decompressor =
+            unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{ libdeflate_alloc_decompressor(),
+                                                                                     libdeflate_free_decompressor };
+        size_t actual_size = 0;
+        libdeflate_result decompress_result =
+            libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
+        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
+            // need a bigger buffer
+            content.resize(content.size() * 2);
+            continue;
+        }
+        if (decompress_result == LIBDEFLATE_BAD_DATA) {
+            THROW invalid_argument("bad gzip data in bb main");
+        }
+        content.resize(actual_size);
+        break;
+    }
+    return content;
+}
+
+/**
+ * @brief Compute and write to file a MegaHonk VK for a circuit to be accumulated in the IVC
+ * @note This method differes from write_vk_honk<MegaFlavor> in that it handles kernel circuits which require special
+ * treatment (i.e. construction of mock IVC state to correctly complete the kernel logic).
+ *
+ * @param bytecode_path
+ * @param witness_path
+ */
+void write_standalone_vk(const string& output_data_type, const string& bytecode_path, const string& output_path)
+{
+    using Builder = ClientIVC::ClientCircuit;
+    using Prover = ClientIVC::MegaProver;
+    using DeciderProvingKey = ClientIVC::DeciderProvingKey;
+    using VerificationKey = ClientIVC::MegaVerificationKey;
+    using Program = acir_format::AcirProgram;
+    using ProgramMetadata = acir_format::ProgramMetadata;
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
+    auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
+
+    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+
+    const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
+                                               ? nullptr
+                                               : create_mock_ivc_from_constraints(ivc_constraints, trace_settings) };
+    Builder builder = acir_format::create_circuit<Builder>(program, metadata);
+
+    // Add public inputs corresponding to pairing point accumulator
+    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
+
+    // Construct the verification key via the prover-constructed proving key with the proper trace settings
+    auto proving_key = make_shared<DeciderProvingKey>(builder, trace_settings);
+    Prover prover{ proving_key };
+    init_bn254_crs(prover.proving_key->proving_key.circuit_size);
+    PubInputsProofAndKey<VerificationKey> to_write{ PublicInputsVector{},
+                                                    HonkProof{},
+                                                    make_shared<VerificationKey>(prover.proving_key->proving_key) };
+
+    write(to_write, output_data_type, "vk", output_path);
+}
+
+size_t get_num_public_inputs_in_final_circuit(const filesystem::path& input_path)
+{
+    using namespace acir_format;
+    auto steps = PrivateExecutionStepRaw::load(input_path);
+    const PrivateExecutionStepRaw& last_step = steps.back();
+    const vector<uint8_t> bincode_buf = decompress(last_step.bytecode.data(), last_step.bytecode.size());
+    const AcirFormat constraints = circuit_buf_to_acir_format(bincode_buf, /*honk_recursion=*/0);
+    return constraints.public_inputs.size();
+}
+
+void write_vk_for_ivc(const string& input_path, const filesystem::path& output_dir)
+{
+    init_bn254_crs(1 << CONST_PG_LOG_N);
+    init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
+
+    const size_t num_public_inputs_in_final_circuit = get_num_public_inputs_in_final_circuit(input_path);
+    info("num_public_inputs_in_final_circuit: ", num_public_inputs_in_final_circuit);
+    // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
+    static constexpr size_t MAGIC_NUMBER = 16;
+
+    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    // We segfault if we only call accumulate once
+    static constexpr size_t SMALL_ARBITRARY_LOG_CIRCUIT_SIZE{ 5 };
+    MegaCircuitBuilder circuit_0 = circuit_producer.create_next_circuit(ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    MegaCircuitBuilder circuit_1 = circuit_producer.create_next_circuit(
+        ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
+    ivc.accumulate(circuit_1);
+
+    ivc.construct_vk();
+
+    auto eccvm_vk = make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
+    auto translator_vk = make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+
+    const bool output_to_stdout = output_dir == "-";
+    const auto vk = make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
+    const auto buf = to_buffer(vk);
+
+    if (output_to_stdout) {
+        write_bytes_to_stdout(buf);
+    } else {
+        write_file(output_dir / "vk", buf);
+    }
+}
 
 shared_ptr<ClientIVC> _accumulate(vector<acir_format::AcirProgram>& folding_stack,
                                   const vector<shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
@@ -352,13 +347,16 @@ void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
     throw_or_abort("API function contract not implemented");
 }
 
+void ClientIVCAPI::write_ivc_vk(const filesystem::path& input_path, const filesystem::path& output_path)
+{
+    write_vk_for_ivc(input_path, output_path);
+}
+
 void ClientIVCAPI::write_vk(const Flags& flags,
                             const filesystem::path& bytecode_path,
                             const filesystem::path& output_path)
 {
-    if (flags.verifier_type == "ivc") {
-        write_vk_for_ivc(bytecode_path, output_path);
-    } else if (flags.verifier_type == "standalone") {
+    if (flags.verifier_type == "standalone") {
         write_standalone_vk(flags.output_format, bytecode_path, output_path);
     } else {
         const string msg = string("Can't write vk for verifier type ") + flags.verifier_type;

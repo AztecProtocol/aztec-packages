@@ -362,6 +362,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_scheme_option(write_vk);
     add_bytecode_path_option(write_vk);
     add_output_path_option(write_vk, output_path);
+    // Used by IVC.
+    add_inputs_path_options(prove);
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
@@ -727,8 +729,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
         print_subcommand_options(deepest);
     }
 
-    // TODO: it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a poort
-    // fit. It would be better to have a separate handling for each scheme with subcommands to prove.
+    // TODO(AD): it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a
+    // poort fit. It would be better to have a separate handling for each scheme with subcommands to prove.
     const auto execute_non_prove_command = [&](API& api) {
         if (check->parsed()) {
             api.check(flags, bytecode_path, witness_path);
@@ -837,6 +839,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
             ClientIVCAPI api;
             if (prove->parsed()) {
                 api.prove(input_path, output_path);
+                return 0;
+            }
+            if (write_vk->parsed() && flags.verifier_type == "ivc") {
+                api.write_ivc_vk(flags, input_path);
                 return 0;
             }
             return execute_non_prove_command(api);
