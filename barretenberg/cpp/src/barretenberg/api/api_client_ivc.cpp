@@ -165,6 +165,7 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
         ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
     ivc.accumulate(circuit_1);
 
+    // Construct the hiding circuit and its VK (stored internally in the IVC)
     ivc.construct_hiding_circuit_key();
 
     const bool output_to_stdout = output_dir == "-";

@@ -175,7 +175,6 @@ TEST_F(ECCVMTests, FixedVK)
     // Generate a circuit and its verification key (computed at runtime from the proving key)
     ECCVMCircuitBuilder builder = generate_circuit(&engine);
     ECCVMProver prover(builder);
-    auto pk = std::make_shared<ECCVMFlavor::ProvingKey>(builder);
     ECCVMVerifier verifier(prover.key);
 
     // Generate the default fixed VK

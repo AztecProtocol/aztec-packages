@@ -5,6 +5,13 @@
 
 namespace bb {
 
+/**
+ * @brief Stores the fixed ECCVM VK commitments (to precomputed polynomials) that depend only on the circuit size
+ * constant ECCVM_FIXED_SIZE.
+ * @details If the constant ECCVM_FIXED_SIZE changes, these commitments must be updated accordingly. Their values can be
+ * obtained from the test ECCVMTests::FixedVK.
+ *
+ */
 class ECCVMFixedVKCommitments {
   public:
     using Commitment = curve::Grumpkin::AffineElement;

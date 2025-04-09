@@ -33,8 +33,6 @@ class ClientIVCTests : public ::testing::Test {
     using FoldingProver = ProtogalaxyProver_<DeciderProvingKeys>;
     using DeciderVerificationKeys = DeciderVerificationKeys_<Flavor>;
     using FoldingVerifier = ProtogalaxyVerifier_<DeciderVerificationKeys>;
-    using ECCVMVerificationKey = typename ECCVMFlavor::VerificationKey;
-    using TranslatorVerificationKey = typename TranslatorFlavor::VerificationKey;
 
     /**
      * @brief Tamper with a proof by finding the first non-zero value and incrementing it by 1

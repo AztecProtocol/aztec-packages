@@ -4,6 +4,13 @@
 
 namespace bb {
 
+/**
+ * @brief Stores the fixed Translator VK commitments (to precomputed polynomials) that depend only on the circuit size
+ * constant CONST_TRANSLATOR_LOG_N.
+ * @details If the constant CONST_TRANSLATOR_LOG_N changes, these commitments must be updated accordingly. Their values
+ * can be obtained from the test TranslatorTests::FixedVK.
+ *
+ */
 struct TranslatorFixedVKCommitments {
     using Commitment = curve::BN254::AffineElement;
 
