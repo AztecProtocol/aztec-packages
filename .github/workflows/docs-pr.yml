@@ -1,4 +1,4 @@
-name: Docs Preview
+name: Docs Deploy
 
 on:
   workflow_dispatch:
