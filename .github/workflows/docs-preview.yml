@@ -44,29 +44,10 @@ jobs:
       - name: Generate directory hashes
         id: dir-hashes
         run: |
-          if [ -d "./noir" ] && [ -f "./noir/bootstrap.sh" ]; then
-            echo "noir_hash=$(./noir/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          else
-            echo "noir_hash=noop" >> $GITHUB_OUTPUT
-          fi
-
-          if [ -d "./barretenberg" ] && [ -f "./barretenberg/bootstrap.sh" ]; then
-            echo "barretenberg_hash=$(./barretenberg/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          else
-            echo "barretenberg_hash=noop" >> $GITHUB_OUTPUT
-          fi
-
-          if [ -d "./l1-contracts" ] && [ -f "./l1-contracts/bootstrap.sh" ]; then
-            echo "l1_contracts_hash=$(./l1-contracts/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          else
-            echo "l1_contracts_hash=noop" >> $GITHUB_OUTPUT
-          fi
-
-          if [ -d "./yarn-project" ] && [ -f "./yarn-project/bootstrap.sh" ]; then
-            echo "yarn_project_hash=$(./yarn-project/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          else
-            echo "yarn_project_hash=noop" >> $GITHUB_OUTPUT
-          fi
+          echo "noir_hash=$(./noir/bootstrap.sh hash)" >> $GITHUB_OUTPUT
+          echo "barretenberg_hash=$(./barretenberg/bootstrap.sh hash)" >> $GITHUB_OUTPUT
+          echo "l1_contracts_hash=$(./l1-contracts/bootstrap.sh hash)" >> $GITHUB_OUTPUT
+          echo "yarn_project_hash=$(./yarn-project/bootstrap.sh hash)" >> $GITHUB_OUTPUT
 
       - name: Restore Noir cache
         id: cache-noir
