@@ -49,68 +49,11 @@ jobs:
           git config --global user.name AztecBot
           git config --global user.email tech@aztecprotocol.com
 
-      - name: Generate directory hashes
-        id: dir-hashes
-        run: |
-          echo "noir_hash=$(./noir/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          echo "barretenberg_hash=$(./barretenberg/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          echo "l1_contracts_hash=$(./l1-contracts/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-          echo "yarn_project_hash=$(./yarn-project/bootstrap.sh hash)" >> $GITHUB_OUTPUT
-
-      - name: Restore Noir cache
-        id: cache-noir
-        uses: actions/cache@v4
-        with:
-          path: ./noir
-          key: noir-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.noir_hash }}
-          restore-keys: |
-            noir-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.noir_hash }}
-
-      - name: Restore Barretenberg cache
-        id: cache-barretenberg
-        uses: actions/cache@v4
-        with:
-          path: ./barretenberg
-          key: barretenberg-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.barretenberg_hash }}
-          restore-keys: |
-            barretenberg-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.barretenberg_hash }}
-
-      - name: Restore L1 contracts cache
-        id: cache-l1-contracts
-        uses: actions/cache@v4
-        with:
-          path: ./l1-contracts
-          key: l1-contracts-${{ runner.os }}-${{ steps.dir-hashes.outputs.l1_contracts_hash }}
-          restore-keys: |
-            l1-contracts-${{ runner.os }}-${{ steps.dir-hashes.outputs.l1_contracts_hash }}
-
-      - name: Restore Yarn project cache
-        id: cache-yarn-project
-        uses: actions/cache@v4
-        with:
-          path: ./yarn-project
-          key: yarn-project-${{ runner.os }}-${{ steps.dir-hashes.outputs.yarn_project_hash }}
-          restore-keys: |
-            yarn-project-${{ runner.os }}-${{ steps.dir-hashes.outputs.yarn_project_hash }}
-
       - name: Build dependencies
         run: |
-          if [[ "${{ steps.cache-noir.outputs.cache-hit }}" != 'true' ]]; then
-            echo "Building Noir (cache miss)"
-            ./noir/bootstrap.sh fast
-          fi
-          if [[ "${{ steps.cache-barretenberg.outputs.cache-hit }}" != 'true' ]]; then
-            echo "Building Barretenberg (cache miss)"
-            ./barretenberg/bootstrap.sh fast
-          fi
-          if [[ "${{ steps.cache-l1-contracts.outputs.cache-hit }}" != 'true' ]]; then
-            echo "Building L1 contracts (cache miss)"
-            ./l1-contracts/bootstrap.sh fast
-          fi
-          if [[ "${{ steps.cache-yarn-project.outputs.cache-hit }}" != 'true' ]]; then
-            echo "Building Yarn project (cache miss)"
-            ./yarn-project/bootstrap.sh fast
-          fi
+          for project in noir barretenberg l1-contracts yarn-project; do
+            $project/bootstrap.sh
+          done
 
       - name: Cut version
         working-directory: ./docs
