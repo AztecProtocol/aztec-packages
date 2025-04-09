@@ -58,7 +58,9 @@ template <typename Flavor, typename VK = typename Flavor::VerificationKey>
 PubInputsProofAndKey<VK> _compute_vk(const std::filesystem::path& bytecode_path,
                                      const std::filesystem::path& witness_path)
 {
-    // TODO: Evaluate a better place for this
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1303): This is only needed to construct a vk for an
+    // AVM2 goblinized recursive verifier circuit and can be removed once that circuit can be constructed efficiently
+    // based on mock inputs.
     if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
         // Initialize the crs for the vm2 goblinized recursive verifier
         init_bn254_crs(1 << 23);
