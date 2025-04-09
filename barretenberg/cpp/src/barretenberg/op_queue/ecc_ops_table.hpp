@@ -6,6 +6,13 @@
 #include <deque>
 namespace bb {
 
+/**
+ * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
+ * - addition: add = true, value() = 8
+ * - multiplication: mul = true, value() = 4
+ * - equality abd reset: eq = true, reset = true,  value() = 3
+ * - no operation: all false, value() = 0
+ */
 struct EccOpCode {
     bool add = false;
     bool mul = false;
