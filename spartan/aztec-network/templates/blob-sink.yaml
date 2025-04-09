@@ -37,7 +37,6 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       initContainers:
         {{- include "aztec-network.serviceAddressSetupContainer" . | nindent 8 }}
-        {{- include "aztec-network.getRollupContractAddress" . | nindent 8 }}
       containers:
         - name: blob-sink
           {{- include "aztec-network.image" . | nindent 10 }}

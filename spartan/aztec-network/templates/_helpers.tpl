@@ -240,55 +240,6 @@ while true; do
 done
 {{- end -}}
 
-{{- define "aztec-network.getRollupContractAddress" -}}
-- name: get-rollup-contract-address
-  {{- include "aztec-network.image" . | nindent 2 }}
-  command:
-    - /bin/bash
-    - -c
-    - |
-      # If we already have a registry address, and the bootstrap nodes are set, then we don't need to wait for the services
-      if [ -n "{{ .Values.aztec.contracts.rollupAddress }}" ]; then
-        echo "Rollup address already set, skipping..."
-        echo "ROLLUP_CONTRACT_ADDRESS={{ .Values.aztec.contracts.rollupAddress }}" >> /shared/contracts/contracts.env
-        exit 0
-      else
-        source /shared/config/service-addresses
-        cat /shared/config/service-addresses
-        {{- include "aztec-network.waitForEthereum" . | nindent 8 }}
-
-        if [ "{{ .Values.validator.dynamicBootNode }}" = "true" ]; then
-          echo "{{ include "aztec-network.pxeUrl" . }}" > /shared/pxe/pxe_url
-        else
-          until curl --silent --head --fail "${BOOT_NODE_HOST}/status" > /dev/null; do
-            echo "Waiting for boot node..."
-            sleep 5
-          done
-          echo "Boot node is ready!"
-          echo "${BOOT_NODE_HOST}" > /shared/pxe/pxe_url
-        fi
-      fi
-      source /shared/config/service-addresses
-      pxe_url=$(cat /shared/pxe/pxe_url)
-      output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info -u $pxe_url)
-      echo "$output"
-      rollup_address=$(echo "$output" | grep -oP 'Rollup Address: \K0x[a-fA-F0-9]{40}')
-      # Write the rollup address to the contracts.env file
-      echo "ROLLUP_CONTRACT_ADDRESS=${rollup_address}" >> /shared/contracts/contracts.env
-  volumeMounts:
-    - name: pxe-url
-      mountPath: /shared/pxe
-    - name: scripts
-      mountPath: /scripts
-    - name: config
-      mountPath: /shared/config
-    - name: contracts-env
-      mountPath: /shared/contracts
-  env:
-    - name: REGISTRY_CONTRACT_ADDRESS
-      value: "{{ .Values.aztec.contracts.registryAddress }}"
-{{- end -}}
-
 {{/*
 Combined wait-for-services and configure-env container for full nodes
 */}}
