@@ -9,12 +9,7 @@ import ArticleIcon from '@mui/icons-material/Article';
 import { styled } from '@mui/material/styles';
 
 const Root = styled('div')(({ theme }) => ({
-  position: 'absolute',
-  bottom: 0,
-  left: 0,
-  right: 0,
-  height: 0,
-  zIndex: 1001,
+  height: '100%',
   ...theme.applyStyles('dark', {
     backgroundColor: theme.palette.background.default,
   }),
@@ -29,12 +24,12 @@ const StyledBox = styled('div')(({ theme }) => ({
 
 const Puller = styled('div')(({ theme }) => ({
   width: 30,
-  height: 3,
+  height: 6,
   backgroundColor: 'var(--mui-palette-primary-light)',
   borderRadius: 3,
   position: 'absolute',
-  top: 4,
-  left: 'calc(50% - 15px)',
+  top: 8,
+  left: 'calc(50% - 20px)',
   ...theme.applyStyles('dark', {
     backgroundColor: 'var(--mui-palette-primary-dark)',
   }),
@@ -72,7 +67,7 @@ const logTimestamp = css({});
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const safeStringify = (obj: any) => JSON.stringify(obj, (_, v) => (typeof v === 'bigint' ? v.toString() : v));
 
-const drawerBleeding = 20;
+const drawerBleeding = 56;
 
 export function LogPanel() {
   const { logs, logsOpen, setLogsOpen } = useContext(AztecContext);
@@ -87,7 +82,7 @@ export function LogPanel() {
         <Global
           styles={{
             '.MuiDrawer-root > .MuiPaper-root': {
-              height: `calc(30% - ${drawerBleeding}px)`,
+              height: `calc(50% - ${drawerBleeding}px)`,
               overflow: 'visible',
             },
           }}
@@ -115,13 +110,10 @@ export function LogPanel() {
               right: 0,
               left: 0,
               alignItems: 'center',
-              height: drawerBleeding,
-              maxHeight: drawerBleeding,
-              overflow: 'hidden'
             }}
           >
             <Puller />
-            <Typography sx={{ p: 1, color: 'text.secondary', fontSize: '0.75rem' }}>{logs.length}&nbsp;logs</Typography>
+            <Typography sx={{ p: 2, color: 'text.secondary' }}>{logs.length}&nbsp;logs</Typography>
           </StyledBox>
           <StyledBox sx={{ px: 0.5, height: '100%', overflow: 'auto' }}>
             {logs.map((log, index) => (
@@ -148,66 +140,17 @@ export function LogPanel() {
       </Root>
       <Fab
         sx={{
-          position: 'fixed',
-          bottom: '1rem',
+          position: 'absolute',
+          bottom: '5rem',
           right: '1rem',
-          zIndex: 1000,
-          backgroundColor: 'var(--mui-palette-primary-main)',
-          color: 'white',
-          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-          width: '40px',
-          minWidth: '40px',
-          display: 'flex',
-          alignItems: 'center',
-          '&:hover': {
-            backgroundColor: 'var(--mui-palette-primary-dark)',
-            width: '300px',
-            '& .MuiFab-label': {
-              width: 'auto',
-              margin: '0 8px',
-              opacity: 1,
-            },
-          },
           '@media (width <= 800px)': {
             visibility: 'hidden',
           },
         }}
+        color="secondary"
         onClick={toggleDrawer(true)}
       >
-       <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        position: 'relative',
-      }}
-    >
-      <ArticleIcon
-        sx={{
-          transition: 'opacity 0.3s ease',
-          opacity: 1,
-          '.MuiFab-root:hover &': {
-            opacity: 0,
-          },
-        }}
-      />
-      <Typography
-        sx={{
-          whiteSpace: 'nowrap',
-          opacity: 0,
-          width: 0,
-          transition: 'opacity 0.3s ease, width 0.3s ease',
-          fontSize: '0.875rem',
-          margin: 0,
-          '.MuiFab-root:hover &': {
-            opacity: 1,
-            width: 'auto',
-          },
-        }}
-      >
-        PXE logs (advanced)
-      </Typography>
-</div>
+        <ArticleIcon />
       </Fab>
     </>
   );

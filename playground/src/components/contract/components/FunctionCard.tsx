@@ -8,7 +8,7 @@ import PsychologyIcon from '@mui/icons-material/Psychology';
 import SendIcon from '@mui/icons-material/Send';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
-import { FunctionParameter } from '../../../components/common/fnParameter';
+import { FunctionParameter } from '../../common/FnParameter';
 import Tooltip from '@mui/material/Tooltip';
 import IconButton from '@mui/material/IconButton';
 
@@ -111,8 +111,8 @@ const parameterInput = css({
   '& .MuiInputBase-root': {
     '&.Mui-focused fieldset': {
       border: 'none',
-    }
-  }
+    },
+  },
 });
 
 const actionButtonsContainer = css({
@@ -147,7 +147,7 @@ const actionButton = css({
     backgroundColor: '#CDD1D5',
     color: '#808080',
     cursor: 'not-allowed',
-  }
+  },
 });
 
 interface FunctionCardProps {
@@ -182,23 +182,15 @@ export function FunctionCard({
   return (
     <div css={functionCard}>
       <div style={{ padding: '36px' }}>
-        <div css={functionTypeLabel}>
-          {fn.functionType.toUpperCase()}
-        </div>
-        <div css={functionName}>
-          {fn.name}
-        </div>
+        <div css={functionTypeLabel}>{fn.functionType.toUpperCase()}</div>
+        <div css={functionName}>{fn.name}</div>
         {selectedPredefinedContract !== 'custom_upload' && functionDescriptions[fn.name] && (
-          <div css={functionDescription}>
-            {functionDescriptions[fn.name]}
-          </div>
+          <div css={functionDescription}>{functionDescriptions[fn.name]}</div>
         )}
 
         {fn.parameters.length > 0 && (
           <>
-            <div css={parametersLabel}>
-              PARAMETERS
-            </div>
+            <div css={parametersLabel}>PARAMETERS</div>
             <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: '15px' }}>
               {fn.parameters.map((param, i) => (
                 <div key={param.name} style={{ width: '212px', marginRight: '16px' }}>
@@ -241,7 +233,7 @@ export function FunctionCard({
           <Tooltip title="Generate a proof and send it to the aztec network" placement="top">
             <button
               css={actionButton}
-              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === 'utility'}
               onClick={() => onSend(fn.name)}
             >
               SEND
@@ -251,10 +243,8 @@ export function FunctionCard({
           <Tooltip title="Authenticate another protocol to perform this on your behalf" placement="top">
             <button
               css={actionButton}
-              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
-              onClick={() =>
-                onAuthwit(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
-              }
+              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === 'utility'}
+              onClick={() => onAuthwit(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)}
             >
               AUTHWIT
               <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />

@@ -32,15 +32,13 @@ const containerStyle = css({
 
 // Styles for the button
 const buttonStyle = css({
-  width: '230px',
   height: '56px',
   borderRadius: '12px',
   backgroundColor: '#CDD1D5',
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'center',
-  padding: '20px 32px',
-  margin: '15px auto',
+  padding: '12px 24px',
   fontFamily: "'Inter', sans-serif",
   fontWeight: 600,
   fontSize: '17px',
@@ -69,16 +67,6 @@ const dropdownIconStyle = css({
   fontSize: '20px',
   marginLeft: '8px',
   transition: 'transform 0.3s ease',
-});
-
-// Styles for the connection status text
-const connectionStatusStyle = css({
-  fontSize: '12px',
-  lineHeight: '12px',
-  marginTop: '4px',
-  textAlign: 'center',
-  fontFamily: "'Inter', sans-serif",
-  fontWeight: 500,
 });
 
 // Styles for the modal content wrapper
@@ -120,7 +108,7 @@ export function ButtonWithModal({
   isLoading = false,
   connectionStatus,
   onClick,
-  children
+  children,
 }: ButtonWithModalProps) {
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -135,10 +123,7 @@ export function ButtonWithModal({
   return (
     <div css={containerStyle}>
       {/* Button */}
-      <div
-        css={[buttonStyle, isActive && activeButtonStyle]}
-        onClick={handleButtonClick}
-      >
+      <div css={[buttonStyle, isActive && activeButtonStyle]} onClick={handleButtonClick}>
         <span>{isSelected && connectionStatus ? connectionStatus : label}</span>
         {isLoading ? (
           <CircularProgress size={20} css={loadingSpinner} />

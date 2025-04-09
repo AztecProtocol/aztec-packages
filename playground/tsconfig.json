@@ -16,17 +16,12 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "jsxImportSource": "@emotion/react",
-    "verbatimModuleSyntax": true,
-
-    /* Enable JSON imports */
-    "resolveJsonModule": true,
-    "esModuleInterop": true
+    "verbatimModuleSyntax": true
   },
   "include": [
     "src/**/*.ts*",
     "tests/**/*.ts",
-    "src/contracts/**/*.json",
-    "src/assets/contracts/**/*.json",
+    "src/contracts/target/*.json",
     "artifacts/**/*.ts"
   ]
 }

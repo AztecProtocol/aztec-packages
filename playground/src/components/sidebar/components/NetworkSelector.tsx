@@ -1,18 +1,20 @@
-import { useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
 import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
-import type { Network } from '../types';
+import { createStore } from '@aztec/kv-store/indexeddb';
 import { select } from '../styles';
-import { connectToNetwork, NetworkConnectionError } from '../utils/networkHelpers';
-import { AddNetworksDialog } from './addNetworkDialog';
+import { AddNetworksDialog } from './AddNetworkDialog';
 import { css } from '@emotion/react';
 import Link from '@mui/material/Link';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { AztecContext, AztecEnv, WebLogger, type Network } from '../../../aztecEnv';
+import { NetworkDB, WalletDB } from '../../../utils/storage';
+import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -43,194 +45,195 @@ const loadingContainer = css({
   gap: '10px',
 });
 
-interface NetworkSelectorProps {
-  networks: Network[];
-  currentNodeURL: string | null;
-  onNetworksChange: (networks: Network[]) => void;
-  setNodeURL: (url: string) => void;
-  setPXEInitialized: (initialized: boolean) => void;
-  setAztecNode: (node: any) => void;
-  setPXE: (pxe: any) => void;
-  setWalletDB: (walletDB: any) => void;
-  setLogs: (logs: any) => void;
-  setChangingNetworks: (changing: boolean) => void;
-}
+const NETWORKS: Network[] = [
+  {
+    nodeURL: 'http://localhost:8080',
+    name: 'Sandbox',
+    description: 'Local sandbox',
+  },
+];
 
-export function NetworkSelector({
-  networks,
-  currentNodeURL,
-  onNetworksChange,
-  setNodeURL,
-  setPXEInitialized,
-  setAztecNode,
-  setPXE,
-  setWalletDB,
-  setLogs,
-  setChangingNetworks
-}: NetworkSelectorProps) {
+interface NetworkSelectorProps {}
+
+export function NetworkSelector({}: NetworkSelectorProps) {
+  const {
+    setConnecting,
+    setPXE,
+    setNetwork,
+    setPXEInitialized,
+    setWalletDB,
+    setAztecNode,
+    setLogs,
+    network,
+    connecting,
+  } = useContext(AztecContext);
+
+  const [networks, setNetworks] = useState(NETWORKS);
+  const [isNetworkStoreInitialized, setIsNetworkStoreInitialized] = useState(false);
   const [openAddNetworksDialog, setOpenAddNetworksDialog] = useState(false);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSandboxError, setIsSandboxError] = useState(false);
-  const [isTestnetError, setIsTestnetError] = useState(false);
-  const [errorText, setErrorText] = useState('');
-  const [isOpen, setIsOpen] = useState(false);
+  const [isOpen, setOpen] = useState(false);
 
-  const getNetworkType = (networkUrl: string) => {
-    // Check if this is a sandbox network
-    const isSandbox = networkUrl.includes('localhost') || networkUrl.includes('127.0.0.1');
+  useEffect(() => {
+    const initNetworkStore = async () => {
+      await AztecEnv.initNetworkStore();
+      setIsNetworkStoreInitialized(true);
+    };
+    initNetworkStore();
+  }, []);
 
-    // Check if this is a testnet
-    const isTestnet = networkUrl.includes('devnet') || networkUrl.includes('test');
-
-    return { isSandbox, isTestnet };
-  };
-
-  const getCurrentNetworkName = () => {
-    if (!currentNodeURL) return '';
-    const network = networks.find(n => n.nodeURL === currentNodeURL);
-    return network ? network.name : 'Custom Network';
-  };
+  useEffect(() => {
+    const refreshNetworks = async () => {
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map(network => ({
+          nodeURL: network.value,
+          name: network.key,
+          description: 'Custom network',
+        })),
+      ];
+      setNetworks(networks);
+    };
+    if (isNetworkStoreInitialized) {
+      refreshNetworks();
+    }
+  }, [isNetworkStoreInitialized]);
 
   const handleNetworkChange = async (event: SelectChangeEvent) => {
-    const networkUrl = event.target.value;
-    if (networkUrl === '') {
-      return;
-    }
-
-    setIsLoading(true);
-    setConnectionError(null);
-    setErrorText('');
-    setIsSandboxError(false);
-    setIsTestnetError(false);
-    setChangingNetworks(true);
-
-    try {
-      await connectToNetwork(
-        networkUrl,
-        setNodeURL,
-        setPXEInitialized,
-        setAztecNode,
-        setPXE,
-        setWalletDB,
-        setLogs
-      );
-    } catch (error) {
-      console.error('Network connection error:', error);
-
-      const { isSandbox, isTestnet } = getNetworkType(networkUrl);
-      setIsSandboxError(isSandbox);
-      setIsTestnetError(isTestnet);
-      setConnectionError(networkUrl);
-
-      if (error instanceof NetworkConnectionError) {
-        setErrorText(error.message);
-      } else {
-        setErrorText('Failed to connect to network');
-      }
-    } finally {
-      setChangingNetworks(false);
-      setIsLoading(false);
-    }
+    setConnecting(true);
+    setPXEInitialized(false);
+    const network = networks.find(network => network.nodeURL === event.target.value);
+    setNetwork(network);
+    const node = await AztecEnv.connectToNode(network.nodeURL);
+    setAztecNode(node);
+    const pxe = await AztecEnv.initPXE(node, setLogs);
+    const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
+    const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
+    const walletDBStore = await createStore(
+      `wallet-${rollupAddress}`,
+      { dataDirectory: 'wallet', dataStoreMapSizeKB: 2e10 },
+      walletLogger,
+    );
+    const walletDB = WalletDB.getInstance();
+    walletDB.init(walletDBStore, walletLogger.info);
+    setPXE(pxe);
+    setWalletDB(walletDB);
+    setPXEInitialized(true);
+    setConnecting(false);
   };
 
   const handleNetworkAdded = async (network?: string, alias?: string) => {
     if (network && alias) {
-      // Add the network to the NetworkDB
-      try {
-        const { addNetwork, loadNetworks } = await import('../utils/networkHelpers');
-        await addNetwork(alias, network);
-        const updatedNetworks = await loadNetworks();
-        onNetworksChange(updatedNetworks);
-      } catch (error) {
-        console.error('Error adding network:', error);
-      }
+      await NetworkDB.getInstance().storeNetwork(alias, network);
+      const aliasedBuffers = await NetworkDB.getInstance().listNetworks();
+      const aliasedNetworks = parseAliasedBuffersAsString(aliasedBuffers);
+      const networks = [
+        ...NETWORKS,
+        ...aliasedNetworks.map(network => ({
+          nodeURL: network.value,
+          name: network.key,
+          description: 'Custom network',
+        })),
+      ];
+      setNetworks(networks);
     }
     setOpenAddNetworksDialog(false);
   };
 
-  // Renders the appropriate error message based on network type
-  const renderErrorMessage = () => {
-    if (isSandboxError) {
-      return (
-        <>
-          {errorText}
-          <br/> Do you have a sandbox running? Check out the <Link href="https://docs.aztec.network" target="_blank" rel="noopener">docs</Link>
-        </>
-      );
-    } else if (isTestnetError) {
-      return (
-        <>
-          {errorText}
-          <br/><br/> Testnet may be down. Please see our Discord for updates.
-        </>
-      );
-    } else {
-      return (
-        <>
-          {errorText}
-          <br/><br/> Are your network details correct? Please reach out on Discord for help troubleshooting.
-        </>
-      );
-    }
-  };
+  // // Renders the appropriate error message based on network type
+  // const renderErrorMessage = () => {
+  //   if (isSandboxError) {
+  //     return (
+  //       <>
+  //         {errorText}
+  //         <br /> Do you have a sandbox running? Check out the{' '}
+  //         <Link href="https://docs.aztec.network" target="_blank" rel="noopener">
+  //           docs
+  //         </Link>
+  //       </>
+  //     );
+  //   } else if (isTestnetError) {
+  //     return (
+  //       <>
+  //         {errorText}
+  //         <br />
+  //         <br /> Testnet may be down. Please see our Discord for updates.
+  //       </>
+  //     );
+  //   } else {
+  //     return (
+  //       <>
+  //         {errorText}
+  //         <br />
+  //         <br /> Are your network details correct? Please reach out on Discord for help troubleshooting.
+  //       </>
+  //     );
+  //   }
+  // };
 
   return (
     <div css={modalContainer}>
       <FormControl css={select}>
         <Select
           fullWidth
-          value={currentNodeURL || ''}
+          value={network?.nodeURL || ''}
           displayEmpty
           IconComponent={KeyboardArrowDownIcon}
           open={isOpen}
-          onOpen={() => setIsOpen(true)}
-          onClose={() => setIsOpen(false)}
-          renderValue={(selected) => {
-            if (isLoading) {
-              return 'Connecting to network...';
+          onOpen={() => setOpen(true)}
+          onClose={() => setOpen(false)}
+          renderValue={selected => {
+            if (connecting) {
+              return `Connecting to ${network?.name}...`;
             }
-            if (selected && currentNodeURL) {
-              return `Connected to ${getCurrentNetworkName()}`;
+            if (selected && network?.nodeURL) {
+              return `${network.name}@${network.nodeURL}`;
             }
             return 'Select Network';
           }}
-          disabled={isLoading}
+          disabled={connecting}
           onChange={handleNetworkChange}
         >
           {networks.map(network => (
-            <MenuItem key={network.name} value={network.nodeURL} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <MenuItem
+              key={network.name}
+              value={network.nodeURL}
+              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
+            >
               <Typography variant="body1">{network.name}</Typography>
               <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
                 {network.description} • {network.nodeURL}
               </Typography>
             </MenuItem>
           ))}
-          <MenuItem key="create" value="" onClick={() => {
-            setIsOpen(false);
-            setOpenAddNetworksDialog(true);
-          }}>
+          <MenuItem
+            key="create"
+            value=""
+            onClick={() => {
+              setOpen(false);
+              setOpenAddNetworksDialog(true);
+            }}
+          >
             <AddIcon />
             &nbsp;Add custom network
           </MenuItem>
         </Select>
       </FormControl>
 
-      {isLoading && (
+      {connecting && (
         <div css={loadingContainer}>
           <CircularProgress size={24} />
-          <Typography variant="body2">
-            Connecting to network...
-          </Typography>
+          <Typography variant="body2">Connecting to network...</Typography>
         </div>
       )}
 
-      {connectionError && (
+      {/* {connectionError && (
         <div css={errorMessageStyle}>
           <ErrorOutlineIcon css={errorIcon} />
           <div>{renderErrorMessage()}</div>
         </div>
-      )}
+      )} */}
 
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
     </div>

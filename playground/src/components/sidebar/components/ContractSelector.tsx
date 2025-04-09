@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import FormControl from '@mui/material/FormControl';
@@ -8,16 +8,12 @@ import ListSubheader from '@mui/material/ListSubheader';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
-import { CopyToClipboardButton } from '../../common/copyToClipboardButton';
-import { select, primaryButton } from '../styles';
-import { formatFrAsString } from '../../../utils/conversion';
+import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
+import { select } from '../styles';
+import { formatFrAsString, parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../types';
-import type { AliasedItem } from '../types';
-import { AztecAddress, AccountWalletWithSecretKey } from '@aztec/aztec.js';
-import { setContract } from '../utils/contractHelpers';
-import { AddSendersDialog } from './addSenderDialog';
-import type { WalletDB } from '../../../utils/storage';
 import { css } from '@emotion/react';
+import { AztecContext } from '../../../aztecEnv';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -36,35 +32,38 @@ const loadingContainer = css({
   gap: '12px',
 });
 
-interface ContractSelectorProps {
-  contracts: AliasedItem[];
-  currentContractAddress: AztecAddress | null;
-  selectedPredefinedContract: string;
-  wallet: AccountWalletWithSecretKey | null;
-  walletDB: WalletDB | null;
-  setSelectedPredefinedContract: (contract: string) => void;
-  setCurrentContractAddress: (address: AztecAddress | null) => void;
-  setShowContractInterface: (show: boolean) => void;
-  onAccountsChange: () => void;
-}
+interface ContractSelectorProps {}
 
-export function ContractSelector({
-  contracts,
-  currentContractAddress,
-  selectedPredefinedContract,
-  wallet,
-  walletDB,
-  setSelectedPredefinedContract,
-  setCurrentContractAddress,
-  setShowContractInterface,
-  onAccountsChange
-}: ContractSelectorProps) {
-  const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
+export function ContractSelector({}: ContractSelectorProps) {
+  const [contracts, setContracts] = useState([]);
+
   const [isContractChanging, setIsContractChanging] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleContractChange = (event: SelectChangeEvent) => {
+  const {
+    setCurrentContract,
+    setCurrentContractAddress,
+    currentContractAddress,
+    wallet,
+    walletDB,
+    setShowContractInterface,
+  } = useContext(AztecContext);
+
+  useEffect(() => {
+    const refreshContracts = async () => {
+      const aliasedContracts = await walletDB.listAliases('contracts');
+      setContracts(parseAliasedBuffersAsString(aliasedContracts));
+    };
+    if (walletDB) {
+      refreshContracts();
+    }
+  }, [currentContractAddress, walletDB]);
+
+  const handleContractChange = async (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
+    if (contractValue === '') {
+      return;
+    }
 
     // If 'create' is clicked, don't proceed (it's just for showing the dialog)
     if (contractValue === 'create') {
@@ -74,47 +73,23 @@ export function ContractSelector({
     setIsContractChanging(true);
 
     try {
-      if (contractValue === PREDEFINED_CONTRACTS.SIMPLE_VOTING ||
-          contractValue === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ||
-          contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
-        setContract(
-          null,
-          setSelectedPredefinedContract,
-          setCurrentContractAddress,
-          setShowContractInterface,
-          contractValue
-        );
+      if ([PREDEFINED_CONTRACTS.SIMPLE_VOTING, PREDEFINED_CONTRACTS.SIMPLE_TOKEN].includes(contractValue)) {
+        setShowContractInterface(true);
+        let contract;
+        switch (contractValue) {
+          case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
+            contract = await import(`@aztec/noir-contracts.js/EasyPrivateVoting`);
+            break;
+          case PREDEFINED_CONTRACTS.SIMPLE_TOKEN:
+            contract = await import(`@aztec/noir-contracts.js/SimpleToken`);
+            break;
+        }
+        setCurrentContract(contract);
         return;
       }
-
-      if (contractValue === '') {
-        return;
-      }
-
-      setContract(
-        contractValue,
-        setSelectedPredefinedContract,
-        setCurrentContractAddress,
-        setShowContractInterface
-      );
     } finally {
       setIsContractChanging(false);
     }
-  };
-
-  const handleSenderAdded = async (sender?: AztecAddress, alias?: string) => {
-    if (!wallet || !walletDB) return;
-
-    if (sender && alias) {
-      await wallet.registerSender(sender);
-      await walletDB.storeAlias('accounts', alias, Buffer.from(sender.toString()));
-      onAccountsChange();
-    }
-    setOpenAddSendersDialog(false);
-  };
-
-  const handleShowContractInterface = () => {
-    setShowContractInterface(true);
   };
 
   return (
@@ -122,7 +97,7 @@ export function ContractSelector({
       <FormControl css={select}>
         <InputLabel>Contracts</InputLabel>
         <Select
-          value={selectedPredefinedContract || currentContractAddress?.toString() || ''}
+          value={currentContractAddress?.toString() || ''}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
@@ -132,12 +107,8 @@ export function ContractSelector({
           disabled={isContractChanging}
         >
           {/* Predefined contracts */}
-          <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>
-            Easy Private Voting
-          </MenuItem>
-          <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>
-            Simple Token
-          </MenuItem>
+          <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>Easy Private Voting</MenuItem>
+          <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_TOKEN}>Simple Token</MenuItem>
 
           <Divider />
           {/* Upload your own option - always present */}
@@ -165,10 +136,7 @@ export function ContractSelector({
             <CircularProgress size={20} />
           </div>
         ) : (
-          <CopyToClipboardButton
-            disabled={!currentContractAddress}
-            data={currentContractAddress?.toString()}
-          />
+          <CopyToClipboardButton disabled={!currentContractAddress} data={currentContractAddress?.toString()} />
         )}
       </FormControl>
       {!wallet && (
@@ -178,7 +146,6 @@ export function ContractSelector({
           </Typography>
         </div>
       )}
-      <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
     </div>
   );
 }

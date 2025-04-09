@@ -10,10 +10,18 @@ import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
 
-export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
+export const Aliases = [
+  'accounts',
+  'contracts',
+  'artifacts',
+  'secrets',
+  'transactions',
+  'authwits',
+  'senders',
+] as const;
 export type AliasType = (typeof Aliases)[number];
 
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
 export class WalletDB {
@@ -94,13 +102,7 @@ export class WalletDB {
     log: LogFn = this.#userLog,
   ) {
     if (alias) {
-      const addressStr = address.toString();
-      console.log(`Storing account with alias ${alias} and address ${addressStr}`);
-      if (addressStr.startsWith('0x')) {
-        await this.#aliases.set(`accounts:${alias}`, Buffer.from(addressStr));
-      } else {
-        await this.#aliases.set(`accounts:${alias}`, Buffer.from('0x' + addressStr));
-      }
+      await this.#aliases.set(`accounts:${alias}`, Buffer.from(address.toString()));
     }
     await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
     await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());

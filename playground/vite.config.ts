@@ -25,7 +25,7 @@ const nodePolyfillsFix = (options?: PolyfillOptions | undefined): Plugin => {
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   return {
-    logLevel: 'error',
+    logLevel: process.env.CI ? 'error' : undefined,
     server: {
       // Headers needed for bb WASM to work in multithreaded mode
       headers: {
@@ -41,16 +41,12 @@ export default defineConfig(({ mode }) => {
           '../noir/packages/noirc_abi/web',
           '../noir/packages/acvm_js/web',
           '../barretenberg/ts/dest/browser',
-          '../noir-projects',
         ],
       },
     },
     plugins: [
       react({ jsxImportSource: '@emotion/react' }),
-      nodePolyfillsFix({
-        include: ['buffer', 'path'],
-        exclude: ['fs', 'crypto', 'stream', 'util', 'events', 'os', 'tty', 'net', 'dns', 'zlib', 'http', 'https', 'url', 'querystring', 'punycode', 'string_decoder', 'timers', 'assert', 'constants', 'domain', 'process']
-      }),
+      nodePolyfillsFix({ include: ['buffer', 'path'] }),
       // This is unnecessary unless BB_WASM_PATH is defined (default would be /assets/barretenberg.wasm.gz)
       // Left as an example of how to use a different bb wasm file than the default lazily loaded one
       // viteStaticCopy({
@@ -62,7 +58,7 @@ export default defineConfig(({ mode }) => {
       //   ],
       // }),
       bundlesize({
-        limits: [{ name: 'assets/index-*', limit: '2200kB' }],
+        limits: [{ name: 'assets/index-*', limit: '1600kB' }],
       }),
     ],
     define: {
@@ -78,15 +74,6 @@ export default defineConfig(({ mode }) => {
     build: {
       // Required by vite-plugin-bundle-size
       sourcemap: 'hidden',
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'ethereum': ['@aztec/ethereum', 'viem'],
-            'react-vendor': ['react', 'react-dom'],
-            'mui-vendor': ['@mui/material', '@mui/icons-material', '@emotion/react', '@emotion/styled'],
-          }
-        }
-      }
     },
   };
 });

@@ -5,6 +5,7 @@ import Typography from '@mui/material/Typography';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../../utils/conversion';
 import { type ContractFunctionInteractionTx } from '../../../utils/txs';
 import { TxHash } from '@aztec/aztec.js';
+import Divider from '@mui/material/Divider';
 
 const txPanel = css({
   width: '100%',
@@ -63,25 +64,33 @@ export function TxsPanel({ ...props }) {
   }, [currentContractAddress, currentTx]);
 
   return (
-    <div css={txPanel} {...props}>
-      {transactions.map(tx => (
-        <div css={txData} key={tx.txHash ?? ''}>
-          <div css={{ display: 'flex' }}>
-            <Typography variant="body2">
-              {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
-              &nbsp;-&nbsp;
-            </Typography>
-            <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-              {tx.receipt ? tx.receipt.status.toUpperCase() : tx.status.toUpperCase()}
-              &nbsp;
-              {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
-            </Typography>
+    <>
+      {currentContractAddress && (
+        <>
+          <Typography variant="overline">Transactions</Typography>
+          <Divider />
+          <div css={txPanel} {...props}>
+            {transactions.map(tx => (
+              <div css={txData} key={tx.txHash ?? ''}>
+                <div css={{ display: 'flex' }}>
+                  <Typography variant="body2">
+                    {tx.txHash ? formatFrAsString(tx.txHash.toString()) : '()'}
+                    &nbsp;-&nbsp;
+                  </Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
+                    {tx.receipt ? tx.receipt.status.toUpperCase() : tx.status.toUpperCase()}
+                    &nbsp;
+                    {tx.receipt && tx.receipt.status === 'error' ? tx.receipt.error : tx.error}
+                  </Typography>
+                </div>
+                <Typography variant="body2">
+                  {tx.fnName}@{formatFrAsString(tx.contractAddress.toString())}
+                </Typography>
+              </div>
+            ))}
           </div>
-          <Typography variant="body2">
-            {tx.fnName}@{formatFrAsString(tx.contractAddress.toString())}
-          </Typography>
-        </div>
-      ))}
-    </div>
+        </>
+      )}
+    </>
   );
 }

@@ -68,7 +68,7 @@ export async function registerSponsoredFPC(pxe: PXE, wallet: AccountWalletWithSe
       const sponsoredFPC = await getSponsoredFPCInstance();
       await pxe.registerContract({
         instance: sponsoredFPC,
-        artifact: SponsoredFPCContract.artifact
+        artifact: SponsoredFPCContract.artifact,
       });
 
       // Verify registration
@@ -90,7 +90,10 @@ export async function registerSponsoredFPC(pxe: PXE, wallet: AccountWalletWithSe
   return registrationPromise;
 }
 
-export async function prepareForFeePayment(pxe: PXE, wallet: AccountWalletWithSecretKey): Promise<SponsoredFeePaymentMethod> {
+export async function prepareForFeePayment(
+  pxe: PXE,
+  wallet: AccountWalletWithSecretKey,
+): Promise<SponsoredFeePaymentMethod> {
   try {
     const fpcAddress = await registerSponsoredFPC(pxe, wallet);
     console.log(`SponsoredFPC registered at address: ${fpcAddress.toString()}`);

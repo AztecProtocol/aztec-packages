@@ -3,7 +3,6 @@ import { css } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import loadingIcon from '../../assets/loading_icon.gif';
-import Link from '@mui/material/Link';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import Button from '@mui/material/Button';
@@ -26,7 +25,7 @@ const modalContainer = css({
   '&.error': {
     background: 'rgba(255, 119, 100, 0.1)',
     border: '2px solid rgba(255, 119, 100, 0.3)',
-  }
+  },
 });
 
 // Close button styling
@@ -133,27 +132,27 @@ const funFactText = css({
 });
 
 const funFacts = [
-  "You are currently signing this transaction with a passkey",
-  "Aztec has a super cool account abstraction model which you are utilizing right now",
+  'You are currently signing this transaction with a passkey',
+  'Aztec has a super cool account abstraction model which you are utilizing right now',
   "You're generating a client-side proof directly in your browser, and it won't take forever!",
-  "Aztec enables programmable privacy across the entire Ethereum ecosystem",
-  "Aztec uses zero-knowledge proofs to enable private transactions",
-  "The Aztec protocol was founded in 2017",
+  'Aztec enables programmable privacy across the entire Ethereum ecosystem',
+  'Aztec uses zero-knowledge proofs to enable private transactions',
+  'The Aztec protocol was founded in 2017',
   "We're almost there...",
-  "Aztec Connect was the first private DeFi application",
-  "Aztec invented PLONK which is really cool",
-  "Aztec supports private, public, and hybrid smart contract execution",
-  "Aztec enables privacy and full composability"
+  'Aztec Connect was the first private DeFi application',
+  'Aztec invented PLONK which is really cool',
+  'Aztec supports private, public, and hybrid smart contract execution',
+  'Aztec enables privacy and full composability',
 ];
 
 export function LoadingModal() {
-  const { currentTx, setCurrentTx, setIsWorking } = useContext(AztecContext);
+  const { currentTx, setCurrentTx } = useContext(AztecContext);
   const [showError, setShowError] = useState(false);
   const [currentFunFact, setCurrentFunFact] = useState(0);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentFunFact((prev) => (prev + 1) % funFacts.length);
+      setCurrentFunFact(prev => (prev + 1) % funFacts.length);
     }, 4000);
 
     return () => clearInterval(interval);
@@ -165,13 +164,12 @@ export function LoadingModal() {
       setCurrentTx({
         ...currentTx,
         status: 'error' as const,
-        error: 'Deployment cancelled by user'
+        error: 'Deployment cancelled by user',
       });
     }
     // Clean up working state after a short delay to allow error to be displayed
     setTimeout(() => {
       setCurrentTx(null);
-      setIsWorking(false);
       setShowError(false);
     }, 1000);
   };
@@ -197,13 +195,15 @@ export function LoadingModal() {
       </IconButton>
       <div css={contentGroup}>
         <Typography css={[titleText, isError && { color: '#FF7764' }]}>
-          {isError ? 'Error' : isProving ? 'Generating proof for transaction...' : 'Sending transaction to Aztec network...'}
+          {isError
+            ? 'Error'
+            : isProving
+            ? 'Generating proof for transaction...'
+            : 'Sending transaction to Aztec network...'}
         </Typography>
         {isError ? (
           <>
-            <Typography css={errorMessage}>
-              {currentTx.error || 'An error occurred during deployment'}
-            </Typography>
+            <Typography css={errorMessage}>{currentTx.error || 'An error occurred during deployment'}</Typography>
             <div css={buttonContainer}>
               <Button variant="contained" color="primary" onClick={handleClose}>
                 Close
@@ -222,9 +222,7 @@ export function LoadingModal() {
                 : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
             </Typography>
             <img src={loadingIcon} alt="Loading..." css={loadingAnimation} />
-            <Typography css={funFactText}>
-              Did you know? {funFacts[currentFunFact]}
-            </Typography>
+            <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
           </>
         )}
       </div>

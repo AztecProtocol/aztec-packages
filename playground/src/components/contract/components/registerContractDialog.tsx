@@ -32,7 +32,7 @@ export function RegisterContractDialog({
   const [address, setAddress] = useState('');
   const [registering, setRegistering] = useState(false);
 
-  const { wallet, node, setIsWorking } = useContext(AztecContext);
+  const { wallet, node } = useContext(AztecContext);
 
   const handleClose = () => {
     onClose();
@@ -40,54 +40,19 @@ export function RegisterContractDialog({
 
   const register = async () => {
     setRegistering(true);
-    setIsWorking(true);
 
-    try {
-      // First, register the contract class in the PXE to fix potential "No artifact found" errors
-      console.log('Registering contract class with PXE...');
-      await wallet.registerContractClass(contractArtifact);
-      console.log('Contract class registered successfully');
+    // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
 
-      // TODO(#12081): Add contractArtifact.noirVersion and check here (via Noir.lock)?
-      console.log('Getting contract instance from node...');
-      const contractAddress = AztecAddress.fromString(address);
-      const contractInstance = await node.getContract(contractAddress);
+    const contractInstance = await node.getContract(AztecAddress.fromString(address));
 
-      if (!contractInstance) {
-        throw new Error(`Contract not found at address: ${address}`);
-      }
+    await wallet.registerContract({
+      instance: contractInstance,
+      artifact: contractArtifact,
+    });
 
-      console.log('Contract instance retrieved from node');
-      console.log('Contract class ID:', contractInstance.currentContractClassId.toString());
+    const contract = await Contract.at(AztecAddress.fromString(address), contractArtifact, wallet);
 
-      console.log('Registering contract with PXE...');
-      await wallet.registerContract({
-        instance: contractInstance,
-        artifact: contractArtifact,
-      });
-      console.log('Contract registered with PXE successfully');
-
-      console.log('Creating Contract instance...');
-      const contract = await Contract.at(contractAddress, contractArtifact, wallet);
-      console.log('Contract instance created successfully');
-
-      onClose(contract.instance, alias);
-    } catch (error) {
-      console.error('Error type:', error.constructor.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-
-      // Try to extract more information about the error
-      if (error.cause) {
-        console.error('Error cause:', error.cause);
-      }
-
-      // Show error in UI
-      alert(`Contract registration failed: ${error.message}`);
-    } finally {
-      setRegistering(false);
-      setIsWorking(false);
-    }
+    onClose(contract.instance, alias);
   };
 
   return (
