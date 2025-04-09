@@ -101,6 +101,7 @@ export class BlobSinkServer {
     try {
       const parsedBlockId = blockIdSchema.safeParse(blockIdParam);
       if (!parsedBlockId.success) {
+        this.metrics.incGetBlob(false);
         res.status(400).json({
           error: 'Invalid block_id parameter',
         });
@@ -109,6 +110,7 @@ export class BlobSinkServer {
 
       const parsedIndices = indicesSchema.safeParse(indicesQuery);
       if (!parsedIndices.success) {
+        this.metrics.incGetBlob(false);
         res.status(400).json({
           error: 'Invalid indices parameter',
         });
@@ -125,16 +127,19 @@ export class BlobSinkServer {
 
       if (!blobs) {
         this.log.debug(`No blobs found for block ${blockId}`, { blockId, indices });
+        this.metrics.incGetBlob(false);
         res.status(404).json({ error: 'Blob not found' });
         return;
       }
 
       this.log.debug(`Returning ${blobs.length} blobs for block ${blockId}`, { blockId, indices });
+      this.metrics.incGetBlob(true);
       res.json({
         version: 'deneb',
         data: blobs.map(blob => blob.toJSON()),
       });
     } catch (error) {
+      this.metrics.incGetBlob(false);
       if (error instanceof z.ZodError) {
         res.status(400).json({
           error: 'Invalid block_id parameter',
@@ -216,18 +221,21 @@ export class BlobSinkServer {
       await this.validateBlobs(parsedBlockId, blobObjects);
     } catch (error: any) {
       res.status(400).json({ error: 'Invalid blob data', details: error.message });
+      this.metrics.incStoreBlob(false);
       return;
     }
 
     try {
       await this.blobStore.addBlobSidecars(parsedBlockId.toString(), blobObjects);
-      this.metrics.recordBlobReciept(blobObjects);
+      this.metrics.recordBlobReceipt(blobObjects);
 
       this.log.info(`Blob sidecar stored successfully for block ${parsedBlockId}`);
 
       res.json({ message: 'Blob sidecar stored successfully' });
+      this.metrics.incStoreBlob(true);
     } catch (error: any) {
       this.log.error(`Error storing blob sidecar for block ${parsedBlockId}`, error);
+      this.metrics.incStoreBlob(false);
       res.status(500).json({ error: 'Error storing blob sidecar', details: error.message });
     }
   }
