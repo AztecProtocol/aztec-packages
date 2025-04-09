@@ -2,7 +2,6 @@ import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type BlobSinkClientInterface, createBlobSinkClient } from '@aztec/blob-sink/client';
 import { EpochCache } from '@aztec/epoch-cache';
 import { L1TxUtils, RollupContract, createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import type { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { trySnapshotSync } from '@aztec/node-lib/actions';
@@ -34,7 +33,6 @@ export async function createProverNode(
   } = {},
   options: {
     prefilledPublicData?: PublicDataTreeLeaf[];
-    genesisArchiveTreeRoot?: Fr;
   } = {},
 ) {
   const config = resolveConfig(userConfig);
@@ -52,7 +50,6 @@ export async function createProverNode(
     worldStateConfig,
     archiver,
     options.prefilledPublicData,
-    options.genesisArchiveTreeRoot,
     telemetry,
   );
   await worldStateSynchronizer.start();

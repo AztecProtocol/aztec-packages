@@ -1,5 +1,4 @@
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import { join } from 'path';
@@ -109,15 +108,6 @@ describe('VersionManager', () => {
         expect(wasReset).toEqual(true);
         expect(upgradeSpy).not.toHaveBeenCalled();
       });
-
-      it('when the tag changes', async () => {
-        fs.readFile.mockResolvedValueOnce(
-          new DatabaseVersion(currentVersion, rollupAddress, Fr.random().toString()).toBuffer(),
-        );
-        const [_, wasReset] = await versionManager.open();
-        expect(wasReset).toEqual(true);
-        expect(upgradeSpy).not.toHaveBeenCalled();
-      });
     });
 
     it('upgrades the db', async () => {
@@ -149,7 +139,6 @@ describe('Version', () => {
     const emptyVersion = DatabaseVersion.empty();
     expect(emptyVersion.schemaVersion).toBe(0);
     expect(emptyVersion.rollupAddress.equals(EthAddress.ZERO)).toBe(true);
-    expect(emptyVersion.tag).toBe('');
   });
 
   it('should serialize correctly', () => {
@@ -161,12 +150,10 @@ describe('Version', () => {
     const verA = new DatabaseVersion(42, EthAddress.random());
     const verB = new DatabaseVersion(43, verA.rollupAddress);
     const verC = new DatabaseVersion(42, EthAddress.random());
-    const verD = new DatabaseVersion(verA.schemaVersion, verA.rollupAddress, 'foo');
 
     expect(verA.cmp(verB)).toEqual(-1);
     expect(verB.cmp(verA)).toEqual(1);
     expect(verA.cmp(new DatabaseVersion(verA.schemaVersion, verA.rollupAddress))).toEqual(0);
     expect(verA.cmp(verC)).toEqual(undefined);
-    expect(verA.cmp(verD)).toEqual(undefined);
   });
 });

@@ -157,11 +157,7 @@ export async function startNode(
   const telemetry = initTelemetryClient(telemetryConfig);
 
   // Create and start Aztec Node
-  const node = await createAztecNode(
-    nodeConfig,
-    { telemetry },
-    { prefilledPublicData, genesisArchiveTreeRoot: genesisArchiveRoot },
-  );
+  const node = await createAztecNode(nodeConfig, { telemetry }, { prefilledPublicData });
 
   // Add node and p2p to services list
   services.node = [node, AztecNodeApiSchema];

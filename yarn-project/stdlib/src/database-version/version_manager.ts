@@ -16,8 +16,6 @@ export class DatabaseVersion {
     public readonly schemaVersion: number,
     /** The rollup the data pertains to */
     public readonly rollupAddress: EthAddress,
-    /** A simple tag that needs to match for the database to be reused */
-    public readonly tag = '',
   ) {}
 
   public toBuffer(): Buffer {
@@ -36,7 +34,7 @@ export class DatabaseVersion {
    * Compares two versions. If the rollups addresses are different then it returns undefined
    */
   public cmp(other: DatabaseVersion): undefined | -1 | 0 | 1 {
-    if (this.rollupAddress.equals(other.rollupAddress) && this.tag === other.tag) {
+    if (this.rollupAddress.equals(other.rollupAddress)) {
       if (this.schemaVersion < other.schemaVersion) {
         return -1;
       } else if (this.schemaVersion > other.schemaVersion) {
@@ -63,9 +61,8 @@ export class DatabaseVersion {
       .object({
         schemaVersion: z.number(),
         rollupAddress: EthAddress.schema,
-        tag: z.string(),
       })
-      .transform(({ schemaVersion, rollupAddress, tag }) => new DatabaseVersion(schemaVersion, rollupAddress, tag));
+      .transform(({ schemaVersion, rollupAddress }) => new DatabaseVersion(schemaVersion, rollupAddress));
   }
 
   /** Allows for better introspection. */
@@ -74,7 +71,7 @@ export class DatabaseVersion {
   }
 
   public toString(): string {
-    return `DatabaseVersion{schemaVersion=${this.schemaVersion},rollupAddress=${this.rollupAddress},tag="${this.tag}"}`;
+    return `DatabaseVersion{schemaVersion=${this.schemaVersion},rollupAddress=${this.rollupAddress}"}`;
   }
 
   /**
@@ -92,7 +89,6 @@ export const DATABASE_VERSION_FILE_NAME = 'db_version';
 export type DatabaseVersionManagerOptions<T> = {
   schemaVersion: number;
   rollupAddress: EthAddress;
-  tag?: string;
   dataDirectory: string;
   onOpen: (dataDir: string) => Promise<T>;
   onUpgrade?: (dataDir: string, currentVersion: number, latestVersion: number) => Promise<void>;
@@ -132,7 +128,6 @@ export class DatabaseVersionManager<T> {
   constructor({
     schemaVersion,
     rollupAddress,
-    tag,
     dataDirectory,
     onOpen,
     onUpgrade,
@@ -144,7 +139,7 @@ export class DatabaseVersionManager<T> {
     }
 
     this.versionFile = join(dataDirectory, DatabaseVersionManager.VERSION_FILE);
-    this.currentVersion = new DatabaseVersion(schemaVersion, rollupAddress, tag);
+    this.currentVersion = new DatabaseVersion(schemaVersion, rollupAddress);
 
     this.dataDirectory = dataDirectory;
     this.onOpen = onOpen;
@@ -169,6 +164,8 @@ export class DatabaseVersionManager<T> {
   public async open(): Promise<[T, boolean]> {
     // const storedVersion = await DatabaseVersion.readVersion(this.versionFile);
     let storedVersion: DatabaseVersion;
+    // a flag to suppress logs about 'resetting the data dir' when starting from an empty state
+    let shouldLogDataReset = true;
 
     try {
       const versionBuf = await this.fileSystem.readFile(this.versionFile);
@@ -176,6 +173,8 @@ export class DatabaseVersionManager<T> {
     } catch (err) {
       if (err && (err as Error & { code: string }).code === 'ENOENT') {
         storedVersion = DatabaseVersion.empty();
+        // only turn off these logs if the data dir didn't exist before
+        shouldLogDataReset = false;
       } else {
         this.log.warn(`Failed to read stored version information: ${err}. Defaulting to empty version`);
         storedVersion = DatabaseVersion.empty();
@@ -196,17 +195,21 @@ export class DatabaseVersionManager<T> {
           needsReset = true;
         }
       } else if (cmp !== 0) {
-        this.log.info(
-          `Can't upgrade from version ${storedVersion} to ${this.currentVersion}. Resetting database at ${this.dataDirectory}`,
-        );
+        if (shouldLogDataReset) {
+          this.log.info(
+            `Can't upgrade from version ${storedVersion} to ${this.currentVersion}. Resetting database at ${this.dataDirectory}`,
+          );
+        }
         needsReset = true;
       }
     } else {
-      this.log.warn('Rollup or tag has changed, resetting data directory', {
-        versionFile: this.versionFile,
-        storedVersion,
-        currentVersion: this.currentVersion,
-      });
+      if (shouldLogDataReset) {
+        this.log.warn('Rollup address has changed, resetting data directory', {
+          versionFile: this.versionFile,
+          storedVersion,
+          currentVersion: this.currentVersion,
+        });
+      }
       needsReset = true;
     }
 

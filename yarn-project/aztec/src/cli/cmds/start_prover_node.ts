@@ -106,11 +106,7 @@ export async function startProverNode(
 
   await preloadCrsDataForVerifying(proverConfig, userLog);
 
-  const proverNode = await createProverNode(
-    proverConfig,
-    { telemetry, broker },
-    { prefilledPublicData, genesisArchiveTreeRoot: genesisArchiveRoot },
-  );
+  const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];
 
   const p2p = proverNode.getP2P();

@@ -160,7 +160,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     } = {},
     options: {
       prefilledPublicData?: PublicDataTreeLeaf[];
-      genesisArchiveTreeRoot?: Fr;
     } = {},
   ): Promise<AztecNodeService> {
     const telemetry = deps.telemetry ?? getTelemetryClient();
@@ -217,7 +216,6 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       config,
       archiver,
       options.prefilledPublicData,
-      options.genesisArchiveTreeRoot,
       telemetry,
     );
     const proofVerifier = config.realProofs ? await BBCircuitVerifier.new(config) : new TestCircuitVerifier();
