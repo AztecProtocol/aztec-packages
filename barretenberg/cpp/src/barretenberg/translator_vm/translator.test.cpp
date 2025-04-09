@@ -79,6 +79,9 @@ TEST_F(TranslatorTests, Basic)
 /**
  * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
  * circuit
+ * @note If this test fails, it may be because the constant CONST_TRANSLATOR_LOG_N has changed and the fixed VK
+ * commitments in TranslatorFixedVKCommitments must be updated accordingly. Their values can be taken right from the
+ * output of this test.
  *
  */
 TEST_F(TranslatorTests, FixedVK)

@@ -169,7 +169,12 @@ TEST_F(ECCVMTests, CommittedSumcheck)
     EXPECT_TRUE(verifier_output.verified);
 }
 
-// Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit
+/**
+ * @brief Test that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit.
+ * @note If this test fails, it may be because the constant ECCVM_FIXED_SIZE has changed and the fixed VK commitments in
+ * ECCVMFixedVKCommitments must be updated accordingly. Their values can be taken right from the output of this test.
+ *
+ */
 TEST_F(ECCVMTests, FixedVK)
 {
     // Generate a circuit and its verification key (computed at runtime from the proving key)
