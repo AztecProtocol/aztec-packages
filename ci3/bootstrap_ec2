@@ -91,6 +91,10 @@ if [ -z "${AWS_ACCESS_KEY_ID:-}" ] || [ -z "${AWS_SECRET_ACCESS_KEY:-}" ]; then
   echo "AWS credentials are being set from ~/.aws/build_instance_credentials."
   export AWS_ACCESS_KEY_ID=$(grep aws_access_key_id ~/.aws/build_instance_credentials | awk '{print $3}')
   export AWS_SECRET_ACCESS_KEY=$(grep aws_secret_access_key ~/.aws/build_instance_credentials | awk '{print $3}')
+  if [[ $(echo "$AWS_ACCESS_KEY_ID" | wc -l) > 1 ]] || [[ $(echo "$AWS_SECRET_ACCESS_KEY" | wc -l) > 1 ]] ; then
+    echo "Error: multiple AWS credentials found in ~/.aws/build_instance_credentials. Make sure you have only one profile defined."
+    exit 1
+  fi
 fi
 
 # If we're asking to not terminate the instance automatically, we also don't want to remove the container.
@@ -238,8 +242,8 @@ function run {
       -e L1_DEPLOYMENT_PRIVATE_KEY=${L1_DEPLOYMENT_PRIVATE_KEY:-} \
       -e DRY_RUN=${DRY_RUN:-0} \
       -e DOCKERHUB_PASSWORD=${DOCKERHUB_PASSWORD:-} \
-      -e AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-} \
-      -e AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-} \
+      -e AWS_ACCESS_KEY_ID=\"${AWS_ACCESS_KEY_ID:-}\" \
+      -e AWS_SECRET_ACCESS_KEY=\"${AWS_SECRET_ACCESS_KEY:-}\" \
       -e BUILD_SYSTEM_DEBUG=${BUILD_SYSTEM_DEBUG:-} \
       -e GITHUB_TOKEN=${GITHUB_TOKEN:-} \
       -e NETLIFY_SITE_ID=${NETLIFY_SITE_ID:-} \
