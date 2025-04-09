@@ -20,30 +20,33 @@ namespace bb::stdlib {
  * Note that the number of gates required to compute [b_0,..., b_{N-1}] only depends on N.
  */
 template <typename Fr, typename Builder, size_t domain_size>
-static std::array<Fr, domain_size> compute_padding_indicator_array(const Fr& x)
+static std::array<Fr, domain_size> compute_padding_indicator_array(const Fr& log_n)
 {
     using Data = BarycentricDataRunTime<Fr, domain_size, 1>;
 
     std::array<Fr, domain_size> result{};
-    Builder* builder = x.get_context();
+    Builder* builder = log_n.get_context();
     Fr zero{ 0 };
     zero.convert_constant_to_fixed_witness(builder);
     // 1) Build prefix products:
     //    prefix[i] = ∏_{m=0..(i-1)} (x - big_domain[m]), with prefix[0] = 1.
     std::vector<Fr> prefix(domain_size + 1, Fr(1));
     for (size_t i = 0; i < domain_size; ++i) {
-        prefix[i + 1] = prefix[i] * (x - Data::big_domain[i]);
+        prefix[i + 1] = prefix[i] * (log_n - Data::big_domain[i]);
     }
-    // Range constrain 0 < x < domain_size
-    prefix.back().assert_equal(zero);
+
     // 2) Build suffix products:
     //    suffix[i] = ∏_{m=i..(domain_size-1)} (x - big_domain[m]),
     //    but we'll store it in reverse:
     //    suffix[domain_size] = 1.
     std::vector<Fr> suffix(domain_size + 1, Fr(1));
     for (size_t i = domain_size; i > 0; i--) {
-        suffix[i - 1] = suffix[i] * (x - Data::big_domain[i - 1]);
+        suffix[i - 1] = suffix[i] * (log_n - Data::big_domain[i - 1]);
     }
+    info("suffix 1 ", suffix[1]);
+
+    // Range constrain 0 < x < domain_size
+    suffix[1].assert_equal(zero);
 
     // 3) Combine prefix & suffix to get L_i(x):
     //    L_i(x) = (1 / lagrange_denominators[i]) * prefix[i] * suffix[i+1].
