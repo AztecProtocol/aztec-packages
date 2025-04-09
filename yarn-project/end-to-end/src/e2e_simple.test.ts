@@ -4,7 +4,7 @@ import { type AztecNode, ContractDeployer, Fr, type Wallet, waitForProven } from
 // docs:end:import_aztecjs
 // eslint-disable-next-line no-restricted-imports
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { StatefulTestContractArtifact } from '@aztec/noir-contracts.js/StatefulTest';
+import { StatefulTestContractArtifact } from '@aztec/noir-test-contracts.js/StatefulTest';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';

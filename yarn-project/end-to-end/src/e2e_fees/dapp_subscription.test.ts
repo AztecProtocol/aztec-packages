@@ -9,9 +9,9 @@ import {
   PublicFeePaymentMethod,
 } from '@aztec/aztec.js';
 import type { AppSubscriptionContract } from '@aztec/noir-contracts.js/AppSubscription';
-import type { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import type { FPCContract } from '@aztec/noir-contracts.js/FPC';
 import type { TokenContract as BananaCoin } from '@aztec/noir-contracts.js/Token';
+import type { CounterContract } from '@aztec/noir-test-contracts.js/Counter';
 
 import { expectMapping, expectMappingDelta } from '../fixtures/utils.js';
 import { FeesTest } from './fees_test.js';

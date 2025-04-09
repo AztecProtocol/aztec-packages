@@ -1,6 +1,6 @@
 import { type AztecAddress, Fr } from '@aztec/aztec.js';
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
-import { ParentContract } from '@aztec/noir-contracts.js/Parent';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
+import { ParentContract } from '@aztec/noir-test-contracts.js/Parent';
 
 import { NestedContractTest } from './nested_contract_test.js';
 

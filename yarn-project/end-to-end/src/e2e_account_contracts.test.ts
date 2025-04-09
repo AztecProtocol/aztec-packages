@@ -14,7 +14,7 @@ import {
   getAccountContractAddress,
 } from '@aztec/aztec.js';
 import { randomBytes } from '@aztec/foundation/crypto';
-import { ChildContract } from '@aztec/noir-contracts.js/Child';
+import { ChildContract } from '@aztec/noir-test-contracts.js/Child';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import { setup } from './fixtures/utils.js';

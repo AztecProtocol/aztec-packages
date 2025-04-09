@@ -1,6 +1,6 @@
 import { type AccountWallet, Fr, computeAuthWitMessageHash, computeInnerAuthWitHash } from '@aztec/aztec.js';
 import { AuthRegistryContract } from '@aztec/noir-contracts.js/AuthRegistry';
-import { AuthWitTestContract } from '@aztec/noir-contracts.js/AuthWitTest';
+import { AuthWitTestContract } from '@aztec/noir-test-contracts.js/AuthWitTest';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
 import { jest } from '@jest/globals';

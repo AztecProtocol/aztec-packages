@@ -1,7 +1,7 @@
 import { Fr } from '@aztec/foundation/fields';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
-import { BenchmarkingContractArtifact } from '@aztec/noir-contracts.js/Benchmarking';
-import { TestContractArtifact } from '@aztec/noir-contracts.js/Test';
+import { BenchmarkingContractArtifact } from '@aztec/noir-test-contracts.js/Benchmarking';
+import { TestContractArtifact } from '@aztec/noir-test-contracts.js/Test';
 import { FunctionType } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance } from '@aztec/stdlib/contract';

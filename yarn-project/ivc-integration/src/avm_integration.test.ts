@@ -9,8 +9,8 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
-import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import type { FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
+import { AvmTestContractArtifact } from '@aztec/noir-test-contracts.js/AvmTest';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';

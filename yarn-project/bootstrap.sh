@@ -66,6 +66,7 @@ function compile_all {
     l1-artifacts \
     native \
     noir-contracts.js \
+    noir-test-contracts.js \
     noir-protocol-circuits-types \
     protocol-contracts \
     pxe

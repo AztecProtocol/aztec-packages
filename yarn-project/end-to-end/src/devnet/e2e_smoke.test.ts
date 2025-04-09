@@ -16,7 +16,7 @@ import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/fo
 import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TestContract } from '@aztec/noir-test-contracts.js/Test';
 // eslint-disable-next-line no-restricted-imports
 import { PXESchema } from '@aztec/stdlib/interfaces/client';
 import { deriveSigningKey } from '@aztec/stdlib/keys';

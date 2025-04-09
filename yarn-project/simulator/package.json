@@ -80,6 +80,7 @@
     "@aztec/kv-store": "workspace:^",
     "@aztec/merkle-tree": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
+    "@aztec/noir-test-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/levelup": "^5.1.3",
