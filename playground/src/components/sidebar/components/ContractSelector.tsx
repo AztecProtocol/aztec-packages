@@ -20,14 +20,9 @@ import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
 import { parse } from 'buffer-json';
-import { ListItemIcon } from '@mui/material';
 
 const modalContainer = css({
   padding: '10px 0',
-});
-
-const buttonContainer = css({
-  marginTop: '15px',
 });
 
 const loadingContainer = css({
@@ -39,9 +34,7 @@ const loadingContainer = css({
   gap: '12px',
 });
 
-interface ContractSelectorProps {}
-
-export function ContractSelector({}: ContractSelectorProps) {
+export function ContractSelector() {
   const [contracts, setContracts] = useState([]);
 
   const [isContractChanging, setIsContractChanging] = useState(false);

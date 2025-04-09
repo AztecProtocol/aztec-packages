@@ -5,6 +5,7 @@ import {
   TxReceipt,
   type AuthWitness,
   type TxHash,
+  Fq,
 } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
@@ -93,10 +94,12 @@ export class WalletDB {
       secretKey,
       salt,
       alias,
+      signingKey,
     }: {
       type: AccountType;
       secretKey: Fr;
       salt: Fr;
+      signingKey: Fq | Buffer;
       alias: string | undefined;
     },
     log: LogFn = this.#userLog,
@@ -107,6 +110,10 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
     await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
+    await this.#accounts.set(
+      `${address.toString()}:signingKey`,
+      signingKey instanceof Buffer ? signingKey : signingKey.toBuffer(),
+    );
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
@@ -241,7 +248,8 @@ export class WalletDB {
     const secretKey = Fr.fromBuffer(secretKeyBuffer);
     const salt = Fr.fromBuffer(await this.#accounts.getAsync(`${address.toString()}:salt`)!);
     const type = (await this.#accounts.getAsync(`${address.toString()}:type`)!).toString('utf8') as AccountType;
-    return { address, secretKey, salt, type };
+    const signingKey = await this.#accounts.getAsync(`${address.toString()}:signingKey`)!;
+    return { address, secretKey, salt, type, signingKey };
   }
 
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn = this.#userLog) {

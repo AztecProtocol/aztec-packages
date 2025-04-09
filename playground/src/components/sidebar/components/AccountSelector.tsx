@@ -8,16 +8,21 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, Fr, AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import { AztecAddress, Fr, AccountWalletWithSecretKey, type FeePaymentMethod } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 
 import { select } from '../styles';
-import { formatFrAsString, parseAliasedBuffersAsString } from '../../../utils/conversion';
-import type { WalletDB } from '../../../utils/storage';
-import type { AccountManager, PXE } from '@aztec/aztec.js';
+import {
+  convertFromUTF8BufferAsString,
+  formatFrAsString,
+  parseAliasedBuffersAsString,
+} from '../../../utils/conversion';
+import type { AccountType } from '../../../utils/storage';
+import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
+
+import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
-import type { ReactNode } from 'react';
 import { LoadingModal } from '../../common/LoadingModal';
 import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
@@ -35,9 +40,7 @@ const loadingContainer = css({
   gap: '12px',
 });
 
-interface AccountSelectorProps {}
-
-export function AccountSelector({}: AccountSelectorProps) {
+export function AccountSelector() {
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
   const [isAccountChanging, setIsAccountChanging] = useState(false);
@@ -69,6 +72,7 @@ export function AccountSelector({}: AccountSelectorProps) {
           type: 'schnorr',
           secretKey: wallet.getSecretKey(),
           alias,
+          signingKey: deriveSigningKey(wallet.getSecretKey()),
           salt: account.getInstance().salt,
         });
         aliasedAccounts.push({
@@ -97,29 +101,64 @@ export function AccountSelector({}: AccountSelectorProps) {
     }
     const accountAddress = AztecAddress.fromString(event.target.value);
     const accountData = await walletDB.retrieveAccount(accountAddress);
-    const account = await getSchnorrAccount(
-      pxe,
-      accountData.secretKey,
-      deriveSigningKey(accountData.secretKey),
-      accountData.salt,
-    );
-    setWallet(await account.getWallet());
+    const type = convertFromUTF8BufferAsString(accountData.type);
+    let accountManager;
+    switch (type) {
+      case 'schnorr': {
+        accountManager = await getSchnorrAccount(
+          pxe,
+          accountData.secretKey,
+          Fq.fromBuffer(accountData.signingKey),
+          accountData.salt,
+        );
+        break;
+      }
+      case 'ecdsasecp256r1': {
+        accountManager = await getEcdsaRAccount(pxe, accountData.secretKey, accountData.signingKey, accountData.salt);
+        break;
+      }
+      case 'ecdsasecp256k1': {
+        accountManager = await getEcdsaKAccount(pxe, accountData.secretKey, accountData.signingKey, accountData.salt);
+        break;
+      }
+      default: {
+        throw new Error('Unknown account type');
+      }
+    }
+    setWallet(await accountManager.getWallet());
   };
 
-  const handleAccountCreation = async (account?: AccountWalletWithSecretKey, salt?: Fr, alias?: string) => {
-    if (account && salt && alias) {
-      await walletDB.storeAccount(account.getAddress(), {
-        type: 'schnorr',
-        secretKey: account.getSecretKey(),
+  const handleAccountCreation = async (
+    accountManager?: AccountManager,
+    salt?: Fr,
+    alias?: string,
+    type?: AccountType,
+    signingKey?: Fq | Buffer,
+    publiclyDeploy?: boolean,
+    feePaymentMethod?: FeePaymentMethod,
+  ) => {
+    if (accountManager && salt && alias && type && signingKey) {
+      setIsAccountChanging(true);
+      const accountWallet = await accountManager.getWallet();
+      await walletDB.storeAccount(accountWallet.getAddress(), {
+        type,
+        secretKey: accountWallet.getSecretKey(),
         alias,
         salt,
+        signingKey,
       });
       const aliasedAccounts = await walletDB.listAliases('accounts');
       setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
-      setWallet(account);
+      setWallet(accountWallet);
+      setOpenCreateAccountDialog(false);
+      if (publiclyDeploy) {
+        setDeploymentInProgress(true);
+        await accountManager.deploy({ fee: { paymentMethod: feePaymentMethod } }).wait();
+        setDeploymentInProgress(false);
+      }
     }
 
-    setOpenCreateAccountDialog(false);
+    setIsAccountChanging(false);
   };
 
   // Set loading state based on accounts and connection state
@@ -166,7 +205,7 @@ export function AccountSelector({}: AccountSelectorProps) {
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={handleAccountChange}
-          disabled={isAccountChanging && !currentTx?.error?.includes('cancelled')}
+          disabled={isAccountChanging}
         >
           {accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
@@ -186,29 +225,11 @@ export function AccountSelector({}: AccountSelectorProps) {
             &nbsp;Create
           </MenuItem>
         </Select>
-        {isAccountChanging && !currentTx?.error?.includes('cancelled') ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
-            <CircularProgress size={20} />
-          </div>
-        ) : deploymentInProgress && !currentTx?.error?.includes('cancelled') ? (
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'center',
-              flexDirection: 'column',
-              alignItems: 'center',
-              padding: '8px 0',
-            }}
-          >
-            <CircularProgress size={20} />
-            <Typography variant="caption" style={{ marginTop: '4px' }}>
-              Deploying account with sponsored fees...
-            </Typography>
-          </div>
-        ) : (
+        {wallet && !isAccountChanging && !deploymentInProgress && (
           <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
         )}
       </FormControl>
+      {deploymentInProgress && <LoadingModal />}
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>
   );
