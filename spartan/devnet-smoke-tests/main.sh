@@ -33,7 +33,7 @@ source "$SCRIPT_DIR/deploy_token_contracts.sh"
 print_header "Deploying AMM contracts"
 source "$SCRIPT_DIR/deploy_amm_contracts.sh"
 
-print_header "Deploying nft contracts"
+print_header "Deploying NFT contracts"
 source "$SCRIPT_DIR/deploy_nft_contracts.sh"
 
 print_header "Registering senders"

@@ -103,7 +103,6 @@ function get_prover() {
   fi
 }
 
-
 function aztec-wallet() {
   command aztec-wallet --node-url "$NODE_URL" "$@"
 }

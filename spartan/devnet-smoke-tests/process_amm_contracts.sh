@@ -35,8 +35,8 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
   AMOUNT=420000000000
 
-  jq -c '.contracts | map(select(.type=="amm"))[]' state.json | while read -r contract; do
-    amm_needs_setup=$(echo "$contract" | jq -r '.needs_setup')
+  jq -c '.contracts | map(select(.type=="amm"))[]' state.json | while read -r contracts_data; do
+    amm_needs_setup=$(echo "$contracts_data" | jq -r '.needs_setup')
 
     # If the account, or amm is new, we need to mint to the account being processed.
     if [ "$account_needs_setup" = "true" ] || [ "$amm_needs_setup" = "true" ]; then
@@ -44,7 +44,7 @@ jq -c '.accounts[]' state.json | while read -r account; do
       token_1_address=$(echo "$contracts_data" | jq -r '.token_1_address')
       token_liquidity_address=$(echo "$contracts_data" | jq -r '.token_liquidity_address')
       amm_address=$(echo "$contracts_data" | jq -r '.amm_address')
-      admin_and_minter=$(echo "$contract" | jq -r '.admin_and_minter')
+      admin_and_minter=$(echo "$contracts_data" | jq -r '.admin_and_minter')
 
       # We don't want to prove any mint_to_privates because we already have done so in the token tests
       aztec-wallet -p none \
