@@ -38,7 +38,7 @@ import {
 
 import { strict as assert } from 'assert';
 
-import type { PublicContractsDBInterface } from '../common/db_interfaces.js';
+import type { PublicContractsDBInterface } from './db_interfaces.js';
 import { PublicTreesDB } from './public_db_sources.js';
 
 /**
