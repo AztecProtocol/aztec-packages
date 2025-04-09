@@ -51,7 +51,7 @@ template <typename FF_> class public_data_readImpl {
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // EXISTS_CHECK
+        { // EXISTS_FLAG_CHECK
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp =
                 new_term.public_data_read_sel *
@@ -105,7 +105,7 @@ template <typename FF> class public_data_read : public Relation<public_data_read
     {
         switch (index) {
         case 3:
-            return "EXISTS_CHECK";
+            return "EXISTS_FLAG_CHECK";
         case 4:
             return "VALUE_IS_CORRECT";
         case 7:
@@ -115,7 +115,7 @@ template <typename FF> class public_data_read : public Relation<public_data_read
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EXISTS_CHECK = 3;
+    static constexpr size_t SR_EXISTS_FLAG_CHECK = 3;
     static constexpr size_t SR_VALUE_IS_CORRECT = 4;
     static constexpr size_t SR_NEXT_SLOT_IS_ZERO_CHECK = 7;
 };
