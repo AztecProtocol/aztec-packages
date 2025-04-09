@@ -28,7 +28,6 @@ export const STATIC_CONTEXT_ASSERTION_ERROR = /Assertion failed: Function .* can
 export const DEFAULT_BLOB_SINK_PORT = '5052';
 
 export const DEFAULT_BLOCK_TIME_CONFIG = {
-  ethereumSlotDuration: 12,
   aztecSlotDuration: 24,
   aztecEpochDuration: 16,
   aztecTargetCommitteeSize: 48,
