@@ -21,9 +21,6 @@ fi
 
 # Disable strict mode inside the monitoring function
 
-# Redirect all output to /dev/tty to force unbuffered output directly to terminal
-exec >/dev/tty 2>/dev/tty
-
 # Function to handle cleanup on exit
 function cleanup {
   echo -e "\n==== Deployment monitoring complete. ====\n"
