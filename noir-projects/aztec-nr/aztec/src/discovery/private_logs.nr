@@ -40,7 +40,7 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     // Get the logs from the capsule array and process them one by one
     let logs =
         CapsuleArray::<PendingTaggedLog>::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
-    logs.for_each(|log: PendingTaggedLog, i| {
+    logs.for_each(|i, log: PendingTaggedLog| {
         process_log(contract_address, compute_note_hash_and_nullifier, log);
         logs.remove(i);
     });

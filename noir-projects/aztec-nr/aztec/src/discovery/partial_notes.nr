@@ -93,7 +93,7 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
         [pending_partial_notes.len() as Field],
     );
 
-    pending_partial_notes.for_each(|pending_partial_note: DeliveredPendingPartialNote, i| {
+    pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
         let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
         if maybe_log.is_none() {
             debug_log_format(

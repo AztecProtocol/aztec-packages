@@ -81,7 +81,7 @@ impl<T> CapsuleArray<T> {
     ///
     /// It is safe to delete the current element (and only the current element) from inside the callback via `remove`:
     /// ```noir
-    /// array.for_each(|value, index| {
+    /// array.for_each(|index, value| {
     ///   if some_condition(value) {
     ///     array.remove(index); // safe only for this index
     ///   }
@@ -92,7 +92,7 @@ impl<T> CapsuleArray<T> {
     /// efficiency.
     ///
     /// It is **not** safe to push new elements into the array from inside the callback.
-    pub unconstrained fn for_each<Env, let N: u32>(self, f: unconstrained fn[Env](T, u32) -> ())
+    pub unconstrained fn for_each<Env, let N: u32>(self, f: unconstrained fn[Env](u32, T) -> ())
     where
         T: Deserialize<N>,
     {
@@ -108,7 +108,7 @@ impl<T> CapsuleArray<T> {
         let mut i = self.len();
         while i > 0 {
             i -= 1;
-            f(self.get(i), i);
+            f(i, self.get(i));
         }
     }
 
@@ -229,13 +229,13 @@ mod test {
 
         // We store all values that we were called with and check that all (value, index) tuples are present. Note that
         // we do not care about the order in which each tuple was passed to the closure.
-        let called_with = &mut BoundedVec::<(Field, u32), 3>::new();
-        array.for_each(|value, index| { called_with.push((value, index)); });
+        let called_with = &mut BoundedVec::<(u32, Field), 3>::new();
+        array.for_each(|index, value| { called_with.push((index, value)); });
 
         assert_eq(called_with.len(), 3);
-        assert(called_with.any(|(value, index)| (value == 4) & (index == 0)));
-        assert(called_with.any(|(value, index)| (value == 5) & (index == 1)));
-        assert(called_with.any(|(value, index)| (value == 6) & (index == 2)));
+        assert(called_with.any(|(index, value)| (index == 0) & (value == 4)));
+        assert(called_with.any(|(index, value)| (index == 1) & (value == 5)));
+        assert(called_with.any(|(index, value)| (index == 2) & (value == 6)));
     }
 
     #[test]
@@ -247,7 +247,7 @@ mod test {
         array.push(5);
         array.push(6);
 
-        array.for_each(|_, index| {
+        array.for_each(|index, _| {
             if index == 1 {
                 array.remove(index);
             }
@@ -267,7 +267,7 @@ mod test {
         array.push(5);
         array.push(6);
 
-        array.for_each(|_, index| { array.remove(index); });
+        array.for_each(|index, _| { array.remove(index); });
 
         assert_eq(array.len(), 0);
     }
@@ -285,7 +285,7 @@ mod test {
     //     // We test that the copyCapsule was never called, which is the expensive operation we want to avoid.
     //     let mock = OracleMock::mock("copyCapsule");
 
-    //     array.for_each(|_, index| {
+    //     array.for_each(|index, _| {
     //         array.remove(index);
     //     });
 
