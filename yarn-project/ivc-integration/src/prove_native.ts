@@ -6,14 +6,25 @@ import {
   VK_FILENAME,
   executeBbClientIvcProof,
   extractVkData,
+  generateAvmProofV2,
   generateProof,
   generateTubeProof,
   readClientIVCProofFromOutputDirectory,
   readProofAsFields,
   verifyProof,
 } from '@aztec/bb-prover';
-import { NESTED_RECURSIVE_PROOF_LENGTH, RECURSIVE_ROLLUP_HONK_PROOF_LENGTH, TUBE_PROOF_LENGTH } from '@aztec/constants';
+import {
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+  NESTED_RECURSIVE_PROOF_LENGTH,
+  RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
+  TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
+import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
+import { BufferReader } from '@aztec/foundation/serialize';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
@@ -21,6 +32,7 @@ import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { encode } from '@msgpack/msgpack';
 import * as fs from 'fs/promises';
+import { tmpdir } from 'os';
 import * as path from 'path';
 
 export async function proveClientIVC(
@@ -163,4 +175,60 @@ export function proveKeccakHonk(
     'ultra_keccak_honk',
     NESTED_RECURSIVE_PROOF_LENGTH,
   );
+}
+
+export async function proveAvm(
+  avmCircuitInputs: AvmCircuitInputs,
+  logger: Logger,
+): Promise<{
+  vk: Fr[];
+  proof: Fr[];
+  publicInputs: Fr[];
+}> {
+  // The paths for the barretenberg binary and the write path are hardcoded for now.
+  const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
+  const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
+
+  // Then we prove.
+  const proofRes = await generateAvmProofV2(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  if (proofRes.status === BB_RESULT.FAILURE) {
+    throw new Error(`AVM V2 proof generation failed: ${proofRes.reason}`);
+  } else if (proofRes.status === BB_RESULT.ALREADY_PRESENT) {
+    throw new Error(`AVM V2 proof already exists`);
+  }
+
+  const avmProofPath = proofRes.proofPath;
+  const avmVkPath = proofRes.vkPath;
+  expect(avmProofPath).toBeDefined();
+  expect(avmVkPath).toBeDefined();
+
+  // Read the binary proof
+  const avmProofBuffer = await fs.readFile(avmProofPath!);
+  const reader = BufferReader.asReader(avmProofBuffer);
+  const publicInputs = reader.readArray(AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE, Fr);
+
+  const proof: Fr[] = [];
+  while (!reader.isEmpty()) {
+    proof.push(Fr.fromBuffer(reader));
+  }
+  while (proof.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+    proof.push(new Fr(0));
+  }
+
+  // Read the key
+  const vkBuffer = await fs.readFile(path.join(avmVkPath!, 'vk'));
+  const vkReader = BufferReader.asReader(vkBuffer);
+  const vk: Fr[] = [];
+  while (!vkReader.isEmpty()) {
+    vk.push(Fr.fromBuffer(vkReader));
+  }
+  while (vk.length < AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
+    vk.push(new Fr(0));
+  }
+
+  return {
+    proof,
+    vk,
+    publicInputs,
+  };
 }
