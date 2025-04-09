@@ -104,6 +104,11 @@ export class BlockStore {
         throw new Error(`Can only unwind blocks from the tip (requested ${from} but current tip is ${last})`);
       }
 
+      const proven = await this.getProvenL2BlockNumber();
+      if (from - blocksToUnwind < proven) {
+        await this.setProvenL2BlockNumber(from - blocksToUnwind);
+      }
+
       for (let i = 0; i < blocksToUnwind; i++) {
         const blockNumber = from - i;
         const block = await this.getBlock(blockNumber);
@@ -283,7 +288,11 @@ export class BlockStore {
   }
 
   async getProvenL2BlockNumber(): Promise<number> {
-    return (await this.#lastProvenL2Block.getAsync()) ?? 0;
+    const [latestBlockNumber, provenBlockNumber] = await Promise.all([
+      this.getSynchedL2BlockNumber(),
+      this.#lastProvenL2Block.getAsync(),
+    ]);
+    return (provenBlockNumber ?? 0) > latestBlockNumber ? latestBlockNumber : provenBlockNumber ?? 0;
   }
 
   setProvenL2BlockNumber(blockNumber: number) {

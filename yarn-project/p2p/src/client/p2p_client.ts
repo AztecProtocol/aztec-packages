@@ -337,7 +337,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       case 'chain-proven': {
         const from = (await this.getSyncedProvenBlockNum()) + 1;
         const limit = event.block.number - from + 1;
-        await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
+        if (limit > 0) {
+          await this.handleProvenL2Blocks(await this.l2BlockSource.getBlocks(from, limit));
+        }
         break;
       }
       case 'chain-pruned':
