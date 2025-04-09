@@ -20,6 +20,9 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Configure Git
         run: |
           git config --global user.name AztecBot
