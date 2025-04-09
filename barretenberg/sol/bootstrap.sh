@@ -108,8 +108,12 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|bench)
+  test|test_cmds)
     $cmd
+    ;;
+  "bench"|"release")
+    # noop
+    exit 0
     ;;
   *)
     echo "Unknown command: $cmd"
