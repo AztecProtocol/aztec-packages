@@ -32,6 +32,9 @@ jobs:
 
   update-docs:
     name: Update docs
+    env:
+      GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
     # needs: [release-please]
     # if: ${{ needs.release-please.outputs.release-pr }}
     runs-on: ubuntu-latest
