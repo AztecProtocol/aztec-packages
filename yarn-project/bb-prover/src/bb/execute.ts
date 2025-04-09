@@ -147,7 +147,7 @@ export async function executeBbClientIvcProof(
     const args = [
       '-o',
       outputPath,
-      '-i',
+      '--ivc_inputs_path',
       inputsPath,
       '-v',
       '--scheme',

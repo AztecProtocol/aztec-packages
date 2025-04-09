@@ -116,7 +116,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
-    std::filesystem::path input_path{ "./target/ivc-inputs.msgpack" };
+    std::filesystem::path ivc_inputs_path{ "./target/ivc-inputs.msgpack" };
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
@@ -240,7 +240,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
 
     const auto add_inputs_path_options = [&](CLI::App* subcommand) {
         subcommand->add_option(
-            "--bytecode_path, -b", input_path, "For IVC, path to input stack with bytecode and witnesses.")
+            "--ivc_inputs_path", ivc_inputs_path, "For IVC, path to input stack with bytecode and witnesses.")
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
@@ -838,11 +838,11 @@ int parse_and_run_cli_command(int argc, char* argv[])
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
-                api.prove(input_path, output_path);
+                api.prove(ivc_inputs_path, output_path);
                 return 0;
             }
             if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                api.write_ivc_vk(input_path, output_path);
+                api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);
