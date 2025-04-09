@@ -1,9 +1,6 @@
 use crate::{
     capsules::CapsuleArray,
-    discovery::{
-        ComputeNoteHashAndNullifier,
-        nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
-    },
+    discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
     encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
     oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
@@ -148,26 +145,23 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 [discovered_notes.len() as Field, pending_partial_note.note_completion_log_tag],
             );
 
-            array::for_each_in_bounded_vec(
-                discovered_notes,
-                |discovered_note: DiscoveredNoteInfo, _| {
-                    // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
-                    // temporary node connectivity issue - is simply throwing good enough here?
-                    assert(
-                        deliver_note(
-                            contract_address,
-                            pending_partial_note.storage_slot,
-                            discovered_note.nonce,
-                            complete_packed_note,
-                            discovered_note.note_hash,
-                            discovered_note.inner_nullifier,
-                            log.tx_hash,
-                            pending_partial_note.recipient,
-                        ),
-                        "Failed to deliver note",
-                    );
-                },
-            );
+            discovered_notes.for_each(|discovered_note| {
+                // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
+                // temporary node connectivity issue - is simply throwing good enough here?
+                assert(
+                    deliver_note(
+                        contract_address,
+                        pending_partial_note.storage_slot,
+                        discovered_note.nonce,
+                        complete_packed_note,
+                        discovered_note.note_hash,
+                        discovered_note.inner_nullifier,
+                        log.tx_hash,
+                        pending_partial_note.recipient,
+                    ),
+                    "Failed to deliver note",
+                );
+            });
 
             // Because there is only a single log for a given tag, once we've processed the tagged log then we
             // simply delete the pending work entry, regardless of whether it was actually completed or not.
