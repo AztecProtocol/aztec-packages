@@ -1,7 +1,7 @@
 #pragma once
 
-#include "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp"
 #include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 #include "barretenberg/world_state/types.hpp"
 
 #include <cstdint>
@@ -9,7 +9,7 @@
 
 namespace bb::avm2::simulation {
 
-using NullifierTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue>;
+using NullifierTreeLeafPreimage = IndexedLeaf<NullifierLeafValue>;
 
 struct NullifierTreeReadEvent {
     FF nullifier;
