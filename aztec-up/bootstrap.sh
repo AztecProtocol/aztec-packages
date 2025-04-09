@@ -24,6 +24,8 @@ function update_manifest {
 }
 
 function test_cmds {
+  echo "$hash aztec-up/scripts/run_test.sh amm_flow"
+  echo "$hash aztec-up/scripts/run_test.sh bridge_and_claim"
   echo "$hash aztec-up/scripts/run_test.sh basic_install"
   echo "$hash aztec-up/scripts/run_test.sh counter_contract"
 }
