@@ -12,7 +12,7 @@ template <typename FF_> class nullifier_readImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 9> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 3, 3, 3, 3, 5 };
+    static constexpr std::array<size_t, 8> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 3, 5, 3, 3, 3, 5 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -50,7 +50,7 @@ template <typename FF_> class nullifier_readImpl {
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
-        { // EXISTS_FLAG_CHECK
+        { // EXISTS_CHECK
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
             auto tmp = new_term.nullifier_read_sel *
                        ((nullifier_read_NULLIFIER_LOW_LEAF_NULLIFIER_DIFF *
@@ -70,26 +70,20 @@ template <typename FF_> class nullifier_readImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.nullifier_read_leaf_not_exists * (FF(1) - new_term.nullifier_read_leaf_not_exists);
+            auto tmp = new_term.nullifier_read_sel *
+                       ((FF(1) - new_term.nullifier_read_exists) - new_term.nullifier_read_leaf_not_exists);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.nullifier_read_sel *
-                       ((FF(1) - new_term.nullifier_read_leaf_not_exists) - new_term.nullifier_read_exists);
-            tmp *= scaling_factor;
-            std::get<6>(evals) += typename Accumulator::View(tmp);
-        }
-        {
-            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = new_term.nullifier_read_next_nullifier_is_nonzero *
                        (FF(1) - new_term.nullifier_read_next_nullifier_is_nonzero);
             tmp *= scaling_factor;
-            std::get<7>(evals) += typename Accumulator::View(tmp);
+            std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_NULLIFIER_IS_ZERO_CHECK
-            using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
+            using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp =
                 new_term.nullifier_read_leaf_not_exists *
                 ((new_term.nullifier_read_low_leaf_next_nullifier *
@@ -98,7 +92,7 @@ template <typename FF_> class nullifier_readImpl {
                   FF(1)) +
                  nullifier_read_NEXT_NULLIFIER_IS_ZERO);
             tmp *= scaling_factor;
-            std::get<8>(evals) += typename Accumulator::View(tmp);
+            std::get<7>(evals) += typename Accumulator::View(tmp);
         }
     }
 };
@@ -111,16 +105,16 @@ template <typename FF> class nullifier_read : public Relation<nullifier_readImpl
     {
         switch (index) {
         case 3:
-            return "EXISTS_FLAG_CHECK";
-        case 8:
+            return "EXISTS_CHECK";
+        case 7:
             return "NEXT_NULLIFIER_IS_ZERO_CHECK";
         }
         return std::to_string(index);
     }
 
     // Subrelation indices constants, to be used in tests.
-    static constexpr size_t SR_EXISTS_FLAG_CHECK = 3;
-    static constexpr size_t SR_NEXT_NULLIFIER_IS_ZERO_CHECK = 8;
+    static constexpr size_t SR_EXISTS_CHECK = 3;
+    static constexpr size_t SR_NEXT_NULLIFIER_IS_ZERO_CHECK = 7;
 };
 
 } // namespace bb::avm2

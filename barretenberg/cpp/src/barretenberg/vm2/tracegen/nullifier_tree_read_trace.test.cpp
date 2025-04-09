@@ -107,8 +107,8 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path;
-    sibling_path.reserve(PUBLIC_DATA_TREE_HEIGHT);
-    for (size_t i = 0; i < PUBLIC_DATA_TREE_HEIGHT; ++i) {
+    sibling_path.reserve(NULLIFIER_TREE_HEIGHT);
+    for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);

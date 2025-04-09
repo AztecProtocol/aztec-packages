@@ -152,18 +152,18 @@ TEST(PublicDataTreeReadConstrainingTest, NegativeExistsFlagCheck)
           { C::public_data_read_leaf_not_exists, 1 } },
     });
 
-    check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_FLAG_CHECK);
+    check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_CHECK);
 
     trace.set(C::public_data_read_leaf_not_exists, 0, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_CHECK),
+                              "EXISTS_CHECK");
 
     trace.set(C::public_data_read_leaf_not_exists, 0, 0);
     trace.set(C::public_data_read_leaf_not_exists, 1, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_read>(trace, public_data_read::SR_EXISTS_CHECK),
+                              "EXISTS_CHECK");
 }
 
 TEST(PublicDataTreeReadConstrainingTest, NegativeNextSlotIsZero)

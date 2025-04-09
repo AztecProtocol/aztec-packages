@@ -113,8 +113,8 @@ TEST_P(NullifierReadPositiveTests, Positive)
     FF low_leaf_hash = poseidon2.hash(param.low_leaf.get_hash_inputs());
     uint64_t leaf_index = 30;
     std::vector<FF> sibling_path;
-    sibling_path.reserve(PUBLIC_DATA_TREE_HEIGHT);
-    for (size_t i = 0; i < PUBLIC_DATA_TREE_HEIGHT; ++i) {
+    sibling_path.reserve(NULLIFIER_TREE_HEIGHT);
+    for (size_t i = 0; i < NULLIFIER_TREE_HEIGHT; ++i) {
         sibling_path.emplace_back(i);
     }
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
@@ -151,16 +151,14 @@ TEST(NullifierTreeReadConstrainingTest, NegativeExistsFlagCheck)
           { C::nullifier_read_exists, 0 } },
     });
 
-    check_relation<nullifier_read>(trace, nullifier_read::SR_EXISTS_FLAG_CHECK);
+    check_relation<nullifier_read>(trace, nullifier_read::SR_EXISTS_CHECK);
     trace.set(C::nullifier_read_exists, 0, 0);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_read>(trace, nullifier_read::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_read>(trace, nullifier_read::SR_EXISTS_CHECK), "EXISTS_CHECK");
     trace.set(C::nullifier_read_exists, 0, 1);
     trace.set(C::nullifier_read_exists, 1, 1);
 
-    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_read>(trace, nullifier_read::SR_EXISTS_FLAG_CHECK),
-                              "EXISTS_FLAG_CHECK");
+    EXPECT_THROW_WITH_MESSAGE(check_relation<nullifier_read>(trace, nullifier_read::SR_EXISTS_CHECK), "EXISTS_CHECK");
 }
 
 TEST(NullifierTreeReadConstrainingTest, NegativeNextSlotIsZero)

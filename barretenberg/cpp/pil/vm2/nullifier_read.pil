@@ -59,7 +59,7 @@ namespace nullifier_read;
     pol NULLIFIER_LOW_LEAF_NULLIFIER_DIFF = nullifier - low_leaf_nullifier;
 
     // NULLIFIER_LOW_LEAF_NULLIFIER_DIFF == 0 <==> exists == 1
-    #[EXISTS_FLAG_CHECK]
+    #[EXISTS_CHECK]
     sel * (NULLIFIER_LOW_LEAF_NULLIFIER_DIFF * (exists * (1 - nullifier_low_leaf_nullifier_diff_inv) + nullifier_low_leaf_nullifier_diff_inv) - 1 + exists) = 0;
 
     // If the leaf doesn't exist, we need to validate that the nullifier is greater than the low leaf nullifier
@@ -70,8 +70,7 @@ namespace nullifier_read;
 
     // We commit leaf not exists as well as exists since it'll be used as a selector for the following lookup
     pol commit leaf_not_exists;
-    leaf_not_exists * (1 - leaf_not_exists) = 0;
-    sel * (1 - leaf_not_exists - exists) = 0;
+    sel * (1 - exists - leaf_not_exists) = 0;
 
     #[LOW_LEAF_NULLIFIER_VALIDATION]
     leaf_not_exists { nullifier, low_leaf_nullifier, one }
