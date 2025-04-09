@@ -2,7 +2,7 @@ name: Docs Preview
 
 on:
   pull_request:
-  workflow_dispatch:
+    types: [edited]
 
 jobs:
   docs-preview:
