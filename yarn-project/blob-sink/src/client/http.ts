@@ -181,9 +181,15 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         }
       }
 
-      this.log.debug(`Unable to get blob sidecar for ${blockHashOrSlot}`, {
+      // we already handle the two _expected_ cases above & return early
+      // warn if we can't communicate with the remote blob provider
+      this.log.warn(`Unable to get blob sidecar for ${blockHashOrSlot}: ${res.statusText} (${res.status})`, {
         status: res.status,
         statusText: res.statusText,
+        body: await res.text().catch(err => {
+          this.log.warn('Failed to read response body', err);
+          return '';
+        }),
       });
       return [];
     } catch (err: any) {
