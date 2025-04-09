@@ -33,7 +33,7 @@ function get_contract_address() {
 }
 
 function get_simulation_result() {
-  grep "Simulation result:" | awk '{print $3}'
+  grep "Simulation result:" | awk '{print $3}' | sed 's/n$//'
 }
 
 function assert_eq() {
