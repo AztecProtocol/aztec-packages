@@ -4,8 +4,8 @@ source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
-export preset=clang16-assert
-export pic_preset="clang16-pic"
+export preset=clang18-assert
+export pic_preset="clang18-pic"
 export hash=$(cache_content_hash .rebuild_patterns)
 
 # Injects version number into a given bb binary.
@@ -195,7 +195,7 @@ function build_benchmarks {
   if ! cache_download barretenberg-benchmarks-$hash.zst; then
     parallel --line-buffered --tag -v "denoise \
       'cmake --preset {} && cmake --build --preset {} --target ultra_honk_bench --target client_ivc_bench'" ::: \
-      clang16-assert wasm-threads op-count op-count-time
+      clang18-assert wasm-threads op-count op-count-time
     cache_upload barretenberg-benchmarks-$hash.zst \
       {build,build-wasm-threads,build-op-count,build-op-count-time}/bin/{ultra_honk_bench,client_ivc_bench}
   fi

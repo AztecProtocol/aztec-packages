@@ -9,7 +9,7 @@ set -eu
 
 BENCHMARK=${1:-goblin_bench}
 COMMAND=${2:-./$BENCHMARK}
-PRESET=${3:-clang16}
+PRESET=${3:-clang18}
 BUILD_DIR=${4:-build}
 HARDWARE_CONCURRENCY=${HARDWARE_CONCURRENCY:-16}
 

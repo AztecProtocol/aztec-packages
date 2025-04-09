@@ -17,7 +17,7 @@ cd ../../sol
 
 echo "Building c++ binaries..."
 cd ../cpp
-cmake --build --preset clang16 --parallel --target solidity_key_gen solidity_proof_gen honk_solidity_proof_gen honk_solidity_key_gen
+cmake --build --preset clang18 --parallel --target solidity_key_gen solidity_proof_gen honk_solidity_proof_gen honk_solidity_key_gen
 cd ../sol
 
 # Keys of non-zk and zk verifier should be the same

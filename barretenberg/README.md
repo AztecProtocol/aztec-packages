@@ -399,7 +399,7 @@ If you are in a scenario where you have a failing call to check_circuit and wish
 Usage instructions:
 
 - On ubuntu (or our mainframe accounts) use `sudo apt-get install libdw-dev` to support trace printing
-- Use `cmake --preset clang16-dbg-fast-circuit-check-traces` and `cmake --build --preset clang16-dbg-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
+- Use `cmake --preset clang18-dbg-fast-circuit-check-traces` and `cmake --build --preset clang18-dbg-fast-circuit-check-traces` to enable the backward-cpp dependency through the CHECK_CIRCUIT_STACKTRACES CMake variable.
 - Run any case where you have a failing check_circuit call, you will now have a stack trace illuminating where this constraint was added in code.
 
 Caveats:

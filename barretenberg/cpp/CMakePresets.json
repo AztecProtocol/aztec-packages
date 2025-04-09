@@ -90,9 +90,9 @@
       }
     },
     {
-      "name": "clang16",
-      "displayName": "Build with Clang-16",
-      "description": "Build with globally installed Clang-16",
+      "name": "clang18",
+      "displayName": "Build with Clang-18",
+      "description": "Build with globally installed Clang-18",
       "inherits": "default",
       "environment": {
         "CC": "clang-16",
@@ -100,20 +100,20 @@
       }
     },
     {
-      "name": "clang16-pic",
+      "name": "clang18-pic",
       "displayName": "Release build with Position Independent Code",
-      "description": "Build with globally installed Clang-16 using Position Independent Code",
-      "inherits": "clang16",
+      "description": "Build with globally installed Clang-18 using Position Independent Code",
+      "inherits": "clang18",
       "binaryDir": "build-pic",
       "cacheVariables": {
         "ENABLE_PIC": "ON"
       }
     },
     {
-      "name": "clang16-dbg",
-      "displayName": "Debugging build with Clang-16",
-      "description": "Build with globally installed Clang-16 in debug mode",
-      "inherits": "clang16",
+      "name": "clang18-dbg",
+      "displayName": "Debugging build with Clang-18",
+      "description": "Build with globally installed Clang-18 in debug mode",
+      "inherits": "clang18",
       "binaryDir": "build-debug",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -130,7 +130,7 @@
       "name": "tracy-memory",
       "displayName": "Release build with tracy with memory tracking",
       "description": "Release build with tracy with memory tracking",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-tracy-memory",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
@@ -142,7 +142,7 @@
       "displayName": "Build for tracy time profiling via instrumentation",
       "description": "Build for tracy time profiling via instrumentation",
       "binaryDir": "build-tracy-time-instrumented",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "cacheVariables": {
         "ENABLE_TRACY_TIME_INSTRUMENTED": "ON"
       }
@@ -167,7 +167,7 @@
       "name": "tracy-gates",
       "displayName": "Release build with tracy - but hacked for gate tracking",
       "description": "Release build with tracy - but hacker for gate tracking",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-tracy-gates",
       "cacheVariables": {
         "ENABLE_TRACY": "ON",
@@ -178,17 +178,17 @@
       "name": "wasm-tracy",
       "displayName": "WASM build with tracy",
       "description": "WASM build with tracy",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-wasm-tracy",
       "cacheVariables": {
         "ENABLE_TRACY": "ON"
       }
     },
     {
-      "name": "clang16-dbg-fast",
-      "displayName": "Optimized debug build with Clang-16",
-      "description": "Build with globally installed Clang-16 in optimized debug mode",
-      "inherits": "clang16-dbg",
+      "name": "clang18-dbg-fast",
+      "displayName": "Optimized debug build with Clang-18",
+      "description": "Build with globally installed Clang-18 in optimized debug mode",
+      "inherits": "clang18-dbg",
       "binaryDir": "build-debug-fast",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug",
@@ -198,10 +198,10 @@
       }
     },
     {
-      "name": "clang16-dbg-fast-circuit-check-traces",
-      "displayName": "Optimized debug build with Clang-16 with stack traces for failing circuit checks",
-      "description": "Build with globally installed Clang-16 in optimized debug mode with stack traces for failing circuit checks",
-      "inherits": "clang16-dbg-fast",
+      "name": "clang18-dbg-fast-circuit-check-traces",
+      "displayName": "Optimized debug build with Clang-18 with stack traces for failing circuit checks",
+      "description": "Build with globally installed Clang-18 in optimized debug mode with stack traces for failing circuit checks",
+      "inherits": "clang18-dbg-fast",
       "binaryDir": "build-debug-fast-circuit-check-traces",
       "cacheVariables": {
         "CHECK_CIRCUIT_STACKTRACES": "ON"
@@ -218,20 +218,20 @@
       }
     },
     {
-      "name": "clang16-assert",
+      "name": "clang18-assert",
       "binaryDir": "build",
-      "displayName": "Build with Clang-16 using RelWithAssert",
-      "description": "Build with globally installed Clang-16 in release with ASSERTs mode",
-      "inherits": "clang16",
+      "displayName": "Build with Clang-18 using RelWithAssert",
+      "description": "Build with globally installed Clang-18 in release with ASSERTs mode",
+      "inherits": "clang18",
       "environment": {
         "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
       "name": "asan",
-      "displayName": "Debugging build with address sanitizer on Clang-16",
-      "description": "Build with address sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with address sanitizer on Clang-18",
+      "description": "Build with address sanitizer on clang18 with debugging information",
+      "inherits": "clang18-dbg",
       "binaryDir": "build-asan",
       "environment": {
         "CMAKE_BUILD_TYPE": "Debug"
@@ -279,14 +279,14 @@
       "name": "bench",
       "displayName": "Build benchmarks",
       "description": "Build default preset but with a special benchmark directory",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-bench"
     },
     {
       "name": "fuzzing",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
         "FUZZING": "ON",
@@ -297,7 +297,7 @@
       "name": "fuzzing-asan",
       "displayName": "Build with fuzzing",
       "description": "Build default preset but with fuzzing enabled",
-      "inherits": "clang16-dbg",
+      "inherits": "clang18-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
         "SHOW_INFORMATION": "ON",
@@ -311,7 +311,7 @@
       "name": "smt-verification",
       "displayName": "Build with smt verificaiton",
       "description": "Build default preset but with smt library included",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-smt",
       "cacheVariables": {
         "SMT": "ON"
@@ -319,9 +319,9 @@
     },
     {
       "name": "tsan",
-      "displayName": "Debugging build with thread sanitizer on Clang-16",
-      "description": "Build with thread sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with thread sanitizer on Clang-18",
+      "description": "Build with thread sanitizer on clang18 with debugging information",
+      "inherits": "clang18-dbg",
       "binaryDir": "build-tsan",
       "cacheVariables": {
         "HAVE_STD_REGEX": "ON"
@@ -334,9 +334,9 @@
     },
     {
       "name": "ubsan",
-      "displayName": "Debugging build with undefined behaviour sanitizer on Clang-16",
-      "description": "Build with undefined behaviour sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with undefined behaviour sanitizer on Clang-18",
+      "description": "Build with undefined behaviour sanitizer on clang18 with debugging information",
+      "inherits": "clang18-dbg",
       "binaryDir": "build-ubsan",
       "generator": "Unix Makefiles",
       "environment": {
@@ -347,9 +347,9 @@
     },
     {
       "name": "msan",
-      "displayName": "Debugging build with memory sanitizer on Clang-16",
-      "description": "Build with thread sanitizer on clang16 with debugging information",
-      "inherits": "clang16-dbg",
+      "displayName": "Debugging build with memory sanitizer on Clang-18",
+      "description": "Build with thread sanitizer on clang18 with debugging information",
+      "inherits": "clang18-dbg",
       "binaryDir": "build-msan",
       "environment": {
         "CFLAGS": "-fsanitize=memory",
@@ -366,7 +366,7 @@
       "name": "op-count",
       "displayName": "Release build with operation counts",
       "description": "Build with op counting",
-      "inherits": "clang16-assert",
+      "inherits": "clang18-assert",
       "binaryDir": "build-op-count",
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TRACK_ONLY"
@@ -376,7 +376,7 @@
       "name": "op-count-time",
       "displayName": "Release build with time and clock counts",
       "description": "Build with op counting",
-      "inherits": "clang16-assert",
+      "inherits": "clang18-assert",
       "binaryDir": "build-op-count-time",
       "environment": {
         "CXXFLAGS": "-DBB_USE_OP_COUNT -DBB_USE_OP_COUNT_TIME_ONLY"
@@ -395,9 +395,9 @@
     },
     {
       "name": "gperftools",
-      "displayName": "Debugging build with gperftools on Clang-16",
+      "displayName": "Debugging build with gperftools on Clang-18",
       "description": "Build with gperf",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "binaryDir": "build-gperftools",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
@@ -473,7 +473,7 @@
       "displayName": "Build with multi-threaded XRay Profiling",
       "description": "Build with Clang and enable multi-threaded LLVM XRay for profiling",
       "generator": "Unix Makefiles",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "environment": {
         "CFLAGS": "-fxray-instrument",
         "CXXFLAGS": "-fxray-instrument -fxray-instruction-threshold=500 -DXRAY=1",
@@ -522,9 +522,9 @@
       "configurePreset": "clang18"
     },
     {
-      "name": "clang16",
+      "name": "clang18",
       "inherits": "default",
-      "configurePreset": "clang16"
+      "configurePreset": "clang18"
     },
     {
       "name": "op-count-time",
@@ -547,9 +547,9 @@
       "configurePreset": "darwin-amd64"
     },
     {
-      "name": "clang16-dbg",
+      "name": "clang18-dbg",
       "inherits": "default",
-      "configurePreset": "clang16-dbg"
+      "configurePreset": "clang18-dbg"
     },
     {
       "name": "tracy-memory",
@@ -567,9 +567,9 @@
       "configurePreset": "tracy-time-sampled"
     },
     {
-      "name": "clang16-pic",
+      "name": "clang18-pic",
       "inherits": "default",
-      "configurePreset": "clang16-pic"
+      "configurePreset": "clang18-pic"
     },
     {
       "name": "default-pic",
@@ -582,14 +582,14 @@
       "configurePreset": "tracy-gates"
     },
     {
-      "name": "clang16-dbg-fast",
+      "name": "clang18-dbg-fast",
       "inherits": "default",
-      "configurePreset": "clang16-dbg-fast"
+      "configurePreset": "clang18-dbg-fast"
     },
     {
-      "name": "clang16-dbg-fast-circuit-check-traces",
-      "inherits": "clang16-dbg-fast",
-      "configurePreset": "clang16-dbg-fast-circuit-check-traces"
+      "name": "clang18-dbg-fast-circuit-check-traces",
+      "inherits": "clang18-dbg-fast",
+      "configurePreset": "clang18-dbg-fast-circuit-check-traces"
     },
     {
       "name": "clang18-assert",
@@ -597,9 +597,9 @@
       "configurePreset": "clang18-assert"
     },
     {
-      "name": "clang16-assert",
+      "name": "clang18-assert",
       "inherits": "default",
-      "configurePreset": "clang16-assert"
+      "configurePreset": "clang18-assert"
     },
     {
       "name": "asan",
@@ -623,27 +623,27 @@
     },
     {
       "name": "bench",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "configurePreset": "bench"
     },
     {
       "name": "fuzzing",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "configurePreset": "fuzzing"
     },
     {
       "name": "fuzzing-asan",
-      "inherits": "clang16-dbg",
+      "inherits": "clang18-dbg",
       "configurePreset": "fuzzing-asan"
     },
     {
       "name": "gperftools",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "configurePreset": "gperftools"
     },
     {
       "name": "smt-verification",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "configurePreset": "smt-verification"
     },
     {
@@ -728,14 +728,14 @@
       "configurePreset": "homebrew"
     },
     {
-      "name": "clang16",
+      "name": "clang18",
       "inherits": "default",
-      "configurePreset": "clang16"
+      "configurePreset": "clang18"
     },
     {
-      "name": "clang16-dbg",
+      "name": "clang18-dbg",
       "inherits": "default",
-      "configurePreset": "clang16-dbg"
+      "configurePreset": "clang18-dbg"
     },
     {
       "name": "asan",
@@ -759,7 +759,7 @@
     },
     {
       "name": "bench",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "configurePreset": "bench"
     },
     {
@@ -769,12 +769,12 @@
     },
     {
       "name": "fuzzing-asan",
-      "inherits": "clang16-dbg",
+      "inherits": "clang18-dbg",
       "configurePreset": "fuzzing-asan"
     },
     {
       "name": "smt-verification",
-      "inherits": "clang16",
+      "inherits": "clang18",
       "configurePreset": "smt-verification"
     },
     {

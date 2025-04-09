@@ -8,4 +8,4 @@ git add **/generated/*
 ./format.sh staged
 
 # Build vm tests
-cmake --build --preset clang16 --target vm_tests
+cmake --build --preset clang18 --target vm_tests

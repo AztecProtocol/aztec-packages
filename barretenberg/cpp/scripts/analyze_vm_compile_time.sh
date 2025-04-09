@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # This script summarises the compilation time for the vm
 # The summary json file is outputted to $BUILD_DIR/avm_compilation_summary.json
-# it takes in two params the preset(e.g. clang16, clang16-dbg) and a target (e.g. bb, vm) 
-# it can be called like this => ./analyze_vm_compile_time.sh clang16 bb
+# it takes in two params the preset(e.g. clang18, clang18-dbg) and a target (e.g. bb, vm) 
+# it can be called like this => ./analyze_vm_compile_time.sh clang18 bb
 set -eu
 # So we can glob recursively
 shopt -s globstar
