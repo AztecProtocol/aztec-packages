@@ -50,12 +50,20 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const override;
 
     // State modification methods.
+<<<<<<< HEAD
     SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
         const PublicDataLeafValue& leaf_value) override;
     SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
         const NullifierLeafValue& leaf_value) override;
     std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) override;
     void pad_tree(MerkleTreeId tree_id, size_t num_leaves) override;
+=======
+    world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
+    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) override;
+    world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
+    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) override;
+    std::vector<AppendLeafResult> append_leaves(world_state::MerkleTreeId tree_id, std::span<const FF> leaves) override;
+>>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
 
     void create_checkpoint() override;
     void commit_checkpoint() override;
@@ -92,9 +100,14 @@ class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
     unordered_flat_map</*action_counter*/ uint32_t, RevertCheckpointHint> revert_checkpoint_hints;
 
     // Private helper methods.
+<<<<<<< HEAD
     const AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id) const;
     AppendOnlyTreeSnapshot& get_tree_info(MerkleTreeId tree_id);
     AppendLeafResult appendLeafInternal(MerkleTreeId tree_id, const FF& leaf);
+=======
+    const AppendOnlyTreeSnapshot& get_tree_info(world_state::MerkleTreeId tree_id) const;
+    AppendLeafResult appendLeafInternal(world_state::MerkleTreeId tree_id, const FF& leaf);
+>>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
 };
 
 } // namespace bb::avm2::simulation

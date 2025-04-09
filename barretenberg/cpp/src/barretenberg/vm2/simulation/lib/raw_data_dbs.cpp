@@ -45,6 +45,7 @@ std::string get_tree_name(world_state::MerkleTreeId tree_id)
     return "UNKNOWN"; // To make GCC happy.
 }
 
+<<<<<<< HEAD
 // We need this helper to avoid having const and non-const versions methods in the class.
 auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
 {
@@ -62,6 +63,8 @@ auto& get_tree_info_helper(world_state::MerkleTreeId tree_id, auto& tree_roots)
     }
 }
 
+=======
+>>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
 } // namespace
 
 // HintedRawContractDB starts.
@@ -551,6 +554,7 @@ std::vector<AppendLeafResult> HintedRawMerkleDB::append_leaves(world_state::Merk
     return results;
 }
 
+<<<<<<< HEAD
 void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_leaves)
 {
     auto& tree_info = get_tree_info(tree_id);
@@ -560,6 +564,8 @@ void HintedRawMerkleDB::pad_tree(world_state::MerkleTreeId tree_id, size_t num_l
     debug("Padded tree ", get_tree_name(tree_id), " from size ", size_before, " to ", tree_info.nextAvailableLeafIndex);
 }
 
+=======
+>>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
 AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId tree_id, const FF& leaf)
 {
     auto tree_info = get_tree_info(tree_id);
