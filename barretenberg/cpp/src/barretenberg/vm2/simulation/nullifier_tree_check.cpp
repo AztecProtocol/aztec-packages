@@ -1,7 +1,6 @@
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
 
 #include "barretenberg/vm2/common/constants.hpp"
-#include <stdexcept>
 
 namespace bb::avm2::simulation {
 
