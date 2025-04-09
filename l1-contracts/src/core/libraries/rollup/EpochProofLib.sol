@@ -69,7 +69,6 @@ library EpochProofLib {
    *          _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    *          _blobPublicInputs - The blob public inputs for the proof
-   *          _aggregationObject - The aggregation object for the proof
    *          _proof - The proof to verify
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
@@ -101,15 +100,13 @@ library EpochProofLib {
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    * @param _blobPublicInputs- The blob public inputs for the proof
-   * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputs,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
     // Args are defined as an array because Solidity complains with "stack too deep" otherwise
@@ -160,9 +157,7 @@ library EpochProofLib {
       }
     }
 
-    bytes32[] memory publicInputs = new bytes32[](
-      Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH
-    );
+    bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
 
     // Structure of the root rollup public inputs we need to reassemble:
     //
@@ -257,21 +252,6 @@ library EpochProofLib {
         }
       }
     }
-
-    {
-      // the block proof is recursive, which means it comes with an aggregation object
-      // this snippet copies it into the public inputs needed for verification
-      // it also guards against empty _aggregationObject used with mocked proofs
-      uint256 aggregationLength = _aggregationObject.length / 32;
-      for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
-        bytes32 part;
-        assembly {
-          part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
-        }
-        publicInputs[i + Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH] = part;
-      }
-    }
-
     return publicInputs;
   }
 
@@ -397,12 +377,7 @@ library EpochProofLib {
     }
 
     bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _args.start,
-      _args.end,
-      _args.args,
-      _args.fees,
-      _args.blobPublicInputs,
-      _args.aggregationObject
+      _args.start, _args.end, _args.args, _args.fees, _args.blobPublicInputs
     );
 
     require(
