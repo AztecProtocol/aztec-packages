@@ -28,7 +28,7 @@ import Typography from '@mui/material/Typography';
 
 import FindInPageIcon from '@mui/icons-material/FindInPage';
 import { formatFrAsString } from '../../utils/conversion';
-import { DeployContractDialog } from './components/deployContractDialog';
+import { DeployContractDialog } from './components/DeployContractDialog';
 import { FunctionParameter } from '../common/FnParameter';
 import ClearIcon from '@mui/icons-material/Clear';
 import { RegisterContractDialog } from './components/registerContractDialog';
@@ -36,7 +36,7 @@ import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import { CreateAuthwitDialog } from './components/createAuthwitDialog';
+import { CreateAuthwitDialog } from './components/CreateAuthwitDialog';
 
 const container = css({
   display: 'flex',
@@ -273,7 +273,6 @@ export function ContractComponent() {
         },
       });
     } catch (e) {
-      console.error(e);
       setCurrentTx({
         ...currentTx,
         ...{

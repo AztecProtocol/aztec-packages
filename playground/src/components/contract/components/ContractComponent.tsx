@@ -9,7 +9,7 @@ import { ContractUpload } from './ContractUpload';
 import { ContractHeader } from './ContractHeader';
 import { ContractFilter } from './ContractFilter';
 import { FunctionCard } from './FunctionCard';
-import { CreateAuthwitDialog } from './createAuthwitDialog';
+import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 import { LoadingModal } from '../../common/LoadingModal';
 import { PREDEFINED_CONTRACTS, FUNCTION_DESCRIPTIONS } from '../constants';
 import { useContractArtifact, useContractFunctions, useContractDeployment } from '../hooks';
@@ -109,10 +109,8 @@ export function ContractComponent() {
   const [simulationResults, setSimulationResults] = useState({});
   const [parameters, setParameters] = useState({});
 
-  const { contractArtifact, functionAbis, isLoadingArtifact, setContractArtifact, setFunctionAbis } = useContractArtifact(
-    selectedPredefinedContract,
-    wallet
-  );
+  const { contractArtifact, functionAbis, isLoadingArtifact, setContractArtifact, setFunctionAbis } =
+    useContractArtifact(selectedPredefinedContract, wallet);
 
   const filteredFunctions = useContractFunctions(functionAbis, filters);
 
@@ -123,7 +121,7 @@ export function ContractComponent() {
     setCurrentContract,
     setCurrentContractAddress,
     setCurrentTx,
-    setIsWorking
+    setIsWorking,
   );
 
   const handleParameterChange = (fnName: string, index: number, value: any) => {
@@ -138,7 +136,7 @@ export function ContractComponent() {
         status: 'error' as const,
         fnName: fnName,
         error: 'You need to deploy this contract before you can simulate functions',
-        contractAddress: null
+        contractAddress: null,
       });
       return;
     }
@@ -163,7 +161,7 @@ export function ContractComponent() {
         status: 'error' as const,
         fnName: fnName,
         error: error.message || 'Simulation failed',
-        contractAddress: currentContract.address
+        contractAddress: currentContract.address,
       });
     } finally {
       setIsWorking(false);
@@ -176,7 +174,7 @@ export function ContractComponent() {
         status: 'error' as const,
         fnName: fnName,
         error: 'You need to deploy this contract before you can send transactions',
-        contractAddress: null
+        contractAddress: null,
       });
       return;
     }
@@ -251,7 +249,7 @@ export function ContractComponent() {
       <LoadingModal />
       {showUploadArea ? (
         <ContractUpload
-          onContractLoaded={(artifact) => {
+          onContractLoaded={artifact => {
             setContractArtifact(artifact);
             setFunctionAbis(getAllFunctionAbis(artifact));
             setShowUploadArea(false);
@@ -268,9 +266,7 @@ export function ContractComponent() {
       ) : !contractArtifact ? (
         <div css={loadingArtifactContainer}>
           <Typography variant="h5">No contract loaded</Typography>
-          <Typography>
-            Select a contract from the dropdown or upload your own.
-          </Typography>
+          <Typography>Select a contract from the dropdown or upload your own.</Typography>
         </div>
       ) : (
         <div css={contractFnContainer}>
@@ -288,41 +284,51 @@ export function ContractComponent() {
 
           <div css={tokenSection}>
             <div css={tokenHeader}>
-              {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING ? 'Simple Private Voting' :
-               selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ? 'Simple Token' :
-               contractArtifact?.name || 'Contract'}
+              {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING
+                ? 'Simple Private Voting'
+                : selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN
+                ? 'Simple Token'
+                : contractArtifact?.name || 'Contract'}
             </div>
-            <ContractFilter
-              filters={filters}
-              onFilterChange={setFilters}
-            />
+            <ContractFilter filters={filters} onFilterChange={setFilters} />
           </div>
 
           {!currentContract && (
-            <div style={{ padding: '20px', margin: '10px 0', textAlign: 'center', backgroundColor: 'rgba(152, 148, 255, 0.1)', borderRadius: '8px' }}>
+            <div
+              style={{
+                padding: '20px',
+                margin: '10px 0',
+                textAlign: 'center',
+                backgroundColor: 'rgba(152, 148, 255, 0.1)',
+                borderRadius: '8px',
+              }}
+            >
               <Typography variant="subtitle1" style={{ color: '#9894FF' }}>
-                {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING ? (
-                  'This is a simple voting contract that allows users to cast their votes privately. Your vote remains hidden while still being verifiably counted.'
-                ) : selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN ? (
-                  'This contract demonstrates private token transfers and balances. Users can transact without revealing amounts or participants while maintaining verifiability.'
-                ) : (
-                  'This is your own uploaded contract. Remember you will need to deploy it before you can interact with it.'
-                )}
+                {selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_VOTING
+                  ? 'This is a simple voting contract that allows users to cast their votes privately. Your vote remains hidden while still being verifiably counted.'
+                  : selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN
+                  ? 'This contract demonstrates private token transfers and balances. Users can transact without revealing amounts or participants while maintaining verifiability.'
+                  : 'This is your own uploaded contract. Remember you will need to deploy it before you can interact with it.'}
               </Typography>
               <Typography variant="body2" sx={{ mt: 1 }}>
                 {!nodeURL ? (
                   <>
-                    You are not connected to a network. Please <span
+                    You are not connected to a network. Please{' '}
+                    <span
                       onClick={handleShowNetworkConnect}
-                      style={{ color: '#9894FF', cursor: 'pointer', textDecoration: 'underline' }}>
+                      style={{ color: '#9894FF', cursor: 'pointer', textDecoration: 'underline' }}
+                    >
                       connect
-                    </span> first.
+                    </span>{' '}
+                    first.
                   </>
                 ) : (
                   <>
-                    {selectedPredefinedContract ? 'Remember you will need to deploy it before you can interact with it.' : 'Click the "Deploy" button above to deploy this contract to the network.'}
+                    {selectedPredefinedContract
+                      ? 'Remember you will need to deploy it before you can interact with it.'
+                      : 'Click the "Deploy" button above to deploy this contract to the network.'}
                     {functionAbis.some(fn => fn.isInitializer) && (
-                      <div style={{ marginTop: '8px'}}>
+                      <div style={{ marginTop: '8px' }}>
                         This contract has initializer functions that will be available in the deployment dialog.
                       </div>
                     )}
@@ -334,7 +340,15 @@ export function ContractComponent() {
 
           <div css={functionListContainer}>
             {functionAbis.length === 0 && contractArtifact && (
-              <div style={{ padding: '20px', margin: '10px 0', textAlign: 'center', backgroundColor: 'rgba(255, 235, 59, 0.1)', borderRadius: '8px' }}>
+              <div
+                style={{
+                  padding: '20px',
+                  margin: '10px 0',
+                  textAlign: 'center',
+                  backgroundColor: 'rgba(255, 235, 59, 0.1)',
+                  borderRadius: '8px',
+                }}
+              >
                 <Typography variant="subtitle1" style={{ color: '#FF9800' }}>
                   No functions found for this contract. Please check the console for debugging information.
                 </Typography>

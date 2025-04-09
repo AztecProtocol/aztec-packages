@@ -164,7 +164,7 @@ export function LoadingModal() {
       setCurrentTx({
         ...currentTx,
         status: 'error' as const,
-        error: 'Deployment cancelled by user',
+        error: 'Transaction cancelled by user',
       });
     }
     // Clean up working state after a short delay to allow error to be displayed
@@ -184,9 +184,6 @@ export function LoadingModal() {
 
   const isError = currentTx.status === 'error';
   const isProving = currentTx.status === 'proving';
-  const isSending = currentTx.status === 'sending';
-  const isDeployingAccount = currentTx.fnName === 'deployAccount';
-  const isDeployingContract = currentTx.fnName === 'deploy';
 
   return (
     <div css={[modalContainer, isError && 'error']} onClick={handleOutsideClick}>
@@ -214,11 +211,7 @@ export function LoadingModal() {
           <>
             <Typography css={subtitleText}>
               {isProving
-                ? isDeployingAccount
-                  ? "You are deploying an account to Aztec testnet. Don't worry, we are covering the fees automatically."
-                  : isDeployingContract
-                  ? "You are deploying a contract to Aztec testnet. Don't worry, we are covering the fees automatically."
-                  : 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
+                ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
                 : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
             </Typography>
             <img src={loadingIcon} alt="Loading..." css={loadingAnimation} />

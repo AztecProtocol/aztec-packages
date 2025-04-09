@@ -8,7 +8,7 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, Fr, AccountWalletWithSecretKey, type FeePaymentMethod } from '@aztec/aztec.js';
+import { AztecAddress, Fr, type FeePaymentMethod, type DeployOptions } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 
 import { select } from '../styles';
@@ -22,8 +22,7 @@ import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
 
 import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { css } from '@emotion/react';
-import { AztecContext } from '../../../aztecEnv';
-import { LoadingModal } from '../../common/LoadingModal';
+import { AztecContext, WebLogger } from '../../../aztecEnv';
 import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
@@ -49,7 +48,7 @@ export function AccountSelector() {
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe } = useContext(AztecContext);
+  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, setCurrentTx } = useContext(AztecContext);
 
   const getAccounts = async () => {
     const aliasedBuffers = await walletDB.listAliases('accounts');
@@ -140,6 +139,7 @@ export function AccountSelector() {
     if (accountManager && salt && alias && type && signingKey) {
       setIsAccountChanging(true);
       const accountWallet = await accountManager.getWallet();
+      await accountManager.register();
       await walletDB.storeAccount(accountWallet.getAddress(), {
         type,
         secretKey: accountWallet.getSecretKey(),
@@ -153,7 +153,49 @@ export function AccountSelector() {
       setOpenCreateAccountDialog(false);
       if (publiclyDeploy) {
         setDeploymentInProgress(true);
-        await accountManager.deploy({ fee: { paymentMethod: feePaymentMethod } }).wait();
+        let receipt;
+        let txHash;
+        const fnName = 'Account deployment';
+        const currentTx = {
+          status: 'proving' as const,
+          fnName,
+          contractAddress: accountWallet.getAddress(),
+        };
+        setCurrentTx(currentTx);
+        try {
+          const deployMethod = await accountManager.getDeployMethod();
+          const deployOpts: DeployOptions = {
+            contractAddressSalt: accountManager.getInstance().salt,
+            fee: {
+              paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
+            },
+            universalDeploy: true,
+          };
+          const provenTx = await deployMethod.prove(deployOpts);
+          txHash = await provenTx.getTxHash();
+          setCurrentTx({
+            ...currentTx,
+            ...{ txHash, status: 'sending' },
+          });
+
+          receipt = await provenTx.send().wait({ dontThrowOnRevert: true });
+          await walletDB.storeTx({
+            contractAddress: accountManager.getAddress(),
+            txHash,
+            fnName,
+            receipt,
+          });
+        } catch (e) {
+          setCurrentTx({
+            ...currentTx,
+            ...{
+              txHash,
+              receipt,
+              status: 'error',
+              error: e.message,
+            },
+          });
+        }
         setDeploymentInProgress(false);
       }
     }
@@ -229,7 +271,6 @@ export function AccountSelector() {
           <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
         )}
       </FormControl>
-      {deploymentInProgress && <LoadingModal />}
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
     </div>
   );

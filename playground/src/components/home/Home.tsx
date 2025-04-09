@@ -6,6 +6,7 @@ import { AztecContext } from '../../aztecEnv';
 import { LogPanel } from '../logPanel/LogPanel';
 import { Landing } from './components/Landing';
 import logoURL from '../../assets/aztec_logo.png';
+import { LoadingModal } from '../common/LoadingModal';
 
 const layout = css({
   display: 'flex',
@@ -180,6 +181,7 @@ export default function Home() {
           {showContractInterface ? <ContractComponent /> : <Landing />}
         </div>
         <LogPanel />
+        <LoadingModal />
       </AztecContext.Provider>
     </div>
   );

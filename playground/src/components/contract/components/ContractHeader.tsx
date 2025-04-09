@@ -1,7 +1,7 @@
 import { css } from '@mui/styled-engine';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import { DeployContractDialog } from './deployContractDialog';
+import { DeployContractDialog } from './DeployContractDialog';
 import { RegisterContractDialog } from './registerContractDialog';
 
 const headerSection = css({
@@ -50,7 +50,7 @@ const actionButton = css({
   color: '#000000',
   '&:hover': {
     backgroundColor: '#BCC0C4',
-  }
+  },
 });
 
 interface ContractHeaderProps {
@@ -89,26 +89,18 @@ export function ContractHeader({
           <>
             On this page you can simulate transactions in this contract and send them to the network.
             <br />
-            This is a simple token contract demonstrating holding it both publicly and privately, and being able to transfer publicly and privately, and move it in and out of state publicly and privately.
+            This is a simple token contract demonstrating holding it both publicly and privately, and being able to
+            transfer publicly and privately, and move it in and out of state publicly and privately.
           </>
         ) : (
-          <>
-            On this page you can simulate transactions in this contract and send them to the network.
-          </>
+          <>On this page you can simulate transactions in this contract and send them to the network.</>
         )}
       </div>
       <div css={buttonContainer}>
-        <Button
-          css={actionButton}
-          onClick={onDeployRequested}
-          disabled={!nodeURL}
-        >
+        <Button css={actionButton} onClick={onDeployRequested} disabled={!nodeURL}>
           Deploy
         </Button>
-        <Button
-          css={actionButton}
-          onClick={() => window.open('https://docs.aztec.network/', '_blank')}
-        >
+        <Button css={actionButton} onClick={() => window.open('https://docs.aztec.network/', '_blank')}>
           Go to Docs
         </Button>
         <DeployContractDialog
