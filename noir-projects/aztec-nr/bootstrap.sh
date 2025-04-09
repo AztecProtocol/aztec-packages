@@ -39,6 +39,10 @@ function test {
   ./macro_compilation_failure_tests/assert_macro_compilation_failure.sh
 }
 
+function format {
+  $NARGO fmt
+}
+
 case "$cmd" in
   ""|"fast"|"full")
     build
@@ -47,7 +51,7 @@ case "$cmd" in
     build
     test
     ;;
-  test|test_cmds)
+  test|test_cmds|format)
     $cmd
     ;;
   "test-macro-compilation-failure")
