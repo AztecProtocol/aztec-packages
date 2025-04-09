@@ -251,8 +251,7 @@ AppendOnlyTreeSnapshot& HintedRawMerkleDB::get_tree_info(world_state::MerkleTree
     return get_tree_info_helper(tree_id, tree_roots);
 }
 
-crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id,
-                                                                         crypto::merkle_tree::index_t leaf_index) const
+SiblingPath HintedRawMerkleDB::get_sibling_path(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetSiblingPathKey key = { tree_info, tree_id, leaf_index };
@@ -271,8 +270,8 @@ crypto::merkle_tree::fr_sibling_path HintedRawMerkleDB::get_sibling_path(world_s
     return it->second;
 }
 
-crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(
-    world_state::MerkleTreeId tree_id, const FF& value) const
+GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexed_leaf(world_state::MerkleTreeId tree_id,
+                                                                  const FF& value) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetPreviousValueIndexKey key = { tree_info, tree_id, value };
@@ -291,7 +290,7 @@ crypto::merkle_tree::GetLowIndexedLeafResponse HintedRawMerkleDB::get_low_indexe
     return it->second;
 }
 
-FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, crypto::merkle_tree::index_t leaf_index) const
+FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, index_t leaf_index) const
 {
     auto tree_info = get_tree_info(tree_id);
     GetLeafValueKey key = { tree_info, tree_id, leaf_index };
@@ -299,8 +298,7 @@ FF HintedRawMerkleDB::get_leaf_value(world_state::MerkleTreeId tree_id, crypto::
     return it == get_leaf_value_hints.end() ? 0 : it->second;
 }
 
-crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
-    get_leaf_preimage_public_data_tree(crypto::merkle_tree::index_t leaf_index) const
+IndexedLeaf<PublicDataLeafValue> HintedRawMerkleDB::get_leaf_preimage_public_data_tree(index_t leaf_index) const
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -317,8 +315,7 @@ crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue> Hinte
     return it->second;
 }
 
-crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> HintedRawMerkleDB::
-    get_leaf_preimage_nullifier_tree(crypto::merkle_tree::index_t leaf_index) const
+IndexedLeaf<NullifierLeafValue> HintedRawMerkleDB::get_leaf_preimage_nullifier_tree(index_t leaf_index) const
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     GetLeafPreimageKey key = { tree_info, leaf_index };
@@ -335,8 +332,8 @@ crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::NullifierLeafValue> Hinted
     return it->second;
 }
 
-world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue> HintedRawMerkleDB::
-    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value)
+SequentialInsertionResult<PublicDataLeafValue> HintedRawMerkleDB::insert_indexed_leaves_public_data_tree(
+    const PublicDataLeafValue& leaf_value)
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::PUBLIC_DATA_TREE);
     SequentialInsertHintPublicDataTreeKey key = { tree_info, world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_value };
@@ -352,7 +349,7 @@ world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
     }
     const auto& hint = it->second;
 
-    world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue> result;
+    SequentialInsertionResult<PublicDataLeafValue> result;
 
     // Convert low leaves witness data
     result.low_leaf_witness_data.emplace_back(
@@ -374,8 +371,8 @@ world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
     return result;
 }
 
-world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> HintedRawMerkleDB::
-    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value)
+SequentialInsertionResult<NullifierLeafValue> HintedRawMerkleDB::insert_indexed_leaves_nullifier_tree(
+    const NullifierLeafValue& leaf_value)
 {
     auto tree_info = get_tree_info(world_state::MerkleTreeId::NULLIFIER_TREE);
     SequentialInsertHintNullifierTreeKey key = { tree_info, world_state::MerkleTreeId::NULLIFIER_TREE, leaf_value };
@@ -391,7 +388,7 @@ world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> 
     }
     const auto& hint = it->second;
 
-    world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue> result;
+    SequentialInsertionResult<NullifierLeafValue> result;
 
     // Convert low leaves witness data
     result.low_leaf_witness_data.emplace_back(
