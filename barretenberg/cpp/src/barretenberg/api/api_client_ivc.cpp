@@ -167,12 +167,8 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
 
     ivc.construct_hiding_circuit_key();
 
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>();
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>();
-
     const bool output_to_stdout = output_dir == "-";
-    const auto vk = std::make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
-    const auto buf = to_buffer(vk);
+    const auto buf = to_buffer(ivc.get_vk());
 
     if (output_to_stdout) {
         write_bytes_to_stdout(buf);
@@ -442,8 +438,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    ClientIVC::VerificationKey ivc_vk{ .mega = ivc.honk_vk };
-    write_file(output_dir / "vk", to_buffer(ivc_vk));
+    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
 }
 
 } // namespace bb

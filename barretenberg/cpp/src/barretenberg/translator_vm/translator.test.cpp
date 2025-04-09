@@ -24,7 +24,9 @@ class TranslatorTests : public ::testing::Test {
     static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     // Construct a test circuit based on some random operations
-    static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v, const Fq& evaluation_challenge_x)
+    static CircuitBuilder generate_test_circuit(const Fq& batching_challenge_v,
+                                                const Fq& evaluation_challenge_x,
+                                                const size_t circuit_size_parameter = 500)
     {
         auto P1 = G1::random_element();
         auto P2 = G1::random_element();
@@ -34,7 +36,7 @@ class TranslatorTests : public ::testing::Test {
         auto op_queue = std::make_shared<bb::ECCOpQueue>();
         op_queue->append_nonzero_ops();
 
-        for (size_t i = 0; i < 500; i++) {
+        for (size_t i = 0; i < circuit_size_parameter; i++) {
             op_queue->add_accumulate(P1);
             op_queue->mul_accumulate(P2, z);
         }
@@ -75,7 +77,8 @@ TEST_F(TranslatorTests, Basic)
 }
 
 /**
- * @brief Ensure that the fixed VK from the default constructor agrees with the one computed for an arbitrary circuit
+ * @brief Ensure that the fixed VK from the default constructor agrees with those computed manually for an arbitrary
+ * circuit
  *
  */
 TEST_F(TranslatorTests, FixedVK)
@@ -88,19 +91,26 @@ TEST_F(TranslatorTests, FixedVK)
     Fq batching_challenge_v = Fq::random_element();
     Fq evaluation_challenge_x = Fq::random_element();
 
-    // Generate a circuit and its verification key (computed at runtime from the proving key)
-    CircuitBuilder circuit_builder = generate_test_circuit(batching_challenge_v, evaluation_challenge_x);
-    auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
-    TranslatorProver prover{ proving_key, prover_transcript };
-    auto verification_key = std::make_shared<TranslatorFlavor::VerificationKey>(proving_key->proving_key);
-
     // Generate the default fixed VK
     TranslatorFlavor::VerificationKey fixed_vk{};
-
-    // Set verifier PCS key to null in both the fixed VK and the generated VK
     fixed_vk.pcs_verification_key = nullptr;
-    verification_key->pcs_verification_key = nullptr;
 
-    // Check that the two VKs are equal
-    EXPECT_EQ(*verification_key.get(), fixed_vk);
+    // Lambda for manually computing a verification key for a given circuit and comparing it to the fixed VK
+    auto compare_computed_vk_against_fixed = [&](size_t circuit_size_parameter) {
+        CircuitBuilder circuit_builder =
+            generate_test_circuit(batching_challenge_v, evaluation_challenge_x, circuit_size_parameter);
+        auto proving_key = std::make_shared<TranslatorProvingKey>(circuit_builder);
+        TranslatorProver prover{ proving_key, prover_transcript };
+        TranslatorFlavor::VerificationKey computed_vk(proving_key->proving_key);
+        computed_vk.pcs_verification_key = nullptr;
+
+        EXPECT_EQ(computed_vk, fixed_vk);
+    };
+
+    // Check consistency of the fixed VK with the computed VK for some different circuit sizes
+    const size_t circuit_size_parameter_1 = 1 << 2;
+    const size_t circuit_size_parameter_2 = 1 << 3;
+
+    compare_computed_vk_against_fixed(circuit_size_parameter_1);
+    compare_computed_vk_against_fixed(circuit_size_parameter_2);
 }
