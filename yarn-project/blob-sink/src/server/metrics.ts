@@ -38,7 +38,7 @@ export class BlobSinkMetrics {
     });
 
     this.getBlobRequests = meter.createUpDownCounter(Metrics.BLOB_SINK_RETRIEVE_REQUESTS, {
-      description: 'The count of requests to store blobs',
+      description: 'The count of requests to retrieve blobs',
       valueType: ValueType.INT,
     });
   }
