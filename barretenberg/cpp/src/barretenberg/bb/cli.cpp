@@ -238,7 +238,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
-    const auto add_inputs_path_options = [&](CLI::App* subcommand) {
+    const auto add_ivc_inputs_path_options = [&](CLI::App* subcommand) {
         subcommand->add_option(
             "--ivc_inputs_path", ivc_inputs_path, "For IVC, path to input stack with bytecode and witnesses.")
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
@@ -332,8 +332,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
-    // Used by IVC.
-    add_inputs_path_options(prove);
+    add_ivc_inputs_path_options(prove);
 
     add_verbose_flag(prove);
     add_debug_flag(prove);
@@ -362,8 +361,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_scheme_option(write_vk);
     add_bytecode_path_option(write_vk);
     add_output_path_option(write_vk, output_path);
-    // Used by IVC.
-    add_inputs_path_options(prove);
+    add_ivc_inputs_path_options(write_vk);
 
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
