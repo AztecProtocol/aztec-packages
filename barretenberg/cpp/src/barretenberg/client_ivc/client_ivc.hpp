@@ -233,7 +233,7 @@ class ClientIVC {
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
-    bool verify(const Proof& proof);
+    bool verify(const Proof& proof) const;
 
     bool prove_and_verify();
 

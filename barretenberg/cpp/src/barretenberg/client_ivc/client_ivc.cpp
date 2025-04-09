@@ -311,11 +311,9 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(const Proof& proof)
+bool ClientIVC::verify(const Proof& proof) const
 {
-    auto eccvm_vk = std::make_shared<ECCVMVerificationKey>();
-    auto translator_vk = std::make_shared<TranslatorVerificationKey>();
-    return verify(proof, { honk_vk, eccvm_vk, translator_vk });
+    return verify(proof, get_vk());
 }
 
 /**

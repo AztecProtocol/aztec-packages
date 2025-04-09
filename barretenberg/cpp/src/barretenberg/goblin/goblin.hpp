@@ -50,8 +50,9 @@ class Goblin {
     // std::shared_ptr<Transcript> transcript;
 
     struct VerificationKey {
-        std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
-        std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
+        std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
+        std::shared_ptr<TranslatorVerificationKey> translator_verification_key =
+            std::make_shared<TranslatorVerificationKey>();
     };
 
   private:
