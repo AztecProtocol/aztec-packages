@@ -330,7 +330,7 @@ function getBeaconNodeFetchOptions(url: string, config: BlobSinkConfig, l1Consen
     ...(l1ConsensusHostApiKey &&
       l1ConsensusHostApiKeyHeader && {
         headers: {
-          [l1ConsensusHostApiKeyHeader]: l1ConsensusHostApiKey,
+          [l1ConsensusHostApiKeyHeader]: l1ConsensusHostApiKey.getValue(),
         },
       }),
   };
