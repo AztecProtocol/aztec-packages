@@ -842,7 +842,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
                 return 0;
             }
             if (write_vk->parsed() && flags.verifier_type == "ivc") {
-                api.write_ivc_vk(flags, input_path);
+                api.write_ivc_vk(input_path, output_path);
                 return 0;
             }
             return execute_non_prove_command(api);
