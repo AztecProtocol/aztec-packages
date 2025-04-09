@@ -2,9 +2,11 @@ name: release-please
 
 # Trigger on merges to 'master' branch
 on:
-  push:
-    branches:
-      - master
+  # push:
+  #   branches:
+  #     - master
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 permissions:
   contents: write
@@ -13,19 +15,19 @@ env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
 
 jobs:
-  release-please:
-    name: Create Release
-    runs-on: ubuntu-latest
-    outputs:
-      release-pr: ${{ steps.release.outputs.pr }}
-    steps:
-      - name: Run Release Please
-        id: release
-        uses: google-github-actions/release-please-action@v3
-        with:
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
-          command: manifest
-          default-branch: ${{ env.BRANCH_NAME }}
+  # release-please:
+  #   name: Create Release
+  #   runs-on: ubuntu-latest
+  #   outputs:
+  #     release-pr: ${{ steps.release.outputs.pr }}
+  #   steps:
+  #     - name: Run Release Please
+  #       id: release
+  #       uses: google-github-actions/release-please-action@v3
+  #       with:
+  #         token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+  #         command: manifest
+  #         default-branch: ${{ env.BRANCH_NAME }}
 
   update-docs:
     name: Update docs
