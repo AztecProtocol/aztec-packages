@@ -45,6 +45,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
     srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto run_shplemini = [](size_t log_circuit_size) {
+        using diff_t = std::vector<NativeFr>::difference_type;
+
         size_t N = 1 << log_circuit_size;
         constexpr size_t NUM_POLYS = 5;
         constexpr size_t NUM_SHIFTED = 2;
@@ -52,13 +54,18 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
         auto commitment_key = std::make_shared<CommitmentKey>(16384);
 
-        std::vector<NativeFr> u_challenge(log_circuit_size);
-        for (size_t idx = 0; idx < log_circuit_size; ++idx) {
-            u_challenge[idx] = NativeFr::random_element(&shplemini_engine);
+        std::vector<NativeFr> u_challenge;
+        u_challenge.reserve(CONST_PROOF_SIZE_LOG_N);
+        for (size_t idx = 0; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+            u_challenge.emplace_back(NativeFr::random_element(&shplemini_engine));
         };
 
+        // Truncate to real size to create mock claims.
+        std::vector<NativeFr> truncated_u_challenge(u_challenge.begin(),
+                                                    u_challenge.begin() + static_cast<diff_t>(log_circuit_size));
         // Construct mock multivariate polynomial opening claims
-        MockClaimGen mock_claims(N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, u_challenge, commitment_key);
+        MockClaimGen mock_claims(
+            N, NUM_POLYS, NUM_SHIFTED, NUM_RIGHT_SHIFTED_BY_K, truncated_u_challenge, commitment_key);
 
         // Initialize an empty NativeTranscript
         auto prover_transcript = NativeTranscript::prover_init_empty();
@@ -102,17 +109,10 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
 
         std::vector<Fr> u_challenge_in_circuit;
         u_challenge_in_circuit.reserve(CONST_PROOF_SIZE_LOG_N);
-        auto u_iter = u_challenge.begin();
 
-        std::generate_n(std::back_inserter(u_challenge_in_circuit), CONST_PROOF_SIZE_LOG_N, [&] {
-            // We still need to do the same
-            Fr zero = Fr(0);
-            zero.convert_constant_to_fixed_witness(&builder);
-            if (u_iter < u_challenge.end()) {
-                return Fr::from_witness(&builder, *u_iter++);
-            }
-            return zero;
-        });
+        for (auto u : u_challenge) {
+            u_challenge_in_circuit.emplace_back(Fr::from_witness(&builder, u));
+        }
 
         ClaimBatcher claim_batcher{
             .unshifted = ClaimBatch{ RefVector(stdlib_unshifted_commitments), RefVector(stdlib_unshifted_evaluations) },

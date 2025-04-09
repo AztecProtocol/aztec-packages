@@ -6,7 +6,6 @@
 #   clean: Force a complete clean of the repo. Erases untracked files, be careful!
 # Use ci3 script base.
 source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
-source $ci3/source_redis
 
 # Enable abbreviated output by default.
 export DENOISE=${DENOISE:-1}
@@ -197,7 +196,8 @@ function build {
     yarn-project
     boxes
     playground
-    docs
+    # Blocking release.
+    # docs
     release-image
     aztec-up
   )
@@ -269,7 +269,8 @@ function release {
     boxes
     aztec-up
     playground
-    docs
+    # Blocking release.
+    # docs
     release-image
   )
   if [ $(arch) == arm64 ]; then
@@ -319,6 +320,7 @@ case "$cmd" in
   ;;
   "ci")
     build
+    ./spartan/bootstrap.sh lint
     if ! semver check $REF_NAME; then
       test
       bench
@@ -330,6 +332,10 @@ case "$cmd" in
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
+    ;;
+  "docs-release")
+    build
+    docs/bootstrap.sh docs-release
     ;;
   *)
     echo "Unknown command: $cmd"

@@ -173,9 +173,9 @@ struct AcirProgramStack {
     std::vector<AcirFormat> constraint_systems;
     WitnessVectorStack witness_stack;
 
-    AcirProgramStack(const std::vector<AcirFormat>& constraint_systems_in, const WitnessVectorStack& witness_stack_in)
-        : constraint_systems(constraint_systems_in)
-        , witness_stack(witness_stack_in)
+    AcirProgramStack(std::vector<AcirFormat> constraint_systems_in, WitnessVectorStack witness_stack_in)
+        : constraint_systems(std::move(constraint_systems_in))
+        , witness_stack(std::move(witness_stack_in))
     {}
 
     size_t size() const { return witness_stack.size(); }

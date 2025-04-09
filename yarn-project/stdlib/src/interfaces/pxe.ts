@@ -1,5 +1,5 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
 import { SiblingPath } from '@aztec/foundation/trees';
 
@@ -10,7 +10,6 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -29,10 +28,18 @@ import { type LogFilter, LogFilterSchema } from '../logs/log_filter.js';
 import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
-import { PrivateExecutionResult, Tx, TxExecutionRequest, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import {
+  type IndexedTxEffect,
+  PrivateExecutionResult,
+  Tx,
+  TxExecutionRequest,
+  TxHash,
+  TxReceipt,
+  TxSimulationResult,
+  indexedTxSchema,
+} from '../tx/index.js';
 import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
-import { TxEffect } from '../tx/tx_effect.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
@@ -129,7 +136,7 @@ export interface PXE {
 
   /**
    * Proves the private portion of a simulated transaction, ready to send to the network
-   * (where valiators prove the public portion).
+   * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
@@ -202,11 +209,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -264,19 +271,18 @@ export interface PXE {
   getCurrentBaseFees(): Promise<GasFees>;
 
   /**
-   * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
-   * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
-   * The function takes function name and arguments as parameters, along with the contract address
-   * and optionally the sender's address.
+   * Simulate the execution of a contract utility function.
    *
-   * @param functionName - The name of the function to be called in the contract.
+   * @param functionName - The name of the utility contract function to be called.
    * @param args - The arguments to be provided to the function.
    * @param to - The address of the contract to be called.
+   * @param authwits - (Optional) The authentication witnesses required for the function call.
    * @param from - (Optional) The msg sender to set for the call.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The result of the view function call, structured based on the function ABI.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
+   * default to all.
+   * @returns The result of the utility function call, structured based on the function ABI.
    */
-  simulateUnconstrained(
+  simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
@@ -313,7 +319,7 @@ export interface PXE {
 
   /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
-   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * L1 chain identifier, rollup version, and L1 address of the rollup contract.
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
@@ -354,13 +360,20 @@ export interface PXE {
 
   /**
    * Returns the private events given search parameters.
+   * @param contractAddress - The address of the contract to get events from.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
-   * @param limit - The amount of blocks to search.
-   * @param vpks - The incoming viewing public keys that can decrypt the log.
+   * @param numBlocks - The amount of blocks to search.
+   * @param recipients - The addresses that decrypted the logs.
    * @returns - The deserialized events.
    */
-  getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>;
+  getPrivateEvents<T>(
+    contractAddress: AztecAddress,
+    eventMetadata: EventMetadataDefinition,
+    from: number,
+    numBlocks: number,
+    recipients: AztecAddress[],
+  ): Promise<T[]>;
 
   /**
    * Returns the public events given search parameters.
@@ -464,10 +477,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(TxSimulationResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
-  getTxEffect: z
-    .function()
-    .args(TxHash.schema)
-    .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
   getL1ToL2MembershipWitness: z
@@ -484,7 +494,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(z.union([L2Block.schema, z.undefined()])),
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
-  simulateUnconstrained: z
+  simulateUtility: z
     .function()
     .args(
       z.string(),
@@ -505,7 +515,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
   getPrivateEvents: z
     .function()
-    .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))
+    .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
     .returns(z.array(AbiDecodedSchema)),
   getPublicEvents: z
     .function()

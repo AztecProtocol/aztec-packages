@@ -55,9 +55,9 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 // These are options used by multiple modules so should be inputted once
 export const universalOptions = [
   'l1RpcUrls',
-  'l1ConsensusHostUrl',
-  'l1ConsensusHostApiKey',
-  'l1ConsensusHostApiKeyHeader',
+  'l1ConsensusHostUrls',
+  'l1ConsensusHostApiKeys',
+  'l1ConsensusHostApiKeyHeaders',
   'l1ChainId',
   'l1Contracts',
   'p2pEnabled',
@@ -65,11 +65,13 @@ export const universalOptions = [
   'dataStoreMapSizeKb',
 ];
 
+export const NETWORK_FLAG = 'network';
+
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   NETWORK: [
     {
-      flag: '--network <value>',
+      flag: `--${NETWORK_FLAG} <value>`,
       description: 'Network to run Aztec on',
       defaultValue: undefined,
       envVar: 'NETWORK',
@@ -83,13 +85,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.testAccounts',
-      description: 'Deploy test accounts on sandbox start',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
-    },
-    {
-      flag: '--sandbox.noPXE',
+      flag: '--sandbox.noPXE [value]',
       description: 'Do not expose PXE service on sandbox start',
       envVar: 'NO_PXE',
       ...booleanConfigHelper(),
@@ -139,23 +135,26 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'MNEMONIC',
     },
     {
-      flag: '--l1-consensus-host-url <value>',
-      description: 'URL of the Ethereum consensus node that services will connect to',
-      defaultValue: undefined,
-      envVar: 'L1_CONSENSUS_HOST_URL',
+      flag: '--l1-consensus-host-urls <value>',
+      description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_URLS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
     },
     {
-      flag: '--l1-consensus-host-api-key <value>',
-      description: 'API key for the Ethereum consensus node',
-      defaultValue: undefined,
-      envVar: 'L1_CONSENSUS_HOST_API_KEY',
+      flag: '--l1-consensus-host-api-keys <value>',
+      description: 'List of API keys for the corresponding Ethereum consensus nodes',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_API_KEYS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
     {
-      flag: '--l1-consensus-host-api-key-header <value>',
+      flag: '--l1-consensus-host-api-key-headers <value>',
       description:
-        'API key header for the Ethereum consensus node. If not set, the api key will be appended to the URL as ?key=<api-key>',
-      defaultValue: undefined,
-      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADER',
+        'List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as ?key=<api-key>',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
   ],
   STORAGE: [
@@ -268,15 +267,22 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: val => parseInt(val, 10),
     },
     {
-      flag: '--node.testAccounts',
-      description: 'Populate genesis state with initial fee juice for test accounts',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(),
+      flag: '--node.syncMode <value>',
+      description:
+        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+      defaultValue: 'snapshot',
+      envVar: 'SYNC_MODE',
+    },
+    {
+      flag: '--node.snapshotsUrl <value>',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
+      defaultValue: undefined,
+      envVar: 'SYNC_SNAPSHOTS_URL',
     },
   ],
   'P2P SUBSYSTEM': [
     {
-      flag: '--p2p-enabled',
+      flag: '--p2p-enabled [value]',
       description: 'Enable P2P subsystem',
       envVar: 'P2P_ENABLED',
       ...booleanConfigHelper(),

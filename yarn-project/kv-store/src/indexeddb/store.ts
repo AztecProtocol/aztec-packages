@@ -3,7 +3,7 @@ import type { Logger } from '@aztec/foundation/log';
 import { type DBSchema, type IDBPDatabase, deleteDB, openDB } from 'idb';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize } from '../interfaces/common.js';
+import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap } from '../interfaces/multi_map.js';
@@ -16,13 +16,20 @@ import { IndexedDBAztecMultiMap } from './multi_map.js';
 import { IndexedDBAztecSet } from './set.js';
 import { IndexedDBAztecSingleton } from './singleton.js';
 
-export type StoredData<V> = { value: V; container: string; key: string; keyCount: number; slot: string };
+export type StoredData<V extends Value> = {
+  value: V;
+  container: string;
+  key: string;
+  keyCount: number;
+  slot: string;
+  hash: string;
+};
 
 export interface AztecIDBSchema extends DBSchema {
   data: {
     value: StoredData<any>;
     key: string;
-    indexes: { container: string; key: string; keyCount: number };
+    indexes: { container: string; key: string; keyCount: number; hash: string };
   };
 }
 
@@ -67,6 +74,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
         objectStore.createIndex('key', ['container', 'key'], { unique: false });
         objectStore.createIndex('keyCount', ['container', 'key', 'keyCount'], { unique: false });
+        objectStore.createIndex('hash', ['container', 'key', 'hash'], { unique: true });
       },
     });
 
@@ -75,34 +83,11 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
   }
 
   /**
-   * Forks the current DB into a new DB by backing it up to a temporary location and opening a new indexedb.
-   * @returns A new AztecIndexedDBStore.
-   */
-  async fork(): Promise<AztecAsyncKVStore> {
-    const forkedStore = await AztecIndexedDBStore.open(this.#log, undefined, true);
-    this.#log.verbose(`Forking store to ${forkedStore.#name}`);
-
-    // Copy old data to new store
-    const oldData = this.#rootDB.transaction('data').store;
-    const dataToWrite = [];
-    for await (const cursor of oldData.iterate()) {
-      dataToWrite.push(cursor.value);
-    }
-    const tx = forkedStore.#rootDB.transaction('data', 'readwrite').store;
-    for (const data of dataToWrite) {
-      await tx.add(data);
-    }
-
-    this.#log.debug(`Forked store at ${forkedStore.#name} opened successfully`);
-    return forkedStore;
-  }
-
-  /**
    * Creates a new AztecMap in the store.
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V> {
     const map = new IndexedDBAztecMap<K, V>(this.#rootDB, name);
     this.#containers.add(map);
     return map;
@@ -124,7 +109,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V> {
     const multimap = new IndexedDBAztecMultiMap<K, V>(this.#rootDB, name);
     this.#containers.add(multimap);
     return multimap;
@@ -139,7 +124,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  openArray<T>(name: string): AztecAsyncArray<T> {
+  openArray<T extends Value>(name: string): AztecAsyncArray<T> {
     const array = new IndexedDBAztecArray<T>(this.#rootDB, name);
     this.#containers.add(array);
     return array;
@@ -150,7 +135,7 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
    * @param name - Name of the singleton
    * @returns A new AztecSingleton
    */
-  openSingleton<T>(name: string): AztecAsyncSingleton<T> {
+  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T> {
     const singleton = new IndexedDBAztecSingleton<T>(this.#rootDB, name);
     this.#containers.add(singleton);
     return singleton;
@@ -199,5 +184,9 @@ export class AztecIndexedDBStore implements AztecAsyncKVStore {
 
   close(): Promise<void> {
     return Promise.resolve();
+  }
+
+  backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
+    throw new Error('Method not implemented.');
   }
 }

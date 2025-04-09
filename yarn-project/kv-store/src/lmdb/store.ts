@@ -7,7 +7,7 @@ import { tmpdir } from 'os';
 import { join } from 'path';
 
 import type { AztecArray, AztecAsyncArray } from '../interfaces/array.js';
-import type { Key, StoreSize } from '../interfaces/common.js';
+import type { Key, StoreSize, Value } from '../interfaces/common.js';
 import type { AztecAsyncCounter, AztecCounter } from '../interfaces/counter.js';
 import type { AztecAsyncMap, AztecMap } from '../interfaces/map.js';
 import type { AztecAsyncMultiMap, AztecMultiMap } from '../interfaces/multi_map.js';
@@ -76,26 +76,11 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
   }
 
   /**
-   * Forks the current DB into a new DB by backing it up to a temporary location and opening a new lmdb db.
-   * @returns A new AztecLmdbStore.
-   */
-  async fork() {
-    const baseDir = this.path;
-    this.#log.debug(`Forking store with basedir ${baseDir}`);
-    const forkPath = await fs.mkdtemp(join(baseDir, 'aztec-store-fork-'));
-    this.#log.verbose(`Forking store to ${forkPath}`);
-    await this.#rootDb.backup(forkPath, false);
-    const forkDb = open(forkPath, { noSync: this.isEphemeral });
-    this.#log.debug(`Forked store at ${forkPath} opened successfully`);
-    return new AztecLmdbStore(forkDb, this.isEphemeral, forkPath);
-  }
-
-  /**
    * Creates a new AztecMap in the store.
    * @param name - Name of the map
    * @returns A new AztecMap
    */
-  openMap<K extends Key, V>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
+  openMap<K extends Key, V extends Value>(name: string): AztecMap<K, V> & AztecAsyncMap<K, V> {
     return new LmdbAztecMap(this.#data, name);
   }
 
@@ -113,7 +98,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @param name - Name of the map
    * @returns A new AztecMultiMap
    */
-  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecMultiMap<K, V> & AztecAsyncMultiMap<K, V> {
     return new LmdbAztecMultiMap(this.#multiMapData, name);
   }
 
@@ -126,7 +111,7 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
    * @param name - Name of the array
    * @returns A new AztecArray
    */
-  openArray<T>(name: string): AztecArray<T> & AztecAsyncArray<T> {
+  openArray<T extends Value>(name: string): AztecArray<T> & AztecAsyncArray<T> {
     return new LmdbAztecArray(this.#data, name);
   }
 
@@ -237,5 +222,9 @@ export class AztecLmdbStore implements AztecKVStore, AztecAsyncKVStore {
       actualSize = (branchPages + leafPages + overflowPages) * pageSize;
     }
     return { actualSize, numItems };
+  }
+
+  backupTo(_dstPath: string, _compact?: boolean): Promise<void> {
+    throw new Error('Method not implemented.');
   }
 }

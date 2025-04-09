@@ -1,5 +1,6 @@
 import { strict as assert } from 'assert';
 
+import { TaggedMemory } from '../avm_memory_types.js';
 import { BufferCursor } from './buffer_cursor.js';
 
 /**
@@ -92,10 +93,8 @@ export const MAX_OPCODE_VALUE = Math.max(
     .filter(k => !isNaN(k)),
 );
 
-// Possible types for an instruction's operand in its wire format. (Keep in sync with CPP code.
-// See vm/avm_trace/deserialization.cpp)
-// Note that cpp code introduced an additional enum value TAG to express the instruction tag. In TS,
-// this one is parsed as UINT8.
+// Possible types for an instruction's operand in its wire format.
+// The counterpart cpp file is: vm2/simulation/lib/serialization.hpp.
 export enum OperandType {
   UINT8,
   UINT16,
@@ -103,7 +102,11 @@ export enum OperandType {
   UINT64,
   UINT128,
   FF,
+  TAG,
 }
+
+// Define a type that represents the possible types of the deserialized values.
+type DeserializedValue = number | bigint;
 
 type OperandNativeType = number | bigint;
 type OperandWriter = (value: any) => void;
@@ -116,6 +119,7 @@ const OPERAND_SPEC = new Map<OperandType, [number, (offset: number) => OperandNa
   [OperandType.UINT64, [8, Buffer.prototype.readBigInt64BE, Buffer.prototype.writeBigInt64BE]],
   [OperandType.UINT128, [16, readBigInt128BE, writeBigInt128BE]],
   [OperandType.FF, [32, readBigInt254BE, writeBigInt254BE]],
+  [OperandType.TAG, [1, Buffer.prototype.readUint8, Buffer.prototype.writeUint8]],
 ]);
 
 function readBigInt254BE(this: Buffer, offset: number): bigint {
@@ -160,17 +164,28 @@ function writeBigInt128BE(this: Buffer, value: bigint): void {
  * @param operands Specification of the operand types.
  * @returns An array as big as {@code operands}, with the converted TS values.
  */
-export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): (number | bigint)[] {
-  const argValues = [];
+export function deserialize(cursor: BufferCursor | Buffer, operands: OperandType[]): DeserializedValue[] {
+  const argValues: DeserializedValue[] = [];
   if (Buffer.isBuffer(cursor)) {
     cursor = new BufferCursor(cursor);
   }
 
-  for (const op of operands) {
-    const opType = op;
+  for (const opType of operands) {
     const [sizeBytes, reader, _writer] = OPERAND_SPEC.get(opType)!;
-    argValues.push(reader.call(cursor.buffer(), cursor.position()));
+    const value = reader.call(cursor.buffer(), cursor.position());
+    argValues.push(value);
     cursor.advance(sizeBytes);
+  }
+
+  // We first want to detect other parsing errors (e.g., instruction size
+  // is longer than remaining bytes) first and therefore tag validation is done after completion
+  // of parsing above. Order of errors need to match with circuit.
+  for (let i = 0; i < operands.length; i++) {
+    if (operands[i] === OperandType.TAG) {
+      // We parsed a single byte (readUInt8()) and therefore value is of number type (not bigint)
+      // We need to cast to number because checkIsValidTag expects a number.
+      TaggedMemory.checkIsValidTag(Number(argValues[i] ?? 0));
+    }
   }
 
   return argValues;

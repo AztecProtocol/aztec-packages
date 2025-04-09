@@ -1,7 +1,18 @@
 import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { computeCalldataHash } from '@aztec/stdlib/hash';
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
+  TX_ERROR_CALLDATA_COUNT_TOO_LARGE,
+  TX_ERROR_CONTRACT_CLASS_LOGS,
+  TX_ERROR_CONTRACT_CLASS_LOG_COUNT,
+  TX_ERROR_CONTRACT_CLASS_LOG_LENGTH,
+  TX_ERROR_CONTRACT_CLASS_LOG_SORTING,
+  TX_ERROR_INCORRECT_CALLDATA,
+  Tx,
+  type TxValidationResult,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:tx_data');
@@ -14,7 +25,7 @@ export class DataTxValidator implements TxValidator<Tx> {
 
   async #hasCorrectCalldata(tx: Tx): Promise<TxValidationResult> {
     if (tx.publicFunctionCalldata.length !== tx.numberOfPublicCalls()) {
-      const reason = 'Wrong number of calldata for public calls';
+      const reason = TX_ERROR_CALLDATA_COUNT_MISMATCH;
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Expected ${tx.numberOfPublicCalls()}. Got ${
           tx.publicFunctionCalldata.length
@@ -24,7 +35,7 @@ export class DataTxValidator implements TxValidator<Tx> {
     }
 
     if (tx.getTotalPublicCalldataCount() > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
-      const reason = 'Total calldata too large for enqueued public calls';
+      const reason = TX_ERROR_CALLDATA_COUNT_TOO_LARGE;
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(
           tx,
@@ -38,7 +49,7 @@ export class DataTxValidator implements TxValidator<Tx> {
       const { request, calldata } = callRequests[i];
       const hash = await computeCalldataHash(calldata);
       if (!hash.equals(request.calldataHash)) {
-        const reason = 'Incorrect calldata for public call';
+        const reason = TX_ERROR_INCORRECT_CALLDATA;
         this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Call request index: ${i}.`);
         return { result: 'invalid', reason: [reason] };
       }
@@ -56,7 +67,7 @@ export class DataTxValidator implements TxValidator<Tx> {
           contractClassLogsHashes.length
         }. Got ${hashedContractClasslogs.length}.`,
       );
-      return { result: 'invalid', reason: ['Mismatched number of contract class logs'] };
+      return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_COUNT] };
     }
     for (const [i, logHash] of contractClassLogsHashes.entries()) {
       const hashedLog = hashedContractClasslogs[i];
@@ -68,14 +79,14 @@ export class DataTxValidator implements TxValidator<Tx> {
               tx,
             )} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
           );
-          return { result: 'invalid', reason: ['Incorrectly sorted contract class logs'] };
+          return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_SORTING] };
         } else {
           this.#log.warn(
             `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
               logHash.value
             } from the kernels. Got ${hashedLog} in the tx.`,
           );
-          return { result: 'invalid', reason: ['Mismatched contract class logs'] };
+          return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOGS] };
         }
       }
       if (logHash.logHash.length !== tx.contractClassLogs[i].getEmittedLength()) {
@@ -84,7 +95,7 @@ export class DataTxValidator implements TxValidator<Tx> {
             logHash.logHash.length
           } from the kernel's log hashes. Got ${tx.contractClassLogs[i].getEmittedLength()} in the tx.`,
         );
-        return { result: 'invalid', reason: ['Mismatched contract class logs length'] };
+        return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_LENGTH] };
       }
     }
     return { result: 'valid' };

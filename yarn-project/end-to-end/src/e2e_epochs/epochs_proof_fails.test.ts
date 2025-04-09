@@ -12,12 +12,7 @@ import { jest } from '@jest/globals';
 import type { PublicClient } from 'viem';
 
 import type { EndToEndContext } from '../fixtures/utils.js';
-import {
-  EPOCH_DURATION_IN_L2_SLOTS,
-  EpochsTestContext,
-  L1_BLOCK_TIME_IN_S,
-  L2_SLOT_DURATION_IN_L1_SLOTS,
-} from './epochs_test.js';
+import { EpochsTestContext, L1_BLOCK_TIME_IN_S, L2_SLOT_DURATION_IN_L1_SLOTS } from './epochs_test.js';
 
 jest.setTimeout(1000 * 60 * 10);
 
@@ -60,7 +55,7 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     // Wait until the last block of epoch 1 is published and then hold off the sequencer.
     // Note that the tx below will block the sequencer until it times out
     // the txPropagationMaxQueryAttempts until #10824 is fixed.
-    await test.waitUntilL2BlockNumber(blockNumberAtEndOfEpoch0 + EPOCH_DURATION_IN_L2_SLOTS);
+    await test.waitUntilL2BlockNumber(blockNumberAtEndOfEpoch0 + test.epochDuration);
     sequencerDelayer.pauseNextTxUntilTimestamp(epoch2Start + BigInt(L1_BLOCK_TIME_IN_S));
 
     // Next sequencer to publish a block should trigger a rollback to block 1
@@ -88,9 +83,9 @@ describe('e2e_epochs/epochs_proof_fails', () => {
     jest.spyOn(epochProverManager, 'createEpochProver').mockImplementation(() => {
       const prover = originalCreate();
       jest.spyOn(prover, 'finaliseEpoch').mockImplementation(async () => {
-        const seconds = L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * EPOCH_DURATION_IN_L2_SLOTS;
+        const seconds = L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * test.epochDuration;
         logger.warn(`Finalise epoch: sleeping ${seconds}s.`);
-        await sleep(L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * EPOCH_DURATION_IN_L2_SLOTS * 1000);
+        await sleep(L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS * test.epochDuration * 1000);
         logger.warn(`Finalise epoch: returning.`);
         finaliseEpochPromise.resolve();
         return { publicInputs: RootRollupPublicInputs.random(), proof: Proof.empty() };

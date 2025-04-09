@@ -13,7 +13,7 @@
 namespace bb::avm2::simulation {
 
 // Possible types for an instruction's operand in its wire format.
-// Note that the TAG enum value is not supported in TS and is parsed as UINT8.
+// The counterpart TS file is: avm/serialization/instruction_serialization.ts.
 // INDIRECT is parsed as UINT8 where the bits represent the operands that have indirect mem access.
 enum class OperandType : uint8_t { INDIRECT8, INDIRECT16, TAG, UINT8, UINT16, UINT32, UINT64, UINT128, FF };
 

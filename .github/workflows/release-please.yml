@@ -16,6 +16,8 @@ jobs:
   release-please:
     name: Create Release
     runs-on: ubuntu-latest
+    outputs:
+      release-pr: ${{ steps.release.outputs.pr }}
     steps:
       - name: Run Release Please
         id: release
@@ -24,3 +26,34 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
           default-branch: ${{ env.BRANCH_NAME }}
+
+  update-docs:
+    name: Update docs
+    needs: [release-please]
+    if: ${{ needs.release-please.outputs.release-pr }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.BRANCH_NAME  }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Run corepack enable
+        run: corepack enable
+
+      - name: Cut a new version
+        working-directory: ./docs
+        run: yarn run version ${{ env.BRANCH_NAME }}
+
+      - name: Configure git
+        run: |
+          git config --global user.email "tech@aztecprotocol.com"
+          git config --global user.name "AztecBot"
+
+      - name: Commit new documentation version
+        run: |
+          git add .
+          git commit -m "chore(docs): cut new docs version for tag ${{ env.BRANCH_NAME }}"
+          git push

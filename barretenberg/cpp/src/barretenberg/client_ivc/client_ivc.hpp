@@ -28,10 +28,12 @@ class ClientIVC {
   public:
     using Flavor = MegaFlavor;
     using MegaVerificationKey = Flavor::VerificationKey;
+    using MegaZKVerificationKey = MegaZKFlavor::VerificationKey;
     using FF = Flavor::FF;
     using FoldProof = std::vector<FF>;
     using MergeProof = std::vector<FF>;
     using DeciderProvingKey = DeciderProvingKey_<Flavor>;
+    using DeciderZKProvingKey = DeciderProvingKey_<MegaZKFlavor>;
     using DeciderVerificationKey = DeciderVerificationKey_<Flavor>;
     using ClientCircuit = MegaCircuitBuilder; // can only be Mega
     using DeciderProver = DeciderProver_<Flavor>;
@@ -56,6 +58,7 @@ class ClientIVC {
     using DeciderRecursiveVerifier = stdlib::recursion::honk::DeciderRecursiveVerifier_<RecursiveFlavor>;
 
     using DataBusDepot = stdlib::DataBusDepot<ClientCircuit>;
+    using AggregationObject = stdlib::recursion::aggregation_state<ClientCircuit>;
 
     /**
      * @brief A full proof for the IVC scheme containing a Mega proof showing correctness of the hiding circuit (which
@@ -191,11 +194,15 @@ class ClientIVC {
     ClientIVC(TraceSettings trace_settings = {})
         : trace_usage_tracker(trace_settings)
         , trace_settings(trace_settings)
-        , bn254_commitment_key(trace_settings.structure.has_value()
-                                   ? std::make_shared<CommitmentKey<curve::BN254>>(trace_settings.dyadic_size())
-                                   : nullptr)
         , goblin(bn254_commitment_key)
-    {}
+    {
+        // Allocate BN254 commitment key based on the max dyadic Mega structured trace size and translator circuit size.
+        // https://github.com/AztecProtocol/barretenberg/issues/1319): Account for Translator only when it's necessary
+        size_t commitment_key_size =
+            std::max(trace_settings.dyadic_size(), 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
+        info("BN254 commitment key size: ", commitment_key_size);
+        bn254_commitment_key = std::make_shared<CommitmentKey<curve::BN254>>(commitment_key_size);
+    }
 
     void instantiate_stdlib_verification_queue(
         ClientCircuit& circuit, const std::vector<std::shared_ptr<RecursiveVerificationKey>>& input_keys = {});
@@ -221,7 +228,7 @@ class ClientIVC {
     void construct_vk();
     Proof prove();
 
-    std::pair<std::shared_ptr<ClientIVC::DeciderProvingKey>, MergeProof> construct_hiding_circuit_key();
+    std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, MergeProof> construct_hiding_circuit_key();
     std::pair<HonkProof, MergeProof> construct_and_prove_hiding_circuit();
 
     static bool verify(const Proof& proof, const VerificationKey& vk);

@@ -73,17 +73,21 @@ export const mockTx = async (
   {
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+    numberOfRevertibleNullifiers = 0,
     hasPublicTeardownCallRequest = false,
     publicCalldataSize = 2,
     feePayer,
     clientIvcProof = ClientIvcProof.empty(),
+    maxPriorityFeesPerGas,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
+    numberOfRevertibleNullifiers?: number;
     hasPublicTeardownCallRequest?: boolean;
     publicCalldataSize?: number;
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
+    maxPriorityFeesPerGas?: GasFees;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -93,7 +97,10 @@ export const mockTx = async (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
+  data.constants.txContext.gasSettings = GasSettings.default({
+    maxFeesPerGas: new GasFees(10, 10),
+    maxPriorityFeesPerGas,
+  });
   data.feePayer = feePayer ?? (await AztecAddress.random());
 
   const publicFunctionCalldata: HashedValues[] = [];
@@ -122,6 +129,11 @@ export const mockTx = async (
       .pushNullifier(firstNullifier.value)
       .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
+
+    for (let i = 0; i < numberOfRevertibleNullifiers; i++) {
+      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), 0, Fr.ZERO);
+      revertibleBuilder.pushNullifier(revertibleNullifier.value);
+    }
 
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
       .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))

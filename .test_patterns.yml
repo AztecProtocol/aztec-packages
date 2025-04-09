@@ -23,6 +23,9 @@ names:
   - sean: &sean "U04DT239VQU"
   - tom: &tom "U04LLT331NK"
   - sergei: &sergei "U05RR81391B"
+  - spyros: &spyros "U03FCET0DQE"
+  - jan: &jan "U03FGA0BWNR"
+  - esau: &esau "U067FJ9A4Q1"
 
 tests:
   # barretenberg
@@ -35,22 +38,23 @@ tests:
   #   Actual: false
   # Expected: true
   - regex: "join_split_example_tests"
-    skip: true
     error_regex: "field_t::range_constraint"
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Out of bounds memory access"
     owners:
       - *luke
   - regex: "barretenberg/acir_tests/scripts/run_test_browser.sh"
-    error_regex: "Sumcheck verification failed."
+    error_regex: "Failed to fetch"
     owners:
-      - *luke
-
+      - *adam
   # Sumcheck is failing for some reason
   - regex: "barretenberg/acir_tests/scripts/run_test.sh ram_blowup_regression"
     skip: true
+    owners:
+      - *tom
+  - regex: "tests::execution_success::test_ram_blowup_regression"
+    error_regex: "assertion `left == right` failed"
     owners:
       - *tom
 
@@ -64,43 +68,42 @@ tests:
     skip: true
     owners:
       - *charlie
-
   # Sometimes see this on ARM. But not when run on it's own...
-  # FAILED 6a60c4e796ac0aef: noir/scripts/run_test.sh debug-21ff1948430ded06 tests::debug_ram_blowup_regression (code: 101)
-  #                                                                                                                                                                                running 1 test
-  # test tests::debug_ram_blowup_regression has been running for over 60 seconds                                                                                                   test tests::debug_ram_blowup_regression ... FAILED
-  #                                                                                                                                                                                failures:
-  #                                                                                                                                                                                ---- tests::debug_ram_blowup_regression stdout ----
-  # thread 'tests::debug_ram_blowup_regression' panicked at tooling/debugger/tests/debug.rs:27:14:                                                                                 Could not start debugger: Timeout { expected: "Regex: \".*\Starting debugger.*\"", got: "`^`[?2004l`\r``\r``\n`
-  # Waiting for lock on Nargo.toml...`\r``\n`                                                                                                                                      ", timeout: 30s }
-  # note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
-  #                                                                                                                                                                                failures:
-  #     tests::debug_ram_blowup_regression
-  # test result: FAILED. 0 passed; 1 failed; 0 ignored; 0 measured; 232 filtered out; finished in 60.34s
   - regex: "tests::debug_ram_blowup_regression"
     skip: true
     owners:
       - *charlie
 
-  - regex: "simple e2e_p2p/slashing"
+  # e2e tests
+  - regex: "simple e2e_p2p"
+    error_regex: "could not listen on any available address"
     owners:
       - *sean
-  - regex: "simple e2e_p2p/reqresp"
-    error_regex: "TimeoutError"
+  - regex: "simple e2e_p2p/reex"
+    error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
-
-  - regex: "simple e2e_p2p/upgrade_governance_proposer"
+  - regex: "simple e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:
-      - *lasse
-
+      - *palla
+  - regex: "simple e2e_p2p"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
+  - regex: "simple e2e_p2p/gossip_network"
+    error_regex: "TimeoutError: Timeout awaiting isMined"
+    owners:
+      - *palla
   - regex: "simple e2e_fees/private_payments"
     owners:
       - *phil
-
-  - regex: "simple e2e_cheat_codes"
+  # http://ci.aztec-labs.com/7a5104e136578d64
+  # The "loop that wastes 5m" thing.
+  - regex: "simple e2e_fees/failures"
+    error_regex: "Exceeded timeout"
     owners:
-      - *lasse
+      - *palla
   - regex: "simple e2e_lending_contract"
     error_regex: "✕ Depositing"
     owners:
@@ -117,18 +120,20 @@ tests:
     error_regex: "✕ Someone else can mint funds to me on my behalf"
     owners:
       - *lasse
-
   - regex: "simple e2e_block_building"
     error_regex: "Cannot read properties of undefined"
     owners:
-      - *palla
-  - regex: "prover-client/src/test/bb_prover_parity.test.ts"
+      - *jan
+  - regex: "simple e2e_block_building"
+    error_regex: "Could not retrieve body for block"
     owners:
       - *palla
-  - regex: "prover-client/src/proving_broker/broker_prover_facade.test.ts"
+  - regex: "composed/integration_l1_publisher"
+    error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
-  - regex: "prover-client/src/orchestrator/orchestrator_errors.test.ts"
+  - regex: "simple e2e_sequencer_config"
+    error_regex: "Anvil failed to stop in time"
     owners:
       - *palla
 
@@ -137,19 +142,18 @@ tests:
     error_regex: "Timeout: Failed to connect to"
     owners:
       - *sean
-  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
-    owners:
-      - *sean
   - regex: "p2p/src/client/p2p_client.test.ts"
     error_regex: "Exceeded timeout of 120000"
     owners:
       - *sean
-  - regex: "sequencer-client/src/slasher/slasher_client.test.ts"
+  - regex: "p2p/src/services/reqresp/reqresp.test.ts"
+    error_regex: "✕ should stop after max retry attempts"
     owners:
-      - *lasse
-  - regex: "prover-client/src/test/bb_prover_full_rollup.test.ts"
+      - *sean
+  - regex: "p2p/src/testbench/port_change.test.ts"
+    error_regex: "Timeout waiting for worker"
     owners:
-      - *palla
+      - *sean
   - regex: "yarn-project/kv-store"
     error_regex: "Could not import your test module"
     owners:
@@ -158,45 +162,49 @@ tests:
     error_regex: "timeout: sending signal TERM to command"
     owners:
       - *alex
-  - regex: "ethereum/src/contracts/registry.test.ts"
-    error_regex: "lower than or equal to previous block's timestamp"
+  - regex: "yarn-project/kv-store"
+    error_regex: "Failed to fetch dynamically imported module"
     owners:
-      - *mitch
+      - *alex
   - regex: "ethereum/src/deploy_l1_contracts.test.ts"
     error_regex: "BlockOutOfRangeError"
     owners:
       - *palla
+  - regex: "ethereum/src/l1_tx_utils.test.ts"
+    error_regex: "✕ calculates correct gas prices for initial attempt"
+    owners:
+      - *spyros
+  - regex: "prover-client/src/proving_broker/proving_broker.test.ts"
+    error_regex: "✕ keeps the jobs in progress while it is alive"
+    owners:
+      - *alex
 
   # boxes
-  - regex: "boxes/scripts/run_test.sh vite"
+  - regex: "boxes/scripts/run_test.sh"
     error_regex: "Test timeout of 90000ms exceeded."
     owners:
       - *grego
 
+  - regex: "boxes/scripts/run_test.sh"
+    error_regex: "expect(locator).toBeVisible()"
+    owners:
+      - *esau
+
   # kind tests
-  - regex: "spartan/bootstrap.sh test-kind-4epochs"
+  - regex: "spartan/bootstrap.sh"
+    # Will skip all kind tests for now. Too unstable, blocking merge queue.
+    skip: true
+    error_regex: "timeout: sending signal TERM to command"
     owners:
-      - *leila
-
-  - regex: "spartan/bootstrap.sh test-kind-upgrade-rollup-version"
+      - *alex
+  - regex: "spartan/bootstrap.sh"
+    error_regex: "cp: cannot create regular file"
     owners:
-      - *adam
-
-  - regex: "spartan/bootstrap.sh test-cli-upgrade-with-lock"
-    owners:
-      - *adam
-
+      - *alex
   - regex: "spartan/bootstrap.sh test-kind-smoke"
+    error_regex: "job smoke-aztec-network-setup-l2-contracts failed: BackoffLimitExceeded"
     owners:
-      - *mitch
-
-  - regex: "spartan/bootstrap.sh test-kind-transfer"
-    owners:
-      - *adam
-
-  - regex: "spartan/bootstrap.sh test-prod-deployment"
-    owners:
-      - *adam
+      - *alex
 
   # aztec-up
   - regex: "aztec-up/scripts/run_test.sh"
@@ -206,11 +214,7 @@ tests:
 
   # Slack testing.
   - regex: "nonsense to match"
-    owners:
-      - *charlie
-
-  - regex: "nonsense to match"
+    error_regex: "something else"
     owners:
       - *charlie
       - *adam
-    error_regex: "something else"

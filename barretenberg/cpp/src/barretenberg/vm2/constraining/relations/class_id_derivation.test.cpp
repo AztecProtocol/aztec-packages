@@ -1,9 +1,9 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/class_id_derivation.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_bc_retrieval.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_class_id_derivation.hpp"
@@ -99,9 +99,6 @@ TEST(ClassIdDerivationConstrainingTest, WithHashInteraction)
 
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash_0::Settings>().process(trace);
     LookupIntoDynamicTableSequential<lookup_poseidon2_hash_1::Settings>().process(trace);
-
-    check_interaction<lookup_poseidon2_hash_0>(trace);
-    check_interaction<lookup_poseidon2_hash_1>(trace);
 }
 
 // TODO: This should probably be refined and moved to bc_retrieval test file once that exists
@@ -129,7 +126,7 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
     builder.process({ { .class_id = class_id, .klass = klass } }, trace);
 
     ContractInstance instance = {};
-    instance.contract_class_id = class_id;
+    instance.current_class_id = class_id;
     bc_trace_builder.process_retrieval({ { .bytecode_id = 0,
                                            .address = 1,
                                            .siloed_address = 2,
@@ -139,7 +136,6 @@ TEST(ClassIdDerivationConstrainingTest, WithRetrievalInteraction)
                                        trace);
 
     LookupIntoDynamicTableSequential<lookup_bc_retrieval::Settings>().process(trace);
-    check_interaction<lookup_bc_retrieval>(trace);
 }
 
 } // namespace

@@ -618,6 +618,11 @@ template <typename Flavor> class SumcheckVerifierRound {
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
+        // This bool is only needed for debugging
+        if (!dummy_round.get_value()) {
+            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
+        }
+
         if constexpr (IsECCVMRecursiveFlavor<Flavor>) {
             // https://github.com/AztecProtocol/barretenberg/issues/998): Avoids the scenario where the assert_equal
             // below fails because we are comparing a constant against a non-constant value and the non-constant
@@ -626,43 +631,39 @@ template <typename Flavor> class SumcheckVerifierRound {
             total_sum.self_reduce();
         }
         target_total_sum.assert_equal(total_sum);
-        if (!dummy_round.get_value()) {
-            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-        }
 
         round_failed = round_failed || sumcheck_round_failed;
         return !sumcheck_round_failed;
     };
 
     /**
-     * @brief After checking that the univariate is good for this round, compute the next target sum.
+     * @brief After checking that the univariate is good for this round, compute the next target sum given by the
+     * evaluation \f$\tilde{S}^i(u_i)\f$.
      *
      * @param univariate \f$ \tilde{S}^i(X) \f$, given by its evaluations over \f$ \{0,1,2,\ldots, D\}\f$.
      * @param round_challenge \f$ u_i\f$
-     * @return FF \f$ \sigma_{i+1} = \tilde{S}^i(u_i)\f$
      */
-    FF compute_next_target_sum(SumcheckRoundUnivariate& univariate, FF& round_challenge)
+    void compute_next_target_sum(SumcheckRoundUnivariate& univariate, FF& round_challenge)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
         target_total_sum = univariate.evaluate(round_challenge);
-        return target_total_sum;
     }
 
     /**
-     * @brief After checking that the univariate is good for this round, compute the next target sum.
+     * @brief After checking that the univariate is good for this round, compute the next target sum given by the
+     * evaluation \f$ \tilde{S}^i(u_i) \f$.
      *
      * @param univariate \f$ \tilde{S}^i(X) \f$, given by its evaluations over \f$ \{0,1,2,\ldots, D\}\f$.
      * @param round_challenge \f$ u_i\f$
-     * @return FF \f$ \sigma_{i+1} = \tilde{S}^i(u_i)\f$
+     *
      */
     template <typename Builder>
-    FF compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
-                               FF& round_challenge,
-                               stdlib::bool_t<Builder> dummy_round)
+    void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
+                                 FF& round_challenge,
+                                 stdlib::bool_t<Builder> dummy_round)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
         target_total_sum = FF::conditional_assign(dummy_round, target_total_sum, univariate.evaluate(round_challenge));
-        return target_total_sum;
     }
 
     /**
@@ -686,6 +687,35 @@ template <typename Flavor> class SumcheckVerifierRound {
         FF output{ 0 };
         Utils::scale_and_batch_elements(relation_evaluations, alpha, running_challenge, output);
         return output;
+    }
+    /**
+     * @brief Temporary method to pad Protogalaxy gate challenges and the gate challenges in
+     * TestBasicSingleAvmRecursionConstraint to CONST_PROOF_SIZE_LOG_N. Will be deprecated by more flexible padded size
+     * handling in Sumcheck and Flavor Provers/Verifiers.
+     * TODO(https://github.com/AztecProtocol/barretenberg/issues/1310): Recursive Protogalaxy issues
+     *
+     * @param gate_challenges
+     */
+    void pad_gate_challenges(std::vector<FF>& gate_challenges)
+    {
+        // Needed to avoid redundant padding in Translator
+        static constexpr bool is_translator = IsAnyOf<Flavor,
+                                                      TranslatorFlavor,
+                                                      TranslatorRecursiveFlavor_<UltraCircuitBuilder>,
+                                                      TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
+                                                      TranslatorRecursiveFlavor_<CircuitSimulatorBN254>>;
+
+        if constexpr (!is_translator) {
+            if (gate_challenges.size() < CONST_PROOF_SIZE_LOG_N) {
+                FF zero{ 0 };
+                if constexpr (IsRecursiveFlavor<Flavor>) {
+                    zero.convert_constant_to_fixed_witness(gate_challenges[0].get_context());
+                }
+                for (size_t idx = gate_challenges.size(); idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+                    gate_challenges.emplace_back(zero);
+                }
+            }
+        }
     }
 };
 } // namespace bb

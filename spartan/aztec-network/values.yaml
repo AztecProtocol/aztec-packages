@@ -9,7 +9,6 @@ network:
   # I.e. the sum of the number of validator, boot node, and prover nodes must be
   # less than the number of physical nodes in the cluster.
   public: false
-  setupL2Contracts: true
 
   # If true, pods are scheduled onto specific node pools using selectors
   # This is only applicable to GKE deployments
@@ -28,6 +27,11 @@ telemetry:
   otelCollectorEndpoint:
   useGcloudLogging: true
   excludeMetrics: ""
+
+snapshots:
+  uploadLocation:
+  syncUrl:
+  frequency:
 
 images:
   aztec:
@@ -51,7 +55,6 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
-    rollupAddress: "" # only needed for blob sink
     feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
@@ -96,7 +99,6 @@ bootNode:
     # This gives enough time to sync
     failureThreshold: 120
   contracts:
-    rollupAddress: ""
     registryAddress: ""
     inboxAddress: ""
     outboxAddress: ""
@@ -116,6 +118,7 @@ fullNode:
   service:
     p2pPort: 40400
     nodePort: 8080
+    adminPort: 8880
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
@@ -140,6 +143,7 @@ fullNode:
   stakingAssetAddress: ""
   storageSize: "1Gi"
   dataDir: "/data"
+  sentinelEnabled: false
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -259,6 +263,7 @@ bot:
 
 ethereum:
   acceleratedTestDeployments: false
+  genesisBasePath: "out"
   replicas: 1
   chainId: 1337
   blockTime: 12

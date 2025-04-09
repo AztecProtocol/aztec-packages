@@ -125,13 +125,25 @@ import {
 } from "@aztec/aztec.js";
 ```
 
+The FPC contract must be registered in a users PXE before it can be used.
+
+```ts
+import { FPCContract } from "@aztec/noir-contracts.js/FPC";
+
+// ... (set up the wallet and PXE)
+
+// register the already deployed FPC contract in users PXE
+const fpcContract = FPCContract.at(fpcAddress, userWallet);
+await pxe.registerContract(fpcContract);
+```
+
 The fee payment method is created and used as follows, with similar syntax for private or public fee payments:
 
 #include_code fpc yarn-project/end-to-end/src/e2e_fees/public_payments.test.ts javascript
 
 In this example, thanks to the FPC's `accepted_asset` being banana tokens, Alice only needs to hold this token and not fee juice. The asset that a FPC accepts for paying fees is determined when the FPC is deployed. The function being called happens to also be a transfer of banana tokens to Bob.
 
-More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr)
+More on FPCs [here](https://github.com/AztecProtocol/aztec-packages/tree/#include_aztec_version/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr)
 
 See this [section](../../reference/environment_reference/cli_wallet_reference.md#fee-paying-contract) for paying fees via an FPC using the CLI wallet.
 
@@ -140,23 +152,38 @@ See this [section](../../reference/environment_reference/cli_wallet_reference.md
 This method of fee payment will only work for environments where a sponsored fee paying contract is deployed.
 The sandbox comes with a sponsored fee paying contract deployed, so this can be used to pay for transactions without needing to bridge fee juice.
 To use sponsored FPCs in other environments, they will need to be deployed and funded with fee juice.
-Creating the SponsoredFPC is as simple as importing it and passing it the PXE:
+Using a SponsoredFPC payment method is as simple as importing it, registering it and passing it the PXE:
 
 ```ts
-import { SponsoredFeePaymentMethod } from "@aztec/aztec.js";
+import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
 ```
 
 ```ts
-const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+const paymentMethod = new SponsoredFeePaymentMethod(deployedSponsoredFPC);
+```
+
+Register the SponsoredFPC in the PXE:
+
+```ts
+import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+
+// ... (set up the wallet and PXE)
+
+// register the already deployed SponsoredFPC contract in users PXE
+const fpcContract = SponsoredFPCContract.at(sponsoredFpcAddress, userWallet);
+await pxe.registerContract(fpcContract);
 ```
 
 Then a transaction can specify this as the `paymentMethod` in the fee object.
+You can see an example of how to get a deployed instance of the sponsored FPC in the sandbox [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/yarn-project/aztec/src/sandbox/sponsored_fpc.ts#L15).
 For example, a contract can be deployed with an fpc as follows:
 
 ```ts
-const paymentMethod = await SponsoredFeePaymentMethod.new(pxe);
+const paymentMethod = new SponsoredFeePaymentMethod(deployedSponsoredFPC);
 myAccountManager.deploy({ fee: { paymentMethod } });
 ```
+
+You can find the corresponding CLI command info [here](../../reference/environment_reference/cli_wallet_reference#sponsored-fee-paying-contract)
 
 ## Fee Options
 

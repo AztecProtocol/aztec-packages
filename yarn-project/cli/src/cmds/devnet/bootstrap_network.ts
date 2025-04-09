@@ -1,4 +1,4 @@
-import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { getInitialTestAccountsManagers } from '@aztec/accounts/testing';
 import {
   AztecAddress,
   BatchCall,
@@ -54,7 +54,12 @@ export async function bootstrapNetwork(
 ) {
   const pxe = await createCompatibleClient(pxeUrl, debugLog);
 
-  const [wallet] = await getDeployedTestAccountsWallets(pxe);
+  // We assume here that the initial test accounts were prefunded with deploy-l1-contracts, and deployed with setup-l2-contracts
+  // so all we need to do is register them to our pxe.
+  const [accountManager] = await getInitialTestAccountsManagers(pxe);
+  await accountManager.register();
+
+  const wallet = await accountManager.getWallet();
 
   const l1Clients = createL1Clients(
     l1Urls,

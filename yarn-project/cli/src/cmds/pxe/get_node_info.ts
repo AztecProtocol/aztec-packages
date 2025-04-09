@@ -20,7 +20,7 @@ export async function getNodeInfo(
     logJson({
       nodeVersion: info.nodeVersion,
       l1ChainId: info.l1ChainId,
-      protocolVersion: info.protocolVersion,
+      rollupVersion: info.rollupVersion,
       enr: info.enr,
       l1ContractAddresses: {
         rollup: info.l1ContractAddresses.rollupAddress.toString(),
@@ -36,6 +36,7 @@ export async function getNodeInfo(
         governance: info.l1ContractAddresses.governanceAddress.toString(),
         slashFactory: info.l1ContractAddresses.slashFactoryAddress?.toString(),
         feeAssetHandler: info.l1ContractAddresses.feeAssetHandlerAddress?.toString(),
+        stakingAssetHandler: info.l1ContractAddresses.stakingAssetHandlerAddress?.toString(),
       },
       protocolContractAddresses: {
         classRegisterer: info.protocolContractAddresses.classRegisterer.toString(),
@@ -47,7 +48,7 @@ export async function getNodeInfo(
   } else {
     log(`Node Version: ${info.nodeVersion}`);
     log(`Chain Id: ${info.l1ChainId}`);
-    log(`Protocol Version: ${info.protocolVersion}`);
+    log(`Rollup Version: ${info.rollupVersion}`);
     log(`Node ENR: ${info.enr}`);
     log(`L1 Contract Addresses:`);
     log(` Rollup Address: ${info.l1ContractAddresses.rollupAddress.toString()}`);
@@ -63,6 +64,7 @@ export async function getNodeInfo(
     log(` Governance Address: ${info.l1ContractAddresses.governanceAddress.toString()}`);
     log(` SlashFactory Address: ${info.l1ContractAddresses.slashFactoryAddress?.toString()}`);
     log(` FeeAssetHandler Address: ${info.l1ContractAddresses.feeAssetHandlerAddress?.toString()}`);
+    log(` StakingAssetHandler Address: ${info.l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`L2 Contract Addresses:`);
     log(` Class Registerer: ${info.protocolContractAddresses.classRegisterer.toString()}`);
     log(` Fee Juice: ${info.protocolContractAddresses.feeJuice.toString()}`);

@@ -1,13 +1,18 @@
 import type { Fr, Point } from '@aztec/foundation/fields';
-import type { FunctionArtifact, FunctionArtifactWithContractName, FunctionSelector } from '@aztec/stdlib/abi';
+import type {
+  EventSelector,
+  FunctionArtifact,
+  FunctionArtifactWithContractName,
+  FunctionSelector,
+} from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { L2Block } from '@aztec/stdlib/block';
 import type { CompleteAddress, ContractInstance } from '@aztec/stdlib/contract';
 import type { KeyValidationRequest } from '@aztec/stdlib/kernel';
-import { IndexedTaggingSecret, LogWithTxData, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret, LogWithTxData } from '@aztec/stdlib/logs';
 import type { NoteStatus } from '@aztec/stdlib/note';
 import { type MerkleTreeId, type NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
-import type { BlockHeader } from '@aztec/stdlib/tx';
+import type { BlockHeader, TxHash } from '@aztec/stdlib/tx';
 
 import type { CommitmentsDBInterface } from '../common/db_interfaces.js';
 import type { NoteData } from './acvm/index.js';
@@ -31,7 +36,7 @@ export class ContractClassNotFoundError extends Error {
 }
 
 /**
- * The interface for the data layer required to perform private and unconstrained execution.
+ * The interface for the data layer required to perform private and utility execution.
  */
 export interface ExecutionDataProvider extends CommitmentsDBInterface {
   /**
@@ -221,25 +226,18 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
   ): Promise<void>;
 
   /**
-   * Synchronizes the logs tagged with the recipient's address and all the senders in the address book.
-   * Returns the unsynched logs and updates the indexes of the secrets used to tag them until there are no more logs to sync.
-   * @param contractAddress - The address of the contract that the logs are tagged for
-   * @param recipient - The address of the recipient
-   * @returns A list of encrypted logs tagged with the recipient's address
+   * Synchronizes the logs tagged with scoped addresses and all the senders in the address book. Stores the found logs
+   * in CapsuleArray ready for a later retrieval in Aztec.nr.
+   * @param contractAddress - The address of the contract that the logs are tagged for.
+   * @param pendingTaggedLogArrayBaseSlot - The base slot of the pending tagged log capsule array in which found logs will be stored.
+   * @param scopes - The scoped addresses to sync logs for. If not provided, all accounts in the address book will be
+   * synced.
    */
   syncTaggedLogs(
     contractAddress: AztecAddress,
-    maxBlockNumber: number,
+    pendingTaggedLogArrayBaseSlot: Fr,
     scopes?: AztecAddress[],
-  ): Promise<Map<string, TxScopedL2Log[]>>;
-
-  /**
-   * Processes the tagged logs returned by syncTaggedLogs by decrypting them and storing them in the database.
-   * @param contractAddress - The address of the contract that emitted the logs.
-   * @param logs - The logs to process.
-   * @param recipient - The recipient of the logs.
-   */
-  processTaggedLogs(contractAddress: AztecAddress, logs: TxScopedL2Log[], recipient: AztecAddress): Promise<void>;
+  ): Promise<void>;
 
   /**
    * Delivers the preimage and metadata of a committed note so that it can be later requested via the `getNotes`
@@ -261,7 +259,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void>;
 
@@ -325,4 +323,24 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @returns The secret for the given address.
    */
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point>;
+
+  /**
+   * Stores an event log in the database.
+   * @param contractAddress - The address of the contract that emitted the log.
+   * @param recipient - The address of the recipient.
+   * @param eventSelector - The event selector of the event.
+   * @param msgContent - The content of the private event message.
+   * @param txHash - The hash of the transaction that emitted the log.
+   * @param logIndexInTx - The index of the log within the transaction.
+   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
+   */
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    msgContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+    txIndexInBlock: number,
+  ): Promise<void>;
 }
