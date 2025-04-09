@@ -282,8 +282,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    ClientIVC::VerificationKey ivc_vk{ .mega = ivc->honk_vk };
-    *out_vk = to_heap_buffer(to_buffer(ivc_vk));
+    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to serialize vk: ", diff.count());
