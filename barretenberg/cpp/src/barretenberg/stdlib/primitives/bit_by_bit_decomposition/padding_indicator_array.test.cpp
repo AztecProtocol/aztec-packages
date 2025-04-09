@@ -1,9 +1,8 @@
+#include "padding_indicator_array.hpp"
 #include "../witness/witness.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/stdlib/primitives/circuit_builders/circuit_builders.hpp"
-#include "barretenberg/transcript/origin_tag.hpp"
-#include "bit_by_bit.hpp"
 
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib/primitives/field/field.hpp"
