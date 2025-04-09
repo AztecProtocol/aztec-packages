@@ -39,36 +39,36 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ./noir
-          key: noir-build-${{ runner.os }}-${{ hashFiles('./noir') }}
+          key: noir-build-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
           restore-keys: |
-            noir-build-${{ runner.os }}-
+            noir-build-${{ runner.os }}-${{ github.ref_name }}-
 
       - name: Restore Barretenberg cache
         id: cache-barretenberg
         uses: actions/cache@v4
         with:
           path: ./barretenberg
-          key: barretenberg-build-${{ runner.os }}-${{ hashFiles('./barretenberg') }}
+          key: barretenberg-build-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
           restore-keys: |
-            barretenberg-build-${{ runner.os }}-
+            barretenberg-build-${{ runner.os }}-${{ github.ref_name }}-
 
       - name: Restore L1 contracts cache
         id: cache-l1-contracts
         uses: actions/cache@v4
         with:
           path: ./l1-contracts
-          key: l1-contracts-${{ runner.os }}-${{ hashFiles('./l1-contracts') }}
+          key: l1-contracts-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
           restore-keys: |
-            l1-contracts-${{ runner.os }}-
+            l1-contracts-${{ runner.os }}-${{ github.ref_name }}-
 
       - name: Restore Yarn project cache
         id: cache-yarn-project
         uses: actions/cache@v4
         with:
           path: ./yarn-project
-          key: yarn-project-${{ runner.os }}-${{ hashFiles('./yarn-project') }}
+          key: yarn-project-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
           restore-keys: |
-            yarn-project-${{ runner.os }}-
+            yarn-project-${{ runner.os }}-${{ github.ref_name }}-
 
       - name: Build dependencies
         run: |
