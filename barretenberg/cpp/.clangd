@@ -1,5 +1,5 @@
 CompileFlags: # Tweak the parse settings
-  Remove: -fconstexpr-ops-limit=*
+  Remove: -fconstexpr-ops-limit=* -Wfatal-errors
 ---
 # Applies all barretenberg source files
 If:
@@ -75,6 +75,8 @@ Diagnostics:
       - modernize-return-braced-init-list
       # Not worth rewriting. Also some gotchas with mac not accepting emplaces of C++20 default constructors.
       - modernize-use-emplace
+      # We only really use macros where a constexpr would NOT be able to replace its functionality.
+      - cppcoreguidelines-macro-usage
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench

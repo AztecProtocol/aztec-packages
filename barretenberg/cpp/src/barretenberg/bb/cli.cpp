@@ -116,6 +116,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
     // Some paths, with defaults, that may or may not be set by commands
     std::filesystem::path bytecode_path{ "./target/program.json" };
     std::filesystem::path witness_path{ "./target/witness.gz" };
+    std::filesystem::path input_path{ "./target/ivc-inputs.msgpack" };
     std::filesystem::path output_path{
         "./out"
     }; // sometimes a directory where things will be written, sometimes the path of a file to be written
@@ -237,6 +238,12 @@ int parse_and_run_cli_command(int argc, char* argv[])
             /* ->check(CLI::ExistingFile) OR stdin indicator - */;
     };
 
+    const auto add_inputs_path_options = [&](CLI::App* subcommand) {
+        subcommand->add_option(
+            "--bytecode_path, -b", input_path, "For IVC, path to input stack with bytecode and witnesses.")
+            /* ->check(CLI::ExistingFile) OR stdin indicator - */;
+    };
+
     const auto add_public_inputs_path_option = [&](CLI::App* subcommand) {
         return subcommand->add_option(
             "--public_inputs_path, -i", public_inputs_path, "Path to public inputs.") /* ->check(CLI::ExistingFile) */;
@@ -325,6 +332,8 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_bytecode_path_option(prove);
     add_witness_path_option(prove);
     add_output_path_option(prove, output_path);
+    // Used by IVC.
+    add_inputs_path_options(prove);
 
     add_verbose_flag(prove);
     add_debug_flag(prove);
@@ -718,18 +727,15 @@ int parse_and_run_cli_command(int argc, char* argv[])
         print_subcommand_options(deepest);
     }
 
-    // prob this construction is too much
-    const auto execute_command = [&](API& api) {
+    // TODO: it is inflexible that CIVC shares an API command (prove) with UH this way. The base API class is a poort
+    // fit. It would be better to have a separate handling for each scheme with subcommands to prove.
+    const auto execute_non_prove_command = [&](API& api) {
         if (check->parsed()) {
             api.check(flags, bytecode_path, witness_path);
             return 0;
         }
         if (gates->parsed()) {
             api.gates(flags, bytecode_path);
-            return 0;
-        }
-        if (prove->parsed()) {
-            api.prove(flags, bytecode_path, witness_path, output_path);
             return 0;
         }
         if (write_vk->parsed()) {
@@ -741,6 +747,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
             vinfo("verified: ", verified);
             return verified ? 0 : 1;
         }
+
         if (write_solidity_verifier->parsed()) {
             api.write_solidity_verifier(flags, output_path, vk_path);
             return 0;
@@ -828,10 +835,18 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // NEW STANDARD API
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
-            return execute_command(api);
+            if (prove->parsed()) {
+                api.prove(input_path, output_path);
+                return 0;
+            }
+            return execute_non_prove_command(api);
         } else if (flags.scheme == "ultra_honk") {
             UltraHonkAPI api;
-            return execute_command(api);
+            if (prove->parsed()) {
+                api.prove(flags, bytecode_path, witness_path, output_path);
+                return 0;
+            }
+            return execute_non_prove_command(api);
         } else {
             throw_or_abort("No match for API command");
             return 1;

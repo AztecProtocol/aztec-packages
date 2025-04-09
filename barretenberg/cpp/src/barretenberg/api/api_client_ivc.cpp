@@ -46,7 +46,7 @@ vector<uint8_t> decompress(const void* bytes, size_t size)
                                                                                      libdeflate_free_decompressor };
         size_t actual_size = 0;
         libdeflate_result decompress_result =
-            libdeflate_gzip_decompress(decompressor.get(), bytes, size, data(content), size(content), &actual_size);
+            libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
         if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
             // need a bigger buffer
             content.resize(content.size() * 2);
