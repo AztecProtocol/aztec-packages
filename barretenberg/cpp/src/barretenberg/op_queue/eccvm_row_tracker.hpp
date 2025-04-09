@@ -12,7 +12,6 @@ namespace bb {
  */
 class EccvmRowTracker {
     using Curve = curve::BN254;
-    using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
 
     uint32_t cached_num_muls = 0;
     uint32_t cached_active_msm_count = 0;
@@ -86,7 +85,7 @@ class EccvmRowTracker {
     void update_cached_msms(const ECCVMOperation& op)
     {
         num_transcript_rows++;
-        if (op.mul) {
+        if (op.op_code.mul) {
             if (op.z1 != 0 && !op.base_point.is_point_at_infinity()) {
                 cached_active_msm_count++;
             }

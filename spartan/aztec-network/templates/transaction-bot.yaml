@@ -5,12 +5,6 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
-  {{- if .Values.network.setupL2Contracts }}
-  annotations:
-    "helm.sh/hook": post-install
-    "helm.sh/hook-weight": "10"
-    "helm.sh/hook-delete-policy": before-hook-creation
-  {{- end }}
 spec:
   replicas: {{ .Values.bot.replicas }}
   selector:

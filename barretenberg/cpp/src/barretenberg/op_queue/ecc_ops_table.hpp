@@ -6,12 +6,36 @@
 #include <deque>
 namespace bb {
 
-enum EccOpCode { NULL_OP, ADD_ACCUM, MUL_ACCUM, EQUALITY };
+/**
+ * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
+ * - addition: add = true, value() = 8
+ * - multiplication: mul = true, value() = 4
+ * - equality abd reset: eq = true, reset = true,  value() = 3
+ * - no operation: all false, value() = 0
+ */
+struct EccOpCode {
+    bool add = false;
+    bool mul = false;
+    bool eq = false;
+    bool reset = false;
+    bool operator==(const EccOpCode& other) const = default;
+
+    [[nodiscard]] uint32_t value() const
+    {
+        auto res = static_cast<uint32_t>(add);
+        res += res;
+        res += static_cast<uint32_t>(mul);
+        res += res;
+        res += static_cast<uint32_t>(eq);
+        res += res;
+        res += static_cast<uint32_t>(reset);
+        return res;
+    }
+};
 
 struct UltraOp {
     using Fr = curve::BN254::ScalarField;
-    EccOpCode op_code = NULL_OP;
-    Fr op;
+    EccOpCode op_code;
     Fr x_lo;
     Fr x_hi;
     Fr y_lo;
@@ -20,6 +44,34 @@ struct UltraOp {
     Fr z_2;
     bool return_is_infinity;
 };
+
+template <typename CycleGroup> struct VMOperation {
+    EccOpCode op_code = {};
+    typename CycleGroup::affine_element base_point = typename CycleGroup::affine_element{ 0, 0 };
+    uint256_t z1 = 0;
+    uint256_t z2 = 0;
+    typename CycleGroup::subgroup_field mul_scalar_full = 0;
+    bool operator==(const VMOperation<CycleGroup>& other) const = default;
+
+    /**
+     * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
+     * infinity whose coordinates are set to (0,0).
+     *
+     * @details These are represented as uint265_t to make chunking easier, the function being used in translator
+     * where each coordinate is chunked to efficiently be represented in the scalar field.
+     */
+    std::array<uint256_t, 2> get_base_point_standard_form() const
+    {
+        uint256_t x(base_point.x);
+        uint256_t y(base_point.y);
+        if (base_point.is_point_at_infinity()) {
+            x = 0;
+            y = 0;
+        }
+        return { x, y };
+    }
+};
+using ECCVMOperation = VMOperation<curve::BN254::Group>;
 
 /**
  * @brief A table of ECC operations
@@ -89,7 +141,11 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
-using EccvmOpsTable = EccOpsTable<eccvm::VMOperation<curve::BN254::Group>>;
+/***
+ * @brief A VM operation is represented as one row with 6 columns in the ECCVM version of the Op Queue.
+ * | OP | X | Y | z_1 | z_2 | mul_scalar_full |
+ */
+using EccvmOpsTable = EccOpsTable<ECCVMOperation>;
 
 /**
  * @brief Stores a table of elliptic curve operations represented in the Ultra format
@@ -176,7 +232,7 @@ class UltraEccOpsTable {
         for (size_t subtable_idx = subtable_start_idx; subtable_idx < subtable_end_idx; ++subtable_idx) {
             const auto& subtable = table.get()[subtable_idx];
             for (const auto& op : subtable) {
-                column_polynomials[0].at(i) = op.op;
+                column_polynomials[0].at(i) = op.op_code.value();
                 column_polynomials[1].at(i) = op.x_lo;
                 column_polynomials[2].at(i) = op.x_hi;
                 column_polynomials[3].at(i) = op.y_lo;

@@ -1,4 +1,4 @@
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
 using namespace bb;
@@ -32,7 +32,7 @@ TEST(ECCOpQueueTest, Basic)
     op_queue.empty_row_for_testing();
     const auto& eccvm_ops = op_queue.get_eccvm_ops();
     EXPECT_EQ(eccvm_ops[0].base_point, G1::one());
-    EXPECT_EQ(eccvm_ops[1].add, false);
+    EXPECT_EQ(eccvm_ops[1].op_code.add, false);
 }
 
 TEST(ECCOpQueueTest, InternalAccumulatorCorrectness)
@@ -91,10 +91,26 @@ TEST(ECCOpQueueTest, ColumnPolynomialConstruction)
         }
     };
 
+    // Check that the opcode values are consistent between the first column polynomial and the eccvm
+    // ops table
+    auto check_opcode_consistency_with_eccvm = [&](const std::shared_ptr<bb::ECCOpQueue>& op_queue) {
+        auto ultra_opcode_values = op_queue->construct_ultra_ops_table_columns()[0];
+        auto eccvm_table = op_queue->get_eccvm_ops();
+        // Every second value in the opcode column polynomial should be 0
+        EXPECT_EQ(eccvm_table.size() * 2, ultra_opcode_values.size());
+
+        for (size_t i = 0; i < eccvm_table.size(); ++i) {
+            EXPECT_EQ(ultra_opcode_values[2 * i], eccvm_table[i].op_code.value());
+            EXPECT_EQ(ultra_opcode_values[2 * i + 1], Fr(0));
+        }
+    };
+
     // Check that the table polynomials have the correct form after each subtable concatenation
     const size_t NUM_SUBTABLES = 5;
     for (size_t i = 0; i < NUM_SUBTABLES; ++i) {
         ECCOpQueueTest::populate_an_arbitrary_subtable_of_ops(op_queue);
         check_table_column_polynomials(op_queue);
     }
+
+    check_opcode_consistency_with_eccvm(op_queue);
 }

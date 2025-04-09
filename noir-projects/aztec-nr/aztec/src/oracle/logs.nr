@@ -1,4 +1,4 @@
-use crate::discovery::MAX_MESSAGE_CONTENT_LEN;
+use crate::encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN;
 use protocol_types::{abis::event_selector::EventSelector, address::AztecAddress};
 
 /// The below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
@@ -24,6 +24,7 @@ pub unconstrained fn store_private_event_log(
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
     log_index_in_tx: Field,
+    tx_index_in_block: Field,
 ) {
     store_private_event_log_oracle(
         contract_address,
@@ -32,6 +33,7 @@ pub unconstrained fn store_private_event_log(
         msg_content,
         tx_hash,
         log_index_in_tx,
+        tx_index_in_block,
     )
 }
 
@@ -43,4 +45,5 @@ unconstrained fn store_private_event_log_oracle(
     msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
     tx_hash: Field,
     log_index_in_tx: Field,
+    tx_index_in_block: Field,
 ) {}

@@ -8,9 +8,9 @@
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/honk/proof_system/logderivative_library.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/relations/relation_parameters.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 
 namespace bb {
 
@@ -33,7 +33,7 @@ class ECCVMCircuitBuilder {
     static constexpr size_t ADDITIONS_PER_ROW = bb::eccvm::ADDITIONS_PER_ROW;
 
     using MSM = bb::eccvm::MSM<CycleGroup>;
-    using VMOperation = bb::eccvm::VMOperation<CycleGroup>;
+    using VMOperation = bb::VMOperation<CycleGroup>;
     std::shared_ptr<ECCOpQueue> op_queue;
     using ScalarMul = bb::eccvm::ScalarMul<CycleGroup>;
 
@@ -117,7 +117,7 @@ class ECCVMCircuitBuilder {
         size_t op_idx = 0;
         // populate opqueue and mul indices
         for (const auto& op : eccvm_ops) {
-            if (op.mul) {
+            if (op.op_code.mul) {
                 if ((op.z1 != 0 || op.z2 != 0) && !op.base_point.is_point_at_infinity()) {
                     msm_opqueue_index.push_back(op_idx);
                     msm_mul_index.emplace_back(msm_count, active_mul_count);
@@ -131,7 +131,7 @@ class ECCVMCircuitBuilder {
             op_idx++;
         }
         // if last op is a mul we have not correctly computed the total number of msms
-        if (eccvm_ops.back().mul && active_mul_count > 0) {
+        if (eccvm_ops.back().op_code.mul && active_mul_count > 0) {
             msm_sizes.push_back(active_mul_count);
             msm_count++;
         }

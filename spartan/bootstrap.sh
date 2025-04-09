@@ -7,6 +7,10 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 
 flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
 
+function lint {
+  helm lint ./aztec-network/
+}
+
 function network_shaping {
   namespace="$1"
   chaos_values="$2"
@@ -116,7 +120,7 @@ case "$cmd" in
   "hash")
     echo $hash
     ;;
-  test|test_cmds|gke)
+  test|test_cmds|gke|lint)
     $cmd
     ;;
   "test-kind-smoke")
@@ -155,7 +159,7 @@ case "$cmd" in
     FRESH_INSTALL=false INSTALL_METRICS=false ./scripts/test_prod_deployment.sh
     ;;
   "test-cli-upgrade")
-    OVERRIDES="telemetry.enabled=false,network.setupL2Contracts=false" \
+    OVERRIDES="telemetry.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
       ./scripts/test_kind.sh src/spartan/upgrade_via_cli.test.ts 1-validators.yaml upgrade-via-cli${NAME_POSTFIX:-}
     ;;

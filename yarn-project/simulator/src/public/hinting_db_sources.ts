@@ -272,20 +272,11 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     // Use sequentialInsert for PublicDataTree and NullifierTree.
     assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
 
-    if (leaves.length === 0) {
-      return;
+    // We need to process each leaf individually because we need the sibling path after insertion, to be able to constraint the insertion.
+    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/13380): This can be changed if the world state appendLeaves returns the sibling paths.
+    for (const leaf of leaves) {
+      await this.appendLeafInternal(treeId, leaf);
     }
-
-    const beforeState = await this.getHintKey(treeId);
-
-    await super.appendLeaves<ID>(treeId, leaves);
-
-    const afterState = await this.getHintKey(treeId);
-
-    HintingPublicTreesDB.log.debug('[appendLeaves] Evolved tree state.');
-    HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
-
-    this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, leaves as Fr[]));
   }
 
   public override async createCheckpoint(): Promise<void> {
@@ -382,5 +373,26 @@ export class HintingPublicTreesDB extends PublicTreesDB {
     HintingPublicTreesDB.log.debug(
       `[${treeName}] Evolved tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
     );
+  }
+
+  private async appendLeafInternal<ID extends MerkleTreeId, N extends number>(
+    treeId: ID,
+    leaf: MerkleTreeLeafType<ID>,
+  ): Promise<SiblingPath<N>> {
+    // Use sequentialInsert for PublicDataTree and NullifierTree.
+    assert(treeId == MerkleTreeId.NOTE_HASH_TREE || treeId == MerkleTreeId.L1_TO_L2_MESSAGE_TREE);
+
+    const beforeState = await this.getHintKey(treeId);
+
+    await super.appendLeaves<ID>(treeId, [leaf]);
+
+    const afterState = await this.getHintKey(treeId);
+
+    HintingPublicTreesDB.log.debug('[appendLeaves] Evolved tree state.');
+    HintingPublicTreesDB.logTreeChange(beforeState, afterState, treeId);
+
+    this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, [leaf as Fr]));
+
+    return await this.getSiblingPath<N>(treeId, BigInt(beforeState.nextAvailableLeafIndex));
   }
 }

@@ -160,7 +160,9 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    */
   peerPenaltyValues: number[];
 
-  /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
+  /**
+   *  Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged.
+   */
   archivedTxLimit: number;
 
   /**
@@ -175,6 +177,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
 
   /** Which calls are allowed in the public setup phase of a tx. */
   txPublicSetupAllowList: AllowedElement[];
+
+  /**
+   * The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs.
+   */
+  maxTxPoolSize: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -225,6 +232,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'BOOTSTRAP_NODES',
     parseEnv: (val: string) => val.split(','),
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
+    defaultValue: [],
   },
   bootstrapNodeEnrVersionCheck: {
     env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
@@ -353,6 +361,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'The list of functions calls allowed to run in setup',
     printDefault: () =>
       'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+  },
+  maxTxPoolSize: {
+    env: 'P2P_MAX_TX_POOL_SIZE',
+    description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
+    ...numberConfigHelper(100_000_000), // 100MB
   },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,

@@ -22,7 +22,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import { MockPublicBaseCircuit, witnessGenMockPublicBaseCircuit } from './index.js';
+import { MockRollupBasePublicCircuit, witnessGenMockPublicBaseCircuit } from './index.js';
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
@@ -137,9 +137,9 @@ describe('AVM Integration', () => {
         string,
         typeof AVM_PUBLIC_INPUTS_FLATTENED_SIZE
       >,
-    });
+    } as any);
 
-    await createHonkProof(witGenResult.witness, MockPublicBaseCircuit.bytecode);
+    await createHonkProof(witGenResult.witness, MockRollupBasePublicCircuit.bytecode);
 
     const verifyResult = await verifyProof(
       bbBinaryPath,
