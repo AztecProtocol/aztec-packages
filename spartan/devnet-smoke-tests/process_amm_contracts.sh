@@ -98,8 +98,8 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
     # Adding liquidity
 
-    amount_0_max=$((private_balance_token_0/4))
-    amount_1_max=$((private_balance_token_1/4))
+    amount_0_max=$((current_user_private_balance_token_0_initial/4))
+    amount_1_max=$((current_user_private_balance_token_1_initial/4))
     amount_0_min=1
     amount_1_min=1
 
@@ -220,10 +220,10 @@ jq -c '.accounts[]' state.json | while read -r account; do
 
     aztec-wallet $prover_to_use_for_amm_flow \
       send remove_liquidity \
-      --ca "$amm_address" \
+      --ca $amm_address \
       --args $((liquidity_token_balance/8)) $amount_0_min $amount_1_min secrets:burn-nonce \
       -aw amm-burn-token-liquidity \
-      -f "$current_user_address" \
+      -f $current_user_address \
       $fee_method_override
 
     current_user_private_balance_token_0_after_remove_liquidity=$(get_private_balance "$token_0_address" "$current_user_address")
