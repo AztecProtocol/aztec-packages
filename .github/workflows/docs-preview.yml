@@ -1,8 +1,14 @@
 name: Docs Preview
 
 on:
+  workflow_dispatch:
+  push:
+    branches:
+      - master
+    tags:
+      - "v*"
   pull_request:
-    types: [edited]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
 
 jobs:
   docs-preview:
