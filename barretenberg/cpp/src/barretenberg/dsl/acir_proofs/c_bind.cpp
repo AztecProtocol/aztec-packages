@@ -294,6 +294,8 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
     const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
+    vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
+
     *result = ClientIVC::verify(proof, vk);
 }
 
