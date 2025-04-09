@@ -2,7 +2,7 @@ import type { BlobJson } from '@aztec/blob-lib';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
-import { getTelemetryClient } from '@aztec/telemetry-client';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
@@ -59,7 +59,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
 
   private instrumentation: BlobArchiveClientInstrumentation;
 
-  constructor(baseUrl: string, telemetry = getTelemetryClient()) {
+  constructor(baseUrl: string, telemetry: TelemetryClient = getTelemetryClient()) {
     this.baseUrl = baseUrl.replace(/^https?:\/\//, '');
     this.instrumentation = new BlobArchiveClientInstrumentation(
       telemetry,
