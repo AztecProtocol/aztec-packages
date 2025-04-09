@@ -133,7 +133,8 @@ helm upgrade --install "$helm_instance" ../aztec-network \
   -f "../aztec-network/resources/$resources_file" \
   --wait \
   --wait-for-jobs=true \
-  --timeout="$install_timeout"
+  --timeout="$install_timeout" \
+  --debug
 
 # Wait for PXE pods to be ready
 kubectl wait pod -l app==pxe --for=condition=Ready -n "$namespace" --timeout=10m
