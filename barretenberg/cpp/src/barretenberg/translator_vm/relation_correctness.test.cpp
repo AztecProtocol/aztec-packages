@@ -651,11 +651,12 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 
 //     const size_t mini_circuit_size = 2048;
 //     auto& engine = numeric::get_debug_randomness();
-//     const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
+//     const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_DISABLED_ROWS_IN_SUMCHECK *
+//     Flavor::INTERLEAVING_GROUP_SIZE;
 
 //     TranslatorProvingKey key{ mini_circuit_size };
 //     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
-//     const size_t real_circuit_size = full_circuit_size - full_masking_offset;
+//     const size_t real_circuit_size = full_circuit_size - full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
 //     // Fill required relation parameters
 //     RelationParameters<FF> params{ .beta = FF::random_element(), .gamma = FF::random_element() };
@@ -664,10 +665,10 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 //     and
 //     // evaluation
 //     auto fill_polynomial_with_random_14_bit_values = [&](auto& polynomial) {
-//         for (size_t i = polynomial.start_index(); i < polynomial.end_index() - MASKING_OFFSET; i++) {
+//         for (size_t i = polynomial.start_index(); i < polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i++) {
 //             polynomial.at(i) = engine.get_random_uint16() & ((1 << Flavor::MICRO_LIMB_BITS) - 1);
 //         }
-//         for (size_t i = polynomial.end_index() - MASKING_OFFSET; i < polynomial.end_index(); i++) {
+//         for (size_t i = polynomial.end_index() - NUM_DISABLED_ROWS_IN_SUMCHECK; i < polynomial.end_index(); i++) {
 //             polynomial.at(i) = FF::random_element();
 //         }
 //     };
@@ -729,8 +730,9 @@ TEST_F(TranslatorRelationCorrectnessTests, NonNative)
 //     TranslatorProvingKey key{ mini_circuit_size };
 //     ProverPolynomials& prover_polynomials = key.proving_key->polynomials;
 
-//     const size_t full_masking_offset = MASKING_OFFSET * Flavor::INTERLEAVING_GROUP_SIZE;
-//     const size_t real_circuit_size = key.dyadic_circuit_size - full_masking_offset;
+//     const size_t full_NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_DISABLED_ROWS_IN_SUMCHECK *
+//     Flavor::INTERLEAVING_GROUP_SIZE; const size_t real_circuit_size = key.dyadic_circuit_size -
+//     full_NUM_DISABLED_ROWS_IN_SUMCHECK;
 
 //     // Construct lagrange polynomials that are needed for Translator's DeltaRangeConstraint Relation
 //     prover_polynomials.lagrange_first.at(0) = 0;

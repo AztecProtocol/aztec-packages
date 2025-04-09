@@ -373,6 +373,7 @@ export class UtilityExecutionOracle extends TypedOracle {
     msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void> {
     return this.executionDataProvider.storePrivateEventLog(
       contractAddress,
@@ -381,6 +382,7 @@ export class UtilityExecutionOracle extends TypedOracle {
       msgContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
     );
   }
 }

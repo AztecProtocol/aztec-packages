@@ -263,7 +263,10 @@ export class BlobSinkServer {
       return;
     }
 
-    const rollupAddress = this.config.rollupAddress?.isZero() ? undefined : this.config.rollupAddress;
+    const rollupAddress =
+      !this.config.l1Contracts?.rollupAddress || this.config.l1Contracts?.rollupAddress?.isZero()
+        ? undefined
+        : this.config.l1Contracts.rollupAddress;
     const events = await getL2BlockProposalEvents(this.l1PublicClient, blockId, rollupAddress);
     const eventBlobHashes = events.flatMap(event => event.versionedBlobHashes);
     const blobHashesToValidate = blobs.map(blob => bufferToHex(blob.blob.getEthVersionedBlobHash()));

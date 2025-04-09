@@ -1,9 +1,9 @@
 use crate::{
     discovery::{
         ComputeNoteHashAndNullifier,
-        MAX_MESSAGE_CONTENT_LEN,
         nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
     },
+    encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
     oracle,
     utils::array,
 };
