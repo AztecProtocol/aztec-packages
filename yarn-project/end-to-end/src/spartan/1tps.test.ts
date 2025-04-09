@@ -1,4 +1,5 @@
 /* eslint-disable no-console */
+// TODO(#11825) finalise (probably once we have nightly tests setup for GKE) & enable in bootstrap.sh
 import { ProvenTx, Tx, readFieldCompressedString } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
