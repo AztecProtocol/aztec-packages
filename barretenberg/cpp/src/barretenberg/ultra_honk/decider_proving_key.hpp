@@ -67,6 +67,9 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
         } else if (std::same_as<Circuit, MegaCircuitBuilder>) {
             if (is_structured) {
                 circuit.blocks.set_fixed_block_sizes(trace_settings); // The structuring is set
+                if (verbose_logging) {
+                    circuit.blocks.summarize();
+                }
                 move_structured_trace_overflow_to_overflow_block(circuit);
                 overflow_size = circuit.blocks.overflow.size();
                 dyadic_circuit_size = compute_structured_dyadic_size(circuit); // set the dyadic size accordingly

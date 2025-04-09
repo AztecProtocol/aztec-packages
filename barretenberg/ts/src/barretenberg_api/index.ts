@@ -309,9 +309,9 @@ export class BarretenbergApi {
   }
 
   async acirProveAndVerifyAztecClient(
-    acirStack: Uint8Array,
-    witnessStack: Uint8Array,
-    vkStack: Uint8Array,
+    acirStack: Uint8Array[],
+    witnessStack: Uint8Array[],
+    vkStack: Uint8Array[],
   ): Promise<boolean> {
     const inArgs = [acirStack, witnessStack, vkStack].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
@@ -325,9 +325,9 @@ export class BarretenbergApi {
   }
 
   async acirProveAztecClient(
-    acirStack: Uint8Array,
-    witnessStack: Uint8Array,
-    vkStack: Uint8Array,
+    acirStack: Uint8Array[],
+    witnessStack: Uint8Array[],
+    vkStack: Uint8Array[],
   ): Promise<[Uint8Array, Uint8Array]> {
     const inArgs = [acirStack, witnessStack, vkStack].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
@@ -440,9 +440,9 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirHonkSolidityVerifier(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<Uint8Array> {
+  async acirHonkSolidityVerifier(proofBuf: Uint8Array, vkBuf: Uint8Array): Promise<string> {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+    const outTypes: OutputType[] = [StringDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_honk_solidity_verifier',
       inArgs,
@@ -588,7 +588,7 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirGatesAztecClient(acirStack: Uint8Array): Promise<Uint8Array> {
+  async acirGatesAztecClient(acirStack: Uint8Array[]): Promise<Uint8Array> {
     const inArgs = [acirStack].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
@@ -884,7 +884,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAndVerifyAztecClient(acirStack: Uint8Array, witnessStack: Uint8Array, vkStack: Uint8Array): boolean {
+  acirProveAndVerifyAztecClient(acirStack: Uint8Array[], witnessStack: Uint8Array[], vkStack: Uint8Array[]): boolean {
     const inArgs = [acirStack, witnessStack, vkStack].map(serializeBufferable);
     const outTypes: OutputType[] = [BoolDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -896,7 +896,11 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirProveAztecClient(acirStack: Uint8Array, witnessStack: Uint8Array, vkStack: Uint8Array): [Uint8Array, Uint8Array] {
+  acirProveAztecClient(
+    acirStack: Uint8Array[],
+    witnessStack: Uint8Array[],
+    vkStack: Uint8Array[],
+  ): [Uint8Array, Uint8Array] {
     const inArgs = [acirStack, witnessStack, vkStack].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer(), BufferDeserializer()];
     const result = this.wasm.callWasmExport(
@@ -1004,9 +1008,9 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirHonkSolidityVerifier(proofBuf: Uint8Array, vkBuf: Uint8Array): Uint8Array {
+  acirHonkSolidityVerifier(proofBuf: Uint8Array, vkBuf: Uint8Array): string {
     const inArgs = [proofBuf, vkBuf].map(serializeBufferable);
-    const outTypes: OutputType[] = [BufferDeserializer()];
+    const outTypes: OutputType[] = [StringDeserializer()];
     const result = this.wasm.callWasmExport(
       'acir_honk_solidity_verifier',
       inArgs,
@@ -1148,7 +1152,7 @@ export class BarretenbergApiSync {
     return out[0];
   }
 
-  acirGatesAztecClient(acirStack: Uint8Array): Uint8Array {
+  acirGatesAztecClient(acirStack: Uint8Array[]): Uint8Array {
     const inArgs = [acirStack].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = this.wasm.callWasmExport(

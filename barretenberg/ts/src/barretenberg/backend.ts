@@ -17,6 +17,29 @@ export class AztecClientBackendError extends Error {
   }
 }
 
+// Utility for parsing gate counts from buffer
+// TODO: Where should this logic live? Should go away with move to msgpack.
+function parseBigEndianU32Array(buffer: Uint8Array, hasSizePrefix = false): number[] {
+  const dv = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+
+  let offset = 0;
+  let count = buffer.byteLength >>> 2; // default is entire buffer length / 4
+
+  if (hasSizePrefix) {
+    // Read the first 4 bytes as the size (big-endian).
+    count = dv.getUint32(0, /* littleEndian= */ false);
+    offset = 4;
+  }
+
+  const out: number[] = new Array(count);
+  for (let i = 0; i < count; i++) {
+    out[i] = dv.getUint32(offset, false);
+    offset += 4;
+  }
+
+  return out;
+}
+
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` and `acirComposer` in the constructor.
@@ -340,7 +363,7 @@ export class AztecClientBackend {
 
   protected api!: Barretenberg;
 
-  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+  constructor(protected acirMsgpack: Uint8Array[], protected vksMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -353,7 +376,7 @@ export class AztecClientBackend {
 
   async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
     await this.instantiate();
-    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack, this.vksMsgpack);
     const [proof, vk] = proofAndVk;
     if (!(await this.verify(proof, vk))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
@@ -368,13 +391,14 @@ export class AztecClientBackend {
 
   async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
-    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
+    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack, this.vksMsgpack);
   }
 
   async gates(): Promise<number[]> {
     // call function on API
     await this.instantiate();
-    return this.api.acirGatesAztecClient(this.acirMsgpack);
+    const resultBuffer = await this.api.acirGatesAztecClient(this.acirMsgpack);
+    return parseBigEndianU32Array(resultBuffer, /*hasSizePrefix=*/ true);
   }
 
   async destroy(): Promise<void> {

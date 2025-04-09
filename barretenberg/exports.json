@@ -446,15 +446,15 @@
     "inArgs": [
       {
         "name": "acir_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       },
       {
         "name": "witness_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       },
       {
         "name": "vk_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       }
     ],
     "outArgs": [
@@ -470,15 +470,15 @@
     "inArgs": [
       {
         "name": "acir_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       },
       {
         "name": "witness_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       },
       {
         "name": "vk_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       }
     ],
     "outArgs": [
@@ -654,7 +654,7 @@
     "outArgs": [
       {
         "name": "out",
-        "type": "uint8_t **"
+        "type": "out_str_buf"
       }
     ],
     "isAsync": false
@@ -884,7 +884,7 @@
     "inArgs": [
       {
         "name": "acir_stack",
-        "type": "const uint8_t *"
+        "type": "uint8_vec_vec_in_buf"
       }
     ],
     "outArgs": [
