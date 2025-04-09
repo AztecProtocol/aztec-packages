@@ -20,6 +20,11 @@ jobs:
         with:
           node-version: "18"
 
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
       - name: Restore Noir cache
         id: cache-noir
         uses: actions/cache@v4
