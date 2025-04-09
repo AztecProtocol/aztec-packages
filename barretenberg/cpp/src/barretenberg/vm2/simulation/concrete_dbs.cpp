@@ -38,8 +38,8 @@ const TreeSnapshots& MerkleDB::get_tree_roots() const
 
 FF MerkleDB::storage_read(const FF& leaf_slot) const
 {
-    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
-    auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
+    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
+    auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::PUBLIC_DATA_TREE, index);
     auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
 
     FF value = present ? preimage.leaf.value : 0;
