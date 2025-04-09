@@ -58,22 +58,22 @@ using lookup_low_leaf_nullifier_validation = lookup_nullifier_read_low_leaf_null
 using lookup_low_leaf_next_nullifier_validation = lookup_nullifier_read_low_leaf_next_nullifier_validation_relation<FF>;
 
 struct TestParams {
-    FF leaf_slot;
+    FF nullifier;
     bool exists;
     NullifierTreeLeafPreimage low_leaf;
 };
 
 std::vector<TestParams> positive_tests = {
     // Exists = true, leaf pointers to infinity
-    TestParams{ .leaf_slot = 42, .exists = true, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(42), 0, 0) },
+    TestParams{ .nullifier = 42, .exists = true, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(42), 0, 0) },
     // Exists = true, leaf points to higher value
     TestParams{
-        .leaf_slot = 42, .exists = true, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(42), 28, 50) },
+        .nullifier = 42, .exists = true, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(42), 28, 50) },
     // Exists = false, low leaf points to infinity
-    TestParams{ .leaf_slot = 42, .exists = false, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(10), 0, 0) },
+    TestParams{ .nullifier = 42, .exists = false, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(10), 0, 0) },
     // Exists = false, low leaf points to higher value
     TestParams{
-        .leaf_slot = 42, .exists = false, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(10), 28, 50) }
+        .nullifier = 42, .exists = false, .low_leaf = NullifierTreeLeafPreimage(NullifierLeafValue(10), 28, 50) }
 };
 
 class NullifierReadInteractionsTests : public TestWithParam<TestParams> {};
@@ -114,7 +114,7 @@ TEST_P(NullifierReadInteractionsTests, PositiveWithInteractions)
     FF root = root_from_path(low_leaf_hash, leaf_index, sibling_path);
 
     nullifier_tree_check_simulator.assert_read(
-        param.leaf_slot, param.exists, param.low_leaf, leaf_index, sibling_path, root);
+        param.nullifier, param.exists, param.low_leaf, leaf_index, sibling_path, root);
 
     poseidon2_builder.process_hash(hash_event_emitter.dump_events(), trace);
     merkle_check_builder.process(merkle_event_emitter.dump_events(), trace);
