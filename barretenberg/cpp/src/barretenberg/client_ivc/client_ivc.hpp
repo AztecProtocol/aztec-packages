@@ -46,6 +46,7 @@ class ClientIVC {
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =

@@ -92,8 +92,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     // Recursively verify the merge proof for the circuit being recursively verified
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] AggregationObject pairing_points =
-        GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
+    RecursiveMergeVerifier merge_verifier{ &circuit };
+    [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -235,7 +235,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(builder, stdlib_merge_proof);
+    RecursiveMergeVerifier merge_verifier{ &builder };
+    [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =

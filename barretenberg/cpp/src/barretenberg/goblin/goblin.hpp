@@ -35,8 +35,6 @@ class GoblinProver {
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
-
-    using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = MergeProver::MergeProof;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
@@ -177,34 +175,21 @@ class GoblinVerifier {
     // {}
 
     /**
-     * @brief Append recursive verification of a merge proof to a provided circuit
-     *
-     * @param circuit_builder
-     * @return AggregationObject Inputs to the final pairing check
-     */
-    static AggregationObject recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
-    {
-        PROFILE_THIS_NAME("Goblin::merge");
-        RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-        return merge_verifier.verify_proof(proof);
-    };
-
-    /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
      *
      * @param proof
      * @return true
      * @return false
      */
-    bool verify(const GoblinProof& proof)
+    static bool verify(const GoblinProof& proof)
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
-        ECCVMVerifier eccvm_verifier(eccvm_verification_key);
+        ECCVMVerifier eccvm_verifier{};
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
-        TranslatorVerifier translator_verifier(translator_verification_key, eccvm_verifier.transcript);
+        TranslatorVerifier translator_verifier(eccvm_verifier.transcript);
 
         bool accumulator_construction_verified = translator_verifier.verify_proof(
             proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
