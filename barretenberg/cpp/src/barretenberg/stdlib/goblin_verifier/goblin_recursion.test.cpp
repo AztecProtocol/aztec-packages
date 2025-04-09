@@ -42,7 +42,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
 {
     using Builder = MegaCircuitBuilder;
     using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
-    GoblinProver goblin;
+    Goblin goblin;
 
     GoblinAccumulationOutput kernel_accum;
 
@@ -75,8 +75,7 @@ TEST_F(GoblinRecursionTests, Vanilla)
     // Verify the goblin proof (eccvm, translator, merge)
     auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>();
     auto translator_vkey = std::make_shared<TranslatorVerificationKey>();
-    GoblinVerifier goblin_verifier{};
-    bool verified = goblin_verifier.verify(proof);
+    bool verified = Goblin::verify(proof);
     EXPECT_TRUE(ultra_verified && verified);
 }
 

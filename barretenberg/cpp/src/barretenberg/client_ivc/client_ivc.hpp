@@ -188,7 +188,7 @@ class ClientIVC {
 
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
-    GoblinProver goblin;
+    Goblin goblin;
 
     bool initialized = false; // Is the IVC accumulator initialized
 

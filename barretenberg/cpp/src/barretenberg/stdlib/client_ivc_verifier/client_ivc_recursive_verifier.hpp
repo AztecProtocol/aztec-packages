@@ -20,7 +20,7 @@ class ClientIVCRecursiveVerifier {
   public:
     using Proof = ClientIVC::Proof;
     using FoldVerifierInput = FoldingVerifier::VerifierInput;
-    using GoblinVerifierInput = GoblinVerifier::VerifierInput;
+    using GoblinVerifierInput = Goblin::VerificationKey;
     using Output = GoblinRecursiveVerifierOutput;
 
     struct VerifierInput {

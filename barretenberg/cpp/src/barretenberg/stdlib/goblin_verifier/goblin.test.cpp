@@ -35,7 +35,7 @@ class GoblinTests : public ::testing::Test {
  */
 TEST_F(GoblinTests, MultipleCircuits)
 {
-    GoblinProver goblin;
+    Goblin goblin;
 
     // Construct and accumulate multiple circuits
     size_t NUM_CIRCUITS = 3;
@@ -51,8 +51,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     // respective proving keys)
     auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>();
     auto translator_vkey = std::make_shared<TranslatorVerificationKey>();
-    GoblinVerifier goblin_verifier{};
-    bool verified = goblin_verifier.verify(proof);
+    bool verified = Goblin::verify(proof);
 
     EXPECT_TRUE(verified);
 }

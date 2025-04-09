@@ -21,7 +21,7 @@
 
 namespace bb {
 
-class GoblinProver {
+class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
@@ -36,6 +36,8 @@ class GoblinProver {
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
     using MergeProof = MergeProver::MergeProof;
+    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
+    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
@@ -47,6 +49,11 @@ class GoblinProver {
     // fq evaluation_challenge_x;
     // std::shared_ptr<Transcript> transcript;
 
+    struct VerificationKey {
+        std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
+        std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
+    };
+
   private:
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
     std::unique_ptr<ECCVMProver> eccvm_prover;
@@ -54,7 +61,7 @@ class GoblinProver {
     GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
 
   public:
-    GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
+    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
         : commitment_key(bn254_commitment_key)
     {}
 
@@ -140,39 +147,6 @@ class GoblinProver {
         }
         return goblin_proof;
     };
-};
-
-class GoblinVerifier {
-  public:
-    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
-    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using Builder = MegaCircuitBuilder;
-    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
-    using AggregationObject = RecursiveMergeVerifier::AggregationObject;
-
-    struct VerifierInput {
-        std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
-        std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
-    };
-
-  private:
-    std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
-    std::shared_ptr<TranslatorVerificationKey> translator_verification_key =
-        std::make_shared<TranslatorVerificationKey>();
-
-  public:
-    // default constructor
-    GoblinVerifier() = default;
-    // GoblinVerifier(std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key,
-    //                std::shared_ptr<TranslatorVerificationKey> translator_verification_key)
-    //     : eccvm_verification_key(eccvm_verification_key)
-    //     , translator_verification_key(translator_verification_key)
-    // {}
-
-    // GoblinVerifier(VerifierInput input)
-    //     : eccvm_verification_key(input.eccvm_verification_key)
-    //     , translator_verification_key(input.translator_verification_key)
-    // {}
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
@@ -205,4 +179,5 @@ class GoblinVerifier {
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
+
 } // namespace bb
