@@ -87,7 +87,10 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
         cause: {
           httpResponse: {
             status: response.status,
-            body: await response.text(),
+            body: await response.text().catch(err => {
+              this.logger.warn('Failed to read response body', err);
+              return '';
+            }),
           },
         },
       });
@@ -109,7 +112,10 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
         cause: {
           httpResponse: {
             status: response.status,
-            body: await response.text(),
+            body: await response.text().catch(err => {
+              this.logger.warn('Failed to read response body', err);
+              return '';
+            }),
           },
         },
       });

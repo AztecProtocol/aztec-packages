@@ -35,7 +35,7 @@ describe('blobscan_archive_client', () => {
   });
 
   beforeEach(() => {
-    client = new BlobscanArchiveClient('api.blobscan.dev');
+    client = new BlobscanArchiveClient('https://api.blobscan.dev');
   });
 
   describe('getBlobData', () => {
