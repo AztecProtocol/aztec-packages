@@ -46,9 +46,10 @@ void ECCVMProver::execute_preamble_round()
 void ECCVMProver::execute_wire_commitments_round()
 {
     // To commit to the masked wires when `real_size` < `circuit_size`, we use
-    // `commit_structured` that ignores 0 coefficients between the real size and the last MASKING_OFFSET wire entries.
+    // `commit_structured` that ignores 0 coefficients between the real size and the last NUM_DISABLED_ROWS_IN_SUMCHECK
+    // wire entries.
     const size_t circuit_size = key->circuit_size;
-    unmasked_witness_size = circuit_size - MASKING_OFFSET;
+    unmasked_witness_size = circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
     CommitmentKey::CommitType commit_type =
         (circuit_size > key->real_size) ? CommitmentKey::CommitType::Structured : CommitmentKey::CommitType::Default;
@@ -215,8 +216,8 @@ ECCVMProof ECCVMProver::construct_proof()
  * where \f$ x \f$ is an artifact of our implementation of shiftable polynomials.
  *
  * This check gets trickier when the witness wires in ECCVM are masked. Namely, we randomize the last \f$
- * \text{MASKING_OFFSET} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
- * \text{MASKING_OFFSET}\f$. Denote
+ * \text{NUM_DISABLED_ROWS_IN_SUMCHECK} \f$ coefficients of \f$ T_i \f$. Let \f$ N = \text{circuit_size} -
+ * \text{NUM_DISABLED_ROWS_IN_SUMCHECK}\f$. Denote
  * \f{align}{ \widetilde{T}_i(X) = T_i(X) + X^N \cdot m_i(X). \f}
  *
  * Informally speaking, to preserve ZK, the \ref ECCVMVerifier must never obtain the commitments to \f$ T_i \f$ or
@@ -320,8 +321,8 @@ void ECCVMProver::commit_to_witness_polynomial(Polynomial& polynomial,
                                                CommitmentKey::CommitType commit_type,
                                                const std::vector<std::pair<size_t, size_t>>& active_ranges)
 {
-    // We add MASKING_OFFSET-1 random values to the coefficients of each wire polynomial to not leak information via the
-    // commitment and evaluations. -1 is caused by shifts.
+    // We add NUM_DISABLED_ROWS_IN_SUMCHECK-1 random values to the coefficients of each wire polynomial to not leak
+    // information via the commitment and evaluations. -1 is caused by shifts.
     polynomial.mask();
     transcript->send_to_verifier(label, key->commitment_key->commit_with_type(polynomial, commit_type, active_ranges));
 }

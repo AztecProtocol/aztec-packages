@@ -2,10 +2,10 @@
 
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
+#include "barretenberg/op_queue/ecc_ops_table.hpp"
+#include "barretenberg/op_queue/eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_ops_table.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/eccvm_row_tracker.hpp"
 namespace bb {
 
 /**
@@ -35,14 +35,12 @@ class ECCOpQueue {
 
     // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for all
     // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
-    std::vector<bb::eccvm::VMOperation<Curve::Group>> eccvm_ops_reconstructed;
+    std::vector<ECCVMOperation> eccvm_ops_reconstructed;
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
 
   public:
-    using ECCVMOperation = bb::eccvm::VMOperation<Curve::Group>;
-
     // Constructor that instantiates an initial ECC op subtable
     ECCOpQueue() { initialize_new_subtable(); }
 
@@ -130,7 +128,8 @@ class ECCOpQueue {
      */
     void add_erroneous_equality_op_for_testing()
     {
-        append_eccvm_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = Point::random_element() });
+        EccOpCode op_code{ .eq = true, .reset = true };
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = Point::random_element() });
     }
 
     /**
@@ -151,12 +150,12 @@ class ECCOpQueue {
     {
         // Update the accumulator natively
         accumulator = accumulator + to_add;
-
+        EccOpCode op_code{ .add = true };
         // Store the eccvm operation
-        append_eccvm_op(ECCVMOperation{ .add = true, .base_point = to_add });
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = to_add });
 
         // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(ADD_ACCUM, to_add);
+        return construct_and_populate_ultra_ops(op_code, to_add);
     }
 
     /**
@@ -168,13 +167,14 @@ class ECCOpQueue {
     {
         // Update the accumulator natively
         accumulator = accumulator + to_mul * scalar;
+        EccOpCode op_code{ .mul = true };
 
         // Construct and store the operation in the ultra op format
-        UltraOp ultra_op = construct_and_populate_ultra_ops(MUL_ACCUM, to_mul, scalar);
+        UltraOp ultra_op = construct_and_populate_ultra_ops(op_code, to_mul, scalar);
 
         // Store the eccvm operation
         append_eccvm_op(ECCVMOperation{
-            .mul = true,
+            .op_code = op_code,
             .base_point = to_mul,
             .z1 = ultra_op.z_1,
             .z2 = ultra_op.z_2,
@@ -190,11 +190,12 @@ class ECCOpQueue {
      */
     UltraOp no_op()
     {
+        EccOpCode op_code{};
         // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{});
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code });
 
         // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(NULL_OP, accumulator);
+        return construct_and_populate_ultra_ops(op_code, accumulator);
     }
 
     /**
@@ -206,12 +207,12 @@ class ECCOpQueue {
     {
         auto expected = accumulator;
         accumulator.self_set_infinity();
-
+        EccOpCode op_code{ .eq = true, .reset = true };
         // Store eccvm operation
-        append_eccvm_op(ECCVMOperation{ .eq = true, .reset = true, .base_point = expected });
+        append_eccvm_op(ECCVMOperation{ .op_code = op_code, .base_point = expected });
 
         // Construct and store the operation in the ultra op format
-        return construct_and_populate_ultra_ops(EQUALITY, expected);
+        return construct_and_populate_ultra_ops(op_code, expected);
     }
 
   private:
@@ -236,7 +237,6 @@ class ECCOpQueue {
     {
         UltraOp ultra_op;
         ultra_op.op_code = op_code;
-        ultra_op.op = Fr(static_cast<uint256_t>(op_code));
 
         // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
         const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;

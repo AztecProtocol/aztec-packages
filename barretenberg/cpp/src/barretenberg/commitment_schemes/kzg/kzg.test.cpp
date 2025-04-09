@@ -220,7 +220,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims =
+    auto prover_opening_claims =
         GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
@@ -274,7 +274,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims =
+    auto prover_opening_claims =
         GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
