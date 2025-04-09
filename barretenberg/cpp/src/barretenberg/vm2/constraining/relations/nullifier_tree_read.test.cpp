@@ -56,7 +56,6 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using nullifier_read = bb::avm2::nullifier_read<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 
 TEST(NullifierTreeReadConstrainingTest, EmptyRow)
 {

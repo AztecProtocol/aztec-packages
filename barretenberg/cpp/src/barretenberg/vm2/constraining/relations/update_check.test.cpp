@@ -30,11 +30,6 @@ using tracegen::UpdateCheckTraceBuilder;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using GetLowIndexedLeafResponse = crypto::merkle_tree::GetLowIndexedLeafResponse;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
 
 using update_check_relation = bb::avm2::update_check<FF>;
 

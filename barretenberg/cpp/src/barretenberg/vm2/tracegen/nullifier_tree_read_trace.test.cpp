@@ -50,7 +50,6 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using nullifier_read = bb::avm2::nullifier_read<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using NullifierLeafValue = crypto::merkle_tree::NullifierLeafValue;
 
 using lookup_low_leaf_poseidon2 = lookup_nullifier_read_low_leaf_poseidon2_relation<FF>;
 using lookup_low_leaf_membership = lookup_nullifier_read_low_leaf_membership_relation<FF>;

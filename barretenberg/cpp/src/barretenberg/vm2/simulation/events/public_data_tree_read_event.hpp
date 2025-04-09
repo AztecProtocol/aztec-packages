@@ -2,7 +2,6 @@
 
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
-#include "barretenberg/world_state/types.hpp"
 
 #include <cstdint>
 #include <vector>

@@ -15,7 +15,6 @@ using ::testing::ElementsAre;
 using ::testing::Return;
 using ::testing::StrictMock;
 
-using NullifierTreeLeafValue = crypto::merkle_tree::NullifierLeafValue;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace {

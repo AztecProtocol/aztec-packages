@@ -5,7 +5,6 @@
 #include "barretenberg/vm2/simulation/field_gt.hpp"
 #include "barretenberg/vm2/simulation/merkle_check.hpp"
 #include "barretenberg/vm2/simulation/poseidon2.hpp"
-#include "barretenberg/world_state/types.hpp"
 
 namespace bb::avm2::simulation {
 
