@@ -1,12 +1,13 @@
 #include "barretenberg/vm2/simulation/nullifier_tree_check.hpp"
+
+#include "gmock/gmock.h"
+#include <gtest/gtest.h>
+
 #include "barretenberg/vm2/simulation/events/nullifier_tree_read_event.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_poseidon2.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
-
-#include "gmock/gmock.h"
-#include <gtest/gtest.h>
 
 namespace bb::avm2::simulation {
 

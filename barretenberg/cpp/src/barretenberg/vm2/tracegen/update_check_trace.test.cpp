@@ -56,7 +56,6 @@ using simulation::UpdateCheckEvent;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using GetLowIndexedLeafResponse = GetLowIndexedLeafResponse;
 using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
 
 using update_hash_poseidon2 = lookup_update_check_update_hash_poseidon2_relation<FF>;
