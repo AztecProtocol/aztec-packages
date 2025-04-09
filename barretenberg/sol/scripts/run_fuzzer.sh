@@ -8,7 +8,7 @@ BIN="../cpp/build/bin/solidity_proof_gen"
 
 INPUTS="$( sed 's/\\n//g' <<<"$INPUTS" )"
 
-SRS_PATH="../cpp/srs_db/ignition"
+CRS_PATH="../cpp/srs_db/ignition"
 
 # If the plonk flavor is honk, then run the honk generator
 if [ "$FLAVOR" == "honk" ] || [ "$FLAVOR" == "honk_zk" ] ; then
@@ -16,4 +16,4 @@ if [ "$FLAVOR" == "honk" ] || [ "$FLAVOR" == "honk_zk" ] ; then
 fi
 
 # @note This needs to be updated to point to the generator
-$BIN $FLAVOR $CIRCUIT $SRS_PATH $INPUTS
+$BIN $FLAVOR $CIRCUIT $CRS_PATH $INPUTS
