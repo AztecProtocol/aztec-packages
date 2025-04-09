@@ -113,6 +113,13 @@ export class PublicTxContext {
     const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
     const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
     const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
+    const startStateReference = await treesDB.getStateReference();
+    hints.startingTreeRoots = new TreeSnapshots(
+      startStateReference.l1ToL2MessageTree,
+      startStateReference.partial.noteHashTree,
+      startStateReference.partial.nullifierTree,
+      startStateReference.partial.publicDataTree,
+    );
 
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = PublicPersistableStateManager.create(
