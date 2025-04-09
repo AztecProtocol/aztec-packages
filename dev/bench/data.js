@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744214954300,
+  "lastUpdate": 1744216453904,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "829a315c6a6306a4b36023a64fcc5a04dfc0a496",
-          "message": "chore: add get canonical sponsored fpc and cleanup fee opts in cli wallet (#13319)\n\nPlease read [contributing guidelines](CONTRIBUTING.md) and remove this\nline.\n\nCo-authored-by: sklppy88 <esau@aztecprotocol.com>",
-          "timestamp": "2025-04-07T08:35:51Z",
-          "tree_id": "ecb82893bfd0342ffa7cae8ae02ffa174c9c8214",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/829a315c6a6306a4b36023a64fcc5a04dfc0a496"
-        },
-        "date": 1744016995304,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 29128,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17810,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 8900,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10650,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12534,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2910,6 +2856,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12713,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "152162806+sklppy88@users.noreply.github.com",
+            "name": "esau",
+            "username": "sklppy88"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "33286aeea54ac77a4dc1dd82fba1c63a7c463803",
+          "message": "fix: easier description of how to use multiple authwitnesses with cli wallet (#13412)\n\nWas unable to figure out how it worked here from the desc to use\nmultiple authwits in a single tx, so I made it a bit easier to figure\nout and added it in the desc",
+          "timestamp": "2025-04-09T15:45:28Z",
+          "tree_id": "8e55da863a814017f52e387bfb426cc652e407cb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/33286aeea54ac77a4dc1dd82fba1c63a7c463803"
+        },
+        "date": 1744216445228,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 30454,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18040,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 9149,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10886,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12822,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
