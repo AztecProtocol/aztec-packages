@@ -37,11 +37,6 @@ const BOOTSTRAP_NODE_PRIVATE_KEY = '080212208f988fc0899e4a73a5aee4d271a5f2067060
 const l1ContractsConfig = getL1ContractsConfigEnvVars();
 export const WAIT_FOR_TX_TIMEOUT = l1ContractsConfig.aztecSlotDuration * 3;
 
-export const SHORTENED_BLOCK_TIME_CONFIG = {
-  aztecSlotDuration: 12,
-  ethereumSlotDuration: 4,
-};
-
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
   private baseAccount;

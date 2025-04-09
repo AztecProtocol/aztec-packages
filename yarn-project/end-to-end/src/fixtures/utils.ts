@@ -83,7 +83,7 @@ import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContra
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
+import { DEFAULT_BLOCK_TIME_CONFIG, MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
@@ -352,6 +352,10 @@ export async function setup(
 ): Promise<EndToEndContext> {
   let anvil: Anvil | undefined;
   try {
+    opts = {
+      ...DEFAULT_BLOCK_TIME_CONFIG,
+      ...opts,
+    };
     const config = { ...getConfigEnvVars(), ...opts };
     config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
     // For tests we only want proving enabled if specifically requested
