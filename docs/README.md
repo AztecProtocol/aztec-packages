@@ -153,26 +153,17 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 
 Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not: it allows you to hot-fix previous versions.
 
-When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
-
 The way docs builds work is the following:
 
-- CI runs on merge to master, and runs `build_docs` and `deploy` on the `bootstrap.sh` file
-- `build_docs` eventually ends up running `build.sh` on the `scripts` folder and:
-  - cleans up
-  - preprocesses (see above)
-  - runs typedoc, which should work since all the other packages in the monorepo are now built
-  - builds the docs website with the versions in `versions.json`
-- `deploy` decides on whether it's running on CI or not to decide on whether to deploy on the prod website, or to deploy a preview and comment on the PR it came from
+- [This Github Action](../.github/workflows/docs-deploy.yml) runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
+- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
+- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
 
-### How do I cut a new version
+### How do I change the versions that show in the website
 
-First check that the version you want to cut is already released. Then you just:
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
 
-- checkout `master`
-- run `./bootstrap.sh docs-cut-version <version you want to cut>`
-
-You'll end up with a HEAD that has a new version in `versioned_docs`. PR that.
+While we iron out the release-please process, you just change `versions.json` to whatever versions need to show on the website. Once we get it working and we're sure that all releases are being cut as we want, this can be done together with the `docs-deploy` action.
 
 ## Contributing
 
