@@ -8,6 +8,8 @@
 
 using namespace bb;
 namespace {
+auto& engine = numeric::get_debug_randomness();
+
 template <typename Fr_, typename Builder_> struct PaddingTestParams {
     using Fr = Fr_;
     using Builder = Builder_;
@@ -28,6 +30,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Fr x = Fr::from_witness(&builder, idx);
 
             auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_TRUE(CircuitChecker::check(builder));
         }
@@ -42,7 +45,8 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr zero = Fr::from_witness(&builder, 0);
 
-            auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(zero);
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
         }
@@ -51,9 +55,10 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
         {
             Builder builder;
 
-            Fr zero = Fr::from_witness(&builder, domain_size);
+            Fr N = Fr::from_witness(&builder, domain_size);
 
-            auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(N);
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_TRUE(CircuitChecker::check(builder));
         }
@@ -68,6 +73,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Fr x = Fr::from_witness(&builder, scalar_raw);
 
             auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
         }
