@@ -27,5 +27,3 @@ yarn-error.log*
 /docs/developers/reference/smart_contract_reference/aztec-nr
 /docs/docs/protocol-specs/public-vm/gen
 test-results
-
-versions.json
