@@ -47,12 +47,7 @@ static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x
         x_to_masking_offset = x_to_masking_offset.sqr();
     }
 
-<<<<<<< HEAD
-    // Compute X^{NUM_DISABLED_ROWS_IN_SUMCHECK}
-    const FF x_to_NUM_DISABLED_ROWS_IN_SUMCHECK = evaluation_challenge_x.pow(NUM_DISABLED_ROWS_IN_SUMCHECK);
-=======
     FF x_to_circuit_size = x_to_masking_offset;
->>>>>>> d9dda2cf32 (first Sergei fixes for goblin)
 
     for (size_t idx = LOG_MASKING_OFFSET; idx < CONST_ECCVM_LOG_N; idx++) {
         x_to_circuit_size = x_to_circuit_size.sqr();

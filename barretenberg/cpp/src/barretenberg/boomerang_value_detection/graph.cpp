@@ -96,7 +96,7 @@ inline std::vector<std::vector<uint32_t>> Graph_<FF>::get_arithmetic_gate_connec
     uint32_t right_idx = blk.w_r()[index];
     uint32_t out_idx = blk.w_o()[index];
     uint32_t fourth_idx = blk.w_4()[index];
-    if (q_m.is_zero() && q_1 == 1 && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith == FF::one()) {
+    if (q_m.is_zero() && q_1 == FF::one() && q_2.is_zero() && q_3.is_zero() && q_4.is_zero() && q_arith == FF::one()) {
         // this is fixed_witness gate. So, variable index contains in left wire. So, we have to take only it.
         fixed_variables.insert(this->to_real(ultra_circuit_builder, left_idx));
     } else if (!q_m.is_zero() || q_1 != FF::one() || !q_2.is_zero() || !q_3.is_zero() || !q_4.is_zero()) {
@@ -797,7 +797,7 @@ inline size_t Graph_<FF>::process_current_decompose_chain(bb::UltraCircuitBuilde
             variables_in_one_gate.erase(this->to_real(ultra_circuit_constructor, out_idx));
         }
         auto q_arith = arithmetic_block.q_arith()[current_index];
-        if (q_arith == 1 || current_index == arithmetic_block.size() - 1) {
+        if (q_arith == FF::one() || current_index == arithmetic_block.size() - 1) {
             // this is the last gate in this chain, or we can't go next, so we have to stop a loop
             break;
         }
