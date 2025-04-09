@@ -51,10 +51,43 @@ template <typename Curve> class OpeningClaim {
     using Fr = typename Curve::ScalarField;
 
   public:
+    using Builder =
+        std::conditional_t<std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>, UltraCircuitBuilder, void>;
     // (challenge r, evaluation v = p(r))
     OpeningPair<Curve> opening_pair;
     // commitment to univariate polynomial p(X)
     Commitment commitment;
+
+    // WORKTODO: Number of bb::fr field elements used to represent a claim over Grumpkin
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 10;
+
+    uint32_t set_public()
+        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+    {
+        uint32_t start_idx = opening_pair.challenge.set_public();
+        opening_pair.evaluation.set_public();
+        commitment.set_public();
+        return start_idx;
+    }
+
+    static OpeningClaim<Curve> reconstruct_from_public(
+        const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
+        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+    {
+        OpeningClaim<Curve> claim;
+        // using BaseField = typename Curve::BaseField;
+        const size_t SFS_PER_BF = 4;
+        std::span<const stdlib::field_t<Builder>, SFS_PER_BF> challenge_limbs{ limbs.data(), SFS_PER_BF };
+        std::span<const stdlib::field_t<Builder>, SFS_PER_BF> evaluation_limbs{ limbs.data() + SFS_PER_BF, SFS_PER_BF };
+        claim.opening_pair.challenge = Fr::reconstruct_from_public(challenge_limbs);
+        claim.opening_pair.evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+
+        claim.commitment = { limbs.back() - 1, limbs.back(), false };
+        // const size_t BFS_PER_BF = 1;
+        // BaseField x{ limbs.data() + 2 * SFS_PER_BF, BFS_PER_BF };
+        // BaseField y{ limbs.data() + 2 * SFS_PER_BF + BFS_PER_BF, BFS_PER_BF };
+        return claim;
+    }
 
     IPAClaimIndices get_witness_indices() const
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
