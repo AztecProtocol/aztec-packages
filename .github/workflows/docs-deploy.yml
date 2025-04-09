@@ -41,7 +41,7 @@ jobs:
       - name: Deploy docs
         working-directory: ./docs
         run: |
-          echo "docs release preview"
+          echo "deploying docs to prod"
           yarn install
           yarn build
 
