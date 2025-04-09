@@ -46,7 +46,7 @@ export class BotFactory {
         `Either a node admin client or node admin url must be provided if transaction flushing is requested`,
       );
     }
-    if (config.senderPrivateKey && !dependencies.node) {
+    if (config.senderPrivateKey && config.senderPrivateKey.getValue() && !dependencies.node) {
       throw new Error(
         `Either a node client or node url must be provided for bridging L1 fee juice to deploy an account with private key`,
       );
