@@ -13,7 +13,7 @@ std::pair<AvmAPI::AvmProof, AvmAPI::AvmVerificationKey> AvmAPI::prove(const AvmA
 {
     // Simulate.
     info("Simulating...");
-    AvmSimulationHelper simulation_helper(inputs);
+    AvmSimulationHelper simulation_helper(inputs.hints);
     auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate());
 
     // Generate trace.
@@ -34,7 +34,7 @@ bool AvmAPI::check_circuit(const AvmAPI::ProvingInputs& inputs)
 {
     // Simulate.
     info("Simulating...");
-    AvmSimulationHelper simulation_helper(inputs);
+    AvmSimulationHelper simulation_helper(inputs.hints);
     auto events = AVM_TRACK_TIME_V("simulation/all", simulation_helper.simulate());
 
     // Generate trace.

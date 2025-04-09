@@ -85,6 +85,7 @@ add_subdirectory(barretenberg/goblin)
 add_subdirectory(barretenberg/grumpkin_srs_gen)
 add_subdirectory(barretenberg/lmdblib)
 add_subdirectory(barretenberg/numeric)
+add_subdirectory(barretenberg/op_queue)
 add_subdirectory(barretenberg/plonk)
 add_subdirectory(barretenberg/plonk_honk_shared)
 add_subdirectory(barretenberg/polynomials)
@@ -147,6 +148,7 @@ set(BARRETENBERG_TARGET_OBJECTS
     $<TARGET_OBJECTS:flavor_objects>
     $<TARGET_OBJECTS:goblin_objects>
     $<TARGET_OBJECTS:numeric_objects>
+    $<TARGET_OBJECTS:op_queue_objects>
     $<TARGET_OBJECTS:plonk_objects>
     $<TARGET_OBJECTS:plonk_honk_shared_objects>
     $<TARGET_OBJECTS:polynomials_objects>

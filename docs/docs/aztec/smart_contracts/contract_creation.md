@@ -7,7 +7,7 @@ In the Aztec protocol, contracts are deployed as _instances_ of contract _classe
 
 ## Contract Classes
 
-A contract class is a collection of state variable declarations, and related unconstrained, private, and public functions. Contract classes don't have state, they just define code (storage structure and function logic). A contract class cannot be called; only a contract instance can be called.
+A contract class is a collection of state variable declarations, and related private, public and utility functions. Contract classes don't have state, they just define code (storage structure and function logic). A contract class cannot be called; only a contract instance can be called.
 
 ### Key Benefits of Contract Classes
 
@@ -21,7 +21,7 @@ A contract class includes:
 - `private_functions`: List of individual private functions, including constructors
 - `packed_public_bytecode`: Packed bytecode representation of the AVM bytecode for all public functions
 
-The specification of the artifact hash is not enforced by the protocol. It should include commitments to unconstrained code and compilation metadata. It is intended to be used by clients to verify that an off-chain fetched artifact matches a registered class.
+The specification of the artifact hash is not enforced by the protocol. It should include commitments to utility functions code and compilation metadata. It is intended to be used by clients to verify that an off-chain fetched artifact matches a registered class.
 
 ### Contract Class Registration
 

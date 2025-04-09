@@ -86,7 +86,7 @@ When you send someone a note, the note hash gets added to the note hash tree. To
 
 #include_code offchain_delivery yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
 
-Note that this requires your contract to have an unconstrained function that processes these notes and adds them to PXE.
+Note that this requires your contract to have a utility function that processes these notes and adds them to PXE.
 
 #include_code deliver_note_contract_method noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr rust
 
