@@ -37,7 +37,7 @@ class Goblin {
     using TranslatorBuilder = TranslatorCircuitBuilder;
     using MergeProof = MergeProver::MergeProof;
     using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
-    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
+    using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;

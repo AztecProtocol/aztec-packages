@@ -47,10 +47,7 @@ TEST_F(GoblinTests, MultipleCircuits)
     // Construct a goblin proof which consists of a merge proof and ECCVM/Translator proofs
     GoblinProof proof = goblin.prove();
 
-    // Verify the goblin proof (eccvm, translator, merge); (Construct ECCVM/Translator verification keys from their
-    // respective proving keys)
-    auto eccvm_vkey = std::make_shared<ECCVMVerificationKey>();
-    auto translator_vkey = std::make_shared<TranslatorVerificationKey>();
+    // Verify the goblin proof (eccvm, translator, merge)
     bool verified = Goblin::verify(proof);
 
     EXPECT_TRUE(verified);

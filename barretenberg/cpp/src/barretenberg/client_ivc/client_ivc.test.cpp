@@ -377,18 +377,27 @@ TEST_F(ClientIVCTests, VKIndependenceTest)
             ivc.accumulate(circuit);
         }
         ivc.prove();
+        auto ivc_vk = ivc.get_vk();
 
         // PCS verification keys will not match so set to null before comparing
-        ivc.honk_vk->pcs_verification_key = nullptr;
+        ivc_vk.mega->pcs_verification_key = nullptr;
+        ivc_vk.eccvm->pcs_verification_key = nullptr;
+        ivc_vk.translator->pcs_verification_key = nullptr;
 
-        return ivc.honk_vk;
+        return ivc_vk;
     };
 
     auto civc_vk_2 = generate_vk(MIN_NUM_CIRCUITS);
     auto civc_vk_20 = generate_vk(MAX_NUM_CIRCUITS);
 
     // Check the equality of the Mega components of the ClientIVC VKeys.
-    EXPECT_EQ(*civc_vk_2.get(), *civc_vk_20.get());
+    EXPECT_EQ(*civc_vk_2.mega.get(), *civc_vk_20.mega.get());
+
+    // Check the equality of the ECCVM components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_2.eccvm.get(), *civc_vk_20.eccvm.get());
+
+    // Check the equality of the Translator components of the ClientIVC VKeys.
+    EXPECT_EQ(*civc_vk_2.translator.get(), *civc_vk_20.translator.get());
 };
 
 /**

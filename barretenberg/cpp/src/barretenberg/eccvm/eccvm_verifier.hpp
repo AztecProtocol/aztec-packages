@@ -16,7 +16,6 @@ class ECCVMVerifier {
     using PCS = typename Flavor::PCS;
 
   public:
-    // default constructor
     ECCVMVerifier() = default;
     explicit ECCVMVerifier(const std::shared_ptr<VerificationKey>& verifier_key)
         : key(verifier_key){};
