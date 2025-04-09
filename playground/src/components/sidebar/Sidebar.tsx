@@ -83,7 +83,9 @@ export function SidebarComponent() {
     const refreshContracts = async () => {
       const aliasedBuffers = await walletDB.listAliases('contracts');
       const aliasedContracts = parseAliasedBuffersAsString(aliasedBuffers);
-      const alias = aliasedContracts.find(({ value }) => wallet.getAddress().equals(AztecAddress.fromString(value)));
+      const alias = aliasedContracts.find(({ value }) =>
+        currentContractAddress?.equals(AztecAddress.fromString(value)),
+      );
       setContractAlias(alias?.key.replace('contracts:', ''));
     };
 
@@ -138,8 +140,7 @@ export function SidebarComponent() {
           <ButtonWithModal
             label="Select Network"
             isActive={activeSection === 'network'}
-            isSelected={isNetworkConnected}
-            isLoading={connecting}
+            isSelected={connecting || isNetworkConnected}
             connectionStatus={getNetworkButtonText()}
             onClick={() => handleSectionToggle('network')}
           >
@@ -165,7 +166,7 @@ export function SidebarComponent() {
           </ButtonWithModal>
           <div css={{ flex: '1 0 auto', margin: 'auto' }} />
           <AddressBook />
-          <TxsPanel css={{ marginBottom: 60 }} />
+          <TxsPanel />
         </>
       )}
     </div>

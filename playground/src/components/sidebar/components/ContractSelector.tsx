@@ -10,11 +10,17 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
 import { select } from '../styles';
-import { formatFrAsString, parseAliasedBuffersAsString } from '../../../utils/conversion';
+import {
+  convertFromUTF8BufferAsString,
+  formatFrAsString,
+  parseAliasedBuffersAsString,
+} from '../../../utils/conversion';
 import { PREDEFINED_CONTRACTS } from '../types';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
-import { loadContractArtifact } from '@aztec/aztec.js';
+import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
+import { parse } from 'buffer-json';
+import { ListItemIcon } from '@mui/material';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -49,6 +55,7 @@ export function ContractSelector({}: ContractSelectorProps) {
     walletDB,
     isPXEInitialized,
     setCurrentContractArtifact,
+    setCurrentContractAddress,
     setShowContractInterface,
   } = useContext(AztecContext);
 
@@ -63,14 +70,19 @@ export function ContractSelector({}: ContractSelectorProps) {
   }, [currentContractAddress, walletDB]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
+    console.log('Selected contract:', event.target.value);
+
     const contractValue = event.target.value;
     if (contractValue === '') {
       return;
     }
 
-    // If 'create' is clicked, don't proceed (it's just for showing the dialog)
-    if (contractValue === 'create') {
+    // If 'upload your own' is selected, set the contract artifact to undefined, and allow the user to upload a new one
+    if (contractValue === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
       setCurrentContractArtifact(undefined);
+      setCurrentContractAddress(undefined);
+      setSelectedPredefinedContract(contractValue);
+      setShowContractInterface(true);
       return;
     }
 
@@ -78,7 +90,6 @@ export function ContractSelector({}: ContractSelectorProps) {
 
     try {
       if ([PREDEFINED_CONTRACTS.SIMPLE_VOTING, PREDEFINED_CONTRACTS.SIMPLE_TOKEN].includes(contractValue)) {
-        setShowContractInterface(true);
         let contractArtifactJSON;
         switch (contractValue) {
           case PREDEFINED_CONTRACTS.SIMPLE_VOTING:
@@ -95,6 +106,15 @@ export function ContractSelector({}: ContractSelectorProps) {
         const contractArtifact = await loadContractArtifact(contractArtifactJSON);
         setSelectedPredefinedContract(contractValue);
         setCurrentContractArtifact(contractArtifact);
+        setCurrentContractAddress(undefined);
+        setShowContractInterface(true);
+      } else {
+        const artifactAsString = await walletDB.retrieveAlias(`artifacts:${contractValue}`);
+        const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+        setCurrentContractAddress(AztecAddress.fromString(contractValue));
+        setCurrentContractArtifact(contractArtifact);
+        setSelectedPredefinedContract(undefined);
+        setShowContractInterface(true);
       }
     } finally {
       setIsContractChanging(false);
@@ -116,7 +136,7 @@ export function ContractSelector({}: ContractSelectorProps) {
       <FormControl css={select}>
         <InputLabel>Contracts</InputLabel>
         <Select
-          value={currentContractAddress?.toString() ?? selectedPredefinedContract}
+          value={currentContractAddress?.toString() || selectedPredefinedContract || ''}
           label="Contract"
           open={isOpen}
           onOpen={() => setIsOpen(true)}
@@ -131,27 +151,23 @@ export function ContractSelector({}: ContractSelectorProps) {
 
           <Divider />
           {/* Upload your own option - always present */}
-          <MenuItem value={PREDEFINED_CONTRACTS.CUSTOM_UPLOAD} sx={{ display: 'flex', alignItems: 'center' }}>
-            <UploadFileIcon fontSize="small" sx={{ mr: 1 }} />
+          <MenuItem value={PREDEFINED_CONTRACTS.CUSTOM_UPLOAD}>
+            <UploadFileIcon sx={{ mr: 1, position: 'relative', top: '0.2rem' }} fontSize="small" />
             Upload Your Own
           </MenuItem>
 
           <Divider />
           {/* User's deployed/registered contracts */}
-          {contracts.length > 0 && (
-            <>
-              <ListSubheader>Deployed Contracts</ListSubheader>
-              {contracts.map(contract => (
-                <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
-                  {contract.key.split(':')[1]}&nbsp;(
-                  {formatFrAsString(contract.value)})
-                </MenuItem>
-              ))}
-            </>
-          )}
+          {contracts.length > 0 && <ListSubheader>Deployed Contracts</ListSubheader>}
+          {contracts.map(contract => (
+            <MenuItem key={`${contract.key}-${contract.value}`} value={contract.value}>
+              {contract.key.split(':')[1]}&nbsp;(
+              {formatFrAsString(contract.value)})
+            </MenuItem>
+          ))}
         </Select>
         {isContractChanging ? (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}>
             <CircularProgress size={20} />
           </div>
         ) : (

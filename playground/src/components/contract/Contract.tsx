@@ -27,7 +27,7 @@ import InputAdornment from '@mui/material/InputAdornment';
 import Typography from '@mui/material/Typography';
 
 import FindInPageIcon from '@mui/icons-material/FindInPage';
-import { convertFromUTF8BufferAsString, formatFrAsString } from '../../utils/conversion';
+import { formatFrAsString } from '../../utils/conversion';
 import { DeployContractDialog } from './components/deployContractDialog';
 import { FunctionParameter } from '../common/FnParameter';
 import ClearIcon from '@mui/icons-material/Clear';
@@ -37,7 +37,6 @@ import VpnKeyIcon from '@mui/icons-material/VpnKey';
 import SendIcon from '@mui/icons-material/Send';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import { CreateAuthwitDialog } from './components/createAuthwitDialog';
-import { parse } from 'buffer-json';
 
 const container = css({
   display: 'flex',
@@ -164,27 +163,6 @@ export function ContractComponent() {
   useEffect(() => {
     const loadCurrentContract = async () => {
       setIsLoadingArtifact(true);
-      const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
-      const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
-      const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
-      setCurrentContractArtifact(contract.artifact);
-      setFunctionAbis(getAllFunctionAbis(contract.artifact));
-      setFilters({
-        searchTerm: '',
-        private: true,
-        public: true,
-        utility: true,
-      });
-      setIsLoadingArtifact(false);
-    };
-    if (currentContractAddress && currentContract?.address !== currentContractAddress) {
-      loadCurrentContract();
-    }
-  }, [currentContractAddress]);
-
-  useEffect(() => {
-    if (currentContractArtifact !== null) {
-      setIsLoadingArtifact(true);
       setFunctionAbis(getAllFunctionAbis(currentContractArtifact));
       setFilters({
         searchTerm: '',
@@ -192,9 +170,18 @@ export function ContractComponent() {
         public: true,
         utility: true,
       });
+      if (currentContractAddress && currentContract?.address !== currentContractAddress) {
+        const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
+        setCurrentContract(contract);
+      } else {
+        setCurrentContract(null);
+      }
       setIsLoadingArtifact(false);
+    };
+    if (!!currentContractArtifact) {
+      loadCurrentContract();
     }
-  }, [currentContractArtifact]);
+  }, [currentContractArtifact, currentContractAddress]);
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {

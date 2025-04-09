@@ -104,9 +104,9 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     setConnecting(true);
     setPXEInitialized(false);
     const network = networks.find(network => network.nodeURL === event.target.value);
-    setNetwork(network);
     const node = await AztecEnv.connectToNode(network.nodeURL);
     setAztecNode(node);
+    setNetwork(network);
     const pxe = await AztecEnv.initPXE(node, setLogs);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
     const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
@@ -173,69 +173,70 @@ export function NetworkSelector({}: NetworkSelectorProps) {
   // };
 
   return (
-    <div css={modalContainer}>
-      <FormControl css={select}>
-        <Select
-          fullWidth
-          value={network?.nodeURL || ''}
-          displayEmpty
-          IconComponent={KeyboardArrowDownIcon}
-          open={isOpen}
-          onOpen={() => setOpen(true)}
-          onClose={() => setOpen(false)}
-          renderValue={selected => {
-            if (connecting) {
-              return `Connecting to ${network?.name}...`;
-            }
-            if (selected && network?.nodeURL) {
-              return `${network.name}@${network.nodeURL}`;
-            }
-            return 'Select Network';
-          }}
-          disabled={connecting}
-          onChange={handleNetworkChange}
-        >
-          {networks.map(network => (
-            <MenuItem
-              key={network.name}
-              value={network.nodeURL}
-              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
-            >
-              <Typography variant="body1">{network.name}</Typography>
-              <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
-                {network.description} • {network.nodeURL}
-              </Typography>
-            </MenuItem>
-          ))}
-          <MenuItem
-            key="create"
-            value=""
-            onClick={() => {
-              setOpen(false);
-              setOpenAddNetworksDialog(true);
-            }}
-          >
-            <AddIcon />
-            &nbsp;Add custom network
-          </MenuItem>
-        </Select>
-      </FormControl>
-
-      {connecting && (
+    <>
+      {connecting ? (
         <div css={loadingContainer}>
           <CircularProgress size={24} />
           <Typography variant="body2">Connecting to network...</Typography>
         </div>
-      )}
+      ) : (
+        <div css={modalContainer}>
+          <FormControl css={select}>
+            <Select
+              fullWidth
+              value={network?.nodeURL || ''}
+              displayEmpty
+              IconComponent={KeyboardArrowDownIcon}
+              open={isOpen}
+              onOpen={() => setOpen(true)}
+              onClose={() => setOpen(false)}
+              renderValue={selected => {
+                if (connecting) {
+                  return `Connecting to ${network?.name}...`;
+                }
+                if (selected && network?.nodeURL) {
+                  return `${network.name}@${network.nodeURL}`;
+                }
+                return 'Select Network';
+              }}
+              disabled={connecting}
+              onChange={handleNetworkChange}
+            >
+              {networks.map(network => (
+                <MenuItem
+                  key={network.name}
+                  value={network.nodeURL}
+                  sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}
+                >
+                  <Typography variant="body1">{network.name}</Typography>
+                  <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                    {network.description} • {network.nodeURL}
+                  </Typography>
+                </MenuItem>
+              ))}
+              <MenuItem
+                key="create"
+                value=""
+                onClick={() => {
+                  setOpen(false);
+                  setOpenAddNetworksDialog(true);
+                }}
+              >
+                <AddIcon />
+                &nbsp;Add custom network
+              </MenuItem>
+            </Select>
+          </FormControl>
 
-      {/* {connectionError && (
+          {/* {connectionError && (
         <div css={errorMessageStyle}>
           <ErrorOutlineIcon css={errorIcon} />
           <div>{renderErrorMessage()}</div>
         </div>
       )} */}
-
+        </div>
+      )}
       <AddNetworksDialog open={openAddNetworksDialog} onClose={handleNetworkAdded} />
-    </div>
+    </>
   );
 }

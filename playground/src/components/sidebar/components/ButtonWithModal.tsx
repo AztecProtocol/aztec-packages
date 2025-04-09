@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import type { ReactNode } from 'react';
 import { css, keyframes } from '@emotion/react';
-import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { dropdownIconStyle } from '../styles';
 
@@ -89,7 +88,6 @@ interface ButtonWithModalProps {
   label: string;
   isActive: boolean;
   isSelected?: boolean;
-  isLoading?: boolean;
   connectionStatus?: string;
   onClick: () => void;
   children?: ReactNode;
@@ -99,7 +97,6 @@ export function ButtonWithModal({
   label,
   isActive,
   isSelected = false,
-  isLoading = false,
   connectionStatus,
   onClick,
   children,
@@ -119,11 +116,7 @@ export function ButtonWithModal({
       {/* Button */}
       <div css={[buttonStyle, isActive && activeButtonStyle]} onClick={handleButtonClick}>
         <span>{isSelected && connectionStatus ? connectionStatus : label}</span>
-        {isLoading ? (
-          <CircularProgress size={20} css={loadingSpinner} />
-        ) : (
-          <KeyboardArrowDownIcon css={[dropdownIconStyle, isActive && { transform: 'rotate(180deg)' }]} />
-        )}
+        <KeyboardArrowDownIcon css={[dropdownIconStyle, isActive && { transform: 'rotate(180deg)' }]} />
       </div>
 
       {/* Modal - show whenever isActive is true */}

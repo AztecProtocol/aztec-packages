@@ -48,7 +48,7 @@ export function AccountSelector({}: AccountSelectorProps) {
 
   const { setWallet, wallet, walletDB, isPXEInitialized, pxe } = useContext(AztecContext);
 
-  const getAccountsAndSenders = async () => {
+  const getAccounts = async () => {
     const aliasedBuffers = await walletDB.listAliases('accounts');
     const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
     const testAccountData = await getInitialTestAccounts();
@@ -78,23 +78,13 @@ export function AccountSelector({}: AccountSelectorProps) {
       }
       i++;
     }
-    const pxeAccounts = await pxe.getRegisteredAccounts();
-    const ourAccounts = [];
-    const senders = [];
-    aliasedAccounts.forEach(({ key, value }) => {
-      if (pxeAccounts.find(account => account.address.equals(AztecAddress.fromString(value)))) {
-        ourAccounts.push({ key, value });
-      } else {
-        senders.push(key, value);
-      }
-    });
-    return { ourAccounts, senders };
+    return aliasedAccounts;
   };
 
   useEffect(() => {
     const refreshAccounts = async () => {
-      const { ourAccounts } = await getAccountsAndSenders();
-      setAccounts(ourAccounts);
+      const accounts = await getAccounts();
+      setAccounts(accounts);
     };
     if (walletDB && walletDB && pxe) {
       refreshAccounts();
