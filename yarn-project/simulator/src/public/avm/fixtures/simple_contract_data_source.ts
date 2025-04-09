@@ -1,15 +1,10 @@
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
+import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type {
-  ContractClassPublic,
-  ContractDataSource,
-  ContractInstanceWithAddress,
-  PublicFunction,
-} from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { PUBLIC_DISPATCH_FN_NAME } from './index.js';
+import { getFunctionSelector } from './index.js';
 
 /**
  * This class is used during public/avm testing to function as a database of
@@ -27,6 +22,8 @@ export class SimpleContractDataSource implements ContractDataSource {
   private contractInstances: Map<string, ContractInstanceWithAddress> = new Map();
   // maps contract instance address to address
   private contractArtifacts: Map<string, ContractArtifact> = new Map();
+  // maps `${classID}:${fnSelector}` to name
+  private debugFunctionName: Map<string, string> = new Map();
 
   /////////////////////////////////////////////////////////////
   // Helper functions not in the contract data source interface
@@ -39,21 +36,29 @@ export class SimpleContractDataSource implements ContractDataSource {
     contractClass: ContractClassPublic,
     contractInstance: ContractInstanceWithAddress,
   ) {
-    this.addContractArtifact(contractClass.id, contractArtifact);
+    await this.addContractArtifact(contractClass.id, contractArtifact);
     await this.addContractClass(contractClass);
     await this.addContractInstance(contractInstance);
   }
 
-  addContractArtifact(classId: Fr, artifact: ContractArtifact): void {
+  async addContractArtifact(classId: Fr, artifact: ContractArtifact) {
     this.contractArtifacts.set(classId.toString(), artifact);
+    const classIdStr = classId.toString();
+    const publicFns = artifact.nonDispatchPublicFunctions;
+    if (publicFns.length !== 0) {
+      for (const fn of publicFns) {
+        const actualFnName = `${fn.name}`;
+        const fnSelector = await getFunctionSelector(actualFnName, artifact);
+        const key = `${classIdStr}:${fnSelector.toString()}`;
+
+        const longFnName = `${artifact.name}.${actualFnName}`;
+        this.debugFunctionName.set(key, longFnName);
+      }
+    }
   }
 
   /////////////////////////////////////////////////////////////
   // ContractDataSource function implementations
-  getPublicFunction(_address: AztecAddress, _selector: FunctionSelector): Promise<PublicFunction> {
-    throw new Error('Method not implemented.');
-  }
-
   getBlockNumber(): Promise<number> {
     throw new Error('Method not implemented.');
   }
@@ -82,11 +87,24 @@ export class SimpleContractDataSource implements ContractDataSource {
     }
     this.logger.debug(`Retrieved contract artifact for address: ${address}`);
     this.logger.debug(`Contract class ID: ${contractInstance.currentContractClassId}`);
-    return Promise.resolve(this.contractArtifacts.get(contractInstance!.currentContractClassId.toString()));
+    return this.contractArtifacts.get(contractInstance!.currentContractClassId.toString());
   }
 
-  getContractFunctionName(_address: AztecAddress, _selector: FunctionSelector): Promise<string> {
-    return Promise.resolve(PUBLIC_DISPATCH_FN_NAME);
+  async getDebugFunctionName(address: AztecAddress, selector: FunctionSelector): Promise<string> {
+    const contractInstance = await this.getContract(address);
+    if (!contractInstance) {
+      this.logger.warn(
+        `Couldn't get fn name for debugging. Contract not in tester's ContractDataSource. Using selector:${selector} instead...`,
+      );
+      return `selector:${selector.toString()}`;
+    }
+    const key = `${contractInstance.currentContractClassId.toString()}:${selector.toString()}`;
+    const fnName = this.debugFunctionName.get(key);
+    if (!fnName) {
+      this.logger.warn(`Couldn't get fn name for debugging. Using selector:${selector} instead...`);
+      return selector.toString();
+    }
+    return fnName;
   }
 
   registerContractFunctionSignatures(_address: AztecAddress, _signatures: string[]): Promise<void> {

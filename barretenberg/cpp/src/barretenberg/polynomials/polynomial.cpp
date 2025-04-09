@@ -311,6 +311,12 @@ Polynomial<Fr> Polynomial<Fr>::expand(const size_t new_start_index, const size_t
     return result;
 }
 
+template <typename Fr> void Polynomial<Fr>::shrink_end_index(const size_t new_end_index)
+{
+    ASSERT(new_end_index <= end_index());
+    coefficients_.end_ = new_end_index;
+}
+
 template <typename Fr> Polynomial<Fr> Polynomial<Fr>::full() const
 {
     Polynomial result = *this;

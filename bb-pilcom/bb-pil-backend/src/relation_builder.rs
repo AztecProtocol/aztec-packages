@@ -143,6 +143,7 @@ impl RelationBuilder for BBFiles {
                 json!({
                     "degree": id.degree,
                     "identity": id.identity,
+                    "label": id.label.clone(),
                 })
             }).collect_vec(),
             "alias_defs": alias_defs_in_order.iter().map(|(name, degree, expr)| {

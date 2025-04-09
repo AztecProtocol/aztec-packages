@@ -5,6 +5,7 @@ import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { emptyChainConfig } from '@aztec/stdlib/config';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
+import type { IDiscv5CreateOptions } from '@chainsafe/discv5';
 import { jest } from '@jest/globals';
 import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
@@ -14,8 +15,7 @@ import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 
-const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void> => {
-  const timeout = 7_000;
+const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 15_000): Promise<void> => {
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
@@ -31,7 +31,7 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number): Promise<void>
 };
 
 describe('Discv5Service', () => {
-  jest.setTimeout(10_000);
+  jest.setTimeout(20_000);
 
   let store: AztecAsyncKVStore;
   let bootNode: BootstrapNode;
@@ -39,8 +39,9 @@ describe('Discv5Service', () => {
   let basePort = 7890;
 
   const baseConfig: BootnodeConfig = {
-    udpAnnounceAddress: `127.0.0.1:${basePort + 100}`,
-    udpListenAddress: `0.0.0.0:${basePort + 100}`,
+    p2pIp: '127.0.0.1',
+    p2pPort: basePort + 100,
+    listenAddress: '127.0.0.1',
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
@@ -112,6 +113,50 @@ describe('Discv5Service', () => {
     await stopNodes(node1, node2);
   });
 
+  it('should automatically resolve p2p ip if not set', async () => {
+    const extraNodes = 3;
+    const nodes: DiscV5Service[] = [];
+
+    // Create a node with no p2pIp
+    const node = await createNode({ p2pIp: undefined, config: { addrVotesToUpdateEnr: 1, pingInterval: 200 } });
+    await node.start();
+    nodes.push(node);
+
+    // Create a number of normal nodes
+    for (let i = 1; i < extraNodes; i++) {
+      const node = await createNode({ config: { pingInterval: 200 } });
+      await node.start();
+      nodes.push(node);
+    }
+
+    expect(node.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
+    for (const n of nodes) {
+      expect(n.getStatus()).toEqual(PeerDiscoveryState.RUNNING);
+    }
+
+    expect(node.getEnr().ip).toEqual(undefined);
+    await Promise.allSettled([
+      waitForPeers(node, extraNodes),
+      (async () => {
+        await sleep(2000); // wait for peer discovery to be able to start
+        for (let i = 0; i < extraNodes; i++) {
+          await node.runRandomNodesQuery();
+          for (const n of nodes) {
+            await n.runRandomNodesQuery();
+          }
+          await sleep(100);
+        }
+      })(),
+    ]);
+
+    // Expect it's IP has been updated, and that the tcp and udp ports are the same
+    expect(node.getEnr().ip).not.toEqual(undefined);
+    expect(node.getEnr().tcp).not.toEqual(undefined);
+    expect(node.getEnr().tcp).toEqual(node.getEnr().udp);
+
+    await stopNodes(...nodes);
+  });
+
   it('should refuse to connect to a bootstrap node with wrong chain id', async () => {
     const node1 = await createNode({ l1ChainId: 13, bootstrapNodeEnrVersionCheck: true });
     const node2 = await createNode({ l1ChainId: 14, bootstrapNodeEnrVersionCheck: false });
@@ -181,17 +226,15 @@ describe('Discv5Service', () => {
     await node2.stop();
   });
 
-  const createNode = async (overrides: Partial<P2PConfig> = {}) => {
+  const createNode = async (overrides: Partial<P2PConfig & IDiscv5CreateOptions> = {}) => {
     const port = ++basePort;
     const bootnodeAddr = bootNode.getENR().encodeTxt();
     const peerId = await createSecp256k1PeerId();
     const config: P2PConfig = {
       ...getP2PDefaultConfig(),
       ...baseConfig,
-      tcpListenAddress: `0.0.0.0:${port}`,
-      udpListenAddress: `0.0.0.0:${port + 100}`,
-      tcpAnnounceAddress: `127.0.0.1:${port}`,
-      udpAnnounceAddress: `127.0.0.1:${port + 100}`,
+      p2pIp: `127.0.0.1`,
+      p2pPort: port,
       bootstrapNodes: [bootnodeAddr],
       blockCheckIntervalMS: 50,
       peerCheckIntervalMS: 50,
@@ -200,6 +243,6 @@ describe('Discv5Service', () => {
       keepProvenTxsInPoolFor: 0,
       ...overrides,
     };
-    return new DiscV5Service(peerId, config);
+    return new DiscV5Service(peerId, config, undefined, undefined, overrides);
   };
 });

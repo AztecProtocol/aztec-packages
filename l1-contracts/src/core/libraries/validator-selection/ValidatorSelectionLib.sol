@@ -73,7 +73,7 @@ library ValidatorSelectionLib {
     Signature[] memory _signatures,
     bytes32 _digest,
     BlockHeaderValidationFlags memory _flags
-  ) internal view {
+  ) internal {
     // Same logic as we got in getProposerAt
     // Done do avoid duplicate computing the committee
     address[] memory committee = getCommitteeAt(_stakingStore, _epochNumber);
@@ -128,7 +128,6 @@ library ValidatorSelectionLib {
 
   function getProposerAt(StakingStorage storage _stakingStore, Slot _slot, Epoch _epochNumber)
     internal
-    view
     returns (address)
   {
     // @note this is deliberately "bad" for the simple reason of code reduction.
@@ -157,7 +156,6 @@ library ValidatorSelectionLib {
    */
   function sampleValidators(StakingStorage storage _stakingStore, uint256 _seed)
     internal
-    view
     returns (address[] memory)
   {
     uint256 validatorSetSize = _stakingStore.attesters.length();
@@ -174,7 +172,7 @@ library ValidatorSelectionLib {
     }
 
     uint256[] memory indices =
-      SampleLib.computeCommitteeClever(targetCommitteeSize, validatorSetSize, _seed);
+      SampleLib.computeCommittee(targetCommitteeSize, validatorSetSize, _seed);
 
     address[] memory committee = new address[](targetCommitteeSize);
     for (uint256 i = 0; i < targetCommitteeSize; i++) {
@@ -185,7 +183,6 @@ library ValidatorSelectionLib {
 
   function getCommitteeAt(StakingStorage storage _stakingStore, Epoch _epochNumber)
     internal
-    view
     returns (address[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();

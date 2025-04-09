@@ -645,6 +645,8 @@ void UltraCircuitBuilder_<ExecutionTrace>::create_ecc_dbl_gate(const ecc_dbl_gat
      * we can chain an ecc_add_gate + an ecc_dbl_gate if x3 y3 of previous add_gate equals x1 y1 of current gate
      * can also chain double gates together
      **/
+    this->assert_valid_variables({ in.x1, in.x3, in.y1, in.y3 });
+
     bool previous_elliptic_gate_exists = block.size() > 0;
     bool can_fuse_into_previous_gate = previous_elliptic_gate_exists;
     if (can_fuse_into_previous_gate) {
@@ -2183,6 +2185,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::cr
 template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::create_sorted_ROM_gate(RomRecord& record)
 {
     record.record_witness = this->add_variable(0);
+    // record_witness is intentionally used only in a single gate
+    update_used_witnesses(record.record_witness);
     apply_aux_selectors(AUX_SELECTORS::ROM_CONSISTENCY_CHECK);
     blocks.aux.populate_wires(
         record.index_witness, record.value_column1_witness, record.value_column2_witness, record.record_witness);
@@ -2588,6 +2592,8 @@ template <typename ExecutionTrace> void UltraCircuitBuilder_<ExecutionTrace>::pr
         const auto value1 = this->get_variable(record.value_column1_witness);
         const auto value2 = this->get_variable(record.value_column2_witness);
         const auto index_witness = this->add_variable(FF((uint64_t)index));
+        // the same thing as with the record witness
+        update_used_witnesses(index_witness);
         const auto value1_witness = this->add_variable(value1);
         const auto value2_witness = this->add_variable(value2);
         RomRecord sorted_record{

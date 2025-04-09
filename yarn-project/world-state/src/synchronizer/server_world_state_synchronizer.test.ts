@@ -5,7 +5,7 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { MerkleTreeCalculator } from '@aztec/foundation/trees';
 import { SHA256Trunc } from '@aztec/merkle-tree';
-import { L2Block, type L2BlockSource, type L2BlockStream } from '@aztec/stdlib/block';
+import { L2Block, type L2BlockSource, type L2BlockStream, type PublishedL2Block } from '@aztec/stdlib/block';
 import { type MerkleTreeReadOperations, WorldStateRunningState } from '@aztec/stdlib/interfaces/server';
 import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
 import type { BlockHeader } from '@aztec/stdlib/tx';
@@ -95,7 +95,10 @@ describe('ServerWorldStateSynchronizer', () => {
   const pushBlocks = async (from: number, to: number) => {
     await server.handleBlockStreamEvent({
       type: 'blocks-added',
-      blocks: await timesParallel(to - from + 1, i => L2Block.random(i + from, 4, 3, 1, inHash)),
+      blocks: await timesParallel(
+        to - from + 1,
+        async i => ({ block: await L2Block.random(i + from, 4, 3, 1, inHash) } as PublishedL2Block),
+      ),
     });
     server.latest.number = to;
   };
@@ -205,6 +208,12 @@ describe('ServerWorldStateSynchronizer', () => {
 
   it('throws if you try to immediate sync when not running', async () => {
     await expect(server.syncImmediate(3)).rejects.toThrow(/is not running/i);
+  });
+
+  it('throws if handling blocks fails', async () => {
+    void server.start();
+    merkleTreeDb.handleL2BlockAndMessages.mockRejectedValue(new Error('Test error'));
+    await expect(pushBlocks(1, 5)).rejects.toThrow(/Test error/i);
   });
 });
 

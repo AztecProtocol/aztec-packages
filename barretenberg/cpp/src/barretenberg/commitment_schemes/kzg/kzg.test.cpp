@@ -199,7 +199,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShift)
     EXPECT_EQ(vk->pairing_check(pairing_points[0], pairing_points[1]), true);
 }
 
-TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
+TEST_F(KZGTest, ShpleminiKzgWithShiftAndInterleaving)
 {
     std::vector<Fr> mle_opening_point = random_evaluation_point(log_n); // sometimes denoted 'u'
     // Generate multilinear polynomials, their commitments (genuine and mocked) and evaluations (genuine) at a random
@@ -220,7 +220,7 @@ TEST_F(KZGTest, ShpleminiKzgWithShiftAndConcatenation)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims =
+    auto prover_opening_claims =
         GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:
@@ -274,7 +274,7 @@ TEST_F(KZGTest, ShpleminiKzgShiftsRemoval)
     // Compute:
     // - (d+1) opening pairs: {r, \hat{a}_0}, {-r^{2^i}, a_i}, i = 0, ..., d-1
     // - (d+1) Fold polynomials Fold_{r}^(0), Fold_{-r}^(0), and Fold^(i), i = 0, ..., d-1
-    const auto prover_opening_claims =
+    auto prover_opening_claims =
         GeminiProver::prove(n, mock_claims.polynomial_batcher, mle_opening_point, ck, prover_transcript);
 
     // Shplonk prover output:

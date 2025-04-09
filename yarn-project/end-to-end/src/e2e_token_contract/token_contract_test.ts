@@ -1,6 +1,6 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
-import { type AccountWallet, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { type AccountWallet, type AztecNode, type CompleteAddress, type Logger, createLogger } from '@aztec/aztec.js';
+import { InvalidAccountContract } from '@aztec/noir-contracts.js/InvalidAccount';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
@@ -27,7 +27,8 @@ export class TokenContractTest {
   accounts: CompleteAddress[] = [];
   asset!: TokenContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
+  badAccount!: InvalidAccountContract;
+  node!: AztecNode;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_token_contract:${testName}`);
@@ -48,7 +49,8 @@ export class TokenContractTest {
     await this.snapshotManager.snapshot(
       '3_accounts',
       deployAccounts(3, this.logger),
-      async ({ deployedAccounts }, { pxe }) => {
+      async ({ deployedAccounts }, { pxe, aztecNode }) => {
+        this.node = aztecNode;
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.accounts = this.wallets.map(w => w.getCompleteAddress());
       },
@@ -75,7 +77,7 @@ export class TokenContractTest {
         this.logger.verbose(`Token deployed to ${asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         return { tokenContractAddress: asset.address, badAccountAddress: this.badAccount.address };
@@ -92,7 +94,7 @@ export class TokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_admin().simulate()).toBe(this.accounts[0].address.toBigInt());

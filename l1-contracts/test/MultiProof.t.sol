@@ -7,7 +7,7 @@ import {DecoderBase} from "./base/DecoderBase.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 
 import {Registry} from "@aztec/governance/Registry.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {TestConstants} from "./harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
@@ -17,11 +17,12 @@ import {
   Timestamp, Slot, Epoch, SlotLib, EpochLib, TimeLib
 } from "@aztec/core/libraries/TimeLib.sol";
 
-import {Rollup, RollupConfig, GenesisState} from "@aztec/core/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {Strings} from "@oz/utils/Strings.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
-import {RollupBase, IInstance} from "./base/RollupBase.sol";
+import {RollupBase, IInstance, IRollup} from "./base/RollupBase.sol";
 
 // solhint-disable comprehensive-interface
 
@@ -69,42 +70,27 @@ contract MultiProofTest is RollupBase {
       vm.warp(initialTime);
     }
 
-    registry = new Registry(address(this));
-    feeJuicePortal = new FeeJuicePortal(
-      address(registry), address(testERC20), bytes32(Constants.FEE_JUICE_ADDRESS)
-    );
-    testERC20.mint(address(feeJuicePortal), Constants.FEE_JUICE_INITIAL_MINT);
-    feeJuicePortal.initialize();
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    registry = new Registry(address(this), IERC20(address(testERC20)));
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
+
     testERC20.mint(address(rewardDistributor), 1e6 ether);
 
     rollup = IInstance(
       address(
         new Rollup(
-          feeJuicePortal,
+          testERC20,
           rewardDistributor,
           testERC20,
           address(this),
-          GenesisState({
-            vkTreeRoot: bytes32(0),
-            protocolContractTreeRoot: bytes32(0),
-            genesisArchiveRoot: bytes32(Constants.GENESIS_ARCHIVE_ROOT),
-            genesisBlockHash: bytes32(Constants.GENESIS_BLOCK_HASH)
-          }),
-          RollupConfig({
-            aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-            aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-            targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-            aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
-            minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-            slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-            slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-          })
+          TestConstants.getGenesisState(),
+          TestConstants.getRollupConfigInput()
         )
       )
     );
 
-    registry.upgrade(address(rollup));
+    feeJuicePortal = FeeJuicePortal(address(rollup.getFeeAssetPortal()));
+
+    registry.addRollup(IRollup(address(rollup)));
 
     _;
   }
@@ -147,6 +133,9 @@ contract MultiProofTest is RollupBase {
   function testMultipleProvers() public setUpFor("mixed_block_1") {
     address alice = address(bytes20("alice"));
     address bob = address(bytes20("bob"));
+
+    // We need to mint some fee asset to the portal to cover the 30M mana spent.
+    deal(address(testERC20), address(feeJuicePortal), 30e6 * 1e18);
 
     _proposeBlock("mixed_block_1", 1, 15e6);
     _proposeBlock("mixed_block_2", 2, 15e6);

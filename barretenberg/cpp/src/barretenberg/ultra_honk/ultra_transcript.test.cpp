@@ -242,7 +242,7 @@ TYPED_TEST(UltraTranscriptTests, VerifierManifestConsistency)
         verifier.ipa_verification_key =
             std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
         const size_t HONK_PROOF_LENGTH = TypeParam::PROOF_LENGTH_WITHOUT_PUB_INPUTS - IPA_PROOF_LENGTH;
-        const size_t num_public_inputs = static_cast<uint32_t>(proof[1]);
+        const size_t num_public_inputs = static_cast<uint32_t>(verification_key->num_public_inputs);
         // The extra calculation is for the IPA proof length.
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1182): Handle in ProofSurgeon.
         ASSERT(proof.size() == HONK_PROOF_LENGTH + IPA_PROOF_LENGTH + num_public_inputs);
@@ -316,7 +316,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     EXPECT_TRUE(verifier.verify_proof(proof));
 
     // try deserializing and serializing with no changes and check proof is still valid
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     prover.transcript->serialize_full_transcript();
     EXPECT_TRUE(verifier.verify_proof(prover.export_proof())); // we have changed nothing so proof is still valid
 
@@ -329,7 +329,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     prover.transcript->serialize_full_transcript();
     EXPECT_FALSE(verifier.verify_proof(prover.export_proof())); // the proof is now wrong after serializing it
 
-    prover.transcript->deserialize_full_transcript();
+    prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
 

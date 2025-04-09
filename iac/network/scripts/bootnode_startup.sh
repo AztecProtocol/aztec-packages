@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 
@@ -101,13 +101,13 @@ IMAGE=aztec
 LOG_LEVEL=verbose
 
 cat <<EOF > /home/$SSH_USER/tag.sh
-#!/bin/bash
+#!/usr/bin/env bash
 export TAG=$TAG
 EOF
 chmod +x /home/$SSH_USER/tag.sh
 
 cat << 'EOF' > /home/$SSH_USER/start.sh
-#!/bin/bash
+#!/usr/bin/env bash
 source ./tag.sh
 echo "Starting bootnode container..."
 JSON=$(curl -s http://static.aztec.network/$NETWORK_NAME/bootnodes.json)
@@ -123,8 +123,8 @@ docker run \
  --publish $P2P_PORT:$P2P_PORT/udp \
  --env DATA_DIRECTORY \
  --env DATA_STORE_MAP_SIZE_KB \
- --env P2P_UDP_ANNOUNCE_ADDR \
- --env P2P_UDP_LISTEN_ADDR \
+ --env P2P_IP \
+ --env P2P_PORT \
  --env PEER_ID_PRIVATE_KEY \
  --env L1_CHAIN_ID \
  --env AZTEC_PORT \
@@ -137,8 +137,7 @@ chmod +x /home/$SSH_USER/start.sh
 
 DATA_DIRECTORY=/home/$SSH_USER/data
 
-P2P_UDP_ANNOUNCE_ADDR="$PUBLIC_IP:$P2P_PORT"
-P2P_UDP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
+P2P_IP="$PUBLIC_IP"
 
 mkdir -p $DATA_DIRECTORY
 
@@ -157,12 +156,11 @@ WorkingDirectory=/home/$SSH_USER
 Environment="PEER_ID_PRIVATE_KEY=$PEER_ID_PRIVATE_KEY"
 Environment="DATA_STORE_MAP_SIZE_KB=$DATA_STORE_MAP_SIZE_KB"
 Environment="DATA_DIRECTORY=$DATA_DIRECTORY"
-Environment="P2P_UDP_ANNOUNCE_ADDR=$P2P_UDP_ANNOUNCE_ADDR"
-Environment="P2P_UDP_LISTEN_ADDR=$P2P_UDP_LISTEN_ADDR"
+Environment="P2P_IP=$P2P_IP"
+Environment="P2P_PORT=$P2P_PORT"
 Environment="L1_CHAIN_ID=$L1_CHAIN_ID"
 Environment="AZTEC_PORT=80"
 Environment="LOG_LEVEL=$LOG_LEVEL"
-Environment="P2P_PORT=$P2P_PORT"
 Environment="NETWORK_NAME=$NETWORK_NAME"
 Environment="REPO=$REPO"
 Environment="IMAGE=$IMAGE"

@@ -2,7 +2,7 @@ import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
 
 import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
@@ -10,7 +10,7 @@ import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 /**
  * Database interface for providing access to public state.
  */
-export interface PublicStateDB {
+export interface PublicStateDBInterface {
   /**
    * Reads a value from public storage, returning zero if none.
    * @param contract - Owner of the storage.
@@ -31,19 +31,40 @@ export interface PublicStateDB {
 /**
  * Database interface for providing access to public contract data.
  */
-export interface PublicContractsDB {
+export interface PublicContractsDBInterface {
   /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.
+   * @param blockNumber - The block number at which to retrieve the contract instance.
    * @returns The contract instance or undefined if not found.
    */
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
 
+  /**
+   * Returns a publicly deployed contract class.
+   * @param contractClassId - ID of the contract class.
+   * @returns The contract class or undefined if not found
+   */
+  getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined>;
+
+  /**
+   * Returns the commitment to the bytecode of a contract class.
+   * @param contractClassId - ID of the contract class.
+   * @returns The commitment to the bytecode or undefined if not found.
+   */
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
+
+  /**
+   * Returns the function name of a contract's function given its selector.
+   * @param contractAddress - Address of the contract.
+   * @param selector - Selector of the function.
+   * @returns The name of the function or undefined if not found.
+   */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
 }
 
-/** Database interface for providing access to commitment tree, l1 to l2 message tree, and nullifier tree. */
-export interface CommitmentsDB {
+/** Database interface for providing access to note hash tree, l1 to l2 message tree, and nullifier tree. */
+export interface CommitmentsDBInterface {
   /**
    * Fetches a message from the db, given its key.
    * @param contractAddress - Address of a contract by which the message was emitted.
@@ -60,23 +81,16 @@ export interface CommitmentsDB {
 
   /**
    * @param leafIndex the leaf to look up
-   * @returns The l1 to l2 leaf value or undefined if not found.
+   * @returns The l1 to l2 leaf message hash or undefined if not found.
    */
-  getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined>;
+  getL1ToL2MessageHash(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
-   * Gets the index of a commitment in the note hash tree.
-   * @param commitment - The commitment.
-   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
-   */
-  getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Gets commitment in the note hash tree given a leaf index.
+   * Gets note hash in the note hash tree at the given leaf index.
    * @param leafIndex - the leaf to look up.
-   * @returns - The commitment at that index. Undefined if leaf index is not found.
+   * @returns - The note hash at that index. Undefined if leaf index is not found.
    */
-  getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined>;
+  getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
 
   /**
    * Gets the index of a nullifier in the nullifier tree.

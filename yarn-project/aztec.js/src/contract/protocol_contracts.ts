@@ -1,6 +1,6 @@
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
 
-import type { Wallet } from '../account/wallet.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { UnsafeContract } from './unsafe_contract.js';
 
 /** Returns a Contract wrapper for the class registerer. */

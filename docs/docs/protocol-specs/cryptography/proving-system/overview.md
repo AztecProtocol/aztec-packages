@@ -34,7 +34,7 @@ IVC schemes are used by Aztec in two capacities:
 
 Both use IVC schemes. Client-side, each function call in a transaction is a "step" in the IVC scheme. Rollup-side, aggregating two transaction proofs is a "step" in the IVC scheme.
 
-The client-side IVC scheme is substantially more complex than the rollup-side scheme due to performance requiremenmts.
+The client-side IVC scheme is substantially more complex than the rollup-side scheme due to performance requirements.
 
 Rollup-side, each "step" in the IVC scheme is a Honk proof, which are recursively verified. As a result, no protoocols other than Honk are required to execute rollup-side IVC.
 
@@ -50,7 +50,7 @@ The main two families of folding schemes are derived from the [Nova](https://epr
 
 ## Protogalaxy
 
-The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol efficiently supports the ability to fold multiple Honk instances (describing different circuits) into the same accumulator. To constrast, the Nova/Supernova/Hypernova family of folding schemes assume that a single circuit is being repeatedly folded (each Aztec function circuit is a distinct circuit, which breaks this assumption).
+The [Protogalaxy](https://eprint.iacr.org/2023/1106) protocol efficiently supports the ability to fold multiple Honk instances (describing different circuits) into the same accumulator. To contrast, the Nova/Supernova/Hypernova family of folding schemes assume that a single circuit is being repeatedly folded (each Aztec function circuit is a distinct circuit, which breaks this assumption).
 
 It is a variant of [Protostar](https://eprint.iacr.org/2023/620). Unlike Protostar, Protogalaxy enables multiple instances to be efficiently folded into the same accumulator instance.
 

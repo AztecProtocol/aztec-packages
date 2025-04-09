@@ -4,6 +4,7 @@ import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { createStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import { P2PClientType } from '@aztec/stdlib/p2p';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
@@ -29,20 +30,25 @@ type P2PClientDeps<T extends P2PClientType> = {
 export const createP2PClient = async <T extends P2PClientType>(
   clientType: T,
   _config: P2PConfig & DataStoreConfig,
-  l2BlockSource: L2BlockSource,
+  archiver: L2BlockSource & ContractDataSource,
   proofVerifier: ClientProtocolCircuitVerifier,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCacheInterface,
   telemetry: TelemetryClient = getTelemetryClient(),
   deps: P2PClientDeps<T> = {},
 ) => {
-  let config = { ..._config };
+  let config = { ..._config, dataStoreMapSizeKB: _config.p2pStoreMapSizeKb ?? _config.dataStoreMapSizeKB };
   const logger = deps.logger ?? createLogger('p2p');
   const store = deps.store ?? (await createStore('p2p', 1, config, createLogger('p2p:lmdb-v2')));
   const archive = await createStore('p2p-archive', 1, config, createLogger('p2p-archive:lmdb-v2'));
 
   const mempools: MemPools<T> = {
-    txPool: deps.txPool ?? new AztecKVTxPool(store, archive, telemetry, config.archivedTxLimit),
+    txPool:
+      deps.txPool ??
+      new AztecKVTxPool(store, archive, worldStateSynchronizer, telemetry, {
+        maxTxPoolSize: config.maxTxPoolSize,
+        archivedTxLimit: config.archivedTxLimit,
+      }),
     attestationPool:
       clientType === P2PClientType.Full
         ? ((deps.attestationPool ?? new InMemoryAttestationPool(telemetry)) as T extends P2PClientType.Full
@@ -73,7 +79,7 @@ export const createP2PClient = async <T extends P2PClientType>(
       discoveryService,
       peerId,
       mempools,
-      l2BlockSource,
+      archiver,
       epochCache,
       proofVerifier,
       worldStateSynchronizer,
@@ -85,5 +91,5 @@ export const createP2PClient = async <T extends P2PClientType>(
     logger.verbose('P2P is disabled. Using dummy P2P service');
     p2pService = new DummyP2PService();
   }
-  return new P2PClient(clientType, store, l2BlockSource, mempools, p2pService, config, telemetry);
+  return new P2PClient(clientType, store, archiver, mempools, p2pService, config, telemetry);
 };

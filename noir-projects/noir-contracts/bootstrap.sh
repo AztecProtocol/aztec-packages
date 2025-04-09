@@ -27,11 +27,12 @@ export BB=${BB:-../../barretenberg/cpp/build/bin/bb}
 export NARGO=${NARGO:-../../noir/noir-repo/target/release/nargo}
 export TRANSPILER=${TRANSPILER:-../../avm-transpiler/target/release/avm-transpiler}
 export BB_HASH=$(cache_content_hash ../../barretenberg/cpp/.rebuild_patterns)
+export NOIR_HASH=${NOIR_HASH:-$(../../noir/bootstrap.sh hash)}
 
 export tmp_dir=./target/tmp
 
 # Create our tmp working directory, ensure it's removed on exit.
-function on_exit() {
+function on_exit {
   rm -rf $tmp_dir
   rm -f joblog.txt
 }
@@ -46,7 +47,7 @@ export PARALLEL_FLAGS="-j${PARALLELISM:-16} --halt now,fail=1 --memsuspend $(mem
 # stdout receives the function json with the vk added (if private).
 # The function is exported and called by a sub-shell in parallel, so we must "set -eu" etc..
 # If debugging, a set -x at the start can help.
-function process_function() {
+function process_function {
   set -euo pipefail
   local func name bytecode_b64 hash vk
 
@@ -77,9 +78,11 @@ function process_function() {
     if ! cache_download vk-$hash.tar.gz &> /dev/null; then
       # It's not in the cache. Generate the vk file and upload it to the cache.
       echo_stderr "Generating vk for function: $name..."
+
       local outdir=$(mktemp -d -p $tmp_dir)
-      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc -b - -o $outdir -v
+      echo "$bytecode_b64" | base64 -d | gunzip | $BB write_vk --scheme client_ivc --verifier_type standalone -b - -o $outdir -v
       mv $outdir/vk $tmp_dir/$hash
+
       cache_upload vk-$hash.tar.gz $tmp_dir/$hash
     fi
 
@@ -95,14 +98,41 @@ export -f process_function
 
 # Compute hash for a given contract.
 function get_contract_hash {
-  cache_content_hash \
-    ../../noir/.rebuild_patterns \
-    ../../avm-transpiler/.rebuild_patterns \
-    "^noir-projects/noir-contracts/contracts/$1/" \
-    "^noir-projects/aztec-nr/" \
-    "^noir-projects/noir-protocol-circuits/crates/types/"
+  local contract_path=$(get_contract_path "$1")
+
+  hash_str \
+    $NOIR_HASH \
+    $(cache_content_hash \
+      ../../avm-transpiler/.rebuild_patterns \
+      "^noir-projects/noir-contracts/contracts/$contract_path/" \
+      "^noir-projects/aztec-nr/" \
+      "^noir-projects/noir-protocol-circuits/crates/types/")
 }
 export -f get_contract_hash
+
+# Extract contract path from Nargo.toml based on argument
+# Handle both formats: full path relative to contracts/ or just contract name
+# E.g. for both "ecdsa_k_account_contract" and "account/ecdsa_k_account_contractor" returns
+# "account/ecdsa_k_account_contractor"
+#
+# This is done to ensure that both paths can be provided as inputs to the script.
+function get_contract_path {
+  local input=$1
+  local contract_path
+  if [[ $input == *"/"* ]]; then
+    # Full path provided (e.g. account/ecdsa_k_account_contract)
+    contract_path=$input
+  else
+    # Just contract name provided (e.g. ecdsa_k_account_contract)
+    contract_path=$(grep -oP "(?<=contracts/)[^\"]+/$input" Nargo.toml)
+    if [ -z "$contract_path" ]; then
+      echo "Contract $input not found in Nargo.toml" >&2
+      exit 1
+    fi
+  fi
+  echo "$contract_path"
+}
+export -f get_contract_path
 
 # This compiles a noir contract, transpile's public functions, and generates vk's for private functions.
 # $1 is the input package name, and on exit it's fully processed json artifact is in the target dir.
@@ -111,12 +141,13 @@ function compile {
   set -euo pipefail
   local contract_name contract_hash
 
-  local contract=$1
+  local contract_path=$(get_contract_path "$1")
+  local contract=${contract_path#*/}
   # Calculate filename because nargo...
-  contract_name=$(cat contracts/$1/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
+  contract_name=$(cat contracts/$contract_path/src/main.nr | awk '/^contract / { print $2 } /^pub contract / { print $3 }')
   local filename="$contract-$contract_name.json"
   local json_path="./target/$filename"
-  contract_hash=$(get_contract_hash $contract)
+  contract_hash=$(get_contract_hash $1)
   if ! cache_download contract-$contract_hash.tar.gz; then
     if [ "${VERBOSE:-0}" -eq 0 ]; then
       local args="--silence-warnings"

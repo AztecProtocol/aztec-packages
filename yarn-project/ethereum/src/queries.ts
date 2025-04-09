@@ -13,7 +13,13 @@ import type { ViemPublicClient } from './types.js';
 export async function getL1ContractsConfig(
   publicClient: ViemPublicClient,
   addresses: { governanceAddress: EthAddress; rollupAddress?: EthAddress },
-): Promise<Omit<L1ContractsConfig, 'ethereumSlotDuration'> & { l1StartBlock: bigint; l1GenesisTime: bigint }> {
+): Promise<
+  Omit<L1ContractsConfig, 'ethereumSlotDuration'> & {
+    l1StartBlock: bigint;
+    l1GenesisTime: bigint;
+    rollupVersion: number;
+  }
+> {
   const governance = new GovernanceContract(addresses.governanceAddress.toString(), publicClient, undefined);
   const governanceProposerAddress = await governance.getGovernanceProposerAddress();
   const governanceProposer = new GovernanceProposerContract(publicClient, governanceProposerAddress.toString());
@@ -33,6 +39,9 @@ export async function getL1ContractsConfig(
     governanceProposerRoundSize,
     slashingQuorum,
     slashingRoundSize,
+    manaTarget,
+    provingCostPerMana,
+    rollupVersion,
   ] = await Promise.all([
     rollup.getL1StartBlock(),
     rollup.getL1GenesisTime(),
@@ -45,6 +54,9 @@ export async function getL1ContractsConfig(
     governanceProposer.getRoundSize(),
     slasherProposer.getQuorumSize(),
     slasherProposer.getRoundSize(),
+    rollup.getManaTarget(),
+    rollup.getProvingCostPerMana(),
+    rollup.getVersion(),
   ] as const);
 
   return {
@@ -59,6 +71,9 @@ export async function getL1ContractsConfig(
     minimumStake,
     slashingQuorum: Number(slashingQuorum),
     slashingRoundSize: Number(slashingRoundSize),
+    manaTarget: manaTarget,
+    provingCostPerMana: provingCostPerMana,
+    rollupVersion: Number(rollupVersion),
   };
 }
 

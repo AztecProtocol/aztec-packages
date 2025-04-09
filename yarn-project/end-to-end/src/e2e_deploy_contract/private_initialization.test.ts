@@ -1,7 +1,9 @@
-import { BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
+import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
+import { TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { DeployTest, type StatefulContractCtorArgs } from './deploy_test.js';
 
@@ -10,20 +12,34 @@ describe('e2e_deploy_contract private initialization', () => {
 
   let logger: Logger;
   let wallet: Wallet;
+  let aztecNode: AztecNode;
 
   beforeAll(async () => {
-    ({ logger, wallet } = await t.setup());
+    ({ logger, wallet, aztecNode } = await t.setup());
   });
 
   afterAll(() => t.teardown());
 
-  // Tests calling a private function in an uninitialized and undeployed contract. Note that
-  // it still requires registering the contract artifact and instance locally in the pxe.
-  it('executes a function in an undeployed contract from an account contract', async () => {
+  // Tests calling a private function in an uninitialized and undeployed contract.
+  // Requires registering the contract artifact and instance locally in the pxe.
+  // The function has a noinitcheck flag so it can be called without initialization.
+  it('executes a noinitcheck function in an uninitialized contract', async () => {
     const contract = await t.registerContract(wallet, TestContract);
-    const receipt = await contract.methods.emit_nullifier(10).send().wait({ debug: true });
+    const receipt = await contract.methods.emit_nullifier(10).send().wait();
+    const txEffects = await aztecNode.getTxEffect(receipt.txHash);
+
     const expected = await siloNullifier(contract.address, new Fr(10));
-    expect(receipt.debugInfo?.nullifiers).toContainEqual(expected);
+    expect(txEffects!.data.nullifiers).toContainEqual(expected);
+  });
+
+  // Tests calling a private function in an uninitialized and undeployed contract.
+  // Requires registering the contract artifact and instance locally in the pxe.
+  // This contract does not have a constructor, so the fn does not need the noinitcheck flag.
+  it('executes a function in a contract without initializer', async () => {
+    const contract = await t.registerContract(wallet, NoConstructorContract);
+    await expect(contract.methods.is_private_mutable_initialized().simulate()).resolves.toEqual(false);
+    await contract.methods.initialize_private_mutable(42).send().wait();
+    await expect(contract.methods.is_private_mutable_initialized().simulate()).resolves.toEqual(true);
   });
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.
@@ -84,7 +100,7 @@ describe('e2e_deploy_contract private initialization', () => {
         .constructor(...initArgs)
         .send()
         .wait(),
-    ).rejects.toThrow(/dropped/);
+    ).rejects.toThrow(TX_ERROR_EXISTING_NULLIFIER);
   });
 
   it('refuses to call a private function that requires initialization', async () => {

@@ -91,8 +91,8 @@ library EcdsaHonkVerificationKey {
                 y: uint256(0x061c370923246a520c238c6cc2442ce9c0790350438fc20d0371682e92fda4e7)
             }),
             t3: Honk.G1Point({
-                x: uint256(0x10e110ee17259e7746e26e882567409aad3fda44ea148dc6195eadfb80dc3884),
-                y: uint256(0x23ac2d72dddf2f686d55cacac3d5503003d8a19acaab8d6cf00e3850600bf729)
+                x: uint256(0x271751d94f99e78c1c3574cd006cc283c607fd894616a57d62d9917ce8e7b1dc),
+                y: uint256(0x2ba4265828e7975079bb87a09cf634a326b7f665f5315a9ad5420ad3ad8931d8)
             }),
             t4: Honk.G1Point({
                 x: uint256(0x299f1dfcb8b0b56691dd560e5ee9f73c4d07fac967de3ecbbd0769128209cb9f),

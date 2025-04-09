@@ -20,7 +20,9 @@ class API {
         std::string input_type;               // is the input bytecode a single circuit or a stack of circuits?
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
         std::string output_format;            // output bytes, fields, both, or a msgpack buffer of fields
-        bool write_vk{ false }; // should we addditionally write the verification key when writing the proof
+        std::string verifier_type; // is a verification key for use a single circuit verifier (e.g. a SNARK or folding
+                                   // recursive verifier) or is it for an ivc verifier?
+        bool write_vk{ false };    // should we addditionally write the verification key when writing the proof
         bool include_gates_per_opcode{ false }; // should we include gates_per_opcode in the gates command output
 
         friend std::ostream& operator<<(std::ostream& os, const Flags& flags)
@@ -38,6 +40,7 @@ class API {
                << "  input_type: " << flags.input_type << "\n"
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
                << "  output_format: " << flags.output_format << "\n"
+               << "  verifier_type: " << flags.verifier_type << "\n"
                << "  write_vk " << flags.write_vk << "\n"
                << "  include_gates_per_opcode " << flags.include_gates_per_opcode << "\n"
                << "]" << std::endl;
@@ -56,6 +59,7 @@ class API {
                        const std::filesystem::path& output_dir) = 0;
 
     virtual bool verify(const Flags& flags,
+                        const std::filesystem::path& public_inputs_path,
                         const std::filesystem::path& proof_path,
                         const std::filesystem::path& vk_path) = 0;
 

@@ -1,9 +1,14 @@
 ---
-title: Partial Notes
+title: Partial Notes [OUTDATED DOCS]
 description: Describes how partial notes are used in Aztec
 tags: [notes, storage]
 sidebar_position: 4
 ---
+
+:::warning OUTDATED DOCUMENTATION
+This documentation is outdated and may not reflect the current state of the Aztec protocol. This is to be updated when tackling [this issue](https://github.com/AztecProtocol/aztec-packages/issues/12414).
+TODO(#12414): UPDATE THIS
+:::
 
 Partial notes are a concept that allows users to commit to an encrypted value, and allows a counterparty to update that value without knowing the specific details of the encrypted value.
 
@@ -108,7 +113,7 @@ We also need to create a point for the owner of the FPC (whom we call Bob) to re
 So in the contract we compute $\text{rand}_b := h(\text{rand}_a, \text{msg sender})$.
 
 :::warning
-We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L491) of `setup_refund` function)
+We need to use different randomness for Bob's note here to avoid potential privacy leak (see [description](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L491) of `setup_refund` function)
 :::
 
 $$
@@ -133,26 +138,20 @@ Then we just emit `P_a.x` and `P_b.x` as a note hashes, and we're done!
 
 ### Private Fee Payment Implementation
 
-[`NoteInterface.nr`](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/note/note_interface.nr) implements `compute_note_hiding_point`, which takes a note and computes the point "hides" it.
-
-This is implemented by applying the `partial_note` attribute:
-
-#include_code UintNote noir-projects/aztec-nr/uint-note/src/uint_note.nr rust
-
-Those `G_x` are generators that are generated [here](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir/noir-repo/compiler/noirc_frontend/src/hir/comptime/interpreter/builtin.rs) (at the bottom of the file). Anyone can use them for separating different fields in a "partial note".
+TODO(#12414): `setup_refund` no longer exists.
 
 We can see the complete implementation of creating and completing partial notes in an Aztec contract in the `setup_refund` and `complete_refund` functions.
 
 #### `fee_entrypoint_private`
 
-#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+#include_code fee_entrypoint_private noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 The `fee_entrypoint_private` function sets the `complete_refund` function to be called at the end of the public function execution (`set_public_teardown_function`).
 This ensures that the refund partial note will be completed for the user.
 
 #### `complete_refund`
 
-#include_code complete_refund noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr rust
+#include_code complete_refund noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr rust
 
 ## Note discovery
 

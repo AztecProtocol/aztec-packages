@@ -92,7 +92,6 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
-    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -156,7 +155,9 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
+    "@aztec/node-lib": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/prover-client": "workspace:^"
@@ -176,6 +177,7 @@ __metadata:
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
+    viem: "npm:2.23.7"
   bin:
     aztec-node: ./dest/bin/index.js
   languageName: unknown
@@ -186,6 +188,7 @@ __metadata:
   resolution: "@aztec/aztec.js@workspace:aztec.js"
   dependencies:
     "@aztec/constants": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
@@ -241,6 +244,7 @@ __metadata:
     "@aztec/aztec-node": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/bb-prover": "workspace:^"
+    "@aztec/bb.js": "portal:../../barretenberg/ts"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
     "@aztec/builder": "workspace:^"
@@ -406,6 +410,8 @@ __metadata:
     typescript: "npm:^5.0.4"
     viem: "npm:2.23.7"
     zod: "npm:^3.23.8"
+  bin:
+    blob-sink-client: ./dest/client/bin/index.js
   languageName: unknown
   linkType: soft
 
@@ -463,13 +469,16 @@ __metadata:
     "@aztec/accounts": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/cli": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noirc_abi": "workspace:^"
     "@aztec/pxe": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
+    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@types/jest": "npm:^29.5.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
@@ -495,6 +504,7 @@ __metadata:
     "@aztec/archiver": "workspace:^"
     "@aztec/aztec.js": "workspace:^"
     "@aztec/constants": "workspace:^"
+    "@aztec/entrypoints": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
@@ -583,6 +593,7 @@ __metadata:
     "@aztec/l1-artifacts": "workspace:^"
     "@aztec/merkle-tree": "workspace:^"
     "@aztec/noir-contracts.js": "workspace:^"
+    "@aztec/noir-noirc_abi": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
@@ -597,6 +608,7 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
+    "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@noble/curves": "npm:^1.0.0"
     "@swc/core": "npm:^1.4.11"
     "@swc/jest": "npm:^0.2.36"
@@ -646,7 +658,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@aztec/entrypoints@workspace:entrypoints"
   dependencies:
-    "@aztec/aztec.js": "workspace:^"
+    "@aztec/constants": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
     "@aztec/stdlib": "workspace:^"
@@ -865,6 +877,7 @@ __metadata:
     mocha: "npm:^10.8.2"
     mocha-each: "npm:^2.0.1"
     msgpackr: "npm:^1.11.2"
+    ohash: "npm:^2.0.11"
     ordered-binary: "npm:^1.5.3"
     sinon: "npm:^19.0.2"
     ts-node: "npm:^10.9.1"
@@ -919,6 +932,39 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@aztec/node-lib@workspace:^, @aztec/node-lib@workspace:node-lib":
+  version: 0.0.0-use.local
+  resolution: "@aztec/node-lib@workspace:node-lib"
+  dependencies:
+    "@aztec/archiver": "workspace:^"
+    "@aztec/bb-prover": "workspace:^"
+    "@aztec/blob-sink": "workspace:^"
+    "@aztec/constants": "workspace:^"
+    "@aztec/epoch-cache": "workspace:^"
+    "@aztec/ethereum": "workspace:^"
+    "@aztec/foundation": "workspace:^"
+    "@aztec/kv-store": "workspace:^"
+    "@aztec/merkle-tree": "workspace:^"
+    "@aztec/p2p": "workspace:^"
+    "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/prover-client": "workspace:^"
+    "@aztec/sequencer-client": "workspace:^"
+    "@aztec/simulator": "workspace:^"
+    "@aztec/stdlib": "workspace:^"
+    "@aztec/telemetry-client": "workspace:^"
+    "@aztec/validator-client": "workspace:^"
+    "@aztec/world-state": "workspace:^"
+    "@jest/globals": "npm:^29.5.0"
+    "@types/jest": "npm:^29.5.0"
+    "@types/node": "npm:^18.7.23"
+    jest: "npm:^29.5.0"
+    jest-mock-extended: "npm:^3.0.3"
+    ts-node: "npm:^10.9.1"
+    tslib: "npm:^2.4.0"
+    typescript: "npm:^5.0.4"
+  languageName: unknown
+  linkType: soft
+
 "@aztec/noir-acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/noir-acvm_js@portal:../noir/packages/acvm_js::locator=%40aztec%2Faztec3-packages%40workspace%3A."
@@ -954,12 +1000,12 @@ __metadata:
 
 "@aztec/noir-noir_js@file:../noir/packages/noir_js::locator=%40aztec%2Faztec3-packages%40workspace%3A.":
   version: 1.0.0-beta.3
-  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=1c440e&locator=%40aztec%2Faztec3-packages%40workspace%3A."
+  resolution: "@aztec/noir-noir_js@file:../noir/packages/noir_js#../noir/packages/noir_js::hash=41a8a4&locator=%40aztec%2Faztec3-packages%40workspace%3A."
   dependencies:
     "@aztec/noir-acvm_js": "npm:1.0.0-beta.3"
     "@aztec/noir-noirc_abi": "npm:1.0.0-beta.3"
     "@aztec/noir-types": "npm:1.0.0-beta.3"
-  checksum: 10/08fd293b038e8e3700f6a5dede8ad80ed8254ad49f177dc4e4f3b0528661621f36bf02a2335dd7002ae0caf9ca6bdbc7c494e4093a40b1e58acb37352dcf22dd
+  checksum: 10/e21f44dcfb7c707153ae41bcd642015afb538aa4713414a9b67317f67741feade4926f450bce69ce4907581bcb2eff36c262237f0bc4b188f71ae94c50aa63eb
   languageName: node
   linkType: hard
 
@@ -1037,8 +1083,10 @@ __metadata:
     "@aztec/epoch-cache": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
+    "@aztec/noir-contracts.js": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
+    "@aztec/simulator": "workspace:^"
     "@aztec/stdlib": "workspace:^"
     "@aztec/telemetry-client": "workspace:^"
     "@chainsafe/discv5": "npm:9.0.0"
@@ -1156,6 +1204,7 @@ __metadata:
     "@aztec/foundation": "workspace:^"
     "@aztec/kv-store": "workspace:^"
     "@aztec/l1-artifacts": "workspace:^"
+    "@aztec/node-lib": "workspace:^"
     "@aztec/noir-protocol-circuits-types": "workspace:^"
     "@aztec/p2p": "workspace:^"
     "@aztec/protocol-contracts": "workspace:^"
@@ -1339,6 +1388,7 @@ __metadata:
     "@aztec/constants": "workspace:^"
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
+    "@google-cloud/storage": "npm:^7.15.0"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.chunk": "npm:^4.2.9"
@@ -1392,6 +1442,7 @@ __metadata:
     prom-client: "npm:^15.1.3"
     ts-node: "npm:^10.9.1"
     typescript: "npm:^5.0.4"
+    viem: "npm:2.23.7"
   languageName: unknown
   linkType: soft
 
@@ -17296,6 +17347,13 @@ __metadata:
   version: 1.1.2
   resolution: "obuf@npm:1.1.2"
   checksum: 10/53ff4ab3a13cc33ba6c856cf281f2965c0aec9720967af450e8fd06cfd50aceeefc791986a16bcefa14e7898b3ca9acdfcf15b9d9a1b9c7e1366581a8ad6e65e
+  languageName: node
+  linkType: hard
+
+"ohash@npm:^2.0.11":
+  version: 2.0.11
+  resolution: "ohash@npm:2.0.11"
+  checksum: 10/6b0423f42cc95c3d643f390a88364aac824178b7788dccb4e8c64e2124463d0069e60d4d90bad88ed9823808368d051e088aa27058ca4722b1397a201ffbfa4b
   languageName: node
   linkType: hard
 

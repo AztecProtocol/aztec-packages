@@ -6,7 +6,8 @@ import times from 'lodash.times';
 
 import type { BlockHeader } from '../../tx/block_header.js';
 import type { L2Block } from '../l2_block.js';
-import type { L2BlockSource, L2Tips } from '../l2_block_source.js';
+import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
+import type { PublishedL2Block } from '../published_l2_block.js';
 import {
   L2BlockStream,
   type L2BlockStreamEvent,
@@ -34,17 +35,19 @@ describe('L2BlockStream', () => {
     );
 
     // And returns blocks up until what was reported as the latest block
-    blockSource.getBlocks.mockImplementation((from, limit) =>
+    blockSource.getPublishedBlocks.mockImplementation((from, limit) =>
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
 
     blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
   });
 
-  const makeBlock = (number: number) => ({ number } as L2Block);
+  const makeBlock = (number: number) => ({ block: { number } as L2Block } as PublishedL2Block);
 
   const makeHeader = (number: number) =>
     mock<BlockHeader>({ hash: () => Promise.resolve(new Fr(number)) } as BlockHeader);
+
+  const makeBlockId = (number: number): L2BlockId => ({ number, hash: new Fr(number).toString() });
 
   const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
     proven = proven ?? 0;
@@ -52,9 +55,9 @@ describe('L2BlockStream', () => {
     latest = latest_;
 
     blockSource.getL2Tips.mockResolvedValue({
-      latest: { number: latest, hash: latest.toString() },
-      proven: { number: proven, hash: proven.toString() },
-      finalized: { number: finalized, hash: finalized.toString() },
+      latest: { number: latest, hash: new Fr(latest).toString() },
+      proven: { number: proven, hash: new Fr(proven).toString() },
+      finalized: { number: finalized, hash: new Fr(finalized).toString() },
     });
   };
 
@@ -63,7 +66,9 @@ describe('L2BlockStream', () => {
       setRemoteTips(5);
 
       await blockStream.work();
-      expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) }]);
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 1)) },
+      ] satisfies L2BlockStreamEvent[]);
     });
 
     it('pulls new blocks from offset', async () => {
@@ -71,22 +76,25 @@ describe('L2BlockStream', () => {
       localData.latest.number = 10;
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledWith(11, 5, undefined);
-      expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) }]);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledWith(11, 5, undefined);
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 11)) },
+      ] satisfies L2BlockStreamEvent[]);
     });
 
     it('pulls new blocks in multiple batches', async () => {
       setRemoteTips(45);
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledTimes(5);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(5);
+      expect(handler.callCount).toEqual(5);
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 11)) },
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 21)) },
         { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 31)) },
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
-      ]);
+      ] satisfies L2BlockStreamEvent[]);
     });
 
     it('halts pulling blocks if stopped', async () => {
@@ -94,8 +102,23 @@ describe('L2BlockStream', () => {
       blockStream.running = false;
 
       await blockStream.work();
-      expect(blockSource.getBlocks).toHaveBeenCalledTimes(1);
-      expect(handler.events).toEqual([{ type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) }]);
+      expect(blockSource.getPublishedBlocks).toHaveBeenCalledTimes(1);
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(10, i => makeBlock(i + 1)) },
+      ] satisfies L2BlockStreamEvent[]);
+    });
+
+    it('halts on handler error and retries', async () => {
+      setRemoteTips(45);
+
+      handler.throwing = true;
+      await blockStream.work();
+      expect(handler.callCount).toEqual(1);
+
+      handler.throwing = false;
+      await blockStream.work();
+      expect(handler.callCount).toEqual(6);
+      expect(handler.events).toHaveLength(5);
     });
 
     it('handles a reorg and requests blocks from new tip', async () => {
@@ -109,9 +132,9 @@ describe('L2BlockStream', () => {
 
       await blockStream.work();
       expect(handler.events).toEqual([
-        { type: 'chain-pruned', blockNumber: 36 },
+        { type: 'chain-pruned', block: makeBlockId(36) },
         { type: 'blocks-added', blocks: times(9, i => makeBlock(i + 37)) },
-      ]);
+      ] satisfies L2BlockStreamEvent[]);
     });
 
     it('emits events for chain proven and finalized', async () => {
@@ -123,17 +146,23 @@ describe('L2BlockStream', () => {
       await blockStream.work();
       expect(handler.events).toEqual([
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
-        { type: 'chain-proven', blockNumber: 40 },
-        { type: 'chain-finalized', blockNumber: 35 },
-      ]);
+        { type: 'chain-proven', block: makeBlockId(40) },
+        { type: 'chain-finalized', block: makeBlockId(35) },
+      ] satisfies L2BlockStreamEvent[]);
     });
   });
 });
 
 class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
   public readonly events: L2BlockStreamEvent[] = [];
+  public throwing: boolean = false;
+  public callCount: number = 0;
 
   handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    this.callCount++;
+    if (this.throwing) {
+      throw new Error('Handler error');
+    }
     this.events.push(event);
     return Promise.resolve();
   }

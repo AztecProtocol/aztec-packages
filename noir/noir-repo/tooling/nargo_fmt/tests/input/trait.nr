@@ -1,2 +1,0 @@
-trait Foo: Bar + Baz {}
-

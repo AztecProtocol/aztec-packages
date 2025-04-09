@@ -1,3 +1,5 @@
+import { createLogger } from '@aztec/foundation/log';
+
 import type { BatchObservableCallback, Context, MetricOptions, Observable, ValueType } from '@opentelemetry/api';
 
 import { NoopTracer } from './noop.js';
@@ -28,6 +30,11 @@ export type BenchmarkMetricsType = {
 
 export class BenchmarkTelemetryClient implements TelemetryClient {
   private meters: InMemoryPlainMeter[] = [];
+
+  constructor() {
+    const log = createLogger('telemetry:client');
+    log.info(`Using benchmark telemetry client`);
+  }
 
   getMeter(name: string): Meter {
     const meter = new InMemoryPlainMeter(name);

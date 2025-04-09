@@ -2,12 +2,12 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IOutbox} from "@aztec/core//interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "@aztec/core/interfaces/IRollup.sol";
+import {IOutbox} from "@aztec/core/interfaces/messagebridge/IOutbox.sol";
 import {Hash} from "@aztec/core/libraries/crypto/Hash.sol";
 import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {Rollup} from "@aztec/core/Rollup.sol";
 
 /**
  * @title Outbox
@@ -25,11 +25,13 @@ contract Outbox is IOutbox {
     mapping(uint256 => bool) nullified;
   }
 
-  Rollup public immutable ROLLUP;
+  IRollup public immutable ROLLUP;
+  uint256 public immutable VERSION;
   mapping(uint256 l2BlockNumber => RootData) internal roots;
 
-  constructor(address _rollup) {
-    ROLLUP = Rollup(_rollup);
+  constructor(address _rollup, uint256 _version) {
+    ROLLUP = IRollup(_rollup);
+    VERSION = _version;
   }
 
   /**
@@ -75,6 +77,10 @@ contract Outbox is IOutbox {
   ) external override(IOutbox) {
     require(
       _l2BlockNumber <= ROLLUP.getProvenBlockNumber(), Errors.Outbox__BlockNotProven(_l2BlockNumber)
+    );
+    require(
+      _message.sender.version == VERSION,
+      Errors.Outbox__VersionMismatch(_message.sender.version, VERSION)
     );
 
     require(

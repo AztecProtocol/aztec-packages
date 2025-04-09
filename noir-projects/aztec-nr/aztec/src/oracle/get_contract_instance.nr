@@ -1,21 +1,14 @@
-use dep::protocol_types::{
-    address::AztecAddress,
-    constants::CONTRACT_INSTANCE_LENGTH,
-    contract_class_id::ContractClassId,
-    contract_instance::ContractInstance,
-    traits::{Deserialize, FromField},
+use protocol_types::{
+    address::AztecAddress, contract_class_id::ContractClassId, contract_instance::ContractInstance,
+    traits::FromField,
 };
 
 // NOTE: this is for use in private only
 #[oracle(getContractInstance)]
-unconstrained fn get_contract_instance_oracle(
-    _address: AztecAddress,
-) -> [Field; CONTRACT_INSTANCE_LENGTH] {}
+unconstrained fn get_contract_instance_oracle(_address: AztecAddress) -> ContractInstance {}
 
 // NOTE: this is for use in private only
-unconstrained fn get_contract_instance_internal(
-    address: AztecAddress,
-) -> [Field; CONTRACT_INSTANCE_LENGTH] {
+unconstrained fn get_contract_instance_internal(address: AztecAddress) -> ContractInstance {
     get_contract_instance_oracle(address)
 }
 
@@ -23,8 +16,7 @@ unconstrained fn get_contract_instance_internal(
 pub fn get_contract_instance(address: AztecAddress) -> ContractInstance {
     // Safety: The to_address function combines all values in the instance object to produce an address,
     // so by checking that we get the expected address we validate the entire struct.
-    let instance =
-        unsafe { ContractInstance::deserialize(get_contract_instance_internal(address)) };
+    let instance = unsafe { get_contract_instance_internal(address) };
     assert_eq(instance.to_address(), address);
 
     instance

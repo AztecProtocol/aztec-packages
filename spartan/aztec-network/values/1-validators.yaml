@@ -1,5 +1,13 @@
+bot:
+  enabled: false
+
 telemetry:
   enabled: true
+
+aztec:
+  slotDuration: 24
+  epochDuration: 4
+  proofSubmissionWindow: 8
 
 validator:
   replicas: 1
@@ -9,21 +17,11 @@ validator:
     disabled: false
 
 ethereum:
+  blockTime: 6
+  acceleratedTestDeployments: true
   execution:
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "1"
-    storageSize: "10Gi"
+    storageSize: "1Gi"
   beacon:
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "1"
-    storageSize: "10Gi"
+    storageSize: "1Gi"
   validator:
-    resources:
-      requests:
-        memory: "2Gi"
-        cpu: "1"
-    storageSize: "10Gi"
+    storageSize: "1Gi"

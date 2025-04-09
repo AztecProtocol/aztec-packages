@@ -8,8 +8,8 @@ cmd=${1:-}
 hash=$(
   cache_content_hash \
     .rebuild_patterns \
-    $(find docs -type f -name "*.md" -exec grep '^#include_code' {} \; | \
-      awk '{ gsub("^/", "", $3); print "^" $3 }' | sort -u)
+    $(find docs versioned_docs -type f -name "*.md*" -exec grep '^#include_code' {} \; |
+      awk '{ print "^" $1 }' | sort -u)
 )
 
 if semver check $REF_NAME; then
@@ -27,12 +27,8 @@ function build_and_preview {
   if cache_download docs-$hash.tar.gz; then
     return
   fi
-  rm -rf \
-    processed-docs \
-    processed-docs-cache \
-    docs/reference/developer_references/aztecjs \
-    docs/reference/developer_references/smart_contract_reference/aztec-nr
-  denoise "yarn install && yarn docusaurus clear && yarn preprocess && yarn typedoc && scripts/move_processed.sh && yarn docusaurus build"
+  npm_install_deps
+  denoise "yarn build"
   cache_upload docs-$hash.tar.gz build
 
   if [ "${CI:-0}" -eq 1 ] && [ "$(arch)" == "amd64" ]; then
@@ -43,11 +39,6 @@ function build_and_preview {
 
 # If we're an AMD64 CI run and have a PR, do a preview release.
 function release_preview {
-  if [ -z "${NETLIFY_SITE_ID:-}" ] || [ -z "${NETLIFY_AUTH_TOKEN:-}" ]; then
-    echo "No netlify credentials available, skipping release preview."
-    return
-  fi
-
   echo_header "docs release preview"
 
   # Deploy and capture exit code and output.
@@ -104,6 +95,9 @@ case "$cmd" in
     release_preview
     ;;
   "release")
+    release
+    ;;
+  "docs-release")
     release
     ;;
   *)

@@ -17,7 +17,7 @@ const workerPath = path.join(__dirname, '../../dest/testbench/p2p_client_testben
 
 const testChainConfig: ChainConfig = {
   l1ChainId: 31337,
-  version: 1,
+  rollupVersion: 1,
   l1Contracts: {
     rollupAddress: EthAddress.random(),
   },
@@ -45,29 +45,20 @@ class WorkerClientManager {
   }
 
   /**
-   * Creates address strings from a port
-   */
-  private getAddresses(port: number) {
-    return {
-      addr: `127.0.0.1:${port}`,
-      listenAddr: `0.0.0.0:${port}`,
-    };
-  }
-
-  /**
    * Creates a client configuration object
    */
-  private createClientConfig(clientIndex: number, port: number, otherNodes: string[]) {
-    const { addr, listenAddr } = this.getAddresses(port);
-
+  private createClientConfig(
+    clientIndex: number,
+    port: number,
+    otherNodes: string[],
+  ): P2PConfig & Partial<ChainConfig> {
     return {
       ...getP2PDefaultConfig(),
       p2pEnabled: true,
       peerIdPrivateKey: this.peerIdPrivateKeys[clientIndex],
-      tcpListenAddress: listenAddr,
-      udpListenAddress: listenAddr,
-      tcpAnnounceAddress: addr,
-      udpAnnounceAddress: addr,
+      listenAddress: '127.0.0.1',
+      p2pIp: '127.0.0.1',
+      p2pPort: port,
       bootstrapNodes: [...otherNodes],
       ...this.p2pConfig,
     };
@@ -216,6 +207,8 @@ class WorkerClientManager {
         (_, ind) => ind !== clientIndex && ind < Math.min(this.peerEnrs.length, 10),
       );
 
+      this.logger.info(`Changing port for client ${clientIndex} to ${newPort} with other nodes `, otherNodes);
+
       const config = this.createClientConfig(clientIndex, newPort, otherNodes);
       const [childProcess, readySignal] = this.spawnWorkerProcess(config, clientIndex);
 
@@ -253,7 +246,7 @@ class WorkerClientManager {
         } catch (e) {
           this.logger.error(`Error force killing process ${index}:`, e);
         }
-      }, 10000); // 10 second timeout for graceful exit
+      }, 5000); // 5 second timeout for graceful exit
 
       // Listen for process exit
       process.once('exit', () => {
@@ -303,7 +296,7 @@ class WorkerClientManager {
               }
             });
             resolve();
-          }, 30000); // 30 second timeout for all processes
+          }, 10000); // 10 second timeout for all processes
         }),
       ]);
     } catch (error) {

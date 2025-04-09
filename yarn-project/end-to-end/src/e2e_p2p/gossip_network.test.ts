@@ -1,5 +1,8 @@
+import type { Archiver } from '@aztec/archiver';
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
 import { jest } from '@jest/globals';
 import fs from 'fs';
@@ -45,6 +48,7 @@ describe('e2e_p2p_network', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
       },
     });
 
@@ -115,5 +119,23 @@ describe('e2e_p2p_network', () => {
       ),
     );
     t.logger.info('All transactions mined');
+
+    // Gather signers from attestations downloaded from L1
+    const blockNumber = await contexts[0].txs[0].getReceipt().then(r => r.blockNumber!);
+    const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
+    const payload = ConsensusPayload.fromBlock(block.block);
+    const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
+    const signers = await Promise.all(attestations.map(att => att.getSender().then(s => s.toString())));
+    t.logger.info(`Attestation signers`, { signers });
+
+    // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
+    const validatorAddresses = nodes.map(node =>
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddress?.toString(),
+    );
+    t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
+    for (const signer of signers) {
+      expect(validatorAddresses).toContain(signer);
+    }
   });
 });

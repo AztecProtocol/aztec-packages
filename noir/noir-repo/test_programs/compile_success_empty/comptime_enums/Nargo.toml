@@ -1,6 +1,0 @@
-[package]
-name = "comptime_enums"
-type = "bin"
-authors = [""]
-
-[dependencies]

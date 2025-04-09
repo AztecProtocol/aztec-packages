@@ -2,8 +2,18 @@
 set -euo pipefail
 
 if [[ $PWD != ${HOME}* ]]; then
-  echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
+  >&2 echo "Due to how we containerize our applications, we require your working directory to be somewhere within $HOME."
   exit 1
+fi
+
+if [ "${1:-}" == "lsp" ]; then
+  docker run --rm -i \
+    --name aztec-nargo-lsp \
+    -v $HOME:$HOME \
+    -e HOME=$HOME \
+    --entrypoint=/usr/src/noir/noir-repo/target/release/nargo \
+    aztecprotocol/aztec lsp
+  exit
 fi
 
 if [ -t 0 ]; then
@@ -15,6 +25,7 @@ if [ -t 0 ]; then
 fi
 
 docker run ${args:-} \
+  --user $(id -u):$(id -g) \
   -v $HOME:$HOME \
   -e HOME=$HOME \
   --workdir="$PWD" \

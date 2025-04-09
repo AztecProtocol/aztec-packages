@@ -27,7 +27,12 @@ telemetry:
   enabled: false
   otelCollectorEndpoint:
   useGcloudLogging: true
-  excludeMetrics: "system"
+  excludeMetrics: ""
+
+snapshots:
+  uploadLocation:
+  syncUrl:
+  frequency:
 
 images:
   aztec:
@@ -51,25 +56,30 @@ aztec:
   contracts:
     registryAddress: ""
     slashFactoryAddress: ""
+    rollupAddress: "" # only needed for blob sink
+    feeAssetHandlerContractAddress: ""
 
   slotDuration: 36 # in seconds, aka L2 slot duration. Must be a multiple of {{ ethereum.blockTime }}
   epochDuration: 32 # how many L2 slots in an epoch
   proofSubmissionWindow: 64 # in L2 slots, from the start of the epoch to be proven
   realProofs: false
 
-  l1Salt: "42" # leave empty for random salt
+  l1Salt: "" # leave empty for random salt
   testAccounts: true
+  sponsoredFPC: false
   l1DeploymentMnemonic: "test test test test test test test test test test test junk" # the mnemonic used when deploying contracts
+  manaTarget: "" # use default value
 
   # The derivation path of the calcualted private keys
   # Starting from this index, the number of keys is equal to the number of replicas for the given service
-  # Set the "extraAccounts" to start at 0 so that just using the default mnemonic won't clash with validator, prover, and bot accounts
-  extraAccountsStartIndex: 0
-  ## The number of extra accounts to prefund
-  extraAccounts: 10
+  # Default accounts start at 0, and are used by the boot node to deploy the system contracts
+  numberOfDefaultAccounts: 10
   proverKeyIndexStart: 1000
   validatorKeyIndexStart: 2000
   botKeyIndexStart: 3000
+  extraAccountsStartIndex: 4000
+  ## The number of extra accounts to prefund
+  extraAccounts: 10
 
 bootNode:
   enabled: true
@@ -77,16 +87,12 @@ bootNode:
   externalHost: ""
   replicas: 1
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
     floodPublish: true
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -113,16 +119,13 @@ fullNode:
   externalHost: ""
   replicas: 1
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
+    adminPort: 8880
   logLevel: "debug; info: aztec:simulator, json-rpc"
   p2p:
     enabled: "true"
     floodPublish: true
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   deployContracts: true # Set to false to use manual contract addresses
   startupProbe:
@@ -143,6 +146,7 @@ fullNode:
   stakingAssetAddress: ""
   storageSize: "1Gi"
   dataDir: "/data"
+  sentinelEnabled: false
 
 validator:
   # If true, the validator will use its peers to serve as the boot node.
@@ -151,12 +155,10 @@ validator:
   dynamicBootNode: false
   replicas: 1
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   sequencer:
-    maxSecondsBetweenBlocks: 0
     minTxsPerBlock: 0
     maxTxsPerBlock: 4
     enforceTimeTable: true
@@ -171,9 +173,6 @@ validator:
     # Only if we fail for 20 minutes straight do we call it botched
     # This gives enough time to sync
     failureThreshold: 120
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -192,8 +191,7 @@ proverNode:
     enabled: true
     floodPublish: true
   service:
-    p2pTcpPort: 40400
-    p2pUdpPort: 40400
+    p2pPort: 40400
     nodePort: 8080
   logLevel: "debug; info: aztec:simulator, json-rpc"
   proverAgent:
@@ -205,9 +203,6 @@ proverNode:
     jobTimeoutMs: 30000
     pollIntervalMs: 1000
     jobMaxRetries: 3
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   archiverPollingInterval: 1000
   archiverViemPollingInterval: 1000
@@ -226,6 +221,7 @@ proverNode:
 
 pxe:
   enabled: true
+  nodeUrl: ""
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
   service:
@@ -236,9 +232,7 @@ pxe:
     timeoutSeconds: 5
     successThreshold: 1
     failureThreshold: 3
-  resources:
-    requests:
-      memory: "4Gi"
+  resources: {}
 
 bot:
   enabled: true
@@ -253,6 +247,7 @@ bot:
   followChain: "NONE"
   botNoStart: false
   feePaymentMethod: "fee_juice"
+  ammTxs: false
   maxErrors: 3
   stopIfUnhealthy: true
   service:
@@ -266,13 +261,12 @@ bot:
     failureThreshold: 3
   gke:
     spotEnabled: true
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
+  resources: {}
 
 ethereum:
   acceleratedTestDeployments: false
+  genesisBasePath: "out"
   replicas: 1
   chainId: 1337
   blockTime: 12
@@ -289,9 +283,6 @@ ethereum:
       targetPort: 8545
       wsPort: 8546
       wsTargetPort: 8546
-    resources:
-      requests:
-        memory: "4Gi"
     storageSize: "80Gi"
   beacon:
     externalHost: ""
@@ -300,14 +291,8 @@ ethereum:
     service:
       port: 5052
       targetPort: 5052
-    resources:
-      requests:
-        memory: "4Gi"
     storageSize: "80Gi"
   validator:
-    resources:
-      requests:
-        memory: "4Gi"
     storageSize: "80Gi"
   readinessProbe:
     initialDelaySeconds: 5
@@ -332,9 +317,6 @@ proverAgent:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   bb:
     hardwareConcurrency: ""
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
   pollInterval: 200
 
@@ -349,9 +331,6 @@ proverBroker:
   logLevel: "debug; info: aztec:simulator, json-rpc"
   storageSize: "1Gi"
   dataDir: "/data"
-  resources:
-    requests:
-      memory: "5Gi"
   maxOldSpaceSize: "4608"
 
 jobs:
@@ -371,7 +350,6 @@ blobSink:
     dataDir: "/data"
     storageSize: "8Gi"
     dataStoreMapSize: "134217728" # 128 GB
-  resources:
 
 faucet:
   enabled: true
@@ -382,7 +360,3 @@ faucet:
   accountIndex: 0
   l1Assets: ""
   logLevel: ""
-  resources:
-    requests:
-      memory: "2Gi"
-      cpu: "200m"

@@ -42,7 +42,7 @@ async function main() {
     logger.info('Transaction sent from client 0');
 
     // Give time for message propagation
-    await sleep(30000);
+    await sleep(10000);
     logger.info('Checking message propagation results');
 
     // Check message propagation results

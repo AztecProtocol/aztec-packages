@@ -28,7 +28,7 @@ To spend a note, the user computes a nullifier corresponding to this note. A nul
 
 Address keys are used for account [address derivation](../accounts/index.md).
 
-<Image img={require("/img/address_derivation.png")} />
+<Image img={require("@site/static/img/address_derivation.png")} />
 
 Address keys are a pair of keys `AddressPublicKey` and `address_sk` where `address_sk` is a scalar defined as `address_sk = pre_address + ivsk` and `AddressPublicKey` is an elliptic curve point defined as `AddressPublicKey = address_sk * G`. This is useful for encrypting notes for the recipient with only their address.
 
@@ -80,7 +80,7 @@ However if one wants to implement authorization logic containing signatures (e.g
 
 This is a snippet of our Schnorr Account contract implementation, which uses Schnorr signatures for authentication:
 
-#include_code is_valid_impl noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code is_valid_impl noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
 ### Storing signing keys
 
@@ -94,7 +94,7 @@ Storing the signing public key in a private note makes it accessible from the `e
 
 Using an immutable private note removes the need to nullify the note on every read. This generates no nullifiers or new commitments per transaction. However, it does not allow the user to rotate their key.
 
-#include_code public_key noir-projects/noir-contracts/contracts/schnorr_account_contract/src/main.nr rust
+#include_code public_key noir-projects/noir-contracts/contracts/account/schnorr_account_contract/src/main.nr rust
 
 :::note
 When it comes to storing the signing key in a private note, there are several details that rely on the wallets:

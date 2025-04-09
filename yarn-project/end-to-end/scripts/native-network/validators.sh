@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Takes a number of validators to start, starting from port 8080. Calls out to validator.sh
 set -eu
 

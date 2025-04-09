@@ -28,6 +28,14 @@ export class ContractClassLog {
     return [this.contractAddress.toField(), ...this.fields];
   }
 
+  equals(other: ContractClassLog) {
+    return (
+      this.contractAddress.equals(other.contractAddress) &&
+      this.fields.length === other.fields.length &&
+      this.fields.every((f, i) => f.equals(other.fields[i]))
+    );
+  }
+
   static fromFields(fields: Fr[] | FieldReader) {
     const reader = FieldReader.asReader(fields);
     // Below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'

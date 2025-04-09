@@ -77,7 +77,6 @@ void mock_ivc_accumulation(const std::shared_ptr<ClientIVC>& ivc, ClientIVC::QUE
     ClientIVC::VerifierInputs entry =
         acir_format::create_mock_verification_queue_entry(type, ivc->trace_settings, is_kernel);
     ivc->verification_queue.emplace_back(entry);
-    ivc->merge_verification_queue.emplace_back(acir_format::create_dummy_merge_proof());
     ivc->initialized = true;
 }
 
@@ -108,9 +107,9 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
     // Construct a mock Oink or PG proof
     std::vector<FF> proof;
     if (verification_type == ClientIVC::QUEUE_TYPE::OINK) {
-        proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+        proof = create_mock_oink_proof(num_public_inputs);
     } else { // ClientIVC::QUEUE_TYPE::PG)
-        proof = create_mock_pg_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+        proof = create_mock_pg_proof(num_public_inputs);
     }
 
     // Construct a mock MegaHonk verification key
@@ -123,26 +122,21 @@ ClientIVC::VerifierInputs create_mock_verification_queue_entry(const ClientIVC::
         verification_key->databus_propagation_data = bb::DatabusPropagationData::kernel_default();
     }
 
-    return ClientIVC::VerifierInputs{ proof, verification_key, verification_type };
+    std::vector<FF> merge_proof = create_dummy_merge_proof();
+
+    return ClientIVC::VerifierInputs{ proof, merge_proof, verification_key, verification_type };
 }
 
 /**
  * @brief Create a mock oink proof that has the correct structure but is not in general valid
  *
  */
-std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
-                                                  const size_t num_public_inputs,
-                                                  const size_t pub_inputs_offset)
+std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t num_public_inputs)
 {
     using Flavor = ClientIVC::Flavor;
     using FF = ClientIVC::FF;
 
     std::vector<FF> proof;
-
-    // Populate proof metadata
-    proof.emplace_back(dyadic_size);
-    proof.emplace_back(num_public_inputs);
-    proof.emplace_back(pub_inputs_offset);
 
     // Populate mock public inputs
     for (size_t i = 0; i < num_public_inputs; ++i) {
@@ -165,15 +159,13 @@ std::vector<ClientIVC::FF> create_mock_oink_proof(const size_t dyadic_size,
  * @brief Create a mock PG proof that has the correct structure but is not in general valid
  *
  */
-std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t dyadic_size,
-                                                const size_t num_public_inputs,
-                                                const size_t pub_inputs_offset)
+std::vector<ClientIVC::FF> create_mock_pg_proof(const size_t num_public_inputs)
 {
     using FF = ClientIVC::FF;
     using DeciderProvingKeys = ClientIVC::DeciderProvingKeys;
 
     // The first part of a PG proof is an Oink proof
-    std::vector<FF> proof = create_mock_oink_proof(dyadic_size, num_public_inputs, pub_inputs_offset);
+    std::vector<FF> proof = create_mock_oink_proof(num_public_inputs);
 
     // Populate mock perturbator coefficients
     for (size_t idx = 1; idx <= CONST_PG_LOG_N; idx++) {

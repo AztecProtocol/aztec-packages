@@ -153,7 +153,7 @@ export class TxExecutionRequest {
       FunctionSelector.random(),
       Fr.random(),
       TxContext.empty(),
-      [await HashedValues.random()],
+      [HashedValues.random()],
       [AuthWitness.random()],
       [
         new Capsule(await AztecAddress.random(), Fr.random(), [Fr.random(), Fr.random()]),

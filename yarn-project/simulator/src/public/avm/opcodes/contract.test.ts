@@ -4,13 +4,10 @@ import { SerializableContractInstance } from '@aztec/stdlib/contract';
 
 import { mock } from 'jest-mock-extended';
 
-import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, TypeTag, Uint1 } from '../avm_memory_types.js';
-import { initContext, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
-import { mockGetContractInstance, mockGetNullifierIndex } from '../test_utils.js';
+import { initContext } from '../fixtures/index.js';
 import { ContractInstanceMember, GetContractInstance } from './contract.js';
 
 describe('Contract opcodes', () => {
@@ -20,9 +17,7 @@ describe('Contract opcodes', () => {
   let contractClassId: Fr;
   let initializationHash: Fr;
 
-  let worldStateDB: WorldStateDB;
-  let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: jest.Mocked<PublicPersistableStateManager>;
   let context: AvmContext;
 
   beforeEach(async () => {
@@ -31,9 +26,7 @@ describe('Contract opcodes', () => {
     deployer = contractInstance.deployer;
     contractClassId = contractInstance.currentContractClassId;
     initializationHash = contractInstance.initializationHash;
-    worldStateDB = mock<WorldStateDB>();
-    trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ worldStateDB, trace });
+    persistableState = mock<PublicPersistableStateManager>();
     context = initContext({ persistableState });
   });
 
@@ -66,8 +59,7 @@ describe('Contract opcodes', () => {
     ])('GETCONTRACTINSTANCE member instruction ', (memberEnum: ContractInstanceMember, valueGetter: () => Fr) => {
       it(`Should read '${ContractInstanceMember[memberEnum]}' correctly`, async () => {
         const value = valueGetter();
-        mockGetContractInstance(worldStateDB, contractInstance.withAddress(address));
-        mockGetNullifierIndex(worldStateDB, address.toField());
+        persistableState.getContractInstance.mockResolvedValue(contractInstance);
 
         context.machineState.memory.set(0, new Field(address.toField()));
         await new GetContractInstance(
@@ -78,6 +70,9 @@ describe('Contract opcodes', () => {
           memberEnum,
         ).execute(context);
 
+        expect(persistableState.getContractInstance).toHaveBeenCalledTimes(1);
+        expect(persistableState.getContractInstance).toHaveBeenCalledWith(address);
+
         // value should be right
         expect(context.machineState.memory.getTag(1)).toBe(TypeTag.FIELD);
         const actual = context.machineState.memory.get(1);
@@ -87,9 +82,6 @@ describe('Contract opcodes', () => {
         expect(context.machineState.memory.getTag(2)).toBe(TypeTag.UINT1);
         const exists = context.machineState.memory.get(2);
         expect(exists).toEqual(new Uint1(1));
-
-        expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-        expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ true, contractInstance);
       });
     });
 
@@ -101,6 +93,8 @@ describe('Contract opcodes', () => {
       'GETCONTRACTINSTANCE member instruction works when contract does not exist',
       (memberEnum: ContractInstanceMember) => {
         it(`'${ContractInstanceMember[memberEnum]}' should be 0 when contract does not exist `, async () => {
+          persistableState.getContractInstance.mockResolvedValue(undefined);
+
           context.machineState.memory.set(0, new Field(address.toField()));
           await new GetContractInstance(
             /*indirect=*/ 0,
@@ -119,9 +113,6 @@ describe('Contract opcodes', () => {
           expect(context.machineState.memory.getTag(2)).toBe(TypeTag.UINT1);
           const exists = context.machineState.memory.get(2);
           expect(exists).toEqual(new Uint1(0));
-
-          expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(1);
-          expect(trace.traceGetContractInstance).toHaveBeenCalledWith(address, /*exists=*/ false);
         });
       },
     );
@@ -138,8 +129,6 @@ describe('Contract opcodes', () => {
       await expect(instruction.execute(context)).rejects.toThrow(
         `Invalid GETCONSTRACTINSTANCE member enum ${invalidEnum}`,
       );
-
-      expect(trace.traceGetContractInstance).toHaveBeenCalledTimes(0);
     });
   });
 });

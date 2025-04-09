@@ -1,4 +1,4 @@
-import type { AztecNode, Logger, PXE, Wallet } from '@aztec/aztec.js';
+import type { Logger, PXE, Wallet } from '@aztec/aztec.js';
 import { CheatCodes } from '@aztec/aztec.js/testing';
 import {
   type DeployL1ContractsReturnType,
@@ -11,6 +11,7 @@ import { EthAddress } from '@aztec/foundation/eth-address';
 import { NewGovernanceProposerPayloadAbi } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadAbi';
 import { NewGovernanceProposerPayloadBytecode } from '@aztec/l1-artifacts/NewGovernanceProposerPayloadBytecode';
 import type { PXEService } from '@aztec/pxe/server';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { privateKeyToAccount } from 'viem/accounts';
 
@@ -22,7 +23,7 @@ describe('e2e_gov_proposal', () => {
   let teardown: () => Promise<void>;
   let wallet: Wallet;
   let pxe: PXE;
-  let aztecNode: AztecNode;
+  let aztecNodeAdmin: AztecNodeAdmin | undefined;
   let deployL1ContractsValues: DeployL1ContractsReturnType;
   let aztecSlotDuration: number;
   let cheatCodes: CheatCodes;
@@ -32,7 +33,7 @@ describe('e2e_gov_proposal', () => {
     const { ethereumSlotDuration, aztecSlotDuration: _aztecSlotDuration } = getL1ContractsConfigEnvVars();
     aztecSlotDuration = _aztecSlotDuration;
 
-    ({ teardown, logger, wallet, pxe, aztecNode, deployL1ContractsValues, cheatCodes } = await setup(1, {
+    ({ teardown, logger, wallet, pxe, aztecNodeAdmin, deployL1ContractsValues, cheatCodes } = await setup(1, {
       initialValidators,
       ethereumSlotDuration,
       salt: 420,
@@ -54,7 +55,7 @@ describe('e2e_gov_proposal', () => {
         [deployL1ContractsValues.l1ContractAddresses.registryAddress.toString()],
         '0x2a', // salt
       );
-      await aztecNode.setConfig({
+      await aztecNodeAdmin!.setConfig({
         governanceProposerPayload: newGovernanceProposerAddress,
       });
       const rollup = new RollupContract(

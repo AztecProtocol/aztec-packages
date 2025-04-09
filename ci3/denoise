@@ -1,5 +1,5 @@
-#!/bin/bash
-NO_CD=1 source $(git rev-parse --show-toplevel)/ci3/source
+#!/usr/bin/env bash
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
 source $ci3/source_redis
 
 # Ensure a command is passed
@@ -39,10 +39,11 @@ function publish_log {
   fi
 
   {
+    echo "Parent Log: ${PARENT_LOG_URL:-none}"
     echo "Command: $cmd"
-    echo "   Date: $(date)"
-    echo " Status: $status"
-    echo "   Took: ${time}"
+    echo "Date: $(date)"
+    echo "Status: $status"
+    echo "Took: ${time}"
     echo
 
     cat $outfile
@@ -60,6 +61,7 @@ function live_publish_log {
 
 if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   live_publish_log &
+  publish_pid=$!
   log_info="(${yellow}${url}${reset})"
 fi
 
@@ -67,7 +69,7 @@ fi
 set +e
 echo -e "Executing: $cmd ${log_info:-}"
 echo -n "   0 "
-bash -c "$cmd" 2>&1 | while IFS= read -r line; do
+PARENT_LOG_URL=$url bash -c "$cmd" 2>&1 | redact | while IFS= read -r line; do
   ((dot_count++))
   [ $realtime -eq 1 ] && printf "."
   if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
@@ -80,12 +82,15 @@ done;
 status=${PIPESTATUS[0]}
 
 time="${SECONDS}s"
+[ -n "$publish_pid" ] && kill $publish_pid &>/dev/null || true
 publish_log
 
 # Handle non-zero exit status
 if [ "$status" -ne 0 ]; then
-  echo -e "\nCommand exited with status $status. Dumping output:"
-  cat $outfile
+  if [ -t 1 ]; then
+    echo -e "\nCommand exited with status $status. Dumping output:"
+    cat $outfile
+  fi
   echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
 else
   echo -e ". ${green}done${reset} ($time)"

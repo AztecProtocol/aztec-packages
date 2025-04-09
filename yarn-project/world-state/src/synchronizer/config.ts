@@ -46,7 +46,7 @@ export const worldStateConfigMappings: ConfigMappingsType<WorldStateConfig> = {
   worldStateDbMapSizeKb: {
     env: 'WS_DB_MAP_SIZE_KB',
     parseEnv: (val: string | undefined) => (val ? +val : undefined),
-    description: 'The maximum possible size of the world state DB',
+    description: 'The maximum possible size of the world state DB in KB. Overwrites the general dataStoreMapSizeKB.',
   },
   worldStateDataDirectory: {
     env: 'WS_DATA_DIRECTORY',

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 

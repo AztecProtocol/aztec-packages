@@ -10,7 +10,8 @@ namespace bb::stdlib::recursion::honk {
  *
  */
 template <typename Flavor>
-std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::verify_proof(const HonkProof& proof)
+DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<Flavor>::verify_proof(
+    const HonkProof& proof)
 {
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
@@ -26,8 +27,10 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
 
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
-    auto sumcheck = Sumcheck(
-        static_cast<size_t>(accumulator->verification_key->log_circuit_size), transcript, accumulator->target_sum);
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): fix log_circuit_size usage in stdlib cases.
+    auto sumcheck = Sumcheck(static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value()),
+                             transcript,
+                             accumulator->target_sum);
 
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
@@ -46,7 +49,7 @@ std::array<typename Flavor::GroupElement, 2> DeciderRecursiveVerifier_<Flavor>::
                                                                       Flavor::HasZK);
     auto pairing_points = PCS::reduce_verify_batch_opening_claim(opening_claim, transcript);
 
-    return pairing_points;
+    return { pairing_points[0], pairing_points[1] };
 }
 
 template class DeciderRecursiveVerifier_<bb::MegaRecursiveFlavor_<MegaCircuitBuilder>>;

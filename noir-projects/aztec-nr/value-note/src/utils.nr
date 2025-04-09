@@ -71,7 +71,7 @@ pub fn decrement_by_at_most(
     for i in 0..options.limit {
         if i < notes.len() {
             let note = notes.get_unchecked(i);
-            decremented += note.value;
+            decremented += note.value();
         }
     }
 

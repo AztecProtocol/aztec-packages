@@ -1,9 +1,8 @@
 #include "barretenberg/stdlib/honk_verifier/ultra_recursive_verifier.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
-#include "barretenberg/commitment_schemes/ipa/ipa.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/flavor/flavor.hpp"
-#include "barretenberg/stdlib/primitives/curves/bn254.hpp"
+#include "barretenberg/stdlib/test_utils/tamper_proof.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
@@ -45,7 +44,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using RecursiveVerifier = UltraRecursiveVerifier_<RecursiveFlavor>;
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
-    using AggState = aggregation_state<typename RecursiveFlavor::Curve>;
+    using AggState = aggregation_state<OuterBuilder>;
     using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -56,6 +55,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
      */
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
+        using AggState = aggregation_state<InnerBuilder>;
         using fr = typename InnerCurve::ScalarFieldNative;
 
         InnerBuilder builder;
@@ -75,8 +75,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
 
             builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
         }
-        PairingPointAccumulatorIndices agg_obj_indices = stdlib::recursion::init_default_agg_obj_indices(builder);
-        builder.add_pairing_point_accumulator(agg_obj_indices);
+
+        AggState::add_default_pairing_points_to_public_inputs(builder);
 
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
@@ -128,9 +128,9 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         RecursiveVerifier verifier{ &outer_circuit, honk_vk };
 
         // Spot check some values in the recursive VK to ensure it was constructed correctly
-        EXPECT_EQ(verifier.key->circuit_size, honk_vk->circuit_size);
-        EXPECT_EQ(verifier.key->log_circuit_size, honk_vk->log_circuit_size);
-        EXPECT_EQ(verifier.key->num_public_inputs, honk_vk->num_public_inputs);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->circuit_size.get_value()), honk_vk->circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->log_circuit_size.get_value()), honk_vk->log_circuit_size);
+        EXPECT_EQ(static_cast<uint64_t>(verifier.key->num_public_inputs.get_value()), honk_vk->num_public_inputs);
         for (auto [vk_poly, native_vk_poly] : zip_view(verifier.key->get_all(), honk_vk->get_all())) {
             EXPECT_EQ(vk_poly.get_value(), native_vk_poly);
         }
@@ -162,9 +162,8 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             OuterBuilder outer_circuit;
             RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-            typename RecursiveVerifier::Output verifier_output = verifier.verify_proof(
-                inner_proof,
-                init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
+            typename RecursiveVerifier::Output verifier_output =
+                verifier.verify_proof(inner_proof, AggState::construct_default(outer_circuit));
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
                 outer_circuit.add_ipa_claim(verifier_output.ipa_opening_claim.get_witness_indices());
                 outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
@@ -203,7 +202,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         OuterBuilder outer_circuit;
         RecursiveVerifier verifier{ &outer_circuit, verification_key };
 
-        AggState agg_obj = init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit);
+        auto agg_obj = AggState::construct_default(outer_circuit);
         VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
         AggState pairing_points = output.agg_obj;
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
@@ -260,38 +259,48 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     }
 
     /**
-     * @brief Construct a verifier circuit for a proof whose data has been tampered with. Expect failure
-     * TODO(bberg #656): For now we get a "bad" proof by arbitrarily tampering with bits in a valid proof. It would be
-     * much nicer to explicitly change meaningful components, e.g. such that one of the multilinear evaluations is
-     * wrong. This is difficult now but should be straightforward if the proof is a struct.
+     * @brief Construct verifier circuits for proofs whose data have been tampered with. Expect failure
+     *
      */
     static void test_recursive_verification_fails()
     {
-        // Create an arbitrary inner circuit
-        auto inner_circuit = create_inner_circuit();
+        for (size_t idx = 0; idx < static_cast<size_t>(TamperType::END); idx++) {
+            // Create an arbitrary inner circuit
+            auto inner_circuit = create_inner_circuit();
 
-        // Generate a proof over the inner circuit
-        auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
-        InnerProver inner_prover(proving_key);
-        auto inner_proof = inner_prover.construct_proof();
+            // Generate a proof over the inner circuit
+            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            InnerProver inner_prover(proving_key);
+            auto inner_proof = inner_prover.construct_proof();
 
-        // Arbitrarily tamper with the proof to be verified
-        inner_prover.transcript->deserialize_full_transcript();
-        inner_prover.transcript->z_perm_comm = InnerCommitment::one() * InnerFF::random_element();
-        inner_prover.transcript->serialize_full_transcript();
-        inner_proof = inner_prover.export_proof();
+            // Tamper with the proof to be verified
+            TamperType tamper_type = static_cast<TamperType>(idx);
+            tamper_with_proof<InnerProver, InnerFlavor>(inner_prover, inner_proof, tamper_type);
 
-        // Generate the corresponding inner verification key
-        auto inner_verification_key = std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
+            // Generate the corresponding inner verification key
+            auto inner_verification_key =
+                std::make_shared<typename InnerFlavor::VerificationKey>(proving_key->proving_key);
 
-        // Create a recursive verification circuit for the proof of the inner circuit
-        OuterBuilder outer_circuit;
-        RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
-        verifier.verify_proof(
-            inner_proof, init_default_aggregation_state<OuterBuilder, typename RecursiveFlavor::Curve>(outer_circuit));
+            // Create a recursive verification circuit for the proof of the inner circuit
+            OuterBuilder outer_circuit;
+            RecursiveVerifier verifier{ &outer_circuit, inner_verification_key };
+            VerifierOutput output = verifier.verify_proof(inner_proof, AggState::construct_default(outer_circuit));
 
-        // We expect the circuit check to fail due to the bad proof
-        EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            // Wrong Gemini witnesses lead to the pairing check failure in non-ZK case but don't break any
+            // constraints. In ZK-cases, tampering with Gemini witnesses leads to SmallSubgroupIPA consistency check
+            // failure.
+            if ((tamper_type != TamperType::MODIFY_GEMINI_WITNESS) || (InnerFlavor::HasZK)) {
+                // We expect the circuit check to fail due to the bad proof.
+                EXPECT_FALSE(CircuitChecker::check(outer_circuit));
+            } else {
+                EXPECT_TRUE(CircuitChecker::check(outer_circuit));
+                auto pcs_verification_key = std::make_shared<typename InnerFlavor::VerifierCommitmentKey>();
+                AggState pairing_points = output.agg_obj;
+                bool result =
+                    pcs_verification_key->pairing_check(pairing_points.P0.get_value(), pairing_points.P1.get_value());
+                EXPECT_FALSE(result);
+            }
+        }
     }
 };
 

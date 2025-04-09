@@ -13,12 +13,12 @@ import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {SlotLib, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {
   OracleInput,
-  FeeMath,
+  FeeLib,
   MAX_FEE_ASSET_PRICE_MODIFIER,
   MINIMUM_CONGESTION_MULTIPLIER,
   EthValue,
   FeeAssetPerEthE9
-} from "@aztec/core/libraries/rollup/FeeMath.sol";
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {Math} from "@oz/utils/math/Math.sol";
 
 contract MinimalFeeModelTest is FeeModelTestPoints {
@@ -71,10 +71,10 @@ contract MinimalFeeModelTest is FeeModelTestPoints {
   function test_invalidOracleInput() public {
     uint256 feeAssetPriceBoundary = MAX_FEE_ASSET_PRICE_MODIFIER + 1;
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidFeeAssetPriceModifier.selector));
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__InvalidFeeAssetPriceModifier.selector));
     model.addSlot(OracleInput({feeAssetPriceModifier: int256(feeAssetPriceBoundary)}));
 
-    vm.expectRevert(abi.encodeWithSelector(Errors.FeeMath__InvalidFeeAssetPriceModifier.selector));
+    vm.expectRevert(abi.encodeWithSelector(Errors.FeeLib__InvalidFeeAssetPriceModifier.selector));
     model.addSlot(OracleInput({feeAssetPriceModifier: -int256(feeAssetPriceBoundary)}));
   }
 

@@ -10,7 +10,7 @@ import { getTelemetryClient } from '@aztec/telemetry-client';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { PublicTxSimulationTester, SimpleContractDataSource } from '../../../server.js';
-import { WorldStateDB } from '../../public_db_sources.js';
+import { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import { PublicTxSimulator } from '../../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from '../public_processor.js';
 
@@ -22,7 +22,8 @@ describe('Public Processor app tests: TokenContract', () => {
   const sender = AztecAddress.fromNumber(111);
 
   let token: ContractInstanceWithAddress;
-  let worldStateDB: WorldStateDB;
+  let treesDB: PublicTreesDB;
+  let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
 
@@ -33,19 +34,20 @@ describe('Public Processor app tests: TokenContract', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    const simulator = new PublicTxSimulator(merkleTrees, worldStateDB, globals, /*doMerkleOperations=*/ true);
+    treesDB = new PublicTreesDB(merkleTrees);
+    contractsDB = new PublicContractsDB(contractDataSource);
+    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
-      merkleTrees,
       globals,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       simulator,
       new TestDateProvider(),
       getTelemetryClient(),
     );
 
-    tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, merkleTrees);
+    tester = new PublicTxSimulationTester(merkleTrees, contractDataSource, globals);
 
     // make sure tx senders have fee balance
     await tester.setFeePayerBalance(admin);

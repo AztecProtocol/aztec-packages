@@ -1,10 +1,8 @@
-import { PUBLIC_DISPATCH_SELECTOR } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { FieldReader } from '@aztec/foundation/serialize';
-import { FunctionSelector, bufferFromFields } from '@aztec/stdlib/abi';
+import { bufferFromFields } from '@aztec/stdlib/abi';
 import {
   type ContractClassPublic,
-  type PublicFunction,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '@aztec/stdlib/contract';
@@ -60,24 +58,14 @@ export class ContractClassRegisteredEvent {
       throw new Error(`Unexpected contract class version ${this.version}`);
     }
 
-    // TODO(https://github.com/AztecProtocol/aztec-packages/issues/8985): Remove public functions.
-    const publicFunctions: PublicFunction[] = [];
-    if (this.packedPublicBytecode.length > 0) {
-      publicFunctions.push({
-        selector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-        bytecode: this.packedPublicBytecode,
-      });
-    }
-
     return {
       id: this.contractClassId,
       artifactHash: this.artifactHash,
       packedBytecode: this.packedPublicBytecode,
       privateFunctionsRoot: this.privateFunctionsRoot,
-      publicFunctions: publicFunctions,
       version: this.version,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
   }
 }

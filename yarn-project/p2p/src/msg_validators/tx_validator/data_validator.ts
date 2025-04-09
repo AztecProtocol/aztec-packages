@@ -1,61 +1,58 @@
-import { MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
+import { MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
-import { Tx, type TxValidationResult, type TxValidator } from '@aztec/stdlib/tx';
+import { computeCalldataHash } from '@aztec/stdlib/hash';
+import {
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
+  TX_ERROR_CALLDATA_COUNT_TOO_LARGE,
+  TX_ERROR_CONTRACT_CLASS_LOGS,
+  TX_ERROR_CONTRACT_CLASS_LOG_COUNT,
+  TX_ERROR_CONTRACT_CLASS_LOG_LENGTH,
+  TX_ERROR_CONTRACT_CLASS_LOG_SORTING,
+  TX_ERROR_INCORRECT_CALLDATA,
+  Tx,
+  type TxValidationResult,
+  type TxValidator,
+} from '@aztec/stdlib/tx';
 
 export class DataTxValidator implements TxValidator<Tx> {
   #log = createLogger('p2p:tx_validator:tx_data');
 
   async validateTx(tx: Tx): Promise<TxValidationResult> {
-    const execRequestRes = this.#hasCorrectExecutionRequests(tx);
+    const execRequestRes = this.#hasCorrectCalldata(tx);
     // Note: If we ever skip txs here, must change this return statement to account for them.
     return (await execRequestRes).result === 'invalid' ? execRequestRes : this.#hasCorrectContractClassLogs(tx);
   }
 
-  async #hasCorrectExecutionRequests(tx: Tx): Promise<TxValidationResult> {
-    const callRequests = [
-      ...tx.data.getRevertiblePublicCallRequests(),
-      ...tx.data.getNonRevertiblePublicCallRequests(),
-    ];
-    if (callRequests.length !== tx.enqueuedPublicFunctionCalls.length) {
+  async #hasCorrectCalldata(tx: Tx): Promise<TxValidationResult> {
+    if (tx.publicFunctionCalldata.length !== tx.numberOfPublicCalls()) {
+      const reason = TX_ERROR_CALLDATA_COUNT_MISMATCH;
       this.#log.warn(
-        `Rejecting tx ${Tx.getHash(tx)} because of mismatch number of execution requests for public calls. Expected ${
-          callRequests.length
-        }. Got ${tx.enqueuedPublicFunctionCalls.length}.`,
+        `Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Expected ${tx.numberOfPublicCalls()}. Got ${
+          tx.publicFunctionCalldata.length
+        }.`,
       );
-      return { result: 'invalid', reason: ['Wrong number of execution requests for public calls'] };
+      return { result: 'invalid', reason: [reason] };
     }
 
-    if (tx.getTotalPublicArgsCount() > MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS) {
+    if (tx.getTotalPublicCalldataCount() > MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS) {
+      const reason = TX_ERROR_CALLDATA_COUNT_TOO_LARGE;
       this.#log.warn(
         `Rejecting tx ${await Tx.getHash(
           tx,
-        )} because the total length of args to public enqueued calls is greater than ${MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS}`,
+        )}. Reason: ${reason}. Expected no greater than ${MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS} fields. Got ${tx.getTotalPublicCalldataCount()}.`,
       );
-      return { result: 'invalid', reason: ['Too many args in total to enqueued public calls'] };
-    }
-    const invalidExecutionRequestIndex = (
-      await Promise.all(
-        tx.enqueuedPublicFunctionCalls.map(
-          async (execRequest, i) => !(await execRequest.isForCallRequest(callRequests[i])),
-        ),
-      )
-    ).findIndex(Boolean);
-    if (invalidExecutionRequestIndex !== -1) {
-      this.#log.warn(
-        `Rejecting tx ${await Tx.getHash(
-          tx,
-        )} because of incorrect execution requests for public call at index ${invalidExecutionRequestIndex}.`,
-      );
-      return { result: 'invalid', reason: ['Incorrect execution request for public call'] };
+      return { result: 'invalid', reason: [reason] };
     }
 
-    const teardownCallRequest = tx.data.getTeardownPublicCallRequest();
-    const isInvalidTeardownExecutionRequest =
-      (!teardownCallRequest && !tx.publicTeardownFunctionCall.isEmpty()) ||
-      (teardownCallRequest && !(await tx.publicTeardownFunctionCall.isForCallRequest(teardownCallRequest)));
-    if (isInvalidTeardownExecutionRequest) {
-      this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)} because of incorrect teardown execution requests.`);
-      return { result: 'invalid', reason: ['Incorrect teardown execution request'] };
+    const callRequests = tx.getPublicCallRequestsWithCalldata();
+    for (let i = 0; i < callRequests.length; i++) {
+      const { request, calldata } = callRequests[i];
+      const hash = await computeCalldataHash(calldata);
+      if (!hash.equals(request.calldataHash)) {
+        const reason = TX_ERROR_INCORRECT_CALLDATA;
+        this.#log.warn(`Rejecting tx ${await Tx.getHash(tx)}. Reason: ${reason}. Call request index: ${i}.`);
+        return { result: 'invalid', reason: [reason] };
+      }
     }
 
     return { result: 'valid' };
@@ -66,11 +63,11 @@ export class DataTxValidator implements TxValidator<Tx> {
     const hashedContractClasslogs = await Promise.all(tx.contractClassLogs.map(l => l.hash()));
     if (contractClassLogsHashes.length !== hashedContractClasslogs.length) {
       this.#log.warn(
-        `Rejecting tx ${Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
+        `Rejecting tx ${await Tx.getHash(tx)} because of mismatched number of contract class logs. Expected ${
           contractClassLogsHashes.length
         }. Got ${hashedContractClasslogs.length}.`,
       );
-      return { result: 'invalid', reason: ['Mismatched number of contract class logs'] };
+      return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_COUNT] };
     }
     for (const [i, logHash] of contractClassLogsHashes.entries()) {
       const hashedLog = hashedContractClasslogs[i];
@@ -78,27 +75,27 @@ export class DataTxValidator implements TxValidator<Tx> {
         if (hashedContractClasslogs.some(l => logHash.value.equals(l))) {
           const matchingLogIndex = hashedContractClasslogs.findIndex(l => logHash.value.equals(l));
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(
+            `Rejecting tx ${await Tx.getHash(
               tx,
             )} because of mismatched contract class logs indices. Expected ${i} from the kernel's log hashes. Got ${matchingLogIndex} in the tx.`,
           );
-          return { result: 'invalid', reason: ['Incorrectly sorted contract class logs'] };
+          return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_SORTING] };
         } else {
           this.#log.warn(
-            `Rejecting tx ${Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
+            `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs. Expected hash ${
               logHash.value
             } from the kernels. Got ${hashedLog} in the tx.`,
           );
-          return { result: 'invalid', reason: ['Mismatched contract class logs'] };
+          return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOGS] };
         }
       }
       if (logHash.logHash.length !== tx.contractClassLogs[i].getEmittedLength()) {
         this.#log.warn(
-          `Rejecting tx ${Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
+          `Rejecting tx ${await Tx.getHash(tx)} because of mismatched contract class logs length. Expected ${
             logHash.logHash.length
           } from the kernel's log hashes. Got ${tx.contractClassLogs[i].getEmittedLength()} in the tx.`,
         );
-        return { result: 'invalid', reason: ['Mismatched contract class logs length'] };
+        return { result: 'invalid', reason: [TX_ERROR_CONTRACT_CLASS_LOG_LENGTH] };
       }
     }
     return { result: 'valid' };

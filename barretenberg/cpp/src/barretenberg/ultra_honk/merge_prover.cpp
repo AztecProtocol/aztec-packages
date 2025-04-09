@@ -8,15 +8,11 @@ namespace bb {
  * @details We require an SRS at least as large as the current ultra ecc ops table
  * TODO(https://github.com/AztecProtocol/barretenberg/issues/1267): consider possible efficiency improvements
  */
-template <class Flavor>
-MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
-                                   std::shared_ptr<CommitmentKey> commitment_key)
+MergeProver::MergeProver(const std::shared_ptr<ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key)
     : op_queue(op_queue)
-{
-    // Update internal size data in the op queue that allows for extraction of e.g. previous aggregate transcript
-    pcs_commitment_key =
-        commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows());
-}
+    , pcs_commitment_key(commitment_key ? commitment_key
+                                        : std::make_shared<CommitmentKey>(op_queue->get_ultra_ops_table_num_rows()))
+{}
 
 /**
  * @brief Prove proper construction of the aggregate Goblin ECC op queue polynomials T_j, j = 1,2,3,4.
@@ -32,7 +28,7 @@ MergeProver_<Flavor>::MergeProver_(const std::shared_ptr<ECCOpQueue>& op_queue,
  *
  * @return honk::proof
  */
-template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
+MergeProver::MergeProof MergeProver::construct_proof()
 {
     transcript = std::make_shared<Transcript>();
 
@@ -40,10 +36,6 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
     std::array<Polynomial, NUM_WIRES> T_current = op_queue->construct_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> T_prev = op_queue->construct_previous_ultra_ops_table_columns();
     std::array<Polynomial, NUM_WIRES> t_current = op_queue->construct_current_ultra_ops_subtable_columns();
-
-    // TODO(#723): Cannot currently support an empty T_prev. Need to be able to properly handle zero commitment.
-    ASSERT(T_prev[0].size() > 0);
-    ASSERT(T_current[0].size() > T_prev[0].size()); // Must have some new ops to accumulate otherwise [t_j] = 0
 
     const size_t current_table_size = T_current[0].size();
     const size_t current_subtable_size = t_current[0].size();
@@ -106,9 +98,4 @@ template <typename Flavor> HonkProof MergeProver_<Flavor>::construct_proof()
 
     return transcript->proof_data;
 }
-
-template class MergeProver_<UltraFlavor>;
-template class MergeProver_<MegaFlavor>;
-template class MergeProver_<MegaZKFlavor>;
-
 } // namespace bb

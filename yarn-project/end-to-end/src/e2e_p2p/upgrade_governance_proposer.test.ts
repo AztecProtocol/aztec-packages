@@ -1,13 +1,12 @@
 import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
-import { deployL1Contract } from '@aztec/ethereum';
+import { L1TxUtils, RollupContract, deployL1Contract } from '@aztec/ethereum';
 import {
-  TestERC20Abi as FeeJuiceAbi,
   GovernanceAbi,
   GovernanceProposerAbi,
   NewGovernanceProposerPayloadAbi,
   NewGovernanceProposerPayloadBytecode,
-  RollupAbi,
+  TestERC20Abi as StakingAssetAbi,
 } from '@aztec/l1-artifacts';
 
 import { jest } from '@jest/globals';
@@ -37,6 +36,7 @@ jest.setTimeout(1000 * 60 * 10);
 describe('e2e_p2p_governance_proposer', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
+  let l1TxUtils: L1TxUtils;
 
   beforeEach(async () => {
     t = await P2PNetworkTest.create({
@@ -47,10 +47,16 @@ describe('e2e_p2p_governance_proposer', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
+        governanceProposerQuorum: 6,
+        governanceProposerRoundSize: 10,
       },
     });
+
     await t.applyBaseSnapshots();
     await t.setup();
+
+    l1TxUtils = new L1TxUtils(t.ctx.deployL1ContractsValues.publicClient, t.ctx.deployL1ContractsValues.walletClient);
   });
 
   afterEach(async () => {
@@ -73,31 +79,29 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
+    const roundSize = await governanceProposer.read.M();
+
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
       abi: GovernanceAbi,
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
-    const rollup = getContract({
-      address: t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress.toString(),
-      abi: RollupAbi,
-      client: t.ctx.deployL1ContractsValues!.walletClient,
-    });
+    const rollup = new RollupContract(
+      t.ctx.deployL1ContractsValues!.publicClient,
+      t.ctx.deployL1ContractsValues!.l1ContractAddresses.rollupAddress,
+    );
 
     const waitL1Block = async () => {
-      await t.ctx.deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-        hash: await t.ctx.deployL1ContractsValues.walletClient.sendTransaction({
-          to: emperor.address,
-          value: 1n,
-          account: emperor,
-        }),
+      await l1TxUtils.sendAndMonitorTransaction({
+        to: emperor.address,
+        value: 1n,
       });
     };
 
-    const nextRoundTimestamp = await rollup.read.getTimestampForSlot([
-      ((await rollup.read.getCurrentSlot()) / 10n) * 10n + 10n,
-    ]);
+    const nextRoundTimestamp = await rollup.getTimestampForSlot(
+      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
+    );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     const { address: newPayloadAddress } = await deployL1Contract(
@@ -114,7 +118,7 @@ describe('e2e_p2p_governance_proposer', () => {
 
     const govInfo = async () => {
       const bn = await t.ctx.cheatCodes.eth.blockNumber();
-      const slot = await rollup.read.getCurrentSlot();
+      const slot = await rollup.getSlotNumber();
       const round = await governanceProposer.read.computeRound([slot]);
 
       const info = await governanceProposer.read.rounds([
@@ -165,9 +169,9 @@ describe('e2e_p2p_governance_proposer', () => {
 
     expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 
-    const nextRoundTimestamp2 = await rollup.read.getTimestampForSlot([
-      ((await rollup.read.getCurrentSlot()) / 10n) * 10n + 10n,
-    ]);
+    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
+      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
+    );
     t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 
@@ -182,8 +186,8 @@ describe('e2e_p2p_governance_proposer', () => {
     t.logger.info(`Executed proposal ${govData.round}`);
 
     const token = getContract({
-      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
-      abi: FeeJuiceAbi,
+      address: t.ctx.deployL1ContractsValues.l1ContractAddresses.stakingAssetAddress.toString(),
+      abi: StakingAssetAbi,
       client: t.ctx.deployL1ContractsValues.walletClient,
     });
 

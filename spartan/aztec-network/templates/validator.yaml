@@ -125,6 +125,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.aztec.realProofs }}"
             - name: NODE_OPTIONS
               value: "--max-old-space-size={{ .Values.validator.maxOldSpaceSize}}"
             - name: AZTEC_PORT
@@ -141,8 +143,6 @@ spec:
               value: "{{ .Values.validator.validator.disabled }}"
             - name: VALIDATOR_REEXECUTE
               value: "{{ .Values.validator.validator.reexecute }}"
-            - name: SEQ_MAX_SECONDS_BETWEEN_BLOCKS
-              value: "{{ .Values.validator.sequencer.maxSecondsBetweenBlocks }}"
             - name: SEQ_MIN_TX_PER_BLOCK
               value: "{{ .Values.validator.sequencer.minTxsPerBlock }}"
             - name: SEQ_MAX_TX_PER_BLOCK
@@ -187,16 +187,20 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: P2P_BOOTSTRAP_NODES_AS_FULL_PEERS
               value: "{{ .Values.network.p2pBootstrapNodesAsFullPeers }}"
+            - name: SYNC_SNAPSHOTS_URL
+              value: "{{ .Values.snapshots.syncUrl }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}
             {{- end }}
           ports:
             - containerPort: {{ .Values.validator.service.nodePort }}
-            - containerPort: {{ .Values.validator.service.p2pTcpPort }}
-            - containerPort: {{ .Values.validator.service.p2pUdpPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
+            - containerPort: {{ .Values.validator.service.p2pPort }}
               protocol: UDP
           resources:
             {{- toYaml .Values.validator.resources | nindent 12 }}
@@ -235,10 +239,10 @@ spec:
     {{- include "aztec-network.selectorLabels" . | nindent 4 }}
     app: validator
   ports:
-    - port: {{ .Values.validator.service.p2pTcpPort }}
+    - port: {{ .Values.validator.service.p2pPort }}
       name: p2p-tcp
       protocol: TCP
-    - port: {{ .Values.validator.service.p2pUdpPort }}
+    - port: {{ .Values.validator.service.p2pPort }}
       name: p2p-udp
       protocol: UDP
     - port: {{ .Values.validator.service.nodePort }}

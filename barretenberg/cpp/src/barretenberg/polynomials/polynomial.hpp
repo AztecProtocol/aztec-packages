@@ -264,9 +264,10 @@ template <typename Fr> class Polynomial {
     void mask()
     {
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
-        ASSERT(virtual_size() >= MASKING_OFFSET);
+        ASSERT(virtual_size() >= NUM_MASKED_ROWS);
         ASSERT(virtual_size() == end_index());
-        for (size_t i = virtual_size() - 1; i <= virtual_size() - MASKING_OFFSET; i--) {
+
+        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
             at(i) = FF::random_element();
         }
     }
@@ -326,6 +327,13 @@ template <typename Fr> class Polynomial {
     Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
 
     /**
+     * @brief The end_index of the polynomial is decreased without any memory de-allocation.
+     *        This is a very fast way to zeroize the polynomial tail from new_end_index to the
+     *        end. It also means that the new end_index might be smaller than the backed memory.
+     */
+    void shrink_end_index(const size_t new_end_index);
+
+    /**
      * @brief Copys the polynomial, but with the whole address space usable.
      * The value of the polynomial remains the same, but defined memory region differs.
      *
@@ -380,14 +388,20 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
+     * @details There is an underlying assumption that the relevant start index in the vector
+     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
+     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
+     *
+     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     *
      * @tparam T a convertible type
      * @param vec the vector
      */
     template <typename T> void copy_vector(const std::vector<T>& vec)
     {
         ASSERT(vec.size() <= end_index());
-        for (size_t i : indices()) {
-            ASSERT(i < vec.size());
+        ASSERT(vec.size() - start_index() <= size());
+        for (size_t i = start_index(); i < vec.size(); i++) {
             at(i) = vec[i];
         }
     }

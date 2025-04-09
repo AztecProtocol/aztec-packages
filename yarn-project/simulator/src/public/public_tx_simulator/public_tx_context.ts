@@ -11,9 +11,9 @@ import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
 import {
-  AvmCircuitInputs,
   type AvmCircuitPublicInputs,
-  type AvmProvingRequest,
+  AvmExecutionHints,
+  AvmTxHint,
   PublicDataWrite,
   RevertCode,
 } from '@aztec/stdlib/avm';
@@ -21,7 +21,6 @@ import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
 import { Gas, GasSettings } from '@aztec/stdlib/gas';
-import type { MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
 import {
   PrivateToAvmAccumulatedData,
   PrivateToAvmAccumulatedDataArrayLengths,
@@ -30,11 +29,10 @@ import {
   countAccumulatedItems,
   mergeAccumulatedData,
 } from '@aztec/stdlib/kernel';
-import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
-  type PublicExecutionRequest,
+  PublicCallRequestWithCalldata,
   type StateReference,
   TreeSnapshots,
   type Tx,
@@ -45,10 +43,12 @@ import {
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import { AvmPersistableStateManager } from '../avm/index.js';
-import type { WorldStateDB } from '../public_db_sources.js';
+import type { PublicContractsDBInterface } from '../../server.js';
+import { HintingPublicContractsDB, HintingPublicTreesDB } from '../hinting_db_sources.js';
+import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
-import { getCallRequestsByPhase, getExecutionRequestsByPhase } from '../utils.js';
+import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
+import { getCallRequestsWithCalldataByPhase } from '../utils.js';
 
 /**
  * The transaction-level context for public execution.
@@ -68,9 +68,7 @@ export class PublicTxContext {
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
 
-  public avmProvingRequest: AvmProvingRequest | undefined; // FIXME(dbanks12): remove
-
-  constructor(
+  private constructor(
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
     private readonly globalVariables: GlobalVariables,
@@ -78,23 +76,21 @@ export class PublicTxContext {
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
-    private readonly setupCallRequests: PublicCallRequest[],
-    private readonly appLogicCallRequests: PublicCallRequest[],
-    private readonly teardownCallRequests: PublicCallRequest[],
-    private readonly setupExecutionRequests: PublicExecutionRequest[],
-    private readonly appLogicExecutionRequests: PublicExecutionRequest[],
-    private readonly teardownExecutionRequests: PublicExecutionRequest[],
+    private readonly setupCallRequests: PublicCallRequestWithCalldata[],
+    private readonly appLogicCallRequests: PublicCallRequestWithCalldata[],
+    private readonly teardownCallRequests: PublicCallRequestWithCalldata[],
     public readonly nonRevertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
-    public trace: SideEffectTrace, // FIXME(dbanks12): should be private
+    private readonly trace: SideEffectTrace,
+    public readonly hints: AvmExecutionHints, // This is public due to enqueued call hinting.
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
   }
 
   public static async create(
-    db: MerkleTreeReadOperations,
-    worldStateDB: WorldStateDB,
+    treesDB: PublicTreesDB,
+    contractsDB: PublicContractsDBInterface,
     tx: Tx,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
@@ -114,8 +110,20 @@ export class PublicTxContext {
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
+    // We wrap the DB to collect AVM hints.
+    const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
+    const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
+    const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
+
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = AvmPersistableStateManager.create(worldStateDB, trace, doMerkleOperations, firstNullifier);
+    const txStateManager = PublicPersistableStateManager.create(
+      hintingTreesDB,
+      hintingContractsDB,
+      trace,
+      doMerkleOperations,
+      firstNullifier,
+      globalVariables.blockNumber.toNumber(),
+    );
 
     const gasSettings = tx.data.constants.txContext.gasSettings;
     const gasUsedByPrivate = tx.data.gasUsed;
@@ -126,20 +134,18 @@ export class PublicTxContext {
       await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
       globalVariables,
-      await db.getStateReference(),
+      await treesDB.getStateReference(),
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
-      getCallRequestsByPhase(tx, TxExecutionPhase.SETUP),
-      getCallRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
-      getCallRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
-      getExecutionRequestsByPhase(tx, TxExecutionPhase.SETUP),
-      getExecutionRequestsByPhase(tx, TxExecutionPhase.APP_LOGIC),
-      getExecutionRequestsByPhase(tx, TxExecutionPhase.TEARDOWN),
+      getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.SETUP),
+      getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.APP_LOGIC),
+      getCallRequestsWithCalldataByPhase(tx, TxExecutionPhase.TEARDOWN),
       tx.data.forPublic!.nonRevertibleAccumulatedData,
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
       trace,
+      hints,
     );
   }
 
@@ -212,7 +218,7 @@ export class PublicTxContext {
   /**
    * Get the call requests for the specified phase (including args hashes).
    */
-  getCallRequestsForPhase(phase: TxExecutionPhase): PublicCallRequest[] {
+  getCallRequestsForPhase(phase: TxExecutionPhase): PublicCallRequestWithCalldata[] {
     switch (phase) {
       case TxExecutionPhase.SETUP:
         return this.setupCallRequests;
@@ -220,20 +226,6 @@ export class PublicTxContext {
         return this.appLogicCallRequests;
       case TxExecutionPhase.TEARDOWN:
         return this.teardownCallRequests;
-    }
-  }
-
-  /**
-   * Get the call requests for the specified phase (including actual args).
-   */
-  getExecutionRequestsForPhase(phase: TxExecutionPhase): PublicExecutionRequest[] {
-    switch (phase) {
-      case TxExecutionPhase.SETUP:
-        return this.setupExecutionRequests;
-      case TxExecutionPhase.APP_LOGIC:
-        return this.appLogicExecutionRequests;
-      case TxExecutionPhase.TEARDOWN:
-        return this.teardownExecutionRequests;
     }
   }
 
@@ -322,7 +314,7 @@ export class PublicTxContext {
   /**
    * Generate the public inputs for the AVM circuit.
    */
-  private async generateAvmCircuitPublicInputs(endStateReference: StateReference): Promise<AvmCircuitPublicInputs> {
+  public async generateAvmCircuitPublicInputs(): Promise<AvmCircuitPublicInputs> {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const stateManager = this.state.getActiveStateManager();
 
@@ -333,26 +325,22 @@ export class PublicTxContext {
       this.startStateReference.partial.publicDataTree,
     );
 
-    // Will be patched/padded at the end of this fn
-    const endTreeSnapshots = new TreeSnapshots(
-      endStateReference.l1ToL2MessageTree,
-      endStateReference.partial.noteHashTree,
-      endStateReference.partial.nullifierTree,
-      endStateReference.partial.publicDataTree,
-    );
-
+    // FIXME: We are first creating the PIs with the wrong endTreeSnapshots, then patching them.
+    // This is because we need to know the lengths of the accumulated data arrays to pad them.
+    // We should refactor this to avoid this hack.
+    // We should just get the info we need from the trace, and create the rest of the PIs here.
     const avmCircuitPublicInputs = this.trace.toAvmCircuitPublicInputs(
       this.globalVariables,
       startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       this.feePayer,
-      this.setupCallRequests,
-      this.appLogicCallRequests,
+      this.setupCallRequests.map(r => r.request),
+      this.appLogicCallRequests.map(r => r.request),
       /*teardownCallRequest=*/ this.teardownCallRequests.length
-        ? this.teardownCallRequests[0]
+        ? this.teardownCallRequests[0].request
         : PublicCallRequest.empty(),
-      endTreeSnapshots,
+      /*endTreeSnapshots=*/ TreeSnapshots.empty(), // Will be patched/padded at the end of this fn
       /*endGasUsed=*/ this.getTotalGasUsed(),
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*reverted=*/ !this.revertCode.isOK(),
@@ -406,16 +394,18 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    await stateManager
+      .deprecatedGetTreesForPIGeneration()
+      .appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.db.batchInsert(
+    await stateManager.deprecatedGetTreesForPIGeneration().batchInsert(
       MerkleTreeId.NULLIFIER_TREE,
       padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
       NULLIFIER_SUBTREE_HEIGHT,
     );
 
-    const paddedState = await stateManager.db.getStateReference();
+    const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
     avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
       paddedState.l1ToL2MessageTree,
       paddedState.partial.noteHashTree,
@@ -424,22 +414,6 @@ export class PublicTxContext {
     );
 
     return avmCircuitPublicInputs;
-  }
-
-  /**
-   * Generate the proving request for the AVM circuit.
-   */
-  async generateProvingRequest(endStateReference: StateReference): Promise<AvmProvingRequest> {
-    const hints = this.trace.getAvmCircuitHints();
-    return {
-      type: ProvingRequestType.PUBLIC_VM,
-      inputs: new AvmCircuitInputs(
-        'public_dispatch',
-        [],
-        hints,
-        await this.generateAvmCircuitPublicInputs(endStateReference),
-      ),
-    };
   }
 }
 
@@ -456,9 +430,9 @@ export class PublicTxContext {
 class PhaseStateManager {
   private log: Logger;
 
-  private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
+  private currentlyActiveStateManager: PublicPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {
+  constructor(private readonly txStateManager: PublicPersistableStateManager) {
     this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 

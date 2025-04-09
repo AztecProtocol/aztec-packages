@@ -4,6 +4,9 @@ out = 'out'
 libs = ['lib']
 solc = "0.8.27"
 evm_version = 'cancun'
+# Helper to get all the contract names in the src/governance and src/core directories
+# find ./src/governance ./src/core ./src/periphery/Forwarder -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
+gas_reports = ["Governance","Registry","RewardDistributor","GovernanceProposer","CoinIssuer","Rollup","Inbox","Outbox","FeeJuicePortal","RollupCore","SlashingProposer","Slasher","Forwarder"]
 
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
@@ -30,3 +33,4 @@ variable_override_spacing=false
 
 [rpc_endpoints]
 mainnet_fork="https://mainnet.infura.io/v3/9928b52099854248b3a096be07a6b23c"
+

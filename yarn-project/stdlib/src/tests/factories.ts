@@ -44,7 +44,7 @@ import {
 import { type FieldsOf, makeHalfFullTuple, makeTuple } from '@aztec/foundation/array';
 import { toBufferBE } from '@aztec/foundation/bigint-buffer';
 import { compact } from '@aztec/foundation/collection';
-import { SchnorrSignature, poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { SchnorrSignature, poseidon2HashWithSeparator, sha256 } from '@aztec/foundation/crypto';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
 import type { Bufferable } from '@aztec/foundation/serialize';
@@ -55,17 +55,25 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
-  AvmAppendTreeHint,
+  AvmAppendLeavesHint,
+  AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
+  AvmCommitCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
+  AvmCreateCheckpointHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
-  AvmNullifierReadTreeHint,
-  AvmNullifierWriteTreeHint,
-  AvmPublicDataReadTreeHint,
-  AvmPublicDataWriteTreeHint,
+  AvmGetLeafPreimageHintNullifierTree,
+  AvmGetLeafPreimageHintPublicDataTree,
+  AvmGetLeafValueHint,
+  AvmGetPreviousValueIndexHint,
+  AvmGetSiblingPathHint,
+  AvmRevertCheckpointHint,
+  AvmSequentialInsertHintNullifierTree,
+  AvmSequentialInsertHintPublicDataTree,
+  AvmTxHint,
   RevertCode,
 } from '../avm/index.js';
 import { PublicDataHint } from '../avm/public_data_hint.js';
@@ -77,9 +85,8 @@ import {
   type ContractInstanceWithAddress,
   type ExecutablePrivateFunctionWithMembershipProof,
   type PrivateFunction,
-  type PublicFunction,
   SerializableContractInstance,
-  type UnconstrainedFunctionWithMembershipProof,
+  type UtilityFunctionWithMembershipProof,
   computeContractClassId,
   computePublicBytecodeCommitment,
 } from '../contract/index.js';
@@ -144,7 +151,8 @@ import { PublicTubeData } from '../rollup/public_tube_data.js';
 import { RootRollupInputs, RootRollupPublicInputs } from '../rollup/root_rollup.js';
 import { PrivateBaseStateDiffHints } from '../rollup/state_diff_hints.js';
 import { AppendOnlyTreeSnapshot } from '../trees/append_only_tree_snapshot.js';
-import { NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
+import { MerkleTreeId } from '../trees/merkle_tree_id.js';
+import { NullifierLeaf, NullifierLeafPreimage } from '../trees/nullifier_leaf.js';
 import { PublicDataTreeLeaf, PublicDataTreeLeafPreimage } from '../trees/public_data_leaf.js';
 import { BlockHeader } from '../tx/block_header.js';
 import { CallContext } from '../tx/call_context.js';
@@ -522,13 +530,7 @@ function makePrivateCallRequest(seed = 1): PrivateCallRequest {
 }
 
 export function makePublicCallRequest(seed = 1) {
-  return new PublicCallRequest(
-    makeAztecAddress(seed),
-    makeAztecAddress(seed + 1),
-    makeSelector(seed + 2),
-    false,
-    fr(seed + 0x3),
-  );
+  return new PublicCallRequest(makeAztecAddress(seed), makeAztecAddress(seed + 1), false, fr(seed + 0x3));
 }
 
 function makeCountedPublicCallRequest(seed = 1) {
@@ -997,12 +999,30 @@ export function makePublicDataTreeLeaf(seed = 0): PublicDataTreeLeaf {
 }
 
 /**
+ * Makes arbitrary nullifier leaf.
+ * @param seed - The seed to use for generating the nullifier leaf.
+ * @returns A nullifier leaf.
+ */
+export function makeNullifierLeaf(seed = 0): NullifierLeaf {
+  return new NullifierLeaf(new Fr(seed));
+}
+
+/**
+ * Makes arbitrary nullifier leaf preimages.
+ * @param seed - The seed to use for generating the nullifier leaf preimage.
+ * @returns A nullifier leaf preimage.
+ */
+export function makeNullifierLeafPreimage(seed = 0): NullifierLeafPreimage {
+  return new NullifierLeafPreimage(makeNullifierLeaf(seed), new Fr(seed + 1), BigInt(seed + 2));
+}
+
+/**
  * Makes arbitrary public data tree leaf preimages.
  * @param seed - The seed to use for generating the public data tree leaf preimage.
  * @returns A public data tree leaf preimage.
  */
 export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPreimage {
-  return new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3));
+  return new PublicDataTreeLeafPreimage(makePublicDataTreeLeaf(seed), new Fr(seed + 2), BigInt(seed + 3));
 }
 
 /**
@@ -1013,7 +1033,7 @@ export function makePublicDataTreeLeafPreimage(seed = 0): PublicDataTreeLeafPrei
 export function makePrivateBaseStateDiffHints(seed = 1): PrivateBaseStateDiffHints {
   const nullifierPredecessorPreimages = makeTuple(
     MAX_NULLIFIERS_PER_TX,
-    x => new NullifierLeafPreimage(fr(x), fr(x + 0x100), BigInt(x + 0x200)),
+    x => makeNullifierLeafPreimage(x),
     seed + 0x1000,
   );
 
@@ -1153,12 +1173,12 @@ export function makeExecutablePrivateFunctionWithMembershipProof(
     privateFunctionTreeLeafIndex: seed + 3,
     artifactMetadataHash: fr(seed + 4),
     functionMetadataHash: fr(seed + 5),
-    unconstrainedFunctionsArtifactTreeRoot: fr(seed + 6),
+    utilityFunctionsTreeRoot: fr(seed + 6),
     vkHash: fr(seed + 7),
   };
 }
 
-export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): UnconstrainedFunctionWithMembershipProof {
+export function makeUtilityFunctionWithMembershipProof(seed = 0): UtilityFunctionWithMembershipProof {
   return {
     selector: makeSelector(seed),
     bytecode: makeBytes(100, seed + 1),
@@ -1170,16 +1190,10 @@ export function makeUnconstrainedFunctionWithMembershipProof(seed = 0): Unconstr
   };
 }
 
-export async function makeContractClassPublic(
-  seed = 0,
-  publicDispatchFunction?: PublicFunction,
-): Promise<ContractClassPublic> {
+export async function makeContractClassPublic(seed = 0, publicBytecode?: Buffer): Promise<ContractClassPublic> {
   const artifactHash = fr(seed + 1);
-  const publicFunctions = publicDispatchFunction
-    ? [publicDispatchFunction]
-    : makeTuple(1, makeContractClassPublicFunction, seed + 2);
   const privateFunctionsRoot = fr(seed + 3);
-  const packedBytecode = publicDispatchFunction?.bytecode ?? makeBytes(100, seed + 4);
+  const packedBytecode = publicBytecode ?? makeBytes(100, seed + 4);
   const publicBytecodeCommitment = await computePublicBytecodeCommitment(packedBytecode);
   const id = await computeContractClassId({ artifactHash, privateFunctionsRoot, publicBytecodeCommitment });
   return {
@@ -1187,17 +1201,9 @@ export async function makeContractClassPublic(
     artifactHash,
     packedBytecode,
     privateFunctionsRoot,
-    publicFunctions,
     privateFunctions: [],
-    unconstrainedFunctions: [],
+    utilityFunctions: [],
     version: 1,
-  };
-}
-
-function makeContractClassPublicFunction(seed = 0): PublicFunction {
-  return {
-    selector: FunctionSelector.fromField(fr(seed + 1)),
-    bytecode: makeBytes(100, seed + 2),
   };
 }
 
@@ -1281,51 +1287,138 @@ export async function makeContractInstanceFromClassId(
   }).withAddress(address);
 }
 
-export function makeAvmTreeHints(seed = 0): AvmAppendTreeHint {
-  return new AvmAppendTreeHint(
-    new Fr(seed),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetSiblingPathHint(seed = 0): AvmGetSiblingPathHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetSiblingPathHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    makeArray(seed % 64, i => new Fr(i), seed + 10),
   );
 }
 
-export function makeAvmNullifierReadTreeHints(seed = 0): AvmNullifierReadTreeHint {
-  const lowNullifierPreimage = new NullifierLeafPreimage(new Fr(seed), new Fr(seed + 1), BigInt(seed + 2));
-  return new AvmNullifierReadTreeHint(
-    lowNullifierPreimage,
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetPreviousValueIndexHint(seed = 0): AvmGetPreviousValueIndexHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  const value = new Fr(BigInt(`0x${sha256(Buffer.from((seed + 2).toString())).toString('hex')}`) % (1n << 128n));
+  return new AvmGetPreviousValueIndexHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    value,
+    index,
+    /*alreadyPresent=*/ index % 2n === 0n,
   );
 }
 
-export function makeAvmPublicDataReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
-  return new AvmPublicDataReadTreeHint(
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafPreimageHintPublicDataTree(seed = 0): AvmGetLeafPreimageHintPublicDataTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leafPreimage=*/ makePublicDataTreeLeafPreimage(seed + 3),
   );
 }
 
-export function makeAvmNullifierInsertionTreeHints(seed = 0): AvmNullifierWriteTreeHint {
-  return new AvmNullifierWriteTreeHint(
-    makeAvmNullifierReadTreeHints(seed),
-    makeArray(20, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafPreimageHintNullifierTree(seed = 0): AvmGetLeafPreimageHintNullifierTree {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafPreimageHintNullifierTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*index=*/ index,
+    /*leafPreimage=*/ makeNullifierLeafPreimage(seed + 3),
   );
 }
 
-export function makeAvmStorageReadTreeHints(seed = 0): AvmPublicDataReadTreeHint {
-  return new AvmPublicDataReadTreeHint(
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    new Fr(seed + 1),
-    makeArray(10, i => new Fr(i), seed + 0x1000),
+export function makeAvmGetLeafValueHint(seed = 0): AvmGetLeafValueHint {
+  // We want a possibly large index, but non-random.
+  const index = BigInt(`0x${sha256(Buffer.from(seed.toString())).toString('hex')}`) % (1n << 64n);
+  return new AvmGetLeafValueHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    /*treeId=*/ (seed + 1) % 5,
+    /*index=*/ index,
+    /*value=*/ new Fr(seed + 3),
   );
 }
 
-export function makeAvmStorageUpdateTreeHints(seed = 0): AvmPublicDataWriteTreeHint {
-  return new AvmPublicDataWriteTreeHint(
-    makeAvmStorageReadTreeHints(seed),
-    new PublicDataTreeLeafPreimage(new Fr(seed), new Fr(seed + 1), new Fr(seed + 2), BigInt(seed + 3)),
-    makeArray(20, i => new Fr(i), seed + 0x1000),
+export function makeAvmSequentialInsertHintPublicDataTree(seed = 0): AvmSequentialInsertHintPublicDataTree {
+  const lowLeavesWitnessData = {
+    leaf: makePublicDataTreeLeafPreimage(seed + 3),
+    index: BigInt(seed + 4),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 5),
+  };
+  const insertionWitnessData = {
+    leaf: makePublicDataTreeLeafPreimage(seed + 6),
+    index: BigInt(seed + 7),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 8),
+  };
+
+  return new AvmSequentialInsertHintPublicDataTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    MerkleTreeId.PUBLIC_DATA_TREE,
+    makePublicDataTreeLeaf(seed + 2),
+    lowLeavesWitnessData,
+    insertionWitnessData,
+  );
+}
+
+export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentialInsertHintNullifierTree {
+  const lowLeavesWitnessData = {
+    leaf: makeNullifierLeafPreimage(seed + 3),
+    index: BigInt(seed + 4),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 5),
+  };
+  const insertionWitnessData = {
+    leaf: makeNullifierLeafPreimage(seed + 6),
+    index: BigInt(seed + 7),
+    path: makeArray(seed % 64, i => new Fr(i), seed + 8),
+  };
+
+  return new AvmSequentialInsertHintNullifierTree(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    MerkleTreeId.NULLIFIER_TREE,
+    makeNullifierLeaf(seed + 2),
+    lowLeavesWitnessData,
+    insertionWitnessData,
+  );
+}
+
+export function makeAvmAppendLeavesHint(seed = 0): AvmAppendLeavesHint {
+  return new AvmAppendLeavesHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    // Use NOTE_HASH_TREE or L1_TO_L2_MESSAGE_TREE as mentioned in the comment on AvmAppendLeavesHint
+    seed % 2 === 0 ? MerkleTreeId.NOTE_HASH_TREE : MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    makeArray((seed % 5) + 1, i => new Fr(seed + i + 2), 0),
+  );
+}
+
+export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0): AvmCreateCheckpointHint {
+  return new AvmCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0): AvmCommitCheckpointHint {
+  return new AvmCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
+  return new AvmRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+    /*beforeState=*/ makeTreeSnapshots(seed + 3),
+    /*afterState=*/ makeTreeSnapshots(seed + 7),
   );
 }
 
@@ -1337,7 +1430,6 @@ export function makeAvmStorageUpdateTreeHints(seed = 0): AvmPublicDataWriteTreeH
 export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
   return new AvmContractInstanceHint(
     new AztecAddress(new Fr(seed)),
-    true /* exists */,
     new Fr(seed + 0x2),
     new AztecAddress(new Fr(seed + 0x3)),
     new Fr(seed + 0x4),
@@ -1349,8 +1441,6 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
       new Point(new Fr(seed + 0x11), new Fr(seed + 0x12), false),
       new Point(new Fr(seed + 0x13), new Fr(seed + 0x14), false),
     ),
-    makeAvmPublicDataReadTreeHints(seed + 0x2000),
-    makeArray(4, i => new Fr(i), seed + 0x3000),
   );
 }
 
@@ -1358,22 +1448,40 @@ export function makeAvmContractInstanceHint(seed = 0): AvmContractInstanceHint {
  * @param seed - The seed to use for generating the state reference.
  * @returns AvmContractClassHint.
  */
-export async function makeAvmContractClassHint(seed = 0): Promise<AvmContractClassHint> {
+export function makeAvmContractClassHint(seed = 0): AvmContractClassHint {
   const bytecode = makeBytes(32, seed + 0x5);
-  return new AvmContractClassHint(
-    new Fr(seed),
-    true /* exists */,
-    new Fr(seed + 0x2),
-    new Fr(seed + 0x3),
-    await computePublicBytecodeCommitment(bytecode),
-    bytecode,
-  );
+  return new AvmContractClassHint(new Fr(seed), new Fr(seed + 0x2), new Fr(seed + 0x3), bytecode);
+}
+
+export async function makeAvmBytecodeCommitmentHint(seed = 0): Promise<AvmBytecodeCommitmentHint> {
+  const classId = new Fr(seed + 2);
+  const bytecode = makeBytes(32, seed + 0x5);
+  return new AvmBytecodeCommitmentHint(classId, await computePublicBytecodeCommitment(bytecode));
 }
 
 export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
   return new AvmEnqueuedCallHint(
     new AztecAddress(new Fr(seed)),
+    new AztecAddress(new Fr(seed + 2)),
     makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+    /*isStaticCall=*/ false,
+  );
+}
+
+export function makeAvmTxHint(seed = 0): AvmTxHint {
+  return new AvmTxHint(
+    `txhash-${seed}`,
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
+    },
+    {
+      noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x3000),
+      nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x4000),
+    },
+    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x5000), // setupEnqueuedCalls
+    makeArray((seed % 20) + 4, i => makeAvmEnqueuedCallHint(i), seed + 0x6000), // appLogicEnqueuedCalls
+    makeAvmEnqueuedCallHint(seed + 0x7000), // teardownEnqueuedCall
   );
 }
 
@@ -1391,30 +1499,52 @@ export async function makeAvmExecutionHints(
   const baseLength = lengthOffset + (seed % lengthSeedMod);
 
   const fields = {
-    enqueuedCalls: makeArray(baseLength, makeAvmEnqueuedCallHint, seed + 0x4100),
-    contractInstances: makeArray(baseLength + 5, makeAvmContractInstanceHint, seed + 0x4700),
-    contractClasses: await makeArrayAsync(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
-    publicDataReads: makeArray(baseLength + 7, makeAvmStorageReadTreeHints, seed + 0x4900),
-    publicDataWrites: makeArray(baseLength + 8, makeAvmStorageUpdateTreeHints, seed + 0x4a00),
-    nullifierReads: makeArray(baseLength + 9, makeAvmNullifierReadTreeHints, seed + 0x4b00),
-    nullifierWrites: makeArray(baseLength + 10, makeAvmNullifierInsertionTreeHints, seed + 0x4c00),
-    noteHashReads: makeArray(baseLength + 11, makeAvmTreeHints, seed + 0x4d00),
-    noteHashWrites: makeArray(baseLength + 12, makeAvmTreeHints, seed + 0x4e00),
-    l1ToL2MessageReads: makeArray(baseLength + 13, makeAvmTreeHints, seed + 0x4f00),
+    tx: makeAvmTxHint(seed + 0x4100),
+    contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
+    contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
+    bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
+    getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
+    getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
+    getLeafPreimageHintPublicDataTree: makeArray(
+      baseLength + 5,
+      makeAvmGetLeafPreimageHintPublicDataTree,
+      seed + 0x4f00,
+    ),
+    getLeafPreimageHintNullifierTree: makeArray(baseLength + 5, makeAvmGetLeafPreimageHintNullifierTree, seed + 0x5100),
+    getLeafValueHints: makeArray(baseLength + 5, makeAvmGetLeafValueHint, seed + 0x5300),
+    sequentialInsertHintsPublicDataTree: makeArray(
+      baseLength + 5,
+      makeAvmSequentialInsertHintPublicDataTree,
+      seed + 0x5500,
+    ),
+    sequentialInsertHintsNullifierTree: makeArray(
+      baseLength + 5,
+      makeAvmSequentialInsertHintNullifierTree,
+      seed + 0x5700,
+    ),
+    appendLeavesHints: makeArray(baseLength + 5, makeAvmAppendLeavesHint, seed + 0x5800),
+    createCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCreateCheckpointHint, seed + 0x5900),
+    commitCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCommitCheckpointHint, seed + 0x5b00),
+    revertCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionRevertCheckpointHint, seed + 0x5d00),
     ...overrides,
   };
 
   return new AvmExecutionHints(
-    fields.enqueuedCalls,
+    fields.tx,
     fields.contractInstances,
     fields.contractClasses,
-    fields.publicDataReads,
-    fields.publicDataWrites,
-    fields.nullifierReads,
-    fields.nullifierWrites,
-    fields.noteHashReads,
-    fields.noteHashWrites,
-    fields.l1ToL2MessageReads,
+    fields.bytecodeCommitments,
+    fields.getSiblingPathHints,
+    fields.getPreviousValueIndexHints,
+    fields.getLeafPreimageHintPublicDataTree,
+    fields.getLeafPreimageHintNullifierTree,
+    fields.getLeafValueHints,
+    fields.sequentialInsertHintsPublicDataTree,
+    fields.sequentialInsertHintsNullifierTree,
+    fields.appendLeavesHints,
+    fields.createCheckpointHints,
+    fields.commitCheckpointHints,
+    fields.revertCheckpointHints,
   );
 }
 
@@ -1428,14 +1558,12 @@ export async function makeAvmCircuitInputs(
   overrides: Partial<FieldsOf<AvmCircuitInputs>> = {},
 ): Promise<AvmCircuitInputs> {
   const fields = {
-    functionName: `function${seed}`,
-    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
-    avmHints: await makeAvmExecutionHints(seed + 0x3000),
+    hints: await makeAvmExecutionHints(seed + 0x3000),
     publicInputs: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   };
 
-  return new AvmCircuitInputs(fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs);
+  return new AvmCircuitInputs(fields.hints, fields.publicInputs);
 }
 
 /**

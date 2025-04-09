@@ -17,6 +17,7 @@ export enum PeerEvent {
 export enum Discv5Event {
   DISCOVERED = 'discovered',
   ENR_ADDED = 'enrAdded',
+  MULTIADDR_UPDATED = 'multiaddrUpdated',
 }
 
 /**

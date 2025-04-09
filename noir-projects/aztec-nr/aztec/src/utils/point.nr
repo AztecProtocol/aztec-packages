@@ -46,8 +46,25 @@ pub fn point_from_x_coord(x: Field) -> Point {
     Point { x, y, is_infinite: false }
 }
 
+/// Uses the x coordinate and sign flag (+/-) to reconstruct the point.
+/// The y coordinate can be derived from the x coordinate and the "sign" flag by solving the grumpkin curve
+/// equation for y.
+/// @param x - The x coordinate of the point
+/// @param sign - The "sign" of the y coordinate - determines whether y <= (Fr.MODULUS - 1) / 2
+pub fn point_from_x_coord_and_sign(x: Field, sign: bool) -> Point {
+    // y ^ 2 = x ^ 3 - 17
+    let rhs = x * x * x - 17;
+    let y = sqrt(rhs).unwrap();
+
+    // If y > MOD_DIV_2 and we want positive sign (or vice versa), negate y
+    let y_is_positive = !BN254_FR_MODULUS_DIV_2.lt(y);
+    let final_y = if y_is_positive == sign { y } else { -y };
+
+    Point { x, y: final_y, is_infinite: false }
+}
+
 mod test {
-    use crate::utils::point::point_to_bytes;
+    use crate::utils::point::{point_from_x_coord_and_sign, point_to_bytes};
     use dep::protocol_types::point::Point;
 
     #[test]
@@ -83,5 +100,26 @@ mod test {
         ];
 
         assert_eq(expected_compressed_point_negative_sign, compressed_point);
+    }
+
+    #[test]
+    unconstrained fn test_point_from_x_coord_and_sign() {
+        // Test positive y coordinate
+        let x = 0x1af41f5de96446dc3776a1eb2d98bb956b7acd9979a67854bec6fa7c2973bd73;
+        let sign = true;
+        let p = point_from_x_coord_and_sign(x, sign);
+
+        assert_eq(p.x, x);
+        assert_eq(p.y, 0x07fc22c7f2c7057571f137fe46ea9c95114282bc95d37d71ec4bfb88de457d4a);
+        assert_eq(p.is_infinite, false);
+
+        // Test negative y coordinate
+        let x2 = 0x247371652e55dd74c9af8dbe9fb44931ba29a9229994384bd7077796c14ee2b5;
+        let sign2 = false;
+        let p2 = point_from_x_coord_and_sign(x2, sign2);
+
+        assert_eq(p2.x, x2);
+        assert_eq(p2.y, 0x26441aec112e1ae4cee374f42556932001507ad46e255ffb27369c7e3766e5c0);
+        assert_eq(p2.is_infinite, false);
     }
 }

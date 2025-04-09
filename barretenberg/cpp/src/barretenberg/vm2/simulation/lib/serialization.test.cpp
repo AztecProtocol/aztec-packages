@@ -1,11 +1,15 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/vm2/simulation/events/bytecode_events.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
 namespace bb::avm2 {
 namespace {
+
+using simulation::check_tag;
 using simulation::deserialize_instruction;
+using simulation::InstrDeserializationError;
 using simulation::Instruction;
 using simulation::Operand;
 
@@ -79,6 +83,94 @@ TEST(SerializationTest, SetFFRoundTrip)
     };
     const auto decoded = deserialize_instruction(instr.serialize(), 0);
     EXPECT_EQ(instr, decoded);
+}
+
+// Testing deserialization pc out of range error
+TEST(SerializationTest, PCOutOfRange)
+{
+    std::vector<uint8_t> bytecode;
+    bytecode.resize(35, 0);
+
+    try {
+        deserialize_instruction(bytecode, bytecode.size() + 1);
+    } catch (const InstrDeserializationError& error) {
+        EXPECT_EQ(error, InstrDeserializationError::PC_OUT_OF_RANGE);
+    }
+}
+
+// Testing deserialization wire opcode out of range error
+TEST(SerializationTest, OpcodeOutOfRange)
+{
+    std::vector<uint8_t> bytecode;
+    bytecode.push_back(static_cast<uint8_t>(WireOpCode::LAST_OPCODE_SENTINEL) + 1); // Invalid opcode
+
+    try {
+        deserialize_instruction(bytecode, 0);
+    } catch (const InstrDeserializationError& error) {
+        EXPECT_EQ(error, InstrDeserializationError::OPCODE_OUT_OF_RANGE);
+    }
+}
+
+// Testing deserialization instruction out of range error
+TEST(SerializationTest, InstructionOutOfRange)
+{
+    // Create a valid SET_16 instruction
+    Instruction instr = {
+        .opcode = WireOpCode::SET_16,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::U16)), Operand::u16(12345) }
+    };
+
+    auto bytecode = instr.serialize();
+
+    // Truncate the bytecode
+    bytecode.resize(bytecode.size() - 1);
+
+    try {
+        deserialize_instruction(bytecode, 0);
+    } catch (const InstrDeserializationError& error) {
+        EXPECT_EQ(error, InstrDeserializationError::INSTRUCTION_OUT_OF_RANGE);
+    }
+}
+
+// Testing check_tag with a valid instruction for wire opcode SET_128
+TEST(SerializationTest, CheckTagValid)
+{
+    Instruction instr = {
+        .opcode = WireOpCode::SET_128,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::U128)), Operand::u128(12345) }
+    };
+    EXPECT_TRUE(check_tag(instr));
+}
+
+// Testing check_tag with an invalid tag for wire opcode SET_128
+TEST(SerializationTest, CheckTagInvalid)
+{
+    Instruction instr = {
+        .opcode = WireOpCode::SET_128,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u8(static_cast<uint8_t>(MemoryTag::MAX) + 1), Operand::u128(12345) }
+    };
+    EXPECT_FALSE(check_tag(instr));
+}
+
+// Testing check_tag with an invalid instruction for wire opcode SET_128, not enough operands
+TEST(SerializationTest, CheckTagInvalidNotEnoughOperands)
+{
+    Instruction instr = { .opcode = WireOpCode::SET_128, .indirect = 2, .operands = { Operand::u16(1002) } };
+    EXPECT_FALSE(check_tag(instr));
+}
+
+// Testing check_tag with an invalid instruction for wire opcode SET_128, tag is not a byte
+TEST(SerializationTest, CheckTagInvalidTagNotByte)
+{
+    Instruction instr = {
+        .opcode = WireOpCode::SET_128,
+        .indirect = 2,
+        .operands = { Operand::u16(1002), Operand::u16(static_cast<uint8_t>(MemoryTag::U128)), Operand::u128(12345) }
+    };
+    EXPECT_FALSE(check_tag(instr));
 }
 
 } // namespace

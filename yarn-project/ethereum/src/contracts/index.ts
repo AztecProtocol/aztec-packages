@@ -1,4 +1,5 @@
 export * from './empire_base.js';
+export * from './fee_asset_handler.js';
 export * from './fee_juice.js';
 export * from './forwarder.js';
 export * from './governance.js';

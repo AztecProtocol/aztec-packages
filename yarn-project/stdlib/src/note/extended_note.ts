@@ -4,7 +4,6 @@ import { bufferToHex, hexToBuffer } from '@aztec/foundation/string';
 
 import { z } from 'zod';
 
-import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { type ZodFor, schemas } from '../schemas/index.js';
 import { TxHash } from '../tx/tx_hash.js';
@@ -17,54 +16,43 @@ export class ExtendedNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     public note: Note,
-    /** The owner whose public key was used to encrypt the note. */
-    public owner: AztecAddress,
+    /** The address whose public key was used to encrypt the note. */
+    public recipient: AztecAddress,
     /** The contract address this note is created in. */
     public contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
     public storageSlot: Fr,
-    /** The type identifier of the note on the contract. */
-    public noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. */
     public txHash: TxHash,
   ) {}
 
   toBuffer(): Buffer {
-    return serializeToBuffer([
-      this.note,
-      this.owner,
-      this.contractAddress,
-      this.storageSlot,
-      this.noteTypeId,
-      this.txHash,
-    ]);
+    return serializeToBuffer([this.note, this.recipient, this.contractAddress, this.storageSlot, this.txHash]);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
     const reader = BufferReader.asReader(buffer);
 
     const note = reader.readObject(Note);
-    const owner = reader.readObject(AztecAddress);
+    const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
-    const noteTypeId = reader.readObject(NoteSelector);
     const txHash = reader.readObject(TxHash);
 
-    return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+    return new this(note, recipient, contractAddress, storageSlot, txHash);
   }
 
   static get schema(): ZodFor<ExtendedNote> {
     return z
       .object({
         note: Note.schema,
-        owner: schemas.AztecAddress,
+        recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
-        noteTypeId: schemas.NoteSelector,
         txHash: TxHash.schema,
       })
-      .transform(({ note, owner, contractAddress, storageSlot, noteTypeId, txHash }) => {
-        return new ExtendedNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+      .transform(({ note, recipient, contractAddress, storageSlot, txHash }) => {
+        return new ExtendedNote(note, recipient, contractAddress, storageSlot, txHash);
       });
   }
 
@@ -82,7 +70,6 @@ export class ExtendedNote {
       await AztecAddress.random(),
       await AztecAddress.random(),
       Fr.random(),
-      NoteSelector.random(),
       TxHash.random(),
     );
   }
@@ -92,45 +79,41 @@ export class UniqueNote extends ExtendedNote {
   constructor(
     /** The note as emitted from the Noir contract. */
     note: Note,
-    /** The owner whose public key was used to encrypt the note. */
-    owner: AztecAddress,
+    /** The recipient whose public key was used to encrypt the note. */
+    recipient: AztecAddress,
     /** The contract address this note is created in. */
     contractAddress: AztecAddress,
     /** The specific storage location of the note on the contract. */
     storageSlot: Fr,
-    /** The type identifier of the note on the contract. */
-    noteTypeId: NoteSelector,
     /** The hash of the tx the note was created in. */
     txHash: TxHash,
     /** The nonce of the note. */
     public nonce: Fr,
   ) {
-    super(note, owner, contractAddress, storageSlot, noteTypeId, txHash);
+    super(note, recipient, contractAddress, storageSlot, txHash);
   }
 
   static override get schema() {
     return z
       .object({
         note: Note.schema,
-        owner: schemas.AztecAddress,
+        recipient: schemas.AztecAddress,
         contractAddress: schemas.AztecAddress,
         storageSlot: schemas.Fr,
-        noteTypeId: schemas.NoteSelector,
         txHash: TxHash.schema,
         nonce: schemas.Fr,
       })
-      .transform(({ note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce }) => {
-        return new UniqueNote(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+      .transform(({ note, recipient, contractAddress, storageSlot, txHash, nonce }) => {
+        return new UniqueNote(note, recipient, contractAddress, storageSlot, txHash, nonce);
       });
   }
 
   override toBuffer(): Buffer {
     return serializeToBuffer([
       this.note,
-      this.owner,
+      this.recipient,
       this.contractAddress,
       this.storageSlot,
-      this.noteTypeId,
       this.txHash,
       this.nonce,
     ]);
@@ -142,7 +125,6 @@ export class UniqueNote extends ExtendedNote {
       await AztecAddress.random(),
       await AztecAddress.random(),
       Fr.random(),
-      NoteSelector.random(),
       TxHash.random(),
       Fr.random(),
     );
@@ -152,14 +134,13 @@ export class UniqueNote extends ExtendedNote {
     const reader = BufferReader.asReader(buffer);
 
     const note = reader.readObject(Note);
-    const owner = reader.readObject(AztecAddress);
+    const recipient = reader.readObject(AztecAddress);
     const contractAddress = reader.readObject(AztecAddress);
     const storageSlot = reader.readObject(Fr);
-    const noteTypeId = reader.readObject(NoteSelector);
     const txHash = reader.readObject(TxHash);
     const nonce = reader.readObject(Fr);
 
-    return new this(note, owner, contractAddress, storageSlot, noteTypeId, txHash, nonce);
+    return new this(note, recipient, contractAddress, storageSlot, txHash, nonce);
   }
 
   static override fromString(str: string) {

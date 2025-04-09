@@ -69,10 +69,11 @@ ECCVMRecursiveVerifier_<Flavor>::verify_proof(const ECCVMProof& proof)
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    auto sumcheck = SumcheckVerifier<Flavor>(log_circuit_size, transcript);
+    auto sumcheck = SumcheckVerifier<Flavor, CONST_ECCVM_LOG_N>(log_circuit_size, transcript);
     const FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
-    std::vector<FF> gate_challenges(CONST_PROOF_SIZE_LOG_N);
+    std::vector<FF> gate_challenges(CONST_ECCVM_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
         gate_challenges[idx] = transcript->template get_challenge<FF>("Sumcheck:gate_challenge_" + std::to_string(idx));
     }
@@ -216,7 +217,7 @@ void ECCVMRecursiveVerifier_<Flavor>::compute_translation_opening_claims(
     opening_claims[NUM_SMALL_IPA_EVALUATIONS] = { { evaluation_challenge_x, batched_translation_evaluation },
                                                   batched_commitment };
 
-    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - MASKING_OFFSET}
+    // Compute `translation_masking_term_eval` * `evaluation_challenge_x`^{circuit_size - NUM_DISABLED_ROWS_IN_SUMCHECK}
     shift_translation_masking_term_eval(evaluation_challenge_x, translation_masking_term_eval);
 };
 

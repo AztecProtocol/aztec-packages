@@ -239,12 +239,12 @@ TEST_F(WorldStateTest, GetInitialTreeInfoWithPrefilledPublicData)
         {
             auto leaf = ws_prefilled.get_indexed_leaf<PublicDataLeafValue>(
                 WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, prefilled.meta.size - 2);
-            EXPECT_EQ(leaf.value().value, prefilled_values[0]);
+            EXPECT_EQ(leaf.value().leaf, prefilled_values[0]);
         }
         {
             auto leaf = ws_prefilled.get_indexed_leaf<PublicDataLeafValue>(
                 WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, prefilled.meta.size - 1);
-            EXPECT_EQ(leaf.value().value, prefilled_values[1]);
+            EXPECT_EQ(leaf.value().leaf, prefilled_values[1]);
         }
     }
 
@@ -529,7 +529,7 @@ TEST_F(WorldStateTest, PublicDataTree)
 
     auto leaf = ws.get_indexed_leaf<PublicDataLeafValue>(
         WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, 128);
-    EXPECT_EQ(leaf.value().value, PublicDataLeafValue(142, 0));
+    EXPECT_EQ(leaf.value().leaf, PublicDataLeafValue(142, 0));
 
     ws.update_public_data(PublicDataLeafValue(142, 1));
     // updating insert a dummy leaf
@@ -537,7 +537,7 @@ TEST_F(WorldStateTest, PublicDataTree)
 
     leaf = ws.get_indexed_leaf<PublicDataLeafValue>(
         WorldStateRevision::uncommitted(), MerkleTreeId::PUBLIC_DATA_TREE, 128);
-    EXPECT_EQ(leaf.value().value, PublicDataLeafValue(142, 1));
+    EXPECT_EQ(leaf.value().leaf, PublicDataLeafValue(142, 1));
 }
 
 TEST_F(WorldStateTest, CommitsAndRollsBackAllTrees)

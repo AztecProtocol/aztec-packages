@@ -7,11 +7,10 @@ import {
   type PXE,
   type Wallet,
   createPXEClient,
-  getContractClassFromArtifact,
   makeFetch,
 } from '@aztec/aztec.js';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -54,15 +53,6 @@ describe('e2e_deploy_contract deploy method', () => {
     expect(
       (await pxe.getContractClassMetadata(contract.instance.currentContractClassId)).isContractClassPubliclyRegistered,
     ).toBeTrue();
-  });
-
-  // TODO(#10007): Remove this test. Common contracts (ie token contracts) are only distinguished
-  // because we're manually adding them to the archiver to support provernet.
-  it('registers a contract class for a common contract', async () => {
-    const { id: tokenContractClass } = await getContractClassFromArtifact(TokenContract.artifact);
-    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeFalse();
-    await TokenContract.deploy(wallet, wallet.getAddress(), 'TOKEN', 'TKN', 18n).send().deployed();
-    expect((await pxe.getContractClassMetadata(tokenContractClass)).isContractClassPubliclyRegistered).toBeTrue();
   });
 
   it('publicly universally deploys and initializes a contract', async () => {
@@ -109,7 +99,7 @@ describe('e2e_deploy_contract deploy method', () => {
 
   it('publicly deploys a contract with no constructor', async () => {
     logger.debug(`Deploying contract with no constructor`);
-    const contract = await DocsExampleContract.deploy(wallet).send().deployed();
+    const contract = await NoConstructorContract.deploy(wallet).send().deployed();
     const arbitraryValue = 42;
     logger.debug(`Call a public function to check that it was publicly deployed`);
     const receipt = await contract.methods.emit_public(arbitraryValue).send().wait();
@@ -120,7 +110,7 @@ describe('e2e_deploy_contract deploy method', () => {
   it('refuses to deploy a contract with no constructor and no public deployment', async () => {
     logger.debug(`Deploying contract with no constructor and skipping public deploy`);
     const opts = { skipPublicDeployment: true, skipClassRegistration: true };
-    await expect(DocsExampleContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
+    await expect(NoConstructorContract.deploy(wallet).prove(opts)).rejects.toThrow(/no function calls needed/i);
   });
 
   it('publicly deploys and calls a public contract in the same batched call', async () => {
@@ -139,7 +129,7 @@ describe('e2e_deploy_contract deploy method', () => {
   }, 300_000);
 
   it('publicly deploys a contract in one tx and calls a public function on it later in the same block', async () => {
-    await t.aztecNode.setConfig({ minTxsPerBlock: 2 });
+    await t.aztecNodeAdmin.setConfig({ minTxsPerBlock: 2 });
 
     const owner = wallet.getAddress();
     logger.debug('Initializing deploy method');

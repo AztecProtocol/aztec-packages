@@ -36,6 +36,8 @@ struct BytecodeRetrievalEvent {
     ContractInstance contract_instance;
     ContractClass contract_class;
     FF nullifier_root;
+    FF public_data_tree_root;
+    uint32_t current_block_number;
     bool error = false;
 };
 
@@ -45,6 +47,7 @@ struct InstructionFetchingEvent {
     // TODO: Do we want to have a dep on Instruction here or do we redefine what we need?
     Instruction instruction;
     std::shared_ptr<std::vector<uint8_t>> bytecode;
+    std::optional<InstrDeserializationError> error;
 
     // To be used with deduplicating event emitters.
     using Key = std::tuple<BytecodeId, uint32_t>;

@@ -4,7 +4,6 @@ import { Secp256k1Signer, randomBytes } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
 
 import type { ContractArtifact } from '../abi/abi.js';
-import { NoteSelector } from '../abi/note_selector.js';
 import { AztecAddress } from '../aztec-address/index.js';
 import { computeContractAddressFromInstance } from '../contract/contract_address.js';
 import { getContractClassFromArtifact } from '../contract/contract_class.js';
@@ -12,7 +11,6 @@ import { SerializableContractInstance } from '../contract/contract_instance.js';
 import type { ContractInstanceWithAddress } from '../contract/index.js';
 import { GasFees } from '../gas/gas_fees.js';
 import { GasSettings } from '../gas/gas_settings.js';
-import { computeVarArgsHash } from '../hash/hash.js';
 import { Nullifier } from '../kernel/nullifier.js';
 import { PrivateCircuitPublicInputs } from '../kernel/private_circuit_public_inputs.js';
 import {
@@ -27,15 +25,7 @@ import { BlockProposal } from '../p2p/block_proposal.js';
 import { ConsensusPayload } from '../p2p/consensus_payload.js';
 import { SignatureDomainSeparator, getHashedSignaturePayloadEthSignedMessage } from '../p2p/signature_utils.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
-import {
-  BlockHeader,
-  CallContext,
-  CountedPublicExecutionRequest,
-  PrivateCallExecutionResult,
-  PrivateExecutionResult,
-  PublicExecutionRequest,
-  Tx,
-} from '../tx/index.js';
+import { BlockHeader, HashedValues, PrivateCallExecutionResult, PrivateExecutionResult, Tx } from '../tx/index.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { TxSimulationResult, accumulatePrivateReturnValues } from '../tx/simulated_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -46,92 +36,36 @@ export const randomTxHash = (): TxHash => TxHash.random();
 
 export const randomExtendedNote = async ({
   note = Note.random(),
-  owner = undefined,
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = NoteSelector.random(),
 }: Partial<ExtendedNote> = {}) => {
   return new ExtendedNote(
     note,
-    owner ?? (await AztecAddress.random()),
+    recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
-    noteTypeId,
     txHash,
   );
 };
 
 export const randomUniqueNote = async ({
   note = Note.random(),
-  owner = undefined,
+  recipient = undefined,
   contractAddress = undefined,
   txHash = randomTxHash(),
   storageSlot = Fr.random(),
-  noteTypeId = NoteSelector.random(),
   nonce = Fr.random(),
 }: Partial<UniqueNote> = {}) => {
   return new UniqueNote(
     note,
-    owner ?? (await AztecAddress.random()),
+    recipient ?? (await AztecAddress.random()),
     contractAddress ?? (await AztecAddress.random()),
     storageSlot,
-    noteTypeId,
     txHash,
     nonce,
   );
-};
-
-export const mockPrivateCallExecutionResult = async (
-  seed = 1,
-  numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
-  numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
-  hasPublicTeardownCallRequest = false,
-) => {
-  const totalPublicCallRequests =
-    numberOfNonRevertiblePublicCallRequests +
-    numberOfRevertiblePublicCallRequests +
-    (hasPublicTeardownCallRequest ? 1 : 0);
-  const isForPublic = totalPublicCallRequests > 0;
-  let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
-  let publicTeardownFunctionCall = PublicExecutionRequest.empty();
-  if (isForPublic) {
-    const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
-    const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
-    for (let i = 0; i < publicCallRequests.length; i++) {
-      const r = publicCallRequests[i];
-      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
-      i++;
-    }
-
-    if (hasPublicTeardownCallRequest) {
-      const request = publicCallRequests.shift()!;
-      const args = publicFunctionArgs.shift()!;
-      publicTeardownFunctionCall = new PublicExecutionRequest(CallContext.fromFields(request.toFields()), args);
-    }
-
-    enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
-    );
-  }
-  return new PrivateCallExecutionResult(
-    Buffer.from(''),
-    Buffer.from(''),
-    new Map(),
-    PrivateCircuitPublicInputs.empty(),
-    new Map(),
-    [],
-    new Map(),
-    [],
-    [],
-    enqueuedPublicFunctionCalls.map((call, index) => new CountedPublicExecutionRequest(call, index)),
-    publicTeardownFunctionCall,
-    [],
-  );
-};
-
-export const mockPrivateExecutionResult = async (seed = 1) => {
-  return new PrivateExecutionResult(await mockPrivateCallExecutionResult(seed), Fr.zero());
 };
 
 export const mockTx = async (
@@ -139,15 +73,21 @@ export const mockTx = async (
   {
     numberOfNonRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
     numberOfRevertiblePublicCallRequests = MAX_ENQUEUED_CALLS_PER_TX / 2,
+    numberOfRevertibleNullifiers = 0,
     hasPublicTeardownCallRequest = false,
+    publicCalldataSize = 2,
     feePayer,
     clientIvcProof = ClientIvcProof.empty(),
+    maxPriorityFeesPerGas,
   }: {
     numberOfNonRevertiblePublicCallRequests?: number;
     numberOfRevertiblePublicCallRequests?: number;
+    numberOfRevertibleNullifiers?: number;
     hasPublicTeardownCallRequest?: boolean;
+    publicCalldataSize?: number;
     feePayer?: AztecAddress;
     clientIvcProof?: ClientIvcProof;
+    maxPriorityFeesPerGas?: GasFees;
   } = {},
 ) => {
   const totalPublicCallRequests =
@@ -157,11 +97,13 @@ export const mockTx = async (
   const isForPublic = totalPublicCallRequests > 0;
   const data = PrivateKernelTailCircuitPublicInputs.empty();
   const firstNullifier = new Nullifier(new Fr(seed + 1), 0, Fr.ZERO);
-  data.constants.txContext.gasSettings = GasSettings.default({ maxFeesPerGas: new GasFees(10, 10) });
+  data.constants.txContext.gasSettings = GasSettings.default({
+    maxFeesPerGas: new GasFees(10, 10),
+    maxPriorityFeesPerGas,
+  });
   data.feePayer = feePayer ?? (await AztecAddress.random());
 
-  let enqueuedPublicFunctionCalls: PublicExecutionRequest[] = [];
-  let publicTeardownFunctionCall = PublicExecutionRequest.empty();
+  const publicFunctionCalldata: HashedValues[] = [];
   if (!isForPublic) {
     data.forRollup!.end.nullifiers[0] = firstNullifier.value;
   } else {
@@ -171,44 +113,57 @@ export const mockTx = async (
     const revertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
     const nonRevertibleBuilder = new PrivateToPublicAccumulatedDataBuilder();
 
-    const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i)).reverse(); // Reverse it so that they are sorted by counters in descending order.
-    const publicFunctionArgs = times(totalPublicCallRequests, i => [new Fr(seed + i * 100), new Fr(seed + i * 101)]);
+    const publicCallRequests = times(totalPublicCallRequests, i => makePublicCallRequest(seed + 0x102 + i));
+    const calldata = times(totalPublicCallRequests, i => times(publicCalldataSize, j => new Fr(seed + (i * 13 + j))));
     for (let i = 0; i < publicCallRequests.length; i++) {
-      const r = publicCallRequests[i];
-      r.argsHash = await computeVarArgsHash(publicFunctionArgs[i]);
+      const hashedCalldata = await HashedValues.fromCalldata(calldata[i]);
+      publicFunctionCalldata.push(hashedCalldata);
+      publicCallRequests[i].calldataHash = hashedCalldata.hash;
     }
 
     if (hasPublicTeardownCallRequest) {
-      const request = publicCallRequests.shift()!;
-      data.forPublic.publicTeardownCallRequest = request;
-      const args = publicFunctionArgs.shift()!;
-      publicTeardownFunctionCall = new PublicExecutionRequest(CallContext.fromFields(request.toFields()), args);
+      data.forPublic.publicTeardownCallRequest = publicCallRequests.pop()!;
     }
-
-    enqueuedPublicFunctionCalls = publicCallRequests.map(
-      (r, i) => new PublicExecutionRequest(CallContext.fromFields(r.toFields()), publicFunctionArgs[i]),
-    );
 
     data.forPublic.nonRevertibleAccumulatedData = nonRevertibleBuilder
       .pushNullifier(firstNullifier.value)
       .withPublicCallRequests(publicCallRequests.slice(numberOfRevertiblePublicCallRequests))
       .build();
 
+    for (let i = 0; i < numberOfRevertibleNullifiers; i++) {
+      const revertibleNullifier = new Nullifier(new Fr(seed + 2 + i), 0, Fr.ZERO);
+      revertibleBuilder.pushNullifier(revertibleNullifier.value);
+    }
+
     data.forPublic.revertibleAccumulatedData = revertibleBuilder
       .withPublicCallRequests(publicCallRequests.slice(0, numberOfRevertiblePublicCallRequests))
       .build();
   }
 
-  const tx = new Tx(data, clientIvcProof, [], enqueuedPublicFunctionCalls, publicTeardownFunctionCall);
-
-  return tx;
+  return new Tx(data, clientIvcProof, [], publicFunctionCalldata);
 };
 
 export const mockTxForRollup = (seed = 1) =>
   mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 0, numberOfRevertiblePublicCallRequests: 0 });
 
+const emptyPrivateCallExecutionResult = () =>
+  new PrivateCallExecutionResult(
+    Buffer.from(''),
+    Buffer.from(''),
+    new Map(),
+    PrivateCircuitPublicInputs.empty(),
+    new Map(),
+    [],
+    new Map(),
+    [],
+    [],
+    [],
+  );
+
+const emptyPrivateExecutionResult = () => new PrivateExecutionResult(emptyPrivateCallExecutionResult(), Fr.zero(), []);
+
 export const mockSimulatedTx = async (seed = 1) => {
-  const privateExecutionResult = await mockPrivateExecutionResult(seed);
+  const privateExecutionResult = emptyPrivateExecutionResult();
   const tx = await mockTx(seed);
   const output = new PublicSimulationOutput(
     undefined,

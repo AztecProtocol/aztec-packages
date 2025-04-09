@@ -65,7 +65,7 @@ This defines a contract called `Voter`. Everything will sit inside this block.
 
 Inside this, paste these imports:
 
-#include_code imports noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code imports noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 We are using various utils within the Aztec `prelude` library:
 
@@ -81,7 +81,7 @@ We are using various utils within the Aztec `prelude` library:
 Under these imports, we need to set up our contract storage.
 Define the storage struct like so:
 
-#include_code storage_struct noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code storage_struct noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 In this contract, we will store three vars:
 
@@ -94,7 +94,7 @@ In this contract, we will store three vars:
 
 The next step is to initialize the contract with a constructor. The constructor will take an address as a parameter and set the admin.
 
-#include_code constructor noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code constructor noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 This function takes the admin argument and writes it to the storage. We are also using this function to set the `vote_ended` boolean as false in the same way.
 
@@ -110,7 +110,7 @@ To ensure someone only votes once, we will create a nullifier as part of the fun
 
 Create a private function called `cast_vote`:
 
-#include_code cast_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code cast_vote noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 In this function, we do not create a nullifier with the address directly. This would leak privacy as it would be easy to reverse-engineer. We must add some randomness or some form of secret, like nullifier secrets.
 
@@ -120,7 +120,7 @@ After pushing the nullifier, we update the `tally` to reflect this vote. As we k
 
 Create this new public function like this:
 
-#include_code add_to_tally_public noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code add_to_tally_public noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 The first thing we do here is assert that the vote has not ended.
 
@@ -132,9 +132,9 @@ The code after the assertion will only run if the assertion is true. In this sni
 
 We will create a function that anyone can call that will return the number of votes at a given vote Id. Paste this in your contract:
 
-#include_code get_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code get_vote noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
-We set it as `unconstrained` and do not annotate it because it is only reading from state.
+We set it as `utility` because we don't intend to call this as part of a transaction: we want to call it from our application code to e.g. display the result in a UI.
 
 ## Allowing an admin to end a voting period
 
@@ -142,7 +142,7 @@ To ensure that only an `admin` can end a voting period, we can use another `asse
 
 Paste this function in your contract:
 
-#include_code end_vote noir-projects/noir-contracts/contracts/easy_private_voting_contract/src/main.nr rust
+#include_code end_vote noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust
 
 Here, we are asserting that the `msg_sender()` is equal to the `admin` stored in public state.
 
@@ -172,7 +172,7 @@ Follow the crowdfunding contracts tutorial on the [next page](./crowdfunding_con
 
 ### Optional: Learn more about concepts mentioned here
 
-- [Unconstrained functions](../../../../aztec/smart_contracts/functions/attributes.md#unconstrained-functions).
+- [Utility functions](../../../../aztec/smart_contracts/functions/attributes.md#utility-functions).
 - [Oracles](../../../../aztec/smart_contracts/oracles/index.md)
 - [Nullifier secrets](../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
-- [How to deploy a contract to the sandbox](../../../guides/smart_contracts/how_to_deploy_contract.md)
+- [How to deploy a contract to the sandbox](../../../guides/js_apps/deploy_contract.md)

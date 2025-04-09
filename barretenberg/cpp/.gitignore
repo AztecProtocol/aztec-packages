@@ -8,6 +8,7 @@ srs_db/*/bn254_g*
 CMakeUserPresets.json
 .vscode/settings.json
 acir_tests
+client-ivc-inputs-out
 # we may download go in scripts/collect_heap_information.sh
 go*.tar.gz
 barretenberg_modules.dot

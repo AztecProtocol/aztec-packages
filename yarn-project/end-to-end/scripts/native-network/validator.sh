@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 # Get the name of the script without the path and extension
@@ -59,15 +59,12 @@ unset VALIDATOR_PRIVATE_KEY
 
 export DEBUG=${DEBUG:-""}
 export LOG_LEVEL=${LOG_LEVEL:-"verbose"}
-export L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-}
+export L1_CONSENSUS_HOST_URLS=${L1_CONSENSUS_HOST_URLS:-}
 export P2P_ENABLED="true"
 export VALIDATOR_DISABLED="false"
-export SEQ_MAX_SECONDS_BETWEEN_BLOCKS="0"
 export SEQ_MIN_TX_PER_BLOCK="1"
-export P2P_TCP_ANNOUNCE_ADDR="127.0.0.1:$P2P_PORT"
-export P2P_UDP_ANNOUNCE_ADDR="127.0.0.1:$P2P_PORT"
-export P2P_TCP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
-export P2P_UDP_LISTEN_ADDR="0.0.0.0:$P2P_PORT"
+export P2P_IP="127.0.0.1"
+export P2P_PORT="$P2P_PORT"
 export BLOB_SINK_URL="http://127.0.0.1:${BLOB_SINK_PORT:-5053}"
 export L1_CHAIN_ID=${L1_CHAIN_ID:-31337}
 export OTEL_RESOURCE_ATTRIBUTES="service.name=validator-node-${PORT}"

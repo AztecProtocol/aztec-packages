@@ -10,12 +10,19 @@ import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
 
 import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyProof } from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
-import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
+import { writeClientIVCProofToOutputDirectory } from '../prover/proof_utils.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+// Built by yarn generate
+export const PRIVATE_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/private-civc-vk');
+export const PUBLIC_TAIL_CIVC_VK = path.join(__dirname, '../../artifacts/public-civc-vk');
 
 export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
   private constructor(private config: BBConfig, private logger: Logger) {}
@@ -84,11 +91,11 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           this.logger.debug(`${circuit} BB out - ${message}`);
         };
 
-        await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
+        await writeClientIVCProofToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
         const result = await verifyClientIvcProof(
           this.config.bbBinaryPath,
           bbWorkingDirectory.concat('/proof'),
-          bbWorkingDirectory.concat('/vk'),
+          tx.data.forPublic ? PUBLIC_TAIL_CIVC_VK : PRIVATE_TAIL_CIVC_VK,
           logFunction,
         );
 
@@ -107,7 +114,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
       await runInDirectory(this.config.bbWorkingDirectory, operation, this.config.bbSkipCleanup, this.logger);
       return true;
     } catch (err) {
-      this.logger.warn(`Failed to verify ClientIVC proof for tx ${Tx.getHash(tx)}: ${String(err)}`);
+      this.logger.warn(`Failed to verify ClientIVC proof for tx ${await Tx.getHash(tx)}: ${String(err)}`);
       return false;
     }
   }

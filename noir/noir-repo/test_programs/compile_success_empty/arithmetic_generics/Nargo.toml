@@ -1,7 +1,0 @@
-[package]
-name = "arithmetic_generics"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.32.0"
-
-[dependencies]

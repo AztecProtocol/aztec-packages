@@ -51,7 +51,7 @@ describe('e2e_nested_contract manual', () => {
 
     const tx = await new BatchCall(wallet, actions).send().wait();
     const extendedLogs = (
-      await wallet.getPublicLogs({
+      await pxe.getPublicLogs({
         fromBlock: tx.blockNumber!,
       })
     ).logs;

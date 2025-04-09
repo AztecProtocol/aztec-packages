@@ -12,7 +12,12 @@ import {
 import {RollupStore, SubmitEpochRootProofArgs} from "@aztec/core/interfaces/IRollup.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {FeeHeader} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {
+  CompressedFeeHeader,
+  FeeHeaderLib,
+  FeeLib,
+  FeeStore
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {STFLib, RollupStore} from "@aztec/core/libraries/rollup/STFLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
@@ -26,12 +31,14 @@ library EpochProofLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
   using TimeLib for Timestamp;
+  using FeeHeaderLib for CompressedFeeHeader;
 
   struct Values {
     address sequencer;
     uint256 proverFee;
     uint256 sequencerFee;
     uint256 sequencerBlockReward;
+    uint256 manaUsed;
   }
 
   struct Totals {
@@ -271,70 +278,70 @@ library EpochProofLib {
   function handleRewardsAndFees(SubmitEpochRootProofArgs memory _args, Epoch _endEpoch) private {
     RollupStore storage rollupStore = STFLib.getStorage();
 
-    bool isFeeCanonical = address(this) == rollupStore.config.feeAssetPortal.canonicalRollup();
     bool isRewardDistributorCanonical =
       address(this) == rollupStore.config.rewardDistributor.canonicalRollup();
 
-    if (isFeeCanonical || isRewardDistributorCanonical) {
-      uint256 length = _args.end - _args.start + 1;
-      EpochRewards storage $er = rollupStore.epochRewards[_endEpoch];
-      SubEpochRewards storage $sr = $er.subEpoch[length];
+    uint256 length = _args.end - _args.start + 1;
+    EpochRewards storage $er = rollupStore.epochRewards[_endEpoch];
+    SubEpochRewards storage $sr = $er.subEpoch[length];
+
+    {
+      address prover = _args.args.proverId;
+      require(
+        !$sr.hasSubmitted[prover], Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
+      );
+      $sr.hasSubmitted[prover] = true;
+    }
+    $sr.summedCount += 1;
+
+    if (length > $er.longestProvenLength) {
+      Values memory v;
+      Totals memory t;
 
       {
-        address prover = _args.args.proverId;
-        require(
-          !$sr.hasSubmitted[prover], Errors.Rollup__ProverHaveAlreadySubmitted(prover, _endEpoch)
-        );
-        $sr.hasSubmitted[prover] = true;
-      }
-      $sr.summedCount += 1;
+        uint256 added = length - $er.longestProvenLength;
+        uint256 blockRewardsAvailable = isRewardDistributorCanonical
+          ? rollupStore.config.rewardDistributor.claimBlockRewards(address(this), added)
+          : 0;
+        uint256 sequencerShare = blockRewardsAvailable / 2;
+        v.sequencerBlockReward = sequencerShare / added;
 
-      if (length > $er.longestProvenLength) {
-        Values memory v;
-        Totals memory t;
+        $er.rewards += (blockRewardsAvailable - sequencerShare);
+      }
+
+      FeeStore storage feeStore = FeeLib.getStorage();
+
+      for (uint256 i = $er.longestProvenLength; i < length; i++) {
+        CompressedFeeHeader storage feeHeader = feeStore.feeHeaders[_args.start + i];
+
+        v.manaUsed = feeHeader.getManaUsed();
+
+        uint256 fee = uint256(_args.fees[1 + i * 2]);
+        uint256 burn = feeHeader.getCongestionCost() * v.manaUsed;
+
+        t.feesToClaim += fee;
+        t.totalBurn += burn;
+
+        // Compute the proving fee in the fee asset
+        v.proverFee = Math.min(v.manaUsed * feeHeader.getProvingCost(), fee - burn);
+        $er.rewards += v.proverFee;
+
+        v.sequencerFee = fee - burn - v.proverFee;
 
         {
-          uint256 added = length - $er.longestProvenLength;
-          uint256 blockRewardsAvailable = isRewardDistributorCanonical
-            ? rollupStore.config.rewardDistributor.claimBlockRewards(address(this), added)
-            : 0;
-          uint256 sequencerShare = blockRewardsAvailable / 2;
-          v.sequencerBlockReward = sequencerShare / added;
-
-          $er.rewards += (blockRewardsAvailable - sequencerShare);
+          v.sequencer = fieldToAddress(_args.fees[i * 2]);
+          rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
         }
+      }
 
-        for (uint256 i = $er.longestProvenLength; i < length; i++) {
-          FeeHeader storage feeHeader = rollupStore.blocks[_args.start + i].feeHeader;
+      $er.longestProvenLength = length;
 
-          (uint256 fee, uint256 burn) = isFeeCanonical
-            ? (uint256(_args.fees[1 + i * 2]), feeHeader.congestionCost * feeHeader.manaUsed)
-            : (0, 0);
+      if (t.feesToClaim > 0) {
+        rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
+      }
 
-          t.feesToClaim += fee;
-          t.totalBurn += burn;
-
-          // Compute the proving fee in the fee asset
-          v.proverFee = Math.min(feeHeader.manaUsed * feeHeader.provingCost, fee - burn);
-          $er.rewards += v.proverFee;
-
-          v.sequencerFee = fee - burn - v.proverFee;
-
-          {
-            v.sequencer = fieldToAddress(_args.fees[i * 2]);
-            rollupStore.sequencerRewards[v.sequencer] += (v.sequencerBlockReward + v.sequencerFee);
-          }
-        }
-
-        $er.longestProvenLength = length;
-
-        if (t.feesToClaim > 0) {
-          rollupStore.config.feeAssetPortal.distributeFees(address(this), t.feesToClaim);
-        }
-
-        if (t.totalBurn > 0) {
-          rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
-        }
+      if (t.totalBurn > 0) {
+        rollupStore.config.feeAsset.transfer(BURN_ADDRESS, t.totalBurn);
       }
     }
   }

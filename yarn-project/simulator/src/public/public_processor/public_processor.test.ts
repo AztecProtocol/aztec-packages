@@ -7,21 +7,21 @@ import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
-import type { MerkleTreeWriteOperations, TreeInfo } from '@aztec/stdlib/interfaces/server';
+import type { TreeInfo } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
-import { GlobalVariables, type ProcessedTx, Tx, type TxValidator } from '@aztec/stdlib/tx';
+import { GlobalVariables, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { WorldStateDB } from '../public_db_sources.js';
+import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let db: MockProxy<MerkleTreeWriteOperations>;
-  let worldStateDB: MockProxy<WorldStateDB>;
+  let treesDB: MockProxy<PublicTreesDB>;
+  let contractsDB: MockProxy<PublicContractsDB>;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
 
   let root: Buffer;
@@ -39,8 +39,8 @@ describe('public_processor', () => {
     mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1, numberOfRevertiblePublicCallRequests: 1, feePayer });
 
   beforeEach(() => {
-    db = mock<MerkleTreeWriteOperations>();
-    worldStateDB = mock<WorldStateDB>();
+    treesDB = mock<PublicTreesDB>();
+    contractsDB = mock<PublicContractsDB>();
     publicTxSimulator = mock();
 
     root = Buffer.alloc(32, 5);
@@ -61,18 +61,17 @@ describe('public_processor', () => {
       processedPhases: [],
     };
 
-    db.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-
-    worldStateDB.storageRead.mockResolvedValue(Fr.ZERO);
+    treesDB.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
+    treesDB.storageRead.mockResolvedValue(Fr.ZERO);
 
     publicTxSimulator.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
     });
 
     processor = new PublicProcessor(
-      db,
       globalVariables,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       publicTxSimulator,
       new TestDateProvider(),
       getTelemetryClient(),
@@ -101,7 +100,7 @@ describe('public_processor', () => {
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
 
-      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(1);
+      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('runs a tx with reverted enqueued public calls', async function () {
@@ -116,7 +115,7 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await tx.getTxHash());
       expect(failed).toEqual([]);
 
-      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(1);
+      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
@@ -130,8 +129,8 @@ describe('public_processor', () => {
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
 
-      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(worldStateDB.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(treesDB.revertCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -158,19 +157,6 @@ describe('public_processor', () => {
       expect(failed.length).toBe(1);
     });
 
-    it('does not send a transaction to the prover if post validation fails', async function () {
-      const tx = await mockPrivateOnlyTx();
-
-      const txValidator: MockProxy<TxValidator<ProcessedTx>> = mock();
-      txValidator.validateTx.mockResolvedValue({ result: 'invalid', reason: ['Invalid'] });
-
-      const [processed, failed] = await processor.process([tx], {}, { postprocessValidator: txValidator });
-
-      expect(processed).toEqual([]);
-      expect(failed.length).toBe(1);
-      expect(failed[0].tx).toEqual(tx);
-    });
-
     // Flakey timing test that's totally dependent on system load/architecture etc.
     it.skip('does not go past the deadline', async function () {
       const txs = await timesParallel(3, seed => mockTxWithPublicCalls({ seed }));
@@ -189,7 +175,7 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await txs[0].getTxHash());
       expect(processed[1].hash).toEqual(await txs[1].getTxHash());
       expect(failed).toEqual([]);
-      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(2);
+      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -198,7 +184,7 @@ describe('public_processor', () => {
     const initialBalance = new Fr(1000);
 
     beforeEach(() => {
-      worldStateDB.storageRead.mockResolvedValue(initialBalance);
+      treesDB.storageRead.mockResolvedValue(initialBalance);
     });
 
     it('injects balance update with no public calls', async function () {
@@ -220,7 +206,7 @@ describe('public_processor', () => {
       );
       expect(failed).toEqual([]);
 
-      expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(1);
+      expect(treesDB.storageWrite).toHaveBeenCalledTimes(1);
     });
 
     it('rejects tx if fee payer has not enough balance', async function () {
@@ -240,9 +226,9 @@ describe('public_processor', () => {
       expect(failed).toHaveLength(1);
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
-      expect(worldStateDB.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(worldStateDB.revertCheckpoint).toHaveBeenCalledTimes(1);
-      expect(worldStateDB.storageWrite).toHaveBeenCalledTimes(0);
+      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(treesDB.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(treesDB.storageWrite).toHaveBeenCalledTimes(0);
     });
   });
 });

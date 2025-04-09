@@ -210,7 +210,7 @@ describe('sequencer', () => {
     publicProcessor.process.mockImplementation(async txsIter => {
       const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
-      logger.verbose(`Processed ${txs.length} txs`, { txHashes: txs.map(tx => tx.getTxHash()) });
+      logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
       return [processed, [], []];
     });
 
@@ -227,6 +227,7 @@ describe('sequencer', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
 
     // all txs use the same allowed FPC class
@@ -511,7 +512,13 @@ describe('sequencer', () => {
         finalized: { number: 0, hash: undefined },
       }),
     );
-    l1ToL2MessageSource.getBlockNumber.mockImplementation(() => Promise.resolve(currentTip.number));
+    l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
+      Promise.resolve({
+        latest: syncedToL2Block,
+        proven: { number: 0, hash: undefined },
+        finalized: { number: 0, hash: undefined },
+      }),
+    );
 
     // simulate a synch happening right after
     l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);

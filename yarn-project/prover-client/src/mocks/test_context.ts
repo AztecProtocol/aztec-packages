@@ -7,11 +7,12 @@ import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
 import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
 import {
+  PublicContractsDB,
   PublicProcessor,
+  PublicTreesDB,
   PublicTxSimulationTester,
   PublicTxSimulator,
   SimpleContractDataSource,
-  WorldStateDB,
 } from '@aztec/simulator/server';
 import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
@@ -25,6 +26,8 @@ import { NativeWorldStateService } from '@aztec/world-state/native';
 
 import { promises as fs } from 'fs';
 
+// TODO(#12613) This means of sharing test code is not ideal.
+// eslint-disable-next-line import/no-relative-packages
 import { TestCircuitProver } from '../../../bb-prover/src/test/test_circuit_prover.js';
 import { buildBlock } from '../block_builder/light.js';
 import { ProvingOrchestrator } from '../orchestrator/index.js';
@@ -80,18 +83,19 @@ export class TestContext {
       true /* cleanupTmpDir */,
       prefilledPublicData,
     );
-    const publicDb = await ws.fork();
+    const merkleTrees = await ws.fork();
 
     const contractDataSource = new SimpleContractDataSource();
-    const worldStateDB = new WorldStateDB(publicDb, contractDataSource);
+    const treesDB = new PublicTreesDB(merkleTrees);
+    const contractsDB = new PublicContractsDB(contractDataSource);
 
-    const tester = new PublicTxSimulationTester(worldStateDB, contractDataSource, publicDb);
+    const tester = new PublicTxSimulationTester(merkleTrees, contractDataSource);
 
-    const publicTxSimulator = new PublicTxSimulator(publicDb, worldStateDB, globalVariables, true);
+    const publicTxSimulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, true);
     const processor = new PublicProcessor(
-      publicDb,
       globalVariables,
-      worldStateDB,
+      treesDB,
+      contractsDB,
       publicTxSimulator,
       new TestDateProvider(),
     );

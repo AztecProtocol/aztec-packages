@@ -1,6 +1,8 @@
 import { z } from 'zod';
 
+import { type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
 import { type ApiSchemaFor, schemas } from '../schemas/index.js';
+import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
 const EpochProvingJobState = [
   'initialized',
@@ -11,6 +13,7 @@ const EpochProvingJobState = [
   'failed',
   'stopped',
   'timed-out',
+  'reorg',
 ] as const;
 
 export type EpochProvingJobState = (typeof EpochProvingJobState)[number];
@@ -20,6 +23,7 @@ export const EpochProvingJobTerminalState: EpochProvingJobState[] = [
   'failed',
   'stopped',
   'timed-out',
+  'reorg',
 ] as const;
 
 export type EpochProvingJobTerminalState = (typeof EpochProvingJobTerminalState)[number];
@@ -30,7 +34,9 @@ export interface ProverNodeApi {
 
   startProof(epochNumber: number): Promise<void>;
 
-  prove(epochNumber: number): Promise<void>;
+  getL2Tips(): Promise<L2Tips>;
+
+  getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 }
 
 /** Schemas for prover node API functions. */
@@ -42,5 +48,7 @@ export const ProverNodeApiSchema: ApiSchemaFor<ProverNodeApi> = {
 
   startProof: z.function().args(schemas.Integer).returns(z.void()),
 
-  prove: z.function().args(schemas.Integer).returns(z.void()),
+  getL2Tips: z.function().args().returns(L2TipsSchema),
+
+  getWorldStateSyncStatus: z.function().args().returns(WorldStateSyncStatusSchema),
 };

@@ -267,8 +267,6 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
      * make sure the verifer circuits pass check_circuit(). Ensure that the algorithm of the recursive and native
      * verifiers are identical by checking the manifests
      */
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/844): Fold the recursive folding verifier in
-    // tests once we can fold keys of different sizes.
     static void test_full_protogalaxy_recursive()
     {
         // Create two arbitrary circuits for the first round of folding
@@ -339,7 +337,7 @@ template <typename RecursiveFlavor> class ProtogalaxyRecursiveTests : public tes
         auto native_result = native_decider_verifier.verify_proof(decider_proof);
         auto recursive_result =
             native_decider_verifier.accumulator->verification_key->pcs_verification_key->pairing_check(
-                pairing_points[0].get_value(), pairing_points[1].get_value());
+                pairing_points.P0.get_value(), pairing_points.P1.get_value());
         EXPECT_EQ(native_result, recursive_result);
 
         if constexpr (!IsSimulator<OuterBuilder>) {

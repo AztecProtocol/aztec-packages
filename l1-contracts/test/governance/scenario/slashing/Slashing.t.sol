@@ -5,7 +5,7 @@ import {TestBase} from "@test/base/Base.sol";
 
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
-import {Rollup, RollupConfig, GenesisState} from "@aztec/core/Rollup.sol";
+import {Rollup} from "@aztec/core/Rollup.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {TestConstants} from "../../../harnesses/TestConstants.sol";
@@ -51,28 +51,15 @@ contract SlashingScenario is TestBase {
     }
 
     testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    Registry registry = new Registry(address(this), testERC20);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup({
-      _fpcJuicePortal: new MockFeeJuicePortal(),
+      _feeAsset: testERC20,
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
       _governance: address(this),
-      _genesisState: GenesisState({
-        vkTreeRoot: bytes32(0),
-        protocolContractTreeRoot: bytes32(0),
-        genesisArchiveRoot: bytes32(0),
-        genesisBlockHash: bytes32(0)
-      }),
-      _config: RollupConfig({
-        aztecSlotDuration: TestConstants.AZTEC_SLOT_DURATION,
-        aztecEpochDuration: TestConstants.AZTEC_EPOCH_DURATION,
-        targetCommitteeSize: TestConstants.AZTEC_TARGET_COMMITTEE_SIZE,
-        aztecProofSubmissionWindow: TestConstants.AZTEC_PROOF_SUBMISSION_WINDOW,
-        minimumStake: TestConstants.AZTEC_MINIMUM_STAKE,
-        slashingQuorum: TestConstants.AZTEC_SLASHING_QUORUM,
-        slashingRoundSize: TestConstants.AZTEC_SLASHING_ROUND_SIZE
-      })
+      _genesisState: TestConstants.getGenesisState(),
+      _config: TestConstants.getRollupConfigInput()
     });
     slasher = Slasher(rollup.getSlasher());
     slashingProposer = slasher.PROPOSER();

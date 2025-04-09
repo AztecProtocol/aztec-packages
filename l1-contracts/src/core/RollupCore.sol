@@ -8,9 +8,8 @@ import {
   ITestRollup,
   CheatDepositArgs,
   RollupStore,
-  L1GasOracleValues,
-  L1FeeData,
-  SubmitEpochRootProofArgs
+  SubmitEpochRootProofArgs,
+  RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
 import {IStakingCore} from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelectionCore} from "@aztec/core/interfaces/IValidatorSelection.sol";
@@ -21,7 +20,7 @@ import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
 import {CheatLib} from "@aztec/core/libraries/rollup/CheatLib.sol";
 import {ExtRollupLib} from "@aztec/core/libraries/rollup/ExtRollupLib.sol";
-import {EthValue} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {EthValue, FeeLib} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {ProposeArgs, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {RewardLib} from "@aztec/core/libraries/rollup/RewardLib.sol";
 import {STFLib, GenesisState} from "@aztec/core/libraries/rollup/STFLib.sol";
@@ -35,16 +34,6 @@ import {MockVerifier} from "@aztec/mock/MockVerifier.sol";
 import {Ownable} from "@oz/access/Ownable.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {EIP712} from "@oz/utils/cryptography/EIP712.sol";
-
-struct RollupConfig {
-  uint256 aztecSlotDuration;
-  uint256 aztecEpochDuration;
-  uint256 targetCommitteeSize;
-  uint256 aztecProofSubmissionWindow;
-  uint256 minimumStake;
-  uint256 slashingQuorum;
-  uint256 slashingRoundSize;
-}
 
 /**
  * @title Rollup
@@ -76,12 +65,12 @@ contract RollupCore is
   bool public checkBlob = true;
 
   constructor(
-    IFeeJuicePortal _fpcJuicePortal,
+    IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
     address _governance,
     GenesisState memory _genesisState,
-    RollupConfig memory _config
+    RollupConfigInput memory _config
   ) Ownable(_governance) {
     TimeLib.initialize(block.timestamp, _config.aztecSlotDuration, _config.aztecEpochDuration);
 
@@ -96,21 +85,29 @@ contract RollupCore is
     RollupStore storage rollupStore = STFLib.getStorage();
 
     rollupStore.config.proofSubmissionWindow = _config.aztecProofSubmissionWindow;
-    rollupStore.config.feeAsset = _fpcJuicePortal.UNDERLYING();
-    rollupStore.config.feeAssetPortal = _fpcJuicePortal;
+    rollupStore.config.feeAsset = _feeAsset;
     rollupStore.config.rewardDistributor = _rewardDistributor;
     rollupStore.config.epochProofVerifier = new MockVerifier();
-    rollupStore.config.version = 1;
-    rollupStore.config.inbox =
-      IInbox(address(new Inbox(address(this), Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT)));
-    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this))));
+    // @todo handle case where L1 forks and chainid is different
+    // @note Truncated to 32 bits to make simpler to deal with all the node changes at a separate time.
+    uint256 version = uint32(
+      uint256(
+        keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this), _genesisState))
+      )
+    );
+    rollupStore.config.version = version;
 
-    rollupStore.provingCostPerMana = EthValue.wrap(100);
-    rollupStore.l1GasOracleValues = L1GasOracleValues({
-      pre: L1FeeData({baseFee: 1 gwei, blobFee: 1}),
-      post: L1FeeData({baseFee: block.basefee, blobFee: ExtRollupLib.getBlobBaseFee()}),
-      slotOfChange: ProposeLib.LIFETIME
-    });
+    IInbox inbox = IInbox(
+      address(new Inbox(address(this), _feeAsset, version, Constants.L1_TO_L2_MSG_SUBTREE_HEIGHT))
+    );
+
+    rollupStore.config.inbox = inbox;
+
+    rollupStore.config.outbox = IOutbox(address(new Outbox(address(this), version)));
+
+    rollupStore.config.feeAssetPortal = IFeeJuicePortal(inbox.getFeeAssetPortal());
+
+    FeeLib.initialize(_config.manaTarget, _config.provingCostPerMana);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -142,6 +139,11 @@ contract RollupCore is
     CheatLib.setProtocolContractTreeRoot(_protocolContractTreeRoot);
   }
 
+  function updateManaTarget(uint256 _manaTarget) external override(ITestRollup) onlyOwner {
+    FeeLib.updateManaTarget(_manaTarget);
+    emit ITestRollup.ManaTargetUpdated(_manaTarget);
+  }
+
   /* -------------------------------------------------------------------------- */
   /*                          CHEAT CODES END HERE                              */
   /* -------------------------------------------------------------------------- */
@@ -151,7 +153,7 @@ contract RollupCore is
     override(IRollupCore)
     onlyOwner
   {
-    STFLib.getStorage().provingCostPerMana = _provingCostPerMana;
+    FeeLib.getStorage().provingCostPerMana = _provingCostPerMana;
   }
 
   function claimSequencerRewards(address _recipient)
@@ -224,6 +226,6 @@ contract RollupCore is
    * @dev     This function is called by the `propose` function
    */
   function updateL1GasFeeOracle() public override(IRollupCore) {
-    ProposeLib.updateL1GasFeeOracle();
+    FeeLib.updateL1GasFeeOracle();
   }
 }

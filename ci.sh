@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 source $(git rev-parse --show-toplevel)/ci3/source
 source $ci3/source_redis
 
@@ -43,7 +43,7 @@ function print_usage {
 
 [ -n "$cmd" ] && shift
 
-instance_name=$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}
+instance_name=${INSTANCE_NAME:-$(echo -n "$BRANCH" | tr -c 'a-zA-Z0-9-' '_')_${arch}}
 [ -n "${INSTANCE_POSTFIX:-}" ] && instance_name+="_$INSTANCE_POSTFIX"
 
 function get_ip_for_instance {
@@ -71,28 +71,32 @@ function tail_live_instance {
 case "$cmd" in
   "ec2")
     # Spin up ec2 instance and ci bootstrap with shell on failure.
-    # You can override the bootstrap command with the first arg e.g: ci ec2 full
-    bootstrap_ec2 "./bootstrap.sh ${1:-ci}"
+    export USE_TEST_CACHE=1
+    exec bootstrap_ec2
     ;;
   "ec2-no-cache")
-    # Same as ec2, but disable the build and test cache.
-    bootstrap_ec2 "NO_CACHE=1 USE_TEST_CACHE=0 ./bootstrap.sh ${1:-ci}"
+    # Disable the build and test cache.
+    export NO_CACHE=1
+    export USE_TEST_CACHE=0
+    exec bootstrap_ec2
     ;;
   "ec2-test")
-    # Same as ec2, but don't use the test cache.
-    bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci"
+    # Can use the build cache, but don't use the test cache.
+    export USE_TEST_CACHE=0
+    exec bootstrap_ec2
     ;;
   "ec2-shell")
     # Spin up ec2 instance, clone, and drop into shell.
     # False triggers the shell on fail.
-    bootstrap_ec2 "false"
+    exec bootstrap_ec2 "false"
     ;;
   "ec2-grind")
     # Same as ec2-test but repeat it over arg1 instances.
-    export DENOISE=1
+    export CI_FULL=1
+    export USE_TEST_CACHE=0
     num=${1:-5}
     seq 0 $((num - 1)) | parallel --tag --line-buffered \
-      'INSTANCE_POSTFIX={} bootstrap_ec2 "USE_TEST_CACHE=0 ./bootstrap.sh ci" 2>&1 | cache_log "Grind {}"'
+      'INSTANCE_POSTFIX=${USER}_{} bootstrap_ec2 2>&1 | cache_log "Grind {}"'
     ;;
   "local")
     # Create container with clone of local repo and bootstrap.
@@ -238,6 +242,42 @@ case "$cmd" in
     ;;
   "help"|"")
     print_usage
+    ;;
+  "gh-bench")
+    export CI=1
+    # Set up preferred commit attribution (needed by noir checkout).
+    git config --global user.email "tech@aztecprotocol.com"
+    git config --global user.name "AztecBot"
+    # Run benchmark logic for github actions.
+    bb_hash=$(barretenberg/bootstrap.sh hash)
+    yp_hash=$(yarn-project/bootstrap.sh hash)
+
+    if [ "$bb_hash" == disabled-cache ] || [ "$yp_hash" == disabled-cache ]; then
+      echo "Error, can't publish benchmarks due to unstaged changes."
+      git status -s
+      exit 1
+    fi
+
+    prev_bb_hash=$(AZTEC_CACHE_COMMIT=HEAD^ barretenberg/bootstrap.sh hash)
+    prev_yp_hash=$(AZTEC_CACHE_COMMIT=HEAD^ yarn-project/bootstrap.sh hash)
+
+    # barretenberg benchmarks.
+    if [ "$bb_hash" == "$prev_bb_hash" ]; then
+      echo "No changes since last master, skipping barretenberg benchmark publishing."
+      echo "SKIP_BB_BENCH=true" >> $GITHUB_ENV
+    else
+      cache_download barretenberg-bench-results-$bb_hash.tar.gz
+    fi
+
+    # yarn-project benchmarks.
+    if [ "$yp_hash" == "$prev_yp_hash" ]; then
+      echo "No changes since last master, skipping yarn-project benchmark publishing."
+      echo "SKIP_YP_BENCH=true" >> $GITHUB_ENV
+    else
+      cache_download yarn-project-bench-results-$yp_hash.tar.gz
+      # TODO reenable
+      # ./cache_download yarn-project-p2p-bench-results-$(git rev-parse HEAD).tar.gz
+    fi
     ;;
   "uncached-tests")
     if [ -z "$CI_REDIS_AVAILABLE" ]; then

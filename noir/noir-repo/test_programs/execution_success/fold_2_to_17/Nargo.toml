@@ -1,7 +1,0 @@
-[package]
-name = "fold_2_to_17"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.25.0"
-
-[dependencies]

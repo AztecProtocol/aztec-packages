@@ -10,6 +10,7 @@ import type {
 
 export const AZTEC_PRIVATE_ATTRIBUTE = 'private';
 export const AZTEC_PUBLIC_ATTRIBUTE = 'public';
+export const AZTEC_UTILITY_ATTRIBUTE = 'utility';
 export const AZTEC_INTERNAL_ATTRIBUTE = 'internal';
 export const AZTEC_INITIALIZER_ATTRIBUTE = 'initializer';
 export const AZTEC_VIEW_ATTRIBUTE = 'view';
@@ -36,7 +37,7 @@ export interface NoirFunctionAbi {
 /**
  * The compilation result of an Aztec.nr function.
  */
-export interface NoirFunctionEntry {
+interface NoirFunctionEntry {
   /** The name of the function. */
   name: string;
   /** Whether the function is unconstrained. */
@@ -75,7 +76,7 @@ export interface NoirCompiledContract {
 }
 
 /**
- * The compilation result of an Aztec.nr contract.
+ * The compilation result of a protocol (non-contract) circuit.
  */
 export interface NoirCompiledCircuit {
   /** The hash of the circuit. */
@@ -90,6 +91,11 @@ export interface NoirCompiledCircuit {
   debug_symbols: string;
   /** The map of file ID to the source code and path of the file. */
   file_map: DebugFileMap;
+}
+
+export interface NoirCompiledCircuitWithName extends NoirCompiledCircuit {
+  /** The name of the circuit. */
+  name: string;
 }
 
 /**

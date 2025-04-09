@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -euo pipefail
 
 # Check we're in the test container.
@@ -7,9 +7,14 @@ if [ ! -f /aztec_release_test_container ]; then
   exit 1
 fi
 
+if [ "$(whoami)" != "ubuntu" ]; then
+  echo "Not running as ubuntu. Exiting."
+  exit 1
+fi
+
 export SKIP_PULL=1
 export NO_NEW_SHELL=1
-export INSTALL_URI=file:///root/aztec-packages/aztec-up/bin
+export INSTALL_URI=file:///home/ubuntu/aztec-packages/aztec-up/bin
 
 if [ -t 0 ]; then
   bash_args="-i"
@@ -21,7 +26,7 @@ bash ${bash_args:-} <(curl -s $INSTALL_URI/aztec-install)
 
 # We can't create a new shell for this test, so just re-source our modified .bashrc to get updated PATH.
 set +eu
-PS1=" " source ~/.bashrc
+PS1=" " source ~/.bash_profile
 set -eu
 
 export LOG_LEVEL=silent
@@ -39,10 +44,16 @@ if [ ! -f counter_contract/Nargo.toml ] || [ ! -f counter_contract/src/main.nr ]
   exit 1
 fi
 
+# Check counter_contract dir is owned by aztec-dev.
+if [ "$(stat -c %U counter_contract)" != "ubuntu" ]; then
+  echo "counter_contract dir is not owned by ubuntu."
+  exit 1
+fi
+
 # "Write" our contract.
-cp -Rf /root/aztec-packages/noir-projects/noir-contracts/contracts/counter_contract .
+cp -Rf ./aztec-packages/noir-projects/noir-contracts/contracts/test/counter_contract .
 cd counter_contract
-sed -i 's|\.\./\.\./\.\./|/root/aztec-packages/noir-projects/|g' Nargo.toml
+sed -i 's|\.\./\.\./\.\./\.\./|/home/ubuntu/aztec-packages/noir-projects/|g' Nargo.toml
 
 # Compile and codegen.
 aztec-nargo compile

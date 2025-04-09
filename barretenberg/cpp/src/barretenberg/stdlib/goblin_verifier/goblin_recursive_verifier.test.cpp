@@ -42,14 +42,14 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      * @return ProverOutput
      */
-    ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
+    static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
         GoblinProver goblin;
 
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
@@ -107,7 +107,7 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
 TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
 {
     // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
-    auto get_blocks = [this](size_t inner_size)
+    auto get_blocks = [](size_t inner_size)
         -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
         auto [proof, verifier_input] = create_goblin_prover_output(inner_size);
 
@@ -144,8 +144,6 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     // Tamper with the ECCVM proof
     for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
         if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
-            // tamper by finding the first non-zero value
-            // and incrementing it by 1
             val += 1;
             break;
         }

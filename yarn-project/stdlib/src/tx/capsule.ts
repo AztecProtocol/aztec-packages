@@ -8,6 +8,8 @@ import { Vector } from '../types/shared.js';
 
 /**
  * Read-only data that is passed to the contract through an oracle during a transaction execution.
+ * TODO(#12425): Check whether this is always used to represent a transient capsule and if so, rename to
+ * TransientCapsule.
  */
 export class Capsule {
   constructor(

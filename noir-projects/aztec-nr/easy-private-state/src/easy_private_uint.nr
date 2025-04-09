@@ -44,7 +44,7 @@ impl EasyPrivateUint<&mut PrivateContext> {
             if i < notes.len() {
                 let note = notes.get_unchecked(i);
 
-                minuend += note.value as u64;
+                minuend += note.value() as u64;
             }
         }
 

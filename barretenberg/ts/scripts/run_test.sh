@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # This runs an individual test from the dest folder.
 # Due to using web-workers, trying to do on-the-fly ts transpilation was having issues.
 # It's the script used by ./bootstrap.sh test_cmds.

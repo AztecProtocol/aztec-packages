@@ -115,10 +115,10 @@ pub comptime fn generate_deserialize_from_fields(
         // The field is a primitive so we just reference it in the field array
         result = quote { $field_array_name[$num_already_consumed] as $typ };
         consumed_counter = 1;
-    } else if typ.as_struct().is_some() {
+    } else if typ.as_data_type().is_some() {
         // The field is a struct so we iterate over each struct field and recursively call
         // `generate_deserialize_from_fields`
-        let (nested_def, generics) = typ.as_struct().unwrap();
+        let (nested_def, generics) = typ.as_data_type().unwrap();
         let nested_name = nested_def.name();
         let mut deserialized_fields_list = &[];
 
@@ -351,9 +351,9 @@ pub comptime fn generate_serialize_to_fields(
         } else if typ.as_integer().is_some() | typ.is_bool() {
             // For integer and bool we just cast to Field and add the value to fields
             fields = fields.push_back(quote { $name as Field });
-        } else if typ.as_struct().is_some() {
+        } else if typ.as_data_type().is_some() {
             // For struct we pref
-            let nested_struct = typ.as_struct().unwrap();
+            let nested_struct = typ.as_data_type().unwrap();
             let params = nested_struct.0.fields(nested_struct.1);
             let struct_flattened = params.map(|(param_name, param_type): (Quoted, Type)| {
                 let maybe_prefixed_name = if name == quote {} {
@@ -439,7 +439,7 @@ comptime fn collapse_to_one_token(q: Quoted) -> Quoted {
     single_token
 }
 
-pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
+pub(crate) comptime fn derive_serialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, aux_vars) = generate_serialize_to_fields(quote { self }, typ, &[], false);
     let aux_vars_for_serialization = if aux_vars.len() > 0 {
@@ -461,7 +461,7 @@ pub(crate) comptime fn derive_serialize(s: StructDefinition) -> Quoted {
     }
 }
 
-pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
+pub(crate) comptime fn derive_deserialize(s: TypeDefinition) -> Quoted {
     let typ = s.as_type();
     let (fields, _) = generate_serialize_to_fields(quote { self }, typ, &[], false);
     let serialized_len = fields.len();
@@ -481,7 +481,7 @@ pub(crate) comptime fn derive_deserialize(s: StructDefinition) -> Quoted {
 /// Note: We are having this function separate from `derive_packable` because we use this in the note macros to get
 /// the packed length of a note as well as the `Packable` implementation. We need the length to be able to register
 /// the note in the global `NOTES` map. There the length is used to generate partial note helper functions.
-pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quoted, u32) {
+pub comptime fn derive_packable_and_get_packed_len(s: TypeDefinition) -> (Quoted, u32) {
     let packing_enabled = true;
 
     let typ = s.as_type();
@@ -517,7 +517,7 @@ pub comptime fn derive_packable_and_get_packed_len(s: StructDefinition) -> (Quot
     )
 }
 
-pub(crate) comptime fn derive_packable(s: StructDefinition) -> Quoted {
+pub(crate) comptime fn derive_packable(s: TypeDefinition) -> Quoted {
     let (packable_impl, _) = derive_packable_and_get_packed_len(s);
     packable_impl
 }

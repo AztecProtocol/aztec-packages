@@ -1,5 +1,8 @@
 import { timesParallel } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
 import type { PublicProcessorFactory } from '@aztec/simulator/server';
 import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
@@ -35,6 +38,9 @@ describe('prover-node', () => {
   let epochMonitor: MockProxy<EpochMonitor>;
   let config: ProverNodeOptions;
 
+  // L1 genesis time
+  let l1GenesisTime: number;
+
   // Subject under test
   let proverNode: TestProverNode;
 
@@ -45,11 +51,7 @@ describe('prover-node', () => {
   let address: EthAddress;
 
   // List of all jobs ever created by the test prover node and their dependencies
-  let jobs: {
-    job: MockProxy<EpochProvingJob>;
-    cleanUp: (job: EpochProvingJob) => Promise<void>;
-    epochNumber: bigint;
-  }[];
+  let jobs: { job: MockProxy<EpochProvingJob>; epochNumber: bigint }[];
 
   const createProverNode = () =>
     new TestProverNode(
@@ -113,8 +115,10 @@ describe('prover-node', () => {
         return Promise.resolve([]);
       }
     });
+
+    l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
+    l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
     l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
-    l2BlockSource.getL1Constants.mockResolvedValue(EmptyL1RollupConstants);
     l2BlockSource.getL2Tips.mockResolvedValue({
       latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
       proven: { number: 0, hash: undefined },
@@ -140,39 +144,72 @@ describe('prover-node', () => {
   it('starts a proof on a finished epoch', async () => {
     await proverNode.handleEpochReadyToProve(10n);
     expect(jobs[0].epochNumber).toEqual(10n);
+    expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
+    expect(proverNode.totalJobCount).toEqual(1);
   });
 
   it('does not start a proof if there are no blocks in the epoch', async () => {
     l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
     await proverNode.handleEpochReadyToProve(10n);
-    expect(jobs.length).toEqual(0);
+    expect(proverNode.totalJobCount).toEqual(0);
   });
 
   it('does not start a proof if there is a tx missing from coordinator', async () => {
     mockCoordination.getTxsByHash.mockResolvedValue([]);
     await proverNode.handleEpochReadyToProve(10n);
-    expect(jobs.length).toEqual(0);
+    expect(proverNode.totalJobCount).toEqual(0);
   });
 
   it('does not prove the same epoch twice', async () => {
+    const firstJob = promiseWithResolvers<void>();
+    proverNode.nextJobRun = () => firstJob.promise;
+    proverNode.nextJobState = 'processing';
     await proverNode.handleEpochReadyToProve(10n);
     await proverNode.handleEpochReadyToProve(10n);
 
-    expect(jobs.length).toEqual(1);
+    firstJob.resolve();
+    expect(proverNode.totalJobCount).toEqual(1);
+  });
+
+  it('restarts a proof on a reorg', async () => {
+    proverNode.nextJobState = 'reorg';
+    await proverNode.handleEpochReadyToProve(10n);
+    await retryUntil(() => proverNode.totalJobCount === 2, 'job retried', 5);
+    expect(proverNode.totalJobCount).toEqual(2);
+  });
+
+  it('does not restart a proof on an error', async () => {
+    proverNode.nextJobState = 'failed';
+    await proverNode.handleEpochReadyToProve(10n);
+    await sleep(1000);
+    expect(proverNode.totalJobCount).toEqual(1);
   });
 
   class TestProverNode extends ProverNode {
+    public totalJobCount = 0;
+    public nextJobState: EpochProvingJobState = 'completed';
+    public nextJobRun: () => Promise<void> = () => Promise.resolve();
+
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
-      _deadline: Date | undefined,
+      deadline: Date | undefined,
       _blocks: L2Block[],
       _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
-      cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {
-      const job = mock<EpochProvingJob>({ getState: () => 'processing', run: () => Promise.resolve() });
+      const state = this.nextJobState;
+      this.nextJobState = 'completed';
+      const run = this.nextJobRun;
+      this.nextJobRun = () => Promise.resolve();
+      const job = mock<EpochProvingJob>({
+        run,
+        getState: () => state,
+        getEpochNumber: () => epochNumber,
+        getDeadline: () => deadline,
+      });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job, cleanUp });
+      jobs.push({ epochNumber, job });
+      this.totalJobCount++;
       return job;
     }
 

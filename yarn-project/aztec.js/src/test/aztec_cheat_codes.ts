@@ -62,13 +62,13 @@ export class AztecCheatCodes {
   /**
    * Loads the value stored at the given slot in the private storage of the given contract.
    * @param contract - The address of the contract
-   * @param owner - The owner for whom the notes are encrypted
+   * @param recipient - The address whose public key was used to encrypt the note
    * @param slot - The storage slot to lookup
    * @returns The notes stored at the given slot
    */
-  public async loadPrivate(owner: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
+  public async loadPrivate(recipient: AztecAddress, contract: AztecAddress, slot: Fr | bigint): Promise<Note[]> {
     const extendedNotes = await this.pxe.getNotes({
-      owner,
+      recipient,
       contractAddress: contract,
       storageSlot: new Fr(slot),
     });

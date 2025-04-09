@@ -5,12 +5,12 @@ import { computeNoteHashNonce, computeUniqueNoteHash, siloNoteHash, siloNullifie
 import { mock } from 'jest-mock-extended';
 
 import type { PublicSideEffectTraceInterface } from '../../../public/side_effect_trace_interface.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicTreesDB } from '../../public_db_sources.js';
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import {
   mockGetNullifierIndex,
   mockL1ToL2MessageExists,
@@ -28,9 +28,9 @@ import {
 } from './accrued_substate.js';
 
 describe('Accrued Substate', () => {
-  let worldStateDB: WorldStateDB;
+  let treesDB: PublicTreesDB;
   let trace: PublicSideEffectTraceInterface;
-  let persistableState: AvmPersistableStateManager;
+  let persistableState: PublicPersistableStateManager;
   let context: AvmContext;
 
   const address = AztecAddress.fromNumber(1);
@@ -42,6 +42,7 @@ describe('Accrued Substate', () => {
   const leafIndex = new Fr(7);
   const leafIndexOffset = 1;
   const existsOffset = 2;
+  const firstNullifier = new Fr(420000);
   let siloedNullifier0: Fr;
 
   beforeAll(async () => {
@@ -49,9 +50,9 @@ describe('Accrued Substate', () => {
   });
 
   beforeEach(() => {
-    worldStateDB = mock<WorldStateDB>();
+    treesDB = mock<PublicTreesDB>();
     trace = mock<PublicSideEffectTraceInterface>();
-    persistableState = initPersistableStateManager({ worldStateDB, trace });
+    persistableState = initPersistableStateManager({ treesDB, trace, firstNullifier });
     context = initContext({ persistableState, env: initExecutionEnvironment({ address, sender }) });
   });
 
@@ -89,7 +90,7 @@ describe('Accrued Substate', () => {
         : '';
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockNoteHashExists(worldStateDB, mockAtLeafIndex, value0);
+          mockNoteHashExists(treesDB, mockAtLeafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
@@ -103,15 +104,6 @@ describe('Accrued Substate', () => {
 
         const gotExists = context.machineState.memory.getAs<Uint8>(existsOffset);
         expect(gotExists).toEqual(new Uint8(expectFound ? 1 : 0));
-
-        const expectedValue = gotExists.toNumber() === 1 ? value0 : Fr.ZERO;
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledTimes(1);
-        expect(trace.traceNoteHashCheck).toHaveBeenCalledWith(
-          address,
-          /*noteHash=*/ expectedValue,
-          leafIndex,
-          /*exists=*/ expectFound,
-        );
       });
     });
   });
@@ -135,7 +127,7 @@ describe('Accrued Substate', () => {
       await new EmitNoteHash(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context);
       expect(trace.traceNewNoteHash).toHaveBeenCalledTimes(1);
       const siloedNotehash = await siloNoteHash(address, value0);
-      const nonce = await computeNoteHashNonce(persistableState.firstNullifier, 0);
+      const nonce = await computeNoteHashNonce(firstNullifier, 0);
       const uniqueNoteHash = await computeUniqueNoteHash(nonce, siloedNotehash);
       expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash);
     });
@@ -167,7 +159,7 @@ describe('Accrued Substate', () => {
         const addressOffset = 1;
 
         if (exists) {
-          mockGetNullifierIndex(worldStateDB, leafIndex, value0);
+          mockGetNullifierIndex(treesDB, leafIndex, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
@@ -181,12 +173,6 @@ describe('Accrued Substate', () => {
 
         const gotExists = context.machineState.memory.getAs<Uint8>(existsOffset);
         expect(gotExists).toEqual(new Uint8(exists ? 1 : 0));
-
-        expect(trace.traceNullifierCheck).toHaveBeenCalledTimes(1);
-        const isPending = false;
-        // leafIndex is returned from DB call for nullifiers, so it is absent on DB miss
-        const _tracedLeafIndex = exists && !isPending ? leafIndex : Fr.ZERO;
-        expect(trace.traceNullifierCheck).toHaveBeenCalledWith(siloedNullifier0, exists);
       });
     });
   });
@@ -224,7 +210,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockGetNullifierIndex(worldStateDB, leafIndex); // db will say that nullifier already exists
+      mockGetNullifierIndex(treesDB, leafIndex); // db will say that nullifier already exists
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
@@ -270,7 +256,7 @@ describe('Accrued Substate', () => {
 
       it(`Should return ${expectFound} (and be traced) when noteHash ${existsStr} ${foundAtStr}`, async () => {
         if (mockAtLeafIndex !== undefined) {
-          mockL1ToL2MessageExists(worldStateDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
+          mockL1ToL2MessageExists(treesDB, mockAtLeafIndex, value0, /*valueAtOtherIndices=*/ value1);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // noteHash
@@ -284,19 +270,6 @@ describe('Accrued Substate', () => {
 
         const gotExists = context.machineState.memory.getAs<Uint8>(existsOffset);
         expect(gotExists).toEqual(new Uint8(expectFound ? 1 : 0));
-
-        expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledTimes(1);
-        // The expected value to trace depends on a) if we found it and b) if it is undefined
-        let expectedValue = gotExists.toNumber() === 1 ? value0 : value1;
-        if (mockAtLeafIndex === undefined) {
-          expectedValue = Fr.ZERO;
-        }
-        expect(trace.traceL1ToL2MessageCheck).toHaveBeenCalledWith(
-          address,
-          /*msgHash=*/ expectedValue,
-          leafIndex,
-          /*exists=*/ expectFound,
-        );
       });
     });
   });

@@ -150,6 +150,7 @@ pub struct FixtureBuilder {
     // Function.
     pub function_data: FunctionData,
     pub args_hash: Field,
+    pub calldata_hash: Field,
     pub returns_hash: Field,
 
     // Private call.
@@ -389,12 +390,14 @@ impl FixtureBuilder {
             min_revertible_side_effect_counter: self.min_revertible_side_effect_counter,
             is_fee_payer: self.is_fee_payer,
             max_block_number: self.max_block_number,
-            note_hash_read_requests: subarray(self.note_hash_read_requests.storage().map(
-                |r: ScopedReadRequest| r.read_request,
-            )),
-            nullifier_read_requests: subarray(self.nullifier_read_requests.storage().map(
-                |r: ScopedReadRequest| r.read_request,
-            )),
+            note_hash_read_requests: subarray(self
+                .note_hash_read_requests
+                .storage()
+                .map(|r: ScopedReadRequest| r.read_request)),
+            nullifier_read_requests: subarray(self
+                .nullifier_read_requests
+                .storage()
+                .map(|r: ScopedReadRequest| r.read_request)),
             key_validation_requests_and_generators: subarray(self
                 .scoped_key_validation_requests_and_generators
                 .storage()
@@ -416,9 +419,10 @@ impl FixtureBuilder {
             private_logs: subarray(self.private_logs.storage().map(|l: Scoped<PrivateLogData>| {
                 l.inner
             })),
-            contract_class_logs_hashes: subarray(self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.log_hash,
-            )),
+            contract_class_logs_hashes: subarray(self
+                .contract_class_logs_hashes
+                .storage()
+                .map(|l: ScopedLogHash| l.log_hash)),
             historical_header: self.historical_header,
             tx_context: self.tx_context,
         }
@@ -538,9 +542,8 @@ impl FixtureBuilder {
         PublicCallRequest {
             msg_sender: self.msg_sender,
             contract_address: self.contract_address,
-            function_selector: self.function_data.selector,
             is_static_call: self.is_static_call,
-            args_hash: self.args_hash,
+            calldata_hash: self.calldata_hash,
         }
     }
 
@@ -552,12 +555,14 @@ impl FixtureBuilder {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.expose_to_public(),
-            ),
-            public_call_requests: self.public_call_requests.storage().map(
-                |cr: Counted<PublicCallRequest>| cr.inner,
-            ),
+            contract_class_logs_hashes: self
+                .contract_class_logs_hashes
+                .storage()
+                .map(|l: ScopedLogHash| l.expose_to_public()),
+            public_call_requests: self
+                .public_call_requests
+                .storage()
+                .map(|cr: Counted<PublicCallRequest>| cr.inner),
         }
     }
 
@@ -569,9 +574,10 @@ impl FixtureBuilder {
                 m.expose_to_public()
             }),
             private_logs: self.private_logs.storage().map(|l: Scoped<PrivateLogData>| l.inner.log),
-            contract_class_logs_hashes: self.contract_class_logs_hashes.storage().map(
-                |l: ScopedLogHash| l.expose_to_public(),
-            ),
+            contract_class_logs_hashes: self
+                .contract_class_logs_hashes
+                .storage()
+                .map(|l: ScopedLogHash| l.expose_to_public()),
         }
     }
 
@@ -1242,6 +1248,7 @@ impl Empty for FixtureBuilder {
             validation_requests_split_counter: Option::none(),
             function_data: FunctionData::empty(),
             args_hash: 0,
+            calldata_hash: 0,
             returns_hash: 0,
             function_leaf_membership_witness: MembershipWitness::empty(),
             salted_initialization_hash: SaltedInitializationHash::from_field(0),

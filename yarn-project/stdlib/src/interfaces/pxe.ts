@@ -1,5 +1,5 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
-import type { Fr, Point } from '@aztec/foundation/fields';
+import type { Fr } from '@aztec/foundation/fields';
 import type { ApiSchemaFor, ZodFor } from '@aztec/foundation/schemas';
 import { SiblingPath } from '@aztec/foundation/trees';
 
@@ -10,7 +10,6 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import type { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import type { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -30,15 +29,17 @@ import { UniqueNote } from '../note/extended_note.js';
 import { type NotesFilter, NotesFilterSchema } from '../note/notes_filter.js';
 import { AbiDecodedSchema, optional, schemas } from '../schemas/schemas.js';
 import {
+  type IndexedTxEffect,
   PrivateExecutionResult,
   Tx,
   TxExecutionRequest,
   TxHash,
-  TxProvingResult,
   TxReceipt,
   TxSimulationResult,
+  indexedTxSchema,
 } from '../tx/index.js';
-import { TxEffect } from '../tx/tx_effect.js';
+import { TxProfileResult } from '../tx/profiled_tx.js';
+import { TxProvingResult } from '../tx/proven_tx.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
@@ -60,38 +61,6 @@ export interface PXE {
    * @returns Whether the message is synced and ready to be included in a block.
    */
   isL1ToL2MessageSynced(l1ToL2Message: Fr): Promise<boolean>;
-
-  /**
-   * Insert an auth witness for a given message hash. Auth witnesses are used to authorize actions on
-   * behalf of a user. For instance, a token transfer initiated by a different address may request
-   * authorization from the user to move their tokens. This authorization is granted by the user
-   * account contract by verifying an auth witness requested to the execution oracle. Witnesses are
-   * usually a signature over a hash of the action to be authorized, but their actual contents depend
-   * on the account contract that consumes them.
-   *
-   * @param authWitness - The auth witness to insert. Composed of an identifier, which is the hash of
-   * the action to be authorized, and the actual witness as an array of fields, which are to be
-   * deserialized and processed by the account contract.
-   */
-  addAuthWitness(authWitness: AuthWitness): Promise<void>;
-
-  /**
-   * Fetches the serialized auth witness for a given message hash or returns undefined if not found.
-   * @param messageHash - The hash of the message for which to get the auth witness.
-   * @returns The serialized auth witness for the given message hash.
-   */
-  getAuthWitness(messageHash: Fr): Promise<Fr[] | undefined>;
-
-  /**
-   * Adds a capsule.
-   * @param contract - The address of the contract to add the capsule to.
-   * @param storageSlot - The storage slot to add the capsule to.
-   * @param capsule - An array of field elements representing the capsule.
-   * @remarks A capsule is a "blob" of data that is passed to the contract through an oracle. It works similarly
-   * to public contract storage in that it's indexed by the contract address and storage slot but instead of the global
-   * network state it's backed by local PXE db.
-   */
-  storeCapsule(contract: AztecAddress, storageSlot: Fr, capsule: Fr[]): Promise<void>;
 
   /**
    * Registers a user account in PXE given its master encryption private key.
@@ -166,14 +135,13 @@ export interface PXE {
   getContracts(): Promise<AztecAddress[]>;
 
   /**
-   * Creates a proving result based on the provided preauthenticated execution request and the results
-   * of executing the private part of the transaction. This will assemble the zero-knowledge proof for the private execution.
-   * It returns an object that contains the proof and public inputs of the tail circuit, which can be converted into a Tx ready to be sent to the network
+   * Proves the private portion of a simulated transaction, ready to send to the network
+   * (where validators prove the public portion).
    *
    * @param txRequest - An authenticated tx request ready for proving
    * @param privateExecutionResult - The result of the private execution of the transaction
-   * @returns A transaction ready to be sent to the network for execution.
-   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * @returns A result containing the proof and public inputs of the tail circuit.
+   * @throws If contract code not found, or public simulation reverts.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   proveTx(txRequest: TxExecutionRequest, privateExecutionResult: PrivateExecutionResult): Promise<TxProvingResult>;
@@ -193,10 +161,10 @@ export interface PXE {
    * @param simulatePublic - Whether to simulate the public part of the transaction.
    * @param msgSender - (Optional) The message sender to use for the simulation.
    * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
-   * @param profile - (Optional) If true, will run the private kernel prover with profiling enabled and include the result (gate count) in TxSimulationResult.
+   * @param skipFeeEnforcement - (Optional) If false, fees are enforced.
    * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
    * @returns A simulated transaction result object that includes public and private return values.
-   * @throws If the code for the functions executed in this transaction has not been made available via `addContracts`.
+   * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
    * Also throws if simulatePublic is true and public simulation reverts.
    */
   simulateTx(
@@ -205,9 +173,23 @@ export interface PXE {
     msgSender?: AztecAddress,
     skipTxValidation?: boolean,
     skipFeeEnforcement?: boolean,
-    profile?: boolean,
     scopes?: AztecAddress[],
   ): Promise<TxSimulationResult>;
+
+  /**
+   * Profiles a transaction, reporting gate counts (unless disabled) and returns an execution trace.
+   *
+   * @param txRequest - An authenticated tx request ready for simulation
+   * @param msgSender - (Optional) The message sender to use for the simulation.
+   * @param skipTxValidation - (Optional) If false, this function throws if the transaction is unable to be included in a block at the current state.
+   * @returns A trace of the program execution with gate counts.
+   * @throws If the code for the functions executed in this transaction have not been made available via `addContracts`.
+   */
+  profileTx(
+    txRequest: TxExecutionRequest,
+    profileMode: 'gates' | 'execution-steps' | 'full',
+    msgSender?: AztecAddress,
+  ): Promise<TxProfileResult>;
 
   /**
    * Sends a transaction to an Aztec node to be broadcasted to the network and mined.
@@ -227,11 +209,11 @@ export interface PXE {
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Gets the storage value at the given contract storage slot.
@@ -289,22 +271,22 @@ export interface PXE {
   getCurrentBaseFees(): Promise<GasFees>;
 
   /**
-   * Simulate the execution of an unconstrained function on a deployed contract without actually modifying state.
-   * This is useful to inspect contract state, for example fetching a variable value or calling a getter function.
-   * The function takes function name and arguments as parameters, along with the contract address
-   * and optionally the sender's address.
+   * Simulate the execution of a contract utility function.
    *
-   * @param functionName - The name of the function to be called in the contract.
+   * @param functionName - The name of the utility contract function to be called.
    * @param args - The arguments to be provided to the function.
    * @param to - The address of the contract to be called.
+   * @param authwits - (Optional) The authentication witnesses required for the function call.
    * @param from - (Optional) The msg sender to set for the call.
-   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will default to all.
-   * @returns The result of the view function call, structured based on the function ABI.
+   * @param scopes - (Optional) The accounts whose notes we can access in this call. Currently optional and will
+   * default to all.
+   * @returns The result of the utility function call, structured based on the function ABI.
    */
-  simulateUnconstrained(
+  simulateUtility(
     functionName: string,
     args: any[],
     to: AztecAddress,
+    authwits?: AuthWitness[],
     from?: AztecAddress,
     scopes?: AztecAddress[],
   ): Promise<AbiDecoded>;
@@ -337,7 +319,7 @@ export interface PXE {
 
   /**
    * Returns the information about the server's node. Includes current Node version, compatible Noir version,
-   * L1 chain identifier, protocol version, and L1 address of the rollup contract.
+   * L1 chain identifier, rollup version, and L1 address of the rollup contract.
    * @returns - The node information.
    */
   getNodeInfo(): Promise<NodeInfo>;
@@ -378,13 +360,20 @@ export interface PXE {
 
   /**
    * Returns the private events given search parameters.
+   * @param contractAddress - The address of the contract to get events from.
    * @param eventMetadata - Metadata of the event. This should be the class generated from the contract. e.g. Contract.events.Event
    * @param from - The block number to search from.
-   * @param limit - The amount of blocks to search.
-   * @param vpks - The incoming viewing public keys that can decrypt the log.
+   * @param numBlocks - The amount of blocks to search.
+   * @param recipients - The addresses that decrypted the logs.
    * @returns - The deserialized events.
    */
-  getPrivateEvents<T>(eventMetadata: EventMetadataDefinition, from: number, limit: number, vpks: Point[]): Promise<T[]>;
+  getPrivateEvents<T>(
+    contractAddress: AztecAddress,
+    eventMetadata: EventMetadataDefinition,
+    from: number,
+    numBlocks: number,
+    recipients: AztecAddress[],
+  ): Promise<T[]>;
 
   /**
    * Returns the public events given search parameters.
@@ -454,12 +443,6 @@ const PXEInfoSchema = z.object({
 
 export const PXESchema: ApiSchemaFor<PXE> = {
   isL1ToL2MessageSynced: z.function().args(schemas.Fr).returns(z.boolean()),
-  addAuthWitness: z.function().args(AuthWitness.schema).returns(z.void()),
-  getAuthWitness: z
-    .function()
-    .args(schemas.Fr)
-    .returns(z.union([z.undefined(), z.array(schemas.Fr)])),
-  storeCapsule: z.function().args(schemas.AztecAddress, schemas.Fr, z.array(schemas.Fr)).returns(z.void()),
   registerAccount: z.function().args(schemas.Fr, schemas.Fr).returns(CompleteAddress.schema),
   getRegisteredAccounts: z.function().returns(z.array(CompleteAddress.schema)),
   registerSender: z.function().args(schemas.AztecAddress).returns(schemas.AztecAddress),
@@ -473,6 +456,14 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   updateContract: z.function().args(schemas.AztecAddress, ContractArtifactSchema).returns(z.void()),
   getContracts: z.function().returns(z.array(schemas.AztecAddress)),
   proveTx: z.function().args(TxExecutionRequest.schema, PrivateExecutionResult.schema).returns(TxProvingResult.schema),
+  profileTx: z
+    .function()
+    .args(
+      TxExecutionRequest.schema,
+      z.union([z.literal('gates'), z.literal('full'), z.literal('execution-steps')]),
+      optional(schemas.AztecAddress),
+    )
+    .returns(TxProfileResult.schema),
   simulateTx: z
     .function()
     .args(
@@ -481,16 +472,12 @@ export const PXESchema: ApiSchemaFor<PXE> = {
       optional(schemas.AztecAddress),
       optional(z.boolean()),
       optional(z.boolean()),
-      optional(z.boolean()),
       optional(z.array(schemas.AztecAddress)),
     )
     .returns(TxSimulationResult.schema),
   sendTx: z.function().args(Tx.schema).returns(TxHash.schema),
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
-  getTxEffect: z
-    .function()
-    .args(TxHash.schema)
-    .returns(z.union([inBlockSchemaFor(TxEffect.schema), z.undefined()])),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
   getPublicStorageAt: z.function().args(schemas.AztecAddress, schemas.Fr).returns(schemas.Fr),
   getNotes: z.function().args(NotesFilterSchema).returns(z.array(UniqueNote.schema)),
   getL1ToL2MembershipWitness: z
@@ -507,12 +494,13 @@ export const PXESchema: ApiSchemaFor<PXE> = {
     .returns(z.union([L2Block.schema, z.undefined()])),
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
-  simulateUnconstrained: z
+  simulateUtility: z
     .function()
     .args(
       z.string(),
       z.array(z.any()),
       schemas.AztecAddress,
+      optional(z.array(AuthWitness.schema)),
       optional(schemas.AztecAddress),
       optional(z.array(schemas.AztecAddress)),
     )
@@ -527,7 +515,7 @@ export const PXESchema: ApiSchemaFor<PXE> = {
   getContractClassMetadata: z.function().args(schemas.Fr, optional(z.boolean())).returns(ContractClassMetadataSchema),
   getPrivateEvents: z
     .function()
-    .args(EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.Point))
+    .args(schemas.AztecAddress, EventMetadataDefinitionSchema, z.number(), z.number(), z.array(schemas.AztecAddress))
     .returns(z.array(AbiDecodedSchema)),
   getPublicEvents: z
     .function()

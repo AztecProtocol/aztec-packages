@@ -4,6 +4,7 @@ import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import type { L2BlockSource } from '@aztec/stdlib/block';
 import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
 import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx } from '@aztec/stdlib/tx';
@@ -55,8 +56,8 @@ export async function createLibp2pNode(
   const options: Libp2pOptions = {
     start,
     addresses: {
-      listen: [`/ip4/0.0.0.0/tcp/${port}`],
-      announce: [`/ip4/0.0.0.0/tcp/${port}`],
+      listen: [`/ip4/127.0.0.1/tcp/${port}`],
+      announce: [`/ip4/127.0.0.1/tcp/${port}`],
     },
     connectionEncryption: [noise()],
     streamMuxers: [yamux()],
@@ -98,7 +99,7 @@ export async function createLibp2pNode(
 export async function createTestLibP2PService<T extends P2PClientType>(
   clientType: T,
   boostrapAddrs: string[] = [],
-  l2BlockSource: L2BlockSource,
+  archiver: L2BlockSource & ContractDataSource,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCache,
   mempools: MemPools<T>,
@@ -109,10 +110,8 @@ export async function createTestLibP2PService<T extends P2PClientType>(
 ) {
   peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
-    tcpAnnounceAddress: `127.0.0.1:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    tcpListenAddress: `0.0.0.0:${port}`,
-    udpListenAddress: `0.0.0.0:${port}`,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     bootstrapNodes: boostrapAddrs,
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
@@ -133,7 +132,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     p2pNode as PubSubLibp2p,
     discoveryService,
     mempools,
-    l2BlockSource,
+    archiver,
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
@@ -235,12 +234,13 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
   return {
     l1ChainId: chainConfig.l1ChainId,
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
+    p2pIp: '127.0.0.1',
+    p2pPort: port,
     peerIdPrivateKey: privateKey,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
     bootstrapNodes: [],
+    listenAddress: '127.0.0.1',
   };
 }
 
@@ -263,7 +263,7 @@ export function createBootstrapNodeFromPrivateKey(
 export async function getBootstrapNodeEnr(privateKey: string, port: number) {
   const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
   const enr = SignableENR.createFromPeerId(peerId);
-  const listenAddrUdp = multiaddr(convertToMultiaddr(`127.0.0.1:${port}`, 'udp'));
+  const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
   enr.setLocationMultiaddr(listenAddrUdp);
 
   return enr;

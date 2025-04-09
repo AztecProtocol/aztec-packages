@@ -1,8 +1,4 @@
-import {
-  DEPLOYER_CONTRACT_ADDRESS,
-  MAX_L2_GAS_PER_TX_PUBLIC_PORTION,
-  PUBLIC_DISPATCH_SELECTOR,
-} from '@aztec/constants';
+import { DEPLOYER_CONTRACT_ADDRESS, MAX_L2_GAS_PER_TX_PUBLIC_PORTION } from '@aztec/constants';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { AvmGadgetsTestContract } from '@aztec/noir-contracts.js/AvmGadgetsTest';
@@ -23,7 +19,7 @@ import {
 import { isNoirCallStackUnresolved } from '@aztec/stdlib/errors';
 import { GasFees } from '@aztec/stdlib/gas';
 import { siloNullifier } from '@aztec/stdlib/hash';
-import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { deriveKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
@@ -32,25 +28,26 @@ import { mock } from 'jest-mock-extended';
 import merge from 'lodash.merge';
 
 import { resolveAssertionMessageFromRevertData, traverseCauseChain } from '../../../common/index.js';
-import type { WorldStateDB } from '../../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDB } from '../../public_db_sources.js';
 import type { PublicSideEffectTraceInterface } from '../../side_effect_trace_interface.js';
+import { NullifierManager } from '../../state_manager/nullifiers.js';
+import { PublicStorage } from '../../state_manager/public_storage.js';
+import { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import { AvmContext } from '../avm_context.js';
 import { AvmExecutionEnvironment } from '../avm_execution_environment.js';
 import { AvmMachineState } from '../avm_machine_state.js';
 import { Field, Uint8, Uint32, Uint64 } from '../avm_memory_types.js';
 import { AvmSimulator } from '../avm_simulator.js';
 import type { AvmRevertReason } from '../errors.js';
-import { AvmPersistableStateManager } from '../journal/journal.js';
-import { NullifierManager } from '../journal/nullifiers.js';
-import { PublicStorage } from '../journal/public_storage.js';
 
 export const PUBLIC_DISPATCH_FN_NAME = 'public_dispatch';
+export const DEFAULT_BLOCK_NUMBER = 42;
 
 /**
  * Create a new AVM context with default values.
  */
 export function initContext(overrides?: {
-  persistableState?: AvmPersistableStateManager;
+  persistableState?: PublicPersistableStateManager;
   env?: AvmExecutionEnvironment;
   machineState?: AvmMachineState;
 }): AvmContext {
@@ -65,23 +62,25 @@ export function initContext(overrides?: {
 
 /** Creates an empty state manager with mocked host storage. */
 export function initPersistableStateManager(overrides?: {
-  worldStateDB?: WorldStateDB;
+  treesDB?: PublicTreesDB;
+  contractsDB?: PublicContractsDB;
   trace?: PublicSideEffectTraceInterface;
   publicStorage?: PublicStorage;
   nullifiers?: NullifierManager;
   doMerkleOperations?: boolean;
-  db?: MerkleTreeWriteOperations;
   firstNullifier?: Fr;
-}): AvmPersistableStateManager {
-  const worldStateDB = overrides?.worldStateDB || mock<WorldStateDB>();
-  return new AvmPersistableStateManager(
-    worldStateDB,
+  blockNumber?: number;
+}): PublicPersistableStateManager {
+  const treesDB = overrides?.treesDB || mock<PublicTreesDB>();
+  return new PublicPersistableStateManager(
+    treesDB,
+    overrides?.contractsDB || mock<PublicContractsDB>(),
     overrides?.trace || mock<PublicSideEffectTraceInterface>(),
-    overrides?.publicStorage || new PublicStorage(worldStateDB),
-    overrides?.nullifiers || new NullifierManager(worldStateDB),
-    overrides?.doMerkleOperations || false,
-    overrides?.db || mock<MerkleTreeWriteOperations>(),
     overrides?.firstNullifier || new Fr(27),
+    overrides?.blockNumber || DEFAULT_BLOCK_NUMBER,
+    overrides?.doMerkleOperations || false,
+    overrides?.publicStorage,
+    overrides?.nullifiers,
   );
 }
 
@@ -162,13 +161,18 @@ export function getFunctionSelector(
 export function getContractFunctionArtifact(
   functionName: string,
   contractArtifact: ContractArtifact,
-): FunctionArtifact | FunctionAbi | undefined {
-  const artifact = contractArtifact.functions.find(f => f.name === functionName)!;
-  if (!artifact) {
-    const abi = getAllFunctionAbis(contractArtifact).find(f => f.name === functionName);
-    return abi || undefined;
-  }
-  return artifact;
+): FunctionArtifact | undefined {
+  return contractArtifact.functions.find(f => f.name === functionName);
+}
+
+export function getContractFunctionAbi(
+  functionName: string,
+  contractArtifact: ContractArtifact,
+): FunctionAbi | undefined {
+  return (
+    contractArtifact.functions.find(f => f.name === functionName) ??
+    contractArtifact.nonDispatchPublicFunctions.find(f => f.name === functionName)
+  );
 }
 
 export function resolveContractAssertionMessage(
@@ -276,23 +280,23 @@ export async function createContractClassAndInstance(
 }> {
   const bytecode = (getContractFunctionArtifact(PUBLIC_DISPATCH_FN_NAME, contractArtifact) as FunctionArtifact)!
     .bytecode;
-  const contractClass = await makeContractClassPublic(
-    seed,
-    /*publicDispatchFunction=*/ { bytecode, selector: new FunctionSelector(PUBLIC_DISPATCH_SELECTOR) },
-  );
+  const contractClass = await makeContractClassPublic(seed, bytecode);
 
-  const constructorAbi = getContractFunctionArtifact('constructor', contractArtifact);
+  const constructorAbi = getContractFunctionAbi('constructor', contractArtifact);
+  const { publicKeys } = await deriveKeys(Fr.random());
   const initializationHash = await computeInitializationHash(constructorAbi, constructorArgs);
   const contractInstance =
     originalContractClassId === undefined
       ? await makeContractInstanceFromClassId(contractClass.id, seed, {
           deployer,
           initializationHash,
+          publicKeys,
         })
       : await makeContractInstanceFromClassId(originalContractClassId, seed, {
           deployer,
           initializationHash,
           currentClassId: contractClass.id,
+          publicKeys,
         });
 
   const contractAddressNullifier = await siloNullifier(

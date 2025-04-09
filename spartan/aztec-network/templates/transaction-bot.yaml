@@ -5,6 +5,12 @@ metadata:
   name: {{ include "aztec-network.fullname" . }}-bot
   labels:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
+  {{- if .Values.network.setupL2Contracts }}
+  annotations:
+    "helm.sh/hook": post-install
+    "helm.sh/hook-weight": "10"
+    "helm.sh/hook-delete-policy": before-hook-creation
+  {{- end }}
 spec:
   replicas: {{ .Values.bot.replicas }}
   selector:
@@ -85,10 +91,8 @@ spec:
               cat /shared/config/service-addresses
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
-              {{- else if .Values.network.public }}
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- else }}
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
               until curl -s ${AZTEC_NODE_URL}/status; do echo waiting for aztec-node; sleep 2; done
@@ -113,12 +117,23 @@ spec:
               source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
-              {{- else if .Values.network.public }}
-              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- else }}
-              export AZTEC_NODE_URL={{ include "aztec-network.validatorUrl" . }}
+              export AZTEC_NODE_URL=${BOOT_NODE_HOST}
               {{- end }}
               echo "AZTEC_NODE_URL=${AZTEC_NODE_URL}"
+
+              export BOT_ACCOUNT_SALT=$(echo $K8S_POD_NAME | awk -F'-' '{print $NF+1}') # +1 so that salt is not 0
+
+              # a crude way to avoid a race condition that could arise if more than one bot is started:
+              # the bots need to register contract classes, if they all start at the same time (or close to it) then multiple of them might try to register the same class leading to failed txs due to duplicate nullifiers
+              # instead lets allow the first bot to start immediately giving it the responsibility to register the classes
+              # every other bot after that will sleep at least a slot before starting up
+              if [[ "$BOT_ACCOUNT_SALT" != "1" ]]; then
+                sleep_duration=$(({{ .Values.aztec.slotDuration }} + ($RANDOM % 10)))
+                echo "Sleeping for $sleep_duration seconds"
+                sleep $sleep_duration
+              fi
+
               node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --pxe --bot
           env:
             - name: K8S_POD_UID
@@ -153,6 +168,8 @@ spec:
               value: "{{ .Values.bot.botNoStart }}"
             - name: BOT_FEE_PAYMENT_METHOD
               value: "{{ .Values.bot.feePaymentMethod }}"
+            - name: BOT_AMM_TXS
+              value: "{{ .Values.bot.ammTxs }}"
             - name: PXE_PROVER_ENABLED
               value: "{{ .Values.aztec.realProofs }}"
             - name: PROVER_REAL_PROOFS

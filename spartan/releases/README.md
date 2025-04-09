@@ -51,8 +51,9 @@ To spare you a few keystrokes, you can use `./aztec-sequencer [start/stop/logs/u
 The user is prompted to enter some values which will map to corresponding ENV variables. Some are required:
 
 1. A Sepolia execution node RPC (for example on [alchemy](https://dashboard.alchemy.com/))
-2. An Ethereum private key
-3. `COINBASE` which is the Ethereum address associated with the private key
+2. A Sepolia beacon node RPC (for example from [drpc](https://drpc.org))
+3. An Ethereum private key
+4. `COINBASE` which is the Ethereum address associated with the private key
 
 On a first run, the script will generate a p2p private key and store it in `$DATA_DIR/var/lib/aztec/p2p-private-key`. If you wish to change your p2p private key, you can pass it on as a CLI arg using the flag `-pk` or update the `PEER_ID_PRIVATE_KEY` in the env file.
 
@@ -84,8 +85,6 @@ The Sequencer Client is a criticial component that coordinates tx validation, L2
 | SEQ_ENFORCE_TIME_TABLE                     | Whether to enforce strict timeliness requirement when building blocks. Refer [here](#sequencer-timeliness-requirements) for more on the timetable                   |
 | SEQ_MAX_TX_PER_BLOCK                       | Increase this to make larger blocks                                                                                                                                 |
 | SEQ_MIN_TX_PER_BLOCK                       | Increase this to require making larger blocks                                                                                                                       |
-| SEQ_MIN_SECONDS_BETWEEN_BLOCKS             | If greater than zero, the sequencer will not propose a block until this much time has passed since the last L2 block was published to L1                            |
-| SEQ_MAX_SECONDS_BETWEEN_BLOCKS             | Sequencer will ignore the minTxPerBlock if this many seconds have passed since the last L2 block.                                                                   |
 | COINBASE                                   | This is the Ethereum address that will receive the validator's share of block rewards. It defaults to your validator address.                                       |
 | FEE_RECIPIENT                              | This is the Aztec address that will receive the validator's share of transaction fees. Also defaults to your validator's address (but on Aztec L2).                 |
 
@@ -106,10 +105,9 @@ The P2P client coordinates peer-to-peer communication between Nodes.
 | Variable                    | Description                                                                                                                                                                                                                                                                          |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | BOOTSTRAP_NODES             | A list of bootstrap peer ENRs to connect to. Separated by commas.                                                                                                                                                                                                                    |
-| P2P_TCP_ANNOUNCE_ADDR       | Format: `<IP_ADDRESS>:<TCP_PORT>`                                                                                                                                                                                                                                                    |
-| P2P_UDP_ANNOUNCE_ADDR       | Format: `<IP_ADDRESS>:<UDP_PORT>`                                                                                                                                                                                                                                                    |
-| P2P_TCP_LISTEN_ADDR         | Format: `<IP_ADDRESS>:<TCP_PORT>` or can use `0.0.0.0:<TCP_PORT>` to listen on all interfaces                                                                                                                                                                                        |
-| P2P_UDP_LISTEN_ADDR         | Format: `<IP_ADDRESS>:<TCP_PORT>` or can use `0.0.0.0:<UDP_PORT>` to listen on all interfaces                                                                                                                                                                                        |
+| P2P_IP                      | The client's public IP address. Defaults to working it out using disv5, otherwise set P2P_QUERY_FOR_IP if you are behind a NAT                                                                                                                                                       |
+| P2P_PORT                    | The port that will be used for sending / receiving p2p messages. Defaults to 40400.                                                                                                                                                                                                  |
+| P2P_LISTEN_ARR              | Address to listen on for p2p messages. Defaults to 0.0.0.0                                                                                                                                                                                                                           |
 | P2P_QUERY_FOR_IP            | Useful in dynamic environments where your IP is not known in advance. Set this to True, and only supply `:TCP_PORT` and `:UDP_PORT` for the `ANNOUNCE_ADDR` variables. If you know your public IP address in advance, set this to False or just provide the full announce addresses. |
 | P2P_ENABLED                 | Whether to run the P2P module. Defaults to False, so make sure to set to True                                                                                                                                                                                                        |
 | P2P_MAX_PEERS               | The max number of peers to connect to.                                                                                                                                                                                                                                               |

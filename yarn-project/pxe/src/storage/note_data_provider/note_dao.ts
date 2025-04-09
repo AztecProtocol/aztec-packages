@@ -2,9 +2,7 @@ import { toBigIntBE } from '@aztec/foundation/bigint-buffer';
 import { Fr, Point } from '@aztec/foundation/fields';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 import type { NoteData } from '@aztec/simulator/client';
-import { NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import type { PublicKey } from '@aztec/stdlib/keys';
 import { Note } from '@aztec/stdlib/note';
 import { TxHash } from '@aztec/stdlib/tx';
 
@@ -53,13 +51,11 @@ export class NoteDao implements NoteData {
     public l2BlockHash: string,
     /** The index of the leaf in the global note hash tree the note is stored at */
     public index: bigint,
-    /** The public key with which the note log was encrypted during delivery. */
-    public addressPoint: PublicKey,
-
-    /** The note type identifier for the contract.
-     * TODO(#12013): remove
+    /**
+     * The address whose public key was used to encrypt the note log during delivery.
+     * (This is the x-coordinate of the public key.)
      */
-    public noteTypeId: NoteSelector,
+    public recipient: AztecAddress,
   ) {}
 
   toBuffer(): Buffer {
@@ -74,8 +70,7 @@ export class NoteDao implements NoteData {
       this.l2BlockNumber,
       Fr.fromHexString(this.l2BlockHash),
       this.index,
-      this.addressPoint,
-      this.noteTypeId,
+      this.recipient,
     ]);
   }
 
@@ -92,8 +87,7 @@ export class NoteDao implements NoteData {
     const l2BlockNumber = reader.readNumber();
     const l2BlockHash = Fr.fromBuffer(reader).toString();
     const index = toBigIntBE(reader.readBytes(32));
-    const publicKey = Point.fromBuffer(reader);
-    const noteTypeId = reader.readObject(NoteSelector);
+    const recipient = AztecAddress.fromBuffer(reader);
 
     return new NoteDao(
       note,
@@ -106,8 +100,7 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      publicKey,
-      noteTypeId,
+      recipient,
     );
   }
 
@@ -141,8 +134,7 @@ export class NoteDao implements NoteData {
     l2BlockNumber = Math.floor(Math.random() * 1000),
     l2BlockHash = Fr.random().toString(),
     index = Fr.random().toBigInt(),
-    addressPoint = undefined,
-    noteTypeId = NoteSelector.random(),
+    recipient = undefined,
   }: Partial<NoteDao> = {}) {
     return new NoteDao(
       note,
@@ -155,8 +147,7 @@ export class NoteDao implements NoteData {
       l2BlockNumber,
       l2BlockHash,
       index,
-      addressPoint ?? (await Point.random()),
-      noteTypeId,
+      recipient ?? (await AztecAddress.random()),
     );
   }
 }

@@ -17,6 +17,7 @@ import { type InBlock, inBlockSchemaFor } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import { type L2BlockNumber, L2BlockNumberSchema } from '../block/l2_block_number.js';
 import { type L2BlockSource, type L2Tips, L2TipsSchema } from '../block/l2_block_source.js';
+import { PublishedL2BlockSchema } from '../block/published_l2_block.js';
 import {
   type ContractClassPublic,
   ContractClassPublicSchema,
@@ -37,23 +38,24 @@ import { NullifierMembershipWitness } from '../trees/nullifier_membership_witnes
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import {
   BlockHeader,
+  type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
   TxHash,
   TxReceipt,
   type TxValidationResult,
   TxValidationResultSchema,
+  indexedTxSchema,
 } from '../tx/index.js';
-import { TxEffect } from '../tx/tx_effect.js';
+import { ValidatorsStatsSchema } from '../validators/schemas.js';
+import type { ValidatorsStats } from '../validators/types.js';
 import { type ComponentsVersions, getVersioningResponseHandler } from '../versioning/index.js';
-import { type SequencerConfig, SequencerConfigSchema } from './configs.js';
 import {
   type GetContractClassLogsResponse,
   GetContractClassLogsResponseSchema,
   type GetPublicLogsResponse,
   GetPublicLogsResponseSchema,
 } from './get_logs_response.js';
-import { type ProverConfig, ProverConfigSchema } from './prover-client.js';
 import type { ProverCoordination } from './prover-coordination.js';
 import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_state.js';
 
@@ -63,7 +65,7 @@ import { type WorldStateSyncStatus, WorldStateSyncStatusSchema } from './world_s
  */
 export interface AztecNode
   extends ProverCoordination,
-    Pick<L2BlockSource, 'getBlocks' | 'getBlockHeader' | 'getL2Tips'> {
+    Pick<L2BlockSource, 'getBlocks' | 'getPublishedBlocks' | 'getBlockHeader' | 'getL2Tips'> {
   /**
    * Returns the tips of the L2 chain.
    */
@@ -75,41 +77,17 @@ export interface AztecNode
   getWorldStateSyncStatus(): Promise<WorldStateSyncStatus>;
 
   /**
-   * Find the indexes of the given leaves in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
+   * Find the indexes of the given leaves in the given tree along with a block metadata pointing to the block in which
+   * the leaves were inserted.
+   * @param blockNumber - The block number at which to get the data or 'latest' for latest data.
    * @param treeId - The tree to search in.
-   * @param leafValues - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
+   * @param leafValues - The values to search for.
+   * @returns The indices of leaves and the block metadata of a block in which the leaves were inserted.
    */
   findLeavesIndexes(
     blockNumber: L2BlockNumber,
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(bigint | undefined)[]>;
-
-  /**
-   * Find the indexes of the given leaves in the given tree.
-   * @param blockNumber - The block number at which to get the data or 'latest' for latest data
-   * @param treeId - The tree to search in.
-   * @param leafIndices - The values to search for
-   * @returns The indexes of the given leaves in the given tree or undefined if not found.
-   */
-  findBlockNumbersForIndexes(
-    blockNumber: L2BlockNumber,
-    treeId: MerkleTreeId,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]>;
-
-  /**
-   * Returns the indexes of the given nullifiers in the nullifier tree,
-   * scoped to the block they were included in.
-   * @param blockNumber - The block number at which to get the data.
-   * @param nullifiers - The nullifiers to search for.
-   * @returns The block scoped indexes of the given nullifiers in the nullifier tree, or undefined if not found.
-   */
-  findNullifiersIndexesWithBlock(
-    blockNumber: L2BlockNumber,
-    nullifiers: Fr[],
   ): Promise<(InBlock<bigint> | undefined)[]>;
 
   /**
@@ -220,14 +198,14 @@ export interface AztecNode
    * "in range" slot, means that the slot doesn't exist and the value is 0. If the low leaf preimage corresponds to the exact slot, the current value
    * is contained in the leaf preimage.
    */
-  getPublicDataTreeWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
+  getPublicDataWitness(blockNumber: L2BlockNumber, leafSlot: Fr): Promise<PublicDataWitness | undefined>;
 
   /**
    * Get a block specified by its number.
    * @param number - The block number being requested.
    * @returns The requested block.
    */
-  getBlock(number: number): Promise<L2Block | undefined>;
+  getBlock(number: L2BlockNumber): Promise<L2Block | undefined>;
 
   /**
    * Fetches the current block number.
@@ -353,11 +331,11 @@ export interface AztecNode
   getTxReceipt(txHash: TxHash): Promise<TxReceipt>;
 
   /**
-   * Get a tx effect.
-   * @param txHash - The hash of a transaction which resulted in the returned tx effect.
-   * @returns The requested tx effect.
+   * Gets a tx effect.
+   * @param txHash - The hash of the tx corresponding to the tx effect.
+   * @returns The requested tx effect with block info (or undefined if not found).
    */
-  getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined>;
+  getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined>;
 
   /**
    * Method to retrieve pending txs.
@@ -404,6 +382,9 @@ export interface AztecNode
    */
   getBlockHeader(blockNumber?: L2BlockNumber): Promise<BlockHeader | undefined>;
 
+  /** Returns stats for validators if enabled. */
+  getValidatorsStats(): Promise<ValidatorsStats>;
+
   /**
    * Simulates the public part of a transaction with the current state.
    * This currently just checks that the transaction execution succeeds.
@@ -422,12 +403,6 @@ export interface AztecNode
   isValidTx(tx: Tx, options?: { isSimulation?: boolean; skipFeeEnforcement?: boolean }): Promise<TxValidationResult>;
 
   /**
-   * Updates the configuration of this node.
-   * @param config - Updated configuration to be merged with the current one.
-   */
-  setConfig(config: Partial<SequencerConfig & ProverConfig>): Promise<void>;
-
-  /**
    * Returns a registered contract class given its id.
    * @param id - Id of the contract class.
    */
@@ -439,20 +414,10 @@ export interface AztecNode
    */
   getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
 
-  /** Forces the next block to be built bypassing all time and pending checks. Useful for testing. */
-  flushTxs(): Promise<void>;
-
   /**
    * Returns the ENR of this node for peer discovery, if available.
    */
   getEncodedEnr(): Promise<string | undefined>;
-
-  /**
-   * Adds a contract class bypassing the registerer.
-   * TODO(#10007): Remove this method.
-   * @param contractClass - The class to register.
-   */
-  addContractClass(contractClass: ContractClassPublic): Promise<void>;
 }
 
 export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
@@ -463,16 +428,6 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   findLeavesIndexes: z
     .function()
     .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.Fr))
-    .returns(z.array(optional(schemas.BigInt))),
-
-  findBlockNumbersForIndexes: z
-    .function()
-    .args(L2BlockNumberSchema, z.nativeEnum(MerkleTreeId), z.array(schemas.BigInt))
-    .returns(z.array(optional(schemas.BigInt))),
-
-  findNullifiersIndexesWithBlock: z
-    .function()
-    .args(L2BlockNumberSchema, z.array(schemas.Fr))
     .returns(z.array(optional(inBlockSchemaFor(schemas.BigInt)))),
 
   getNullifierSiblingPath: z
@@ -517,12 +472,9 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     .args(L2BlockNumberSchema, schemas.Fr)
     .returns(NullifierMembershipWitness.schema.optional()),
 
-  getPublicDataTreeWitness: z
-    .function()
-    .args(L2BlockNumberSchema, schemas.Fr)
-    .returns(PublicDataWitness.schema.optional()),
+  getPublicDataWitness: z.function().args(L2BlockNumberSchema, schemas.Fr).returns(PublicDataWitness.schema.optional()),
 
-  getBlock: z.function().args(z.number()).returns(L2Block.schema.optional()),
+  getBlock: z.function().args(L2BlockNumberSchema).returns(L2Block.schema.optional()),
 
   getBlockNumber: z.function().returns(z.number()),
 
@@ -533,6 +485,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
   getNodeInfo: z.function().returns(NodeInfoSchema),
 
   getBlocks: z.function().args(z.number(), z.number()).returns(z.array(L2Block.schema)),
+
+  getPublishedBlocks: z.function().args(z.number(), z.number()).returns(z.array(PublishedL2BlockSchema)),
 
   getCurrentBaseFees: z.function().returns(GasFees.schema),
 
@@ -563,7 +517,7 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getTxReceipt: z.function().args(TxHash.schema).returns(TxReceipt.schema),
 
-  getTxEffect: z.function().args(TxHash.schema).returns(inBlockSchemaFor(TxEffect.schema).optional()),
+  getTxEffect: z.function().args(TxHash.schema).returns(indexedTxSchema().optional()),
 
   getPendingTxs: z.function().returns(z.array(Tx.schema)),
 
@@ -577,6 +531,8 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
 
   getBlockHeader: z.function().args(optional(L2BlockNumberSchema)).returns(BlockHeader.schema.optional()),
 
+  getValidatorsStats: z.function().returns(ValidatorsStatsSchema),
+
   simulatePublicCalls: z.function().args(Tx.schema, optional(z.boolean())).returns(PublicSimulationOutput.schema),
 
   isValidTx: z
@@ -587,18 +543,11 @@ export const AztecNodeApiSchema: ApiSchemaFor<AztecNode> = {
     )
     .returns(TxValidationResultSchema),
 
-  setConfig: z.function().args(SequencerConfigSchema.merge(ProverConfigSchema).partial()).returns(z.void()),
-
   getContractClass: z.function().args(schemas.Fr).returns(ContractClassPublicSchema.optional()),
 
   getContract: z.function().args(schemas.AztecAddress).returns(ContractInstanceWithAddressSchema.optional()),
 
-  flushTxs: z.function().returns(z.void()),
-
   getEncodedEnr: z.function().returns(z.string().optional()),
-
-  // TODO(#10007): Remove this method
-  addContractClass: z.function().args(ContractClassPublicSchema).returns(z.void()),
 };
 
 export function createAztecNodeClient(

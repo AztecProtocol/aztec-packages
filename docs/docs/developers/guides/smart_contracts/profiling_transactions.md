@@ -21,7 +21,7 @@ In this guide, we will look at how to profile the private execution of a transac
 
 The profiling tool is integrated into the `aztec-wallet`.
 
-In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L263) method in the token contract.
+In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L263) method in the token contract.
 Let us start by deploying the token contarct (included in the Sandbox) and minting some tokens to the test account.
 
 ```bash
@@ -42,11 +42,11 @@ Now, the `test0` account can transfer tokens by running:
 aztec-wallet send transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
 
-Instead of sending the above transaction, you can simulate it by running the `simulate` command with the same parameters, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
+Instead of sending the above transaction, you can profile it by running the `profile` command with the same parameters.
 
 
 ```bash
-aztec-wallet simulate --profile transfer -ca token --args accounts:test1 40 -f accounts:test0
+aztec-wallet profile transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
 
 This will print the following results after some time:

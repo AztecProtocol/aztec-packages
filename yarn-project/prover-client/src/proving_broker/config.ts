@@ -5,7 +5,9 @@ import {
   getDefaultConfig,
   numberConfigHelper,
 } from '@aztec/foundation/config';
+import { pickConfigMappings } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 
 import { z } from 'zod';
@@ -21,6 +23,8 @@ export const ProverBrokerConfig = z.object({
   dataDirectory: z.string().optional(),
   /** The size of the data store map */
   dataStoreMapSizeKB: z.number().int().nonnegative(),
+  /** The size of the prover broker's database. Will override the dataStoreMapSizeKB if set. */
+  proverBrokerStoreMapSizeKB: z.number().int().nonnegative().optional(),
   /** The prover broker may batch jobs together before writing to the database */
   proverBrokerBatchSize: z.number().int().nonnegative(),
   /** How often the job batches get flushed */
@@ -31,7 +35,8 @@ export const ProverBrokerConfig = z.object({
 
 export type ProverBrokerConfig = z.infer<typeof ProverBrokerConfig> &
   Pick<DataStoreConfig, 'dataStoreMapSizeKB' | 'dataDirectory'> &
-  L1ReaderConfig;
+  L1ReaderConfig &
+  Pick<ChainConfig, 'rollupVersion'>;
 
 export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> = {
   proverBrokerJobTimeoutMs: {
@@ -64,8 +69,14 @@ export const proverBrokerConfigMappings: ConfigMappingsType<ProverBrokerConfig> 
     description: 'The maximum number of epochs to keep results for',
     ...numberConfigHelper(1),
   },
-  ...l1ReaderConfigMappings,
+  proverBrokerStoreMapSizeKB: {
+    env: 'PROVER_BROKER_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: "The size of the prover broker's database. Will override the dataStoreMapSizeKB if set.",
+  },
   ...dataConfigMappings,
+  ...l1ReaderConfigMappings,
+  ...pickConfigMappings(chainConfigMappings, ['rollupVersion']),
 };
 
 export const defaultProverBrokerConfig: ProverBrokerConfig = getDefaultConfig(proverBrokerConfigMappings);
@@ -118,7 +129,7 @@ export const proverAgentConfigMappings: ConfigMappingsType<ProverAgentConfig> = 
   realProofs: {
     env: 'PROVER_REAL_PROOFS',
     description: 'Whether to construct real proofs',
-    ...booleanConfigHelper(false),
+    ...booleanConfigHelper(true),
   },
   proverTestDelayType: {
     env: 'PROVER_TEST_DELAY_TYPE',

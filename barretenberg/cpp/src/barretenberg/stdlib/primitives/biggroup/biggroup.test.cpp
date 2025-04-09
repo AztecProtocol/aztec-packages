@@ -1754,7 +1754,7 @@ TYPED_TEST(stdlib_biggroup, dbl)
 TYPED_TEST(stdlib_biggroup, montgomery_ladder)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
     } else {
         TestFixture::test_montgomery_ladder();
     };
@@ -1793,7 +1793,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, short_scalar_mul_infinity)
 HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
     } else {
         TestFixture::test_twin_mul();
     };
@@ -1801,7 +1801,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, twin_mul)
 HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
     } else {
         TestFixture::test_triple_mul();
     };
@@ -1809,7 +1809,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, triple_mul)
 HEAVY_TYPED_TEST(stdlib_biggroup, quad_mul)
 {
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
     } else {
         TestFixture::test_quad_mul();
     };
@@ -1844,7 +1844,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, chain_add)
 {
 
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
     } else {
         TestFixture::test_chain_add();
     };
@@ -1853,7 +1853,7 @@ HEAVY_TYPED_TEST(stdlib_biggroup, multiple_montgomery_ladder)
 {
 
     if constexpr (HasGoblinBuilder<TypeParam>) {
-        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/707";
+        GTEST_SKIP() << "https://github.com/AztecProtocol/barretenberg/issues/1290";
     } else {
         TestFixture::test_multiple_montgomery_ladder();
     };

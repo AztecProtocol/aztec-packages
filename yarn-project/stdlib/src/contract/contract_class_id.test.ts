@@ -17,12 +17,6 @@ describe('ContractClass', () => {
             vkHash: Fr.fromHexString('0x1234'),
           },
         ],
-        publicFunctions: [
-          {
-            selector: FunctionSelector.fromString('0x12345678'),
-            bytecode: Buffer.from('123456789012345678901234567890', 'hex'),
-          },
-        ],
       };
       const contractClassId = await computeContractClassId(contractClass);
 

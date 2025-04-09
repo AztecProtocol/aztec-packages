@@ -1,12 +1,14 @@
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
+import { hash } from 'ohash';
 
 import type { AztecAsyncArray } from '../interfaces/array.js';
+import type { Value } from '../interfaces/common.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**
  * A persistent array backed by IndexedDB.
  */
-export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
+export class IndexedDBAztecArray<T extends Value> implements AztecAsyncArray<T> {
   #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
   #container: string;
@@ -39,6 +41,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
     for (const val of vals) {
       await this.db.put({
         value: val,
+        hash: hash(val),
         container: this.#container,
         key: this.#name,
         keyCount: length + 1,
@@ -86,6 +89,7 @@ export class IndexedDBAztecArray<T> implements AztecAsyncArray<T> {
 
     await this.db.put({
       value: val,
+      hash: hash(val),
       container: this.#container,
       key: this.#name,
       keyCount: index + 1,

@@ -1,7 +1,0 @@
-[package]
-name = "embedded_curve_add_simplification"
-type = "bin"
-authors = [""]
-compiler_version = ">=0.23.0"
-
-[dependencies]

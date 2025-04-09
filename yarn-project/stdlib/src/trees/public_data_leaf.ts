@@ -13,17 +13,13 @@ import { z } from 'zod';
 export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   constructor(
     /**
-     * The slot of the leaf
+     * The leaf (slot, value).
      */
-    public slot: Fr,
+    public leaf: PublicDataTreeLeaf,
     /**
-     * The value of the leaf
+     * Next key (slot) inside the indexed tree's linked list.
      */
-    public value: Fr,
-    /**
-     * Next value inside the indexed tree's linked list.
-     */
-    public nextSlot: Fr,
+    public nextKey: Fr,
     /**
      * Index of the next leaf in the indexed tree's linked list.
      */
@@ -33,22 +29,23 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   static get schema() {
     return z
       .object({
-        slot: schemas.Fr,
-        value: schemas.Fr,
-        nextSlot: schemas.Fr,
+        leaf: PublicDataTreeLeaf.schema,
+        nextKey: schemas.Fr,
         nextIndex: schemas.BigInt,
       })
-      .transform(
-        ({ slot, value, nextSlot, nextIndex }) => new PublicDataTreeLeafPreimage(slot, value, nextSlot, nextIndex),
-      );
+      .transform(({ leaf, nextKey, nextIndex }) => new PublicDataTreeLeafPreimage(leaf, nextKey, nextIndex));
+  }
+
+  static get leafSchema() {
+    return PublicDataTreeLeaf.schema;
   }
 
   getKey(): bigint {
-    return this.slot.toBigInt();
+    return this.leaf.getKey();
   }
 
   getNextKey(): bigint {
-    return this.nextSlot.toBigInt();
+    return this.nextKey.toBigInt();
   }
 
   getNextIndex(): bigint {
@@ -56,7 +53,7 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
   }
 
   asLeaf(): PublicDataTreeLeaf {
-    return new PublicDataTreeLeaf(this.slot, this.value);
+    return this.leaf;
   }
 
   toBuffer(): Buffer {
@@ -65,45 +62,42 @@ export class PublicDataTreeLeafPreimage implements IndexedTreeLeafPreimage {
 
   toHashInputs(): Buffer[] {
     return [
-      Buffer.from(this.slot.toBuffer()),
-      Buffer.from(this.value.toBuffer()),
+      ...this.leaf.toHashInputs(),
       Buffer.from(toBufferBE(this.nextIndex, 32)),
-      Buffer.from(this.nextSlot.toBuffer()),
+      Buffer.from(this.nextKey.toBuffer()),
     ];
   }
 
   clone(): PublicDataTreeLeafPreimage {
-    return new PublicDataTreeLeafPreimage(this.slot, this.value, this.nextSlot, this.nextIndex);
+    return new PublicDataTreeLeafPreimage(this.leaf.clone(), this.nextKey, this.nextIndex);
   }
 
   static random() {
     return new PublicDataTreeLeafPreimage(
-      Fr.random(),
-      Fr.random(),
+      PublicDataTreeLeaf.buildDummy(BigInt(Math.floor(Math.random() * 1000))),
       Fr.random(),
       BigInt(Math.floor(Math.random() * 1000)),
     );
   }
 
   static empty(): PublicDataTreeLeafPreimage {
-    return new PublicDataTreeLeafPreimage(Fr.ZERO, Fr.ZERO, Fr.ZERO, 0n);
+    return new PublicDataTreeLeafPreimage(PublicDataTreeLeaf.empty(), Fr.ZERO, 0n);
   }
 
   static fromBuffer(buffer: Buffer | BufferReader): PublicDataTreeLeafPreimage {
     const reader = BufferReader.asReader(buffer);
-    const slot = Fr.fromBuffer(reader);
-    const value = Fr.fromBuffer(reader);
+    const value = PublicDataTreeLeaf.fromBuffer(reader);
     const nextIndex = toBigIntBE(reader.readBytes(32));
     const nextSlot = Fr.fromBuffer(reader);
-    return new PublicDataTreeLeafPreimage(slot, value, nextSlot, nextIndex);
+    return new PublicDataTreeLeafPreimage(value, nextSlot, nextIndex);
   }
 
   static fromLeaf(leaf: PublicDataTreeLeaf, nextKey: bigint, nextIndex: bigint): PublicDataTreeLeafPreimage {
-    return new PublicDataTreeLeafPreimage(leaf.slot, leaf.value, new Fr(nextKey), nextIndex);
+    return new PublicDataTreeLeafPreimage(leaf, new Fr(nextKey), nextIndex);
   }
 
   static clone(preimage: PublicDataTreeLeafPreimage): PublicDataTreeLeafPreimage {
-    return new PublicDataTreeLeafPreimage(preimage.slot, preimage.value, preimage.nextSlot, preimage.nextIndex);
+    return preimage.clone();
   }
 }
 
@@ -128,6 +122,14 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
 
   toBuffer() {
     return serializeToBuffer([this.slot, this.value]);
+  }
+
+  clone(): PublicDataTreeLeaf {
+    return new PublicDataTreeLeaf(this.slot, this.value);
+  }
+
+  toHashInputs(): Buffer[] {
+    return [this.slot.toBuffer(), this.value.toBuffer()];
   }
 
   static fromBuffer(buffer: Buffer | BufferReader) {
@@ -160,5 +162,14 @@ export class PublicDataTreeLeaf implements IndexedTreeLeaf {
 
   static empty(): PublicDataTreeLeaf {
     return new PublicDataTreeLeaf(Fr.ZERO, Fr.ZERO);
+  }
+
+  static get schema() {
+    return z
+      .object({
+        slot: schemas.Fr,
+        value: schemas.Fr,
+      })
+      .transform(({ slot, value }) => new PublicDataTreeLeaf(slot, value));
   }
 }

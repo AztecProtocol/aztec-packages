@@ -1,11 +1,13 @@
 import type { Logger } from '@aztec/foundation/log';
 import { GovernanceAbi } from '@aztec/l1-artifacts/GovernanceAbi';
-import { TestERC20Abi as FeeJuiceAbi } from '@aztec/l1-artifacts/TestERC20Abi';
+import { TestERC20Abi as StakingAssetAbi } from '@aztec/l1-artifacts/TestERC20Abi';
 
 import { type GetContractReturnType, type PrivateKeyAccount, getContract } from 'viem';
 
+import { extractProposalIdFromLogs } from '../contracts/governance.js';
 import { EthCheatCodes } from '../eth_cheat_codes.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import { L1TxUtils } from '../l1_tx_utils.js';
 import type { L1Clients } from '../types.js';
 
 export async function executeGovernanceProposal(
@@ -20,13 +22,12 @@ export async function executeGovernanceProposal(
 ) {
   const proposal = await governance.read.getProposal([proposalId]);
 
+  const l1TxUtils = new L1TxUtils(publicClient, walletClient);
+
   const waitL1Block = async () => {
-    await publicClient.waitForTransactionReceipt({
-      hash: await walletClient.sendTransaction({
-        to: privateKey.address,
-        value: 1n,
-        account: privateKey,
-      }),
+    await l1TxUtils.sendAndMonitorTransaction({
+      to: walletClient.account.address,
+      value: 1n,
     });
   };
 
@@ -60,10 +61,14 @@ export async function createGovernanceProposal(
   privateKey: PrivateKeyAccount,
   publicClient: L1Clients['publicClient'],
   logger: Logger,
-): Promise<{ governance: GetContractReturnType<typeof GovernanceAbi, L1Clients['publicClient']>; voteAmount: bigint }> {
+): Promise<{
+  governance: GetContractReturnType<typeof GovernanceAbi, L1Clients['publicClient']>;
+  voteAmount: bigint;
+  proposalId: bigint;
+}> {
   const token = getContract({
-    address: addresses.feeJuiceAddress.toString(),
-    abi: FeeJuiceAbi,
+    address: addresses.stakingAssetAddress.toString(),
+    abi: StakingAssetAbi,
     client: publicClient,
   });
 
@@ -92,9 +97,13 @@ export async function createGovernanceProposal(
   await publicClient.waitForTransactionReceipt({ hash: depositTx });
   logger.info(`Deposited tokens`);
 
-  await governance.write.proposeWithLock([payloadAddress, privateKey.address], {
+  const proposeTx = await governance.write.proposeWithLock([payloadAddress, privateKey.address], {
     account: privateKey,
   });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash: proposeTx });
+  logger.info(`Proposed upgrade`);
 
-  return { governance, voteAmount };
+  const proposalId = extractProposalIdFromLogs(receipt.logs);
+
+  return { governance, voteAmount, proposalId };
 }

@@ -35,8 +35,6 @@ template <typename Builder> bool UltraCircuitChecker::check(const Builder& build
     MemoryCheckData memory_data{ builder };
 
     bool result = true;
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/870): Currently we check all relations for each block.
-    // Once sorting is complete, is will be sufficient to check only the relevant relation(s) per block.
     size_t block_idx = 0;
     for (auto& block : builder.blocks.get()) {
         result = result && check_block(builder, block, tag_data, memory_data, lookup_hash_table);

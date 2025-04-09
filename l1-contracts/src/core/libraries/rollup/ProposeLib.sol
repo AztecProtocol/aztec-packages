@@ -12,14 +12,7 @@ import {MerkleLib} from "@aztec/core/libraries/crypto/MerkleLib.sol";
 import {SignatureLib} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Signature} from "@aztec/core/libraries/crypto/SignatureLib.sol";
 import {Errors} from "@aztec/core/libraries/Errors.sol";
-import {
-  OracleInput,
-  FeeMath,
-  ManaBaseFeeComponents,
-  L1FeeData,
-  FeeAssetPerEthE9,
-  FeeHeader
-} from "@aztec/core/libraries/rollup/FeeMath.sol";
+import {OracleInput, FeeLib, ManaBaseFeeComponents} from "@aztec/core/libraries/rollup/FeeLib.sol";
 import {StakingLib} from "@aztec/core/libraries/staking/StakingLib.sol";
 import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol";
 import {ValidatorSelectionLib} from
@@ -67,25 +60,6 @@ library ProposeLib {
   using TimeLib for Slot;
   using TimeLib for Epoch;
 
-  Slot internal constant LIFETIME = Slot.wrap(5);
-  Slot internal constant LAG = Slot.wrap(2);
-
-  function updateL1GasFeeOracle() internal {
-    Slot slot = Timestamp.wrap(block.timestamp).slotFromTimestamp();
-    // The slot where we find a new queued value acceptable
-    RollupStore storage rollupStore = STFLib.getStorage();
-    Slot acceptableSlot = rollupStore.l1GasOracleValues.slotOfChange + (LIFETIME - LAG);
-
-    if (slot < acceptableSlot) {
-      return;
-    }
-
-    rollupStore.l1GasOracleValues.pre = rollupStore.l1GasOracleValues.post;
-    rollupStore.l1GasOracleValues.post =
-      L1FeeData({baseFee: block.basefee, blobFee: BlobLib.getBlobBaseFee()});
-    rollupStore.l1GasOracleValues.slotOfChange = slot + LAG;
-  }
-
   /**
    * @notice  Publishes the body and propose the block
    * @dev     `eth_log_handlers` rely on this function
@@ -103,7 +77,7 @@ library ProposeLib {
     if (STFLib.canPruneAtTime(Timestamp.wrap(block.timestamp))) {
       STFLib.prune();
     }
-    updateL1GasFeeOracle();
+    FeeLib.updateL1GasFeeOracle();
 
     InterimProposeValues memory v;
     // Since an invalid blob hash here would fail the consensus checks of
@@ -124,7 +98,7 @@ library ProposeLib {
         attestations: _signatures,
         digest: digest(_args),
         currentTime: Timestamp.wrap(block.timestamp),
-        manaBaseFee: FeeMath.summedBaseFee(components),
+        manaBaseFee: FeeLib.summedBaseFee(components),
         blobsHashesCommitment: v.blobsHashesCommitment,
         flags: BlockHeaderValidationFlags({ignoreDA: false, ignoreSignatures: false})
       })
@@ -133,8 +107,19 @@ library ProposeLib {
     RollupStore storage rollupStore = STFLib.getStorage();
     uint256 blockNumber = ++rollupStore.tips.pendingBlockNumber;
 
-    rollupStore.blocks[blockNumber] =
-      toBlockLog(_args, header, blockNumber, components.congestionCost, components.provingCost);
+    rollupStore.blocks[blockNumber] = BlockLog({
+      archive: _args.archive,
+      blockHash: _args.blockHash,
+      slotNumber: header.globalVariables.slotNumber
+    });
+
+    FeeLib.writeFeeHeader(
+      blockNumber,
+      _args.oracleInput.feeAssetPriceModifier,
+      header.totalManaUsed,
+      components.congestionCost,
+      components.provingCost
+    );
 
     rollupStore.blobPublicInputsHashes[blockNumber] = v.blobPublicInputsHash;
 
@@ -155,69 +140,14 @@ library ProposeLib {
     emit IRollupCore.L2BlockProposed(blockNumber, _args.archive, v.blobHashes);
   }
 
-  function getL1FeesAt(Timestamp _timestamp) internal view returns (L1FeeData memory) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    return _timestamp.slotFromTimestamp() < rollupStore.l1GasOracleValues.slotOfChange
-      ? rollupStore.l1GasOracleValues.pre
-      : rollupStore.l1GasOracleValues.post;
-  }
-
-  function getFeeAssetPerEth() internal view returns (FeeAssetPerEthE9) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    return FeeMath.getFeeAssetPerEth(
-      rollupStore.blocks[rollupStore.tips.pendingBlockNumber].feeHeader.feeAssetPriceNumerator
-    );
-  }
-
-  /**
-   * @notice  Gets the mana base fee components
-   *          For more context, consult:
-   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
-   *
-   * @param _timestamp - The timestamp of the block
-   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
-   *
-   * @return The mana base fee components
-   */
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
-    internal
-    view
-    returns (ManaBaseFeeComponents memory)
-  {
-    RollupStore storage rollupStore = STFLib.getStorage();
-
-    // If we are not the canonical rollup, we cannot claim any fees, so we return 0s
-    // The congestion multiplier could be computed, but as it could only be used to guide
-    // might as well save the gas and anyone interested can do it off-chain.
-    if (address(this) != rollupStore.config.feeAssetPortal.canonicalRollup()) {
-      return ManaBaseFeeComponents({
-        congestionCost: 0,
-        provingCost: 0,
-        congestionMultiplier: 0,
-        dataCost: 0,
-        gasCost: 0
-      });
-    }
-
-    // If we can prune, we use the proven block, otherwise the pending block
-    uint256 blockOfInterest = STFLib.canPruneAtTime(_timestamp)
-      ? rollupStore.tips.provenBlockNumber
-      : rollupStore.tips.pendingBlockNumber;
-
-    return FeeMath.getManaBaseFeeComponentsAt(
-      rollupStore.blocks[blockOfInterest].feeHeader,
-      getL1FeesAt(_timestamp),
-      rollupStore.provingCostPerMana,
-      _inFeeAsset ? getFeeAssetPerEth() : FeeAssetPerEthE9.wrap(1e9),
-      TimeLib.getStorage().epochDuration
-    );
-  }
-
-  function validateHeader(ValidateHeaderArgs memory _args) internal view {
+  // @note: not view as sampling validators uses tstore
+  function validateHeader(ValidateHeaderArgs memory _args) internal {
     require(
       block.chainid == _args.header.globalVariables.chainId,
       Errors.Rollup__InvalidChainId(block.chainid, _args.header.globalVariables.chainId)
     );
+
+    require(_args.header.totalManaUsed <= FeeLib.getManaLimit(), Errors.Rollup__ManaLimitExceeded());
 
     RollupStore storage rollupStore = STFLib.getStorage();
 
@@ -228,9 +158,7 @@ library ProposeLib {
       )
     );
 
-    uint256 pendingBlockNumber = STFLib.canPruneAtTime(_args.currentTime)
-      ? rollupStore.tips.provenBlockNumber
-      : rollupStore.tips.pendingBlockNumber;
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_args.currentTime);
 
     require(
       _args.header.globalVariables.blockNumber == pendingBlockNumber + 1,
@@ -286,33 +214,26 @@ library ProposeLib {
     );
   }
 
-  function digest(ProposeArgs memory _args) internal pure returns (bytes32) {
-    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
+  /**
+   * @notice  Gets the mana base fee components
+   *          For more context, consult:
+   *          https://github.com/AztecProtocol/engineering-designs/blob/main/in-progress/8757-fees/design.md
+   *
+   * @param _timestamp - The timestamp of the block
+   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
+   *
+   * @return The mana base fee components
+   */
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+    internal
+    view
+    returns (ManaBaseFeeComponents memory)
+  {
+    uint256 blockOfInterest = STFLib.getEffectivePendingBlockNumber(_timestamp);
+    return FeeLib.getManaBaseFeeComponentsAt(blockOfInterest, _timestamp, _inFeeAsset);
   }
 
-  // Helper to avoid stack too deep
-  function toBlockLog(
-    ProposeArgs calldata _args,
-    Header memory _header,
-    uint256 _blockNumber,
-    uint256 _congestionCost,
-    uint256 _provingCost
-  ) private view returns (BlockLog memory) {
-    RollupStore storage rollupStore = STFLib.getStorage();
-    FeeHeader storage parentFeeHeader = rollupStore.blocks[_blockNumber - 1].feeHeader;
-    return BlockLog({
-      archive: _args.archive,
-      blockHash: _args.blockHash,
-      slotNumber: _header.globalVariables.slotNumber,
-      feeHeader: FeeHeader({
-        excessMana: FeeMath.computeExcessMana(parentFeeHeader),
-        feeAssetPriceNumerator: FeeMath.clampedAdd(
-          parentFeeHeader.feeAssetPriceNumerator, _args.oracleInput.feeAssetPriceModifier
-        ),
-        manaUsed: _header.totalManaUsed,
-        congestionCost: _congestionCost,
-        provingCost: _provingCost
-      })
-    });
+  function digest(ProposeArgs memory _args) internal pure returns (bytes32) {
+    return keccak256(abi.encode(SignatureLib.SignatureDomainSeparator.blockAttestation, _args));
   }
 }

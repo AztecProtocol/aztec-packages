@@ -18,6 +18,7 @@ import {
   type FunctionAbi,
   getDefaultInitializer,
   getInitializer,
+  getAllFunctionAbis,
 } from '@aztec/stdlib/abi';
 import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/fnParameter';
@@ -44,10 +45,12 @@ export function DeployContractDialog({
   const [parameters, setParameters] = useState([]);
   const [deploying, setDeploying] = useState(false);
   const { wallet, setLogsOpen } = useContext(AztecContext);
+  const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
 
   useEffect(() => {
     const defaultInitializer = getDefaultInitializer(contractArtifact);
     setInitializer(defaultInitializer);
+    setFunctionAbis(getAllFunctionAbis(contractArtifact));
   }, [contractArtifact]);
 
   const handleParameterChange = (index, value) => {
@@ -98,12 +101,12 @@ export function DeployContractDialog({
                 <Select
                   value={initializer?.name ?? ''}
                   label="Initializer"
-                  disabled={!contractArtifact.functions.some(fn => fn.isInitializer)}
+                  disabled={!functionAbis.some(fn => fn.isInitializer)}
                   onChange={e => {
                     setInitializer(getInitializer(contractArtifact, e.target.value));
                   }}
                 >
-                  {contractArtifact.functions
+                  {functionAbis
                     .filter(fn => fn.isInitializer)
                     .map(fn => (
                       <MenuItem key={fn.name} value={fn.name}>
