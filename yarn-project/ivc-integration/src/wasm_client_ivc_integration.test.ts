@@ -20,7 +20,6 @@ import {
   MockPrivateKernelResetVk,
   MockPrivateKernelTailCircuit,
   getVkAsFields,
-  proveThenVerifyAztecClient,
   witnessGenCreatorAppMockCircuit,
   witnessGenMockPrivateKernelInitCircuit,
   witnessGenMockPrivateKernelInnerCircuit,
@@ -28,6 +27,7 @@ import {
   witnessGenMockPrivateKernelTailCircuit,
   witnessGenReaderAppMockCircuit,
 } from './index.js';
+import { proveThenVerifyAztecClient } from './prove_wasm.js';
 
 const logger = createDebug('ivc-integration:test:wasm');
 createDebug.enable('*');

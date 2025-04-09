@@ -332,6 +332,7 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
    * @param msgContent - The content of the private event message.
    * @param txHash - The hash of the transaction that emitted the log.
    * @param logIndexInTx - The index of the log within the transaction.
+   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
    */
   storePrivateEventLog(
     contractAddress: AztecAddress,
@@ -340,5 +341,6 @@ export interface ExecutionDataProvider extends CommitmentsDBInterface {
     msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void>;
 }

@@ -15,7 +15,7 @@ import { fileURLToPath } from 'url';
 import { BB_RESULT, PROOF_FILENAME, VK_FILENAME, verifyClientIvcProof, verifyProof } from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
 import { getUltraHonkFlavorForCircuit } from '../honk.js';
-import { writeToOutputDirectory } from '../prover/client_ivc_proof_utils.js';
+import { writeClientIVCProofToOutputDirectory } from '../prover/proof_utils.js';
 import { mapProtocolArtifactNameToCircuitName } from '../stats.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -91,7 +91,7 @@ export class BBCircuitVerifier implements ClientProtocolCircuitVerifier {
           this.logger.debug(`${circuit} BB out - ${message}`);
         };
 
-        await writeToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
+        await writeClientIVCProofToOutputDirectory(tx.clientIvcProof, bbWorkingDirectory);
         const result = await verifyClientIvcProof(
           this.config.bbBinaryPath,
           bbWorkingDirectory.concat('/proof'),

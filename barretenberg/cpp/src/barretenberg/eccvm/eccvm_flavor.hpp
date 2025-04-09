@@ -522,8 +522,8 @@ class ECCVMFlavor {
             const auto& msm_rows = std::get<0>(result);
             const auto& point_table_read_counts = std::get<1>(result);
 
-            const size_t num_rows =
-                std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) + MASKING_OFFSET;
+            const size_t num_rows = std::max({ point_table_rows.size(), msm_rows.size(), transcript_rows.size() }) +
+                                    NUM_DISABLED_ROWS_IN_SUMCHECK;
             const auto log_num_rows = static_cast<size_t>(numeric::get_msb64(num_rows));
 
             size_t dyadic_num_rows = 1UL << (log_num_rows + (1UL << log_num_rows == num_rows ? 0 : 1));
@@ -533,7 +533,7 @@ class ECCVMFlavor {
             }
 
             dyadic_num_rows = ECCVM_FIXED_SIZE;
-            size_t unmasked_witness_size = dyadic_num_rows - MASKING_OFFSET;
+            size_t unmasked_witness_size = dyadic_num_rows - NUM_DISABLED_ROWS_IN_SUMCHECK;
 
             for (auto& poly : get_to_be_shifted()) {
                 poly = Polynomial{ /*memory size*/ dyadic_num_rows - 1,

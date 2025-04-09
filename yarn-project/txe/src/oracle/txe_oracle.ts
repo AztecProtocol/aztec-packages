@@ -1258,6 +1258,7 @@ export class TXE implements TypedOracle {
     logContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
   ): Promise<void> {
     return this.pxeOracleInterface.storePrivateEventLog(
       contractAddress,
@@ -1266,6 +1267,7 @@ export class TXE implements TypedOracle {
       logContent,
       txHash,
       logIndexInTx,
+      txIndexInBlock,
     );
   }
 }
