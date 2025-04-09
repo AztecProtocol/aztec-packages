@@ -61,7 +61,7 @@ template <typename TestType> class stdlib_biggroup : public testing::Test {
         Builder builder;
         affine_element input_a(element::random_element());
 
-        element_ct a = element_ct::from_witness(&builder, input_a);
+        element_ct a = element_ct::from_witness(builder, input_a);
         a.set_origin_tag(next_submitted_value_origin_tag);
         // Tag is preserved after being set
         EXPECT_EQ(a.get_origin_tag(), next_submitted_value_origin_tag);
