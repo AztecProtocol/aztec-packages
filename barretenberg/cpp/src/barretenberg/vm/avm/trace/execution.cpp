@@ -40,10 +40,10 @@
 #include <variant>
 #include <vector>
 
-using namespace bb;
-
+namespace bb {
 // Set in BB's main.cpp.
 std::filesystem::path avm_dump_trace_path;
+} // namespace bb
 
 namespace bb::avm_trace {
 

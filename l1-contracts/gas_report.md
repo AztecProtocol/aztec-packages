@@ -88,7 +88,7 @@
 | src/governance/CoinIssuer.sol:CoinIssuer contract |                 |       |        |       |         |
 |---------------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                                   | Deployment Size |       |        |       |         |
-| 326433                                            | 1465            |       |        |       |         |
+| 326553                                            | 1465            |       |        |       |         |
 | Function Name                                     | min             | avg   | median | max   | # calls |
 | RATE                                              | 239             | 239   | 239    | 239   | 768     |
 | mint                                              | 23901           | 43849 | 26631  | 81131 | 768     |
@@ -99,37 +99,37 @@
 | Deployment Cost                                   | Deployment Size |        |        |        |         |
 | 2332350                                           | 10841           |        |        |        |         |
 | Function Name                                     | min             | avg    | median | max    | # calls |
-| deposit                                           | 27965           | 171787 | 186596 | 188519 | 9729    |
+| deposit                                           | 27965           | 171780 | 186596 | 188519 | 9731    |
 | dropProposal                                      | 23739           | 40533  | 33600  | 63600  | 2307    |
-| execute                                           | 26209           | 70507  | 71327  | 152243 | 3076    |
+| execute                                           | 26209           | 70527  | 71327  | 152243 | 3077    |
 | finaliseWithdraw                                  | 23757           | 45261  | 48283  | 65383  | 6017    |
-| getConfiguration                                  | 1913            | 12163  | 19913  | 19913  | 5396    |
-| getProposal                                       | 3523            | 8023   | 3523   | 31523  | 10590   |
-| getProposalState                                  | 469             | 11470  | 13558  | 21242  | 23311   |
+| getConfiguration                                  | 1913            | 12165  | 19913  | 19913  | 5397    |
+| getProposal                                       | 3523            | 8020   | 3523   | 31523  | 10595   |
+| getProposalState                                  | 469             | 11468  | 13558  | 21242  | 23315   |
 | getWithdrawal                                     | 1075            | 1075   | 1075   | 1075   | 10166   |
 | governanceProposer                                | 424             | 1418   | 424    | 2424   | 515     |
 | initiateWithdraw                                  | 30945           | 199174 | 211342 | 228958 | 7573    |
 | powerAt                                           | 1042            | 1412   | 1042   | 3029   | 4608    |
-| proposalCount                                     | 338             | 1714   | 2338   | 2338   | 1116    |
-| propose                                           | 23763           | 321926 | 320487 | 337587 | 606     |
-| proposeWithLock                                   | 26545           | 421004 | 422627 | 422627 | 257     |
+| proposalCount                                     | 338             | 1709   | 2338   | 2338   | 1121    |
+| propose                                           | 23763           | 321944 | 320487 | 337587 | 610     |
+| proposeWithLock                                   | 26545           | 421011 | 422627 | 422627 | 258     |
 | totalPowerAt                                      | 612             | 1566   | 883    | 3568   | 6093    |
 | updateConfiguration                               | 23457           | 32910  | 24180  | 48186  | 6145    |
 | updateGovernanceProposer                          | 21705           | 27183  | 28016  | 28028  | 2048    |
-| vote                                              | 30670           | 87818  | 94478  | 94500  | 12289   |
+| vote                                              | 30670           | 87818  | 94478  | 94500  | 12290   |
 | withdrawalCount                                   | 383             | 391    | 383    | 2383   | 2508    |
 | src/governance/Registry.sol:Registry contract |                 |       |        |       |         |
 |-----------------------------------------------|-----------------|-------|--------|-------|---------|
 | Deployment Cost                               | Deployment Size |       |        |       |         |
 | 845410                                        | 4070            |       |        |       |         |
 | Function Name                                 | min             | avg   | median | max   | # calls |
-| addRollup                                     | 23721           | 90721 | 95470  | 97461 | 4151    |
-| getCanonicalRollup                            | 1016            | 6998  | 7016   | 7016  | 865880  |
+| addRollup                                     | 23721           | 90722 | 95470  | 97461 | 4152    |
+| getCanonicalRollup                            | 1016            | 6998  | 7016   | 7016  | 865883  |
 | getGovernance                                 | 309             | 2142  | 2309   | 2309  | 3086    |
 | getRewardDistributor                          | 267             | 267   | 267    | 267   | 2347    |
 | getRollup                                     | 592             | 592   | 592    | 592   | 1       |
-| numberOfVersions                              | 325             | 325   | 325    | 325   | 1       |
-| transferOwnership                             | 28665           | 28665 | 28665  | 28665 | 106     |
+| numberOfVersions                              | 325             | 325   | 325    | 325   | 2       |
+| transferOwnership                             | 28665           | 28665 | 28665  | 28665 | 107     |
 | updateGovernance                              | 47218           | 47218 | 47218  | 47218 | 19      |
 | src/governance/RewardDistributor.sol:RewardDistributor contract |                 |       |        |       |         |
 |-----------------------------------------------------------------|-----------------|-------|--------|-------|---------|

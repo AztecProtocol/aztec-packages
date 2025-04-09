@@ -14,7 +14,7 @@ std::vector<uint8_t> download_bn254_g1_data(size_t num_points)
     auto data = exec_pipe(command);
     // Header + num_points * sizeof point.
     if (data.size() < g1_end) {
-        throw std::runtime_error("Failed to download g1 data.");
+        THROW std::runtime_error("Failed to download g1 data.");
     }
 
     return data;
