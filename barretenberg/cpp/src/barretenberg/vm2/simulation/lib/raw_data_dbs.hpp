@@ -38,7 +38,7 @@ class HintedRawContractDB final : public ContractDBInterface {
 // This class interacts with the external world, without emiting any simulation events.
 class HintedRawMerkleDB final : public LowLevelMerkleDBInterface {
   public:
-    HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots);
+    HintedRawMerkleDB(const ExecutionHints& hints);
 
     const TreeSnapshots& get_tree_roots() const override { return tree_roots; }
 

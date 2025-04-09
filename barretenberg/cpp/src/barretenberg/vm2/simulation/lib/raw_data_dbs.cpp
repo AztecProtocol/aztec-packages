@@ -148,8 +148,8 @@ FF HintedRawContractDB::get_bytecode_commitment(const ContractClassId& class_id)
 }
 
 // Hinted MerkleDB starts.
-HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints, const TreeSnapshots& tree_roots)
-    : tree_roots(tree_roots)
+HintedRawMerkleDB::HintedRawMerkleDB(const ExecutionHints& hints)
+    : tree_roots(hints.startingTreeRoots)
 {
     vinfo("Initializing HintedRawMerkleDB with...",
           "\n * get_sibling_path_hints: ",
