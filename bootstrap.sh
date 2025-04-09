@@ -84,7 +84,7 @@ function check_toolchains {
       echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
       echo "  foundryup -i $foundry_version"
-      echo "If this is in a CI environment, the correct version will be installed automatically."
+      exit 1
     fi
   done
   # Check Node.js version.
