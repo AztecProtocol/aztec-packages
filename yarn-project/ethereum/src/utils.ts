@@ -203,7 +203,6 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     return new FormattedViemError(error.message, (error as any)?.metaMessages);
   }
 
-  // Original formatting logic for non-custom errors
   const truncateHex = (hex: string, length = 100) => {
     if (!hex || typeof hex !== 'string') {
       return hex;
@@ -219,6 +218,28 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
       return `${hex.slice(0, length)}...<${hex.length - length * 2} chars omitted>...${hex.slice(-length)}`;
     }
     return `${hex.slice(0, length)}...${hex.slice(-length)}`;
+  };
+
+  const replaceHexStrings = (
+    text: string,
+    options: {
+      minLength?: number;
+      maxLength?: number;
+      truncateLength?: number;
+      pattern?: RegExp;
+      transform?: (hex: string) => string;
+    } = {},
+  ): string => {
+    const {
+      minLength = 10,
+      maxLength = Infinity,
+      truncateLength = 100,
+      pattern,
+      transform = hex => truncateHex(hex, truncateLength),
+    } = options;
+
+    const hexRegex = pattern ?? new RegExp(`(0x[a-fA-F0-9]{${minLength},${maxLength}})`, 'g');
+    return text.replace(hexRegex, match => transform(match));
   };
 
   const formatRequestBody = (body: string) => {
@@ -239,9 +260,9 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
           return JSON.stringify(parsed, null, 2);
         } catch {
           // If specific parsing fails, fall back to regex-based truncation
-          const paramRegex = /"params":\s*\[\s*"(0x[a-fA-F0-9]{1000,})"\s*\]/g;
-          return body.replace(paramRegex, (match, hex) => {
-            return `"params":["${truncateHex(hex, 200)}"]`;
+          return replaceHexStrings(body, {
+            pattern: /"params":\s*\[\s*"(0x[a-fA-F0-9]{1000,})"\s*\]/g,
+            transform: hex => `"params":["${truncateHex(hex, 200)}"]`,
           });
         }
       }
@@ -251,12 +272,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
         const jsonStart = body.indexOf('{');
         const jsonEnd = body.lastIndexOf('}');
         if (jsonStart >= 0 && jsonEnd > jsonStart) {
-          const hexMatch = body.match(/0x[a-fA-F0-9]{10000,}/);
-          if (hexMatch) {
-            const hex = hexMatch[0];
-            const truncated = truncateHex(hex, 200);
-            return body.substring(0, jsonStart + 1) + `"params":["${truncated}"]` + body.substring(jsonEnd);
-          }
+          return replaceHexStrings(body, { minLength: 10000, truncateLength: 200 });
         }
       }
 
@@ -287,28 +303,21 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
       return JSON.stringify(processed, null, 2);
     } catch {
       // If JSON parsing fails, do a simple truncation of any large hex strings
-      const hexRegex = /(0x[a-fA-F0-9]{1000,})/g;
-      return body.replace(hexRegex, match => truncateHex(match, 150));
+      return replaceHexStrings(body, { minLength: 1000, truncateLength: 150 });
     }
-  };
-
-  const truncateHexStringsInText = (text: string): string => {
-    const hexRegex = /\b0x[a-fA-F0-9]{10,}/g;
-    return text.replace(hexRegex, hex => truncateHex(hex));
   };
 
   const extractAndFormatRequestBody = (message: string): string => {
     // First check if message is extremely large and contains very large hex strings
     if (message.length > 50000) {
-      const hexRegex = /(0x[a-fA-F0-9]{10000,})/g;
-      message = message.replace(hexRegex, match => truncateHex(match, 200));
+      message = replaceHexStrings(message, { minLength: 10000, truncateLength: 200 });
     }
 
     // Add a specific check for RPC calls with large params
     if (message.includes('"method":"eth_sendRawTransaction"')) {
-      const paramRegex = /"params":\s*\[\s*"(0x[a-fA-F0-9]{1000,})"\s*\]/g;
-      message = message.replace(paramRegex, (match, hex) => {
-        return `"params":["${truncateHex(hex, 200)}"]`;
+      message = replaceHexStrings(message, {
+        pattern: /"params":\s*\[\s*"(0x[a-fA-F0-9]{1000,})"\s*\]/g,
+        transform: hex => `"params":["${truncateHex(hex, 200)}"]`,
       });
     }
 
@@ -329,11 +338,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
           const [prefix, content] = [line.slice(0, colonIndex + 1), line.slice(colonIndex + 1).trim()];
           // If content contains a hex string, truncate it
           if (content.includes('0x')) {
-            const hexMatches = content.match(/0x[a-fA-F0-9]+/g) || [];
-            let processedContent = content;
-            hexMatches.forEach(hex => {
-              processedContent = processedContent.replace(hex, truncateHex(hex));
-            });
+            const processedContent = replaceHexStrings(content);
             return `${prefix} ${processedContent}`;
           }
         }
@@ -343,7 +348,7 @@ export function formatViemError(error: any, abi: Abi = ErrorsAbi): FormattedViem
     });
 
     // Finally, catch any remaining hex strings in the message
-    result = truncateHexStringsInText(result);
+    result = replaceHexStrings(result);
 
     return result;
   };
