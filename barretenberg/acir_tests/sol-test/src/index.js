@@ -250,8 +250,6 @@ try {
     // for plonk, the extraPublicInputs are all of the public inputs
     publicInputs = extraPublicInputs;
   }
-  console.log(`numExtraPublicInputs: ${numExtraPublicInputs}`);
-  console.log(`proof length: ${proofStr.length}`);
   proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 

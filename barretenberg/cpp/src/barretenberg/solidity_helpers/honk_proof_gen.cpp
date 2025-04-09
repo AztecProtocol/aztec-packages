@@ -34,7 +34,6 @@ template <typename Circuit, typename Flavor> void generate_proof(uint256_t input
     Verifier verifier(verification_key);
 
     HonkProof proof = prover.construct_proof();
-    info("honk_proof_gen: proof size = ", proof.size());
     {
         if (!verifier.verify_proof(proof)) {
             throw_or_abort("Verification failed");

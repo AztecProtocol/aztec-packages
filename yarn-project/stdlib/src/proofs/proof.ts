@@ -59,12 +59,17 @@ export class Proof {
     return bufferToHex(this.toBuffer());
   }
 
+  /**
+   * Returns the proof without the public inputs, but includes the pairing point object as part of the proof.
+   * @returns Proof in bytes form, including the pairing point object at the start.
+   */
   public withoutPublicInputs(): Buffer {
     if (this.isEmpty()) {
       return this.buffer;
     }
     // We are indexing to this particular size because we are assuming the proof buffer looks like:
     // [binary public inputs, binary proof]
+    // Here, we are assuming the pairing point object is the last 16 fields of the public inputs.
     assert(this.numPublicInputs >= AGGREGATION_OBJECT_LENGTH, 'Proof does not contain an aggregation object');
     const proofStart = Fr.SIZE_IN_BYTES * (this.numPublicInputs - AGGREGATION_OBJECT_LENGTH);
     assert(this.buffer.length >= proofStart, 'Proof buffer is not appropriately sized to call withoutPublicInputs()');

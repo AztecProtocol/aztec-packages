@@ -14,7 +14,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 
-import {negateInplace, convertProofPoint, pairing, logUint, logFr, logG} from "./utils.sol";
+import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
@@ -44,7 +44,7 @@ abstract contract BaseHonkVerifier is IVerifier {
     error SumcheckFailed();
     error ShpleminiFailed();
 
-    // Number of field elements in a ultra honk  proof
+    // Number of field elements in a ultra honk proof, including pairing point object.
     uint256 constant PROOF_SIZE = 456;
     uint256 constant PAIRING_POINT_OBJECT_LENGTH = 16;
 
@@ -57,28 +57,27 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
-        logUint("publicInputsSize", vk.publicInputsSize);
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
         if (publicInputs.length != vk.publicInputsSize - PAIRING_POINT_OBJECT_LENGTH) {
             revert PublicInputsLengthWrong();
         }
-        logUint("before generateTranscript", 0);
+
         // Generate the fiat shamir challenges for the whole protocol
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         Transcript memory t =
             TranscriptLib.generateTranscript(p, publicInputs, vk.circuitSize, numPublicInputs, /*pubInputsOffset=*/ 1);
-        logUint("before computePublicInputDelta", 0);
+
         // Derive public input delta
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1281): Add pubInputsOffset to VK or remove entirely.
         t.relationParameters.publicInputsDelta = computePublicInputDelta(
             publicInputs, p.pairingPointObject, t.relationParameters.beta, t.relationParameters.gamma, /*pubInputsOffset=*/ 1
         );
-        logUint("before Sumcheck", 0);
+
         // Sumcheck
         bool sumcheckVerified = verifySumcheck(p, t);
         if (!sumcheckVerified) revert SumcheckFailed();
 
-        logUint("before Shplemini", 0);
+
         bool shpleminiVerified = verifyShplemini(p, vk, t);
         if (!shpleminiVerified) revert ShpleminiFailed();
 
