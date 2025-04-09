@@ -2,9 +2,9 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
-#include "barretenberg/stdlib/primitives/bit_by_bit_decomposition/bit_by_bit.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+
 namespace bb::stdlib::recursion::honk {
 
 template <typename Flavor>
@@ -88,15 +88,6 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     typename Curve::ScalarField recursion_separator =
         Curve::ScalarField::from_witness_index(builder, builder->add_variable(42));
     agg_obj.aggregate(nested_agg_obj, recursion_separator);
-    info(builder->get_estimated_num_finalized_gates());
-    auto array_of_bits = compute_padding_indicator_array<FF, Builder, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
-    size_t idx = 0;
-    for (auto bit : array_of_bits) {
-        info(idx++, "   ", bit);
-    }
-
-    info(array_of_bits.size());
-    info(builder->get_estimated_num_finalized_gates());
 
     // Execute Sumcheck Verifier and extract multivariate opening point u = (u_0, ..., u_{d-1}) and purported
     // multivariate evaluations at u
