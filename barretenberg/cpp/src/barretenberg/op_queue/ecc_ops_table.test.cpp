@@ -1,7 +1,6 @@
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_ops_table.hpp"
+#include "barretenberg/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/common/zip_view.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <gtest/gtest.h>
 
 #include <ranges>
@@ -11,7 +10,7 @@ using namespace bb;
 class EccOpsTableTest : public ::testing::Test {
     using Curve = curve::BN254;
     using Scalar = fr;
-    using ECCVMOperation = eccvm::VMOperation<Curve::Group>;
+    using ECCVMOperation = VMOperation<Curve::Group>;
 
   public:
     // Mock ultra ops table that constructs a concatenated table from successively prepended subtables
@@ -19,7 +18,7 @@ class EccOpsTableTest : public ::testing::Test {
         std::array<std::vector<Scalar>, 4> columns;
         void append(const UltraOp& op)
         {
-            columns[0].push_back(op.op);
+            columns[0].push_back(op.op_code.value());
             columns[1].push_back(op.x_lo);
             columns[2].push_back(op.x_hi);
             columns[3].push_back(op.y_lo);
@@ -60,8 +59,7 @@ class EccOpsTableTest : public ::testing::Test {
     static UltraOp random_ultra_op()
     {
         UltraOp op;
-        op.op_code = NULL_OP;
-        op.op = Scalar::random_element();
+        op.op_code = EccOpCode{};
         op.x_lo = Scalar::random_element();
         op.x_hi = Scalar::random_element();
         op.y_lo = Scalar::random_element();
@@ -74,7 +72,7 @@ class EccOpsTableTest : public ::testing::Test {
 
     static ECCVMOperation random_eccvm_op()
     {
-        return ECCVMOperation{ .mul = true,
+        return ECCVMOperation{ .op_code = EccOpCode{ .mul = true },
                                .base_point = curve::BN254::Group::affine_element::random_element(),
                                .z1 = uint256_t(Scalar::random_element()),
                                .z2 = uint256_t(Scalar::random_element()),
@@ -127,7 +125,6 @@ TEST(EccOpsTableTest, UltraOpsTable)
 // Ensure EccvmOpsTable correctly constructs a concatenated table from successively prepended subtables
 TEST(EccOpsTableTest, EccvmOpsTable)
 {
-    using ECCVMOperation = bb::eccvm::VMOperation<curve::BN254::Group>;
 
     // Construct sets of eccvm ops, each representing those added by a single circuit
     const size_t NUM_SUBTABLES = 3;

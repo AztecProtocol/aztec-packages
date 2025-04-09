@@ -10,8 +10,8 @@
 #include "translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <cstddef>
 namespace bb {
 
@@ -559,7 +559,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_wi
     const Fq evaluation_input_x)
 {
     // Get the Opcode value
-    Fr op(ecc_op.get_opcode_value());
+    Fr op(ecc_op.op_code.value());
     Fr p_x_lo(0);
     Fr p_x_hi(0);
     Fr p_y_lo(0);
@@ -611,7 +611,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
         current_accumulator *= x;
         const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
         current_accumulator +=
-            (Fq(ecc_op.get_opcode_value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
+            (Fq(ecc_op.op_code.value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
         accumulator_trace.push_back(current_accumulator);
     }
 
