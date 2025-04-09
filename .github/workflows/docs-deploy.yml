@@ -44,7 +44,7 @@ jobs:
           path: ./noir
           key: noir-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.noir_hash }}
           restore-keys: |
-            noir-build-${{ runner.os }}-
+            noir-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.noir_hash }}
 
       - name: Restore Barretenberg cache
         id: cache-barretenberg
@@ -53,7 +53,7 @@ jobs:
           path: ./barretenberg
           key: barretenberg-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.barretenberg_hash }}
           restore-keys: |
-            barretenberg-build-${{ runner.os }}-
+            barretenberg-build-${{ runner.os }}-${{ steps.dir-hashes.outputs.barretenberg_hash }}
 
       - name: Restore L1 contracts cache
         id: cache-l1-contracts
@@ -62,7 +62,7 @@ jobs:
           path: ./l1-contracts
           key: l1-contracts-${{ runner.os }}-${{ steps.dir-hashes.outputs.l1_contracts_hash }}
           restore-keys: |
-            l1-contracts-${{ runner.os }}-
+            l1-contracts-${{ runner.os }}-${{ steps.dir-hashes.outputs.l1_contracts_hash }}
 
       - name: Restore Yarn project cache
         id: cache-yarn-project
@@ -71,7 +71,7 @@ jobs:
           path: ./yarn-project
           key: yarn-project-${{ runner.os }}-${{ steps.dir-hashes.outputs.yarn_project_hash }}
           restore-keys: |
-            yarn-project-${{ runner.os }}-
+            yarn-project-${{ runner.os }}-${{ steps.dir-hashes.outputs.yarn_project_hash }}
 
       - name: Build dependencies
         run: |

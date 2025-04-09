@@ -13,7 +13,7 @@ permissions:
   contents: write
   pull-requests: write
 env:
-  BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+  BRANCH_NAME: v0.85.0-dummmy
 
 jobs:
   # release-please:
@@ -123,11 +123,6 @@ jobs:
           yarn
           yarn build
           yarn docusaurus docs:version ${{ env.BRANCH_NAME }}
-
-      - name: Configure git
-        run: |
-          git config --global user.email "tech@aztecprotocol.com"
-          git config --global user.name "AztecBot"
 
       - name: Commit new documentation version
         run: |
