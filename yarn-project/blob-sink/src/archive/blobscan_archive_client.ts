@@ -72,7 +72,14 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
       this.logger.debug(`No blobs found for block ${blockId} at ${this.baseUrl}`);
       return undefined;
     } else if (response.status !== 200) {
-      throw new Error(`Failed to fetch blobs for block ${blockId}: ${response.statusText} (${response.status})`);
+      throw new Error(`Failed to fetch blobs for block ${blockId}: ${response.statusText} (${response.status})`, {
+        cause: {
+          httpResponse: {
+            status: response.status,
+            body: await response.text(),
+          },
+        },
+      });
     } else {
       const result = await response.json().then((data: any) => BlobscanBlockResponseSchema.parse(data));
       this.logger.debug(`Fetched ${result.length} blobs for block ${blockId} from ${this.baseUrl}`);
@@ -85,7 +92,14 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     if (response.status === 404) {
       return undefined;
     } else if (response.status !== 200) {
-      throw new Error(`Failed to fetch blob data for blob ${id}: ${response.statusText} (${response.status})`);
+      throw new Error(`Failed to fetch blob data for blob ${id}: ${response.statusText} (${response.status})`, {
+        cause: {
+          httpResponse: {
+            status: response.status,
+            body: await response.text(),
+          },
+        },
+      });
     } else {
       return await response.json().then((data: any) => schemas.BufferHex.parse(data));
     }
