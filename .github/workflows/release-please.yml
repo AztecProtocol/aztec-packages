@@ -48,6 +48,11 @@ jobs:
       - name: Run corepack enable
         run: corepack enable
 
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
       - name: Generate directory hashes
         id: dir-hashes
         run: |
