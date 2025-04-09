@@ -30,6 +30,9 @@ static constexpr uint32_t NUM_MASKED_ROWS = 3;
 // 1))` is equal to the random value `w.at(N - NUM_MASKED_ROWS)`.
 static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
 
+// The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
+// evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift
+static constexpr uint32_t MASKING_OFFSET = 4;
 // For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
 static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
 
