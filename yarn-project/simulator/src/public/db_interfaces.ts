@@ -1,11 +1,7 @@
-import type { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import type { FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
-import type { NullifierMembershipWitness } from '@aztec/stdlib/trees';
-
-import type { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 
 /**
  * Database interface for providing access to public state.
@@ -61,48 +57,4 @@ export interface PublicContractsDBInterface {
    * @returns The name of the function or undefined if not found.
    */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
-}
-
-/** Database interface for providing access to note hash tree, l1 to l2 message tree, and nullifier tree. */
-export interface CommitmentsDBInterface {
-  /**
-   * Fetches a message from the db, given its key.
-   * @param contractAddress - Address of a contract by which the message was emitted.
-   * @param messageHash - Hash of the message.
-   * @param secret - Secret used to compute a nullifier.
-   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
-   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
-   */
-  getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
-
-  /**
-   * @param leafIndex the leaf to look up
-   * @returns The l1 to l2 leaf message hash or undefined if not found.
-   */
-  getL1ToL2MessageHash(leafIndex: bigint): Promise<Fr | undefined>;
-
-  /**
-   * Gets note hash in the note hash tree at the given leaf index.
-   * @param leafIndex - the leaf to look up.
-   * @returns - The note hash at that index. Undefined if leaf index is not found.
-   */
-  getNoteHash(leafIndex: bigint): Promise<Fr | undefined>;
-
-  /**
-   * Gets the index of a nullifier in the nullifier tree.
-   * @param nullifier - The nullifier.
-   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
-   */
-  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Returns a nullifier membership witness for the given nullifier or undefined if not found.
-   * REFACTOR: Same as getL1ToL2MembershipWitness, can be combined with aztec-node method that does almost the same thing.
-   * @param nullifier - Nullifier we're looking for.
-   */
-  getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 }
