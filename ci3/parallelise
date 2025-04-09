@@ -13,8 +13,12 @@ fi
 
 echo "Starting test run using max $num_cpus cpus..."
 
-# Init the cpu scheduling semaphore.
-sem_sched init $num_cpus
+export STRICT_SCHEDULING=${STRICT_SCHEDULING:-0}
+
+if [ "$STRICT_SCHEDULING" -eq 1 ]; then
+  # Init the cpu scheduling semaphore.
+  sem_sched init $num_cpus
+fi
 
 output=$(mktemp)
 trap 'rm -f $output' EXIT
@@ -23,7 +27,7 @@ trap 'rm -f $output' EXIT
 # Otherwise use denoise to display dots and save output to redis.
 if [ -t 1 ]; then
   set +e
-  parallel $parallel_args --bar "DUMP_FAIL=1 run_test_cmd {}" | DUP=1 cache_log "Test run" &> $output
+  parallel $parallel_args --bar "DUMP_FAIL=1 run_test_cmd {}" | DUP=1 cache_log "Test run" > $output
   code=${PIPESTATUS[0]}
   if [ "$code" -ne 0 ]; then
     cat $output
