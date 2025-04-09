@@ -105,7 +105,7 @@ describe('AVM Integration', () => {
     });
 
     await proveRollupHonk(
-      'MockRollupBasePrivateCircuit',
+      'MockRollupBasePublicCircuit',
       bbBinaryPath,
       bbWorkingDirectory,
       MockRollupBasePublicCircuit,
