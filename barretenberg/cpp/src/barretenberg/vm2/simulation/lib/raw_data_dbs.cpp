@@ -41,6 +41,8 @@ std::string get_tree_name(world_state::MerkleTreeId tree_id)
     case world_state::MerkleTreeId::ARCHIVE:
         return "ARCHIVE";
     }
+
+    return "UNKNOWN"; // To make GCC happy.
 }
 
 } // namespace
@@ -582,7 +584,7 @@ AppendLeafResult HintedRawMerkleDB::appendLeafInternal(world_state::MerkleTreeId
     }
 
     // Get the sibling path for the newly inserted leaf.
-    return { .root = get_tree_info(tree_id).root, .path = get_sibling_path(tree_id, tree_info.nextAvailableLeafIndex) };
+    return { .root = tree_info.root, .path = get_sibling_path(tree_id, tree_info.nextAvailableLeafIndex) };
 }
 
 } // namespace bb::avm2::simulation
