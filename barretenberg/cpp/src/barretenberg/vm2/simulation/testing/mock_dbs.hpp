@@ -51,14 +51,9 @@ class MockLowLevelMerkleDB : public LowLevelMerkleDBInterface {
                 (override));
     MOCK_METHOD(std::vector<AppendLeafResult>,
                 append_leaves,
-<<<<<<< HEAD
                 (MerkleTreeId tree_id, std::span<const FF> leaves),
                 (override));
     MOCK_METHOD(void, pad_tree, (MerkleTreeId tree_id, size_t num_leaves), (override));
-=======
-                (world_state::MerkleTreeId tree_id, std::span<const FF> leaves),
-                (override));
->>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
     MOCK_METHOD(void, create_checkpoint, (), (override));
     MOCK_METHOD(void, commit_checkpoint, (), (override));
     MOCK_METHOD(void, revert_checkpoint, (), (override));

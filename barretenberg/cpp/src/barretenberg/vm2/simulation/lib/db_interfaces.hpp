@@ -22,7 +22,6 @@ class ContractDBInterface {
     virtual std::optional<ContractClass> get_contract_class(const ContractClassId& class_id) const = 0;
 };
 
-<<<<<<< HEAD
 // Aliases.
 using MerkleTreeId = ::bb::world_state::MerkleTreeId;
 using SiblingPath = ::bb::crypto::merkle_tree::fr_sibling_path;
@@ -37,12 +36,6 @@ using SequentialInsertionResult = ::bb::world_state::SequentialInsertionResult<L
 struct AppendLeafResult {
     FF root;
     SiblingPath path;
-=======
-// The sibling path and root after the insertion.
-struct AppendLeafResult {
-    FF root;
-    crypto::merkle_tree::fr_sibling_path path;
->>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
 };
 
 // Low level access to a merkle db. In general these will not be constrained.
@@ -60,7 +53,6 @@ class LowLevelMerkleDBInterface {
     virtual IndexedLeaf<PublicDataLeafValue> get_leaf_preimage_public_data_tree(index_t leaf_index) const = 0;
     virtual IndexedLeaf<NullifierLeafValue> get_leaf_preimage_nullifier_tree(index_t leaf_index) const = 0;
 
-<<<<<<< HEAD
     virtual SequentialInsertionResult<PublicDataLeafValue> insert_indexed_leaves_public_data_tree(
         const PublicDataLeafValue& leaf_value) = 0;
     virtual SequentialInsertionResult<NullifierLeafValue> insert_indexed_leaves_nullifier_tree(
@@ -69,15 +61,6 @@ class LowLevelMerkleDBInterface {
     virtual std::vector<AppendLeafResult> append_leaves(MerkleTreeId tree_id, std::span<const FF> leaves) = 0;
 
     virtual void pad_tree(MerkleTreeId tree_id, size_t num_leaves) = 0;
-=======
-    virtual world_state::SequentialInsertionResult<crypto::merkle_tree::PublicDataLeafValue>
-    insert_indexed_leaves_public_data_tree(const crypto::merkle_tree::PublicDataLeafValue& leaf_value) = 0;
-    virtual world_state::SequentialInsertionResult<crypto::merkle_tree::NullifierLeafValue>
-    insert_indexed_leaves_nullifier_tree(const crypto::merkle_tree::NullifierLeafValue& leaf_value) = 0;
-
-    virtual std::vector<AppendLeafResult> append_leaves(world_state::MerkleTreeId tree_id,
-                                                        std::span<const FF> leaves) = 0;
->>>>>>> c4efcb3c14 (fix(avm): request paths for appendLeaves (#13389))
 
     virtual void create_checkpoint() = 0;
     virtual void commit_checkpoint() = 0;
