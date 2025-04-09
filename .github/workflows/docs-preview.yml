@@ -13,8 +13,6 @@ on:
 jobs:
   docs-preview:
     runs-on: ubuntu-latest
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -61,6 +59,8 @@ jobs:
             yarn-project-${{ runner.os }}-
 
       - name: Build dependencies
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [[ "${{ steps.cache-noir.outputs.cache-hit }}" != 'true' ]]; then
             echo "Building Noir (cache miss)"
@@ -84,6 +84,7 @@ jobs:
         env:
           NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
           NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           echo "docs release preview"
           yarn install
