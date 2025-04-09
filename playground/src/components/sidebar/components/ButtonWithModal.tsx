@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { css, keyframes } from '@emotion/react';
-import CheckIcon from '@mui/icons-material/Check';
 import CircularProgress from '@mui/material/CircularProgress';
+import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
 // Animation for the modal appearing
 const popupAnimation = keyframes`
@@ -64,10 +64,11 @@ const activeButtonStyle = css({
   },
 });
 
-// Styles for the check icon
-const checkStyle = css({
+// Styles for the dropdown icon
+const dropdownIconStyle = css({
   fontSize: '20px',
   marginLeft: '8px',
+  transition: 'transform 0.3s ease',
 });
 
 // Styles for the connection status text
@@ -133,23 +134,16 @@ export function ButtonWithModal({
 
   return (
     <div css={containerStyle}>
-      {/* Small connection status text above button when connected */}
-      {isSelected && connectionStatus && (
-        <div css={connectionStatusStyle}>
-          {connectionStatus}
-        </div>
-      )}
-
       {/* Button */}
       <div
         css={[buttonStyle, isActive && activeButtonStyle]}
         onClick={handleButtonClick}
       >
-        <span>{label}</span>
+        <span>{isSelected && connectionStatus ? connectionStatus : label}</span>
         {isLoading ? (
           <CircularProgress size={20} css={loadingSpinner} />
         ) : (
-          isSelected && <CheckIcon css={checkStyle} />
+          <KeyboardArrowDownIcon css={[dropdownIconStyle, isActive && { transform: 'rotate(180deg)' }]} />
         )}
       </div>
 

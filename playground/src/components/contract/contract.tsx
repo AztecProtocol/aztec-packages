@@ -11,8 +11,10 @@ import {
   getAllFunctionAbis,
   type FunctionAbi,
   FunctionType,
+  AztecAddress,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
+import { AztecEnv } from '../../aztecEnv';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardActions from '@mui/material/CardActions';
@@ -43,6 +45,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import SearchIcon from '@mui/icons-material/Search';
 import { LoadingModal } from '../common/LoadingModal';
 import { PREDEFINED_CONTRACTS, FORBIDDEN_FUNCTIONS, TOKEN_ALLOWED_FUNCTIONS, FUNCTION_DESCRIPTIONS } from './constants';
+import { WalletDB } from '../../utils/storage';
 import {
   container,
   headerSection,
@@ -93,6 +96,7 @@ export function ContractComponent() {
   const [functionAbis, setFunctionAbis] = useState<ExtendedFunctionAbi[]>([]);
   const [showUploadArea, setShowUploadArea] = useState(false);
   const [showNetworkConnect, setShowNetworkConnect] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState({
     searchTerm: '',
@@ -102,7 +106,6 @@ export function ContractComponent() {
   });
 
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
-
   const [simulationResults, setSimulationResults] = useState({});
   const [parameters, setParameters] = useState({});
 
@@ -128,6 +131,10 @@ export function ContractComponent() {
     nodeURL,
     isWorking,
     setIsWorking,
+    pxe,
+    node,
+    setPXE,
+    setLogs,
   } = useContext(AztecContext);
 
   useEffect(() => {
@@ -137,8 +144,6 @@ export function ContractComponent() {
       setFunctionAbis([]);
     } else {
       setShowUploadArea(false);
-      // Immediately clear the current contract artifact and set loading state
-      // when a new contract is selected
       if (selectedPredefinedContract) {
         setContractArtifact(null);
         setFunctionAbis([]);
@@ -147,62 +152,40 @@ export function ContractComponent() {
     }
   }, [selectedPredefinedContract]);
 
-  useEffect(() => {
-    console.log('Wallet:', wallet);
-    console.log('Current Contract:', currentContract);
-  }, [wallet, currentContract]);
-
   const sortFunctions = (functions: FunctionAbi[], contractName: string): FunctionAbi[] => {
     if (contractName === 'SimplePrivateVoting' || contractName === 'EasyPrivateVoting') {
       const order = ['constructor', 'cast_vote', 'end_vote', 'get_vote'];
-
       return [...functions].sort((a, b) => {
         const indexA = order.indexOf(a.name);
         const indexB = order.indexOf(b.name);
-
-        if (indexA !== -1 && indexB !== -1) {
-          return indexA - indexB;
-        }
-
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
         if (indexA !== -1) return -1;
         if (indexB !== -1) return 1;
-
         return 0;
       });
     } else if (contractName === 'SimpleToken') {
-      // For the token contract, order functions according to TOKEN_ALLOWED_FUNCTIONS array
       return [...functions].sort((a, b) => {
         const indexA = TOKEN_ALLOWED_FUNCTIONS.indexOf(a.name);
         const indexB = TOKEN_ALLOWED_FUNCTIONS.indexOf(b.name);
-
-        // If both functions are in our allowed list, sort by their position
-        if (indexA !== -1 && indexB !== -1) {
-          return indexA - indexB;
-        }
-
-        // If only one is in our allowed list, prioritize it
+        if (indexA !== -1 && indexB !== -1) return indexA - indexB;
         if (indexA !== -1) return -1;
         if (indexB !== -1) return 1;
-
         return 0;
       });
     }
-
     return functions;
   };
 
   const registerContractClassWithPXE = async (artifact: ContractArtifact) => {
     if (!wallet) {
-      console.warn('Cannot register contract class: wallet not connected');
+      setError('Cannot register contract class: wallet not connected');
       return;
     }
 
     try {
-      console.log('Pre-registering contract class with PXE...');
       await wallet.registerContractClass(artifact);
-      console.log('Contract class pre-registered successfully');
     } catch (error) {
-      console.error('Error pre-registering contract class:', error);
+      setError(`Error pre-registering contract class: ${error instanceof Error ? error.message : String(error)}`);
     }
   };
 
@@ -220,7 +203,7 @@ export function ContractComponent() {
       const artifact = await response.json();
       return loadContractArtifact(artifact);
     } catch (err) {
-      console.error(`Error loading ${contractName} artifact:`, err);
+      setError(`Error loading ${contractName} artifact: ${err instanceof Error ? err.message : String(err)}`);
       return null;
     }
   };
@@ -238,24 +221,10 @@ export function ContractComponent() {
       }
 
       if (contractArtifact) {
-        console.log('Loaded contract artifact:', contractArtifact);
         setContractArtifact(contractArtifact);
-
         let functionAbis = getAllFunctionAbis(contractArtifact);
-
         functionAbis = sortFunctions(functionAbis, contractArtifact.name);
-
         setFunctionAbis(functionAbis);
-        setFilters({
-          searchTerm: '',
-          private: true,
-          public: true,
-          utility: true,
-        });
-
-        console.log('Setting up contract artifact:', contractArtifact.name);
-
-        // Register the contract class with PXE when a predefined contract is loaded
         if (wallet) {
           await registerContractClassWithPXE(contractArtifact);
         }
@@ -264,50 +233,176 @@ export function ContractComponent() {
       setIsLoadingArtifact(false);
     };
 
-    if (selectedPredefinedContract) {
-      loadPredefinedContract();
+    if (selectedPredefinedContract && selectedPredefinedContract !== PREDEFINED_CONTRACTS.CUSTOM_UPLOAD) {
+      void loadPredefinedContract();
     }
   }, [selectedPredefinedContract, wallet]);
 
-  // Also register contract artifact when uploaded
-  useEffect(() => {
-    if (contractArtifact && wallet) {
-      registerContractClassWithPXE(contractArtifact);
+  const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
+    if (!contract) {
+      setError('No contract instance provided');
+      return;
     }
-  }, [contractArtifact, wallet]);
 
-  useEffect(() => {
-    const loadCurrentContract = async () => {
-      setIsLoadingArtifact(true);
-      const artifactAsString = await walletDB.retrieveAlias(`artifacts:${currentContractAddress}`);
-      const contractArtifact = loadContractArtifact(parse(convertFromUTF8BufferAsString(artifactAsString)));
+    try {
+      setIsWorking(true);
+      const deploymentTx = {
+        status: 'proving' as const,
+        fnName: 'deploy',
+        contractAddress: contract.address,
+      };
+      setCurrentTx(deploymentTx);
 
-      // Register the contract class with PXE before creating Contract instance
-      try {
-        console.log('Pre-registering contract class before loading contract...');
-        await wallet.registerContractClass(contractArtifact);
-        console.log('Contract class pre-registered successfully');
-      } catch (error) {
-        console.error('Error pre-registering contract class:', error);
-        // Continue even if registration fails - Contract.at will try to handle it
-      }
+      await wallet.registerContractClass(contractArtifact);
+      const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
+      setCurrentContractAddress(deployedContract.address);
+      setCurrentContract(deployedContract);
+      await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
 
-      const contract = await Contract.at(currentContractAddress, contractArtifact, wallet);
-      setCurrentContract(contract);
-      setContractArtifact(contract.artifact);
-      setFunctionAbis(sortFunctions(getAllFunctionAbis(contract.artifact), contract.artifact.name));
-      setFilters({
-        searchTerm: '',
-        private: true,
-        public: true,
-        utility: true,
+      setCurrentTx({
+        ...deploymentTx,
+        status: 'sending' as const,
       });
-      setIsLoadingArtifact(false);
-    };
-    if (currentContractAddress && currentContract?.address !== currentContractAddress) {
-      loadCurrentContract();
+    } catch (err) {
+      setError(`Failed to deploy contract: ${err instanceof Error ? err.message : String(err)}`);
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: 'deploy',
+        error: err instanceof Error ? err.message : String(err),
+        contractAddress: contract.address,
+      });
+    } finally {
+      setIsWorking(false);
     }
-  }, [currentContractAddress]);
+  };
+
+  const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
+    if (!contract) {
+      setError('No contract instance provided');
+      return;
+    }
+
+    try {
+      setIsWorking(true);
+      const registrationTx = {
+        status: 'proving' as const,
+        fnName: 'register',
+        contractAddress: contract.address,
+      };
+      setCurrentTx(registrationTx);
+
+      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
+      setCurrentContractAddress(contract.address);
+
+      setCurrentTx({
+        ...registrationTx,
+        status: 'sending' as const,
+      });
+    } catch (err) {
+      setError(`Failed to create contract: ${err instanceof Error ? err.message : String(err)}`);
+      setCurrentTx({
+        status: 'error' as const,
+        fnName: 'register',
+        error: err instanceof Error ? err.message : String(err),
+        contractAddress: contract.address,
+      });
+    } finally {
+      setIsWorking(false);
+    }
+  };
+
+  const simulate = async (fnName: string) => {
+    if (!currentContract) {
+      setError('No contract instance available');
+      return;
+    }
+
+    try {
+      const realFnName = fnName === 'constructor' ? 'deploy' : fnName;
+      const fnParameters = parameters[fnName] || [];
+      const result = await currentContract.methods[realFnName](...fnParameters).simulate();
+      setSimulationResults(prev => ({ ...prev, [fnName]: result }));
+      return result;
+    } catch (err) {
+      setError(`Failed to simulate function: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  };
+
+  const send = async (fnName: string) => {
+    if (!currentContract || !wallet) {
+      setError('No contract instance or wallet available');
+      return;
+    }
+
+    try {
+      const realFnName = fnName === 'constructor' ? 'deploy' : fnName;
+      const fnParameters = parameters[fnName] || [];
+      const receipt = await currentContract.methods[realFnName](...fnParameters).send().wait();
+      await walletDB.storeTx({
+        contractAddress: currentContract.address,
+        txHash: receipt.txHash,
+        fnName,
+        receipt,
+      });
+      return receipt;
+    } catch (err) {
+      setError(`Failed to send transaction: ${err instanceof Error ? err.message : String(err)}`);
+      throw err;
+    }
+  };
+
+  const handleAuthwitFnDataChanged = (
+    fnName: string,
+    parameters: any[],
+    isPrivate: boolean,
+  ) => {
+    setAuthwitFnData({
+      name: fnName,
+      parameters,
+      isPrivate,
+    });
+  };
+
+  const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
+    if (!witness) {
+      setError('No auth witness provided');
+      return;
+    }
+
+    try {
+      await walletDB.storeAuthwitness(witness, undefined, alias);
+    } catch (err) {
+      setError(`Failed to create auth witness: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const resetPXEDatabase = async () => {
+    if (!pxe || !node) {
+      setError('PXE or Node not available');
+      return;
+    }
+
+    try {
+      // Delete the IndexedDB database
+      await new Promise<void>((resolve, reject) => {
+        const request = window.indexedDB.deleteDatabase('pxe_data');
+        request.onerror = () => reject(new Error('Failed to delete PXE database'));
+        request.onsuccess = () => resolve();
+      });
+
+      // Reinitialize PXE with fresh state
+      const newPxe = await AztecEnv.initPXE(node, setLogs);
+      setPXE(newPxe);
+    } catch (err) {
+      setError(`Failed to reset PXE: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  };
+
+  const handleShowNetworkConnect = () => {
+    window.dispatchEvent(new CustomEvent('aztec:showNetworkConnect'));
+  };
 
   const { getRootProps, getInputProps } = useDropzone({
     onDrop: async files => {
@@ -348,7 +443,6 @@ export function ContractComponent() {
             utility: true,
           });
 
-
           setShowUploadArea(false);
 
         } catch (error) {
@@ -382,385 +476,6 @@ export function ContractComponent() {
     const fnParameters = parameters[realFnName] || [];
     fnParameters[index] = value;
     setParameters({ ...parameters, [realFnName]: fnParameters });
-  };
-
-  const handleContractDeployment = async (contract?: ContractInstanceWithAddress, alias?: string) => {
-    console.log('Contract instance received:', contract ? 'Yes' : 'No');
-    console.log('Alias:', alias);
-
-    // Close the dialog first regardless of contract status
-    setOpenDeployContractDialog(false);
-
-    if (contract) {
-      setIsWorking(true); // Set isWorking to true when deployment starts
-
-      const deploymentTx = {
-        status: 'proving' as const,
-        fnName: 'deploy',
-        contractAddress: contract.address,
-      };
-      setCurrentTx(deploymentTx);
-
-      console.log('Contract address:', contract.address.toString());
-      console.log('Contract class ID:', contract.currentContractClassId.toString());
-      console.log('Wallet available:', wallet ? 'Yes' : 'No');
-      console.log('Contract artifact available:', contractArtifact ? 'Yes' : 'No');
-      console.log('Selected contract type:', selectedPredefinedContract || 'Custom');
-
-      let hasError = false;
-
-      try {
-        // Register the contract class with PXE first
-        try {
-          console.log('Registering contract class with PXE...');
-          await wallet.registerContractClass(contractArtifact);
-          console.log('Contract class registered successfully with PXE');
-        } catch (err) {
-          // Log the error but continue
-          console.error('Error registering contract class:', err);
-        }
-
-        console.log('Initializing Contract instance at the deployed address...');
-        const deployedContract = await Contract.at(contract.address, contractArtifact, wallet);
-        console.log('Contract initialized successfully');
-
-        console.log('Setting current contract address...');
-        setCurrentContractAddress(deployedContract.address);
-        console.log('Setting current contract instance...');
-        setCurrentContract(deployedContract);
-
-        console.log('Storing contract in walletDB...');
-        await walletDB.storeContract(deployedContract.address, contractArtifact, undefined, alias);
-        console.log('Contract stored successfully');
-
-        // Update transaction status to success
-        setCurrentTx({
-          ...deploymentTx,
-          status: 'sending' as const,
-        });
-
-        console.log('Successfully deployed contract at address:', deployedContract.address.toString());
-      } catch (error) {
-        // Log the error directly
-        console.error('Deployment error:', error);
-
-        // Mark that we had an error
-        hasError = true;
-
-        // Update transaction status to error and include the error message
-        setCurrentTx({
-          ...deploymentTx,
-          status: 'error' as const,
-          error: error.message || 'Unknown deployment error',
-        });
-      } finally {
-        // Only set isWorking to false if there was no error
-        if (!hasError) {
-          setIsWorking(false);
-        }
-      }
-    }
-  };
-
-  const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
-    if (contract && alias) {
-      setIsWorking(true);
-
-      // Set up a current transaction object for the registration to track status
-      const registrationTx = {
-        status: 'proving' as const,
-        fnName: 'register',
-        contractAddress: contract.address,
-      };
-      setCurrentTx(registrationTx);
-
-      let hasError = false;
-
-      try {
-        await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
-        setCurrentContract(await Contract.at(contract.address, contractArtifact, wallet));
-        setCurrentContractAddress(contract.address);
-        console.log('Successfully registered contract at address:', contract.address.toString());
-
-        // Update transaction status to success
-        setCurrentTx({
-          ...registrationTx,
-          status: 'sending' as const,
-        });
-      } catch (error) {
-        console.error('Error registering contract:', error);
-
-        // Mark that we had an error
-        hasError = true;
-
-        // Update transaction status to error and include the error message
-        setCurrentTx({
-          ...registrationTx,
-          status: 'error' as const,
-          error: error.message || 'Unknown registration error',
-        });
-      } finally {
-        // Only set isWorking to false if there was no error
-        if (!hasError) {
-          setIsWorking(false);
-        }
-      }
-    }
-    setOpenDeployContractDialog(false);
-    setOpenRegisterContractDialog(false);
-  };
-
-  const simulate = async (fnName: string) => {
-    if (!currentContract) {
-      console.error('Simulation failed: No contract instance available');
-
-      // Use error modal instead of alert
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: 'You need to deploy this contract before you can simulate functions',
-        contractAddress: null // Add contractAddress property
-      });
-      // Don't set isWorking to false on error to keep modal visible
-      return;
-    }
-
-    console.log('Contract address:', currentContract.address.toString());
-    console.log('Contract methods available:', Object.keys(currentContract.methods));
-
-    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-
-    if (!matchingFn) {
-      console.error(`Function ${fnName} not found in contract ABI`);
-
-      // Use error modal instead of alert
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: `Function ${fnName} not found in contract ABI`,
-        contractAddress: currentContract.address // Add contractAddress property
-      });
-      // Don't set isWorking to false on error to keep modal visible
-      return;
-    }
-
-    // Use the original name only if it exists
-    const realFnName = matchingFn?.originalName || fnName;
-
-    console.log('Function to call:', realFnName);
-
-    if (!currentContract.methods[realFnName]) {
-      console.error(`Method ${realFnName} not found in contract instance`);
-      console.log('Available methods:', Object.keys(currentContract.methods));
-
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: `Method ${realFnName} not found in contract instance`,
-        contractAddress: currentContract.address // Add contractAddress property
-      });
-      return;
-    }
-
-    setIsWorking(true);
-    let result;
-    try {
-      console.log('Getting function parameters...');
-      const fnParameters = parameters[realFnName] ?? [];
-      console.log('Parameters:', fnParameters);
-
-      console.log('Creating function call...');
-      const call = currentContract.methods[realFnName](...fnParameters);
-      console.log('Function call created successfully');
-
-      console.log('Simulating function call...');
-      result = await call.simulate();
-      console.log('Simulation result:', result);
-
-      setSimulationResults({
-        ...simulationResults,
-        ...{ [fnName]: { success: true, data: result } },
-      });
-    } catch (error) {
-      console.error('Error simulating function call:', error);
-
-      setSimulationResults({
-        ...simulationResults,
-        ...{ [fnName]: { success: false, error: error.message } },
-      });
-
-      // Show error in modal
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: error.message || 'Simulation failed',
-        contractAddress: currentContract.address // Add contractAddress property
-      });
-      // Don't set isWorking to false when there's an error
-      // so the error modal stays visible
-      return;
-    } finally {
-      // Only set isWorking to false if we haven't encountered an error
-      setIsWorking(false);
-    }
-  };
-
-  const send = async (fnName: string) => {
-    console.log(`=== SENDING TRANSACTION: ${fnName} ===`);
-
-    if (!currentContract) {
-      console.error('Transaction failed: No contract instance available');
-
-      // Use error modal instead of alert
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: 'You need to deploy this contract before you can send transactions',
-        contractAddress: null // Add contractAddress property
-      });
-      return;
-    }
-
-    console.log('Contract address:', currentContract.address.toString());
-    console.log('Contract methods available:', Object.keys(currentContract.methods));
-
-    setIsWorking(true);
-    let receipt;
-    let txHash;
-
-    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-
-    if (!matchingFn) {
-      console.error(`Function ${fnName} not found in contract ABI`);
-
-      // Use error modal instead of alert
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: `Function ${fnName} not found in contract ABI`,
-        contractAddress: currentContract.address // Add contractAddress property
-      });
-      // Don't set isWorking to false on error to keep modal visible
-      return;
-    }
-
-    // Use the original name only if it exists
-    const realFnName = matchingFn?.originalName || fnName;
-
-    console.log('Function to call:', realFnName);
-
-    if (!currentContract.methods[realFnName]) {
-      console.error(`Method ${realFnName} not found in contract instance`);
-      console.log('Available methods:', Object.keys(currentContract.methods));
-
-      // Use error modal instead of alert
-      setCurrentTx({
-        status: 'error' as const,
-        fnName: fnName,
-        error: `Method ${realFnName} not found in contract instance`,
-        contractAddress: currentContract.address // Add contractAddress property
-      });
-      // Don't set isWorking to false on error to keep modal visible
-      return;
-    }
-
-    const currentTx = {
-      status: 'proving' as const,
-      fnName: fnName,
-      contractAddress: currentContract.address,
-    };
-    setCurrentTx(currentTx);
-    console.log('Transaction status set to proving');
-
-    try {
-      console.log('Getting function parameters...');
-      const fnParameters = parameters[realFnName] || [];
-      console.log('Parameters:', fnParameters);
-
-      console.log('Creating function call...');
-      const call = currentContract.methods[realFnName](...fnParameters);
-      console.log('Function call created successfully');
-
-      console.log('Creating proof for function call...');
-      const provenCall = await call.prove();
-      console.log('Proof created successfully');
-
-      console.log('Getting transaction hash...');
-      txHash = await provenCall.getTxHash();
-      console.log('Transaction hash:', txHash);
-
-      setCurrentTx({
-        ...currentTx,
-        ...{ txHash, status: 'sending' },
-      });
-      console.log('Transaction status set to sending');
-
-      console.log('Submitting transaction to the network...');
-      receipt = await provenCall.send().wait({ dontThrowOnRevert: true });
-      console.log('Transaction receipt:', receipt);
-
-      console.log('Transaction status:', receipt.status);
-      if (receipt.error) {
-        console.error('Transaction error:', receipt.error);
-      }
-
-      console.log('Storing transaction in wallet DB...');
-      await walletDB.storeTx({
-        contractAddress: currentContract.address,
-        txHash,
-        fnName,
-        receipt,
-      });
-      console.log('Transaction stored successfully');
-
-      setCurrentTx({
-        ...currentTx,
-        ...{
-          txHash,
-          status: receipt.status,
-          receipt,
-          error: receipt.error,
-        },
-      });
-      console.log('Transaction completed successfully');
-    } catch (error) {
-      console.error('Transaction error:', error);
-
-      // Show error in modal
-      setCurrentTx({
-        ...currentTx,
-        status: 'error' as const,
-        error: error.message || 'Transaction failed',
-      });
-      // Don't set isWorking to false when there's an error
-      // so the error modal stays visible
-      return;
-    } finally {
-      // Only set isWorking to false if we haven't encountered an error
-      setIsWorking(false);
-    }
-  };
-
-  const handleAuthwitFnDataChanged = (
-    fnName: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    parameters: any[],
-    isPrivate: boolean,
-  ) => {
-    const matchingFn = functionAbis.find(f => f.name === fnName) as ExtendedFunctionAbi;
-    // Use the original name only if it exists
-    const realFnName = matchingFn?.originalName || fnName;
-
-    setAuthwitFnData({ name: realFnName, parameters, isPrivate });
-    setOpenCreateAuthwitDialog(true);
-  };
-
-  const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
-    if (witness && alias) {
-      await walletDB.storeAuthwitness(witness, undefined, alias);
-    }
-    setAuthwitFnData({ name: '', parameters: [], isPrivate: false });
-    setOpenCreateAuthwitDialog(false);
   };
 
   // Debug effect to log filtered functions
@@ -800,57 +515,6 @@ export function ContractComponent() {
       })));
     }
   }, [functionAbis, filters]);
-
-  const resetPXEDatabase = async () => {
-    try {
-      console.log('Resetting PXE database');
-
-      // Clear IndexedDB database that's causing issues
-      const dbs = await window.indexedDB.databases();
-      console.log('Found databases:', dbs);
-
-      // Look for any PXE-related or wallet-related databases
-      const pxeDbs = dbs.filter(db =>
-        db.name && (
-          db.name.includes('pxe') ||
-          db.name.includes('wallet') ||
-          db.name.includes('aztec')
-        )
-      );
-
-      console.log('PXE databases to reset:', pxeDbs);
-
-      // Delete them one by one
-      for (const db of pxeDbs) {
-        if (db.name) {
-          console.log(`Deleting database: ${db.name}`);
-          await new Promise((resolve, reject) => {
-            const request = window.indexedDB.deleteDatabase(db.name!);
-            request.onsuccess = () => {
-              console.log(`Successfully deleted database: ${db.name}`);
-              resolve(undefined);
-            };
-            request.onerror = () => {
-              console.error(`Error deleting database: ${db.name}`);
-              reject(new Error(`Failed to delete database: ${db.name}`));
-            };
-          });
-        }
-      }
-
-      console.log('Database reset complete. Reload the page to reconnect.');
-      alert('Database reset successful. Please reload the page to reconnect to the network with a fresh database.');
-    } catch (error) {
-      console.error('Error resetting PXE database:', error);
-      alert('Error resetting PXE database: ' + error.message);
-    }
-  };
-
-  // Handle the network connection action
-  const handleShowNetworkConnect = () => {
-    // Send a message to the parent component to show the network connect UI
-    window.dispatchEvent(new CustomEvent('aztec:showNetworkConnect'));
-  };
 
   return (
     <div css={container}>
@@ -1173,16 +837,20 @@ export function ContractComponent() {
                         SEND
                         <SendIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
                       </button>
-                      <button
-                        css={authwitButton}
-                        disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
-                        onClick={() =>
-                          handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
-                        }
-                      >
-                        AUTHWIT
-                        <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-                      </button>
+                      {selectedPredefinedContract === PREDEFINED_CONTRACTS.CUSTOM_UPLOAD ||
+                       (selectedPredefinedContract === PREDEFINED_CONTRACTS.SIMPLE_TOKEN &&
+                        ['burn_public', 'public_transfer', 'transfer_from_private_to_public', 'private_transfer', 'burn_private'].includes(fn.name)) ? (
+                        <button
+                          css={authwitButton}
+                          disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === "utility"}
+                          onClick={() =>
+                            handleAuthwitFnDataChanged(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)
+                          }
+                        >
+                          AUTHWIT
+                          <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
+                        </button>
+                      ) : null}
                     </div>
                   </div>
                 </div>

@@ -29,7 +29,7 @@ export async function connectToNetwork(
   try {
     setPXEInitialized(false);
     setNodeURL(nodeUrl);
-    
+
     // Attempt to connect to the node
     let node;
     try {
@@ -41,9 +41,9 @@ export async function connectToNetwork(
         nodeUrl
       );
     }
-    
+
     setAztecNode(node);
-    
+
     // Attempt to initialize PXE
     let pxe;
     try {
@@ -55,7 +55,7 @@ export async function connectToNetwork(
         nodeUrl
       );
     }
-    
+
     // Get rollup address
     let rollupAddress;
     try {
@@ -67,7 +67,7 @@ export async function connectToNetwork(
         nodeUrl
       );
     }
-    
+
     // Initialize wallet database
     try {
       const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
@@ -125,4 +125,4 @@ export async function loadNetworks(): Promise<Network[]> {
  */
 export async function addNetwork(alias: string, networkUrl: string): Promise<void> {
   await NetworkDB.getInstance().storeNetwork(alias, networkUrl);
-} 
+}

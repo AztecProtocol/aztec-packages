@@ -65,6 +65,7 @@ export function AccountSelector({
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
   const [isAccountChanging, setIsAccountChanging] = useState(false);
   const [deploymentInProgress, setDeploymentInProgress] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
   const { node, currentTx, setCurrentTx, setIsWorking } = useContext(AztecContext);
 
   // Set loading state based on accounts and connection state
@@ -266,6 +267,9 @@ export function AccountSelector({
           fullWidth
           value={currentWallet?.getAddress().toString() ?? ''}
           label="Account"
+          open={isOpen}
+          onOpen={() => setIsOpen(true)}
+          onClose={() => setIsOpen(false)}
           onChange={handleAccountChange}
           disabled={isAccountChanging && !currentTx?.error?.includes('cancelled')}
         >
@@ -275,7 +279,10 @@ export function AccountSelector({
               {formatFrAsString(account.value)})
             </MenuItem>
           ))}
-          <MenuItem key="create" value="" onClick={() => setOpenCreateAccountDialog(true)}>
+          <MenuItem key="create" value="" onClick={() => {
+            setIsOpen(false);
+            setOpenCreateAccountDialog(true);
+          }}>
             <AddIcon />
             &nbsp;Create
           </MenuItem>
@@ -296,7 +303,6 @@ export function AccountSelector({
         )}
       </FormControl>
       <CreateAccountDialog open={openCreateAccountDialog} onClose={handleAccountCreation} />
-      {deploymentInProgress && <LoadingModal />}
     </div>
   );
 }

@@ -61,6 +61,7 @@ export function ContractSelector({
 }: ContractSelectorProps) {
   const [openAddSendersDialog, setOpenAddSendersDialog] = useState(false);
   const [isContractChanging, setIsContractChanging] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   const handleContractChange = (event: SelectChangeEvent) => {
     const contractValue = event.target.value;
@@ -123,6 +124,9 @@ export function ContractSelector({
         <Select
           value={selectedPredefinedContract || currentContractAddress?.toString() || ''}
           label="Contract"
+          open={isOpen}
+          onOpen={() => setIsOpen(true)}
+          onClose={() => setIsOpen(false)}
           onChange={handleContractChange}
           fullWidth
           disabled={isContractChanging}

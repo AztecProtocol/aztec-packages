@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import { css } from '@mui/styled-engine';
 import { useContext, useState, useEffect } from 'react';
 import { AztecContext } from '../../../aztecEnv';
+import { deployAccountInSandbox } from '../../../utils/sandboxDeployment';
 
 const creationForm = css({
   display: 'flex',
@@ -75,29 +76,55 @@ export function CreateAccountDialog({
       // Get the wallet instance
       const accountWallet = await account.getWallet();
 
-      // Try to deploy the account
+      // Check if we're in sandbox environment
+      const isSandbox = typeof nodeURL === 'string' && nodeURL.includes('sandbox');
+
       let isDeployed = false;
       let deployError = null;
 
       try {
-        const { prepareForFeePayment } = await import('../../../utils/fees');
-        const sponsoredPaymentMethod = await prepareForFeePayment(pxe, accountWallet);
+        if (isSandbox) {
+          // Use sandbox-specific deployment
+          try {
+            const { feePaymentMethod } = await deployAccountInSandbox(pxe, secretKey, salt);
+            const deployTx = await account.deploy({ fee: { paymentMethod: feePaymentMethod } });
+            await deployTx.wait();
+            isDeployed = true;
+          } catch (sandboxErr) {
+            console.error('Error with sandbox deployment:', sandboxErr);
+            deployError = sandboxErr;
 
-        // Attempt deployment
-        const deployTx = await account.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } });
-        await deployTx.wait();
-        isDeployed = true;
+            // Check if it's a connection timeout error
+            if (sandboxErr.message?.includes('UND_ERR_CONNECT_TIMEOUT') ||
+                sandboxErr.message?.includes('Error 500 from server') ||
+                sandboxErr.message?.includes('fetch failed')) {
+              throw new Error('Unable to connect to sandbox server. Please check if the sandbox is running and try again.');
+            }
+            // Don't try fallback for sandbox as it won't work
+          }
+        } else {
+          // Lazy load fee payment preparation only when needed
+          const { prepareForFeePayment } = await import('../../../utils/fees');
+          const sponsoredPaymentMethod = await prepareForFeePayment(pxe, accountWallet);
+
+          // Attempt deployment
+          const deployTx = await account.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } });
+          await deployTx.wait();
+          isDeployed = true;
+        }
       } catch (err) {
         console.error('Error with sponsored account deployment');
         deployError = err;
 
-        try {
-          // Try standard deployment as fallback
-          const deployTx = await account.deploy();
-          await deployTx.wait();
-          isDeployed = true;
-        } catch (fallbackErr) {
-          console.error('Error with standard account deployment');
+        if (!isSandbox) {
+          try {
+            // Try standard deployment as fallback (only for non-sandbox)
+            const deployTx = await account.deploy();
+            await deployTx.wait();
+            isDeployed = true;
+          } catch (fallbackErr) {
+            console.error('Error with standard account deployment');
+          }
         }
       }
 
@@ -144,7 +171,8 @@ export function CreateAccountDialog({
       onClose(ecdsaWallet, salt, alias);
     } catch (error) {
       console.error('Error creating account:', error);
-      alert(`Error creating account: ${error.message}`);
+      const errorMessage = error.message || 'Unknown error occurred';
+      alert(`Error creating account: ${errorMessage}`);
       setCreatingAccount(false);
       onClose(); // Close dialog on error
     }

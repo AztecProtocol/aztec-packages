@@ -152,14 +152,62 @@ export function LogPanel() {
           bottom: '1rem',
           right: '1rem',
           zIndex: 1000,
+          backgroundColor: 'var(--mui-palette-primary-main)',
+          color: 'white',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          width: '40px',
+          minWidth: '40px',
+          display: 'flex',
+          alignItems: 'center',
+          '&:hover': {
+            backgroundColor: 'var(--mui-palette-primary-dark)',
+            width: '300px',
+            '& .MuiFab-label': {
+              width: 'auto',
+              margin: '0 8px',
+              opacity: 1,
+            },
+          },
           '@media (width <= 800px)': {
             visibility: 'hidden',
           },
         }}
-        color="secondary"
         onClick={toggleDrawer(true)}
       >
-        <ArticleIcon />
+       <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        position: 'relative',
+      }}
+    >
+      <ArticleIcon
+        sx={{
+          transition: 'opacity 0.3s ease',
+          opacity: 1,
+          '.MuiFab-root:hover &': {
+            opacity: 0,
+          },
+        }}
+      />
+      <Typography
+        sx={{
+          whiteSpace: 'nowrap',
+          opacity: 0,
+          width: 0,
+          transition: 'opacity 0.3s ease, width 0.3s ease',
+          fontSize: '0.875rem',
+          margin: 0,
+          '.MuiFab-root:hover &': {
+            opacity: 1,
+            width: 'auto',
+          },
+        }}
+      >
+        PXE logs (advanced)
+      </Typography>
+</div>
       </Fab>
     </>
   );
