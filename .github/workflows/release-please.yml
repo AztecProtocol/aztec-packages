@@ -29,6 +29,8 @@ jobs:
 
   update-docs:
     name: Update docs
+    env:
+      GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
     needs: [release-please]
     if: ${{ needs.release-please.outputs.release-pr }}
     runs-on: ubuntu-latest
@@ -37,20 +39,35 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.BRANCH_NAME  }}
+          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Run corepack enable
         run: corepack enable
 
-      - name: Cut a new version
-        working-directory: ./docs
-        run: yarn run version ${{ env.BRANCH_NAME }}
-
-      - name: Configure git
+      - name: Configure Git
         run: |
-          git config --global user.email "tech@aztecprotocol.com"
-          git config --global user.name "AztecBot"
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Build dependencies
+        run: |
+          for project in noir barretenberg l1-contracts yarn-project; do
+            $project/bootstrap.sh
+          done
+
+      - name: Cut version
+        working-directory: ./docs
+        run: |
+          echo "[]" > versions.json
+          yarn
+          yarn build
+          yarn docusaurus docs:version ${{ env.BRANCH_NAME }}
+
+      - name: Filter
+        working-directory: ./docs
+        run: |
+          yarn filter-versions
 
       - name: Commit new documentation version
         run: |
