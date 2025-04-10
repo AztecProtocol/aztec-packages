@@ -42,6 +42,9 @@ The verifier uses SMT (Satisfiability Modulo Theories) solving to formally verif
 | Binary::Xor | Unsigned_32   | Unsigned_32   | 14.7         | -         | &check; | TermType::BVTerm |                                                                                                               |
 | Binary::Xor | Unsigned_127  | Unsigned_127  | 7.5          | -         | &cross; | TermType::BVTerm | [smt solver lookup doesnt support 2bits tables](https://github.com/AztecProtocol/aztec-packages/issues/11721) |
 | Not         | Unsigned_127  | -             | 0.2          | -         | &check; | TermType::BVTerm |                                                                                                               |
+| Cast        | Field         | Unsigned_64         | 0.05        | -         | &check; | TermType::FFTerm |                                                                                                               |
+| Cast        | Unsigned_64   | Unsigned_8         | 452.5        | -         | &check; | TermType::BVTerm |                                                                                                               |
+| Cast        | Unsigned_8    | Unsigned_64        | 0.3        | -         | &check; | TermType::BVTerm |                                                                                                               |
 
 Each test attempts to find counterexamples that violate the expected behavior. A passing test indicates the operation is correctly implemented, while a failing test reveals potential issues.
 
