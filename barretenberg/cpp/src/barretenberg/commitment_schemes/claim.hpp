@@ -61,6 +61,11 @@ template <typename Curve> class OpeningClaim {
     // WORKTODO: Number of bb::fr field elements used to represent a claim over Grumpkin
     static constexpr size_t PUBLIC_INPUTS_SIZE = 10;
 
+    /**
+     * @brief Set the witness indices for the opening claim to public
+     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     *
+     */
     uint32_t set_public()
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
@@ -80,21 +85,24 @@ template <typename Curve> class OpeningClaim {
         return start_idx;
     }
 
+    /**
+     * @brief Reconstruct an opening claim from limbs stored on the public inputs.
+     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     *
+     */
     static OpeningClaim<Curve> reconstruct_from_public(
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
-        using BaseField = typename Curve::BaseField;
-
-        const size_t SFS_PER_BF = Fr::PUBLIC_INPUTS_SIZE;
-        std::span<const stdlib::field_t<Builder>, SFS_PER_BF> challenge_limbs{ limbs.data(), SFS_PER_BF };
-        std::span<const stdlib::field_t<Builder>, SFS_PER_BF> evaluation_limbs{ limbs.data() + SFS_PER_BF, SFS_PER_BF };
-        Fr challenge = Fr::reconstruct_from_public(challenge_limbs);
-        Fr evaluation = Fr::reconstruct_from_public(evaluation_limbs);
-
-        BaseField x{ limbs[PUBLIC_INPUTS_SIZE - 2] };
-        BaseField y{ limbs[PUBLIC_INPUTS_SIZE - 1] };
-        Commitment commitment = { x, y, false };
+        const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
+        const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
+        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const stdlib::field_t<Builder>, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE,
+                                                                                     COMMITMENT_SIZE };
+        auto challenge = Fr::reconstruct_from_public(challenge_limbs);
+        auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+        auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
 
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
