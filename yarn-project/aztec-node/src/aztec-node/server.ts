@@ -236,16 +236,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
+    // Start world state and wait for it to sync to the archiver.
+    await worldStateSynchronizer.start();
 
-    // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
-    log.verbose(`All Aztec Node subsystems synced`);
+    // Start p2p. Note that it depends on world state to be running.
+    await p2pClient.start();
+
+    const slasherClient = createSlasherClient(config, archiver, telemetry);
+    slasherClient.start();
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
     await validatorsSentinel?.start();
+
+    log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
     const sequencer = config.disableValidator

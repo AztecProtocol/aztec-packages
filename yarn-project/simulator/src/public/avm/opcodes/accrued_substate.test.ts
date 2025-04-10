@@ -12,7 +12,7 @@ import { Field, Uint8, Uint32 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment, initPersistableStateManager } from '../fixtures/index.js';
 import {
-  mockGetNullifierIndex,
+  mockCheckNullifierExists,
   mockL1ToL2MessageExists,
   mockNoteHashCount,
   mockNoteHashExists,
@@ -159,7 +159,7 @@ describe('Accrued Substate', () => {
         const addressOffset = 1;
 
         if (exists) {
-          mockGetNullifierIndex(treesDB, leafIndex, value0);
+          mockCheckNullifierExists(treesDB, true, value0);
         }
 
         context.machineState.memory.set(value0Offset, new Field(value0)); // nullifier
@@ -210,7 +210,7 @@ describe('Accrued Substate', () => {
     });
 
     it('Nullifier collision reverts (nullifier exists in host state)', async () => {
-      mockGetNullifierIndex(treesDB, leafIndex); // db will say that nullifier already exists
+      mockCheckNullifierExists(treesDB, true, leafIndex);
       context.machineState.memory.set(value0Offset, new Field(value0));
       await expect(new EmitNullifier(/*indirect=*/ 0, /*offset=*/ value0Offset).execute(context)).rejects.toThrow(
         new InstructionExecutionError(
