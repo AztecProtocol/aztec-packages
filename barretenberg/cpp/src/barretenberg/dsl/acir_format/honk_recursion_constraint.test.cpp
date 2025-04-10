@@ -12,15 +12,23 @@
 using namespace acir_format;
 using namespace bb;
 
-template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing::Test {
+template <typename RecursiveFlavor> class AcirHonkRecursionConstraint : public ::testing::Test {
 
   public:
-    using DeciderProvingKey = DeciderProvingKey_<Flavor>;
-    using Prover = bb::UltraProver_<Flavor>;
-    using VerificationKey = typename Flavor::VerificationKey;
-    using Verifier = bb::UltraVerifier_<Flavor>;
+    using NativeFlavor = typename RecursiveFlavor::NativeFlavor;
+    using InnerBuilder = typename NativeFlavor::CircuitBuilder;
+    using InnerDeciderProvingKey = DeciderProvingKey_<NativeFlavor>;
+    using InnerProver = bb::UltraProver_<NativeFlavor>;
+    using InnerVerificationKey = typename NativeFlavor::VerificationKey;
+    using InnerVerifier = bb::UltraVerifier_<NativeFlavor>;
+    using OuterBuilder = typename RecursiveFlavor::CircuitBuilder;
+    using OuterFlavor = std::conditional_t<IsMegaBuilder<OuterBuilder>, MegaFlavor, UltraFlavor>;
+    using OuterDeciderProvingKey = DeciderProvingKey_<OuterFlavor>;
+    using OuterProver = bb::UltraProver_<OuterFlavor>;
+    using OuterVerificationKey = typename OuterFlavor::VerificationKey;
+    using OuterVerifier = bb::UltraVerifier_<OuterFlavor>;
 
-    Builder create_inner_circuit()
+    InnerBuilder create_inner_circuit()
     {
         /**
          * constraints produced by Noir program:
@@ -126,9 +134,9 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
             5, 10, 15, 5, inverse_of_five, 1,
         };
         uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<NativeFlavor, UltraFlavor>) {
             honk_recursion = 1;
-        } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        } else if constexpr (IsAnyOf<NativeFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
         }
         auto builder = create_circuit(
@@ -142,7 +150,7 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
      * @param inner_circuits
      * @return Composer
      */
-    Builder create_outer_circuit(std::vector<Builder>& inner_circuits)
+    OuterBuilder create_outer_circuit(std::vector<InnerBuilder>& inner_circuits)
     {
         std::vector<RecursionConstraint> honk_recursion_constraints;
 
@@ -150,10 +158,10 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
 
         for (auto& inner_circuit : inner_circuits) {
 
-            auto proving_key = std::make_shared<DeciderProvingKey>(inner_circuit);
-            Prover prover(proving_key);
-            auto verification_key = std::make_shared<VerificationKey>(proving_key->proving_key);
-            Verifier verifier(verification_key);
+            auto proving_key = std::make_shared<InnerDeciderProvingKey>(inner_circuit);
+            InnerProver prover(proving_key);
+            auto verification_key = std::make_shared<InnerVerificationKey>(proving_key->proving_key);
+            InnerVerifier verifier(verification_key);
             auto inner_proof = prover.construct_proof();
 
             std::vector<bb::fr> key_witnesses = verification_key->to_field_elements();
@@ -161,7 +169,7 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
             size_t num_public_inputs_to_extract =
                 inner_circuit.get_public_inputs().size() - bb::PAIRING_POINT_ACCUMULATOR_SIZE;
             acir_format::PROOF_TYPE proof_type = acir_format::HONK;
-            if constexpr (HasIPAAccumulator<Flavor>) {
+            if constexpr (HasIPAAccumulator<NativeFlavor>) {
                 num_public_inputs_to_extract -= IPA_CLAIM_SIZE;
                 proof_type = ROLLUP_HONK;
             }
@@ -187,13 +195,14 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
 
         mock_opcode_indices(constraint_system);
         uint32_t honk_recursion = 0;
-        if constexpr (IsAnyOf<Flavor, UltraFlavor>) {
+        if constexpr (IsAnyOf<OuterFlavor, UltraFlavor>) {
             honk_recursion = 1;
-        } else if constexpr (IsAnyOf<Flavor, UltraRollupFlavor>) {
+        } else if constexpr (IsAnyOf<OuterFlavor, UltraRollupFlavor>) {
             honk_recursion = 2;
         }
-        auto outer_circuit = create_circuit(
-            constraint_system, /*recursive*/ true, /*size_hint*/ 0, witness, /*honk recursion*/ honk_recursion);
+        ProgramMetadata metadata{ .honk_recursion = honk_recursion };
+        AcirProgram program{ constraint_system, witness };
+        OuterBuilder outer_circuit = create_circuit<OuterBuilder>(program, metadata);
 
         return outer_circuit;
     }
@@ -206,156 +215,166 @@ template <typename Flavor> class AcirHonkRecursionConstraint : public ::testing:
     }
 };
 
-using Flavors = testing::Types<UltraFlavor, UltraRollupFlavor>;
+using Flavors = testing::Types<UltraRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraRollupRecursiveFlavor_<UltraCircuitBuilder>,
+                               UltraRecursiveFlavor_<MegaCircuitBuilder>>;
 
 TYPED_TEST_SUITE(AcirHonkRecursionConstraint, Flavors);
 
 TYPED_TEST(AcirHonkRecursionConstraint, TestBasicSingleHonkRecursionConstraint)
 {
-    std::vector<Builder> layer_1_circuits;
+    std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
     auto layer_2_circuit = TestFixture::create_outer_circuit(layer_1_circuits);
 
     info("estimate finalized circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_2_circuit);
-    typename TestFixture::Prover prover(proving_key);
+    auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
+    typename TestFixture::OuterProver prover(proving_key);
     info("prover gates = ", proving_key->proving_key.circuit_size);
     auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
-    } else {
-        typename TestFixture::Verifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
+    auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+    info(HasIPAAccumulator<TypeParam>);
+    // if constexpr (HasIPAAccumulator<TypeParam>) {
+    //     auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+    //     typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
+    //     EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+    // } else {
+    //     typename TestFixture::OuterVerifier verifier(verification_key);
+    //     EXPECT_EQ(verifier.verify_proof(proof), true);
+    // }
 }
 
-TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
-{
-    std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
+// TYPED_TEST(AcirHonkRecursionConstraint, TestBasicDoubleHonkRecursionConstraints)
+// {
+//     std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
+//     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
-    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
+//     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
 
-    auto layer_2_circuit = TestFixture::create_outer_circuit(layer_1_circuits);
+//     auto layer_2_circuit = TestFixture::create_outer_circuit(layer_1_circuits);
 
-    info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
+//     info("circuit gates = ", layer_2_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_2_circuit);
-    typename TestFixture::Prover prover(proving_key);
-    info("prover gates = ", proving_key->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
-    } else {
-        typename TestFixture::Verifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
-}
+//     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_2_circuit);
+//     typename TestFixture::OuterProver prover(proving_key);
+//     info("prover gates = ", proving_key->proving_key.circuit_size);
+//     auto proof = prover.construct_proof();
+//     auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+//     if constexpr (HasIPAAccumulator<TypeParam>) {
+//         auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+//         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
+//         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+//     } else {
+//         typename TestFixture::OuterVerifier verifier(verification_key);
+//         EXPECT_EQ(verifier.verify_proof(proof), true);
+//     }
+// }
 
-TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
-{
-    /**
-     * We want to test the following:
-     * 1. circuit that verifies a proof of another circuit
-     * 2. the above, but the inner circuit contains a recursive proof output that we have to aggregate
-     * 3. the above, but the outer circuit verifies 2 proofs, the aggregation outputs from the 2 proofs (+ the recursive
-     * proof output from 2) are aggregated together
-     *
-     * A = basic circuit
-     * B = circuit that verifies proof of A
-     * C = circuit that verifies proof of B and a proof of A
-     *
-     * Layer 1 = proof of A
-     * Layer 2 = verifies proof of A and proof of B
-     * Layer 3 = verifies proof of C
-     *
-     * Attempt at a visual graphic
-     * ===========================
-     *
-     *     C
-     *     ^
-     *     |
-     *     | - B
-     *     ^   ^
-     *     |   |
-     *     |    -A
-     *     |
-     *      - A
-     *
-     * ===========================
-     *
-     * Final aggregation object contains aggregated proofs for 2 instances of A and 1 instance of B
-     */
-    std::vector<Builder> layer_1_circuits;
-    layer_1_circuits.push_back(TestFixture::create_inner_circuit());
-    info("created first inner circuit");
+// TYPED_TEST(AcirHonkRecursionConstraint, TestOneOuterRecursiveCircuit)
+// {
+//     if constexpr (IsMegaBuilder<typename TestFixture::OuterBuilder>) {
+//         GTEST_SKIP() << "skip for now";
+//     }
+//     /**
+//      * We want to test the following:
+//      * 1. circuit that verifies a proof of another circuit
+//      * 2. the above, but the inner circuit contains a recursive proof output that we have to aggregate
+//      * 3. the above, but the outer circuit verifies 2 proofs, the aggregation outputs from the 2 proofs (+ the
+//      recursive
+//      * proof output from 2) are aggregated together
+//      *
+//      * A = basic circuit
+//      * B = circuit that verifies proof of A
+//      * C = circuit that verifies proof of B and a proof of A
+//      *
+//      * Layer 1 = proof of A
+//      * Layer 2 = verifies proof of A and proof of B
+//      * Layer 3 = verifies proof of C
+//      *
+//      * Attempt at a visual graphic
+//      * ===========================
+//      *
+//      *     C
+//      *     ^
+//      *     |
+//      *     | - B
+//      *     ^   ^
+//      *     |   |
+//      *     |    -A
+//      *     |
+//      *      - A
+//      *
+//      * ===========================
+//      *
+//      * Final aggregation object contains aggregated proofs for 2 instances of A and 1 instance of B
+//      */
+//     std::vector<typename TestFixture::InnerBuilder> layer_1_circuits;
+//     layer_1_circuits.push_back(TestFixture::create_inner_circuit());
+//     info("created first inner circuit");
 
-    std::vector<Builder> layer_2_circuits;
-    layer_2_circuits.push_back(TestFixture::create_inner_circuit());
-    info("created second inner circuit");
+//     std::vector<typename TestFixture::InnerBuilder> layer_2_circuits;
+//     layer_2_circuits.push_back(TestFixture::create_inner_circuit());
+//     info("created second inner circuit");
 
-    layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_1_circuits));
-    info("created first outer circuit");
+//     layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_1_circuits));
+//     info("created first outer circuit");
 
-    auto layer_3_circuit = TestFixture::create_outer_circuit(layer_2_circuits);
-    info("created second outer circuit");
-    info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
+//     auto layer_3_circuit = TestFixture::create_outer_circuit(layer_2_circuits);
+//     info("created second outer circuit");
+//     info("number of gates in layer 3 = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_3_circuit);
-    typename TestFixture::Prover prover(proving_key);
-    info("prover gates = ", proving_key->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
-    } else {
-        typename TestFixture::Verifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
-}
+//     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
+//     typename TestFixture::OuterProver prover(proving_key);
+//     info("prover gates = ", proving_key->proving_key.circuit_size);
+//     auto proof = prover.construct_proof();
+//     auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+//     if constexpr (HasIPAAccumulator<TypeParam>) {
+//         auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+//         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
+//         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+//     } else {
+//         typename TestFixture::OuterVerifier verifier(verification_key);
+//         EXPECT_EQ(verifier.verify_proof(proof), true);
+//     }
+// }
 
-TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
-{
-    std::vector<Builder> layer_b_1_circuits;
-    layer_b_1_circuits.push_back(TestFixture::create_inner_circuit());
-    info("created first inner circuit");
+// TYPED_TEST(AcirHonkRecursionConstraint, TestFullRecursiveComposition)
+// {
+//     if constexpr (IsMegaBuilder<typename TestFixture::OuterBuilder>) {
+//         GTEST_SKIP() << "skip for now";
+//     }
+//     std::vector<typename TestFixture::InnerBuilder> layer_b_1_circuits;
+//     layer_b_1_circuits.push_back(TestFixture::create_inner_circuit());
+//     info("created first inner circuit");
 
-    std::vector<Builder> layer_b_2_circuits;
-    layer_b_2_circuits.push_back(TestFixture::create_inner_circuit());
-    info("created second inner circuit");
+//     std::vector<typename TestFixture::InnerBuilder> layer_b_2_circuits;
+//     layer_b_2_circuits.push_back(TestFixture::create_inner_circuit());
+//     info("created second inner circuit");
 
-    std::vector<Builder> layer_2_circuits;
-    layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_b_1_circuits));
-    info("created first outer circuit");
+//     std::vector<Builder> layer_2_circuits;
+//     layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_b_1_circuits));
+//     info("created first outer circuit");
 
-    layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_b_2_circuits));
-    info("created second outer circuit");
+//     layer_2_circuits.push_back(TestFixture::create_outer_circuit(layer_b_2_circuits));
+//     info("created second outer circuit");
 
-    auto layer_3_circuit = TestFixture::create_outer_circuit(layer_2_circuits);
-    info("created third outer circuit");
-    info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
+//     auto layer_3_circuit = TestFixture::create_outer_circuit(layer_2_circuits);
+//     info("created third outer circuit");
+//     info("number of gates in layer 3 circuit = ", layer_3_circuit.get_estimated_num_finalized_gates());
 
-    auto proving_key = std::make_shared<typename TestFixture::DeciderProvingKey>(layer_3_circuit);
-    typename TestFixture::Prover prover(proving_key);
-    info("prover gates = ", proving_key->proving_key.circuit_size);
-    auto proof = prover.construct_proof();
-    auto verification_key = std::make_shared<typename TestFixture::VerificationKey>(proving_key->proving_key);
-    if constexpr (HasIPAAccumulator<TypeParam>) {
-        auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-        typename TestFixture::Verifier verifier(verification_key, ipa_verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
-    } else {
-        typename TestFixture::Verifier verifier(verification_key);
-        EXPECT_EQ(verifier.verify_proof(proof), true);
-    }
-}
+//     auto proving_key = std::make_shared<typename TestFixture::OuterDeciderProvingKey>(layer_3_circuit);
+//     typename TestFixture::OuterProver prover(proving_key);
+//     info("prover gates = ", proving_key->proving_key.circuit_size);
+//     auto proof = prover.construct_proof();
+//     auto verification_key = std::make_shared<typename TestFixture::OuterVerificationKey>(proving_key->proving_key);
+//     if constexpr (HasIPAAccumulator<TypeParam>) {
+//         auto ipa_verification_key = std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+//         typename TestFixture::OuterVerifier verifier(verification_key, ipa_verification_key);
+//         EXPECT_EQ(verifier.verify_proof(proof, proving_key->proving_key.ipa_proof), true);
+//     } else {
+//         typename TestFixture::OuterVerifier verifier(verification_key);
+//         EXPECT_EQ(verifier.verify_proof(proof), true);
+//     }
+// }

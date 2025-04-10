@@ -603,6 +603,7 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
  * @return Builder
  */
 template <>
+// WORKTODO: maybe try just deleting this entirely?
 UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    bool recursive,
                                    const size_t size_hint,
