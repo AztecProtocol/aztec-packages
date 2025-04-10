@@ -75,7 +75,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
 
             Fr x = Fr::from_witness(&builder, scalar_raw);
 
-            compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
             EXPECT_FALSE(CircuitChecker::check(builder));
@@ -89,7 +89,6 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
 
             size_t gate_count = builder.get_estimated_num_finalized_gates();
-            info("x = ", x.get_value(), ", gates = ", gate_count);
             return gate_count;
         };
 
