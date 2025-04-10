@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744292375554,
+  "lastUpdate": 1744307660206,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "152162806+sklppy88@users.noreply.github.com",
-            "name": "esau",
-            "username": "sklppy88"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "1c3d70b44a904c3a0542f78995bc0aef50068c96",
-          "message": "chore: add option to register contract class to deploy account in cli-wallet (#13359)\n\nWithout this, devnet / testnet were having issues deploying the first\nschnorr account contract.",
-          "timestamp": "2025-04-08T09:03:26Z",
-          "tree_id": "e328d87de190be914f4bcbcce766210e41d6e130",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1c3d70b44a904c3a0542f78995bc0aef50068c96"
-        },
-        "date": 1744105383663,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 29106,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 17655,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 8992,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10679,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12449,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -2984,6 +2930,84 @@ window.BENCHMARK_DATA = {
             "value": 12908,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "105737703+iakovenkos@users.noreply.github.com",
+            "name": "sergei iakovenko",
+            "username": "iakovenkos"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "915841b28fcba381467b2bb55e082fd91fb22d27",
+          "message": "fix: deprecate witness circuit size from ECCVM and Translator (#13133)\n\nThe circuit sizes in Translator and ECCVM are now given by constexpr\nintegers. Therefore, the provers do not need to send the circuit sizes\nto the verifiers. In its turn, the respective recursive verifiers do not\nneed to constrain witness `log_circuit_size`s in-circuit.\n\nTo support this change, I modified Shplemini interface to accept log\ncircuit size as an integer as opposed to (unconstrained) witness\n`circuit_size`. The derivation of log circuit sizes in other Flavors'\nrecursive verifiers is still insecure.\n\nIntroduced `USE_PADDING` flag in Flavors to allow compile time exclusion\nof padding logic in Shplemini and Sumcheck.\n \n\nCloses https://github.com/AztecProtocol/barretenberg/issues/1040",
+          "timestamp": "2025-04-10T15:37:21Z",
+          "tree_id": "5850f444477e53e31be896d552284a1c5f3bdad9",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/915841b28fcba381467b2bb55e082fd91fb22d27"
+        },
+        "date": 1744307652002,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20820.42982699977,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15883.225595999998 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 123255534619.40001,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2146031306,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 291641696,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19850.112371999785,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16698.030454 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56377.41949,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56377421000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4095.7456900005127,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3547.551595 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11977.940816,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11977946000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2249.56",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
