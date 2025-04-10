@@ -99,21 +99,6 @@ template <typename Curve> class OpeningClaim {
         return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
 
-    IPAClaimIndices get_witness_indices() const
-        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
-    {
-        return { opening_pair.challenge.binary_basis_limbs[0].element.normalize().witness_index,
-                 opening_pair.challenge.binary_basis_limbs[1].element.normalize().witness_index,
-                 opening_pair.challenge.binary_basis_limbs[2].element.normalize().witness_index,
-                 opening_pair.challenge.binary_basis_limbs[3].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[0].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[1].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[2].element.normalize().witness_index,
-                 opening_pair.evaluation.binary_basis_limbs[3].element.normalize().witness_index,
-                 commitment.x.normalize().witness_index, // no idea if we need these normalize() calls...
-                 commitment.y.normalize().witness_index };
-    }
-
     auto get_native_opening_claim() const
         requires(Curve::is_stdlib_type)
     {

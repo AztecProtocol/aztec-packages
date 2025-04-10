@@ -166,7 +166,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             typename RecursiveVerifier::Output verifier_output =
                 verifier.verify_proof(inner_proof, AggState::construct_default(outer_circuit));
             if constexpr (HasIPAAccumulator<OuterFlavor>) {
-                outer_circuit.add_ipa_claim(verifier_output.ipa_opening_claim.get_witness_indices());
+                verifier_output.ipa_opening_claim.set_public();
                 outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
             }
 
@@ -207,7 +207,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
         VerifierOutput output = verifier.verify_proof(inner_proof, agg_obj);
         AggState pairing_points = output.agg_obj;
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
+            output.ipa_opening_claim.set_public();
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());
