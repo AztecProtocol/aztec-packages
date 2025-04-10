@@ -34,6 +34,14 @@ const simulationContainer = css({
   display: 'flex',
   flexDirection: 'row',
   alignItems: 'center',
+  textOverflow: 'ellipsis',
+});
+
+const functionName = css({
+  marginBottom: '1rem',
+  '@media (max-width: 1200px)': {
+    fontSize: '1.2rem',
+  },
 });
 
 interface FunctionCardProps {
@@ -111,7 +119,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
         <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
           {fn.functionType}
         </Typography>
-        <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
+        <Typography variant="h5" css={functionName}>
           {fn.name}
         </Typography>
         {fn.parameters.length > 0 && (

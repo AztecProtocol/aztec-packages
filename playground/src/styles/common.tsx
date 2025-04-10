@@ -18,7 +18,7 @@ export const form = css({
 export const progressIndicator = css({
   display: 'flex',
   alignItems: 'center',
-  height: '48px',
+  height: '20px',
   marginBottom: '0.5rem',
 });
 

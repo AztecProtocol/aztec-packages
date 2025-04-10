@@ -31,10 +31,14 @@ const contentGroup = css({
   alignItems: 'center',
   justifyContent: 'center',
   padding: '2rem',
-  minHeight: '500px',
-  minWidth: '400px',
+  textWrap: 'wrap',
+  minHeight: '550px',
+  width: '600px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  wordBreak: 'break-word',
   '@media (max-width: 1200px)': {
-    minWidth: 'unset',
+    width: 'unset',
   },
 });
 
@@ -44,7 +48,7 @@ const titleText = css({
   fontStyle: 'normal',
   fontWeight: 500,
   fontSize: '24px',
-  lineHeight: '150%',
+  overflowWrap: 'break-word',
   display: 'flex',
   alignItems: 'center',
   textAlign: 'center',
@@ -59,7 +63,6 @@ const subtitleText = css({
   fontStyle: 'normal',
   fontWeight: 400,
   fontSize: '16px',
-  lineHeight: '150%',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.6)',
 });
@@ -79,8 +82,8 @@ const errorMessage = css({
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
+  maxHeight: '80vh',
   fontSize: '16px',
-  lineHeight: '150%',
   textAlign: 'center',
   color: '#FF7764',
 });
@@ -99,25 +102,28 @@ const funFactText = css({
   fontStyle: 'normal',
   fontWeight: 400,
   fontSize: '16px',
+  height: '60px',
   lineHeight: '150%',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.6)',
 });
 
 const logContainer = css({
-  marginTop: '20px',
+  marginTop: '2rem',
   display: 'flex',
   flexDirection: 'column',
   textAlign: 'center',
   alignItems: 'center',
-  heigth: '60px',
   width: '350px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  wordBreak: 'break-word',
 });
 
 const logTitle = css({
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
-  fontWeight: 400,
+  fontWeight: 'bold',
   fontSize: '14px',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.6)',
@@ -127,13 +133,14 @@ const logText = css({
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
   fontWeight: 200,
+  maxHeight: '60px',
+  padding: '0.5rem',
   fontSize: '12px',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.8)',
 });
 
 const funFacts = [
-  'You are currently signing this transaction with a passkey',
   'Aztec has a super cool account abstraction model which you are utilizing right now',
   "You're generating a client-side proof directly in your browser, and it won't take forever!",
   'Aztec enables programmable privacy across the entire Ethereum ecosystem',
@@ -190,7 +197,7 @@ export function LoadingModal() {
         </Typography>
         {isError ? (
           <>
-            <Typography css={errorMessage}>{currentTx.error || 'An error occurred during deployment'}</Typography>
+            <Typography css={errorMessage}>{currentTx.error || 'An error occurred'}</Typography>
             <div css={buttonContainer}>
               <Button variant="contained" color="primary" onClick={handleClose}>
                 Close

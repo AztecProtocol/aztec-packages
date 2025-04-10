@@ -9,6 +9,7 @@ import {
   type DeployOptions,
   AztecAddress,
   type Wallet,
+  Fr,
 } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -75,11 +76,13 @@ export function CreateContractDialog({
   const createContract = async () => {
     setIsRegistering(true);
     try {
+      const salt = Fr.random();
       const contract = await getContractInstanceFromDeployParams(contractArtifact, {
         publicKeys: PublicKeys.default(),
         constructorArtifact: initializer,
         constructorArgs: parameters,
         deployer: wallet.getAddress(),
+        salt,
       });
       await pxe.registerContract({ instance: contract, artifact: contractArtifact });
       await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
@@ -96,7 +99,10 @@ export function CreateContractDialog({
           parameters,
           initializer.name,
         );
-        opts = { fee: { paymentMethod: feePaymentMethod } };
+        opts = {
+          contractAddressSalt: salt,
+          fee: { paymentMethod: feePaymentMethod },
+        };
         onClose(contract, publiclyDeploy, deployMethod, opts);
       }
     } catch (e) {
