@@ -116,7 +116,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     InstructionInfoDB instruction_info_db;
     TxBytecodeManager bytecode_manager(contract_db,
                                        merkle_db,
-                                       siloing,
+                                       poseidon2,
                                        bytecode_hasher,
                                        range_check,
                                        update_check,

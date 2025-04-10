@@ -21,7 +21,7 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // TODO: catch errors etc.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-    auto siloed_address = siloing.silo_nullifier(address, DEPLOYER_CONTRACT_ADDRESS);
+    auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
     // TODO: check nullifier in the merkle tree. Prove (non-)membership.
     if (!merkle_db.nullifier_exists(siloed_address)) {
         throw std::runtime_error("Contract " + field_to_string(address) + " is not deployed");
