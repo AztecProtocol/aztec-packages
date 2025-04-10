@@ -4,67 +4,65 @@ include "poseidon2_hash.pil";
 include "constants_gen.pil";
 include "precomputed.pil";
 
-// This gadget checks reads and writes in the nullifier tree. The nullifier tree is an indexed tree where leaves
-// contain nullifiers. When we read from the nullifier tree, we check whether a nullifier exists or not.
-// For this we perform a low leaf membership proof and:
-//  - if the low leaf nullifier is equal to the nullifier, that means that nullifier is present in the tree, and we assert that
-//    exists is true.
-//  - if the low leaf nullifier is not equal to the nullifier, we assert that the low leaf is indeed a valid low leaf for the
-//    requested nullifier, proving non existence of the nullifier in the tree. In that case we check exists is false.
-// In order to validate that a leaf is a low leaf of the nullifier, we need to check that the low_leaf.nullifier is < nullifier
-// and that low_leaf.next_nullifier is > nullifier. However, we need to consider the case where next_nullifier is zero, which
-// means "infinity". The highest nullifier inserted in the tree will point to infinity as the "next_nullifier".
-// In order to write, we perform the above, and also:
-//  - We update the low leaf. The low leaf must now point to the leaf we are going to insert.
-//  - We construct the new leaf and insert it into the tree at 'tree_size_before_write'
-//
-// Read usage:
-// sel { exists, nullifier, nullifier_tree_root }
-// in nullifier_check.sel { nullifier_check.exists, nullifier_check.nullifier, nullifier_check.root };
-//
-// Write usage:
-// Fallible write sample
-
-// pol commit exists_hint;
-// Commited since it's used in lookup
-// We only write if exists_hint is false.
-// pol commit write;
-// sel * (1 - exists_hint - write) = 0;
-
-// sel { write, // Success flag
-//       exists_hint, // Error flag
-//       nullifier,
-//       prev_nullifier_tree_root,
-//       next_nullifier_tree_root, // Only use this if write is true.
-//       prev_nullifier_tree_size
-// } in nullifier_check.sel {
-//     nullifier_check.write, // if exists is true, write will be false, so we constrain a membership proof
-//     nullifier_check.exists, // constrain exists_hint
-//     nullifier_check.nullifier,
-//     nullifier_check.root,
-//     nullifier_check.write_root,
-//     nullifier_check.tree_size_before_write
-// };
-//
-// Infallible write sample
-//
-// Commited since it's used in lookup
-// pol commit one;
-// sel * (1 - one) = 0;
-
-// sel { one, // Always try to write, fail proving if the leaf already exists.
-//       nullifier,
-//       prev_nullifier_tree_root,
-//       next_nullifier_tree_root,
-//       prev_nullifier_tree_size
-// } in nullifier_check.sel {
-//     nullifier_check.write,
-//     nullifier_check.nullifier,
-//     nullifier_check.root,
-//     nullifier_check.write_root,
-//     nullifier_check.tree_size_before_write
-// };
-
+/**
+ * This gadget checks reads and writes in the nullifier tree. The nullifier tree is an indexed tree where leaves
+ * contain nullifiers. When we read from the nullifier tree, we check whether a nullifier exists or not.
+ * For this we perform a low leaf membership proof and:
+ *  - if the low leaf nullifier is equal to the nullifier, that means that nullifier is present in the tree, and we assert that
+ *    exists is true.
+ *  - if the low leaf nullifier is not equal to the nullifier, we assert that the low leaf is indeed a valid low leaf for the
+ *    requested nullifier, proving non existence of the nullifier in the tree. In that case we check exists is false.
+ * In order to validate that a leaf is a low leaf of the nullifier, we need to check that the low_leaf.nullifier is < nullifier
+ * and that low_leaf.next_nullifier is > nullifier. However, we need to consider the case where next_nullifier is zero, which
+ * means "infinity". The highest nullifier inserted in the tree will point to infinity as the "next_nullifier".
+ * In order to write, we perform the above, and also:
+ *  - We update the low leaf. The low leaf must now point to the leaf we are going to insert.
+ *  - We construct the new leaf and insert it into the tree at 'tree_size_before_write'
+ *
+ * Read usage:
+ * sel { exists, nullifier, nullifier_tree_root }
+ * in nullifier_check.sel { nullifier_check.exists, nullifier_check.nullifier, nullifier_check.root };
+ *
+ * Fallible write usage:
+ * pol commit exists_hint;
+ * // Commited since it's used in lookup
+ * // We only write if exists_hint is false.
+ * pol commit write;
+ * sel * (1 - exists_hint - write) = 0;
+ *
+ * sel { write, // Success flag
+ *       exists_hint, // Error flag
+ *       nullifier,
+ *       prev_nullifier_tree_root,
+ *       next_nullifier_tree_root, // Only use this if write is true.
+ *       prev_nullifier_tree_size
+ * } in nullifier_check.sel {
+ *     nullifier_check.write, // if exists is true, write will be false, so we constrain a membership proof
+ *     nullifier_check.exists, // constrain exists_hint
+ *     nullifier_check.nullifier,
+ *     nullifier_check.root,
+ *     nullifier_check.write_root,
+ *     nullifier_check.tree_size_before_write
+ * };
+ *
+ * Infallible write usage:
+ * // Commited since it's used in lookup
+ * pol commit one;
+ * sel * (1 - one) = 0;
+ *
+ * sel { one, // Always try to write, fail proving if the leaf already exists.
+ *       nullifier,
+ *       prev_nullifier_tree_root,
+ *       next_nullifier_tree_root,
+ *       prev_nullifier_tree_size
+ * } in nullifier_check.sel {
+ *     nullifier_check.write,
+ *     nullifier_check.nullifier,
+ *     nullifier_check.root,
+ *     nullifier_check.write_root,
+ *     nullifier_check.tree_size_before_write
+ * };
+**/
 namespace nullifier_check;
     pol commit sel;
     sel * (1 - sel) = 0;
@@ -175,7 +173,3 @@ namespace nullifier_check;
         tree_size_before_write, tree_height, intermediate_root, write_root }
     in merkle_check.start { merkle_check.write, merkle_check.read_node, merkle_check.write_node,
         merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
-
-
-
-
