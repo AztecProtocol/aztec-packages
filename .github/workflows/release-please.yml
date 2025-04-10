@@ -39,7 +39,8 @@ jobs:
       - name: Checkout release branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ env.BRANCH_NAME  }}
+          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
 
       - name: Run corepack enable
         run: corepack enable
