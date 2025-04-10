@@ -62,10 +62,7 @@ const config = {
             );
           },
           routeBasePath: "/",
-          disableVersioning: process.env.ENV === "dev",
-          include: process.env.SHOW_PROTOCOL_SPECS
-            ? ["**/*.{md,mdx}"]
-            : ["**/*.{md,mdx}", "!protocol-specs/**"],
+          include: ["**/*.{md,mdx}"],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -301,16 +298,12 @@ const config = {
                 label: "Roadmap",
                 className: "no-external-icon",
               },
-              ...(process.env.SHOW_PROTOCOL_SPECS
-                ? [
-                    {
-                      type: "docSidebar",
-                      sidebarId: "protocolSpecSidebar",
-                      label: "Protocol Specification",
-                      className: "no-external-icon",
-                    },
-                  ]
-                : []),
+              // {
+              //   type: "docSidebar",
+              //   sidebarId: "protocolSpecSidebar",
+              //   label: "Protocol Specification",
+              //   className: "no-external-icon",
+              // },
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",

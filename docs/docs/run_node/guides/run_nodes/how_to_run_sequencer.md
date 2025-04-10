@@ -1,6 +1,13 @@
 ---
 sidebar_position: 1
-title: How to run a Sequencer Node
+title: How to Run a Sequencer Node
+description: A comprehensive guide to setting up and running an Aztec Sequencer node on testnet or mainnet, including infrastructure requirements, configuration options, and troubleshooting tips.
+keywords: [aztec, sequencer, node, blockchain, L2, scaling, ethereum, validator, setup, tutorial]
+tags:
+  - sequencer
+  - node
+  - tutorial
+  - infrastructure
 ---
 
 Starting a Sequencer node is not too different from starting a [sandbox](../../../developers/getting_started.md). While the sandbox starts all the components needed for local development, the Sequencer workflow is more focused on testnet and mainnet features and provides more flexibility to suit your own environment.
@@ -9,123 +16,158 @@ Starting a Sequencer node is not too different from starting a [sandbox](../../.
 
 Before following this guide, make sure you:
 
-- Have the `aztec` tool [installed](../../../run_node/index.md) and updated to the latest version
+- Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox) and updated to the latest version
 - Understand how [Provers and Sequencers](../../concepts/provers-and-sequencers/) work
-- Are running a Linux or MacOS machine and you know how to use a terminal
+- Are running a Linux or MacOS machine with access to a terminal
 
-## Getting started
+## Getting Started
 
-The `aztec` CLI tool really is a one-stop-shop for pretty much everything, from a local dev environment to a prover node with multiple agents.
+The `aztec` CLI tool is a one-stop-shop for pretty much everything, from setting up a local dev environment to running a prover node with multiple agents.
 
-Running a sequencer is not more than "assembling" a basic command that will boot a docker container with the right services: node, sequencer, and optionally archiver.
+Running a sequencer is simply a matter of "assembling" a basic command that will boot a Docker container with the right services: node, sequencer, and optionally an archiver.
 
-### Grab your RPC URLs
+### Step 1: Prepare Your Infrastructure
 
-Sequencing involves grabbing values from both L2 and L1. It is intended that you bring your own infrastructure, or subscribe to any service that will provide it for you. You will need:
+#### Grab Your RPC URLs
 
-- An Ethereum _execution_ node RPC. For example from [DRPC](https://drpc.org/chainlist/ethereum) or [Alchemy](https://www.alchemy.com/ethereum). This is where the new state will be sent and verified when you produce a block.
-- An Ethereum _beacon_ node RPC. For example [DRPC](https://drpc.org/chainlist/eth-beacon-chain#eth-beacon-chain-sepolia) provides one. The beacon node is required in order to grab data from the blob space.
+Sequencing involves fetching data from both L2 and L1. You'll need to provide your own infrastructure or subscribe to a service that will provide these RPC endpoints:
+
+- **Ethereum Execution Node RPC**: For example from [DRPC](https://drpc.org/chainlist/ethereum) or [Alchemy](https://www.alchemy.com/ethereum). This is where the new state will be sent and verified when you produce a block.
+- **Ethereum Beacon Node RPC**: For example [DRPC](https://drpc.org/chainlist/eth-beacon-chain#eth-beacon-chain-sepolia) provides one. The beacon node is required to fetch data from the blob space.
 
 :::warning
 
-The `free` route will likely get you rate-limited and you won't be able to sync. You will need to set up a paid plan or `pay-as-you-go`.
+The `free` route will likely get you rate-limited, making it impossible to sync properly. You will need to set up a paid plan or use a pay-as-you-go service for reliable operation.
 
 :::
 
-### Run your node
+:::info
 
-The command to start the different modules is `aztec start`, and the different components are selected by passing different flags. For a basic sequencer, we need the following ones:
-
-- `--network` \<network\> - Selects the docker image for the expected network (ex. `alpha-testnet`). This will setvalues such as contract addresses, bootnodes, L1 ChainID, and others.
-- `--l1-rpc-urls` \<execution-node\> - The URL to use as the L1 execution node you've set up
-- `--l1-consensus-host-url` \<beacon-node\> - The URL of the L1 beacon node you've set up
-- `--l1-consensus-host-api-key-header` \<header-key\> - If your beacon RPC requires the API key to be set on a header, provide its key here (ex. "API-KEY: \<api-key\>"). Leave empty if your beacon RPC expects the key to be in the query parameters (ex. \<the-url\>/?key=\<api-key\>)
-- `--l1-consensus-host-api-key` \<api-key\> - The beacon node API key. You can leave this empty if the URL already contains the key (ex. \<the-url\>/rest/\<api-key>/eth-beacon-chain-sepolia)
-- `--archiver` - Starts the archiver service, which will store the synced blocks.
-- `--node` - Starts the node service, which will grab the data from the L1 RPCs
-
-An example command would be:
-
-```bash
-aztec start --network alpha-testnet --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key --l1-consensus-host-url https://lb.drpc.org/rest/your-key/eth-beacon-chain-sepolia --archiver --node
-```
-
-This will get you to connect to a bootnode, find other peers, get the contract addresses, and download previous blocks:
-
-```bash
-INFO: archiver Starting archiver sync to rollup contract... etc
-INFO: archiver Downloaded L2 block 1... etc
-```
-
-## Run your sequencer
-
-As of the alpha testnet, there's no fast sync, so your node will actually sync everything from the beginning of (Aztec) times, which _will_ take a few hours.
-
-Feel free to leave it syncing as you get ready to restart it using the sequencer configuration.
-
-:::info sparta
-
-Sparta is a useful bot to get things done on the testnet. You'll need it to register yourself and to be part of the community. Head to the Aztec Discord and head to the `#this-is-spartaa` channel. Sparta tends to hang around alone there.
-
-If you're syncing your node, this is a great time to use some Spartan energy. Type `/get-info`: the mighty Spartan will hopefully print out the latest stats, for example:
-
-```md
-Pending block: 11067
-Proven block: 11043
-Current epoch: 375
-Current slot: 12023
-Proposer now: 0x00000
-```
-
-You can look at your own logs and have a sense of how far away from the tip you are.
+You can run your own Sepolia ETH Node. However, at the moment only [`geth`](https://github.com/ethereum/go-ethereum) and [`reth`](https://github.com/paradigmxyz/reth) nodes are confirmed to work reliably with Aztec.
 
 :::
 
-### Flags and coffee
+#### Get Some Sepolia ETH
 
-To boot up a sequencer, there are a few more flags needed:
+You'll need Sepolia ETH to cover gas costs. Here are some options:
 
-- `--sequencer` - Self-explanatory, this starts the sequencer module.
-- `--sequencer.validatorPrivateKey` - This is your sequencer's private key, the one signing attestations and blocks.
-- `--p2p.p2pIp` - Your node's IP, so other nodes can connect. If your IP changes frequently, you can assign a fixed hostname (i.e. with [NoIp](https://www.noip.com/) or similar services)
+- Use a PoW faucet like [Sepolia PoW Faucet](https://sepolia-faucet.pk910.de/)
+- Ask in our Discord community (and remember to pay it forward when you can!)
 
-You also need to __fund__ your sequencer. In short, it needs two types of funds:
+### Step 2: Run Your Sequencer
 
-- Sepolia ETH, in order to register and publish L1 blocks
-- TST, known as the fee-paying asset, in order to stake.
+To boot up a sequencer, you'll need to use the following flags:
 
-You're expected to bring your own Sepolia ETH. Use services like [https://sepolia-faucet.pk910.de/](this PoW faucet) to get it. You can also drop a message on Discord and our kind community will hopefully drip you some (just make sure you do the same for others!).
+| Flag                                              | Description                                                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--network <network>`                             | Selects the Docker image for the target network (e.g., `alpha-testnet`). Sets default values for contract addresses, bootnodes, L1 ChainID, etc. |
+| `--l1-rpc-urls <execution-node>`                  | The URL of your L1 execution node                                                                                                                |
+| `--l1-consensus-host-url <beacon-node>`           | The URL of your L1 beacon node                                                                                                                   |
+| `--l1-consensus-host-api-key-header <header-key>` | If your beacon RPC requires an API key in a header, provide the header name here (e.g., "API-KEY"). Leave empty if using query parameters        |
+| `--l1-consensus-host-api-key <api-key>`           | The beacon node API key. Can be omitted if included in the URL                                                                                   |
+| `--archiver`                                      | Starts the archiver service to store synced blocks                                                                                               |
+| `--archiver.blobSinkUrl <url>`                    | URL for the blob sink containing blobs that have expired from the consensus host (specific to alpha testnet)                                     |
+| `--node`                                          | Starts the node service that fetches data from L1 RPCs                                                                                           |
+| `--sequencer`                                     | Starts the sequencer module                                                                                                                      |
+| `--sequencer.validatorPrivateKey <private-key>`   | Your sequencer's private key for signing attestations and blocks                                                                                 |
+| `--sequencer.coinbase <address>`                  | Address to receive any block rewards                                                                                                             |
+| `--p2p.p2pIp <your-ip>`                           | Your node's public IP so other nodes can connect                                                                                                 |
 
-As for the TST asset, you will mint it once you're synced and ready to register. For now, just grab a coffee. Or several.
+#### Example Command
 
-### Sequencing
-
-Stop your node and add a new module with the flags mentioned above. For example:
-
-```bash
-aztec start --network alpha-testnet --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key --l1-consensus-host-url https://lb.drpc.org/rest/your-key/eth-beacon-chain-sepolia --archiver --node --sequencer --sequencer.validatorPrivateKey \<your-private-key\> --p2p.p2pIp \<your-ip\>
-```
-
-It should sync any blocks you may have missed. Check with Sparta that you're at the tip before proceeding.
-
-## Registering
-
-Being a decentralized testnet means anyone can deposit TST and become a validator. To make our tester's life easier, Sparta will register your node on your behalf, as long as you pass a simple challenge: provide a proof that your node is synced with a recent block
-
-Fire up a terminal and call your own node, like:
+Here's an example of a complete command to start a sequencer node:
 
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getL2Tips","params":[],"id":67}' "http://<your-node-ip>:<your-node-port>" | jq ".result.proven.number"
+aztec start \
+  --network alpha-testnet \
+  --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key \
+  --l1-consensus-host-url https://lb.drpc.org/rest/your-key/eth-beacon-chain-sepolia \
+  --archiver \
+  --archiver.blobSinkUrl http://34.82.117.158:5052 \
+  --node \
+  --sequencer \
+  --sequencer.validatorPrivateKey your-private-key \
+  --p2p.p2pIp your-ip \
+  --sequencer.coinbase your-coinbase-address
 ```
 
-This will give you a block number. Now, get a proof you have that block number:
+:::tip
+
+If your IP changes frequently, consider using a dynamic DNS service like [NoIP](https://www.noip.com/) to assign a fixed hostname.
+
+:::
+
+Your node will sync from the genesis block of the Aztec network, which may take several hours. This is a good time to take a break or work on something else.
+
+### Step 3: Register as a Validator
+
+Once your node is fully synced, you can register as a validator using the `add-l1-validator` command:
 
 ```bash
-curl -s -X POST -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","method":"node_getArchiveSiblingPath","params":[11262,11262],"id":67}' "http://<your-node-ip>:<your-node-port>" | jq ".result"
+aztec add-l1-validator \
+  --network alpha-testnet \
+  --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key \
+  --private-key your-private-key \
+  --validator your-validator-address \
+  --faucet your-faucet-address
 ```
 
-It will return a long base64-encoded string. Note it down and head to Discord.
+The key parameters are:
 
-On the `#this-is-spartaa` discord channel, run `/validator register`. The Spartan will ask you for your node address (the one above), as well as the block number and the proof. Paste those. Done!
+| Flag                             | Description                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------- |
+| `--network <network>`            | Same network as your sequencer                                              |
+| `--l1-rpc-urls <execution-node>` | L1 node endpoint (can be the same as used for the sequencer)                |
+| `--private-key` or `--mnemonic`  | The private key or seed phrase to deploy your forwarder contract            |
+| `--validator <address>`          | Your validator address (derived from the `--sequencer.validatorPrivateKey`) |
+| `--faucet <address>`             | For alpha-testnet, this will mint and deposit funds on your behalf          |
 
-On your logs, you will eventually see shiny new blocks being made by you. The provernet will then listen and prove them for you.
+## Advanced Configuration
+
+### Using Environment Variables
+
+Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`.
+
+For example:
+
+- `--l1-rpc-urls` maps to `ETHEREUM_HOSTS`
+- `--l1-consensus-host-url` maps to `L1_CONSENSUS_HOSTS_URLS`
+
+You can create a `.env` file with these variables:
+
+```bash
+ETHEREUM_HOSTS=https://eth-sepolia.g.alchemy.com/v2/your-key
+L1_CONSENSUS_HOST_URLS=https://lb.drpc.org/rest/your-key/eth-beacon-chain-sepolia
+# Add other configuration variables as needed
+```
+
+Then source this file before running your command:
+
+```bash
+source .env
+aztec start --network alpha-testnet --archiver --node --sequencer # other flags...
+```
+
+### Customization Options
+
+Using environment variables or command flags, you can customize:
+
+- Ports for various services
+- Log levels and output format
+- Resource limits for Docker containers
+- P2P network configuration
+- Database storage paths
+- And many more options
+
+Run `aztec start --help` for a complete list of available options.
+
+## Troubleshooting
+
+If you encounter issues:
+
+- Check that your RPC endpoints are working and not rate-limited
+- Ensure you have enough Sepolia ETH for gas costs
+- Verify your network connectivity and firewall settings
+- Join our Discord community for real-time help
+
+Happy sequencing!
