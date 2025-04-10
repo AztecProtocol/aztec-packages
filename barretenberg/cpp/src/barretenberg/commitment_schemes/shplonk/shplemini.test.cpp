@@ -130,8 +130,10 @@ TYPED_TEST(ShpleminiTest, CorrectnessOfMultivariateClaimBatching)
     Fr inverted_vanishing_eval_pos = (shplonk_eval_challenge - gemini_eval_challenge).invert();
     Fr inverted_vanishing_eval_neg = (shplonk_eval_challenge + gemini_eval_challenge).invert();
 
+    std::vector<Fr> inverted_vanishing_evals = { inverted_vanishing_eval_pos, inverted_vanishing_eval_neg };
+
     mock_claims.claim_batcher.compute_scalars_for_each_batch(
-        inverted_vanishing_eval_pos, inverted_vanishing_eval_neg, shplonk_batching_challenge, gemini_eval_challenge);
+        inverted_vanishing_evals, shplonk_batching_challenge, gemini_eval_challenge);
 
     rho_power = Fr{ 1 };
     mock_claims.claim_batcher.update_batch_mul_inputs_and_batched_evaluation(

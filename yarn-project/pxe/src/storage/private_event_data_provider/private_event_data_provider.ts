@@ -12,6 +12,7 @@ interface PrivateEventEntry {
   msgContent: Buffer;
   blockNumber: number;
   logIndexInTx: number;
+  txIndexInBlock: number;
 }
 
 /**
@@ -46,6 +47,7 @@ export class PrivateEventDataProvider implements DataProvider {
    * @param msgContent - The content of the event.
    * @param txHash - The transaction hash of the event log.
    * @param logIndexInTx - The index of the log within the transaction.
+   * @param txIndexInBlock - The index of the transaction in which the log was emitted in the block.
    * @param blockNumber - The block number in which the event was emitted.
    */
   storePrivateEventLog(
@@ -55,6 +57,7 @@ export class PrivateEventDataProvider implements DataProvider {
     msgContent: Fr[],
     txHash: TxHash,
     logIndexInTx: number,
+    txIndexInBlock: number,
     blockNumber: number,
   ): Promise<void> {
     return this.#store.transactionAsync(async () => {
@@ -73,7 +76,12 @@ export class PrivateEventDataProvider implements DataProvider {
       this.logger.verbose('storing private event log', { contractAddress, recipient, msgContent, blockNumber });
 
       const index = await this.#eventLogs.lengthAsync();
-      await this.#eventLogs.push({ msgContent: serializeToBuffer(msgContent), blockNumber, logIndexInTx });
+      await this.#eventLogs.push({
+        msgContent: serializeToBuffer(msgContent),
+        blockNumber,
+        logIndexInTx,
+        txIndexInBlock,
+      });
 
       const existingIndices = (await this.#eventLogIndex.getAsync(key)) || [];
       await this.#eventLogIndex.set(key, [...existingIndices, index]);
@@ -99,7 +107,7 @@ export class PrivateEventDataProvider implements DataProvider {
     recipients: AztecAddress[],
     eventSelector: EventSelector,
   ): Promise<Fr[][]> {
-    const events: Array<{ msgContent: Fr[]; blockNumber: number; logIndexInTx: number }> = [];
+    const events: Array<{ msgContent: Fr[]; blockNumber: number; logIndexInTx: number; txIndexInBlock: number }> = [];
 
     for (const recipient of recipients) {
       const key = `${contractAddress.toString()}_${recipient.toString()}_${eventSelector.toString()}`;
@@ -116,14 +124,22 @@ export class PrivateEventDataProvider implements DataProvider {
         const numFields = entry.msgContent.length / Fr.SIZE_IN_BYTES;
         const msgContent = reader.readArray(numFields, Fr);
 
-        events.push({ msgContent, blockNumber: entry.blockNumber, logIndexInTx: entry.logIndexInTx });
+        events.push({
+          msgContent,
+          blockNumber: entry.blockNumber,
+          logIndexInTx: entry.logIndexInTx,
+          txIndexInBlock: entry.txIndexInBlock,
+        });
       }
     }
 
-    // Sort by block number first, then by logIndexInTx (note that we currently don't order by txs within a block)
+    // Sort by block number first, then by txIndexInBlock, then by logIndexInTx
     events.sort((a, b) => {
       if (a.blockNumber !== b.blockNumber) {
         return a.blockNumber - b.blockNumber;
+      }
+      if (a.txIndexInBlock !== b.txIndexInBlock) {
+        return a.txIndexInBlock - b.txIndexInBlock;
       }
       return a.logIndexInTx - b.logIndexInTx;
     });

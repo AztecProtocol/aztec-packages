@@ -1,10 +1,7 @@
 use crate::{
     capsules::CapsuleArray,
-    discovery::{
-        ComputeNoteHashAndNullifier,
-        MAX_MESSAGE_CONTENT_LEN,
-        nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
-    },
+    discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
+    encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
     oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
 };
@@ -93,20 +90,17 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
         [pending_partial_notes.len() as Field],
     );
 
-    let mut i = 0;
-    while i < pending_partial_notes.len() {
-        let pending_partial_note: DeliveredPendingPartialNote = pending_partial_notes.get(i);
-
+    pending_partial_notes.for_each(|i, pending_partial_note: DeliveredPendingPartialNote| {
         let maybe_log = get_log_by_tag(pending_partial_note.note_completion_log_tag);
         if maybe_log.is_none() {
             debug_log_format(
                 "Found no completion logs for partial note with tag {}",
                 [pending_partial_note.note_completion_log_tag],
             );
-            i += 1 as u32;
-            // Note that we're not removing the pending partial note from the PXE DB, so we will continue searching
-            // for this tagged log when performing message discovery in the future until we either find it or the
-            // entry is somehow removed from the PXE DB.
+
+            // Note that we're not removing the pending partial note from the capsule array, so we will continue
+            // searching for this tagged log when performing message discovery in the future until we either find it or
+            // the entry is somehow removed from the array.
         } else {
             debug_log_format(
                 "Completion log found for partial note with tag {}",
@@ -148,37 +142,31 @@ pub unconstrained fn fetch_and_process_public_partial_note_completion_logs<Env>(
                 [discovered_notes.len() as Field, pending_partial_note.note_completion_log_tag],
             );
 
-            array::for_each_in_bounded_vec(
-                discovered_notes,
-                |discovered_note: DiscoveredNoteInfo, _| {
-                    // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
-                    // temporary node connectivity issue - is simply throwing good enough here?
-                    assert(
-                        deliver_note(
-                            contract_address,
-                            pending_partial_note.storage_slot,
-                            discovered_note.nonce,
-                            complete_packed_note,
-                            discovered_note.note_hash,
-                            discovered_note.inner_nullifier,
-                            log.tx_hash,
-                            pending_partial_note.recipient,
-                        ),
-                        "Failed to deliver note",
-                    );
-                },
-            );
+            discovered_notes.for_each(|discovered_note| {
+                // TODO:(#10728): decide how to handle notes that fail delivery. This could be due to e.g. a
+                // temporary node connectivity issue - is simply throwing good enough here?
+                assert(
+                    deliver_note(
+                        contract_address,
+                        pending_partial_note.storage_slot,
+                        discovered_note.nonce,
+                        complete_packed_note,
+                        discovered_note.note_hash,
+                        discovered_note.inner_nullifier,
+                        log.tx_hash,
+                        pending_partial_note.recipient,
+                    ),
+                    "Failed to deliver note",
+                );
+            });
 
             // Because there is only a single log for a given tag, once we've processed the tagged log then we
             // simply delete the pending work entry, regardless of whether it was actually completed or not.
             // TODO(#11627): only remove the pending entry if we actually process a log that results in the note
             // being completed.
             pending_partial_notes.remove(i);
-
-            // We don't increment `i` here, because CapsuleArray is contiguous and its `remove(...)` function
-            // shifts the elements to the left if the removed element is not the last element.
         }
-    }
+    });
 }
 
 fn decode_partial_note_private_msg(
