@@ -20,6 +20,7 @@ import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
 import { parse } from 'buffer-json';
 import { select } from '../../../styles/common';
+import { filterDeployedAliasedContracts } from '../../../utils/contracts';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -37,7 +38,7 @@ const loadingContainer = css({
 export function ContractSelector() {
   const [contracts, setContracts] = useState([]);
 
-  const [isContractChanging, setIsContractChanging] = useState(false);
+  const [isContractsLoading, setIsContractsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
 
   const [selectedPredefinedContract, setSelectedPredefinedContract] = useState<string | undefined>(undefined);
@@ -54,17 +55,20 @@ export function ContractSelector() {
 
   useEffect(() => {
     const refreshContracts = async () => {
+      setIsContractsLoading(true);
       const aliasedContracts = await walletDB.listAliases('contracts');
-      setContracts(parseAliasedBuffersAsString(aliasedContracts));
+      const contracts = parseAliasedBuffersAsString(aliasedContracts);
+      // Temporarily filter out undeployed contracts
+      const deployedContracts = await filterDeployedAliasedContracts(contracts, wallet);
+      setContracts(deployedContracts);
+      setIsContractsLoading(false);
     };
-    if (walletDB) {
+    if (walletDB && wallet) {
       refreshContracts();
     }
-  }, [currentContractAddress, walletDB]);
+  }, [currentContractAddress, walletDB, wallet]);
 
   const handleContractChange = async (event: SelectChangeEvent) => {
-    console.log('Selected contract:', event.target.value);
-
     const contractValue = event.target.value;
     if (contractValue === '') {
       return;
@@ -79,7 +83,7 @@ export function ContractSelector() {
       return;
     }
 
-    setIsContractChanging(true);
+    setIsContractsLoading(true);
 
     try {
       if ([PREDEFINED_CONTRACTS.SIMPLE_VOTING, PREDEFINED_CONTRACTS.SIMPLE_TOKEN].includes(contractValue)) {
@@ -110,7 +114,7 @@ export function ContractSelector() {
         setShowContractInterface(true);
       }
     } finally {
-      setIsContractChanging(false);
+      setIsContractsLoading(false);
     }
   };
 
@@ -136,7 +140,7 @@ export function ContractSelector() {
           onClose={() => setIsOpen(false)}
           onChange={handleContractChange}
           fullWidth
-          disabled={isContractChanging}
+          disabled={isContractsLoading}
         >
           {/* Predefined contracts */}
           <MenuItem value={PREDEFINED_CONTRACTS.SIMPLE_VOTING}>Easy Private Voting</MenuItem>
@@ -159,7 +163,7 @@ export function ContractSelector() {
             </MenuItem>
           ))}
         </Select>
-        {isContractChanging ? (
+        {isContractsLoading ? (
           <div style={{ display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}>
             <CircularProgress size={20} />
           </div>

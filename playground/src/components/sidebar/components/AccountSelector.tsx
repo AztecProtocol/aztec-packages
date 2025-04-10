@@ -42,8 +42,6 @@ const loadingContainer = css({
 export function AccountSelector() {
   const [openCreateAccountDialog, setOpenCreateAccountDialog] = useState(false);
   const [isAccountsLoading, setIsAccountsLoading] = useState(true);
-  const [isAccountChanging, setIsAccountChanging] = useState(false);
-  const [deploymentInProgress, setDeploymentInProgress] = useState(false);
   const [accounts, setAccounts] = useState([]);
 
   const [isOpen, setIsOpen] = useState(false);
@@ -88,10 +86,12 @@ export function AccountSelector() {
 
   useEffect(() => {
     const refreshAccounts = async () => {
+      setIsAccountsLoading(true);
       const accounts = await getAccounts();
       setAccounts(accounts);
+      setIsAccountsLoading(false);
     };
-    if (walletDB && walletDB && pxe) {
+    if (walletDB && pxe) {
       refreshAccounts();
     }
   }, [wallet, walletDB, pxe]);
@@ -100,10 +100,11 @@ export function AccountSelector() {
     if (event.target.value == '') {
       return;
     }
+    setIsAccountsLoading(true);
     const accountAddress = AztecAddress.fromString(event.target.value);
     const accountData = await walletDB.retrieveAccount(accountAddress);
     const type = convertFromUTF8BufferAsString(accountData.type);
-    let accountManager;
+    let accountManager: AccountManager;
     switch (type) {
       case 'schnorr': {
         accountManager = await getSchnorrAccount(
@@ -126,7 +127,9 @@ export function AccountSelector() {
         throw new Error('Unknown account type');
       }
     }
+    await accountManager.register();
     setWallet(await accountManager.getWallet());
+    setIsAccountsLoading(false);
   };
 
   const handleAccountCreation = async (
@@ -136,28 +139,17 @@ export function AccountSelector() {
     opts?: DeployOptions,
   ) => {
     setOpenCreateAccountDialog(false);
-    if (accountWallet) {
-      setIsAccountChanging(true);
-      const aliasedAccounts = await walletDB.listAliases('accounts');
-      setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
+    setIsAccountsLoading(true);
+    if (accountWallet && publiclyDeploy) {
+      await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
+      setAccounts([
+        ...accounts,
+        { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
+      ]);
       setWallet(accountWallet);
-      if (publiclyDeploy) {
-        setDeploymentInProgress(true);
-        await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
-        setDeploymentInProgress(false);
-      }
     }
-    setIsAccountChanging(false);
+    setIsAccountsLoading(false);
   };
-
-  // Set loading state based on accounts and connection state
-  useEffect(() => {
-    if (accounts.length === 0 && isPXEInitialized && pxe && walletDB) {
-      setIsAccountsLoading(true);
-    } else {
-      setIsAccountsLoading(false);
-    }
-  }, [accounts, isPXEInitialized, pxe, walletDB]);
 
   // Render loading state if accounts are being loaded
   if (isAccountsLoading) {
@@ -194,7 +186,7 @@ export function AccountSelector() {
           onOpen={() => setIsOpen(true)}
           onClose={() => setIsOpen(false)}
           onChange={handleAccountChange}
-          disabled={isAccountChanging}
+          disabled={isAccountsLoading}
         >
           {accounts.map(account => (
             <MenuItem key={account.key} value={account.value}>
@@ -214,7 +206,7 @@ export function AccountSelector() {
             &nbsp;Create
           </MenuItem>
         </Select>
-        {wallet && !isAccountChanging && !deploymentInProgress && (
+        {wallet && !isAccountsLoading && (
           <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
         )}
       </FormControl>

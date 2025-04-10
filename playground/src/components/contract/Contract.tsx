@@ -6,8 +6,6 @@ import {
   getAllFunctionAbis,
   type FunctionAbi,
   FunctionType,
-  ContractFunctionInteraction,
-  type SendMethodOptions,
   DeployMethod,
   type DeployOptions,
 } from '@aztec/aztec.js';
@@ -104,6 +102,7 @@ export function ContractComponent() {
   const { sendTx } = useTransaction();
 
   const {
+    node,
     wallet,
     currentContractAddress,
     currentContractArtifact,
@@ -122,8 +121,13 @@ export function ContractComponent() {
         utility: true,
       });
       if (currentContractAddress && currentContract?.address !== currentContractAddress) {
-        const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
-        setCurrentContract(contract);
+        const { isContractPubliclyDeployed } = await wallet.getContractMetadata(currentContractAddress);
+        if (isContractPubliclyDeployed) {
+          const contractInstance = await node.getContract(currentContractAddress);
+          await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
+          const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
+          setCurrentContract(contract);
+        }
       } else {
         setCurrentContract(null);
       }
@@ -141,11 +145,9 @@ export function ContractComponent() {
     opts?: DeployOptions,
   ) => {
     setOpenCreateContractDialog(false);
-    if (contract) {
+    if (contract && publiclyDeploy) {
+      await sendTx(`Deployment of ${currentContractArtifact.name}`, interaction, contract.address, opts);
       setCurrentContractAddress(contract.address);
-      if (publiclyDeploy) {
-        await sendTx(`Deployment of ${currentContractArtifact.name}`, interaction, contract.address, opts);
-      }
     }
   };
 

@@ -34,6 +34,8 @@ export interface KernelProverConfig {
 export interface PXEConfig {
   /** L2 block to start scanning from for new accounts */
   l2StartingBlock: number;
+  /** Number of blocks to pull in a single batch from the block stream */
+  l2BlockBatchSize: number;
 }
 
 export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig;
@@ -54,6 +56,11 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
     env: 'PXE_L2_STARTING_BLOCK',
     ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),
     description: 'L2 block to start scanning from for new accounts',
+  },
+  l2BlockBatchSize: {
+    env: 'PXE_L2_BLOCK_BATCH_SIZE',
+    ...numberConfigHelper(1000),
+    description: 'Number of blocks to pull in a single batch from the block stream',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
