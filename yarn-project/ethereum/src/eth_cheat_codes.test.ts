@@ -1,6 +1,5 @@
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
