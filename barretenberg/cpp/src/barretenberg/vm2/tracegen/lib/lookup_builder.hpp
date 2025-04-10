@@ -30,12 +30,11 @@ template <typename LookupSettings_> class BaseLookupTraceBuilder : public Intera
         // find a row dst_row in the target columns {d1, d2, ...} where the values match.
         // Then we increment the count in the counts column at dst_row.
         // The complexity is O(|src_selector|) * O(find_in_dst).
-        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
-            assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-
+        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF&) {
             auto src_values = trace.get_multiple(LookupSettings::SRC_COLUMNS, row);
             uint32_t dst_row = find_in_dst(src_values); // Assumes an efficient implementation.
+            assert(src_values == trace.get_multiple(LookupSettings::DST_COLUMNS, dst_row));
+
             trace.set(LookupSettings::COUNTS, dst_row, trace.get(LookupSettings::COUNTS, dst_row) + 1);
         });
     }
@@ -63,10 +62,7 @@ class LookupIntoDynamicTableGeneric : public BaseLookupTraceBuilder<LookupSettin
     void init(TraceContainer& trace) override
     {
         row_idx.reserve(trace.get_column_rows(LookupSettings::DST_SELECTOR));
-        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF& dst_sel_value) {
-            assert(dst_sel_value == 1);
-            (void)dst_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-
+        trace.visit_column(LookupSettings::DST_SELECTOR, [&](uint32_t row, const FF&) {
             auto dst_values = trace.get_multiple(LookupSettings::DST_COLUMNS, row);
             row_idx.insert({ dst_values, row });
         });
@@ -111,11 +107,8 @@ template <typename LookupSettings> class LookupIntoDynamicTableSequential : publ
         // Since the trace does not guarantee visiting rows in order, we need to collect the rows.
         std::vector<uint32_t> src_rows_in_order;
         src_rows_in_order.reserve(trace.get_column_rows(LookupSettings::SRC_SELECTOR));
-        trace.visit_column(LookupSettings::SRC_SELECTOR, [&](uint32_t row, const FF& src_sel_value) {
-            assert(src_sel_value == 1);
-            (void)src_sel_value; // Avoid GCC complaining of unused parameter when asserts are disabled.
-            src_rows_in_order.push_back(row);
-        });
+        trace.visit_column(LookupSettings::SRC_SELECTOR,
+                           [&](uint32_t row, const FF&) { src_rows_in_order.push_back(row); });
         std::sort(src_rows_in_order.begin(), src_rows_in_order.end());
 
         for (uint32_t row : src_rows_in_order) {
