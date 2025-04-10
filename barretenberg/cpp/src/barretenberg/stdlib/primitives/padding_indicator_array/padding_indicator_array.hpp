@@ -31,7 +31,7 @@ template <typename Fr, typename Builder, size_t virtual_log_n>
 static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& log_n)
 {
     // Create a domain of size `virtual_log_n` and compute Lagrange denominators
-    using Data = BarycentricDataRunTime<Fr, virtual_log_n, 1>;
+    using Data = BarycentricDataRunTime<Fr, virtual_log_n, /*num_evals=*/1>;
 
     std::array<Fr, virtual_log_n> result{};
     Builder* builder = log_n.get_context();
