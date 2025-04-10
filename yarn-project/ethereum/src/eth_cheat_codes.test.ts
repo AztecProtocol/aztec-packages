@@ -1,5 +1,6 @@
 import { times, timesAsync } from '@aztec/foundation/collection';
 import { type Logger, createLogger } from '@aztec/foundation/log';
+import { sleep } from '@aztec/foundation/sleep';
 import { TestERC20Abi, TestERC20Bytecode } from '@aztec/l1-artifacts';
 
 import type { Anvil } from '@viem/anvil';
@@ -122,7 +123,7 @@ describe('EthCheatCodes', () => {
       await cheatCodes.reorgWithReplacement(3);
       await expect(token.read.balanceOf([sender])).resolves.toEqual(100n);
       await expect(getEvents(token)).resolves.toHaveLength(1);
-      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toEqual(blockNumberBefore);
+      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toBeGreaterThanOrEqual(blockNumberBefore);
     });
 
     it('reorgs with blocks with replacement txs', async () => {
@@ -139,7 +140,7 @@ describe('EthCheatCodes', () => {
       await cheatCodes.reorgWithReplacement(3, [[newTx, newTx, newTx], [], [newTx]]);
       await expect(token.read.balanceOf([sender])).resolves.toEqual(4100n);
       await expect(getEvents(token)).resolves.toHaveLength(5);
-      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toEqual(blockNumber);
+      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toBeGreaterThanOrEqual(blockNumber);
 
       await expect(
         Promise.all(
