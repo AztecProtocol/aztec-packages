@@ -51,7 +51,6 @@ describe('Rollup IVC Integration', () => {
 
     // Create a client IVC proof
     clientIVCProofPath = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
-    const avmWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-avm-'));
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
@@ -66,6 +65,8 @@ describe('Rollup IVC Integration', () => {
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
 
     // Create an AVM proof
+    const avmWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-avm-'));
+
     const simTester = await PublicTxSimulationTester.create();
     const avmTestContractInstance = await simTester.registerAndDeployContract(
       /*constructorArgs=*/ [],
