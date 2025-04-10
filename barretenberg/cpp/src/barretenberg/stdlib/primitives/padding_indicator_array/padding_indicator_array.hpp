@@ -60,8 +60,7 @@ static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& l
     //    L_i(x) = (1 / lagrange_denominators[i]) * prefix[i] * suffix[i+1].
     //    (We skip factor (x - big_domain[i]) by splitting into prefix & suffix.)
     for (size_t i = 0; i < virtual_log_n; ++i) {
-        const Fr inv_denom_i = Data::lagrange_denominators[i].invert();
-        result[i] = inv_denom_i * prefix[i] * suffix[i + 1];
+        result[i] = Data::precomputed_denominator_inverses[i] * prefix[i] * suffix[i + 1];
     }
     // Convert result into the array of step function evaluations sums b_i.
     for (size_t idx = virtual_log_n - 1; idx > 0; idx--) {

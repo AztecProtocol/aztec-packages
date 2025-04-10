@@ -195,7 +195,8 @@ template <class Fr, size_t domain_end, size_t num_evals, size_t domain_start = 0
     static std::array<Fr, domain_size * num_evals> construct_denominator_inverses(const auto& big_domain,
                                                                                   const auto& lagrange_denominators)
     {
-        std::array<Fr, domain_size * num_evals> result{}; // default init to 0 since below does not init all elements
+        std::array<Fr, domain_size* num_evals> result =
+            lagrange_denominators; // default init to 0 since below does not init all elements
         for (size_t k = domain_size; k < num_evals; ++k) {
             for (size_t j = 0; j < domain_size; ++j) {
                 Fr inv = lagrange_denominators[j];
