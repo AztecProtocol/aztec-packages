@@ -67,9 +67,9 @@ import type { NullifierLeafPreimage, PublicDataTreeLeaf, PublicDataTreeLeafPreim
 import { MerkleTreeId, NullifierMembershipWitness, PublicDataWitness } from '@aztec/stdlib/trees';
 import {
   type BlockHeader,
+  type IndexedTxEffect,
   PublicSimulationOutput,
   Tx,
-  TxEffect,
   type TxHash,
   TxReceipt,
   TxStatus,
@@ -236,16 +236,21 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
       telemetry,
     );
 
-    const slasherClient = createSlasherClient(config, archiver, telemetry);
+    // Start world state and wait for it to sync to the archiver.
+    await worldStateSynchronizer.start();
 
-    // start both and wait for them to sync from the block source
-    await Promise.all([p2pClient.start(), worldStateSynchronizer.start(), slasherClient.start()]);
-    log.verbose(`All Aztec Node subsystems synced`);
+    // Start p2p. Note that it depends on world state to be running.
+    await p2pClient.start();
+
+    const slasherClient = createSlasherClient(config, archiver, telemetry);
+    slasherClient.start();
 
     const validatorClient = createValidatorClient(config, { p2pClient, telemetry, dateProvider, epochCache });
 
     const validatorsSentinel = await createSentinel(epochCache, archiver, p2pClient, config);
     await validatorsSentinel?.start();
+
+    log.verbose(`All Aztec Node subsystems synced`);
 
     // now create the sequencer
     const sequencer = config.disableValidator
@@ -463,13 +468,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
    * @param tx - The transaction to be submitted.
    */
   public async sendTx(tx: Tx) {
-    await this.txQueue
-      .put(async () => {
-        await this.#sendTx(tx);
-      })
-      .catch(error => {
-        this.log.error(`Error sending tx`, { error });
-      });
+    await this.txQueue.put(() => this.#sendTx(tx));
   }
 
   async #sendTx(tx: Tx) {
@@ -480,10 +479,8 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     if (valid.result !== 'valid') {
       const reason = valid.reason.join(', ');
       this.metrics.receivedTx(timer.ms(), false);
-      this.log.warn(`Invalid tx ${txHash}: ${reason}`, { txHash });
-      // TODO(#10967): Throw when receiving an invalid tx instead of just returning
-      // throw new Error(`Invalid tx: ${reason}`);
-      return;
+      this.log.warn(`Received invalid tx ${txHash}: ${reason}`, { txHash });
+      throw new Error(`Invalid tx: ${reason}`);
     }
 
     await this.p2pClient!.sendTx(tx);
@@ -509,7 +506,7 @@ export class AztecNodeService implements AztecNode, AztecNodeAdmin, Traceable {
     return txReceipt;
   }
 
-  public getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  public getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     return this.blockSource.getTxEffect(txHash);
   }
 

@@ -55,11 +55,14 @@ import { ContractStorageRead } from '../avm/contract_storage_read.js';
 import { ContractStorageUpdateRequest } from '../avm/contract_storage_update_request.js';
 import {
   AvmAccumulatedData,
+  AvmAppendLeavesHint,
   AvmBytecodeCommitmentHint,
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
+  AvmCommitCheckpointHint,
   AvmContractClassHint,
   AvmContractInstanceHint,
+  AvmCreateCheckpointHint,
   AvmEnqueuedCallHint,
   AvmExecutionHints,
   AvmGetLeafPreimageHintNullifierTree,
@@ -67,6 +70,7 @@ import {
   AvmGetLeafValueHint,
   AvmGetPreviousValueIndexHint,
   AvmGetSiblingPathHint,
+  AvmRevertCheckpointHint,
   AvmSequentialInsertHintNullifierTree,
   AvmSequentialInsertHintPublicDataTree,
   AvmTxHint,
@@ -1382,6 +1386,42 @@ export function makeAvmSequentialInsertHintNullifierTree(seed = 0): AvmSequentia
   );
 }
 
+export function makeAvmAppendLeavesHint(seed = 0): AvmAppendLeavesHint {
+  return new AvmAppendLeavesHint(
+    makeAppendOnlyTreeSnapshot(seed),
+    makeAppendOnlyTreeSnapshot(seed + 1),
+    // Use NOTE_HASH_TREE or L1_TO_L2_MESSAGE_TREE as mentioned in the comment on AvmAppendLeavesHint
+    seed % 2 === 0 ? MerkleTreeId.NOTE_HASH_TREE : MerkleTreeId.L1_TO_L2_MESSAGE_TREE,
+    makeArray((seed % 5) + 1, i => new Fr(seed + i + 2), 0),
+  );
+}
+
+export function makeAvmCheckpointActionCreateCheckpointHint(seed = 0): AvmCreateCheckpointHint {
+  return new AvmCreateCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionCommitCheckpointHint(seed = 0): AvmCommitCheckpointHint {
+  return new AvmCommitCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+  );
+}
+
+export function makeAvmCheckpointActionRevertCheckpointHint(seed = 0): AvmRevertCheckpointHint {
+  return new AvmRevertCheckpointHint(
+    /*actionCounter=*/ seed,
+    /*oldCheckpointId=*/ seed + 1,
+    /*newCheckpointId=*/ seed + 2,
+    /*beforeState=*/ makeTreeSnapshots(seed + 3),
+    /*afterState=*/ makeTreeSnapshots(seed + 7),
+  );
+}
+
 /**
  * Makes arbitrary AvmContractInstanceHint.
  * @param seed - The seed to use for generating the state reference.
@@ -1430,6 +1470,8 @@ export function makeAvmEnqueuedCallHint(seed = 0): AvmEnqueuedCallHint {
 
 export function makeAvmTxHint(seed = 0): AvmTxHint {
   return new AvmTxHint(
+    `txhash-${seed}`,
+    makeGlobalVariables(seed),
     {
       noteHashes: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x1000),
       nullifiers: makeArray((seed % 20) + 4, i => new Fr(i), seed + 0x2000),
@@ -1462,6 +1504,7 @@ export async function makeAvmExecutionHints(
     contractInstances: makeArray(baseLength + 2, makeAvmContractInstanceHint, seed + 0x4700),
     contractClasses: makeArray(baseLength + 5, makeAvmContractClassHint, seed + 0x4900),
     bytecodeCommitments: await makeArrayAsync(baseLength + 5, makeAvmBytecodeCommitmentHint, seed + 0x4900),
+    startingTreeRoots: makeTreeSnapshots(seed + 0x4900),
     getSiblingPathHints: makeArray(baseLength + 5, makeAvmGetSiblingPathHint, seed + 0x4b00),
     getPreviousValueIndexHints: makeArray(baseLength + 5, makeAvmGetPreviousValueIndexHint, seed + 0x4d00),
     getLeafPreimageHintPublicDataTree: makeArray(
@@ -1481,6 +1524,10 @@ export async function makeAvmExecutionHints(
       makeAvmSequentialInsertHintNullifierTree,
       seed + 0x5700,
     ),
+    appendLeavesHints: makeArray(baseLength + 5, makeAvmAppendLeavesHint, seed + 0x5800),
+    createCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCreateCheckpointHint, seed + 0x5900),
+    commitCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionCommitCheckpointHint, seed + 0x5b00),
+    revertCheckpointHints: makeArray(baseLength + 5, makeAvmCheckpointActionRevertCheckpointHint, seed + 0x5d00),
     ...overrides,
   };
 
@@ -1489,6 +1536,7 @@ export async function makeAvmExecutionHints(
     fields.contractInstances,
     fields.contractClasses,
     fields.bytecodeCommitments,
+    fields.startingTreeRoots,
     fields.getSiblingPathHints,
     fields.getPreviousValueIndexHints,
     fields.getLeafPreimageHintPublicDataTree,
@@ -1496,6 +1544,10 @@ export async function makeAvmExecutionHints(
     fields.getLeafValueHints,
     fields.sequentialInsertHintsPublicDataTree,
     fields.sequentialInsertHintsNullifierTree,
+    fields.appendLeavesHints,
+    fields.createCheckpointHints,
+    fields.commitCheckpointHints,
+    fields.revertCheckpointHints,
   );
 }
 
@@ -1509,14 +1561,12 @@ export async function makeAvmCircuitInputs(
   overrides: Partial<FieldsOf<AvmCircuitInputs>> = {},
 ): Promise<AvmCircuitInputs> {
   const fields = {
-    functionName: `function${seed}`,
-    calldata: makeArray((seed % 100) + 10, i => new Fr(i), seed + 0x1000),
-    avmHints: await makeAvmExecutionHints(seed + 0x3000),
+    hints: await makeAvmExecutionHints(seed + 0x3000),
     publicInputs: makeAvmCircuitPublicInputs(seed + 0x4000),
     ...overrides,
   };
 
-  return new AvmCircuitInputs(fields.functionName, fields.calldata, fields.avmHints, fields.publicInputs);
+  return new AvmCircuitInputs(fields.hints, fields.publicInputs);
 }
 
 /**

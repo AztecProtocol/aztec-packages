@@ -8,15 +8,21 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
-### [Aztec.nr] #[utility] functions
+### [noir-contracts] Reference Noir contracts directory structure change
 
-We've introduced a new type of contract function macro called #[utility].
-Utility functions are standalone unconstrained functions that cannot be called from another function in a contract.
-They are typically used either to obtain some information from the contract (e.g. token balance of a user) or to modify internal contract-related state of PXE (e.g. processing logs in Aztec.nr during sync).
-These function were originally referred to as top-level unconstrained.
+`noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
+If you import contract from the directory make sure to update the paths accordingly.
+E.g. for a token contract:
 
-Now all the contract functions have to be marked as one of these: #[private], #[public], #[utility], #[contract_library_method], or #[test].
-For this reason you need to apply #[utility] macro to functions which were originally macro-free:
+```diff
+#[dependencies]
+-token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/src/token_contract" }
++token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
+```
+
+### [Aztec.nr] #[utility] contract functions
+
+Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and what was sometimes called 'top-level unconstrained': an unmarked unconstrained function in the contract module. These are now called `[#utility]` functions, and must be explicitly marked as such:
 
 ```diff
 +    #[utility]
@@ -25,13 +31,20 @@ For this reason you need to apply #[utility] macro to functions which were origi
     }
 ```
 
-With this change the `UnconstrainedContext` has been renamed as `UtilityContext`.
-This led us to rename the `unkonstrained` method on `TestEnvironment` as `utility` so you will need to update your tests using that:
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+
+All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
+
+Additionally, the `UnconstrainedContext` type has been renamed to `UtilityContext`. This led us to rename the `unkonstrained` method on `TestEnvironment` to `utility`, so any tests using it also need updating:
 
 ```diff
 -     SharedMutable::new(env.unkonstrained(), storage_slot)
 +     SharedMutable::new(env.utility(), storage_slot)
 ```
+
+### [AuthRegistry] function name change
+
+As part of the broader transition from "top-level unconstrained" to "utility" name (detailed in the note above), the `unconstrained_is_consumable` function in AuthRegistry has been renamed to `utility_is_consumable`. The function's signature and behavior remain unchanged - only the name has been updated to align with the new convention. If you're currently using this function, a simple rename in your code will suffice.
 
 ## 0.83.0
 

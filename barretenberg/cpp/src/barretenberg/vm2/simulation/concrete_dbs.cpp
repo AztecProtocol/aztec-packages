@@ -38,8 +38,8 @@ const TreeSnapshots& MerkleDB::get_tree_roots() const
 
 FF MerkleDB::storage_read(const FF& leaf_slot) const
 {
-    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(world_state::MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
-    auto path = raw_merkle_db.get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, index);
+    auto [present, index] = raw_merkle_db.get_low_indexed_leaf(MerkleTreeId::PUBLIC_DATA_TREE, leaf_slot);
+    auto path = raw_merkle_db.get_sibling_path(MerkleTreeId::PUBLIC_DATA_TREE, index);
     auto preimage = raw_merkle_db.get_leaf_preimage_public_data_tree(index);
 
     FF value = present ? preimage.leaf.value : 0;
@@ -47,6 +47,21 @@ FF MerkleDB::storage_read(const FF& leaf_slot) const
     public_data_tree_check.assert_read(leaf_slot, value, preimage, index, path, get_tree_roots().publicDataTree.root);
 
     return value;
+}
+
+void MerkleDB::create_checkpoint()
+{
+    raw_merkle_db.create_checkpoint();
+}
+
+void MerkleDB::commit_checkpoint()
+{
+    raw_merkle_db.commit_checkpoint();
+}
+
+void MerkleDB::revert_checkpoint()
+{
+    raw_merkle_db.revert_checkpoint();
 }
 
 } // namespace bb::avm2::simulation

@@ -25,14 +25,14 @@ fn extract_property_value_from_selector<let N: u32>(
     // Selectors use PropertySelectors in order to locate note properties inside the packed note.
     // This allows easier packing and custom (un)packing schemas. A note property is located
     // inside the packed note using the index inside the array, a byte offset and a length.
-    let value: [u8; 32] = packed_note[selector.index].to_be_bytes();
+    let value: [u8; 32] = packed_note[selector.index as u32].to_be_bytes();
     let offset = selector.offset;
     let length = selector.length;
     let mut value_field = 0 as Field;
     let mut acc: Field = 1;
     for i in 0..32 {
         if i < length {
-            value_field += value[31 + offset - i] as Field * acc;
+            value_field += value[(31 + offset - i) as u32] as Field * acc;
             acc = acc * 256;
         }
     }
@@ -302,11 +302,14 @@ unconstrained fn flatten_options<let N: u32>(
     for i in 0..selects.len() {
         let select = selects.get(i);
         if select.is_some() {
-            select_by_indexes[num_selects] = select.unwrap_unchecked().property_selector.index;
-            select_by_offsets[num_selects] = select.unwrap_unchecked().property_selector.offset;
-            select_by_lengths[num_selects] = select.unwrap_unchecked().property_selector.length;
-            select_values[num_selects] = select.unwrap_unchecked().value;
-            select_comparators[num_selects] = select.unwrap_unchecked().comparator;
+            select_by_indexes[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.index;
+            select_by_offsets[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.offset;
+            select_by_lengths[num_selects as u32] =
+                select.unwrap_unchecked().property_selector.length;
+            select_values[num_selects as u32] = select.unwrap_unchecked().value;
+            select_comparators[num_selects as u32] = select.unwrap_unchecked().comparator;
             num_selects += 1;
         };
     }

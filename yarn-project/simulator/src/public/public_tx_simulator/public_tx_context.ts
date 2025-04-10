@@ -4,7 +4,6 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
@@ -111,9 +110,16 @@ export class PublicTxContext {
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // We wrap the DB to collect AVM hints.
-    const hints = new AvmExecutionHints(AvmTxHint.fromTx(tx));
+    const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
     const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
     const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
+    const startStateReference = await treesDB.getStateReference();
+    hints.startingTreeRoots = new TreeSnapshots(
+      startStateReference.l1ToL2MessageTree,
+      startStateReference.partial.noteHashTree,
+      startStateReference.partial.nullifierTree,
+      startStateReference.partial.publicDataTree,
+    );
 
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = PublicPersistableStateManager.create(
@@ -394,16 +400,10 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager
-      .deprecatedGetTreesForPIGeneration()
-      .appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    await stateManager.deprecatedGetTreesForPIGeneration().padTree(MerkleTreeId.NOTE_HASH_TREE, numNoteHashesToPad);
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.deprecatedGetTreesForPIGeneration().batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
+    await stateManager.deprecatedGetTreesForPIGeneration().padTree(MerkleTreeId.NULLIFIER_TREE, numNullifiersToPad);
 
     const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
     avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
