@@ -108,8 +108,8 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
+        verification_key->relation_parameters, verification_key->alphas, gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {

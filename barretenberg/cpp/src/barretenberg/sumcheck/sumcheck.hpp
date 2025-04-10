@@ -654,7 +654,8 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
      */
     SumcheckOutput<Flavor> verify(const bb::RelationParameters<FF>& relation_parameters,
                                   RelationSeparator alpha,
-                                  std::vector<FF>& gate_challenges)
+                                  std::vector<FF>& gate_challenges,
+                                  const std::array<FF, virtual_log_n>& padding_indicator_array = {})
         requires(!IsGrumpkinFlavor<Flavor>)
     {
         bool verified(true);
@@ -694,17 +695,14 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             multivariate_challenge.emplace_back(round_challenge);
 
             if constexpr (IsRecursiveFlavor<Flavor>) {
-                typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
-                bool checked = round.check_sum(round_univariate, dummy_round);
+                bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
                 // Only utilize the checked value if this is not a constant proof size padding round
                 if (round_idx < multivariate_d) {
                     verified = verified && checked;
                 }
 
-                round.compute_next_target_sum(round_univariate, round_challenge, dummy_round);
-                gate_separators.partially_evaluate(round_challenge, dummy_round);
+                round.compute_next_target_sum(round_univariate, round_challenge, padding_indicator_array[round_idx]);
+                gate_separators.partially_evaluate(round_challenge, padding_indicator_array[round_idx]);
 
             } else {
                 if (round_idx < multivariate_d) {
