@@ -187,7 +187,8 @@ function build {
   # Ensure we have yarn set up.
   corepack enable
 
-  projects=(
+  # These projects are dependant on each other and must be built linearly
+  dependant_projects=(
     noir
     barretenberg
     avm-transpiler
@@ -195,6 +196,9 @@ function build {
     # Relies on noir-projects for verifier solidity generation.
     l1-contracts
     yarn-project
+  )
+  # These projects rely on the output of the dependant projects and can be built in parallel
+  non_dependant_projects=(
     boxes
     playground
     docs
@@ -203,9 +207,13 @@ function build {
     aztec-up
   )
 
-  for project in "${projects[@]}"; do
+  echo_header "Building dependant projects in serial"
+  for project in "${dependant_projects[@]}"; do
     $project/bootstrap.sh ${1:-}
   done
+
+  echo_header "build non-dependant projects in parallel"
+  parallel --line-buffer --tag --halt now,fail=1 '{}/bootstrap.sh ${1:-}' ::: ${non_dependant_projects[@]}
 }
 
 function bench {
