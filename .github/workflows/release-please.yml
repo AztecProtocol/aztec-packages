@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release-pr: ${{ steps.release.outputs.pr }}
+      release-version: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run Release Please
         id: release
@@ -56,13 +57,24 @@ jobs:
             $project/bootstrap.sh
           done
 
+      - name: Query new version
+        id: version
+        run: |
+          # Extract version from .release-please-manifest.json
+          AZTEC_VERSION=$(jq -r '."."' .release-please-manifest.json)
+
+          # Add v prefix
+          AZTEC_VERSION="v$AZTEC_VERSION"
+
+          echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
+
       - name: Cut version
         working-directory: ./docs
         run: |
           echo "[]" > versions.json
           yarn
           yarn build
-          yarn docusaurus docs:version ${{ env.BRANCH_NAME }}
+          yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
 
       - name: Filter
         working-directory: ./docs
@@ -72,5 +84,5 @@ jobs:
       - name: Commit new documentation version
         run: |
           git add .
-          git commit -m "chore(docs): cut new docs version for tag ${{ env.BRANCH_NAME }}"
+          git commit -m "chore(docs): cut new docs version for tag ${{ steps.version.outputs.semver }}"
           git push

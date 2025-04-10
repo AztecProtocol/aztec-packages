@@ -30,16 +30,6 @@ ECCVMProver::ECCVMProver(CircuitBuilder& builder,
 }
 
 /**
- * @brief Add circuit size, public input size, and public inputs to transcript
- *
- */
-void ECCVMProver::execute_preamble_round()
-{
-    const auto circuit_size = static_cast<uint32_t>(key->circuit_size);
-    transcript->send_to_verifier("circuit_size", circuit_size);
-}
-
-/**
  * @brief Compute commitments to the first three wires
  *
  */
@@ -186,7 +176,6 @@ ECCVMProof ECCVMProver::construct_proof()
 {
     PROFILE_THIS_NAME("ECCVMProver::construct_proof");
 
-    execute_preamble_round();
     execute_wire_commitments_round();
     execute_log_derivative_commitments_round();
     execute_grand_product_computation_round();

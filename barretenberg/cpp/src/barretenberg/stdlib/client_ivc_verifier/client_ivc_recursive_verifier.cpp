@@ -18,10 +18,9 @@ ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const Clie
     verifier.verify_proof(proof.mega_proof, agg_obj);
 
     // Perform Goblin recursive verification
-    GoblinVerifierInput goblin_verification_key{ ivc_verification_key.eccvm, ivc_verification_key.translator };
+    GoblinVerificationKey goblin_verification_key{};
     GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key };
     GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof);
-
     return output;
 }
 
