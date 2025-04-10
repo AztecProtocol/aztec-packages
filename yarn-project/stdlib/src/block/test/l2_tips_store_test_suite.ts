@@ -3,9 +3,9 @@ import { Fr } from '@aztec/foundation/fields';
 import type { L2Block, L2BlockId, PublishedL2Block } from '@aztec/stdlib/block';
 import type { BlockHeader } from '@aztec/stdlib/tx';
 
-import { expect } from 'chai';
+import { jestExpect as expect } from '@jest/expect';
 
-import type { L2TipsStore } from './index.js';
+import type { L2TipsStore } from '../l2_block_stream/index.js';
 
 export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
   let tipsStore: L2TipsStore;
@@ -35,7 +35,7 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
 
   it('returns zero if no tips are stored', async () => {
     const tips = await tipsStore.getL2Tips();
-    expect(tips).to.deep.equal(makeTips(0, 0, 0));
+    expect(tips).toEqual(makeTips(0, 0, 0));
   });
 
   it('stores chain tips', async () => {
@@ -46,18 +46,18 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({ type: 'chain-pruned', block: makeBlockId(10) });
 
     const tips = await tipsStore.getL2Tips();
-    expect(tips).to.deep.equal(makeTips(10, 8, 5));
+    expect(tips).toEqual(makeTips(10, 8, 5));
   });
 
   it('sets latest tip from blocks added', async () => {
     await tipsStore.handleBlockStreamEvent({ type: 'blocks-added', blocks: times(3, i => makeBlock(i + 1)) });
 
     const tips = await tipsStore.getL2Tips();
-    expect(tips).to.deep.equal(makeTips(3, 0, 0));
+    expect(tips).toEqual(makeTips(3, 0, 0));
 
-    expect(await tipsStore.getL2BlockHash(1)).to.deep.equal(new Fr(1).toString());
-    expect(await tipsStore.getL2BlockHash(2)).to.deep.equal(new Fr(2).toString());
-    expect(await tipsStore.getL2BlockHash(3)).to.deep.equal(new Fr(3).toString());
+    expect(await tipsStore.getL2BlockHash(1)).toEqual(new Fr(1).toString());
+    expect(await tipsStore.getL2BlockHash(2)).toEqual(new Fr(2).toString());
+    expect(await tipsStore.getL2BlockHash(3)).toEqual(new Fr(3).toString());
   });
 
   it('clears block hashes when setting finalized chain', async () => {
@@ -66,14 +66,14 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({ type: 'chain-finalized', block: makeBlockId(3) });
 
     const tips = await tipsStore.getL2Tips();
-    expect(tips).to.deep.equal(makeTips(5, 3, 3));
+    expect(tips).toEqual(makeTips(5, 3, 3));
 
-    expect(await tipsStore.getL2BlockHash(1)).to.be.undefined;
-    expect(await tipsStore.getL2BlockHash(2)).to.be.undefined;
+    expect(await tipsStore.getL2BlockHash(1)).toBeUndefined();
+    expect(await tipsStore.getL2BlockHash(2)).toBeUndefined();
 
-    expect(await tipsStore.getL2BlockHash(3)).to.deep.equal(new Fr(3).toString());
-    expect(await tipsStore.getL2BlockHash(4)).to.deep.equal(new Fr(4).toString());
-    expect(await tipsStore.getL2BlockHash(5)).to.deep.equal(new Fr(5).toString());
+    expect(await tipsStore.getL2BlockHash(3)).toEqual(new Fr(3).toString());
+    expect(await tipsStore.getL2BlockHash(4)).toEqual(new Fr(4).toString());
+    expect(await tipsStore.getL2BlockHash(5)).toEqual(new Fr(5).toString());
   });
 
   // Regression test for #13142
@@ -82,6 +82,6 @@ export function testL2TipsStore(makeTipsStore: () => Promise<L2TipsStore>) {
     await tipsStore.handleBlockStreamEvent({ type: 'chain-proven', block: makeBlockId(3) });
 
     const tips = await tipsStore.getL2Tips();
-    expect(tips).to.deep.equal(makeTips(5, 3, 0));
+    expect(tips).toEqual(makeTips(5, 3, 0));
   });
 }
