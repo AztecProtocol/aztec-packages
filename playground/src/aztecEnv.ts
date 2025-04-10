@@ -3,7 +3,6 @@ import {
   type AztecNode,
   AztecAddress,
   AccountWalletWithSecretKey,
-  Contract,
   type PXE,
   type Logger,
   createLogger,
@@ -15,6 +14,7 @@ import { createStore } from '@aztec/kv-store/indexeddb';
 import { createContext } from 'react';
 import { NetworkDB, WalletDB } from './utils/storage';
 import { type UserTx } from './utils/txs';
+import type { Network } from './utils/networks';
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 type LogLevel = (typeof logLevel)[number];
@@ -28,8 +28,6 @@ type Log = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any;
 };
-
-export type Network = { nodeURL: string; name: string; description: string };
 
 export class WebLogger {
   private static instance: WebLogger;

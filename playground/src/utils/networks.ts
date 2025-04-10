@@ -1,8 +1,8 @@
-import type { Network } from './types';
+export type Network = { nodeURL: string; name: string; description: string };
 
 export const NETWORKS: Network[] = [
   {
-    nodeURL:'http://104.198.9.16:8080/',
+    nodeURL: 'http://104.198.9.16:8080/',
     name: 'Aztec Devnet',
     description: 'Public development network',
   },
@@ -11,4 +11,4 @@ export const NETWORKS: Network[] = [
     name: 'Local Sandbox',
     description: 'Run your own sandbox',
   },
-]; 
+];

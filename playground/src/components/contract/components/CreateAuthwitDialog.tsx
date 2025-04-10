@@ -1,6 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import { type AbiType, AuthWitness, AztecAddress } from '@aztec/aztec.js';
+import { type AbiType, AuthWitness, AztecAddress, Contract } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
@@ -26,25 +26,22 @@ const aztecAddressTypeLike: AbiType = {
   fields: [{ name: 'inner', type: { kind: 'field' } }],
 };
 
-export function CreateAuthwitDialog({
-  open,
-  fnName,
-  args,
-  isPrivate,
-  onClose,
-}: {
+interface CreateAuthwitDialogProps {
   open: boolean;
+  contract: Contract;
   fnName: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   args: any[];
   isPrivate: boolean;
   onClose: (witness?: AuthWitness, alias?: string) => void;
-}) {
+}
+
+export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, onClose }: CreateAuthwitDialogProps) {
   const [alias, setAlias] = useState('');
   const [caller, setCaller] = useState('');
   const [creating, setCreating] = useState(false);
 
-  const { wallet, currentContract } = useContext(AztecContext);
+  const { wallet } = useContext(AztecContext);
 
   const handleClose = () => {
     onClose();
@@ -52,7 +49,7 @@ export function CreateAuthwitDialog({
 
   const createAuthwit = async () => {
     setCreating(true);
-    const action = currentContract.methods[fnName](...args);
+    const action = contract.methods[fnName](...args);
     let witness;
     if (isPrivate) {
       witness = await wallet.createAuthWit({

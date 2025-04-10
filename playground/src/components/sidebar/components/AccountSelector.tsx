@@ -143,12 +143,7 @@ export function AccountSelector() {
       setWallet(accountWallet);
       if (publiclyDeploy) {
         setDeploymentInProgress(true);
-        await sendTx(
-          `Deployment of account ${accountWallet.getAddress()}`,
-          interaction,
-          accountWallet.getAddress(),
-          opts,
-        );
+        await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
         setDeploymentInProgress(false);
       }
     }

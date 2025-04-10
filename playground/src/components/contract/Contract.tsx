@@ -138,12 +138,7 @@ export function ContractComponent() {
       setCurrentContract(await Contract.at(contract.address, currentContractArtifact, wallet));
       setCurrentContractAddress(contract.address);
       if (publiclyDeploy) {
-        await sendTx(
-          `Deployment of ${currentContractArtifact.name}@(${formatFrAsString(contract.address.toString())})`,
-          interaction,
-          contract.address,
-          opts,
-        );
+        await sendTx(`Deployment of ${currentContractArtifact.name}`, interaction, contract.address, opts);
       }
     }
   };
@@ -166,7 +161,7 @@ export function ContractComponent() {
               <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
                 {currentContractArtifact.name}
               </Typography>
-              {!currentContract && wallet && (
+              {!currentContractAddress && wallet && (
                 <div css={contractActions}>
                   <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
                     Register

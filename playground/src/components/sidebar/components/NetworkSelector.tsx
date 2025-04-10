@@ -11,10 +11,11 @@ import Link from '@mui/material/Link';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import CircularProgress from '@mui/material/CircularProgress';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { AztecContext, AztecEnv, WebLogger, type Network } from '../../../aztecEnv';
+import { AztecContext, AztecEnv, WebLogger } from '../../../aztecEnv';
 import { NetworkDB, WalletDB } from '../../../utils/storage';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
 import { select } from '../../../styles/common';
+import { NETWORKS } from '../../../utils/networks';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -44,14 +45,6 @@ const loadingContainer = css({
   padding: '20px 0',
   gap: '10px',
 });
-
-const NETWORKS: Network[] = [
-  {
-    nodeURL: 'http://localhost:8080',
-    name: 'Sandbox',
-    description: 'Local sandbox',
-  },
-];
 
 interface NetworkSelectorProps {}
 

@@ -112,7 +112,7 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
     await this.#accounts.set(
       `${address.toString()}:signingKey`,
-      signingKey instanceof Buffer ? signingKey : signingKey.toBuffer(),
+      'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
     );
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
