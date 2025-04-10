@@ -74,19 +74,19 @@ template <typename Curve> class OpeningClaim {
         const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
         requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
     {
-        OpeningClaim<Curve> claim;
-        // using BaseField = typename Curve::BaseField;
-        const size_t SFS_PER_BF = 4;
+        using BaseField = typename Curve::BaseField;
+
+        const size_t SFS_PER_BF = Fr::PUBLIC_INPUTS_SIZE;
         std::span<const stdlib::field_t<Builder>, SFS_PER_BF> challenge_limbs{ limbs.data(), SFS_PER_BF };
         std::span<const stdlib::field_t<Builder>, SFS_PER_BF> evaluation_limbs{ limbs.data() + SFS_PER_BF, SFS_PER_BF };
-        claim.opening_pair.challenge = Fr::reconstruct_from_public(challenge_limbs);
-        claim.opening_pair.evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+        Fr challenge = Fr::reconstruct_from_public(challenge_limbs);
+        Fr evaluation = Fr::reconstruct_from_public(evaluation_limbs);
 
-        claim.commitment = { limbs.back() - 1, limbs.back(), false };
-        // const size_t BFS_PER_BF = 1;
-        // BaseField x{ limbs.data() + 2 * SFS_PER_BF, BFS_PER_BF };
-        // BaseField y{ limbs.data() + 2 * SFS_PER_BF + BFS_PER_BF, BFS_PER_BF };
-        return claim;
+        BaseField x{ limbs[PUBLIC_INPUTS_SIZE - 2] };
+        BaseField y{ limbs[PUBLIC_INPUTS_SIZE - 1] };
+        Commitment commitment = { x, y, false };
+
+        return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
     }
 
     IPAClaimIndices get_witness_indices() const

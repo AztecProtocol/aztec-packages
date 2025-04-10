@@ -149,8 +149,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         if (verification_key->verification_key->contains_ipa_claim) {
             PublicComponentKey ipa_claim_key{ verification_key->verification_key->ipa_claim_public_input_indices[0],
                                               true };
-            OpeningClaim<grumpkin<Builder>> ipa_claim =
-                PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
+            output.ipa_opening_claim = PublicIpaClaim::reconstruct(verification_key->public_inputs, ipa_claim_key);
 
             // OpeningClaim<grumpkin<Builder>> ipa_claim;
             // std::array<FF, Curve::BaseField::NUM_LIMBS> challenge_bigfield_limbs;
@@ -173,7 +172,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
             //     verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]],
             //     false
             // };
-            output.ipa_opening_claim = std::move(ipa_claim);
+            // output.ipa_opening_claim = std::move(ipa_claim);
         }
     }
 
