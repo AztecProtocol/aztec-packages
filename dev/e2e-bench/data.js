@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744307664759,
+  "lastUpdate": 1744311348316,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "janbenes1234@gmail.com",
-            "name": "Jan Beneš",
-            "username": "benesjan"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "29856a8d14e015e16817e915e03c78e8af1a41ed",
-          "message": "fix: removeNullifiedNotes respecting only synced nullifiers (#13334)\n\nAs Nico pointed out\n[here](https://github.com/AztecProtocol/aztec-packages/pull/13323#discussion_r2029421426)\nwe have incorrectly obtained nullifiers at the `latest` block instead of\nat the synced one in `removeNullifiedNotes` functions. This PR addresses\nthat along with making NoteDataProvider more strict and a minor\noptimization of `removeNullifiedNotes`.",
-          "timestamp": "2025-04-07T14:46:46Z",
-          "tree_id": "cc789aa545270346886655d093eecbce327ce174",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/29856a8d14e015e16817e915e03c78e8af1a41ed"
-        },
-        "date": 1744041665605,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9256,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23539303810966208,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 137206,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 143802,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "148ff8d9011739dd03a7865ca46cb5f5301ca4e7",
+          "message": "chore: update koa dependency (#13452)\n\n## Overview\n\nupdate koa dependency",
+          "timestamp": "2025-04-10T17:53:50Z",
+          "tree_id": "e4abc6761a4f3ce5c3f7df6836c258050780b237",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/148ff8d9011739dd03a7865ca46cb5f5301ca4e7"
+        },
+        "date": 1744311347338,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 10340,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2629599136018908,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 145008,
             "unit": "us"
           }
         ]
