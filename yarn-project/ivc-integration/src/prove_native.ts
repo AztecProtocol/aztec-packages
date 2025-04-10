@@ -216,7 +216,7 @@ export async function proveAvm(
   }
 
   // Read the key
-  const vkBuffer = await fs.readFile(path.join(avmVkPath!, 'vk'));
+  const vkBuffer = await fs.readFile(avmVkPath!);
   const vkReader = BufferReader.asReader(vkBuffer);
   const vk: Fr[] = [];
   while (!vkReader.isEmpty()) {
