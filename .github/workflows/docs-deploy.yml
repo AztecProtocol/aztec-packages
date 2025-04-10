@@ -31,6 +31,11 @@ jobs:
       - name: Enable Corepack
         run: corepack enable
 
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
       - name: Build dependencies
         run: |
           for project in noir barretenberg l1-contracts yarn-project; do
