@@ -52,7 +52,7 @@ spec:
             - /bin/sh
             - -c
             - |
-              source /scripts/get-validator-addresses.sh
+              . /scripts/get-validator-addresses.sh
           volumeMounts:
             - name: scripts
               mountPath: /scripts

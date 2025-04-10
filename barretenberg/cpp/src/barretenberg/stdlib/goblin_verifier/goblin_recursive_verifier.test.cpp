@@ -174,7 +174,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
     auto [proof, verifier_input] = create_goblin_prover_output();
     // Tamper with the Translator proof preamble
     {
-        auto tampered_proof = proof;
+        GoblinProof tampered_proof = proof;
         for (auto& val : tampered_proof.translator_proof) {
             if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
                 val += 1;
@@ -184,7 +184,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        EXPECT_ANY_THROW(verifier.verify(tampered_proof));
+        verifier.verify(tampered_proof);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
     {

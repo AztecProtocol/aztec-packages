@@ -297,7 +297,7 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
 
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     vk.eccvm->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
+        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>((1UL << CONST_ECCVM_LOG_N) + 1);
     vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     *result = ClientIVC::verify(proof, vk);

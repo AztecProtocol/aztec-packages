@@ -53,10 +53,11 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
 {
     using Curve = Flavor::Curve;
     using PCS = Flavor::PCS;
-    using Shplemini = ShpleminiVerifier_<Curve>;
+    using Shplemini = ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using ClaimBatcher = ClaimBatcher_<Curve>;
     using ClaimBatch = ClaimBatcher::Batch;
     using InterleavedBatch = ClaimBatcher::InterleavedBatch;
+    using Sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
 
     // Load the proof produced by the translator prover
     transcript->load_proof(proof);
@@ -64,15 +65,9 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     Flavor::VerifierCommitments commitments{ key };
     Flavor::CommitmentLabels commitment_labels;
 
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>("circuit_size");
-
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
 
     put_translation_data_in_relation_parameters(evaluation_input_x, batching_challenge_v, accumulated_result);
-
-    if (circuit_size != key->circuit_size) {
-        return false;
-    }
 
     // Get commitments to wires and the ordered range constraints that do not require additional challenges
     for (auto [comm, label] : zip_view(commitments.get_wires_and_ordered_range_constraints(),
@@ -91,8 +86,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    const size_t log_circuit_size = numeric::get_msb(circuit_size);
-    auto sumcheck = SumcheckVerifier<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>(log_circuit_size, transcript);
+    Sumcheck sumcheck(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -123,7 +117,7 @@ bool TranslatorVerifier::verify_proof(const HonkProof& proof,
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(circuit_size,
+        Shplemini::compute_batch_opening_claim(TranslatorFlavor::CONST_TRANSLATOR_LOG_N,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(),
