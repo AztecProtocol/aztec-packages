@@ -124,7 +124,7 @@ export function SidebarComponent() {
   };
 
   return (
-    <div css={[container, !drawerOpen && { height: '60px' }]}>
+    <div css={[container, !drawerOpen && { height: '55px' }]}>
       <div css={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography variant="overline">Tools</Typography>
         {smallScreen && (

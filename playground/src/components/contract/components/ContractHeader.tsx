@@ -2,7 +2,7 @@ import { css } from '@mui/styled-engine';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import { DeployContractDialog } from './DeployContractDialog';
-import { RegisterContractDialog } from './registerContractDialog';
+import { RegisterContractDialog } from './RegisterContractDialog';
 
 const headerSection = css({
   width: '100%',

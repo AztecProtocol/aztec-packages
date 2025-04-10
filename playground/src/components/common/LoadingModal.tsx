@@ -6,56 +6,40 @@ import loadingIcon from '../../assets/loading_icon.gif';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import Button from '@mui/material/Button';
+import { Dialog } from '@mui/material';
+import { TxStatus } from '@aztec/aztec.js';
 
-// Modal container styling
-const modalContainer = css({
-  boxSizing: 'border-box',
-  position: 'fixed',
-  width: '700px',
-  height: '500px',
-  left: 'calc(50% - 700px/2)',
-  top: 'calc(50% - 500px/2)',
-  background: '#F8F8F8',
-  border: '2px solid #B6B4B4',
-  borderRadius: '10px',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  zIndex: 9999,
-  '&.error': {
-    background: 'rgba(255, 119, 100, 0.1)',
-    border: '2px solid rgba(255, 119, 100, 0.3)',
-  },
-});
+const NO_MODAL_TX_STATUSES: (TxStatus | 'error' | 'simulating' | 'proving' | 'sending')[] = [
+  TxStatus.DROPPED,
+  TxStatus.APP_LOGIC_REVERTED,
+  TxStatus.TEARDOWN_REVERTED,
+  TxStatus.BOTH_REVERTED,
+  TxStatus.SUCCESS,
+];
 
 // Close button styling
 const closeButton = css({
   position: 'absolute',
   top: '10px',
   right: '10px',
-  zIndex: 10000,
 });
 
 // Content group styling
 const contentGroup = css({
-  position: 'absolute',
-  width: '432px',
-  height: '223.54px',
-  left: 'calc(50% - 432px/2)',
-  top: 'calc(50% - 223.54px/2)',
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
   justifyContent: 'center',
+  padding: '2rem',
+  minHeight: '500px',
+  minWidth: '400px',
+  '@media (max-width: 1200px)': {
+    minWidth: 'unset',
+  },
 });
 
 // Text styling
 const titleText = css({
-  position: 'absolute',
-  width: '432px',
-  height: '36px',
-  left: 'calc(50% - 432px/2)',
-  top: 'calc(50% - 36px/2 - 93.77px)',
   fontFamily: '"Space Grotesk", sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
@@ -71,9 +55,6 @@ const titleText = css({
 
 // Subtitle text styling
 const subtitleText = css({
-  position: 'absolute',
-  width: '432px',
-  top: 'calc(50% - 36px/2 - 40px)',
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
   fontWeight: 400,
@@ -95,9 +76,6 @@ const loadingAnimation = css({
 
 // Error message styling
 const errorMessage = css({
-  position: 'absolute',
-  width: '432px',
-  top: 'calc(50% - 36px/2 - 50px)',
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
   fontWeight: 500,
@@ -105,7 +83,6 @@ const errorMessage = css({
   lineHeight: '150%',
   textAlign: 'center',
   color: '#FF7764',
-  padding: '0 20px',
 });
 
 // Button container styling
@@ -118,17 +95,14 @@ const buttonContainer = css({
 
 // Fun facts styling
 const funFactText = css({
-  position: 'absolute',
-  width: '432px',
-  top: 'calc(50% - 36px/2 + 50px)',
   fontFamily: '"Inter", sans-serif',
   fontStyle: 'normal',
   fontWeight: 400,
   fontSize: '16px',
   lineHeight: '150%',
+  height: '80px',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.6)',
-  padding: '0 20px',
 });
 
 const funFacts = [
@@ -147,7 +121,6 @@ const funFacts = [
 
 export function LoadingModal() {
   const { currentTx, setCurrentTx } = useContext(AztecContext);
-  const [showError, setShowError] = useState(false);
   const [currentFunFact, setCurrentFunFact] = useState(0);
 
   useEffect(() => {
@@ -158,7 +131,7 @@ export function LoadingModal() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     // Set error state to indicate deployment was cancelled
     if (currentTx && currentTx.status !== 'error') {
       setCurrentTx({
@@ -166,27 +139,17 @@ export function LoadingModal() {
         status: 'error' as const,
         error: 'Transaction cancelled by user',
       });
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    // Clean up working state after a short delay to allow error to be displayed
-    setTimeout(() => {
-      setCurrentTx(null);
-      setShowError(false);
-    }, 1000);
+
+    setCurrentTx(null);
   };
 
-  const handleOutsideClick = (e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) {
-      handleClose();
-    }
-  };
-
-  if (!currentTx) return null;
-
-  const isError = currentTx.status === 'error';
-  const isProving = currentTx.status === 'proving';
+  const isError = currentTx?.status === 'error';
+  const isProving = currentTx?.status === 'proving';
 
   return (
-    <div css={[modalContainer, isError && 'error']} onClick={handleOutsideClick}>
+    <Dialog open={!!currentTx && !NO_MODAL_TX_STATUSES.includes(currentTx.status)} onClose={handleClose}>
       <IconButton css={closeButton} onClick={handleClose}>
         <CloseIcon />
       </IconButton>
@@ -219,6 +182,6 @@ export function LoadingModal() {
           </>
         )}
       </div>
-    </div>
+    </Dialog>
   );
 }

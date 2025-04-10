@@ -14,7 +14,7 @@ import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@a
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { createContext } from 'react';
 import { NetworkDB, WalletDB } from './utils/storage';
-import { type ContractFunctionInteractionTx } from './utils/txs';
+import { type UserTx } from './utils/txs';
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 type LogLevel = (typeof logLevel)[number];
@@ -97,7 +97,7 @@ export const AztecContext = createContext<{
   isPXEInitialized: boolean;
   walletDB: WalletDB | null;
   currentContractAddress: AztecAddress;
-  currentTx: ContractFunctionInteractionTx;
+  currentTx: UserTx;
   logs: Log[];
   logsOpen: boolean;
   drawerOpen: boolean;
@@ -114,7 +114,7 @@ export const AztecContext = createContext<{
   setAztecNode: (node: AztecNode) => void;
   setPXE: (pxe: PXE) => void;
   setNetwork: (network: Network) => void;
-  setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
+  setCurrentTx: (currentTx: UserTx) => void;
   setCurrentContractArtifact: (currentContract: ContractArtifact) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
 }>({

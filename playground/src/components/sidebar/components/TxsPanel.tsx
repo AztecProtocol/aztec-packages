@@ -3,7 +3,7 @@ import { useContext, useEffect, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import { convertFromUTF8BufferAsString, formatFrAsString } from '../../../utils/conversion';
-import { type ContractFunctionInteractionTx } from '../../../utils/txs';
+import { type UserTx } from '../../../utils/txs';
 import { TxHash } from '@aztec/aztec.js';
 import Divider from '@mui/material/Divider';
 
@@ -34,16 +34,16 @@ export function TxsPanel({ ...props }) {
     const refreshTransactions = async () => {
       const txsPerContract = await walletDB.retrieveTxsPerContract(currentContractAddress);
       const txHashes = txsPerContract.map(txHash => TxHash.fromString(convertFromUTF8BufferAsString(txHash)));
-      const txs: ContractFunctionInteractionTx[] = await Promise.all(
+      const txs: UserTx[] = await Promise.all(
         txHashes.map(async txHash => {
           const txData = await walletDB.retrieveTxData(txHash);
           return {
             contractAddress: currentContractAddress,
             txHash: txData.txHash,
             status: convertFromUTF8BufferAsString(txData.status),
-            fnName: convertFromUTF8BufferAsString(txData.fnName),
+            name: convertFromUTF8BufferAsString(txData.name),
             date: parseInt(convertFromUTF8BufferAsString(txData.date)),
-          } as ContractFunctionInteractionTx;
+          } as UserTx;
         }),
       );
       txs.sort((a, b) => (b.date >= a.date ? -1 : 1));
@@ -84,7 +84,7 @@ export function TxsPanel({ ...props }) {
                   </Typography>
                 </div>
                 <Typography variant="body2">
-                  {tx.fnName}@{formatFrAsString(tx.contractAddress.toString())}
+                  {tx.name}@{formatFrAsString(tx.contractAddress.toString())}
                 </Typography>
               </div>
             ))}

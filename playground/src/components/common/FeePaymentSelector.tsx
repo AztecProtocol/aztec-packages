@@ -27,7 +27,6 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
   const handleMethodChange = async (method: FeePaymentMethodType) => {
     setIsMethodChanging(true);
     setSelectedMethod(method);
-    // Simulate an async operation
     switch (method) {
       case 'sponsored_fpc': {
         const { prepareForFeePayment } = await import('../../utils/fees/sponsored_fpc');

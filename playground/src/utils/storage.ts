@@ -142,12 +142,12 @@ export class WalletDB {
     {
       contractAddress,
       txHash,
-      fnName,
+      name,
       receipt,
     }: {
       contractAddress: AztecAddress;
       txHash: TxHash;
-      fnName: string;
+      name: string;
       receipt: TxReceipt;
     },
     log: LogFn = this.#userLog,
@@ -158,7 +158,7 @@ export class WalletDB {
     }
     await this.#transactionsPerContract.set(`${contractAddress.toString()}`, Buffer.from(txHash.toString()));
 
-    await this.#transactions.set(`${txHash.toString()}:fnName`, Buffer.from(fnName));
+    await this.#transactions.set(`${txHash.toString()}:name`, Buffer.from(name));
     await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(receipt.status.toString()));
     await this.#transactions.set(`${txHash.toString()}:date`, Buffer.from(Date.now().toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
@@ -173,20 +173,20 @@ export class WalletDB {
   }
 
   async retrieveTxData(txHash: TxHash) {
-    const fnNameBuffer = await this.#transactions.getAsync(`${txHash.toString()}:fnName`);
-    if (!fnNameBuffer) {
+    const nameBuffer = await this.#transactions.getAsync(`${txHash.toString()}:name`);
+    if (!nameBuffer) {
       throw new Error(
-        `Could not find ${txHash.toString()}:fnName. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
+        `Could not find ${txHash.toString()}:name. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
       );
     }
-    const fnName = fnNameBuffer.toString();
+    const name = nameBuffer.toString();
     const status = (await this.#transactions.getAsync(`${txHash.toString()}:status`))!.toString();
 
     const date = await this.#transactions.getAsync(`${txHash.toString()}:date`)!.toString();
 
     return {
       txHash,
-      fnName,
+      name,
       status,
       date,
     };

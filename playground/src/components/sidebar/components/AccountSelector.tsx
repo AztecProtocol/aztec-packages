@@ -136,6 +136,7 @@ export function AccountSelector() {
     publiclyDeploy?: boolean,
     feePaymentMethod?: FeePaymentMethod,
   ) => {
+    setOpenCreateAccountDialog(false);
     if (accountManager && salt && alias && type && signingKey) {
       setIsAccountChanging(true);
       const accountWallet = await accountManager.getWallet();
@@ -150,15 +151,14 @@ export function AccountSelector() {
       const aliasedAccounts = await walletDB.listAliases('accounts');
       setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
       setWallet(accountWallet);
-      setOpenCreateAccountDialog(false);
       if (publiclyDeploy) {
         setDeploymentInProgress(true);
         let receipt;
         let txHash;
-        const fnName = 'Account deployment';
+        const name = 'Account deployment';
         const currentTx = {
           status: 'proving' as const,
-          fnName,
+          name,
           contractAddress: accountWallet.getAddress(),
         };
         setCurrentTx(currentTx);
@@ -182,8 +182,17 @@ export function AccountSelector() {
           await walletDB.storeTx({
             contractAddress: accountManager.getAddress(),
             txHash,
-            fnName,
+            name,
             receipt,
+          });
+          setCurrentTx({
+            ...currentTx,
+            ...{
+              txHash,
+              status: receipt.status,
+              receipt,
+              error: receipt.error,
+            },
           });
         } catch (e) {
           setCurrentTx({
@@ -199,7 +208,6 @@ export function AccountSelector() {
         setDeploymentInProgress(false);
       }
     }
-
     setIsAccountChanging(false);
   };
 

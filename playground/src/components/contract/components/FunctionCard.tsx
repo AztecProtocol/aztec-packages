@@ -1,257 +1,197 @@
 import { css } from '@mui/styled-engine';
-import type { FunctionAbi } from '@aztec/aztec.js';
-import { FunctionType } from '@aztec/aztec.js';
+import Card from '@mui/material/Card';
+import CardActions from '@mui/material/CardActions';
+import CardContent from '@mui/material/CardContent';
+import {
+  FunctionType,
+  type FunctionAbi,
+  ContractFunctionInteraction,
+  Contract,
+  type SendMethodOptions,
+  AuthWitness,
+} from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import CircularProgress from '@mui/material/CircularProgress';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SendIcon from '@mui/icons-material/Send';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
-import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+
+import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
-import Tooltip from '@mui/material/Tooltip';
-import IconButton from '@mui/material/IconButton';
+import { useContext, useState } from 'react';
+import { AztecContext } from '../../../aztecEnv';
+import { SendTxDialog } from './SendTxDialog';
 
-const functionCard = css({
-  boxSizing: 'border-box',
-  width: '100%',
-  background: '#CDD1D5',
-  border: '2px solid #DEE2E6',
-  borderRadius: '20px',
-  marginBottom: '20px',
-  overflow: 'hidden',
-});
+type SimulationResult = {
+  success: boolean;
+  data?: any;
+  error?: string;
+};
 
-const functionTypeLabel = css({
+const simulationContainer = css({
   display: 'flex',
   flexDirection: 'row',
-  justifyContent: 'center',
   alignItems: 'center',
-  padding: '6px 16px',
-  gap: '10px',
-  width: '88px',
-  height: '20px',
-  background: '#9894FF',
-  borderRadius: '30px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 500,
-  fontSize: '12px',
-  lineHeight: '120%',
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: '#FFFFFF',
-  marginBottom: '10px',
-});
-
-const functionName = css({
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 600,
-  fontSize: '22px',
-  lineHeight: '100%',
-  display: 'flex',
-  alignItems: 'center',
-  letterSpacing: '0.02em',
-  color: '#2D2D2D',
-  marginBottom: '10px',
-});
-
-const functionDescription = css({
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '14px',
-  lineHeight: '120%',
-  color: '#4A4A4A',
-  marginBottom: '20px',
-});
-
-const parametersLabel = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '6px 16px',
-  gap: '10px',
-  width: '123px',
-  height: '20px',
-  background: '#9894FF',
-  borderRadius: '30px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 500,
-  fontSize: '12px',
-  lineHeight: '120%',
-  letterSpacing: '0.1em',
-  textTransform: 'uppercase',
-  color: '#FFFFFF',
-  marginBottom: '10px',
-});
-
-const parameterInput = css({
-  background: '#FFFFFF',
-  border: '2px solid #DEE2E6',
-  borderRadius: '8px',
-  height: '48px',
-  padding: '0 24px',
-  display: 'flex',
-  alignItems: 'center',
-  marginRight: '16px',
-  marginBottom: '16px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 600,
-  fontSize: '16px',
-  lineHeight: '19px',
-  color: '#3F444A',
-  '& .MuiOutlinedInput-notchedOutline': {
-    border: 'none',
-  },
-  '& .MuiInputBase-root': {
-    '&.Mui-focused fieldset': {
-      border: 'none',
-    },
-  },
-});
-
-const actionButtonsContainer = css({
-  display: 'flex',
-  flexDirection: 'row',
-  gap: '12px',
-  marginTop: '15px',
-});
-
-const actionButton = css({
-  display: 'flex',
-  flexDirection: 'row',
-  justifyContent: 'center',
-  alignItems: 'center',
-  padding: '16px 20px',
-  gap: '9px',
-  height: '38px',
-  background: '#9894FF',
-  borderRadius: '8px',
-  fontFamily: 'Inter, sans-serif',
-  fontStyle: 'normal',
-  fontWeight: 400,
-  fontSize: '16px',
-  lineHeight: '19px',
-  color: '#000000',
-  border: 'none',
-  cursor: 'pointer',
-  '&:hover': {
-    backgroundColor: '#8C7EFF',
-  },
-  '&:disabled': {
-    backgroundColor: '#CDD1D5',
-    color: '#808080',
-    cursor: 'not-allowed',
-  },
 });
 
 interface FunctionCardProps {
   fn: FunctionAbi;
-  onParameterChange: (fnName: string, index: number, value: any) => void;
-  onSimulate: (fnName: string) => void;
-  onSend: (fnName: string) => void;
-  onAuthwit: (fnName: string, parameters: any[], isPrivate: boolean) => void;
-  simulationResults: Record<string, any>;
-  isWorking: boolean;
-  wallet: any;
-  currentContract: any;
-  parameters: Record<string, any[]>;
-  functionDescriptions: Record<string, string>;
-  selectedPredefinedContract: string;
+  currentContract?: Contract;
+  onSendTxRequested: (name?: string, interaction?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
 }
 
-export function FunctionCard({
-  fn,
-  onParameterChange,
-  onSimulate,
-  onSend,
-  onAuthwit,
-  simulationResults,
-  isWorking,
-  wallet,
-  currentContract,
-  parameters,
-  functionDescriptions,
-  selectedPredefinedContract,
-}: FunctionCardProps) {
-  return (
-    <div css={functionCard}>
-      <div style={{ padding: '36px' }}>
-        <div css={functionTypeLabel}>{fn.functionType.toUpperCase()}</div>
-        <div css={functionName}>{fn.name}</div>
-        {selectedPredefinedContract !== 'custom_upload' && functionDescriptions[fn.name] && (
-          <div css={functionDescription}>{functionDescriptions[fn.name]}</div>
-        )}
+export function FunctionCard({ fn, currentContract, onSendTxRequested }: FunctionCardProps) {
+  const [isWorking, setIsWorking] = useState(false);
+  const [parameters, setParameters] = useState<any[]>([]);
+  const [simulationResults, setSimulationResults] = useState<SimulationResult>();
 
+  const [openSendTxDialog, setOpenSendTxDialog] = useState(false);
+  const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
+
+  const { wallet, walletDB } = useContext(AztecContext);
+
+  const simulate = async (fnName: string) => {
+    setIsWorking(true);
+    let result;
+    try {
+      const fnParameters = parameters[fnName] ?? [];
+      const call = currentContract.methods[fnName](...fnParameters);
+
+      result = await call.simulate();
+      setSimulationResults({ success: true, data: result });
+    } catch (e) {
+      setSimulationResults({ success: false, error: e.message });
+    }
+
+    setIsWorking(false);
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const handleParameterChange = (index: number, value: any) => {
+    parameters[index] = value;
+    setParameters([...parameters]);
+  };
+
+  const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
+    if (witness && alias) {
+      await walletDB.storeAuthwitness(witness, undefined, alias);
+    }
+    setOpenCreateAuthwitDialog(false);
+  };
+
+  const handleSendDialogClose = async (
+    name?: string,
+    interaction?: ContractFunctionInteraction,
+    opts?: SendMethodOptions,
+  ) => {
+    setOpenSendTxDialog(false);
+    if (name !== undefined && interaction !== undefined && opts !== undefined) {
+      onSendTxRequested(name, interaction, opts);
+    }
+  };
+
+  return (
+    <Card
+      key={fn.name}
+      variant="outlined"
+      sx={{
+        backgroundColor: 'primary.light',
+        margin: '0.5rem',
+        overflow: 'hidden',
+      }}
+    >
+      <CardContent sx={{ textAlign: 'left' }}>
+        <Typography gutterBottom sx={{ color: 'text.secondary', fontSize: 14 }}>
+          {fn.functionType}
+        </Typography>
+        <Typography variant="h5" sx={{ marginBottom: '1rem' }}>
+          {fn.name}
+        </Typography>
         {fn.parameters.length > 0 && (
           <>
-            <div css={parametersLabel}>PARAMETERS</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', marginTop: '15px' }}>
+            <Typography
+              gutterBottom
+              sx={{
+                color: 'text.secondary',
+                fontSize: 14,
+                marginTop: '1rem',
+              }}
+            >
+              Parameters
+            </Typography>
+            <FormGroup row css={{ marginBottom: '1rem' }}>
               {fn.parameters.map((param, i) => (
-                <div key={param.name} style={{ width: '212px', marginRight: '16px' }}>
-                  <FunctionParameter
-                    parameter={param}
-                    onParameterChange={newValue => {
-                      onParameterChange(fn.name, i, newValue);
-                    }}
-                    customStyle={parameterInput}
-                  />
-                </div>
+                <FunctionParameter
+                  parameter={param}
+                  key={param.name}
+                  onParameterChange={newValue => {
+                    handleParameterChange(i, newValue);
+                  }}
+                />
               ))}
-            </div>
+            </FormGroup>
           </>
         )}
 
-        {!isWorking && simulationResults[fn.name] !== undefined && (
-          <div style={{ marginTop: '15px' }}>
-            <Typography variant="body1" sx={{ fontWeight: 400 }}>
+        {!isWorking && simulationResults !== undefined && (
+          <div css={simulationContainer}>
+            <Typography variant="body1" sx={{ fontWeight: 200 }}>
               Simulation results:&nbsp;
-              {typeof simulationResults[fn.name] === 'object'
-                ? JSON.stringify(simulationResults[fn.name])
-                : simulationResults[fn.name]?.toString()}
             </Typography>
+            {simulationResults?.success ? (
+              <Typography variant="body1">
+                {simulationResults?.data.length === 0 ? '-' : simulationResults?.data.toString()}
+              </Typography>
+            ) : (
+              <Typography variant="body1" color="error">
+                {simulationResults?.error}
+              </Typography>
+            )}{' '}
           </div>
         )}
-        {isWorking && <CircularProgress size={'1rem'} style={{ marginTop: '15px', color: '#9894FF' }} />}
-
-        <div css={actionButtonsContainer}>
-          <Tooltip title="Run the transaction locally and generate a proof" placement="top">
-            <button
-              css={actionButton}
-              disabled={!wallet || !currentContract || isWorking}
-              onClick={() => onSimulate(fn.name)}
-            >
-              SIMULATE
-              <PsychologyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-            </button>
-          </Tooltip>
-          <Tooltip title="Generate a proof and send it to the aztec network" placement="top">
-            <button
-              css={actionButton}
-              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === 'utility'}
-              onClick={() => onSend(fn.name)}
-            >
-              SEND
-              <SendIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-            </button>
-          </Tooltip>
-          <Tooltip title="Authenticate another protocol to perform this on your behalf" placement="top">
-            <button
-              css={actionButton}
-              disabled={!wallet || !currentContract || isWorking || fn.functionType.toString() === 'utility'}
-              onClick={() => onAuthwit(fn.name, parameters[fn.name], fn.functionType === FunctionType.PRIVATE)}
-            >
-              AUTHWIT
-              <VpnKeyIcon style={{ fontSize: '14px', marginLeft: '5px' }} />
-            </button>
-          </Tooltip>
-        </div>
-      </div>
-    </div>
+        {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
+      </CardContent>
+      <CardActions>
+        <Button
+          disabled={!wallet || !currentContract || isWorking}
+          color="secondary"
+          variant="contained"
+          size="small"
+          onClick={() => simulate(fn.name)}
+          endIcon={<PsychologyIcon />}
+        >
+          Simulate
+        </Button>
+        <Button
+          disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
+          size="small"
+          color="secondary"
+          variant="contained"
+          onClick={() => setOpenSendTxDialog(true)}
+          endIcon={<SendIcon />}
+        >
+          Send
+        </Button>
+        <Button
+          disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
+          size="small"
+          color="secondary"
+          variant="contained"
+          onClick={() => {}}
+          endIcon={<VpnKeyIcon />}
+        >
+          Authwit
+        </Button>
+      </CardActions>
+      {currentContract && (
+        <SendTxDialog
+          name={fn.name}
+          interaction={currentContract.methods[fn.name](...parameters)}
+          open={openSendTxDialog}
+          onClose={handleSendDialogClose}
+        />
+      )}
+    </Card>
   );
 }

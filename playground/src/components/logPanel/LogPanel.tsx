@@ -62,8 +62,6 @@ const logContent = css({
   }),
 });
 
-const logTimestamp = css({});
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const safeStringify = (obj: any) => JSON.stringify(obj, (_, v) => (typeof v === 'bigint' ? v.toString() : v));
 
@@ -119,7 +117,7 @@ export function LogPanel() {
             {logs.map((log, index) => (
               <div key={log.id} css={logContainer}>
                 <div css={logPrefix}>
-                  <Typography variant="subtitle2">{log.prefix}:&nbsp;</Typography>
+                  <Typography variant="subtitle2">{log.prefix}</Typography>
                 </div>
                 <div css={logContent}>
                   <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
@@ -127,7 +125,7 @@ export function LogPanel() {
                     <span css={{ fontStyle: 'italic', fontSize: '0.75rem' }}>{safeStringify(log.data)}</span>
                   </Typography>
                 </div>
-                <div css={logTimestamp}>
+                <div>
                   <Typography sx={{ marginLeft: '1rem' }} variant="body2">
                     +{log.timestamp - (logs[index + 1]?.timestamp ?? log.timestamp)}
                     ms
