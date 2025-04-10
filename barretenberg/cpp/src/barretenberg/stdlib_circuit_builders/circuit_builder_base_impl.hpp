@@ -258,22 +258,6 @@ void CircuitBuilderBase<FF_>::add_pairing_point_accumulator_for_plonk(
     }
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices)
-{
-    if (contains_ipa_claim) {
-        failure("added IPA claim when one already exists");
-        ASSERT(0);
-    }
-    contains_ipa_claim = true;
-
-    size_t i = 0;
-    for (const auto& idx : ipa_claim_witness_indices) {
-        set_public_input(idx);
-        ipa_claim_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
-        ++i;
-    }
-}
-
 template <typename FF_> bool CircuitBuilderBase<FF_>::failed() const
 {
     return _failed;

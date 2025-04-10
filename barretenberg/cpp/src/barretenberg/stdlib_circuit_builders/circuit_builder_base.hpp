@@ -216,8 +216,6 @@ template <typename FF_> class CircuitBuilderBase {
     void add_pairing_point_accumulator_for_plonk(
         const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
 
-    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
-
     bool failed() const;
     const std::string& err() const;
 

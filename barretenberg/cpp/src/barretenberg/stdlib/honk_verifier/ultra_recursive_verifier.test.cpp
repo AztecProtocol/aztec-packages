@@ -82,7 +82,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
             stdlib_opening_claim.set_public();
-            // builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
             builder.ipa_proof = ipa_proof;
         }
         return builder;

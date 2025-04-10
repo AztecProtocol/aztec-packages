@@ -58,8 +58,8 @@ template <typename Curve> class OpeningClaim {
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
-    // WORKTODO: Number of bb::fr field elements used to represent a claim over Grumpkin
-    static constexpr size_t PUBLIC_INPUTS_SIZE = 10;
+    // Size of public inputs representation of an opening claim over Grumpkin
+    static constexpr size_t PUBLIC_INPUTS_SIZE = IPA_CLAIM_SIZE;
 
     /**
      * @brief Set the witness indices for the opening claim to public
