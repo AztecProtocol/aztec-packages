@@ -102,6 +102,14 @@ bool _verify(const bool ipa_accumulation,
     srs::init_crs_factory({}, g2_data);
 
     auto vk = std::make_shared<VerificationKey>(from_buffer<VerificationKey>(read_file(vk_path)));
+    typename Flavor::CommitmentLabels commitment_labels;
+    vinfo("vk circuit size: ", vk->circuit_size);
+    vinfo("vk num public inputs: ", vk->num_public_inputs);
+    vinfo("vk log circuit size: ", vk->log_circuit_size);
+    vinfo("vk pub inputs offset: ", vk->pub_inputs_offset);
+    for (auto [commitment, label] : zip_view(vk->get_all(), commitment_labels.get_precomputed())) {
+        vinfo(label, " ", commitment);
+    }
     vk->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
     auto public_inputs = many_from_buffer<bb::fr>(read_file(public_inputs_path));
     auto proof = many_from_buffer<bb::fr>(read_file(proof_path));
@@ -232,6 +240,16 @@ void UltraHonkAPI::write_solidity_verifier(const Flags& flags,
 {
     using VK = UltraKeccakFlavor::VerificationKey;
     auto vk = std::make_shared<VK>(from_buffer<VK>(read_file(vk_path)));
+    typename UltraKeccakFlavor::CommitmentLabels commitment_labels;
+    vinfo("vk circuit size: ", vk->circuit_size);
+    vinfo("vk num public inputs: ", vk->num_public_inputs);
+    vinfo("vk log circuit size: ", vk->log_circuit_size);
+    vinfo("vk pub inputs offset: ", vk->pub_inputs_offset);
+    for (auto [commitment, label] : zip_view(vk->get_all(), commitment_labels.get_precomputed())) {
+        vinfo(label, " ", commitment);
+        info(label, " ", commitment);
+    }
+
     std::string contract = flags.zk ? get_honk_zk_solidity_verifier(vk) : get_honk_solidity_verifier(vk);
 
     if (output_path == "-") {

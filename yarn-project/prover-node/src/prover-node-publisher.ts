@@ -220,6 +220,7 @@ export class ProverNodePublisher {
     ] as const;
 
     this.log.info(`SubmitEpochProof proofSize=${args.proof.withoutPublicInputs().length} bytes`);
+    this.log.debug(`SubmitEpochProof proof=${proofHex}`);
     const data = encodeFunctionData({
       abi: RollupAbi,
       functionName: 'submitEpochRootProof',

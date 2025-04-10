@@ -5,7 +5,7 @@ import {Fr, FrLib} from "./Fr.sol";
 
 uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
 
-import "forge-std/console.sol";
+// import "forge-std/console.sol";
 import "forge-std/console2.sol";
 
 function bytes32ToString(bytes32 value) pure returns (string memory result) {
@@ -21,24 +21,24 @@ function bytes32ToString(bytes32 value) pure returns (string memory result) {
     result = string(str);
 }
 
-function logG(string memory name, Honk.G1ProofPoint memory p) pure {
-    Honk.G1Point memory point = convertProofPoint(p);
+// function logG(string memory name, Honk.G1ProofPoint memory p) pure {
+//     Honk.G1Point memory point = convertProofPoint(p);
 
-    // TODO: convert both to hex before printing to line up with cpp
-    string memory x = bytes32ToString(bytes32(point.x));
-    string memory y = bytes32ToString(bytes32(point.y));
+//     // TODO: convert both to hex before printing to line up with cpp
+//     string memory x = bytes32ToString(bytes32(point.x));
+//     string memory y = bytes32ToString(bytes32(point.y));
 
-    string memory message = string(abi.encodePacked(name, " x: ", x, " y: ", y));
-    console2.log(message);
-}
+//     string memory message = string(abi.encodePacked(name, " x: ", x, " y: ", y));
+//     console2.log(message);
+// }
 
-function logG(string memory name, uint256 i, Honk.G1Point memory point) pure {
+function logG(string memory name, Honk.G1Point memory point) pure {
     // TODO: convert both to hex before printing to line up with cpp
     string memory x = bytes32ToString(bytes32(point.x));
     string memory y = bytes32ToString(bytes32(point.y));
 
     string memory message = string(abi.encodePacked(" x: ", x, " y: ", y));
-    console2.log(name, i, message);
+    console2.log(name, message);
 }
 
 function logUint(string memory name, uint256 value) pure {

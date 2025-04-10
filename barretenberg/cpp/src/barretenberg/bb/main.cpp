@@ -76,6 +76,7 @@ int main(int argc, char* argv[])
 
     // prevent two or more subcommands being executed
     app.require_subcommand(0, 1);
+    info("I am here");
 
     API::Flags flags{};
     // Some paths, with defaults, that may or may not be set by commands
@@ -89,7 +90,7 @@ int main(int argc, char* argv[])
     std::filesystem::path vk_path{ "./target/vk" };
     flags.scheme = "";
     flags.oracle_hash_type = "poseidon2";
-    flags.output_format = "bytes";
+    flags.output_format = "bytes_and_fields";
     flags.crs_path = []() {
         char* home = std::getenv("HOME");
         std::filesystem::path base = home != nullptr ? std::filesystem::path(home) : "./";
@@ -160,6 +161,7 @@ int main(int argc, char* argv[])
                 "header information for deserialization. If fields, output a string representation of an array of "
                 "field elements. If bytes_and_fields do both. If fields_msgpack, outputs a msgpack buffer of Fr "
                 "elements.")
+            ->default_val("bytes_and_fields")
             ->check(CLI::IsMember({ "bytes", "fields", "bytes_and_fields", "fields_msgpack" }).name("is_member"));
     };
 

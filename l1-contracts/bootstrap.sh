@@ -42,6 +42,7 @@ function build {
 
     # Step 2: Build the the generated verifier contract with optimization.
     forge build $(find generated -name '*.sol') \
+      -vv \
       --optimize \
       --optimizer-runs 1 \
       --no-metadata

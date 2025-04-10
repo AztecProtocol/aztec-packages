@@ -14,7 +14,7 @@ import {
     CONST_PROOF_SIZE_LOG_N
 } from "./HonkTypes.sol";
 
-import {negateInplace, convertProofPoint, pairing} from "./utils.sol";
+import {negateInplace, convertProofPoint, pairing, logG} from "./utils.sol";
 
 // Field arithmetic libraries - prevent littering the code with modmul / addmul
 import {MODULUS as P, MINUS_ONE, ONE, ZERO, Fr, FrLib} from "./Fr.sol";
@@ -24,6 +24,8 @@ import {Transcript, TranscriptLib} from "./Transcript.sol";
 import {RelationsLib} from "./Relations.sol";
 
 import {CommitmentSchemeLib as PCS} from "./CommitmentScheme.sol";
+import "forge-std/console.sol";
+import "forge-std/console2.sol";
 
 abstract contract BaseHonkVerifier is IVerifier {
     using FrLib for Fr;
@@ -56,6 +58,36 @@ abstract contract BaseHonkVerifier is IVerifier {
         }
 
         Honk.VerificationKey memory vk = loadVerificationKey();
+        console.log("circuit size", vk.circuitSize);
+        console.log("public inputs size", vk.publicInputsSize);
+
+        logG("vk.qm", vk.qm);
+        logG("vk.qc", vk.qc);
+        logG("vk.ql", vk.ql);
+        logG("vk.qr", vk.qr);
+        logG("vk.qo", vk.qo);
+        logG("vk.q4", vk.q4);
+        logG("vk.qLookup", vk.qLookup);
+        logG("vk.qArith", vk.qArith);
+        logG("vk.qDeltaRange", vk.qDeltaRange);
+        logG("vk.qAux", vk.qAux);
+        logG("vk.qPoseidon2External", vk.qPoseidon2External);
+        logG("vk.qPoseidon2Internal", vk.qPoseidon2Internal);
+        logG("vk.qElliptic", vk.qElliptic);
+        logG("vk.s1", vk.s1);
+        logG("vk.s2", vk.s2);
+        logG("vk.s3", vk.s3);
+        logG("vk.s4", vk.s4);
+        logG("vk.id1", vk.id1);
+        logG("vk.id2", vk.id2);
+        logG("vk.id3", vk.id3);
+        logG("vk.id4", vk.id4);
+        logG("vk.t1", vk.t1);
+        logG("vk.t2", vk.t2);
+        logG("vk.t3", vk.t3);
+        logG("vk.t4", vk.t4);
+        logG("vk.lagrangeFirst", vk.lagrangeFirst);
+        logG("vk.lagrangeLast", vk.lagrangeLast);
         Honk.Proof memory p = TranscriptLib.loadProof(proof);
         if (publicInputs.length != vk.publicInputsSize) {
             revert PublicInputsLengthWrong();

@@ -1,6 +1,6 @@
 #pragma once
-// #define LOG_CHALLENGES
-// #define LOG_INTERACTIONS
+#define LOG_CHALLENGES
+#define LOG_INTERACTIONS
 
 #include "barretenberg/common/debug_log.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"

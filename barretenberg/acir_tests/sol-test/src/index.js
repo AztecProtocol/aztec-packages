@@ -262,7 +262,14 @@ try {
   const address = await deploy(signer, abi, bytecode);
   const contract = new ethers.Contract(address, abi, signer);
 
+  const calldata = await contract.test.populateTransaction(
+    proofStr,
+    publicInputs
+  );
+  console.log(calldata.data);
+
   const result = await contract.test(proofStr, publicInputs);
+  console.log(result);
   if (!result) throw new Error("Test failed");
 } catch (e) {
   console.error(testName, "failed");
