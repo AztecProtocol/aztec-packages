@@ -1,6 +1,8 @@
 import { bufferSchema, mapSchema } from '@aztec/foundation/schemas';
 import type { WitnessMap } from '@aztec/noir-acvm_js';
+import { serializeWitness } from '@aztec/noir-noirc_abi';
 
+import { Encoder } from 'msgpackr';
 import { z } from 'zod';
 
 import type { ClientIvcProof } from '../proofs/client_ivc_proof.js';
@@ -43,4 +45,16 @@ export interface PrivateKernelExecutionProofOutput<
    * If simulate is ran with profiling mode, also includes gate counts.
    */
   executionSteps: PrivateExecutionStep[];
+}
+
+export function encodePrivateExecutionSteps(steps: PrivateExecutionStep[]) {
+  const stepToStruct = (step: PrivateExecutionStep) => {
+    return {
+      bytecode: step.bytecode,
+      witness: serializeWitness(step.witness),
+      vk: step.vk,
+      functionName: step.functionName,
+    };
+  };
+  return new Encoder().pack(steps.map(stepToStruct));
 }

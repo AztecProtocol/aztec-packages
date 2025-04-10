@@ -43,8 +43,7 @@ describe('Client IVC Integration', () => {
     const provingResult = await executeBbClientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      path.join(bbWorkingDirectory, 'witnesses.msgpack'),
+      path.join(bbWorkingDirectory, 'ivc-inputs.msgpack'),
       logger.info,
     );
 

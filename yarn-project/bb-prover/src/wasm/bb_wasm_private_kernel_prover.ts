@@ -26,6 +26,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
       executionSteps.map(step => ungzip(step.bytecode)),
+      executionSteps.map(step => step.vk),
       { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
     );
 
@@ -42,7 +43,8 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
   }
 
   public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
-    const backend = new AztecClientBackend([ungzip(_bytecode)], {
+    // Note we do not pass the vk to the backend. This is unneeded for gate counts.
+    const backend = new AztecClientBackend([ungzip(_bytecode)], [Buffer.from('')], {
       threads: this.threads,
       logger: this.log.verbose,
       wasmPath: process.env.BB_WASM_PATH,
