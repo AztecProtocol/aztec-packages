@@ -26,7 +26,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
   public:
     void test_value_in_range()
     {
-        for (size_t idx = 1; idx < domain_size; idx++) {
+        for (size_t idx = 2; idx <= domain_size; idx++) {
             Builder builder;
             Fr x = Fr::from_witness(&builder, idx);
 
@@ -34,7 +34,10 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             EXPECT_TRUE(result[idx - 1].get_value() == 1);
 
             info("num gates = ", builder.get_estimated_num_finalized_gates());
-
+            // Check that the sum of indicators is indeed x
+            Fr sum_of_indicators = std::accumulate(result.begin(), result.end(), Fr{ 0 });
+            EXPECT_TRUE((sum_of_indicators == x).get_value());
+            // Check the correctness of the circuit
             EXPECT_TRUE(CircuitChecker::check(builder));
         }
     }
@@ -58,7 +61,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
         {
             Builder builder;
 
-            Fr N = Fr::from_witness(&builder, domain_size - 1);
+            Fr N = Fr::from_witness(&builder, domain_size);
 
             [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(N);
             info("num gates = ", builder.get_estimated_num_finalized_gates());
@@ -81,6 +84,7 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             EXPECT_FALSE(CircuitChecker::check(builder));
         }
     }
+
     void test_gate_count_independence()
     {
         auto get_gate_count = [](const uint256_t& scalar_raw) -> size_t {
