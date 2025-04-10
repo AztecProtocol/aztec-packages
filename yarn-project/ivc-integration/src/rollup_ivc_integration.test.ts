@@ -1,11 +1,12 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
-import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
 import type { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
 import { PublicTxSimulationTester } from '@aztec/simulator/server';
 import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
 import { promises as fs } from 'fs';
 import os from 'os';
@@ -37,8 +38,8 @@ const logger = createLogger('ivc-integration:test:rollup-native');
 
 describe('Rollup IVC Integration', () => {
   let bbBinaryPath: string;
-  let clientIVCProofPath: string;
 
+  let tubeProof: ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>;
   let avmVK: Fr[];
   let avmProof: Fr[];
   let avmPublicInputs: AvmCircuitPublicInputs;
@@ -50,19 +51,21 @@ describe('Rollup IVC Integration', () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
     // Create a client IVC proof
-    clientIVCProofPath = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
+    const clientIVCWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCProofPath, witnessStack, bytecodes, logger);
-    await writeClientIVCProofToOutputDirectory(proof, clientIVCProofPath);
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger);
+    await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
-      clientIVCProofPath.concat('/proof'),
-      clientIVCProofPath.concat('/vk'),
+      clientIVCWorkingDirectory.concat('/proof'),
+      clientIVCWorkingDirectory.concat('/vk'),
       logger.info,
     );
     expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+
+    tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
 
     // Create an AVM proof
     const avmWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-avm-'));
@@ -81,17 +84,13 @@ describe('Rollup IVC Integration', () => {
       proof: avmProof,
       publicInputs: avmPublicInputs,
     } = await proveAvm(avmCircuitInputs, avmWorkingDirectory, logger));
-  });
+  }, 100_000);
 
   beforeEach(async () => {
     workingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-'));
-    await fs.copyFile(path.join(clientIVCProofPath, 'vk'), path.join(workingDirectory, 'vk'));
-    await fs.copyFile(path.join(clientIVCProofPath, 'proof'), path.join(workingDirectory, 'proof'));
   });
 
   it('Should be able to generate a proof of a 3 transaction rollup', async () => {
-    const tubeProof = await proveTube(bbBinaryPath, workingDirectory, logger);
-
     const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,
