@@ -10,7 +10,7 @@ By the end of this tutorial you will...
 - Connect to the Aztec sandbox and/or testnet
 - Use different payment methods to deploy accounts and make transactions via:
 	- various `aztec-wallet` CLI commands
-	- the Aztec.js library
+	- the `aztec.js` library
 - Understand the pros/cons of different payment methods
 
 
@@ -57,10 +57,16 @@ aztec-wallet --node-url <string> ...
 The string currently defaults to the the local sandbox: `http://host.docker.internal:8080`, or can be a bootnode url.
 More conveniently, this can be specified via the environment variable: `AZTEC_NODE_URL`.
 
-The equivalent in Aztec.js:
+The equivalent using aztec.js - create a PXE pointing to the desired url:
 
 ```javascript
-???
+import { createPXEClient, waitForPXE, PXE } from "@aztec/aztec.js";
+async function main() {
+  const { PXE_URL = 'http://localhost:8080' } = process.env; // from env var
+  const pxe = await createPXEClient(PXE_URL);
+  await waitForPXE(pxe);
+  // use pxe...
+}
 ```
 
 ## Create Account Contract in a PXE
@@ -87,10 +93,15 @@ aztec-wallet create-account --register-only -a main
 
 The `-a main` sets this new account's alias to, "main". Use `aztec-wallet get-alias` (with no params) to see all aliases.
 
-The equivalent in Aztec.js:
+The equivalent using aztec.js - create a random account locally (we will deploy it in the next step):
 
 ```javascript
-
+import { Fr } from "@aztec/aztec.js";
+import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+async function main() {
+  let secretKey = Fr.random(); let salt = Fr.random();
+  let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
+}
 ```
 
 Your PXE now has keys for an account that can be deployed on Aztec network(s).
@@ -118,17 +129,24 @@ SPONSORED_FPC_ADDRESS=`aztec-wallet --get-canonical-sponsored-fpc-address`
 aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
 ```
 
-:::note Payment: Sponsored Fee Paying Contract
-Options for payment via the sponsored fpc that can be used in multiple commands:
-`--payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS`
-
-:::
-
-The equivalent in Aztec.js:
+The equivalent using aztec.js - get sponsored fpc address and use payment method:
 
 ```javascript
+import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
+import { getDeployedSponsoredFPCAddress } from "../src/utils/sponsored_fpc.js"; // currently manually brought into project (see aztec-starter repo)
+  //...
+  const sponseredFPCAddress = await getDeployedSponsoredFPCAddress(pxe);
+  const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponseredFPCAddress); // create payment method
+  let tx = await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod }}).wait();
+  let wallet = await schnorrAccount.getWallet(); let address = wallet.getAddress();
 
 ```
+
+:::note Payment: Sponsored Fee Paying Contract
+Options for payment via the sponsored fpc that can be used in multiple commands:
+CLI: `--payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS`
+.js: `{ fee: { paymentMethod: new SponsoredFeePaymentMethod(sponseredFPCAddress) }}`
+:::
 
 **Congratulations! You have successfully created an account on Aztec!**
 
@@ -150,9 +168,11 @@ aztec-wallet import-test-accounts
 
 Confirm with: `aztec-wallet get-alias`, to see all aliases
 
-Alternatively with Aztec.js
+The equivalent using aztec.js - get the test accounts
 ```javascript
-getInitialTestAccountsWallets(pxe: PXE): Promise<AccountWalletWithSecretKey[]>
+  import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
+  //...
+    testWallets = await getInitialTestAccountsWallets(pxe);
 ```
 
 Note: The test account addresses can also be seen in the sandbox logs when it starts up.
@@ -169,16 +189,19 @@ aztec-wallet create-account -a alice --payment method=fee_juice,feePayer=test0
 Specifying the `feePayer` is only an option for commands that deploy an account.
 :::
 
-:::note Payment: Sponsored Fee Paying Contract
-Options for explicitly stating fee_juice from the sender which is the default payment method:
-`--payment method=fee_juice` (default)
-:::
-
-Alternatively with Aztec.js
+The equivalent using aztec.js - Create a fee juice payment method with a test account as sender, then deploy an account:
 
 ```javascript
-
+import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
+  const useFeeJuice = new FeeJuicePaymentMethod(testWallets[0].getAddress())
+  await schnorrAccount.deploy({ fee: { paymentMethod: useFeeJuice }}).wait()
 ```
+
+:::note Payment: Sponsored Fee Paying Contract
+Options for explicitly stating fee_juice from the sender which is the default payment method:
+CLI: `--payment method=fee_juice` (default)
+.js: `{ fee: { paymentMethod: new FeeJuicePaymentMethod(<fee payer address>) }`
+:::
 
 ### Bridging Fee Juice
 
@@ -204,22 +227,34 @@ Now the funded account can deploy itself with the bridged fees, claiming the bri
 aztec-wallet deploy-account --from accBFJ --payment method=fee_juice,claim
 ```
 
-:::note  Payment: Fee Juice with claim from bridge
-Options for claim+pay with bridged funds that can be used in multiple commands:
-`--from <sender address> --payment method=fee_juice,claim`
 
-:::
 
-The equivalent using Aztec.js:
+The equivalent using aztec.js - bridge fee juice, (pass two txs), create and use payment method:
+
+(See [here](https://github.com/AztecProtocol/aztec-packages/blob/master/yarn-project/cli-wallet/src/cmds/bridge_fee_juice.ts#L32) to initialise a fee juice portal manager)
 
 ```javascript
+import { FeeJuicePaymentMethod, PrivateFeePaymentMethod, PublicFeePaymentMethod } from "@aztec/aztec.js";
+  const newWallet = await schnorrAccount.getWallet()
+  const feeJuiceReceipient = schnorrAccount.getAddress()
+
+  const claim = await feeJuicePortalManager.bridgeTokensPublic(feeJuiceReceipient, 1000000000000000000n, true);
+  // ...(wait or perform two txs)
+  const claimAndPay = new FeeJuicePaymentMethodWithClaim(newWallet, claim)
+  await schnorrAccount.deploy({ fee: { paymentMethod: claimAndPay }}).wait()
 
 ```
+
+:::note  Payment: Fee Juice with claim from bridge
+Options for claim+pay with bridged funds that can be used in multiple commands:
+CLI: `--from <sender address> --payment method=fee_juice,claim`
+.js: `{ fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(newWallet, claim) }}`
+:::
 
 ### Fee Paying Contract payment (public/private)
 
 Setting up your own FPC and authorising the asset is an involved process outside the scope of this tutorial.
-For now we will just look at the syntax for understanding.
+Below we will look at the syntax for understanding.
 
 First register the FPC address in your pxe. In reality this might be an application funding users' transactions via their token.
 
@@ -228,22 +263,32 @@ aztec-wallet register-contract $FPC_ADDRESS FPCContract --from main
 aztec-wallet <command> --payment method=fpc-public,fpc=$FPC_ADDRESS,asset=$ASSET_ADDRESS
 ```
 
-The second line can be any command that takes a --payment parameter. See `aztec-wallet --help` and the help of corresponding commands to check.
+The second line can be any command that takes a `--payment` parameter. See `aztec-wallet --help` and the help of corresponding commands to check.
 
 Notice the specified address of both the fpc contract, and the asset address.
 
-:::note  Payment: Fee Paying Contract (public/private)
-Options for payment via fpc that can be used in multiple commands:
-`--payment method=fpc-public,fpc=$FPC_ADDRESS,asset=$ASSET_ADDRESS`
-(`fpc-private` for private)
-
-:::
-
-The equivalent using Aztec.js:
+The equivalent using aztec.js:
 
 ```javascript
+import { FPCContract } from "@aztec/noir-contracts.js/FPC";
+  //...
+  const fpc = await FPCContract.deploy(wallets[0], bananaCoin.address, wallets[0].getAddress()).send().deployed();
+  // ... (setup token authorisation, and fpc balance here)
+  const publicFee = new PublicFeePaymentMethod(fpc.address, newWallet)
 
 ```
+
+:::note  Payment: Fee Paying Contract (public/private)
+Options for payment via fpc that can be used in multiple commands:
+CLI: `--payment method=fpc-public,fpc=$FPC_ADDRESS,asset=$ASSET_ADDRESS` (`fpc-private` for private)
+.js: `{ fee: { paymentMethod: new PublicFeePaymentMethod(fpc.address, newWallet) }` (`PrivateFeePaymentMethod` for private)
+:::
+
+:::info Private fee payment
+Note: using a private fpc method is the only way for transactions to be paid for privately.
+
+Public and private refer to how the fpc will claim its tokens from the sender to then (publicly) spend fee juice. The visibility of the function being called is unchanged.
+:::
 
 ## Summary of fee payment options
 
@@ -257,15 +302,15 @@ The two key ways of paying for transactions: fee juice from an account or via an
 - specifying a different fee-payer account (new account creation/deployment only)
   - using a funded account to deploy another account, or rapid testing on the sandbox
   - need to already have a funded account
-- claiming fee juice from already-bridged L1 and immediately using
+- claiming fee juice from already-bridged L1 asset and immediately using
   - great for bootstrapping an account on Aztec
   - need to already have aztec fee asset on an L1 account
 
 ### Fee juice from a fee paying contract
 
 - via public/private payment
-  - can use a private account, privately, without holding fees
-  - can pay in other asset instead of fee juice
+  - can pay in other assets, and not hold fee juice
+  - can privately spend alternative assets, to make private transactions
 - sponsored payment
   - enables new users to bootstrap their first account
 
@@ -273,15 +318,26 @@ The two key ways of paying for transactions: fee juice from an account or via an
 
 ```bash
 aztec-wallet <command> --payment method=fee_juice # default fee juice from sender of transaction
-aztec-wallet <create/deploy command> --payment method=fee_juice,feePayer # fee juice from another account (create/deploy txs only)
+aztec-wallet <create/deploy command> --payment method=fee_juice,feePayer=$FEE_PAYER_ADDRESS # fee juice from another account (create/deploy txs only)
+aztec-wallet <command> --payment method=fee_juice,claim # claim bridged fee juice and pay
 aztec-wallet <command> --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS # sponsored fpc
-aztec-wallet <command> --payment method=fpc-public,fpc=$FPC_ADDRESS # asset for fee juice via fpc public
-aztec-wallet <command> --payment method=fpc-private,fpc=$FPC_ADDRESS # asset for fee juice via fpc private
+aztec-wallet <command> --payment method=fpc-public,fpc=$FPC_ADDRESS,asset=$ASSET_ADDRESS # asset for fee juice via fpc public
+aztec-wallet <command> --payment method=fpc-private,fpc=$FPC_ADDRESS,asset=$ASSET_ADDRESS # asset for fee juice via fpc private
+
+```
+
+```javascript
+`command({ fee: { paymentMethod: new FeeJuicePaymentMethod(<sender address>) }})` // default fee juice from sender of transaction
+`command({ fee: { paymentMethod: new FeeJuicePaymentMethod(<fee payer address>) }})` // different from sender (create/deploy txs only)
+`command({ fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(newWallet, claim) }})` // claim bridged fee juice and pay
+`command({ fee: { paymentMethod: new SponsoredFeePaymentMethod(sponseredFPCAddress) }})` // sponsored fpc
+`command({ fee: { paymentMethod: new PublicFeePaymentMethod(fpc.address, newWallet) }})` // asset for fee juice via fpc public
+`command({ fee: { paymentMethod: new PrivateFeePaymentMethod(fpc.address, newWallet) }})` // asset for fee juice via fpc private
 
 ```
 
 :::warning
-This list is provided as a convenience and is not automatically maintained.
+Lists above are provided as a convenient reference and are not automatically maintained.
 Please refer to the snippets in the sections above, and report any discrepancies.
 
 :::
@@ -296,4 +352,3 @@ method\options|`feePayer`|`asset`|`fpc`|`claim`
 `fpc-public`|NA|asset address|contract address|NA
 `fpc-private`|NA|asset address|contract address|NA
 `fpc-sponsored`|NA|NA|NA|NA
-
