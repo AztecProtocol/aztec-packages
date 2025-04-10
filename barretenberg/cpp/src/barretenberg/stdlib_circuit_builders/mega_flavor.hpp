@@ -531,6 +531,7 @@ class MegaFlavor {
                         const Commitment& lagrange_ecc_op,
                         const Commitment& databus_id)
         {
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
             this->circuit_size = circuit_size;
             this->log_circuit_size = numeric::get_msb(this->circuit_size);
             this->num_public_inputs = num_public_inputs;
