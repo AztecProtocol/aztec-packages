@@ -86,13 +86,11 @@ case ${1:-} in
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
       "
     else
-      # Export p2p port forwarding only if set in env vars
-      if [ -n "${P2P_PORT:-}" ]; then
-        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
-        P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
+      export P2P_PORT="${P2P_PORT:-40400}"
+      P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
+      P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
 
-        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
-      fi
+      PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
