@@ -63,7 +63,7 @@ jobs:
           echo "[]" > versions.json
           yarn
           yarn build
-          yarn docusaurus docs:version ${{ needs.release-please.outputs.release-version }}
+          yarn docusaurus docs:version ${{ steps.release.outputs.tag_name }}
 
       - name: Filter
         working-directory: ./docs
@@ -73,5 +73,5 @@ jobs:
       - name: Commit new documentation version
         run: |
           git add .
-          git commit -m "chore(docs): cut new docs version for tag ${{ needs.release-please.outputs.release-version }}
+          git commit -m "chore(docs): cut new docs version for tag ${{ steps.release.outputs.tag_name }}
           git push
