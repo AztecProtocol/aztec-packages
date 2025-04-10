@@ -2,8 +2,8 @@ import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
-import type { PublishedL2Block } from '../published_l2_block.js';
+import type { L2BlockId, L2BlockSource } from '../l2_block_source.js';
+import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
 export class L2BlockStream {
@@ -72,14 +72,13 @@ export class L2BlockStream {
       }
 
       if (latestBlockNumber < localTips.latest.number) {
+        latestBlockNumber = Math.min(latestBlockNumber, sourceTips.latest.number); // see #13471
+        const hash = sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber));
+        if (!hash) {
+          throw new Error(`Block hash not found in block source for block number ${latestBlockNumber}`);
+        }
         this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
-        await this.emitEvent({
-          type: 'chain-pruned',
-          block: {
-            number: latestBlockNumber,
-            hash: sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber))!,
-          },
-        });
+        await this.emitEvent({ type: 'chain-pruned', block: { number: latestBlockNumber, hash } });
       }
 
       // If we are just starting, use the starting block number from the options.
@@ -181,32 +180,3 @@ class BlockHashCache {
     return this.cache.get(blockNumber);
   }
 }
-
-/** Interface to the local view of the chain. Implemented by world-state and l2-tips-store. */
-export interface L2BlockStreamLocalDataProvider {
-  getL2BlockHash(number: number): Promise<string | undefined>;
-  getL2Tips(): Promise<L2Tips>;
-}
-
-/** Interface to a handler of events emitted. */
-export interface L2BlockStreamEventHandler {
-  handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void>;
-}
-
-export type L2BlockStreamEvent =
-  | /** Emits blocks added to the chain. */ {
-      type: 'blocks-added';
-      blocks: PublishedL2Block[];
-    }
-  | /** Reports last correct block (new tip of the unproven chain). */ {
-      type: 'chain-pruned';
-      block: L2BlockId;
-    }
-  | /** Reports new proven block. */ {
-      type: 'chain-proven';
-      block: L2BlockId;
-    }
-  | /** Reports new finalized block (proven and finalized on L1). */ {
-      type: 'chain-finalized';
-      block: L2BlockId;
-    };

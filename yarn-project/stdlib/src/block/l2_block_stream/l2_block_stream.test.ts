@@ -8,46 +8,25 @@ import type { BlockHeader } from '../../tx/block_header.js';
 import type { L2Block } from '../l2_block.js';
 import type { L2BlockId, L2BlockSource, L2Tips } from '../l2_block_source.js';
 import type { PublishedL2Block } from '../published_l2_block.js';
-import {
-  L2BlockStream,
-  type L2BlockStreamEvent,
-  type L2BlockStreamEventHandler,
-  type L2BlockStreamLocalDataProvider,
-} from './l2_block_stream.js';
+import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
+import { L2BlockStream } from './l2_block_stream.js';
+import { L2TipsMemoryStore } from './l2_tips_memory_store.js';
 
 describe('L2BlockStream', () => {
   let blockStream: TestL2BlockStream;
 
   let blockSource: MockProxy<L2BlockSource>;
-  let localData: TestL2BlockStreamLocalDataProvider;
   let handler: TestL2BlockStreamEventHandler;
 
   let latest: number = 0;
 
-  beforeEach(() => {
-    blockSource = mock<L2BlockSource>();
-    localData = new TestL2BlockStreamLocalDataProvider();
-    handler = new TestL2BlockStreamEventHandler();
-
-    // Archiver returns headers with hashes equal to the block number for simplicity
-    blockSource.getBlockHeader.mockImplementation(number =>
-      Promise.resolve(makeHeader(number === 'latest' ? 1 : number)),
-    );
-
-    // And returns blocks up until what was reported as the latest block
-    blockSource.getPublishedBlocks.mockImplementation((from, limit) =>
-      Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
-    );
-
-    blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
-  });
+  const makeHash = (number: number) => new Fr(number).toString();
 
   const makeBlock = (number: number) => ({ block: { number } as L2Block } as PublishedL2Block);
 
-  const makeHeader = (number: number) =>
-    mock<BlockHeader>({ hash: () => Promise.resolve(new Fr(number)) } as BlockHeader);
+  const makeHeader = (number: number) => ({ hash: () => Promise.resolve(new Fr(number)) } as BlockHeader);
 
-  const makeBlockId = (number: number): L2BlockId => ({ number, hash: new Fr(number).toString() });
+  const makeBlockId = (number: number): L2BlockId => ({ number, hash: makeHash(number) });
 
   const setRemoteTips = (latest_: number, proven?: number, finalized?: number) => {
     proven = proven ?? 0;
@@ -55,13 +34,38 @@ describe('L2BlockStream', () => {
     latest = latest_;
 
     blockSource.getL2Tips.mockResolvedValue({
-      latest: { number: latest, hash: new Fr(latest).toString() },
-      proven: { number: proven, hash: new Fr(proven).toString() },
-      finalized: { number: finalized, hash: new Fr(finalized).toString() },
+      latest: { number: latest, hash: makeHash(latest) },
+      proven: { number: proven, hash: makeHash(proven) },
+      finalized: { number: finalized, hash: makeHash(finalized) },
     });
   };
 
-  describe('work', () => {
+  beforeEach(() => {
+    blockSource = mock<L2BlockSource>();
+
+    // Archiver returns headers with hashes equal to the block number for simplicity
+    // Note that we only return block headers for blocks that have not been pruned
+    blockSource.getBlockHeader.mockImplementation(number =>
+      Promise.resolve(
+        typeof number === 'number' && number > latest ? undefined : makeHeader(number === 'latest' ? 1 : number),
+      ),
+    );
+
+    // And returns blocks up until what was reported as the latest block
+    blockSource.getPublishedBlocks.mockImplementation((from, limit) =>
+      Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
+    );
+  });
+
+  describe('with mock local data provider', () => {
+    let localData: TestL2BlockStreamLocalDataProvider;
+
+    beforeEach(() => {
+      handler = new TestL2BlockStreamEventHandler();
+      localData = new TestL2BlockStreamLocalDataProvider();
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+    });
+
     it('pulls new blocks from start', async () => {
       setRemoteTips(5);
 
@@ -151,6 +155,39 @@ describe('L2BlockStream', () => {
       ] satisfies L2BlockStreamEvent[]);
     });
   });
+
+  describe('with memory tips store', () => {
+    let localData: TestL2TipsMemoryStore;
+
+    beforeEach(() => {
+      localData = new TestL2TipsMemoryStore();
+      handler = new TestL2BlockStreamEventHandler(localData);
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+    });
+
+    // Regression test for https://github.com/AztecProtocol/aztec-packages/issues/13471
+    it('handles a prune to a block before start block', async () => {
+      setRemoteTips(35, 25, 10);
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        startingBlock: 30,
+      });
+
+      // We first seed a few blocks into the blockstream
+      await blockStream.work();
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 30)) },
+        { type: 'chain-proven', block: makeBlockId(25) },
+        { type: 'chain-finalized', block: makeBlockId(10) },
+      ] satisfies L2BlockStreamEvent[]);
+      handler.clearEvents();
+
+      // And then we reorg
+      setRemoteTips(25, 25, 10);
+      await blockStream.work();
+      expect(handler.events).toEqual([{ type: 'chain-pruned', block: makeBlockId(25) }] satisfies L2BlockStreamEvent[]);
+    });
+  });
 });
 
 class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
@@ -158,13 +195,21 @@ class TestL2BlockStreamEventHandler implements L2BlockStreamEventHandler {
   public throwing: boolean = false;
   public callCount: number = 0;
 
-  handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+  constructor(private forwardedTo?: L2BlockStreamEventHandler) {}
+
+  async handleBlockStreamEvent(event: L2BlockStreamEvent): Promise<void> {
+    if (this.forwardedTo) {
+      await this.forwardedTo.handleBlockStreamEvent(event);
+    }
     this.callCount++;
     if (this.throwing) {
       throw new Error('Handler error');
     }
     this.events.push(event);
-    return Promise.resolve();
+  }
+
+  clearEvents() {
+    this.events.length = 0;
   }
 }
 
@@ -195,5 +240,11 @@ class TestL2BlockStream extends L2BlockStream {
 
   public override isRunning(): boolean {
     return this.running;
+  }
+}
+
+class TestL2TipsMemoryStore extends L2TipsMemoryStore {
+  protected override computeBlockHash(block: L2Block): Promise<`0x${string}`> {
+    return Promise.resolve(new Fr(block.number).toString());
   }
 }
