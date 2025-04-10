@@ -423,7 +423,7 @@ template <typename Curve> class ShpleminiVerifier_ {
     // padding enabled
     template <typename Transcript, size_t virtual_log_n>
     static BatchOpeningClaim<Curve> compute_batch_opening_claim(
-        const std::array<Fr, virtual_log_n> padding_indicator_array,
+        const std::array<Fr, virtual_log_n>& padding_indicator_array,
         ClaimBatcher& claim_batcher,
         const std::vector<Fr>& multivariate_challenge,
         const Commitment& g1_identity,
@@ -535,7 +535,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Reconstruct Aᵢ(r²ⁱ) for i=0, ..., d - 1 from the batched evaluation of the multilinear polynomials and
         // Aᵢ(−r²ⁱ) for i = 0, ..., d - 1. In the case of interleaving, we compute A₀(r) as A₀₊(r) + P₊(r^s).
         const std::vector<Fr> gemini_fold_pos_evaluations =
-            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(log_n,
+            GeminiVerifier_<Curve>::compute_fold_pos_evaluations(padding_indicator_array,
                                                                  batched_evaluation,
                                                                  multivariate_challenge,
                                                                  gemini_eval_challenge_powers,
@@ -544,7 +544,7 @@ template <typename Curve> class ShpleminiVerifier_ {
         // Place the commitments to Gemini fold polynomials Aᵢ in the vector of batch_mul commitments, compute the
         // contributions from Aᵢ(−r²ⁱ) for i=1, … , d − 1 to the constant term accumulator, add corresponding scalars
         // for the batch mul
-        batch_gemini_claims_received_from_prover(log_n,
+        batch_gemini_claims_received_from_prover(padding_indicator_array,
                                                  fold_commitments,
                                                  gemini_fold_neg_evaluations,
                                                  gemini_fold_pos_evaluations,
@@ -658,21 +658,48 @@ template <typename Curve> class ShpleminiVerifier_ {
             constant_term_accumulator +=
                 scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
 
-            if constexpr (Curve::is_stdlib_type) {
-                auto builder = gemini_neg_evaluations[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, j >= log_n);
-                Fr zero = Fr(0);
-                scaling_factor_neg = Fr::conditional_assign(dummy_round, zero, scaling_factor_neg);
-                scaling_factor_pos = Fr::conditional_assign(dummy_round, zero, scaling_factor_pos);
-            } else {
-                if (j >= log_n) {
-                    scaling_factor_neg = 0;
-                    scaling_factor_pos = 0;
-                }
+            if (j >= log_n) {
+                scaling_factor_neg = 0;
+                scaling_factor_pos = 0;
             }
             // Place the scaling factor to the 'scalars' vector
             scalars.emplace_back(-scaling_factor_neg - scaling_factor_pos);
+            // Move com(Aᵢ) to the 'commitments' vector
+            commitments.emplace_back(std::move(fold_commitments[j - 1]));
+        }
+    }
+    template <size_t virtual_log_n>
+    static void batch_gemini_claims_received_from_prover(const std::array<Fr, virtual_log_n> padding_indicator_array,
+                                                         const std::vector<Commitment>& fold_commitments,
+                                                         const std::vector<Fr>& gemini_neg_evaluations,
+                                                         const std::vector<Fr>& gemini_pos_evaluations,
+                                                         const std::vector<Fr>& inverse_vanishing_evals,
+                                                         const std::vector<Fr>& shplonk_batching_challenge_powers,
+                                                         std::vector<Commitment>& commitments,
+                                                         std::vector<Fr>& scalars,
+                                                         Fr& constant_term_accumulator)
+    {
+
+        // Start from 1, because the commitment to A_0 is reconstructed from the commitments to the multilinear
+        // polynomials. The corresponding evaluations are also handled separately.
+        for (size_t j = 1; j < virtual_log_n; ++j) {
+            // The index of 1/ (z - r^{2^{j}}) in the vector of inverted Gemini denominators
+            const size_t pos_index = 2 * j;
+            // The index of 1/ (z + r^{2^{j}}) in the vector of inverted Gemini denominators
+            const size_t neg_index = 2 * j + 1;
+
+            // Compute the "positive" scaling factor  (ν^{2j}) / (z - r^{2^{j}})
+            Fr scaling_factor_pos = shplonk_batching_challenge_powers[pos_index] * inverse_vanishing_evals[pos_index];
+            // Compute the "negative" scaling factor  (ν^{2j+1}) / (z + r^{2^{j}})
+            Fr scaling_factor_neg = shplonk_batching_challenge_powers[neg_index] * inverse_vanishing_evals[neg_index];
+
+            // Accumulate the const term contribution given by
+            // v^{2j} * A_j(r^{2^j}) /(z - r^{2^j}) + v^{2j+1} * A_j(-r^{2^j}) /(z+ r^{2^j})
+            constant_term_accumulator +=
+                scaling_factor_neg * gemini_neg_evaluations[j] + scaling_factor_pos * gemini_pos_evaluations[j];
+
+            // Place the scaling factor to the 'scalars' vector
+            scalars.emplace_back(-padding_indicator_array[j] * (scaling_factor_neg + scaling_factor_pos));
             // Move com(Aᵢ) to the 'commitments' vector
             commitments.emplace_back(std::move(fold_commitments[j - 1]));
         }

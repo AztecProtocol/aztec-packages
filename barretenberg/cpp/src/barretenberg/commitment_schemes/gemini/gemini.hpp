@@ -595,6 +595,52 @@ template <typename Curve> class GeminiVerifier_ {
                 value_to_emplace = dummy_round ? zero : eval_pos_prev;
             };
             fold_pos_evaluations.emplace_back(value_to_emplace);
+            info("native , l = ", l - 1, "  value ", value_to_emplace);
+        }
+
+        std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
+
+        return fold_pos_evaluations;
+    }
+    template <size_t virtual_log_n>
+    static std::vector<Fr> compute_fold_pos_evaluations(
+        const std::array<Fr, virtual_log_n>& padding_indicator_array,
+        const Fr& batched_evaluation,
+        std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
+        std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
+        std::span<const Fr> fold_neg_evals)
+    {
+        std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
+
+        Fr eval_pos_prev = batched_evaluation;
+
+        std::vector<Fr> fold_pos_evaluations;
+        fold_pos_evaluations.reserve(virtual_log_n);
+        // Either a computed eval of A_i at r^{2^i}, or 0
+        Fr value_to_emplace;
+
+        // Solve the sequence of linear equations
+        for (size_t l = virtual_log_n; l != 0; --l) {
+            // Get r²⁽ˡ⁻¹⁾
+            const Fr& challenge_power = challenge_powers[l - 1];
+            // Get uₗ₋₁
+            const Fr& u = evaluation_point[l - 1];
+            const Fr& eval_neg = evals[l - 1];
+            // Get A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾)
+            // Compute the numerator
+            Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
+            // Divide by the denominator
+            eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
+
+            // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
+            // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+            eval_pos_prev =
+                padding_indicator_array[l - 1] * eval_pos + (Fr{ 1 } - padding_indicator_array[l - 1]) * eval_pos_prev;
+            // If current index is bigger than log_n, we emplace 0, which is later multiplied against
+            // Commitment::one().
+            value_to_emplace = padding_indicator_array[l - 1] * eval_pos_prev;
+            fold_pos_evaluations.emplace_back(value_to_emplace);
+            info("recursive , l = ", l - 1, "  value ", value_to_emplace);
         }
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
