@@ -165,14 +165,11 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
         ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
     ivc.accumulate(circuit_1);
 
-    ivc.construct_vk();
-
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    // Construct the hiding circuit and its VK (stored internally in the IVC)
+    ivc.construct_hiding_circuit_key();
 
     const bool output_to_stdout = output_dir == "-";
-    const auto vk = std::make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
-    const auto buf = to_buffer(vk);
+    const auto buf = to_buffer(ivc.get_vk());
 
     if (output_to_stdout) {
         write_bytes_to_stdout(buf);
@@ -302,10 +299,8 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    vk.eccvm->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>((1UL << CONST_ECCVM_LOG_N) + 1);
-    vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;
@@ -445,9 +440,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-    write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
 }
 
 } // namespace bb

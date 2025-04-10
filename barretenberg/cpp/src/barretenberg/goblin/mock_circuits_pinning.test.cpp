@@ -20,7 +20,7 @@ class MegaMockCircuitsPinning : public ::testing::Test {
 TEST_F(MegaMockCircuitsPinning, FunctionSizes)
 {
     const auto run_test = [](bool large) {
-        GoblinProver goblin;
+        Goblin goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
         auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
@@ -37,7 +37,7 @@ TEST_F(MegaMockCircuitsPinning, FunctionSizes)
 TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
 {
     const auto run_test = [](bool large) {
-        GoblinProver goblin;
+        Goblin goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_app_circuit(app_circuit, large);
         auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
@@ -56,7 +56,7 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
  */
 TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
 {
-    GoblinProver goblin;
+    Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
     TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
@@ -65,7 +65,7 @@ TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
 
 TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
 {
-    GoblinProver goblin;
+    Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
     TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
@@ -74,7 +74,7 @@ TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
 
 TEST_F(MegaMockCircuitsPinning, E2EStructuredCircuitSize)
 {
-    GoblinProver goblin;
+    Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
