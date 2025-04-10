@@ -56,7 +56,6 @@ using FF = AvmFlavorSettings::FF;
 using C = Column;
 using public_data_read = bb::avm2::public_data_read<FF>;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
 
 TEST(PublicDataTreeReadConstrainingTest, EmptyRow)
 {

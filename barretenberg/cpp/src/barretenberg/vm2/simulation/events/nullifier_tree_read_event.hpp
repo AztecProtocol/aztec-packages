@@ -8,18 +8,17 @@
 
 namespace bb::avm2::simulation {
 
-using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
+using NullifierTreeLeafPreimage = IndexedLeaf<NullifierLeafValue>;
 
-struct PublicDataTreeReadEvent {
-    FF value;
-    FF slot;
+struct NullifierTreeReadEvent {
+    FF nullifier;
     FF root;
 
-    PublicDataTreeLeafPreimage low_leaf_preimage;
+    NullifierTreeLeafPreimage low_leaf_preimage;
     FF low_leaf_hash;
     uint64_t low_leaf_index;
 
-    bool operator==(const PublicDataTreeReadEvent& other) const = default;
+    bool operator==(const NullifierTreeReadEvent& other) const = default;
 };
 
 } // namespace bb::avm2::simulation

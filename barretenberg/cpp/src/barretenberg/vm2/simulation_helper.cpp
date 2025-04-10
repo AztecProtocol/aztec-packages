@@ -24,6 +24,7 @@
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
+#include "barretenberg/vm2/simulation/events/nullifier_tree_read_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
@@ -89,6 +90,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
     typename S::template DefaultEventEmitter<PublicDataTreeReadEvent> public_data_read_emitter;
     typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
+    typename S::template DefaultEventEmitter<NullifierTreeReadEvent> nullifier_tree_read_emitter;
 
     uint32_t current_block_number = static_cast<uint32_t>(hints.tx.globalVariables.blockNumber);
 
@@ -152,7 +154,8 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              range_check_emitter.dump_events(),
              context_stack_emitter.dump_events(),
              public_data_read_emitter.dump_events(),
-             update_check_emitter.dump_events() };
+             update_check_emitter.dump_events(),
+             nullifier_tree_read_emitter.dump_events() };
 }
 
 EventsContainer AvmSimulationHelper::simulate()
