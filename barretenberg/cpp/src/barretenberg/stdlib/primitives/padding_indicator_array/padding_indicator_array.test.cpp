@@ -30,7 +30,8 @@ template <typename Param> class PaddingIndicatorArrayTest : public testing::Test
             Builder builder;
             Fr x = Fr::from_witness(&builder, idx);
 
-            [[maybe_unused]] auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            auto result = compute_padding_indicator_array<Fr, Builder, domain_size>(x);
+            EXPECT_TRUE(result[idx - 1].get_value() == 1);
 
             info("num gates = ", builder.get_estimated_num_finalized_gates());
 
