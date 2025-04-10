@@ -382,7 +382,7 @@ describe('HttpBlobSinkClient', () => {
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
         l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
-        l1ConsensusHostApiKeys: ['my-api-key'],
+        l1ConsensusHostApiKeys: [new SecretValue('my-api-key')],
       });
 
       // Add spy on the fetch method
