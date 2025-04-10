@@ -1,14 +1,7 @@
 import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory } from '@aztec/bb-prover';
-import {
-  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE,
-  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  TUBE_PROOF_LENGTH,
-} from '@aztec/constants';
+import { ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS, TUBE_PROOF_LENGTH } from '@aztec/constants';
 import { createLogger } from '@aztec/foundation/log';
 import { AvmTestContractArtifact } from '@aztec/noir-contracts.js/AvmTest';
-import type { FixedLengthArray } from '@aztec/noir-protocol-circuits-types/types';
 import { PublicTxSimulationTester } from '@aztec/simulator/public/fixtures';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
@@ -22,6 +15,9 @@ import { fileURLToPath } from 'url';
 import {
   MockRollupBasePublicCircuit,
   generate3FunctionTestingIVCStack,
+  mapAvmProofToNoir,
+  mapAvmPublicInputsToNoir,
+  mapAvmVerificationKeyToNoir,
   mapRecursiveProofToNoir,
   mapVerificationKeyToNoir,
   simulateAvmBulkTesting,
@@ -82,12 +78,9 @@ describe('AVM Integration', () => {
     const simRes = await simulateAvmBulkTesting(simTester, expectContractInstance);
 
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
-    const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, logger);
+    const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, bbWorkingDirectory, logger);
 
-    logger.debug(
-      'Avm public inputs',
-      publicInputs.map(field => field.toString()),
-    );
+    logger.debug('Avm public inputs', mapAvmPublicInputsToNoir(publicInputs));
 
     const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
       tube_data: {
@@ -98,15 +91,9 @@ describe('AVM Integration', () => {
           ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
         ),
       },
-      verification_key: vk.map(x => x.toString()) as FixedLengthArray<
-        string,
-        typeof AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED
-      >,
-      proof: proof.map(x => x.toString()) as FixedLengthArray<string, typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
-      pub_cols_flattened: publicInputs.map(x => x.toString()) as FixedLengthArray<
-        string,
-        typeof AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE
-      >,
+      verification_key: mapAvmVerificationKeyToNoir(vk),
+      proof: mapAvmProofToNoir(proof),
+      pub_cols_flattened: mapAvmPublicInputsToNoir(publicInputs),
     });
 
     await proveRollupHonk(

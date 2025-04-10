@@ -15,7 +15,6 @@ import {
 } from '@aztec/bb-prover';
 import {
   AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
-  AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE,
   AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
@@ -24,7 +23,7 @@ import {
 import { Fr } from '@aztec/foundation/fields';
 import type { Logger } from '@aztec/foundation/log';
 import { BufferReader } from '@aztec/foundation/serialize';
-import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { AvmCircuitInputs, AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { makeProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
@@ -32,7 +31,6 @@ import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { encode } from '@msgpack/msgpack';
 import * as fs from 'fs/promises';
-import { tmpdir } from 'os';
 import * as path from 'path';
 
 export async function proveClientIVC(
@@ -179,18 +177,18 @@ export function proveKeccakHonk(
 
 export async function proveAvm(
   avmCircuitInputs: AvmCircuitInputs,
+  workingDirectory: string,
   logger: Logger,
 ): Promise<{
   vk: Fr[];
   proof: Fr[];
-  publicInputs: Fr[];
+  publicInputs: AvmCircuitPublicInputs;
 }> {
   // The paths for the barretenberg binary and the write path are hardcoded for now.
   const bbPath = path.resolve('../../barretenberg/cpp/build/bin/bb');
-  const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
   // Then we prove.
-  const proofRes = await generateAvmProofV2(bbPath, bbWorkingDirectory, avmCircuitInputs, logger);
+  const proofRes = await generateAvmProofV2(bbPath, workingDirectory, avmCircuitInputs, logger);
   if (proofRes.status === BB_RESULT.FAILURE) {
     throw new Error(`AVM V2 proof generation failed: ${proofRes.reason}`);
   } else if (proofRes.status === BB_RESULT.ALREADY_PRESENT) {
@@ -224,12 +222,10 @@ export async function proveAvm(
   while (vk.length < AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
     vk.push(new Fr(0));
   }
-  // TODO: Currently the recursive verifier only expects a single public input, the reverted field.
-  const publicInputs = [new Fr(avmCircuitInputs.publicInputs.reverted)];
 
   return {
     proof,
     vk,
-    publicInputs,
+    publicInputs: avmCircuitInputs.publicInputs,
   };
 }
