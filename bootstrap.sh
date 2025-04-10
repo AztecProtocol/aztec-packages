@@ -191,7 +191,7 @@ function test {
   [ -z "$tests" ] && num=0 || num=$(echo "$tests" | wc -l)
   echo "Gathered $num tests."
 
-  echo -n "$tests" | parallelise
+  echo "$tests" | parallelise
 }
 
 function build {

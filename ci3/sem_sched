@@ -23,9 +23,10 @@ function init {
 # Acquire mutex to update shared memory and select free CPUs
 function acquire {
   local num_cpus="${1:-2}"
+  local timeout="${2:-0}"
 
   # Block until num_cpus are available.
-  $SEM_BIN --name "$FREE_SEM" -$num_cpus
+  $SEM_BIN --name "$FREE_SEM" --atomic --timeout $timeout -$num_cpus
 
   # Update the shared memory to mark the allocated CPUs.
   $SEM_BIN --name "$MUTEX_NAME" -1
@@ -40,6 +41,7 @@ function acquire {
   done
   echo -n "$data" > "$SHM_FILE"
   cpu_list=$(IFS=, ; echo "${allocated_list[*]}")
+
   $SEM_BIN --name "$MUTEX_NAME" +1
   echo $cpu_list
 }

@@ -7,6 +7,8 @@
 #include <errno.h>
 #include <signal.h>
 #include <stdarg.h>
+#include <time.h>  // added for timeout functionality
+#include <stdbool.h>
 
 #define MAX_NAME_LEN 255  // Maximum length for semaphore name
 
@@ -20,12 +22,13 @@ void handle_signal(int signum) {
 }
 
 void usage(const char *prog_name) {
-    fprintf(stderr, "Usage: %s [-v] [--atomic] --name /sem_name [--init N] [+N|-N] [--cleanup]\n", prog_name);
+    fprintf(stderr, "Usage: %s [-v] [--atomic] --name /sem_name [--init N] [+N|-N] [--timeout T] [--cleanup]\n", prog_name);
     fprintf(stderr, "  -v               : Enable verbose output (to stderr)\n");
     fprintf(stderr, "  --atomic         : Use atomic_wait approach (with rollback on signal) for decrementing\n");
     fprintf(stderr, "  --name /sem_name : Specify the semaphore name (must start with /)\n");
     fprintf(stderr, "  --init N         : Initialize semaphore with value N\n");
     fprintf(stderr, "  +N or -N         : Increment or decrement by N\n");
+    fprintf(stderr, "  --timeout T      : Timeout in seconds for decrement operations\n");
     fprintf(stderr, "  --cleanup        : Remove the semaphore and exit\n");
     exit(EXIT_FAILURE);
 }
@@ -72,31 +75,44 @@ int get_sem_value(sem_t *sem) {
     return value;
 }
 
-// Atomically wait for N resources.
-// We maybe starved out by other consumers consuming with much smaller n.
-void atomic_wait(sem_t *sem, int n) {
-    int acquired, i;
+// Updated atomic_wait to accept a timeout value (in seconds)
+bool wait(sem_t *sem, int n, int timeout, bool atomic) {
+    time_t start = time(NULL);
+    int acquired = 0, i;
     while (1) {
         if (termination_requested) {
             vprintf_verbose("Termination signal received during atomic_wait, rolling back.\n");
-            exit(EXIT_FAILURE);
+            break;
         }
-        acquired = 0;
+        if (timeout > 0 && (time(NULL) - start) >= timeout) {
+            vprintf_verbose("Timeout exceeded in atomic_wait after %d seconds, rolling back.\n", timeout);
+            break;
+        }
         for (i = 0; i < n; i++) {
             if (sem_trywait(sem) == -1)
                 break;
             acquired++;
         }
         if (acquired == n) {
-            return;
+            return true;
         } else {
-            // Rollback any acquired resources
-            for (i = 0; i < acquired; i++) {
-                sem_post(sem);
+            if (atomic) {
+                // Rollback any acquired resources
+                for (i = 0; i < acquired; i++) {
+                    sem_post(sem);
+                }
+                acquired = 0;
+            }
+            if (timeout == 0) {
+                break;
             }
             usleep(1000); // Sleep briefly before retrying
         }
     }
+    for (i = 0; i < acquired; i++) {
+        sem_post(sem);
+    }
+    return false;
 }
 
 int main(int argc, char *argv[]) {
@@ -106,6 +122,7 @@ int main(int argc, char *argv[]) {
     int cleanup = 0;
     int has_amount = 0;
     int use_atomic_decrement = 0;
+    int timeout = -1;
 
     // Install signal handlers.
     signal(SIGINT, handle_signal);
@@ -141,6 +158,9 @@ int main(int argc, char *argv[]) {
             }
         } else if (strcmp(argv[i], "--cleanup") == 0) {
             cleanup = 1;
+        } else if (strcmp(argv[i], "--timeout") == 0) {
+            if (++i >= argc) usage(argv[0]);
+            timeout = atoi(argv[i]);
         } else if (argv[i][0] == '+' || argv[i][0] == '-') {
             amount = atoi(argv[i]);
             has_amount = 1;
@@ -188,35 +208,14 @@ int main(int argc, char *argv[]) {
         vprintf_verbose("Incremented by %d, new value: %d\n", amount, get_sem_value(sem));
     } else {
         amount = -amount;  // Make positive value for decrement
-        if (use_atomic_decrement) {
-            vprintf_verbose("Using atomic_wait for decrement by %d...\n", amount);
-            atomic_wait(sem, amount);
+        vprintf_verbose("Decrementing by %d, atomic: %d...\n", amount, use_atomic_decrement);
+        bool success = wait(sem, amount, timeout, use_atomic_decrement);
+        if (success) {
+            vprintf_verbose("Decremented by %d, new value: %d\n", amount, get_sem_value(sem));
         } else {
-            vprintf_verbose("Using non-atomic sem_wait for decrement by %d...\n", amount);
-            int succeeded = 0;
-            for (int i = 0; i < amount; i++) {
-                if (termination_requested) {
-                    break;
-                }
-                if (sem_wait(sem) == -1) {
-                    if (errno == EINTR) {
-                        break;
-                    } else {
-                        perror("sem_wait");
-                        exit(EXIT_FAILURE);
-                    }
-                }
-                succeeded++;
-            }
-            if (succeeded != amount) {
-                vprintf_verbose("Failed to decrement by %d, only succeeded in acquiring %d\n", amount, succeeded);
-                for (int j = 0; j < succeeded; j++) {
-                    sem_post(sem);
-                }
-                exit(EXIT_FAILURE);
-            }
+            vprintf_verbose("Failed to decrement, value: %d\n", amount, get_sem_value(sem));
+            exit(EXIT_FAILURE);
         }
-        vprintf_verbose("Decremented by %d, new value: %d\n", amount, get_sem_value(sem));
     }
 
     // Close the semaphore handle (does not remove it)
