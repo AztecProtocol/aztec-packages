@@ -25,7 +25,6 @@ TranslatorProver::TranslatorProver(const std::shared_ptr<TranslatorProvingKey>& 
  */
 void TranslatorProver::execute_preamble_round()
 {
-    const auto circuit_size = static_cast<uint32_t>(key->proving_key->circuit_size);
     const auto SHIFT = uint256_t(1) << Flavor::NUM_LIMB_BITS;
     const auto SHIFTx2 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 2);
     const auto SHIFTx3 = uint256_t(1) << (Flavor::NUM_LIMB_BITS * 3);
@@ -34,7 +33,6 @@ void TranslatorProver::execute_preamble_round()
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_1[1]) * SHIFT +
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_2[1]) * SHIFTx2 +
            uint256_t(key->proving_key->polynomials.accumulators_binary_limbs_3[1]) * SHIFTx3);
-    transcript->send_to_verifier("circuit_size", circuit_size);
     transcript->send_to_verifier("accumulated_result", accumulated_result);
 }
 
@@ -127,7 +125,7 @@ void TranslatorProver::execute_relation_check_rounds()
 {
     using Sumcheck = SumcheckProver<Flavor, Flavor::CONST_TRANSLATOR_LOG_N>;
 
-    auto sumcheck = Sumcheck(key->proving_key->circuit_size, transcript);
+    Sumcheck sumcheck(key->proving_key->circuit_size, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(Flavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {

@@ -63,7 +63,7 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
     using Sumcheck = ::bb::SumcheckVerifier<Flavor, TranslatorFlavor::CONST_TRANSLATOR_LOG_N>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using CommitmentLabels = typename Flavor::CommitmentLabels;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -75,12 +75,6 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
 
     VerifierCommitments commitments{ key };
     CommitmentLabels commitment_labels;
-
-    const FF circuit_size = transcript->template receive_from_prover<FF>("circuit_size");
-    if (static_cast<uint32_t>(circuit_size.get_value()) != static_cast<uint32_t>(key->circuit_size.get_value())) {
-        throw_or_abort(
-            "TranslatorRecursiveVerifier::verify_proof: proof circuit size does not match verification key!");
-    }
 
     const BF accumulated_result = transcript->template receive_from_prover<BF>("accumulated_result");
 
@@ -103,9 +97,7 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
     commitments.z_perm = transcript->template receive_from_prover<Commitment>(commitment_labels.z_perm);
 
     // Execute Sumcheck Verifier
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
-    const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(circuit_size.get_value()));
-    auto sumcheck = Sumcheck(log_circuit_size, transcript);
+    Sumcheck sumcheck(TranslatorFlavor::CONST_TRANSLATOR_LOG_N, transcript);
     FF alpha = transcript->template get_challenge<FF>("Sumcheck:alpha");
     std::vector<FF> gate_challenges(TranslatorFlavor::CONST_TRANSLATOR_LOG_N);
     for (size_t idx = 0; idx < gate_challenges.size(); idx++) {
@@ -130,7 +122,7 @@ TranslatorRecursiveVerifier_<Flavor>::AggregationObject TranslatorRecursiveVerif
                                          .evaluations = sumcheck_output.claimed_evaluations.get_interleaved() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(circuit_size,
+        Shplemini::compute_batch_opening_claim(TranslatorFlavor::CONST_TRANSLATOR_LOG_N,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),

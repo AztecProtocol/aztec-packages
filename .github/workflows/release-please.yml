@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       release-pr: ${{ steps.release.outputs.pr }}
+      release-version: ${{ steps.release.outputs.tag_name }}
     steps:
       - name: Run Release Please
         id: release
