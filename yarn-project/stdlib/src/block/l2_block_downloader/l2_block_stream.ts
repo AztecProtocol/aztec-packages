@@ -144,11 +144,6 @@ export class L2BlockStream {
       return true;
     }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
-    if (!localBlockHash) {
-      this.log.error(`No local block hash for block number ${blockNumber}`);
-      throw new AbortError();
-    }
-
     const sourceBlockHashFromCache = args.sourceCache.get(blockNumber);
     const sourceBlockHash = args.sourceCache.get(blockNumber) ?? (await this.getBlockHashFromSource(blockNumber));
     if (!sourceBlockHashFromCache && sourceBlockHash) {
