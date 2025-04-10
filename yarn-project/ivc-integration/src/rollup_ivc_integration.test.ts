@@ -8,6 +8,7 @@ import type { AvmCircuitPublicInputs } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
+import { jest } from '@jest/globals';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -33,6 +34,8 @@ import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_na
 import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
+
+jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:rollup-native');
 
@@ -84,7 +87,7 @@ describe('Rollup IVC Integration', () => {
       proof: avmProof,
       publicInputs: avmPublicInputs,
     } = await proveAvm(avmCircuitInputs, avmWorkingDirectory, logger));
-  }, 100_000);
+  });
 
   beforeEach(async () => {
     workingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-'));

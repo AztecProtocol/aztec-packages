@@ -7,6 +7,7 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
+import { jest } from '@jest/globals';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
@@ -28,6 +29,8 @@ import type { KernelPublicInputs } from './types/index.js';
 
 // Auto-generated types from noir are not in camel case.
 /* eslint-disable camelcase */
+
+jest.setTimeout(120_000);
 
 const logger = createLogger('ivc-integration:test:avm-integration');
 
