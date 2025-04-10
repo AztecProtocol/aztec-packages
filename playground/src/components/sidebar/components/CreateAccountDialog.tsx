@@ -137,7 +137,8 @@ export function CreateAccountDialog({
               }}
             />
           </FormControl>
-          <FormControl>
+          {/* Always deploy for now */}
+          {/* <FormControl>
             <FormControlLabel
               value={publiclyDeploy}
               control={
@@ -145,8 +146,8 @@ export function CreateAccountDialog({
               }
               label="Deploy"
             />
-            {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
-          </FormControl>
+          </FormControl> */}
+          {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
         </FormGroup>
         <div css={{ flexGrow: 1, margin: 'auto' }}></div>
         {!error ? (

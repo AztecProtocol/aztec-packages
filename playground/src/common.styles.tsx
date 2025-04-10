@@ -46,7 +46,6 @@ const themeOptions: ThemeOptions & { cssVariables: boolean } = {
       styleOverrides: {
         root: {
           borderRadius: '12px',
-          padding: '20px 32px',
         },
         contained: {
           backgroundColor: '#CDD1D5',

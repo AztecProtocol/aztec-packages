@@ -18,8 +18,6 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import MenuItem from '@mui/material/MenuItem';
 import { useContext, useEffect, useState } from 'react';
 import {
@@ -153,11 +151,16 @@ export function CreateContractDialog({
               }}
             />
           </FormControl>
-          <FormControlLabel
-            value={publiclyDeploy}
-            control={<Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />}
-            label="Deploy"
-          />
+          {/* Always deploy for now */}
+          {/* <FormControl>
+            <FormControlLabel
+              value={publiclyDeploy}
+              control={
+                <Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />
+              }
+              label="Deploy"
+            />
+          </FormControl> */}
           {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
         </FormGroup>
         <div css={{ flexGrow: 1, margin: 'auto' }}></div>

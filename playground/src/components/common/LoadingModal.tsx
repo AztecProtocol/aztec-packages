@@ -100,9 +100,36 @@ const funFactText = css({
   fontWeight: 400,
   fontSize: '16px',
   lineHeight: '150%',
-  height: '80px',
   textAlign: 'center',
   color: 'rgba(0, 0, 0, 0.6)',
+});
+
+const logContainer = css({
+  marginTop: '20px',
+  display: 'flex',
+  flexDirection: 'column',
+  textAlign: 'center',
+  alignItems: 'center',
+  heigth: '60px',
+  width: '350px',
+});
+
+const logTitle = css({
+  fontFamily: '"Inter", sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 400,
+  fontSize: '14px',
+  textAlign: 'center',
+  color: 'rgba(0, 0, 0, 0.6)',
+});
+
+const logText = css({
+  fontFamily: '"Inter", sans-serif',
+  fontStyle: 'normal',
+  fontWeight: 200,
+  fontSize: '12px',
+  textAlign: 'center',
+  color: 'rgba(0, 0, 0, 0.8)',
 });
 
 const funFacts = [
@@ -120,7 +147,7 @@ const funFacts = [
 ];
 
 export function LoadingModal() {
-  const { currentTx, setCurrentTx } = useContext(AztecContext);
+  const { currentTx, setCurrentTx, logs } = useContext(AztecContext);
   const [currentFunFact, setCurrentFunFact] = useState(0);
 
   useEffect(() => {
@@ -179,6 +206,10 @@ export function LoadingModal() {
             </Typography>
             <img src={loadingIcon} alt="Loading..." css={loadingAnimation} />
             <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
+            <div css={logContainer}>
+              <Typography css={logTitle}>Don't click away! This is what we're currently working on:</Typography>
+              <Typography css={logText}>{logs?.[0]?.message}</Typography>
+            </div>
           </>
         )}
       </div>

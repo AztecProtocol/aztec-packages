@@ -10,6 +10,7 @@ import Divider from '@mui/material/Divider';
 const txPanel = css({
   width: '100%',
   backgroundColor: 'var(--mui-palette-primary-main)',
+  minHeight: '75px',
   maxHeight: '30vh',
   overflowY: 'auto',
   borderRadius: '0.5rem',
@@ -68,7 +69,7 @@ export function TxsPanel({ ...props }) {
       {currentContractAddress && (
         <>
           <Typography variant="overline">Transactions</Typography>
-          <Divider />
+          <Divider sx={{ marginBottom: '0.5rem' }} />
           <div css={txPanel} {...props}>
             {transactions.map(tx => (
               <div css={txData} key={tx.txHash ?? ''}>

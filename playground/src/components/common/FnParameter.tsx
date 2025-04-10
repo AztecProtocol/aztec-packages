@@ -82,7 +82,7 @@ export function FunctionParameter({
           onOpen={handleOpen}
           loading={loading}
           fullWidth
-          sx={{ width: '100%' }}
+          sx={{ width: '100%', minWidth: '226px' }}
           css={css}
           renderInput={params => (
             <TextField

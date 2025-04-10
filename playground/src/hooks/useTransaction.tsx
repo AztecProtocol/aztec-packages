@@ -60,5 +60,5 @@ export function useTransaction() {
     }
   }
 
-  return { currentTx, sendTx };
+  return { sendTx };
 }

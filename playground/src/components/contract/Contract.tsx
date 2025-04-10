@@ -77,6 +77,13 @@ const loadingArtifactContainer = css({
   gap: '2rem',
 });
 
+const contractName = css({
+  marginRight: '0.5rem',
+  '@media (max-width: 1200px)': {
+    fontSize: '1.5rem',
+  },
+});
+
 const FORBIDDEN_FUNCTIONS = ['process_log', 'sync_notes', 'public_dispatch'];
 
 export function ContractComponent() {
@@ -135,7 +142,6 @@ export function ContractComponent() {
   ) => {
     setOpenCreateContractDialog(false);
     if (contract) {
-      setCurrentContract(await Contract.at(contract.address, currentContractArtifact, wallet));
       setCurrentContractAddress(contract.address);
       if (publiclyDeploy) {
         await sendTx(`Deployment of ${currentContractArtifact.name}`, interaction, contract.address, opts);
@@ -158,7 +164,7 @@ export function ContractComponent() {
         <div css={contractFnContainer}>
           <div css={headerContainer}>
             <div css={header}>
-              <Typography variant="h3" css={{ marginRight: '0.5rem' }}>
+              <Typography variant="h3" css={contractName}>
                 {currentContractArtifact.name}
               </Typography>
               {!currentContractAddress && wallet && (
