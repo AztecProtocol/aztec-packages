@@ -11,8 +11,8 @@ import { AddressBook } from './components/AddressBook';
 import { ContractSelector } from './components/ContractSelector';
 import { ButtonWithModal } from './components/ButtonWithModal';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { dropdownIconStyle } from './styles';
 import { IconButton } from '@mui/material';
+import { dropdownIcon } from '../../styles/common';
 
 const container = css({
   width: '25%',
@@ -129,9 +129,7 @@ export function SidebarComponent() {
         <Typography variant="overline">Tools</Typography>
         {smallScreen && (
           <IconButton sx={{ height: '24px', padding: 0, width: '24px' }} onClick={() => setDrawerOpen(!drawerOpen)}>
-            <KeyboardArrowDownIcon
-              css={[dropdownIconStyle, { margin: 0 }, drawerOpen && { transform: 'rotate(180deg)' }]}
-            />
+            <KeyboardArrowDownIcon css={[dropdownIcon, { margin: 0 }, drawerOpen && { transform: 'rotate(180deg)' }]} />
           </IconButton>
         )}
       </div>

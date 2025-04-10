@@ -8,23 +8,23 @@ import AddIcon from '@mui/icons-material/Add';
 import CircularProgress from '@mui/material/CircularProgress';
 import { CreateAccountDialog } from './CreateAccountDialog';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { AztecAddress, Fr, type FeePaymentMethod, type DeployOptions } from '@aztec/aztec.js';
+import { AztecAddress, type DeployOptions, AccountWalletWithSecretKey, DeployMethod } from '@aztec/aztec.js';
 import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 
-import { select } from '../styles';
 import {
   convertFromUTF8BufferAsString,
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
-import type { AccountType } from '../../../utils/storage';
 import { getEcdsaRAccount, getEcdsaKAccount } from '@aztec/accounts/ecdsa/lazy';
 
 import { Fq, type AccountManager } from '@aztec/aztec.js';
 import { css } from '@emotion/react';
-import { AztecContext, WebLogger } from '../../../aztecEnv';
+import { AztecContext } from '../../../aztecEnv';
 import { getInitialTestAccounts } from '@aztec/accounts/testing/lazy';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
+import { useTransaction } from '../../../hooks/useTransaction';
+import { select } from '../../../styles/common';
 
 const modalContainer = css({
   padding: '10px 0',
@@ -48,7 +48,9 @@ export function AccountSelector() {
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, setCurrentTx } = useContext(AztecContext);
+  const { setWallet, wallet, walletDB, isPXEInitialized, pxe } = useContext(AztecContext);
+
+  const { sendTx } = useTransaction();
 
   const getAccounts = async () => {
     const aliasedBuffers = await walletDB.listAliases('accounts');
@@ -128,83 +130,25 @@ export function AccountSelector() {
   };
 
   const handleAccountCreation = async (
-    accountManager?: AccountManager,
-    salt?: Fr,
-    alias?: string,
-    type?: AccountType,
-    signingKey?: Fq | Buffer,
+    accountWallet?: AccountWalletWithSecretKey,
     publiclyDeploy?: boolean,
-    feePaymentMethod?: FeePaymentMethod,
+    interaction?: DeployMethod,
+    opts?: DeployOptions,
   ) => {
     setOpenCreateAccountDialog(false);
-    if (accountManager && salt && alias && type && signingKey) {
+    if (accountWallet) {
       setIsAccountChanging(true);
-      const accountWallet = await accountManager.getWallet();
-      await accountManager.register();
-      await walletDB.storeAccount(accountWallet.getAddress(), {
-        type,
-        secretKey: accountWallet.getSecretKey(),
-        alias,
-        salt,
-        signingKey,
-      });
       const aliasedAccounts = await walletDB.listAliases('accounts');
       setAccounts(parseAliasedBuffersAsString(aliasedAccounts));
       setWallet(accountWallet);
       if (publiclyDeploy) {
         setDeploymentInProgress(true);
-        let receipt;
-        let txHash;
-        const name = 'Account deployment';
-        const currentTx = {
-          status: 'proving' as const,
-          name,
-          contractAddress: accountWallet.getAddress(),
-        };
-        setCurrentTx(currentTx);
-        try {
-          const deployMethod = await accountManager.getDeployMethod();
-          const deployOpts: DeployOptions = {
-            contractAddressSalt: accountManager.getInstance().salt,
-            fee: {
-              paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
-            },
-            universalDeploy: true,
-          };
-          const provenTx = await deployMethod.prove(deployOpts);
-          txHash = await provenTx.getTxHash();
-          setCurrentTx({
-            ...currentTx,
-            ...{ txHash, status: 'sending' },
-          });
-
-          receipt = await provenTx.send().wait({ dontThrowOnRevert: true });
-          await walletDB.storeTx({
-            contractAddress: accountManager.getAddress(),
-            txHash,
-            name,
-            receipt,
-          });
-          setCurrentTx({
-            ...currentTx,
-            ...{
-              txHash,
-              status: receipt.status,
-              receipt,
-              error: receipt.error,
-            },
-          });
-        } catch (e) {
-          setCurrentTx({
-            ...currentTx,
-            ...{
-              txHash,
-              receipt,
-              status: 'error',
-              error: e.message,
-            },
-          });
-        }
+        await sendTx(
+          `Deployment of account ${accountWallet.getAddress()}`,
+          interaction,
+          accountWallet.getAddress(),
+          opts,
+        );
         setDeploymentInProgress(false);
       }
     }

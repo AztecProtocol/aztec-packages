@@ -5,7 +5,6 @@ import Select, { type SelectChangeEvent } from '@mui/material/Select';
 import Typography from '@mui/material/Typography';
 import AddIcon from '@mui/icons-material/Add';
 import { createStore } from '@aztec/kv-store/indexeddb';
-import { select } from '../styles';
 import { AddNetworksDialog } from './AddNetworkDialog';
 import { css } from '@emotion/react';
 import Link from '@mui/material/Link';
@@ -15,6 +14,7 @@ import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { AztecContext, AztecEnv, WebLogger, type Network } from '../../../aztecEnv';
 import { NetworkDB, WalletDB } from '../../../utils/storage';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
+import { select } from '../../../styles/common';
 
 const modalContainer = css({
   padding: '10px 0',

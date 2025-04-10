@@ -8,6 +8,8 @@ import {
   FunctionType,
   ContractFunctionInteraction,
   type SendMethodOptions,
+  DeployMethod,
+  type DeployOptions,
 } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
 import Button from '@mui/material/Button';
@@ -16,13 +18,13 @@ import IconButton from '@mui/material/IconButton';
 import Typography from '@mui/material/Typography';
 
 import { formatFrAsString } from '../../utils/conversion';
-import { DeployContractDialog } from './components/DeployContractDialog';
+import { CreateContractDialog } from './components/CreateContractDialog';
 import ClearIcon from '@mui/icons-material/Clear';
-import { RegisterContractDialog } from './components/RegisterContractDialog';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
 import { ContractUpload } from './components/ContractUpload';
 import { ContractFilter } from './components/ContractFilter';
 import { FunctionCard } from './components/FunctionCard';
+import { useTransaction } from '../../hooks/useTransaction';
 
 const container = css({
   display: 'flex',
@@ -90,17 +92,16 @@ export function ContractComponent() {
 
   const [isLoadingArtifact, setIsLoadingArtifact] = useState(false);
 
-  const [openDeployContractDialog, setOpenDeployContractDialog] = useState(false);
-  const [openRegisterContractDialog, setOpenRegisterContractDialog] = useState(false);
+  const [openCreateContractDialog, setOpenCreateContractDialog] = useState(false);
+
+  const { sendTx } = useTransaction();
 
   const {
     wallet,
-    walletDB,
     currentContractAddress,
     currentContractArtifact,
     setCurrentContractArtifact,
     setCurrentContractAddress,
-    setCurrentTx,
   } = useContext(AztecContext);
 
   useEffect(() => {
@@ -126,57 +127,24 @@ export function ContractComponent() {
     }
   }, [currentContractArtifact, currentContractAddress]);
 
-  const handleContractCreation = async (contract?: ContractInstanceWithAddress, alias?: string) => {
-    if (contract && alias) {
-      await walletDB.storeContract(contract.address, currentContractArtifact, undefined, alias);
+  const handleContractCreation = async (
+    contract?: ContractInstanceWithAddress,
+    publiclyDeploy?: boolean,
+    interaction?: DeployMethod,
+    opts?: DeployOptions,
+  ) => {
+    setOpenCreateContractDialog(false);
+    if (contract) {
       setCurrentContract(await Contract.at(contract.address, currentContractArtifact, wallet));
       setCurrentContractAddress(contract.address);
-    }
-    setOpenDeployContractDialog(false);
-    setOpenRegisterContractDialog(false);
-  };
-
-  const handleTx = async (name: string, interaction: ContractFunctionInteraction, opts: SendMethodOptions) => {
-    let receipt;
-    let txHash;
-    const currentTx = {
-      status: 'proving' as const,
-      name,
-      contractAddress: currentContract.address,
-    };
-    setCurrentTx(currentTx);
-    try {
-      const provenInteraction = await interaction.prove(opts);
-      txHash = await provenInteraction.getTxHash();
-      setCurrentTx({
-        ...currentTx,
-        ...{ txHash, status: 'sending' },
-      });
-      receipt = await provenInteraction.send().wait({ dontThrowOnRevert: true });
-      await walletDB.storeTx({
-        contractAddress: currentContract.address,
-        txHash,
-        name,
-        receipt,
-      });
-      setCurrentTx({
-        ...currentTx,
-        ...{
-          txHash,
-          status: receipt.status,
-          receipt,
-          error: receipt.error,
-        },
-      });
-    } catch (e) {
-      setCurrentTx({
-        ...currentTx,
-        ...{
-          txHash,
-          status: 'error',
-          error: e.message,
-        },
-      });
+      if (publiclyDeploy) {
+        await sendTx(
+          `Deployment of ${currentContractArtifact.name}@(${formatFrAsString(contract.address.toString())})`,
+          interaction,
+          contract.address,
+          opts,
+        );
+      }
     }
   };
 
@@ -200,33 +168,20 @@ export function ContractComponent() {
               </Typography>
               {!currentContract && wallet && (
                 <div css={contractActions}>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    css={{ marginRight: '0.5rem' }}
-                    onClick={() => setOpenDeployContractDialog(true)}
-                  >
-                    Deploy
-                  </Button>
-                  <Button size="small" variant="contained" onClick={() => setOpenRegisterContractDialog(true)}>
+                  <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
                     Register
                   </Button>
-                  <DeployContractDialog
+                  <CreateContractDialog
                     contractArtifact={currentContractArtifact}
-                    open={openDeployContractDialog}
-                    onClose={handleContractCreation}
-                  />
-                  <RegisterContractDialog
-                    contractArtifact={currentContractArtifact}
-                    open={openRegisterContractDialog}
+                    open={openCreateContractDialog}
                     onClose={handleContractCreation}
                   />
                 </div>
               )}
-              {currentContract && (
+              {currentContractAddress && (
                 <div css={contractActions}>
-                  <Typography color="text.secondary">{formatFrAsString(currentContract.address.toString())}</Typography>
-                  <CopyToClipboardButton disabled={false} data={currentContract.address.toString()} />
+                  <Typography color="text.secondary">{formatFrAsString(currentContractAddress.toString())}</Typography>
+                  <CopyToClipboardButton disabled={false} data={currentContractAddress.toString()} />
                   <IconButton
                     onClick={() => {
                       setCurrentContractAddress(null);
@@ -252,7 +207,7 @@ export function ContractComponent() {
                 (filters.searchTerm === '' || fn.name.includes(filters.searchTerm)),
             )
             .map(fn => (
-              <FunctionCard fn={fn} key={fn.name} currentContract={currentContract} onSendTxRequested={handleTx} />
+              <FunctionCard fn={fn} key={fn.name} contract={currentContract} onSendTxRequested={sendTx} />
             ))}
         </div>
       )}

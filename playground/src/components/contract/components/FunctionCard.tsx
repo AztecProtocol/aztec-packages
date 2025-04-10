@@ -9,6 +9,7 @@ import {
   Contract,
   type SendMethodOptions,
   AuthWitness,
+  AztecAddress,
 } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
@@ -37,11 +38,16 @@ const simulationContainer = css({
 
 interface FunctionCardProps {
   fn: FunctionAbi;
-  currentContract?: Contract;
-  onSendTxRequested: (name?: string, interaction?: ContractFunctionInteraction, opts?: SendMethodOptions) => void;
+  contract?: Contract;
+  onSendTxRequested: (
+    name?: string,
+    interaction?: ContractFunctionInteraction,
+    contractAddress?: AztecAddress,
+    opts?: SendMethodOptions,
+  ) => void;
 }
 
-export function FunctionCard({ fn, currentContract, onSendTxRequested }: FunctionCardProps) {
+export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardProps) {
   const [isWorking, setIsWorking] = useState(false);
   const [parameters, setParameters] = useState<any[]>([]);
   const [simulationResults, setSimulationResults] = useState<SimulationResult>();
@@ -56,7 +62,7 @@ export function FunctionCard({ fn, currentContract, onSendTxRequested }: Functio
     let result;
     try {
       const fnParameters = parameters[fnName] ?? [];
-      const call = currentContract.methods[fnName](...fnParameters);
+      const call = contract.methods[fnName](...fnParameters);
 
       result = await call.simulate();
       setSimulationResults({ success: true, data: result });
@@ -87,7 +93,7 @@ export function FunctionCard({ fn, currentContract, onSendTxRequested }: Functio
   ) => {
     setOpenSendTxDialog(false);
     if (name !== undefined && interaction !== undefined && opts !== undefined) {
-      onSendTxRequested(name, interaction, opts);
+      onSendTxRequested(name, interaction, contract.address, opts);
     }
   };
 
@@ -154,7 +160,7 @@ export function FunctionCard({ fn, currentContract, onSendTxRequested }: Functio
       </CardContent>
       <CardActions>
         <Button
-          disabled={!wallet || !currentContract || isWorking}
+          disabled={!wallet || !contract || isWorking}
           color="secondary"
           variant="contained"
           size="small"
@@ -164,7 +170,7 @@ export function FunctionCard({ fn, currentContract, onSendTxRequested }: Functio
           Simulate
         </Button>
         <Button
-          disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
+          disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
           size="small"
           color="secondary"
           variant="contained"
@@ -174,7 +180,7 @@ export function FunctionCard({ fn, currentContract, onSendTxRequested }: Functio
           Send
         </Button>
         <Button
-          disabled={!wallet || !currentContract || isWorking || fn.functionType === FunctionType.UTILITY}
+          disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
           size="small"
           color="secondary"
           variant="contained"
@@ -184,10 +190,10 @@ export function FunctionCard({ fn, currentContract, onSendTxRequested }: Functio
           Authwit
         </Button>
       </CardActions>
-      {currentContract && (
+      {contract && (
         <SendTxDialog
           name={fn.name}
-          interaction={currentContract.methods[fn.name](...parameters)}
+          interaction={contract.methods[fn.name](...parameters)}
           open={openSendTxDialog}
           onClose={handleSendDialogClose}
         />

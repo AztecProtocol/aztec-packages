@@ -1,11 +1,11 @@
 import InputLabel from '@mui/material/InputLabel';
-import Select, { type SelectChangeEvent } from '@mui/material/Select';
+import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
-import { select } from '../sidebar/styles';
 import { CircularProgress, MenuItem } from '@mui/material';
 import { useContext, useEffect, useState } from 'react';
 import type { FeePaymentMethod } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
+import { select } from '../../styles/common';
 
 const FeePaymentMethods = ['sponsored_fpc', 'private_fpc', 'public_fpc', 'fee_juice', 'bridged_fee_juice'] as const;
 type FeePaymentMethodType = (typeof FeePaymentMethods)[number];

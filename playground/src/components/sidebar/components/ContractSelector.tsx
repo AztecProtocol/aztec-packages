@@ -9,7 +9,6 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import { CopyToClipboardButton } from '../../common/CopyToClipboardButton';
-import { select } from '../styles';
 import {
   convertFromUTF8BufferAsString,
   formatFrAsString,
@@ -20,6 +19,7 @@ import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';
 import { parse } from 'buffer-json';
+import { select } from '../../../styles/common';
 
 const modalContainer = css({
   padding: '10px 0',
