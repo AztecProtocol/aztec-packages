@@ -5,10 +5,11 @@ import { createLogger, logger } from '@aztec/foundation/log';
 import { WASMSimulator } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 
-import { decode } from '@msgpack/msgpack';
+import { Decoder } from 'msgpackr';
 import assert from 'node:assert';
 import { readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 type LogLevel = (typeof logLevel)[number];
@@ -149,8 +150,8 @@ async function main() {
 
   for (const flow of flows) {
     userLog.info(`Processing flow ${flow}`);
-    const bytecode = await readFile(join(ivcFolder, flow, 'acir.msgpack'));
-    const acirStack = decode(bytecode) as Buffer[];
+    const ivcInputs = await readFile(join(ivcFolder, flow, 'ivc-inputs.msgpack'));
+    const stepsFromFile: PrivateExecutionStep[] = new Decoder().unpack(ivcInputs);
     const witnesses = await readFile(join(ivcFolder, flow, 'witnesses.json'));
 
     const witnessStack = JSON.parse(witnesses.toString()).map((witnessMap: Record<string, string>) => {
@@ -161,7 +162,8 @@ async function main() {
     const privateExecutionSteps: PrivateExecutionStep[] = executionSteps.map((step, i) => ({
       functionName: step.fnName,
       gateCount: step.gateCount,
-      bytecode: acirStack[i],
+      bytecode: stepsFromFile[i].bytecode,
+      // TODO(AD) do we still want to take this from witness.json?
       witness: witnessStack[i],
       // This can be left empty. If so, the prover will generate a vk on the fly (~25% slower).
       vk: Buffer.from([]),

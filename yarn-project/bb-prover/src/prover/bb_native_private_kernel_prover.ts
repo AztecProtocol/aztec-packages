@@ -1,12 +1,10 @@
 import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
-import { serializeWitness } from '@aztec/noir-noirc_abi';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
 import type { SimulationProvider } from '@aztec/simulator/server';
-import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
+import { serializePrivateExecutionSteps, type PrivateExecutionStep } from '@aztec/stdlib/kernel';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
-import { encode } from '@msgpack/msgpack';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -40,29 +38,12 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
     );
   }
 
-  // TODO(#7371): This is duplicated.
-  // Longer term we won't use this hacked together msgpack format
-  // Leaving duplicated as this eventually bb will provide a serialization
-  // helper for passing to a generic msgpack RPC endpoint.
-  private async _writeClientIvcProofInput(path: string, executionSteps: PrivateExecutionStep[]) {
-    // Prepare for msgpack serialization
-    const stepToStruct = (step: PrivateExecutionStep) => {
-      return {
-        bytecode: step.bytecode,
-        witness: serializeWitness(step.witness),
-        vk: step.vk,
-        functionName: step.functionName,
-      };
-    };
-    await fs.writeFile(path, encode(executionSteps.map(stepToStruct)));
-  }
-
   private async _createClientIvcProof(
     directory: string,
     executionSteps: PrivateExecutionStep[],
   ): Promise<ClientIvcProof> {
     const inputsPath = path.join(directory, 'ivc-inputs.msgpack');
-    await this._writeClientIvcProofInput(inputsPath, executionSteps);
+    await fs.writeFile(inputsPath, serializePrivateExecutionSteps(executionSteps));
     const provingResult = await executeBbClientIvcProof(this.bbBinaryPath, directory, inputsPath, this.log.info);
 
     if (provingResult.status === BB_RESULT.FAILURE) {

@@ -90,7 +90,6 @@ export class BarretenbergWasmBase {
    * When returning values from the WASM, use >>> operator to convert signed representation to unsigned representation.
    */
   public call(name: string, ...args: any) {
-    console.log({name, args})
     if (!this.exports()[name]) {
       throw new Error(`WASM function ${name} not found.`);
     }

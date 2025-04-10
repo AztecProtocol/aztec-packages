@@ -363,7 +363,7 @@ export class AztecClientBackend {
 
   protected api!: Barretenberg;
 
-  constructor(protected acirMsgpack: Uint8Array[], protected vksMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -374,9 +374,9 @@ export class AztecClientBackend {
     }
   }
 
-  async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
+  async prove(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
     await this.instantiate();
-    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack, this.vksMsgpack);
+    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack, vksMsgpack);
     const [proof, vk] = proofAndVk;
     if (!(await this.verify(proof, vk))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
@@ -389,9 +389,9 @@ export class AztecClientBackend {
     return this.api.acirVerifyAztecClient(proof, vk);
   }
 
-  async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
+  async proveAndVerify(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[]): Promise<boolean> {
     await this.instantiate();
-    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack, this.vksMsgpack);
+    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack, vksMsgpack);
   }
 
   async gates(): Promise<number[]> {

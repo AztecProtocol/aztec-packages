@@ -7,9 +7,14 @@ import type { SimulationProvider } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
+
+
 import { ungzip } from 'pako';
 
+
+
 import { BBPrivateKernelProver } from '../prover/bb_private_kernel_prover.js';
+
 
 export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
   constructor(
@@ -26,13 +31,15 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
     this.log.info(`Generating ClientIVC proof...`);
     const backend = new AztecClientBackend(
       executionSteps.map(step => ungzip(step.bytecode)),
-      executionSteps.map(step => step.vk),
       { threads: this.threads, logger: this.log.verbose, wasmPath: process.env.BB_WASM_PATH },
     );
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1297): the vk is not provided to the network anymore.
     // Move this sanity check inside the wasm code and remove the vk from the return value.
-    const [proof, _vk] = await backend.prove(executionSteps.map(step => ungzip(serializeWitness(step.witness))));
+    const [proof, _vk] = await backend.prove(
+      executionSteps.map(step => ungzip(serializeWitness(step.witness))),
+      executionSteps.map(step => step.vk),
+    );
     await backend.destroy();
     this.log.info(`Generated ClientIVC proof`, {
       eventName: 'client-ivc-proof-generation',
@@ -44,7 +51,7 @@ export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
 
   public override async computeGateCountForCircuit(_bytecode: Buffer, _circuitName: string): Promise<number> {
     // Note we do not pass the vk to the backend. This is unneeded for gate counts.
-    const backend = new AztecClientBackend([ungzip(_bytecode)], [Buffer.from('')], {
+    const backend = new AztecClientBackend([ungzip(_bytecode)], {
       threads: this.threads,
       logger: this.log.verbose,
       wasmPath: process.env.BB_WASM_PATH,

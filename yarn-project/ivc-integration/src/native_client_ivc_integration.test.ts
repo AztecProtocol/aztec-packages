@@ -9,13 +9,14 @@ import { createLogger } from '@aztec/foundation/log';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { jest } from '@jest/globals';
-import { encode } from '@msgpack/msgpack';
 import { promises as fs } from 'fs';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
+import vk from '../artifacts/keys/app_creator.vk.data.json';
+import { Encoder } from 'msgpackr';
 
 /* eslint-disable camelcase */
 
@@ -34,16 +35,17 @@ describe('Client IVC Integration', () => {
   });
 
   async function createClientIvcProof(witnessStack: Uint8Array[], bytecodes: string[]): Promise<ClientIvcProof> {
+    const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
+    const ivcInputs = witnessStack.map((witness, i) => ({ functionName: "", bytecode: Buffer.from(bytecodes[i], 'base64'), witness, vk: Buffer.from([]) }));
     await fs.writeFile(
-      path.join(bbWorkingDirectory, 'acir.msgpack'),
-      encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
+      ivcInputsPath,
+      new Encoder().pack(ivcInputs),
     );
 
-    await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
     const provingResult = await executeBbClientIvcProof(
       bbBinaryPath,
       bbWorkingDirectory,
-      path.join(bbWorkingDirectory, 'ivc-inputs.msgpack'),
+      ivcInputsPath,
       logger.info,
     );
 

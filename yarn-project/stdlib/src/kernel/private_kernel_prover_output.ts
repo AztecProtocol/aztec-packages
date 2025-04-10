@@ -47,7 +47,7 @@ export interface PrivateKernelExecutionProofOutput<
   executionSteps: PrivateExecutionStep[];
 }
 
-export function encodePrivateExecutionSteps(steps: PrivateExecutionStep[]) {
+export function serializePrivateExecutionSteps(steps: PrivateExecutionStep[]) {
   const stepToStruct = (step: PrivateExecutionStep) => {
     return {
       bytecode: step.bytecode,
