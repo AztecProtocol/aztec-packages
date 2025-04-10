@@ -101,13 +101,14 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
     PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_read_emitter);
+    NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
     ClassIdDerivation class_id_derivation(poseidon2, class_id_derivation_emitter);
     HintedRawContractDB raw_contract_db(hints);
     HintedRawMerkleDB raw_merkle_db(hints);
     ContractDB contract_db(raw_contract_db, address_derivation, class_id_derivation);
-    MerkleDB merkle_db(raw_merkle_db, public_data_tree_check);
+    MerkleDB merkle_db(raw_merkle_db, public_data_tree_check, nullifier_tree_check);
     UpdateCheck update_check(poseidon2, range_check, merkle_db, current_block_number, update_check_emitter);
 
     BytecodeHasher bytecode_hasher(poseidon2, bytecode_hashing_emitter);
