@@ -163,7 +163,7 @@ The way docs builds work is the following:
 
 When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
 
-While we iron out the release-please process, you just change `versions.json` to whatever versions need to show on the website. Once we get it working and we're sure that all releases are being cut as we want, this can be done together with the `docs-deploy` action.
+When release-please merges, it also checks for the versions we want: the latest non-alpha-testnet, and the latest alpha-testnet. It writes those to versions.json.
 
 ## Contributing
 

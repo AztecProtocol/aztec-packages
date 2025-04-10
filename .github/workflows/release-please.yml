@@ -63,6 +63,11 @@ jobs:
           yarn build
           yarn docusaurus docs:version ${{ env.BRANCH_NAME }}
 
+      - name: Filter
+        working-directory: ./docs
+        run: |
+          yarn filter-versions
+
       - name: Commit new documentation version
         run: |
           git add .
