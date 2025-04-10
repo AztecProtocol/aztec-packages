@@ -17,6 +17,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 
 namespace bb {
 
@@ -718,8 +719,23 @@ class TranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey() = default;
+        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
+        VerificationKey()
+            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
 
+            // Populate the commitments of the precomputed polynomials
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
+        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
+            : VerificationKey_(circuit_size, num_public_inputs)
+        {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
