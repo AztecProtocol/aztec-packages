@@ -5,25 +5,26 @@
 namespace bb::stdlib {
 
 /**
+ * @file
  * @brief For a small integer N = `virtual_log_n` and a given witness x = `log_n`, compute in-circuit an
- * `indicator_padding_array` of size N, such that
- * \f{align}{ \text{indicator_padding_array}[i] = `` i < x ". \f}
+ * `indicator_padding_array` of size \f$ N \f$, such that
+ * \f{align}{ \text{indicator_padding_array}[i] = \text{"} i < x \text{"}. \f}
  *
- * 1) Constrain x to be in the range [1,..., N - 1] by asserting
- * \f{align}{ \prod_{i=1}^{N-1} (x - i) == 0 \f}.
+ * 1) Constrain x to be in the range \f$ [1, \ldots, N - 1] \f$ by asserting
+ * \f{align}{ \prod_{i=1}^{N-1} (x - i) = 0 \f}.
  *
- * 2) For \f$ i = 0, ..., N-1 \f$, evaluate \f$L_i(x)\f$.
- * Since \f$ 0 < x < N \f$, \f$ L_i(x) = 1 \f$ if and only if \f$  x == FF(i)\f$.
+ * 2) For \f$ i = 0, ..., N-1 \f$, evaluate \f$ L_i(x) \f$.
+ * Since \f$ 0 < x < N \f$, \f$ L_i(x) = 1 \f$ if and only if \f$  x = FF(i) \f$.
  *
  * 3) Starting at \f$ b_{N-1} = L_{N-1}(x)\f$, compute the step functions
  * \f{align}{
  * b_i(x) = \sum_{i}^{N-1} L_i(x) = L_i(x) + b_{i+1}(x) \f}.
  *
- * We compute Lagrange coefficients out-of-circuit, since N is a circuit constant.
+ * We compute the Lagrange coefficients out-of-circuit, since \f$ N \f$ is a circuit constant.
  *
  * The resulting array is being used to pad the number of Verifier rounds in Sumcheck and Shplemini to a fixed constant
  * and turn Recursive Verifier circuits into constant circuits. Note that the number of gates required to compute
- * [b_0(x),..., b_{N-1}(x)] only depends on N.
+ * \f$ [b_0(x), \ldots, b_{N-1}(x)] \f$ only depends on \f$ N \f$ adding ~\f$ 4\cdot N \f$ gates to the circuit.
  *
  */
 template <typename Fr, typename Builder, size_t virtual_log_n>
