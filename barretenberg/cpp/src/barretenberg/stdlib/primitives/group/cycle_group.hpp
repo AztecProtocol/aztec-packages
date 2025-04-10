@@ -276,6 +276,18 @@ template <typename Builder> class cycle_group {
         return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
     }
 
+    /**
+     * @brief Set the witness indices representing the cycle_group to public
+     *
+     * @return uint32_t Index into the public inputs array at which the representation is stored
+     */
+    uint32_t set_public()
+    {
+        uint32_t start_idx = x.set_public();
+        y.set_public();
+        return start_idx;
+    }
+
     field_t x;
     field_t y;
 

@@ -187,7 +187,7 @@ template <typename FF_> class CircuitBuilderBase {
      *
      * @param witness_index The index of the witness.
      * */
-    virtual void set_public_input(uint32_t witness_index);
+    virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
     // TODO(#216)(Adrian): This method should belong in the ComposerHelper, where the number of reserved gates can be
