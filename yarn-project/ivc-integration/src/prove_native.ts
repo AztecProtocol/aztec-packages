@@ -205,7 +205,6 @@ export async function proveAvm(
   // Read the binary proof
   const avmProofBuffer = await fs.readFile(avmProofPath!);
   const reader = BufferReader.asReader(avmProofBuffer);
-  const publicInputs = reader.readArray(AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE, Fr);
 
   const proof: Fr[] = [];
   while (!reader.isEmpty()) {
@@ -225,6 +224,8 @@ export async function proveAvm(
   while (vk.length < AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
     vk.push(new Fr(0));
   }
+  // TODO: Currently the recursive verifier only expects a single public input, the reverted field.
+  const publicInputs = [new Fr(avmCircuitInputs.publicInputs.reverted)];
 
   return {
     proof,

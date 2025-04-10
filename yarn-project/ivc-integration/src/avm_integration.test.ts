@@ -84,6 +84,11 @@ describe('AVM Integration', () => {
     const avmCircuitInputs = simRes.avmProvingRequest.inputs;
     const { vk, proof, publicInputs } = await proveAvm(avmCircuitInputs, logger);
 
+    logger.debug(
+      'Avm public inputs',
+      publicInputs.map(field => field.toString()),
+    );
+
     const baseWitnessResult = await witnessGenMockPublicBaseCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,
