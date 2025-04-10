@@ -181,11 +181,7 @@ export class L1ToL2MessageExists extends Instruction {
 
     const msgHash = memory.get(msgHashOffset).toFr();
     const msgLeafIndex = memory.get(msgLeafIndexOffset).toFr();
-    const exists = await context.persistableState.checkL1ToL2MessageExists(
-      context.environment.address,
-      msgHash,
-      msgLeafIndex,
-    );
+    const exists = await context.persistableState.checkL1ToL2MessageExists(msgHash, msgLeafIndex);
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
   }
 }
