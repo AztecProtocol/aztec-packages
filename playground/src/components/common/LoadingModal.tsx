@@ -9,12 +9,12 @@ import Button from '@mui/material/Button';
 import { Dialog } from '@mui/material';
 import { TxStatus } from '@aztec/aztec.js';
 
-const NO_MODAL_TX_STATUSES: (TxStatus | 'error' | 'simulating' | 'proving' | 'sending')[] = [
-  TxStatus.DROPPED,
+const TX_ERRORS = [
+  'error',
   TxStatus.APP_LOGIC_REVERTED,
   TxStatus.TEARDOWN_REVERTED,
   TxStatus.BOTH_REVERTED,
-  TxStatus.SUCCESS,
+  TxStatus.DROPPED,
 ];
 
 // Close button styling
@@ -32,7 +32,7 @@ const contentGroup = css({
   justifyContent: 'center',
   padding: '2rem',
   textWrap: 'wrap',
-  minHeight: '550px',
+  minHeight: '650px',
   width: '600px',
   overflow: 'hidden',
   textOverflow: 'ellipsis',
@@ -167,7 +167,7 @@ export function LoadingModal() {
 
   const handleClose = async () => {
     // Set error state to indicate deployment was cancelled
-    if (currentTx && currentTx.status !== 'error') {
+    if (currentTx && !TX_ERRORS.includes(currentTx.status)) {
       setCurrentTx({
         ...currentTx,
         status: 'error' as const,
@@ -179,11 +179,11 @@ export function LoadingModal() {
     setCurrentTx(null);
   };
 
-  const isError = currentTx?.status === 'error';
+  const isError = TX_ERRORS.includes(currentTx?.status);
   const isProving = currentTx?.status === 'proving';
 
   return (
-    <Dialog open={!!currentTx && !NO_MODAL_TX_STATUSES.includes(currentTx.status)} onClose={handleClose}>
+    <Dialog open={!!currentTx && currentTx.status !== TxStatus.SUCCESS} onClose={handleClose}>
       <IconButton css={closeButton} onClick={handleClose}>
         <CloseIcon />
       </IconButton>

@@ -24,7 +24,7 @@ const contentLayout = css({
   flexShrink: 0,
   height: 'calc(100% - 220px)',
   minHeight: 0,
-  overflow: 'hidden',
+  overflow: 'auto',
   margin: '24px 60px',
   '@media (max-width: 1200px)': {
     height: 'calc(100% - 150px)',

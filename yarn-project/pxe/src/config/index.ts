@@ -59,7 +59,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   },
   l2BlockBatchSize: {
     env: 'PXE_L2_BLOCK_BATCH_SIZE',
-    ...numberConfigHelper(1000),
+    ...numberConfigHelper(200),
     description: 'Number of blocks to pull in a single batch from the block stream',
   },
   bbBinaryPath: {

@@ -88,6 +88,8 @@ export function NetworkSelector({}: NetworkSelectorProps) {
           nodeURL: network.value,
           name: network.key,
           description: 'Custom network',
+          hasTestAccounts: false,
+          hasSponsoredFPC: false,
         })),
       ];
       setNetworks(networks);
@@ -135,6 +137,8 @@ export function NetworkSelector({}: NetworkSelectorProps) {
           nodeURL: network.value,
           name: network.key,
           description: 'Custom network',
+          hasTestAccounts: false,
+          hasSponsoredFPC: false,
         })),
       ];
       setNetworks(networks);

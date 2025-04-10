@@ -13,14 +13,14 @@ import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import type { AccountType } from '../../../utils/storage';
 import { randomBytes } from '@aztec/foundation/crypto';
-import Checkbox from '@mui/material/Checkbox';
-import FormControlLabel from '@mui/material/FormControlLabel';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputLabel from '@mui/material/InputLabel';
 import Typography from '@mui/material/Typography';
 import FormGroup from '@mui/material/FormGroup';
 import { progressIndicator, dialogBody, form } from '../../../styles/common';
+import { InfoText } from '../../common/InfoText';
+import { INFO_TEXT } from '../../../constants';
 
 export function CreateAccountDialog({
   open,
@@ -124,9 +124,11 @@ export function CreateAccountDialog({
               <MenuItem value="ecdsasecp256r1">ECDSA R1</MenuItem>
               <MenuItem value="ecdsasecp256k1">ECDSA K1</MenuItem>
             </Select>
+            <InfoText>{INFO_TEXT.ACCOUNT_ABSTRACTION}</InfoText>
           </FormControl>
           <FormControl>
             <TextField
+              required
               value={alias}
               label="Alias"
               fullWidth
@@ -135,6 +137,7 @@ export function CreateAccountDialog({
                 setAlias(event.target.value);
               }}
             />
+            <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
           {/* Always deploy for now */}
           {/* <FormControl>

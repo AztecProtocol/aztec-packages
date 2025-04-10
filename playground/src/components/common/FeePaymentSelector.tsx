@@ -3,9 +3,12 @@ import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import { CircularProgress, MenuItem } from '@mui/material';
 import { useContext, useEffect, useState } from 'react';
-import type { FeePaymentMethod } from '@aztec/aztec.js';
+import Typography from '@mui/material/Typography';
+import { FeeJuicePaymentMethod, type FeePaymentMethod } from '@aztec/aztec.js';
 import { AztecContext } from '../../aztecEnv';
-import { select } from '../../styles/common';
+import { progressIndicator, select } from '../../styles/common';
+import { INFO_TEXT } from '../../constants';
+import { InfoText } from './InfoText';
 
 const FeePaymentMethods = ['sponsored_fpc', 'private_fpc', 'public_fpc', 'fee_juice', 'bridged_fee_juice'] as const;
 type FeePaymentMethodType = (typeof FeePaymentMethods)[number];
@@ -15,10 +18,12 @@ interface FeePaymentSelectorProps {
 }
 
 export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorProps) {
-  const { pxe } = useContext(AztecContext);
+  const { pxe, network, wallet } = useContext(AztecContext);
 
   const [isMethodChanging, setIsMethodChanging] = useState(false);
-  const [selectedMethod, setSelectedMethod] = useState<FeePaymentMethodType | undefined>('sponsored_fpc');
+  const [selectedMethod, setSelectedMethod] = useState<FeePaymentMethodType | undefined>(
+    network.hasSponsoredFPC ? 'sponsored_fpc' : 'fee_juice',
+  );
 
   useEffect(() => {
     handleMethodChange(selectedMethod);
@@ -31,6 +36,11 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
       case 'sponsored_fpc': {
         const { prepareForFeePayment } = await import('../../utils/sponsoredFPC');
         const feePaymentMethod = await prepareForFeePayment(pxe);
+        setFeePaymentMethod(feePaymentMethod);
+        break;
+      }
+      case 'fee_juice': {
+        const feePaymentMethod = new FeeJuicePaymentMethod(wallet.getAddress());
         setFeePaymentMethod(feePaymentMethod);
         break;
       }
@@ -52,14 +62,19 @@ export function FeePaymentSelector({ setFeePaymentMethod }: FeePaymentSelectorPr
           fullWidth
           disabled={isMethodChanging}
         >
-          <MenuItem value="sponsored_fpc">Sponsored Fee Paying Contract</MenuItem>
+          {network.hasSponsoredFPC && <MenuItem value="sponsored_fpc">Sponsored Fee Paying Contract</MenuItem>}
+          {wallet && <MenuItem value="fee_juice">Fee Juice</MenuItem>}
         </Select>
       </FormControl>
       {isMethodChanging && (
-        <div style={{ display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}>
+        <div css={progressIndicator}>
+          <Typography variant="body2" sx={{ mr: 1 }}>
+            Loading fee payment method...
+          </Typography>
           <CircularProgress size={20} />
         </div>
       )}
+      <InfoText>{INFO_TEXT.FEE_ABSTRACTION}</InfoText>
     </div>
   );
 }

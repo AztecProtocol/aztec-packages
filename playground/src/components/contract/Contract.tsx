@@ -122,6 +122,7 @@ export function ContractComponent() {
       });
       if (currentContractAddress && currentContract?.address !== currentContractAddress) {
         const { isContractPubliclyDeployed } = await wallet.getContractMetadata(currentContractAddress);
+        // Temporarily filter out undeployed contracts
         if (isContractPubliclyDeployed) {
           const contractInstance = await node.getContract(currentContractAddress);
           await wallet.registerContract({ instance: contractInstance, artifact: currentContractArtifact });
@@ -129,6 +130,7 @@ export function ContractComponent() {
           setCurrentContract(contract);
         }
       } else {
+        setCurrentContractAddress(null);
         setCurrentContract(null);
       }
       setIsLoadingArtifact(false);
@@ -146,8 +148,16 @@ export function ContractComponent() {
   ) => {
     setOpenCreateContractDialog(false);
     if (contract && publiclyDeploy) {
-      await sendTx(`Deployment of ${currentContractArtifact.name}`, interaction, contract.address, opts);
-      setCurrentContractAddress(contract.address);
+      const deploymentResult = await sendTx(
+        `Deployment of ${currentContractArtifact.name}`,
+        interaction,
+        contract.address,
+        opts,
+      );
+      // Temporarily ignore undeployed contracts
+      if (deploymentResult) {
+        setCurrentContractAddress(contract.address);
+      }
     }
   };
 

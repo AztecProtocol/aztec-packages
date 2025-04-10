@@ -1,11 +1,12 @@
 import { useContext, useState } from 'react';
 import { AztecContext } from '../aztecEnv';
-import type {
-  AztecAddress,
-  ContractFunctionInteraction,
-  DeployMethod,
-  DeployOptions,
-  SendMethodOptions,
+import {
+  TxStatus,
+  type AztecAddress,
+  type ContractFunctionInteraction,
+  type DeployMethod,
+  type DeployOptions,
+  type SendMethodOptions,
 } from '@aztec/aztec.js';
 
 export function useTransaction() {
@@ -16,7 +17,7 @@ export function useTransaction() {
     interaction: ContractFunctionInteraction | DeployMethod,
     contractAddress: AztecAddress,
     opts: SendMethodOptions | DeployOptions,
-  ) {
+  ): Promise<boolean> {
     let receipt;
     let txHash;
     const tx = {
@@ -58,6 +59,7 @@ export function useTransaction() {
         },
       });
     }
+    return receipt && receipt.status === TxStatus.SUCCESS;
   }
 
   return { sendTx };

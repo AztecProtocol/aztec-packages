@@ -1,15 +1,8 @@
-import {
-  type ContractArtifact,
-  type AztecAddress,
-  Fr,
-  TxReceipt,
-  type AuthWitness,
-  type TxHash,
-  Fq,
-} from '@aztec/aztec.js';
+import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
+import { parseAliasedBuffersAsString } from './conversion';
 
 export const Aliases = [
   'accounts',
@@ -255,6 +248,17 @@ export class WalletDB {
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn = this.#userLog) {
     await this.#aliases.set(`${type}:${key}`, value);
     log(`Data stored in database with alias ${type}:${key}`);
+  }
+
+  async deleteAccount(address: AztecAddress) {
+    await this.#accounts.delete(`${address.toString()}:sk`);
+    await this.#accounts.delete(`${address.toString()}:salt`);
+    await this.#accounts.delete(`${address.toString()}:type`);
+    await this.#accounts.delete(`${address.toString()}:signingKey`);
+    const aliasesBuffers = await this.listAliases('accounts');
+    const aliases = parseAliasedBuffersAsString(aliasesBuffers);
+    const alias = aliases.find(alias => address.equals(AztecAddress.fromString(alias.value)));
+    await this.#aliases.delete(`accounts:${alias?.key}`);
   }
 }
 

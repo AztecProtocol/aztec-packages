@@ -14,7 +14,7 @@ import {
   formatFrAsString,
   parseAliasedBuffersAsString,
 } from '../../../utils/conversion';
-import { PREDEFINED_CONTRACTS } from '../types';
+import { PREDEFINED_CONTRACTS } from '../../../utils/types';
 import { css } from '@emotion/react';
 import { AztecContext } from '../../../aztecEnv';
 import { AztecAddress, loadContractArtifact } from '@aztec/aztec.js';

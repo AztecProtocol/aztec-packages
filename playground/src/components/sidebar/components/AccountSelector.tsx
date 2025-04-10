@@ -46,14 +46,14 @@ export function AccountSelector() {
 
   const [isOpen, setIsOpen] = useState(false);
 
-  const { setWallet, wallet, walletDB, isPXEInitialized, pxe } = useContext(AztecContext);
+  const { setWallet, wallet, walletDB, isPXEInitialized, pxe, network } = useContext(AztecContext);
 
   const { sendTx } = useTransaction();
 
   const getAccounts = async () => {
     const aliasedBuffers = await walletDB.listAliases('accounts');
     const aliasedAccounts = parseAliasedBuffersAsString(aliasedBuffers);
-    const testAccountData = await getInitialTestAccounts();
+    const testAccountData = network.hasTestAccounts ? await getInitialTestAccounts() : [];
     let i = 0;
     for (const accountData of testAccountData) {
       const account: AccountManager = await getSchnorrAccount(
@@ -141,12 +141,17 @@ export function AccountSelector() {
     setOpenCreateAccountDialog(false);
     setIsAccountsLoading(true);
     if (accountWallet && publiclyDeploy) {
-      await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
-      setAccounts([
-        ...accounts,
-        { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
-      ]);
-      setWallet(accountWallet);
+      const deploymentResult = await sendTx(`Deployment of account`, interaction, accountWallet.getAddress(), opts);
+      if (deploymentResult) {
+        setAccounts([
+          ...accounts,
+          { key: `accounts:${accountWallet.getAddress()}`, value: accountWallet.getAddress().toString() },
+        ]);
+        setWallet(accountWallet);
+      } else {
+        // Temporarily remove from accounts if deployment fails
+        await walletDB.deleteAccount(accountWallet.getAddress());
+      }
     }
     setIsAccountsLoading(false);
   };
