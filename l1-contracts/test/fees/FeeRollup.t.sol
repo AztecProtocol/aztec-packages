@@ -460,7 +460,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
               args: args,
               fees: fees,
               blobPublicInputs: blobPublicInputs,
-              aggregationObject: "",
               proof: ""
             })
           );

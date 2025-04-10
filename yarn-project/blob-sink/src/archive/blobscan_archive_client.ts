@@ -2,9 +2,11 @@ import type { BlobJson } from '@aztec/blob-lib';
 import { createLogger } from '@aztec/foundation/log';
 import { makeBackoff, retry } from '@aztec/foundation/retry';
 import { type ZodFor, schemas } from '@aztec/foundation/schemas';
+import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { z } from 'zod';
 
+import { BlobArchiveClientInstrumentation } from './instrumentation.js';
 import type { BlobArchiveClient } from './interface.js';
 
 export const BlobscanBlockResponseSchema = z
@@ -55,8 +57,15 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
 
   private readonly baseUrl;
 
-  constructor(baseUrl: string) {
+  private instrumentation: BlobArchiveClientInstrumentation;
+
+  constructor(baseUrl: string, telemetry: TelemetryClient = getTelemetryClient()) {
     this.baseUrl = baseUrl.replace(/^https?:\/\//, '');
+    this.instrumentation = new BlobArchiveClientInstrumentation(
+      telemetry,
+      new URL(baseUrl).host,
+      'BlobscanArchiveClient',
+    );
   }
 
   public getBaseUrl(): string {
@@ -68,26 +77,54 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     this.logger.trace(`Fetching blobs for block ${blockId} from ${url}`);
     const response = await this.fetch(url, this.fetchOpts);
 
+    this.instrumentation.incRequest('blocks', response.status);
+
     if (response.status === 404) {
       this.logger.debug(`No blobs found for block ${blockId} at ${this.baseUrl}`);
       return undefined;
     } else if (response.status !== 200) {
-      throw new Error(`Failed to fetch blobs for block ${blockId}: ${response.statusText} (${response.status})`);
+      throw new Error(`Failed to fetch blobs for block ${blockId}: ${response.statusText} (${response.status})`, {
+        cause: {
+          httpResponse: {
+            status: response.status,
+            body: await response.text().catch(err => {
+              this.logger.warn('Failed to read response body', err);
+              return '';
+            }),
+          },
+        },
+      });
     } else {
       const result = await response.json().then((data: any) => BlobscanBlockResponseSchema.parse(data));
       this.logger.debug(`Fetched ${result.length} blobs for block ${blockId} from ${this.baseUrl}`);
+      this.instrumentation.incRetrievedBlobs(result.length);
       return result;
     }
   }
 
   public async getBlobData(id: string): Promise<Buffer | undefined> {
     const response = await this.fetch(`https://${this.baseUrl}/blobs/${id}/data`, this.fetchOpts);
+    this.instrumentation.incRequest('blobs', response.status);
     if (response.status === 404) {
       return undefined;
     } else if (response.status !== 200) {
-      throw new Error(`Failed to fetch blob data for blob ${id}: ${response.statusText} (${response.status})`);
+      throw new Error(`Failed to fetch blob data for blob ${id}: ${response.statusText} (${response.status})`, {
+        cause: {
+          httpResponse: {
+            status: response.status,
+            body: await response.text().catch(err => {
+              this.logger.warn('Failed to read response body', err);
+              return '';
+            }),
+          },
+        },
+      });
     } else {
-      return await response.json().then((data: any) => schemas.BufferHex.parse(data));
+      return await response.json().then((data: any) => {
+        const blob = schemas.BufferHex.parse(data);
+        this.instrumentation.incRetrievedBlobs(1);
+        return blob;
+      });
     }
   }
 }

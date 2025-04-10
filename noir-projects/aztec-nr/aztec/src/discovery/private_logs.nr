@@ -37,23 +37,13 @@ pub unconstrained fn fetch_and_process_private_tagged_logs<Env>(
     // retrieved and processed here.
     sync_notes(PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
 
-    // Get logs from capsules
+    // Get the logs from the capsule array and process them one by one
     let logs =
         CapsuleArray::<PendingTaggedLog>::at(contract_address, PENDING_TAGGED_LOG_ARRAY_BASE_SLOT);
-    let len = logs.len();
-
-    // We iterate over the logs in reverse order to avoid shifting elements.
-    let mut i = len;
-    while i > 0 {
-        i -= 1;
-
-        // Get and process each log
-        let log = logs.get(i);
+    logs.for_each(|i, log: PendingTaggedLog| {
         process_log(contract_address, compute_note_hash_and_nullifier, log);
-
-        // Remove the log from the capsule array
         logs.remove(i);
-    }
+    });
 }
 
 /// Processes a log's ciphertext by decrypting it and then searching the plaintext for private notes or partial notes.

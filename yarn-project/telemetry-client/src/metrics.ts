@@ -6,8 +6,14 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/metrics/ | OpenTelemetry Metrics} for naming conventions.
  */
 
+export const BLOB_SINK_STORE_REQUESTS = 'aztec.blob_sink.store_request_count';
+export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.store_request_count';
 export const BLOB_SINK_OBJECTS_IN_BLOB_STORE = 'aztec.blob_sink.objects_in_blob_store';
 export const BLOB_SINK_BLOB_SIZE = 'aztec.blob_sink.blob_size';
+
+export const BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT = 'aztec.blob_sink.archive.block_request_count';
+export const BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT = 'aztec.blob_sink.archive.blob_request_count';
+export const BLOB_SINK_ARCHIVE_BLOB_COUNT = 'aztec.blob_sink.archive.blob_count';
 
 /** How long it takes to simulate a circuit */
 export const CIRCUIT_SIMULATION_DURATION = 'aztec.circuit.simulation.duration';
