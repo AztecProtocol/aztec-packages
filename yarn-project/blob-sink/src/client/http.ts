@@ -177,7 +177,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         if (typeof blockHashOrSlot === 'number' && maxRetries > 0) {
           const nextSlot = Number(blockHashOrSlot) + 1;
           this.log.debug(`L1 slot ${blockHashOrSlot} not found, trying next slot ${nextSlot}`);
-          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1);
+          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1, l1ConsensusHostIndex);
         }
       }
 
@@ -270,8 +270,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
 async function getRelevantBlobs(data: any, blobHashes: Buffer[], logger: Logger): Promise<Blob[]> {
   const preFilteredBlobsPromise = data
-    // Filter out blobs that did not come from our rollup
+    // Filter out blobs not requested
     .filter((b: BlobJson) => {
+      if (blobHashes.length === 0) {
+        return true;
+      }
       const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
       const blobHash = Blob.getEthVersionedBlobHash(commitment);
       logger.trace(`Filtering blob with hash ${blobHash.toString('hex')}`);
