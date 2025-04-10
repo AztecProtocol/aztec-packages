@@ -210,7 +210,7 @@ function build {
     $project/bootstrap.sh ${1:-}
   done
 
-  parallel -k --line-buffer '$project/bootstrap.sh ${1:-}' ::: ${non_dependant_projects[@]}
+  parallel --line-buffer --tag --halt now,fail=1 '$project/bootstrap.sh ${1:-}' ::: ${non_dependant_projects[@]}
 }
 
 function bench {
