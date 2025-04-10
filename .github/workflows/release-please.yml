@@ -27,7 +27,6 @@ jobs:
           token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
           command: manifest
           default-branch: ${{ env.BRANCH_NAME }}
-          release-type: node
 
   update-docs:
     name: Update docs
