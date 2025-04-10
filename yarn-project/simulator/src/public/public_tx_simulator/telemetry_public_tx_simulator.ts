@@ -5,7 +5,7 @@ import { Attributes, type TelemetryClient, type Tracer, getTelemetryClient, trac
 
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { ExecutorMetrics } from '../executor_metrics.js';
-import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import type { PublicContractsDB, PublicTreesDBFactoryInterface } from '../public_db_sources.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { MeasuredPublicTxSimulator } from './measured_public_tx_simulator.js';
 import { PublicTxContext } from './public_tx_context.js';
@@ -18,7 +18,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
   public readonly tracer: Tracer;
 
   constructor(
-    treesDB: PublicTreesDB,
+    treesDBFactory: PublicTreesDBFactoryInterface,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean = false,
@@ -26,7 +26,7 @@ export class TelemetryPublicTxSimulator extends MeasuredPublicTxSimulator {
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     const metrics = new ExecutorMetrics(telemetryClient, 'PublicTxSimulator');
-    super(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, metrics);
+    super(treesDBFactory, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement, metrics);
     this.tracer = metrics.tracer;
   }
 

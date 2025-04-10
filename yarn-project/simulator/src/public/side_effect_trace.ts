@@ -32,7 +32,7 @@ import {
 } from '@aztec/stdlib/kernel';
 import { PublicLog } from '@aztec/stdlib/logs';
 import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
-import type { GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
+import { type GlobalVariables, TreeSnapshots } from '@aztec/stdlib/tx';
 
 import { strict as assert } from 'assert';
 
@@ -277,8 +277,6 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   public toAvmCircuitPublicInputs(
     /** Globals. */
     globalVariables: GlobalVariables,
-    /** Start tree snapshots. */
-    startTreeSnapshots: TreeSnapshots,
     /** Gas used at start of TX. */
     startGasUsed: Gas,
     /** How much gas was available for this public execution. */
@@ -305,7 +303,7 @@ export class SideEffectTrace implements PublicSideEffectTraceInterface {
   ): AvmCircuitPublicInputs {
     return new AvmCircuitPublicInputs(
       globalVariables,
-      startTreeSnapshots,
+      TreeSnapshots.empty(), // will be patched later.
       startGasUsed,
       gasLimits,
       feePayer,

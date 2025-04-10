@@ -11,7 +11,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import { BaseAvmSimulationTester } from '../avm/fixtures/base_avm_simulation_tester.js';
 import { DEFAULT_BLOCK_NUMBER, getContractFunctionAbi, getFunctionSelector } from '../avm/fixtures/index.js';
 import { SimpleContractDataSource } from '../avm/fixtures/simple_contract_data_source.js';
-import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { HintingPublicTreesDBFactory, PublicContractsDB } from '../public_db_sources.js';
 import { MeasuredPublicTxSimulator } from '../public_tx_simulator/measured_public_tx_simulator.js';
 import type { PublicTxResult } from '../public_tx_simulator/public_tx_simulator.js';
 import { TestExecutorMetrics } from '../test_executor_metrics.js';
@@ -47,11 +47,11 @@ export class PublicTxSimulationTester extends BaseAvmSimulationTester {
   ) {
     super(contractDataSource, merkleTree);
 
-    const treesDB = new PublicTreesDB(merkleTree);
+    const treesDBFactory = new HintingPublicTreesDBFactory(merkleTree);
     const contractsDB = new PublicContractsDB(contractDataSource);
 
     this.simulator = new MeasuredPublicTxSimulator(
-      treesDB,
+      treesDBFactory,
       contractsDB,
       globals,
       /*doMerkleOperations=*/ true,

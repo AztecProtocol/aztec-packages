@@ -12,6 +12,7 @@ import { NativeWorldStateService } from '@aztec/world-state';
 import {
   PublicContractsDB,
   PublicTreesDB,
+  PublicTreesDBFactoryFromObject,
   PublicTxSimulationTester,
   SimpleContractDataSource,
 } from '../../../server.js';
@@ -24,7 +25,6 @@ describe('Public processor contract registration/deployment tests', () => {
   const admin = AztecAddress.fromNumber(42);
   const sender = AztecAddress.fromNumber(111);
 
-  let treesDB: PublicTreesDB;
   let contractsDB: PublicContractsDB;
   let tester: PublicTxSimulationTester;
   let processor: PublicProcessor;
@@ -36,13 +36,13 @@ describe('Public processor contract registration/deployment tests', () => {
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    treesDB = new PublicTreesDB(merkleTrees);
     contractsDB = new PublicContractsDB(contractDataSource);
-    const simulator = new PublicTxSimulator(treesDB, contractsDB, globals, /*doMerkleOperations=*/ true);
+    const treesDBFactory = new PublicTreesDBFactoryFromObject(new PublicTreesDB(merkleTrees)); // Non-hinting.
+    const simulator = new PublicTxSimulator(treesDBFactory, contractsDB, globals, /*doMerkleOperations=*/ true);
 
     processor = new PublicProcessor(
       globals,
-      treesDB,
+      merkleTrees,
       contractsDB,
       simulator,
       new TestDateProvider(),

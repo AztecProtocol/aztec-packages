@@ -105,13 +105,13 @@ describe('state_manager', () => {
     });
 
     it('checkL1ToL2MessageExists works for missing message', async () => {
-      const exists = await persistableState.checkL1ToL2MessageExists(address, utxo, leafIndex);
+      const exists = await persistableState.checkL1ToL2MessageExists(utxo, leafIndex);
       expect(exists).toEqual(false);
     });
 
     it('checkL1ToL2MessageExists works for existing message', async () => {
       mockL1ToL2MessageExists(treesDB, leafIndex, utxo);
-      const exists = await persistableState.checkL1ToL2MessageExists(address, utxo, leafIndex);
+      const exists = await persistableState.checkL1ToL2MessageExists(utxo, leafIndex);
       expect(exists).toEqual(true);
     });
 
