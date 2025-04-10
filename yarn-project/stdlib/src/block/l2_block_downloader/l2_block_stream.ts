@@ -145,6 +145,10 @@ export class L2BlockStream {
     }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
     if (!localBlockHash && this.opts.skipFinalized) {
+      // Failing to find a block hash when skipping finalized blocks can be highly problematic as we'd potentially need
+      // to go all the way back to the genesis block to find a block in which we agree with the source (since we've
+      // potentially skipped all history). This means that stores that prune old blocks must be careful to leave no gaps
+      // when going back from latest block to the last finalized one.
       this.log.error(`No local block hash for block number ${blockNumber}`);
       throw new AbortError();
     }
