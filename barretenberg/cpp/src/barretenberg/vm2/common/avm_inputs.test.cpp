@@ -36,11 +36,10 @@ TEST(AvmInputsTest, FormatTransformations)
     auto unflattened = PublicInputs::flat_to_columns(flattened);
 
     ASSERT_THAT(as_cols, SizeIs(1));
-    EXPECT_THAT(as_cols[0], AllOf(SizeIs(1), ElementsAre(0)));
+    EXPECT_THAT(as_cols[0], ElementsAre(0));
+    EXPECT_THAT(flattened, ElementsAre(0));
 
-    EXPECT_THAT(flattened, AllOf(SizeIs(1), ElementsAre(0)));
-    EXPECT_THAT(unflattened, SizeIs(1));
-    EXPECT_THAT(unflattened[0], AllOf(SizeIs(1), ElementsAre(0)));
+    EXPECT_EQ(as_cols, unflattened);
 }
 
 } // namespace
