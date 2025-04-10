@@ -330,7 +330,6 @@ __metadata:
     "@jest/globals": "npm:^29.5.0"
     "@msgpack/msgpack": "npm:^3.0.0-beta2"
     "@types/jest": "npm:^29.5.0"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
     commander: "npm:^12.1.0"
@@ -392,7 +391,6 @@ __metadata:
     "@aztec/telemetry-client": "workspace:*"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
     "@types/supertest": "npm:^6.0.2"
@@ -428,7 +426,6 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
     jest: "npm:^29.5.0"
@@ -614,10 +611,8 @@ __metadata:
     "@types/js-yaml": "npm:^4.0.9"
     "@types/koa": "npm:^2.13.9"
     "@types/koa-static": "npm:^4.0.2"
-    "@types/levelup": "npm:^5.1.2"
     "@types/lodash.chunk": "npm:^4.2.9"
     "@types/lodash.every": "npm:^4.6.7"
-    "@types/memdown": "npm:^3.0.3"
     "@types/node": "npm:^18.7.23"
     "@viem/anvil": "npm:^0.0.9"
     buffer: "npm:^6.0.3"
@@ -632,12 +627,10 @@ __metadata:
     js-yaml: "npm:^4.1.0"
     koa: "npm:^2.14.2"
     koa-static: "npm:^5.0.0"
-    levelup: "npm:^5.1.1"
     lodash.chunk: "npm:^4.2.0"
     lodash.compact: "npm:^3.0.1"
     lodash.every: "npm:^4.6.0"
     lodash.omit: "npm:^4.5.0"
-    memdown: "npm:^6.1.1"
     process: "npm:^0.11.10"
     stream-browserify: "npm:^3.0.0"
     string-argv: "npm:^0.3.2"
@@ -735,10 +728,8 @@ __metadata:
     "@types/koa-router": "npm:^7.4.4"
     "@types/koa__cors": "npm:^4.0.0"
     "@types/leveldown": "npm:^4.0.3"
-    "@types/levelup": "npm:^5.1.2"
     "@types/lodash.chunk": "npm:^4.2.9"
     "@types/lodash.clonedeepwith": "npm:^4.5.7"
-    "@types/memdown": "npm:^3.0.1"
     "@types/node": "npm:^18.7.23"
     "@types/pako": "npm:^2.0.0"
     "@types/supertest": "npm:^2.0.12"
@@ -763,10 +754,8 @@ __metadata:
     koa-compress: "npm:^5.1.0"
     koa-router: "npm:^12.0.0"
     leveldown: "npm:^6.1.1"
-    levelup: "npm:^5.1.1"
     lodash.chunk: "npm:^4.2.0"
     lodash.clonedeepwith: "npm:^4.5.0"
-    memdown: "npm:^6.1.1"
     pako: "npm:^2.1.0"
     pino: "npm:^9.5.0"
     pino-pretty: "npm:^13.0.0"
@@ -812,8 +801,6 @@ __metadata:
     html-webpack-plugin: "npm:^5.6.0"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^4.0.0-beta1"
-    levelup: "npm:^5.1.1"
-    memdown: "npm:^6.1.1"
     pako: "npm:^2.1.0"
     playwright: "npm:1.49.0"
     puppeteer: "npm:^22.4.1"
@@ -1034,8 +1021,6 @@ __metadata:
     "@types/node": "npm:^18.7.23"
     change-case: "npm:^5.4.4"
     jest: "npm:^29.5.0"
-    levelup: "npm:^5.1.1"
-    memdown: "npm:^6.1.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
@@ -1172,7 +1157,6 @@ __metadata:
     "@iarna/toml": "npm:^2.2.5"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
     commander: "npm:^12.1.0"
@@ -1213,7 +1197,6 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     "@types/source-map-support": "npm:^0.5.10"
     jest: "npm:^29.5.0"
@@ -1317,20 +1300,16 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/levelup": "npm:^5.1.2"
     "@types/lodash.chunk": "npm:^4.2.7"
     "@types/lodash.pick": "npm:^4.4.7"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     concurrently: "npm:^7.6.0"
     eslint: "npm:^8.37.0"
     express: "npm:^4.21.1"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.3"
-    levelup: "npm:^5.1.1"
     lodash.chunk: "npm:^4.2.0"
     lodash.pick: "npm:^4.4.0"
-    memdown: "npm:^6.1.1"
     prettier: "npm:^2.8.7"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
@@ -1358,17 +1337,13 @@ __metadata:
     "@aztec/world-state": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/levelup": "npm:^5.1.3"
     "@types/lodash.clonedeep": "npm:^4.5.7"
     "@types/lodash.merge": "npm:^4.6.9"
-    "@types/memdown": "npm:^3.0.2"
     "@types/node": "npm:^18.7.23"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.4"
-    levelup: "npm:^5.1.1"
     lodash.clonedeep: "npm:^4.5.0"
     lodash.merge: "npm:^4.6.2"
-    memdown: "npm:^6.1.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
@@ -1512,12 +1487,9 @@ __metadata:
     "@aztec/telemetry-client": "workspace:^"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
-    "@types/levelup": "npm:^5.1.2"
-    "@types/memdown": "npm:^3.0.0"
     "@types/node": "npm:^18.7.23"
     jest: "npm:^29.5.0"
     jest-mock-extended: "npm:^3.0.5"
-    memdown: "npm:^6.1.1"
     ts-node: "npm:^10.9.1"
     tslib: "npm:^2.4.0"
     typescript: "npm:^5.0.4"
@@ -6023,13 +5995,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/level-errors@npm:*":
-  version: 3.0.2
-  resolution: "@types/level-errors@npm:3.0.2"
-  checksum: 10/3d9b801f6499f795b60ac723c1b3f93ca105f20ed26966eeb606c804b10c65984c3233fb99914644d75a3223f80f220eca74fda316640a85a5b3d7572cd86925
-  languageName: node
-  linkType: hard
-
 "@types/leveldown@npm:^4.0.3":
   version: 4.0.6
   resolution: "@types/leveldown@npm:4.0.6"
@@ -6037,17 +6002,6 @@ __metadata:
     "@types/abstract-leveldown": "npm:*"
     "@types/node": "npm:*"
   checksum: 10/8b06cbc6858f3956fe8e10a8bb58edd75369587e72ce33ab7e35e21e1f1c8e89981a337c977ffd3a635d4441113e434362ba37e343d8a0ec69cd7c8988450977
-  languageName: node
-  linkType: hard
-
-"@types/levelup@npm:^5.1.2, @types/levelup@npm:^5.1.3":
-  version: 5.1.5
-  resolution: "@types/levelup@npm:5.1.5"
-  dependencies:
-    "@types/abstract-leveldown": "npm:*"
-    "@types/level-errors": "npm:*"
-    "@types/node": "npm:*"
-  checksum: 10/844798bdc805e3c449e478e283eb1196892d3f4fb6b24158faa5f10b283fa785da736917de1ec030ce1b8be9a8c54881cee2354632cb540ef80a325a19d920d1
   languageName: node
   linkType: hard
 
@@ -6154,15 +6108,6 @@ __metadata:
   version: 4.17.1
   resolution: "@types/lodash@npm:4.17.1"
   checksum: 10/384bdd29348a000f8e815f94839a1a8c7f5a4ca856b016ade7f2abdc1df0b4e3e009c113b69db320a8fde51d1f38e60c19462b9bf3e82e0e2e32d3ac3e7ba2c4
-  languageName: node
-  linkType: hard
-
-"@types/memdown@npm:^3.0.0, @types/memdown@npm:^3.0.1, @types/memdown@npm:^3.0.2, @types/memdown@npm:^3.0.3":
-  version: 3.0.5
-  resolution: "@types/memdown@npm:3.0.5"
-  dependencies:
-    "@types/abstract-leveldown": "npm:*"
-  checksum: 10/a0c384858354da754933a83295642ac8710af08e1bf499ff3ae87d86ea34a0d9ebf2bdf75ec45d992cd152580c671c82ea4a0aea03f10eeb3aed33eceb21819e
   languageName: node
   linkType: hard
 
@@ -10173,16 +10118,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"deferred-leveldown@npm:^7.0.0":
-  version: 7.0.0
-  resolution: "deferred-leveldown@npm:7.0.0"
-  dependencies:
-    abstract-leveldown: "npm:^7.2.0"
-    inherits: "npm:^2.0.3"
-  checksum: 10/6159ee266a97862fc76737931aa95b26ee4bc8c906b86cf5b3d98bb3eb554ace44fdc227b9f13c5c2fe0170ffc17a9cd30b61c1f25949eb3c6d84ac3fd2cc44a
-  languageName: node
-  linkType: hard
-
 "define-data-property@npm:^1.0.1, define-data-property@npm:^1.1.4":
   version: 1.1.4
   resolution: "define-data-property@npm:1.1.4"
@@ -12237,13 +12172,6 @@ __metadata:
     es-abstract: "npm:^1.22.1"
     functions-have-names: "npm:^1.2.3"
   checksum: 10/4d40be44d4609942e4e90c4fff77a811fa936f4985d92d2abfcf44f673ba344e2962bf223a33101f79c1a056465f36f09b072b9c289d7660ca554a12491cd5a2
-  languageName: node
-  linkType: hard
-
-"functional-red-black-tree@npm:^1.0.1":
-  version: 1.0.1
-  resolution: "functional-red-black-tree@npm:1.0.1"
-  checksum: 10/debe73e92204341d1fa5f89614e44284d3add26dee660722978d8c50829170f87d1c74768f68c251d215ae461c11db7bac13101c77f4146ff051da75466f7a12
   languageName: node
   linkType: hard
 
@@ -15135,23 +15063,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"level-errors@npm:^3.0.1":
-  version: 3.0.1
-  resolution: "level-errors@npm:3.0.1"
-  checksum: 10/2a4bc5d125bcc838b279d832fe0271b6595ea479e392aa5c729b97c4ab4268522f45260d563469d70c82f5d16dbde19e431ff35884e2706713aabd5810d32798
-  languageName: node
-  linkType: hard
-
-"level-iterator-stream@npm:^5.0.0":
-  version: 5.0.0
-  resolution: "level-iterator-stream@npm:5.0.0"
-  dependencies:
-    inherits: "npm:^2.0.4"
-    readable-stream: "npm:^3.4.0"
-  checksum: 10/4d36ce39d6b6a40766c3cf7cd369e6c031446eed4ffb3966ae6401d9eed5d532334febcc6117ef7b64faa9c31052533bacf91be69f5137e481067ef0584031d0
-  languageName: node
-  linkType: hard
-
 "level-supports@npm:^2.0.1":
   version: 2.1.0
   resolution: "level-supports@npm:2.1.0"
@@ -15168,20 +15079,6 @@ __metadata:
     node-gyp: "npm:latest"
     node-gyp-build: "npm:^4.3.0"
   checksum: 10/9d8f92c68c09beef03a61532161ff87fd1fcce07914f2b6ffc2e47ae21347fbd09a221c2e6cd831118923f215eb2a9bd6104729c35955bf357a3976f1a2c9957
-  languageName: node
-  linkType: hard
-
-"levelup@npm:^5.1.1":
-  version: 5.1.1
-  resolution: "levelup@npm:5.1.1"
-  dependencies:
-    catering: "npm:^2.0.0"
-    deferred-leveldown: "npm:^7.0.0"
-    level-errors: "npm:^3.0.1"
-    level-iterator-stream: "npm:^5.0.0"
-    level-supports: "npm:^2.0.1"
-    queue-microtask: "npm:^1.2.3"
-  checksum: 10/07029c19ef74fcfe2aa1ba45c37a2d07166b74c5902b1ecc40e274ff9d3d1073bb9737fb932bae0cc4b141dd78c40d03e5202dd588bef117cb2f6a1886e830d9
   languageName: node
   linkType: hard
 
@@ -15547,13 +15444,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ltgt@npm:^2.2.0":
-  version: 2.2.1
-  resolution: "ltgt@npm:2.2.1"
-  checksum: 10/10536cee1d01114cf7aadd0c24fab432a4825bb8ef091488ae6d255df916ac7f15141f6bc1e023886aea0397353f0c14608581ce0dbb57f43704f77cc33731d0
-  languageName: node
-  linkType: hard
-
 "lunr@npm:^2.3.9":
   version: 2.3.9
   resolution: "lunr@npm:2.3.9"
@@ -15676,19 +15566,6 @@ __metadata:
   version: 0.3.0
   resolution: "media-typer@npm:0.3.0"
   checksum: 10/38e0984db39139604756903a01397e29e17dcb04207bb3e081412ce725ab17338ecc47220c1b186b6bbe79a658aad1b0d41142884f5a481f36290cdefbe6aa46
-  languageName: node
-  linkType: hard
-
-"memdown@npm:^6.1.1":
-  version: 6.1.1
-  resolution: "memdown@npm:6.1.1"
-  dependencies:
-    abstract-leveldown: "npm:^7.2.0"
-    buffer: "npm:^6.0.3"
-    functional-red-black-tree: "npm:^1.0.1"
-    inherits: "npm:^2.0.1"
-    ltgt: "npm:^2.2.0"
-  checksum: 10/96395988d7b021c700fcd9a223d7198fc5aef73e300e992f34a1bdd187c107c13d8d9bd9f9917fabf453738bb904f604bfb6d2f7fb18f52efb6f786b1904d0de
   languageName: node
   linkType: hard
 
@@ -18181,7 +18058,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"readable-stream@npm:2 || 3, readable-stream@npm:3, readable-stream@npm:^3.0.2, readable-stream@npm:^3.0.6, readable-stream@npm:^3.1.1, readable-stream@npm:^3.4.0, readable-stream@npm:^3.5.0, readable-stream@npm:^3.6.0":
+"readable-stream@npm:2 || 3, readable-stream@npm:3, readable-stream@npm:^3.0.2, readable-stream@npm:^3.0.6, readable-stream@npm:^3.1.1, readable-stream@npm:^3.5.0, readable-stream@npm:^3.6.0":
   version: 3.6.2
   resolution: "readable-stream@npm:3.6.2"
   dependencies:
