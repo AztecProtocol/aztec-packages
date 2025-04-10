@@ -97,6 +97,10 @@ export class L2BlockStream {
 
       let nextBlockNumber = latestBlockNumber + 1;
       if (this.opts.skipFinalized) {
+        // Finalized blocks cannot be reorged by definition, so there is no point in fetching them. We do need the very
+        // last finalized block however in order to guarantee that we will eventually find a block in which our local
+        // store matches the source.
+        // If the last finalized block is behind our local tip, there is nothing to skip.
         nextBlockNumber = Math.max(sourceTips.finalized.number, nextBlockNumber);
       }
 
