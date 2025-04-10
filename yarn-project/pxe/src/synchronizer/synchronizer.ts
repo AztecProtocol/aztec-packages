@@ -37,6 +37,9 @@ export class Synchronizer implements L2BlockStreamEventHandler {
   protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
       startingBlock: config.l2StartingBlock,
+      // Skipping finalized blocks makes us sync much faster - we only need to download blocks other than the latest one
+      // in order to detect reorgs, and there can be no reorgs on finalized block, making this safe.
+      skipFinalized: true,
     });
   }
 

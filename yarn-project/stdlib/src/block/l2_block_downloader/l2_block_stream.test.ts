@@ -16,8 +16,6 @@ import {
 } from './l2_block_stream.js';
 
 describe('L2BlockStream', () => {
-  let blockStream: TestL2BlockStream;
-
   let blockSource: MockProxy<L2BlockSource>;
   let localData: TestL2BlockStreamLocalDataProvider;
   let handler: TestL2BlockStreamEventHandler;
@@ -38,8 +36,6 @@ describe('L2BlockStream', () => {
     blockSource.getPublishedBlocks.mockImplementation((from, limit) =>
       Promise.resolve(compactArray(times(limit, i => (from + i > latest ? undefined : makeBlock(from + i))))),
     );
-
-    blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
   });
 
   const makeBlock = (number: number) => ({ block: { number } as L2Block } as PublishedL2Block);
@@ -62,6 +58,12 @@ describe('L2BlockStream', () => {
   };
 
   describe('work', () => {
+    let blockStream: TestL2BlockStream;
+
+    beforeEach(() => {
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
+    });
+
     it('pulls new blocks from start', async () => {
       setRemoteTips(5);
 
@@ -148,6 +150,48 @@ describe('L2BlockStream', () => {
         { type: 'blocks-added', blocks: times(5, i => makeBlock(i + 41)) },
         { type: 'chain-proven', block: makeBlockId(40) },
         { type: 'chain-finalized', block: makeBlockId(35) },
+      ] satisfies L2BlockStreamEvent[]);
+    });
+  });
+
+  describe('skipFinalized', () => {
+    let blockStream: TestL2BlockStream;
+
+    beforeEach(() => {
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        skipFinalized: true,
+      });
+    });
+
+    it('skips ahead to the latest finalized block', async () => {
+      setRemoteTips(40, 38, 35);
+
+      localData.latest.number = 5;
+      localData.proven.number = 2;
+      localData.finalized.number = 2;
+
+      await blockStream.work();
+
+      // Instead of fetching the next local block (6), we skip ahead to the latest finalized (35) and go from there.
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 35)) },
+        { type: 'chain-proven', block: makeBlockId(38) },
+        { type: 'chain-finalized', block: makeBlockId(35) },
+      ] satisfies L2BlockStreamEvent[]);
+    });
+
+    it('does not skip if already ahead of finalized', async () => {
+      setRemoteTips(40, 38, 35);
+
+      localData.latest.number = 38;
+      localData.proven.number = 38;
+      localData.finalized.number = 35;
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(2, i => makeBlock(i + 39)) },
       ] satisfies L2BlockStreamEvent[]);
     });
   });
