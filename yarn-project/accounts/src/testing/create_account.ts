@@ -71,7 +71,7 @@ export async function deployFundedSchnorrAccount(
     .wait(opts);
 
   if (waitForProvenOptions !== undefined) {
-    await waitForProven(pxe, receipt, waitForProvenOptions);
+    await waitForProven(pxe.node, receipt, waitForProvenOptions);
   }
 
   return accountManager;

@@ -47,7 +47,6 @@ export class TxExecutionRequest {
     public argsOfCalls: HashedValues[],
     /**
      * Transient authorization witnesses for authorizing the execution of one or more actions during this tx.
-     * These witnesses are not expected to be stored in the local witnesses database of the PXE.
      */
     public authWitnesses: AuthWitness[],
     /**

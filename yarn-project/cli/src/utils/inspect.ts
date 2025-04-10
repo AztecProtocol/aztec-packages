@@ -7,7 +7,7 @@ import { type ExtendedNote, NoteStatus } from '@aztec/stdlib/note';
 import type { TxHash } from '@aztec/stdlib/tx';
 
 export async function inspectBlock(pxe: PXE, blockNumber: number, log: LogFn, opts: { showTxs?: boolean } = {}) {
-  const block = await pxe.getBlock(blockNumber);
+  const block = await pxe.node.getBlock(blockNumber);
   if (!block) {
     log(`No block found for block number ${blockNumber}`);
     return;
@@ -41,8 +41,8 @@ export async function inspectTx(
   opts: { includeBlockInfo?: boolean; artifactMap?: ArtifactMap } = {},
 ) {
   const [receipt, effectsInBlock, getNotes] = await Promise.all([
-    pxe.getTxReceipt(txHash),
-    pxe.getTxEffect(txHash),
+    pxe.node.getTxReceipt(txHash),
+    pxe.node.getTxEffect(txHash),
     pxe.getNotes({ txHash, status: NoteStatus.ACTIVE_OR_NULLIFIED }),
   ]);
   // Base tx data

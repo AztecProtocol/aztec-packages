@@ -4,6 +4,6 @@ import type { LogFn, Logger } from '@aztec/foundation/log';
 
 export async function getCurrentBaseFee(rpcUrl: string, debugLogger: Logger, log: LogFn) {
   const client = await createCompatibleClient(rpcUrl, debugLogger);
-  const fees = await client.getCurrentBaseFees();
+  const fees = await client.node.getCurrentBaseFees();
   log(`Current fees: ${jsonStringify(fees)}`);
 }

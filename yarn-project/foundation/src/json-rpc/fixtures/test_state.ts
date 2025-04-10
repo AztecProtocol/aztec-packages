@@ -35,6 +35,7 @@ export class TestNote {
 }
 
 export interface TestStateApi {
+  meta: TestMeta;
   getNote: (index: number) => Promise<TestNote | undefined>;
   getNotes: (limit?: number) => Promise<TestNote[]>;
   getNotes2: (limit: bigint | undefined) => Promise<TestNote[]>;
@@ -47,13 +48,28 @@ export interface TestStateApi {
   getTuple(): Promise<[string, string | undefined, number]>;
 }
 
+export class TestMetaState implements TestMeta {
+  constructor(private version: number) {}
+
+  getVersion(): Promise<number> {
+    return Promise.resolve(this.version);
+  }
+  veryPrivate(): Promise<string> {
+    return Promise.resolve('secret');
+  }
+}
+
 /**
  * Represents a simple state management for TestNote instances.
  * Provides functionality to get a note by index and add notes asynchronously.
  * Primarily used for testing JSON RPC-related functionalities.
  */
 export class TestState implements TestStateApi {
-  constructor(public notes: TestNote[]) {}
+  public meta: TestMeta;
+
+  constructor(public notes: TestNote[], version = 1) {
+    this.meta = new TestMetaState(version);
+  }
   /**
    * Retrieve the TestNote instance at the specified index from the notes array.
    * This method allows getting a desired TestNote from the collection of notes
@@ -129,7 +145,16 @@ export class TestState implements TestStateApi {
   }
 }
 
+export type TestMeta = {
+  getVersion: () => Promise<number>;
+};
+
+export const NestedApiSchema: ApiSchemaFor<TestMeta> = {
+  getVersion: z.function().returns(z.number()),
+};
+
 export const TestStateSchema: ApiSchemaFor<TestStateApi> = {
+  meta: NestedApiSchema,
   getNote: z.function().args(z.number()).returns(TestNote.schema.optional()),
   getNotes: z.function().args(optional(schemas.Integer)).returns(z.array(TestNote.schema)),
   getNotes2: z.function().args(optional(schemas.BigInt)).returns(z.array(TestNote.schema)),
