@@ -1,4 +1,4 @@
-export * from '../common/db_interfaces.js';
+export * from './db_interfaces.js';
 export * from './public_tx_simulator/index.js';
 export * from './public_db_sources.js';
 export { PublicProcessor, PublicProcessorFactory } from './public_processor/public_processor.js';

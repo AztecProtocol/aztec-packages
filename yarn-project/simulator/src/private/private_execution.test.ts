@@ -64,9 +64,9 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
+import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 

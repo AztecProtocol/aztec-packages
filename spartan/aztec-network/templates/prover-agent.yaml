@@ -1,6 +1,6 @@
 {{- if .Values.proverAgent.enabled }}
 apiVersion: apps/v1
-kind: ReplicaSet
+kind: Deployment
 metadata:
   name: {{ include "aztec-network.fullname" . }}-prover-agent
   labels:
@@ -201,7 +201,7 @@ spec:
   dataSource:
     kind: PersistentVolumeClaim
     name: {{ include "aztec-network.fullname" . }}-shared-crs-pvc
-  storageClassName: standard-rwo
+  storageClassName: premium-rwo
   resources:
     requests:
       storage: 3Gi
