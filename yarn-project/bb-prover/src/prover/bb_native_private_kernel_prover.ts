@@ -2,7 +2,7 @@ import { runInDirectory } from '@aztec/foundation/fs';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { BundleArtifactProvider } from '@aztec/noir-protocol-circuits-types/client/bundle';
 import type { SimulationProvider } from '@aztec/simulator/server';
-import { serializePrivateExecutionSteps, type PrivateExecutionStep } from '@aztec/stdlib/kernel';
+import { type PrivateExecutionStep, serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type { ClientIvcProof } from '@aztec/stdlib/proofs';
 
 import { promises as fs } from 'fs';

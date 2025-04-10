@@ -80,7 +80,6 @@
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-contracts.js": "workspace:^",
     "@aztec/simulator": "workspace:^",
-    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@jest/globals": "^29.5.0",

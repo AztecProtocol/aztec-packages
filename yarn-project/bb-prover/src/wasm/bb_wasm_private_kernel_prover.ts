@@ -7,14 +7,9 @@ import type { SimulationProvider } from '@aztec/simulator/client';
 import type { PrivateExecutionStep } from '@aztec/stdlib/kernel';
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
-
-
 import { ungzip } from 'pako';
 
-
-
 import { BBPrivateKernelProver } from '../prover/bb_private_kernel_prover.js';
-
 
 export abstract class BBWASMPrivateKernelProver extends BBPrivateKernelProver {
   constructor(

@@ -4,12 +4,9 @@ import type { LogFn } from '@aztec/foundation/log';
 import { serializePrivateExecutionSteps } from '@aztec/stdlib/kernel';
 import type { TxProfileResult } from '@aztec/stdlib/tx';
 
-
-
 import { promises as fs } from 'fs';
 import path from 'path';
 import { format } from 'util';
-
 
 function printProfileResult(result: TxProfileResult, log: LogFn) {
   // TODO(AD): this is a bit misleading - the maximum gate count of any piece is as important
