@@ -33,7 +33,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
     // verify IPA. The + 1 is to satisfy IPA verification key requirements.
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
-    vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
+    vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>((1UL << CONST_ECCVM_LOG_N) + 1);
 
     auto builder = std::make_shared<Builder>();
 
