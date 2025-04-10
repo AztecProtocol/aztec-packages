@@ -6,6 +6,7 @@ cmd=${1:-}
 # We rely on noir-projects for the verifier contract.
 export hash=$(cache_content_hash \
   .rebuild_patterns \
+  ../noir/.rebuild_patterns \
   ../noir-projects/noir-protocol-circuits \
   ../barretenberg/cpp/.rebuild_patterns
 )
