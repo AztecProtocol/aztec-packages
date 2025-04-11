@@ -193,6 +193,7 @@ describe('sequencer', () => {
     });
     worldState = mock<WorldStateSynchronizer>({
       fork: () => Promise.resolve(fork),
+      syncImmediate: () => Promise.resolve(lastBlockNumber),
       getCommitted: () => merkleTreeOps,
       status: mockFn().mockResolvedValue({
         state: WorldStateRunningState.IDLE,
