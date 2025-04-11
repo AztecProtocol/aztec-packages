@@ -91,7 +91,8 @@ export function CreateAccountDialog({
             paymentMethod: await accountManager.getSelfPaymentMethod(feePaymentMethod),
           },
           universalDeploy: true,
-          skipClassRegistration: false,
+          skipClassRegistration: true,
+          skipPublicDeployment: true,
         };
       }
       onClose(accountWallet, publiclyDeploy, deployMethod, opts);
