@@ -63,7 +63,7 @@ function release {
 
   if [[ $(dist_tag) != "latest" ]]; then
     # Also upload to a $dist_tag directory, if not latest.
-    do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$(dist_tag)/$version/"
+    do_or_dryrun aws s3 sync ./bin "s3://install.aztec.network/$(dist_tag)/"
   fi
 }
 
