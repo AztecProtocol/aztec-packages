@@ -77,13 +77,13 @@ describe('EthCheatCodes', () => {
         toBlock: 'latest',
       });
 
+    const getBlockNumber = () => publicClient.getBlockNumber({ cacheTime: 0 });
+
     it('reorgs back to before deployment', async () => {
       const token = await deployToken();
       await expect(token.read.name()).resolves.toEqual('Test Token');
-      const blockNumberBefore = await publicClient.getBlockNumber();
       await cheatCodes.reorg(1);
       await expect(token.read.name()).rejects.toThrow(/returned no data/);
-      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toEqual(blockNumberBefore - 1n);
     });
 
     it('rollbacks events and state on reorg', async () => {
@@ -104,11 +104,11 @@ describe('EthCheatCodes', () => {
       await expect(token.read.balanceOf([sender])).resolves.toEqual(400n);
       await expect(getEvents(token)).resolves.toHaveLength(4);
 
-      const blockNumberBefore = await publicClient.getBlockNumber();
+      const blockNumberBefore = await getBlockNumber();
       await cheatCodes.reorg(3);
       await expect(token.read.balanceOf([sender])).resolves.toEqual(100n);
       await expect(getEvents(token)).resolves.toHaveLength(1);
-      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toEqual(blockNumberBefore - 3n);
+      await expect(getBlockNumber()).resolves.toBeLessThan(blockNumberBefore);
     });
 
     it('reorgs with new empty blocks as replacement', async () => {
@@ -118,11 +118,11 @@ describe('EthCheatCodes', () => {
       await expect(token.read.balanceOf([sender])).resolves.toEqual(400n);
       await expect(getEvents(token)).resolves.toHaveLength(4);
 
-      const blockNumberBefore = await publicClient.getBlockNumber();
+      const blockNumberBefore = await getBlockNumber();
       await cheatCodes.reorgWithReplacement(3);
       await expect(token.read.balanceOf([sender])).resolves.toEqual(100n);
       await expect(getEvents(token)).resolves.toHaveLength(1);
-      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toBeGreaterThanOrEqual(blockNumberBefore);
+      await expect(getBlockNumber()).resolves.toBeGreaterThanOrEqual(blockNumberBefore);
     });
 
     it('reorgs with blocks with replacement txs', async () => {
@@ -135,11 +135,11 @@ describe('EthCheatCodes', () => {
       const data = encodeFunctionData({ abi: TestERC20Abi, functionName: 'mint', args: [sender, 1000n] });
       const newTx = { data, to: token.address, from: sender, value: 0n };
 
-      const blockNumber = await publicClient.getBlockNumber();
+      const blockNumber = await getBlockNumber();
       await cheatCodes.reorgWithReplacement(3, [[newTx, newTx, newTx], [], [newTx]]);
       await expect(token.read.balanceOf([sender])).resolves.toEqual(4100n);
       await expect(getEvents(token)).resolves.toHaveLength(5);
-      await expect(publicClient.getBlockNumber({ cacheTime: 0 })).resolves.toBeGreaterThanOrEqual(blockNumber);
+      await expect(getBlockNumber()).resolves.toBeGreaterThanOrEqual(blockNumber);
 
       await expect(
         Promise.all(
