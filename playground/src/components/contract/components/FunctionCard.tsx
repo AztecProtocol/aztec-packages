@@ -83,7 +83,6 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleParameterChange = (index: number, value: any) => {
-    console.log(`Parameter ${index} changed to ${value}`);
     parameters[index] = value;
     setParameters([...parameters]);
   };
