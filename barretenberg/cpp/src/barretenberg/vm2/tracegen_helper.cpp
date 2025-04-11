@@ -42,7 +42,7 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_into_p_decomposition.hpp"
 #include "barretenberg/vm2/tracegen/lib/permutation_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/nullifier_tree_read_trace.hpp"
+#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
 #include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
@@ -285,10 +285,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.update_check_events);
                 },
                 [&]() {
-                    NullifierTreeReadTraceBuilder nullifier_tree_read_trace_builder;
-                    AVM_TRACK_TIME("tracegen/nullifier_tree_read",
-                                   nullifier_tree_read_trace_builder.process(events.nullifier_tree_read_events, trace));
-                    clear_events(events.nullifier_tree_read_events);
+                    NullifierTreeCheckTraceBuilder nullifier_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/nullifier_tree_check",
+                        nullifier_tree_check_trace_builder.process(events.nullifier_tree_check_events, trace));
+                    clear_events(events.nullifier_tree_check_events);
                 },
             });
         AVM_TRACK_TIME("tracegen/traces", execute_jobs(jobs));
@@ -324,6 +325,10 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_class_id_derivation_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_address_derivation_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_bc_retrieval_update_check_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_bc_retrieval_deployment_nullifier_read_settings>>(),
             // Bytecode Decomposition
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_bytes_are_bytes_settings>>(),
             std::make_unique<LookupIntoIndexedByClk<lookup_bc_decomposition_abs_diff_is_u16_settings>>(),
@@ -400,13 +405,18 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_update_hi_metadata_range_settings>>(),
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_update_lo_metadata_range_settings>>(),
             std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_block_of_change_cmp_range_settings>>(),
-            // Nullifier read
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_read_low_leaf_poseidon2_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_read_low_leaf_membership_settings>>(),
+            // Nullifier check
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_poseidon2_settings>>(),
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_nullifier_read_low_leaf_nullifier_validation_settings>>(),
+                LookupIntoDynamicTableSequential<lookup_nullifier_check_updated_low_leaf_poseidon2_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_merkle_check_settings>>(),
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_nullifier_read_low_leaf_next_nullifier_validation_settings>>());
+                LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_nullifier_validation_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_nullifier_check_low_leaf_next_nullifier_validation_settings>>(),
+            std::make_unique<LookupIntoDynamicTableSequential<lookup_nullifier_check_new_leaf_poseidon2_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_nullifier_check_new_leaf_merkle_check_settings>>());
 
         AVM_TRACK_TIME("tracegen/interactions",
                        parallel_for(jobs_interactions.size(), [&](size_t i) { jobs_interactions[i]->process(trace); }));
