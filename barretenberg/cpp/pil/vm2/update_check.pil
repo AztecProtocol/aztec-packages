@@ -1,6 +1,6 @@
 include "poseidon2_hash.pil";
 include "range_check.pil";
-include "public_data_read.pil";
+include "public_data_check.pil";
 include "constants_gen.pil";
 
 // Validates current class id taking into account contract updates.
@@ -71,7 +71,7 @@ namespace update_check;
 
     #[UPDATE_HASH_PUBLIC_DATA_READ]
     sel { update_hash, shared_mutable_leaf_slot, public_data_tree_root }
-    in public_data_read.sel { public_data_read.value, public_data_read.slot, public_data_read.root };
+    in public_data_check.sel { public_data_check.value, public_data_check.slot, public_data_check.root };
 
     // ======== SHARED MUTABLE PREIMAGE CONSTRAINING ========
 
