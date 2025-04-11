@@ -22,8 +22,8 @@ opentelemetry-collector:
     processors:
       memory_limiter:
         check_interval: 1s
-        limit_mib: 10000
-        spike_limit_mib: 2000
+        limit_mib: 20000
+        spike_limit_mib: 4000
       filter/large_histograms:
         metrics:
           datapoint:
