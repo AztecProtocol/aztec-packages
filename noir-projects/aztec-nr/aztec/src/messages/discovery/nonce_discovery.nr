@@ -1,4 +1,4 @@
-use crate::discovery::{ComputeNoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN};
+use crate::messages::discovery::{ComputeNoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -92,7 +92,7 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
 
 mod test {
     use crate::{
-        discovery::{NoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN},
+        messages::discovery::{NoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN},
         note::{
             note_interface::{NoteHash, NoteType},
             note_metadata::SettledNoteMetadata,

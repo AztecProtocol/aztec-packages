@@ -31,7 +31,7 @@ Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
 Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
 :::
 
-You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/aztec-nr/aztec/src/encrypted_logs/log_assembly_strategies/default_aes128/event.nr)
+You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0-alpha-testnet.1/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr)
 
 ### Processing encrypted events
 

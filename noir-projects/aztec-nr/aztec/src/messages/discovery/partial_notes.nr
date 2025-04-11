@@ -1,7 +1,9 @@
 use crate::{
     capsules::CapsuleArray,
-    discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
-    encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
+    messages::{
+        discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
+        encoding::MAX_MESSAGE_CONTENT_LEN,
+    },
     oracle::message_discovery::{deliver_note, get_log_by_tag},
     utils::array,
 };

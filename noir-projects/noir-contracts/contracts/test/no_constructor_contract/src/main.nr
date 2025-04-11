@@ -5,8 +5,8 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract NoConstructor {
     use aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
         macros::{functions::{private, public, utility}, storage::storage},
+        messages::logs::note::encode_and_encrypt_note,
         prelude::PrivateMutable,
     };
 
