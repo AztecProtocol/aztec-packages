@@ -37,11 +37,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout release branch
+      - name: Checkout master branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
-          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          ref: master
 
       - name: Run corepack enable
         run: corepack enable
