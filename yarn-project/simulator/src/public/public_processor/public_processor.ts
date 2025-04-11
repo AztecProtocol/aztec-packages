@@ -1,5 +1,4 @@
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
-import { padArrayEnd } from '@aztec/foundation/collection';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
@@ -33,7 +32,7 @@ import {
 } from '@aztec/telemetry-client';
 import { ForkCheckpoint } from '@aztec/world-state/native';
 
-import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { HintingPublicTreesDBFactory, PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
 import { type PublicTxSimulator, TelemetryPublicTxSimulator } from '../public_tx_simulator/index.js';
 import { PublicProcessorMetrics } from './public_processor_metrics.js';
 
@@ -59,10 +58,9 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     skipFeeEnforcement: boolean,
   ): PublicProcessor {
-    const treesDB = new PublicTreesDB(merkleTree);
     const contractsDB = new PublicContractsDB(this.contractDataSource);
     const publicTxSimulator = this.createPublicTxSimulator(
-      treesDB,
+      merkleTree,
       contractsDB,
       globalVariables,
       /*doMerkleOperations=*/ true,
@@ -72,7 +70,7 @@ export class PublicProcessorFactory {
 
     return new PublicProcessor(
       globalVariables,
-      treesDB,
+      merkleTree,
       contractsDB,
       publicTxSimulator,
       this.dateProvider,
@@ -81,15 +79,16 @@ export class PublicProcessorFactory {
   }
 
   protected createPublicTxSimulator(
-    treesDB: PublicTreesDB,
+    merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient: TelemetryClient,
   ): PublicTxSimulator {
+    const treesDBFactory = new HintingPublicTreesDBFactory(merkleTree);
     return new TelemetryPublicTxSimulator(
-      treesDB,
+      treesDBFactory,
       contractsDB,
       globalVariables,
       doMerkleOperations,
@@ -112,9 +111,11 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
+  protected treesDB: PublicTreesDB;
+
   constructor(
     protected globalVariables: GlobalVariables,
-    protected treesDB: PublicTreesDB,
+    merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
@@ -122,6 +123,9 @@ export class PublicProcessor implements Traceable {
     private log = createLogger('simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
+    // This high-level db is used as a convenient helper to process the private-only txs.
+    // It could be done with the merkleTree directly.
+    this.treesDB = new PublicTreesDB(merkleTree);
   }
 
   get tracer(): Tracer {
@@ -242,16 +246,6 @@ export class PublicProcessor implements Traceable {
           continue;
         }
 
-        if (!tx.hasPublicCalls()) {
-          // If there are no public calls, perform all tree insertions for side effects from private
-          // When there are public calls, the PublicTxSimulator & AVM handle tree insertions.
-          await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
-          // Add any contracts registered/deployed in this private-only tx to the block-level cache
-          // (add to tx-level cache and then commit to block-level cache)
-          await this.contractsDB.addNewContracts(tx);
-          this.contractsDB.commitContractsForTx();
-        }
-
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
         returns = returns.concat(returnValues);
@@ -334,16 +328,11 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    await this.treesDB.appendLeaves(
-      MerkleTreeId.NOTE_HASH_TREE,
-      padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
-    );
+    const noteHashesToPad = MAX_NOTE_HASHES_PER_TX - processedTx.txEffect.noteHashes.length;
+    await this.treesDB.padTree(MerkleTreeId.NOTE_HASH_TREE, noteHashesToPad);
     try {
-      await this.treesDB.batchInsert(
-        MerkleTreeId.NULLIFIER_TREE,
-        padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
-        NULLIFIER_SUBTREE_HEIGHT,
-      );
+      const nullifiersToPad = MAX_NULLIFIERS_PER_TX - processedTx.txEffect.nullifiers.length;
+      await this.treesDB.padTree(MerkleTreeId.NULLIFIER_TREE, nullifiersToPad);
     } catch (error) {
       if (txValidator) {
         // Ideally the validator has already caught this above, but just in case:
@@ -354,11 +343,6 @@ export class PublicProcessor implements Traceable {
       }
     }
 
-    // The only public data write should be for fee payment
-    await this.treesDB.sequentialInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      processedTx.txEffect.publicDataWrites.map(x => x.toBuffer()),
-    );
     const treeInsertionEnd = process.hrtime.bigint();
     this.metrics.recordTreeInsertions(Number(treeInsertionEnd - treeInsertionStart) / 1_000);
   }
@@ -400,7 +384,7 @@ export class PublicProcessor implements Traceable {
    * This is used in private only txs, since for txs with public calls
    * the avm handles the fee payment itself.
    */
-  private async getFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite> {
+  private async performFeePaymentPublicDataWrite(txFee: Fr, feePayer: AztecAddress): Promise<PublicDataWrite> {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
@@ -428,7 +412,7 @@ export class PublicProcessor implements Traceable {
     const gasFees = this.globalVariables.gasFees;
     const transactionFee = tx.data.gasUsed.computeFee(gasFees);
 
-    const feePaymentPublicDataWrite = await this.getFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
+    const feePaymentPublicDataWrite = await this.performFeePaymentPublicDataWrite(transactionFee, tx.data.feePayer);
 
     const processedTx = await makeProcessedTxFromPrivateOnlyTx(
       tx,
@@ -447,6 +431,15 @@ export class PublicProcessor implements Traceable {
         .filter(log => ContractClassRegisteredEvent.isContractClassRegisteredEvent(log))
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
+
+    // Add any contracts registered/deployed in this private-only tx to the block-level cache
+    // (add to tx-level cache and then commit to block-level cache)
+    await this.contractsDB.addNewContracts(tx);
+    this.contractsDB.commitContractsForTx();
+
+    // Fee payment insertion has already been done.
+    await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
+
     return [processedTx, undefined];
   }
 

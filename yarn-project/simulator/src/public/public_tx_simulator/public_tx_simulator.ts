@@ -7,6 +7,7 @@ import {
   AvmCircuitPublicInputs,
   AvmExecutionHints,
   type AvmProvingRequest,
+  AvmTxHint,
   type RevertCode,
 } from '@aztec/stdlib/avm';
 import { SimulationError } from '@aztec/stdlib/errors';
@@ -25,7 +26,8 @@ import { strict as assert } from 'assert';
 import { getPublicFunctionDebugName } from '../../common/debug_fn_name.js';
 import type { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
 import { AvmSimulator } from '../avm/index.js';
-import type { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { HintingPublicContractsDB } from '../hinting_db_sources.js';
+import type { PublicContractsDB, PublicTreesDBFactoryInterface } from '../public_db_sources.js';
 import { NullifierCollisionError } from '../state_manager/nullifiers.js';
 import type { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { PublicTxContext } from './public_tx_context.js';
@@ -52,7 +54,7 @@ export class PublicTxSimulator {
   protected log: Logger;
 
   constructor(
-    private treesDB: PublicTreesDB,
+    private treesDBFactory: PublicTreesDBFactoryInterface,
     protected contractsDB: PublicContractsDB,
     private globalVariables: GlobalVariables,
     private doMerkleOperations: boolean = false,
@@ -71,9 +73,14 @@ export class PublicTxSimulator {
       const txHash = await this.computeTxHash(tx);
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
 
+      // Create (possibly hinting) DBs.
+      const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
+      const hintingContractsDB = new HintingPublicContractsDB(this.contractsDB, hints);
+      const treesDB = await this.treesDBFactory.create(hints);
+
       const context = await PublicTxContext.create(
-        this.treesDB,
-        this.contractsDB,
+        treesDB,
+        hintingContractsDB,
         tx,
         this.globalVariables,
         this.doMerkleOperations,
@@ -107,7 +114,7 @@ export class PublicTxSimulator {
       await this.payFee(context);
 
       const publicInputs = await context.generateAvmCircuitPublicInputs();
-      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, context.hints);
+      const avmProvingRequest = PublicTxSimulator.generateProvingRequest(publicInputs, hints);
 
       const revertCode = context.getFinalRevertCode();
 
@@ -267,7 +274,7 @@ export class PublicTxSimulator {
     stateManager.traceEnqueuedCall(callRequest.request);
 
     const result = await this.simulateEnqueuedCallInternal(
-      context.state.getActiveStateManager(),
+      stateManager,
       callRequest,
       allocatedGas,
       /*transactionFee=*/ context.getTransactionFee(phase),

@@ -7,24 +7,24 @@ import { AvmCircuitInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SimulationError } from '@aztec/stdlib/errors';
 import { Gas, GasFees } from '@aztec/stdlib/gas';
-import type { TreeInfo } from '@aztec/stdlib/interfaces/server';
 import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import { mockTx } from '@aztec/stdlib/testing';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { GlobalVariables, Tx, type TxValidator } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { PublicContractsDB } from '../public_db_sources.js';
 import type { PublicTxResult, PublicTxSimulator } from '../public_tx_simulator/public_tx_simulator.js';
 import { PublicProcessor } from './public_processor.js';
 
 describe('public_processor', () => {
-  let treesDB: MockProxy<PublicTreesDB>;
+  let merkleTree: MockProxy<MerkleTreeWriteOperations>;
   let contractsDB: MockProxy<PublicContractsDB>;
   let publicTxSimulator: MockProxy<PublicTxSimulator>;
 
-  let root: Buffer;
+  // let root: Buffer;
   let mockedEnqueuedCallsResult: PublicTxResult;
 
   let processor: PublicProcessor;
@@ -39,11 +39,9 @@ describe('public_processor', () => {
     mockTx(seed, { numberOfNonRevertiblePublicCallRequests: 1, numberOfRevertiblePublicCallRequests: 1, feePayer });
 
   beforeEach(() => {
-    treesDB = mock<PublicTreesDB>();
+    merkleTree = mock<MerkleTreeWriteOperations>();
     contractsDB = mock<PublicContractsDB>();
     publicTxSimulator = mock();
-
-    root = Buffer.alloc(32, 5);
 
     const avmCircuitInputs = AvmCircuitInputs.empty();
     mockedEnqueuedCallsResult = {
@@ -61,8 +59,8 @@ describe('public_processor', () => {
       processedPhases: [],
     };
 
-    treesDB.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
-    treesDB.storageRead.mockResolvedValue(Fr.ZERO);
+    // treesDB.getTreeInfo.mockResolvedValue({ root } as TreeInfo);
+    // treesDB.storageRead.mockResolvedValue(Fr.ZERO);
 
     publicTxSimulator.simulate.mockImplementation(() => {
       return Promise.resolve(mockedEnqueuedCallsResult);
@@ -70,7 +68,7 @@ describe('public_processor', () => {
 
     processor = new PublicProcessor(
       globalVariables,
-      treesDB,
+      merkleTree,
       contractsDB,
       publicTxSimulator,
       new TestDateProvider(),
@@ -100,7 +98,7 @@ describe('public_processor', () => {
       expect(processed[0].data).toEqual(tx.data);
       expect(failed).toEqual([]);
 
-      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('runs a tx with reverted enqueued public calls', async function () {
@@ -115,7 +113,7 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await tx.getTxHash());
       expect(failed).toEqual([]);
 
-      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('returns failed txs without aborting entire operation', async function () {
@@ -129,8 +127,8 @@ describe('public_processor', () => {
       expect(failed[0].tx).toEqual(tx);
       expect(failed[0].error).toEqual(new SimulationError(`Failed`, []));
 
-      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(treesDB.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
     });
 
     it('does not attempt to overfill a block', async function () {
@@ -175,7 +173,7 @@ describe('public_processor', () => {
       expect(processed[0].hash).toEqual(await txs[0].getTxHash());
       expect(processed[1].hash).toEqual(await txs[1].getTxHash());
       expect(failed).toEqual([]);
-      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(2);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -184,7 +182,8 @@ describe('public_processor', () => {
     const initialBalance = new Fr(1000);
 
     beforeEach(() => {
-      treesDB.storageRead.mockResolvedValue(initialBalance);
+      // FIXME: Add this back in
+      // merkleTree.storageRead.mockResolvedValue(initialBalance);
     });
 
     it('injects balance update with no public calls', async function () {
@@ -206,7 +205,7 @@ describe('public_processor', () => {
       );
       expect(failed).toEqual([]);
 
-      expect(treesDB.storageWrite).toHaveBeenCalledTimes(1);
+      expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(1);
     });
 
     it('rejects tx if fee payer has not enough balance', async function () {
@@ -226,9 +225,9 @@ describe('public_processor', () => {
       expect(failed).toHaveLength(1);
       expect(failed[0].error.message).toMatch(/Not enough balance/i);
 
-      expect(treesDB.commitCheckpoint).toHaveBeenCalledTimes(0);
-      expect(treesDB.revertCheckpoint).toHaveBeenCalledTimes(1);
-      expect(treesDB.storageWrite).toHaveBeenCalledTimes(0);
+      expect(merkleTree.commitCheckpoint).toHaveBeenCalledTimes(0);
+      expect(merkleTree.revertCheckpoint).toHaveBeenCalledTimes(1);
+      expect(merkleTree.sequentialInsert).toHaveBeenCalledTimes(0);
     });
   });
 });

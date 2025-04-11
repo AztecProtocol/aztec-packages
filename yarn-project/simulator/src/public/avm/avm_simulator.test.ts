@@ -12,7 +12,6 @@ import { Fq, Fr, Point } from '@aztec/foundation/fields';
 import type { Fieldable } from '@aztec/foundation/serialize';
 import { CounterContract } from '@aztec/noir-contracts.js/Counter';
 import { type FunctionArtifact, FunctionSelector } from '@aztec/stdlib/abi';
-import { PublicDataWrite } from '@aztec/stdlib/avm';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { SerializableContractInstance, computePublicBytecodeCommitment } from '@aztec/stdlib/contract';
 import { GasFees } from '@aztec/stdlib/gas';
@@ -26,7 +25,6 @@ import {
 } from '@aztec/stdlib/hash';
 import { PublicKeys } from '@aztec/stdlib/keys';
 import { makeContractClassPublic, makeContractInstanceFromClassId } from '@aztec/stdlib/testing';
-import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import { strict as assert } from 'assert';
@@ -1161,8 +1159,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(trace.traceNewNoteHash).toHaveBeenCalledWith(uniqueNoteHash0);
       });
       it('Note hash check properly returns exists=false', async () => {
-        const treeInfo = await treesDB.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-        const leafIndex = treeInfo.size;
+        const leafIndex = (await treesDB.getTreeSnapshots()).noteHashTree.nextAvailableLeafIndex;
 
         const calldata = [uniqueNoteHash0, new Fr(leafIndex)];
         const context = createContext(calldata);
@@ -1173,9 +1170,8 @@ describe('AVM simulator: transpiled Noir contracts', () => {
         expect(results.output).toEqual([/*exists=*/ Fr.ZERO]);
       });
       it('Note hash check properly returns exists=true', async () => {
-        const treeInfo = await treesDB.getTreeInfo(MerkleTreeId.NOTE_HASH_TREE);
-        const leafIndex = treeInfo.size;
-        await treesDB.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [uniqueNoteHash0]);
+        const leafIndex = (await treesDB.getTreeSnapshots()).noteHashTree.nextAvailableLeafIndex;
+        await treesDB.writeNoteHash(uniqueNoteHash0);
 
         const calldata = [uniqueNoteHash0, new Fr(leafIndex)];
         const context = createContext(calldata);
@@ -1210,7 +1206,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
       });
       it('Nullifier check properly returns exists=true', async () => {
         const calldata = [value0];
-        await treesDB.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier0.toBuffer()]);
+        await treesDB.writeNullifier(siloedNullifier0);
         const context = createContext(calldata);
         const bytecode = getAvmTestContractBytecode('nullifier_exists');
 
@@ -1245,8 +1241,7 @@ describe('AVM simulator: transpiled Noir contracts', () => {
 
       it('Should read value in storage (single) - written before, leaf exists', async () => {
         const context = createContext();
-        const publicDataWrite = new PublicDataWrite(leafSlot0, value0);
-        await treesDB.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
+        await treesDB.storageWrite(context.environment.address, leafSlot0, value0);
 
         const bytecode = getAvmTestContractBytecode('read_storage_single');
 

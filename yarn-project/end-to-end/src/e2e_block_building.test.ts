@@ -27,13 +27,14 @@ import { TokenContract } from '@aztec/noir-contracts.js/Token';
 import type { SequencerClient } from '@aztec/sequencer-client';
 import type { TestSequencerClient } from '@aztec/sequencer-client/test';
 import {
+  HintingPublicTreesDBFactory,
   PublicContractsDB,
   PublicProcessorFactory,
-  type PublicTreesDB,
   type PublicTxResult,
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/trees';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 import type { TelemetryClient } from '@aztec/telemetry-client';
 
@@ -639,15 +640,16 @@ class TestPublicTxSimulator extends TelemetryPublicTxSimulator {
 }
 class TestPublicProcessorFactory extends PublicProcessorFactory {
   protected override createPublicTxSimulator(
-    treesDB: PublicTreesDB,
+    merkleTree: MerkleTreeWriteOperations,
     contractsDB: PublicContractsDB,
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
     telemetryClient?: TelemetryClient,
   ) {
+    const treesDBFactory = new HintingPublicTreesDBFactory(merkleTree);
     return new TestPublicTxSimulator(
-      treesDB,
+      treesDBFactory,
       contractsDB,
       globalVariables,
       doMerkleOperations,
