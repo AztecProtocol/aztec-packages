@@ -173,7 +173,8 @@ namespace public_data_check;
         merkle_check.index, merkle_check.path_len, merkle_check.read_root, merkle_check.write_root };
 
     pol SHOULD_UPDATE = LEAF_EXISTS * write;
-
+    // If we are writing, but the leaf has been written before, we don't insert, so write_root is intermediate_root
+    #[UPDATE_ROOT_VALIDATION]
     SHOULD_UPDATE * (write_root - intermediate_root) = 0;
 
 

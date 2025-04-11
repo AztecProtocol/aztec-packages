@@ -141,7 +141,7 @@ template <typename FF_> class public_data_checkImpl {
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // UPDATE_ROOT_VALIDATION
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = public_data_check_SHOULD_UPDATE *
                        (new_term.public_data_check_write_root - new_term.public_data_check_intermediate_root);
@@ -170,6 +170,8 @@ template <typename FF> class public_data_check : public Relation<public_data_che
             return "LOW_LEAF_NEXT_SLOT_UPDATE";
         case 11:
             return "VALUE_IS_CORRECT";
+        case 13:
+            return "UPDATE_ROOT_VALIDATION";
         }
         return std::to_string(index);
     }
@@ -181,6 +183,7 @@ template <typename FF> class public_data_check : public Relation<public_data_che
     static constexpr size_t SR_LOW_LEAF_NEXT_INDEX_UPDATE = 8;
     static constexpr size_t SR_LOW_LEAF_NEXT_SLOT_UPDATE = 9;
     static constexpr size_t SR_VALUE_IS_CORRECT = 11;
+    static constexpr size_t SR_UPDATE_ROOT_VALIDATION = 13;
 };
 
 } // namespace bb::avm2
