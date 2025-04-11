@@ -34,7 +34,7 @@ export interface KernelProverConfig {
 export interface PXEConfig {
   /** L2 block to start scanning from for new accounts */
   l2StartingBlock: number;
-  /** Number of blocks to pull in a single batch from the block stream */
+  /** Maximum amount of blocks to pull from the stream in one request when synchronizing */
   l2BlockBatchSize: number;
 }
 
@@ -60,7 +60,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   l2BlockBatchSize: {
     env: 'PXE_L2_BLOCK_BATCH_SIZE',
     ...numberConfigHelper(200),
-    description: 'Number of blocks to pull in a single batch from the block stream',
+    description: 'Maximum amount of blocks to pull from the stream in one request when synchronizing',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',

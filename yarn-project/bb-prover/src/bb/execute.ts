@@ -426,7 +426,7 @@ export async function generateAvmProofV2(
         durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: outputPath,
+        vkPath: join(outputPath, VK_FILENAME),
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
