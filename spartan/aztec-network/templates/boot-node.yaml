@@ -50,7 +50,7 @@ spec:
             - /bin/bash
             - -c
             - |
-              source /scripts/validator-addresses
+              source /scripts/get-validator-addresses.sh
 
               source /shared/config/service-addresses
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
