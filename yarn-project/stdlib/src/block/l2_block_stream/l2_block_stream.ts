@@ -21,6 +21,8 @@ export class L2BlockStream {
       pollIntervalMS?: number;
       batchSize?: number;
       startingBlock?: number;
+      /** Instead of downloading all blocks, only fetch the smallest subset that results in reliable reorg detection. */
+      skipFinalized?: boolean;
     } = {},
   ) {
     this.runningPromise = new RunningPromise(() => this.work(), log, this.opts.pollIntervalMS ?? 1000);
@@ -92,17 +94,26 @@ export class L2BlockStream {
         this.hasStarted = true;
       }
 
+      let nextBlockNumber = latestBlockNumber + 1;
+      if (this.opts.skipFinalized) {
+        // When skipping finalized blocks we need to provide reliable reorg detection while fetching as few blocks as
+        // possible. Finalized blocks cannot be reorged by definition, so we can skip most of them. We do need the very
+        // last finalized block however in order to guarantee that we will eventually find a block in which our local
+        // store matches the source.
+        // If the last finalized block is behind our local tip, there is nothing to skip.
+        nextBlockNumber = Math.max(sourceTips.finalized.number, nextBlockNumber);
+      }
+
       // Request new blocks from the source.
-      while (latestBlockNumber < sourceTips.latest.number) {
-        const from = latestBlockNumber + 1;
-        const limit = Math.min(this.opts.batchSize ?? 20, sourceTips.latest.number - from + 1);
-        this.log.trace(`Requesting blocks from ${from} limit ${limit} proven=${this.opts.proven}`);
-        const blocks = await this.l2BlockSource.getPublishedBlocks(from, limit, this.opts.proven);
+      while (nextBlockNumber <= sourceTips.latest.number) {
+        const limit = Math.min(this.opts.batchSize ?? 20, sourceTips.latest.number - nextBlockNumber + 1);
+        this.log.trace(`Requesting blocks from ${nextBlockNumber} limit ${limit} proven=${this.opts.proven}`);
+        const blocks = await this.l2BlockSource.getPublishedBlocks(nextBlockNumber, limit, this.opts.proven);
         if (blocks.length === 0) {
           break;
         }
         await this.emitEvent({ type: 'blocks-added', blocks });
-        latestBlockNumber = blocks.at(-1)!.block.number;
+        nextBlockNumber = blocks.at(-1)!.block.number + 1;
       }
 
       // Update the proven and finalized tips.
@@ -133,6 +144,15 @@ export class L2BlockStream {
       return true;
     }
     const localBlockHash = await this.localData.getL2BlockHash(blockNumber);
+    if (!localBlockHash && this.opts.skipFinalized) {
+      // Failing to find a block hash when skipping finalized blocks can be highly problematic as we'd potentially need
+      // to go all the way back to the genesis block to find a block in which we agree with the source (since we've
+      // potentially skipped all history). This means that stores that prune old blocks must be careful to leave no gaps
+      // when going back from latest block to the last finalized one.
+      this.log.error(`No local block hash for block number ${blockNumber}`);
+      throw new AbortError();
+    }
+
     const sourceBlockHashFromCache = args.sourceCache.get(blockNumber);
     const sourceBlockHash = args.sourceCache.get(blockNumber) ?? (await this.getBlockHashFromSource(blockNumber));
     if (!sourceBlockHashFromCache && sourceBlockHash) {

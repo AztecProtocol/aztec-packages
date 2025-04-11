@@ -13,10 +13,7 @@ import { L2BlockStream } from './l2_block_stream.js';
 import { L2TipsMemoryStore } from './l2_tips_memory_store.js';
 
 describe('L2BlockStream', () => {
-  let blockStream: TestL2BlockStream;
-
   let blockSource: MockProxy<L2BlockSource>;
-  let handler: TestL2BlockStreamEventHandler;
 
   let latest: number = 0;
 
@@ -59,10 +56,12 @@ describe('L2BlockStream', () => {
 
   describe('with mock local data provider', () => {
     let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
 
     beforeEach(() => {
-      handler = new TestL2BlockStreamEventHandler();
       localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
       blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
     });
 
@@ -158,6 +157,8 @@ describe('L2BlockStream', () => {
 
   describe('with memory tips store', () => {
     let localData: TestL2TipsMemoryStore;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
 
     beforeEach(() => {
       localData = new TestL2TipsMemoryStore();
@@ -186,6 +187,52 @@ describe('L2BlockStream', () => {
       setRemoteTips(25, 25, 10);
       await blockStream.work();
       expect(handler.events).toEqual([{ type: 'chain-pruned', block: makeBlockId(25) }] satisfies L2BlockStreamEvent[]);
+    });
+  });
+
+  describe('skipFinalized', () => {
+    let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
+    let blockStream: TestL2BlockStream;
+
+    beforeEach(() => {
+      localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
+      blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
+        batchSize: 10,
+        skipFinalized: true,
+      });
+    });
+
+    it('skips ahead to the latest finalized block', async () => {
+      setRemoteTips(40, 38, 35);
+
+      localData.latest.number = 5;
+      localData.proven.number = 2;
+      localData.finalized.number = 2;
+
+      await blockStream.work();
+
+      // Instead of fetching the next local block (6), we skip ahead to the latest finalized (35) and go from there.
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(6, i => makeBlock(i + 35)) },
+        { type: 'chain-proven', block: makeBlockId(38) },
+        { type: 'chain-finalized', block: makeBlockId(35) },
+      ] satisfies L2BlockStreamEvent[]);
+    });
+
+    it('does not skip if already ahead of finalized', async () => {
+      setRemoteTips(40, 38, 35);
+
+      localData.latest.number = 38;
+      localData.proven.number = 38;
+      localData.finalized.number = 35;
+
+      await blockStream.work();
+
+      expect(handler.events).toEqual([
+        { type: 'blocks-added', blocks: times(2, i => makeBlock(i + 39)) },
+      ] satisfies L2BlockStreamEvent[]);
     });
   });
 });
