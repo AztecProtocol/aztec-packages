@@ -1,7 +1,10 @@
 #include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
+#include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
+#include "barretenberg/vm2/tracegen/lib/make_jobs.hpp"
 
 namespace bb::avm2::tracegen {
 
@@ -55,9 +58,9 @@ void PublicDataTreeCheckTraceBuilder::process(
                       { C::public_data_check_low_leaf_value, event.low_leaf_preimage.leaf.value },
                       { C::public_data_check_low_leaf_next_index, event.low_leaf_preimage.nextIndex },
                       { C::public_data_check_low_leaf_next_slot, event.low_leaf_preimage.nextKey },
-                      { C::public_data_check_write_low_leaf_value, updated_low_leaf.leaf.value },
-                      { C::public_data_check_write_low_leaf_next_index, updated_low_leaf.nextIndex },
-                      { C::public_data_check_write_low_leaf_next_slot, updated_low_leaf.nextKey },
+                      { C::public_data_check_updated_low_leaf_value, updated_low_leaf.leaf.value },
+                      { C::public_data_check_updated_low_leaf_next_index, updated_low_leaf.nextIndex },
+                      { C::public_data_check_updated_low_leaf_next_slot, updated_low_leaf.nextKey },
                       { C::public_data_check_low_leaf_index, event.low_leaf_index },
                       { C::public_data_check_leaf_not_exists, !exists },
                       { C::public_data_check_slot_low_leaf_slot_diff_inv, slot_low_leaf_slot_diff_inv },
@@ -78,7 +81,7 @@ void PublicDataTreeCheckTraceBuilder::process(
 std::vector<std::unique_ptr<InteractionBuilderInterface>> PublicDataTreeCheckTraceBuilder::lookup_jobs()
 {
     return make_jobs<std::unique_ptr<InteractionBuilderInterface>>(
-        // Public data read
+        // Public data read/write
         std::make_unique<
             LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_slot_validation_settings>>(),
         std::make_unique<
@@ -92,17 +95,7 @@ std::vector<std::unique_ptr<InteractionBuilderInterface>> PublicDataTreeCheckTra
         std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_merkle_check_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_poseidon2_0_settings>>(),
         std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_poseidon2_1_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_merkle_check_settings>>(),
-        // Update check
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hash_poseidon2_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_update_check_shared_mutable_slot_poseidon2_settings>>(),
-        std::make_unique<
-            LookupIntoDynamicTableSequential<lookup_update_check_shared_mutable_leaf_slot_poseidon2_settings>>(),
-        std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hash_public_data_read_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_update_hi_metadata_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_update_lo_metadata_range_settings>>(),
-        std::make_unique<LookupIntoDynamicTableGeneric<lookup_update_check_block_of_change_cmp_range_settings>>());
+        std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_merkle_check_settings>>());
 }
 
 } // namespace bb::avm2::tracegen

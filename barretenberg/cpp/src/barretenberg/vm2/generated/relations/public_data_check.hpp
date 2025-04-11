@@ -5,6 +5,7 @@
 
 #include "barretenberg/relations/relation_parameters.hpp"
 #include "barretenberg/relations/relation_types.hpp"
+#include "barretenberg/vm2/generated/columns.hpp"
 
 namespace bb::avm2 {
 
@@ -16,49 +17,51 @@ template <typename FF_> class public_data_checkImpl {
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        const auto& new_term = in;
-        return (new_term.public_data_check_sel).is_zero();
+        using C = ColumnAndShifts;
+        return (in.get(C::public_data_check_sel)).is_zero();
     }
 
     template <typename ContainerOverSubrelations, typename AllEntities>
     void static accumulate(ContainerOverSubrelations& evals,
-                           const AllEntities& new_term,
+                           const AllEntities& in,
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        using C = ColumnAndShifts;
+
         const auto constants_PUBLIC_DATA_TREE_HEIGHT = FF(40);
-        const auto public_data_check_LEAF_EXISTS = (FF(1) - new_term.public_data_check_leaf_not_exists);
+        const auto public_data_check_LEAF_EXISTS = (FF(1) - in.get(C::public_data_check_leaf_not_exists));
         const auto public_data_check_SLOT_LOW_LEAF_SLOT_DIFF =
-            (new_term.public_data_check_slot - new_term.public_data_check_low_leaf_slot);
-        const auto public_data_check_NEXT_SLOT_IS_ZERO = (FF(1) - new_term.public_data_check_next_slot_is_nonzero);
-        const auto public_data_check_SHOULD_UPDATE = public_data_check_LEAF_EXISTS * new_term.public_data_check_write;
+            (in.get(C::public_data_check_slot) - in.get(C::public_data_check_low_leaf_slot));
+        const auto public_data_check_NEXT_SLOT_IS_ZERO = (FF(1) - in.get(C::public_data_check_next_slot_is_nonzero));
+        const auto public_data_check_SHOULD_UPDATE = public_data_check_LEAF_EXISTS * in.get(C::public_data_check_write);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_sel * (FF(1) - new_term.public_data_check_sel);
+            auto tmp = in.get(C::public_data_check_sel) * (FF(1) - in.get(C::public_data_check_sel));
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_write * (FF(1) - new_term.public_data_check_write);
+            auto tmp = in.get(C::public_data_check_write) * (FF(1) - in.get(C::public_data_check_write));
             tmp *= scaling_factor;
             std::get<1>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
             auto tmp =
-                new_term.public_data_check_leaf_not_exists * (FF(1) - new_term.public_data_check_leaf_not_exists);
+                in.get(C::public_data_check_leaf_not_exists) * (FF(1) - in.get(C::public_data_check_leaf_not_exists));
             tmp *= scaling_factor;
             std::get<2>(evals) += typename Accumulator::View(tmp);
         }
         { // EXISTS_FLAG_CHECK
             using Accumulator = typename std::tuple_element_t<3, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_sel *
+            auto tmp = in.get(C::public_data_check_sel) *
                        ((public_data_check_SLOT_LOW_LEAF_SLOT_DIFF *
                              (public_data_check_LEAF_EXISTS *
-                                  (FF(1) - new_term.public_data_check_slot_low_leaf_slot_diff_inv) +
-                              new_term.public_data_check_slot_low_leaf_slot_diff_inv) -
+                                  (FF(1) - in.get(C::public_data_check_slot_low_leaf_slot_diff_inv)) +
+                              in.get(C::public_data_check_slot_low_leaf_slot_diff_inv)) -
                          FF(1)) +
                         public_data_check_LEAF_EXISTS);
             tmp *= scaling_factor;
@@ -66,85 +69,85 @@ template <typename FF_> class public_data_checkImpl {
         }
         {
             using Accumulator = typename std::tuple_element_t<4, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_sel * (FF(1) - new_term.public_data_check_one);
+            auto tmp = in.get(C::public_data_check_sel) * (FF(1) - in.get(C::public_data_check_one));
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_next_slot_is_nonzero *
-                       (FF(1) - new_term.public_data_check_next_slot_is_nonzero);
+            auto tmp = in.get(C::public_data_check_next_slot_is_nonzero) *
+                       (FF(1) - in.get(C::public_data_check_next_slot_is_nonzero));
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
         { // NEXT_SLOT_IS_ZERO_CHECK
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_leaf_not_exists *
-                       ((new_term.public_data_check_low_leaf_next_slot *
-                             (public_data_check_NEXT_SLOT_IS_ZERO * (FF(1) - new_term.public_data_check_next_slot_inv) +
-                              new_term.public_data_check_next_slot_inv) -
-                         FF(1)) +
-                        public_data_check_NEXT_SLOT_IS_ZERO);
+            auto tmp =
+                in.get(C::public_data_check_leaf_not_exists) *
+                ((in.get(C::public_data_check_low_leaf_next_slot) *
+                      (public_data_check_NEXT_SLOT_IS_ZERO * (FF(1) - in.get(C::public_data_check_next_slot_inv)) +
+                       in.get(C::public_data_check_next_slot_inv)) -
+                  FF(1)) +
+                 public_data_check_NEXT_SLOT_IS_ZERO);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
         { // LOW_LEAF_VALUE_UPDATE
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_write *
-                       (((new_term.public_data_check_low_leaf_value - new_term.public_data_check_value) *
-                             new_term.public_data_check_leaf_not_exists +
-                         new_term.public_data_check_value) -
-                        new_term.public_data_check_write_low_leaf_value);
+            auto tmp = in.get(C::public_data_check_write) *
+                       (((in.get(C::public_data_check_low_leaf_value) - in.get(C::public_data_check_value)) *
+                             in.get(C::public_data_check_leaf_not_exists) +
+                         in.get(C::public_data_check_value)) -
+                        in.get(C::public_data_check_updated_low_leaf_value));
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
         { // LOW_LEAF_NEXT_INDEX_UPDATE
             using Accumulator = typename std::tuple_element_t<8, ContainerOverSubrelations>;
-            auto tmp =
-                new_term.public_data_check_write *
-                (((new_term.public_data_check_tree_size_before_write - new_term.public_data_check_low_leaf_next_index) *
-                      new_term.public_data_check_leaf_not_exists +
-                  new_term.public_data_check_low_leaf_next_index) -
-                 new_term.public_data_check_write_low_leaf_next_index);
+            auto tmp = in.get(C::public_data_check_write) * (((in.get(C::public_data_check_tree_size_before_write) -
+                                                               in.get(C::public_data_check_low_leaf_next_index)) *
+                                                                  in.get(C::public_data_check_leaf_not_exists) +
+                                                              in.get(C::public_data_check_low_leaf_next_index)) -
+                                                             in.get(C::public_data_check_updated_low_leaf_next_index));
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
         { // LOW_LEAF_NEXT_SLOT_UPDATE
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_write *
-                       (((new_term.public_data_check_slot - new_term.public_data_check_low_leaf_next_slot) *
-                             new_term.public_data_check_leaf_not_exists +
-                         new_term.public_data_check_low_leaf_next_slot) -
-                        new_term.public_data_check_write_low_leaf_next_slot);
+            auto tmp = in.get(C::public_data_check_write) *
+                       (((in.get(C::public_data_check_slot) - in.get(C::public_data_check_low_leaf_next_slot)) *
+                             in.get(C::public_data_check_leaf_not_exists) +
+                         in.get(C::public_data_check_low_leaf_next_slot)) -
+                        in.get(C::public_data_check_updated_low_leaf_next_slot));
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
-            auto tmp = new_term.public_data_check_sel *
-                       (new_term.public_data_check_tree_height - constants_PUBLIC_DATA_TREE_HEIGHT);
+            auto tmp = in.get(C::public_data_check_sel) *
+                       (in.get(C::public_data_check_tree_height) - constants_PUBLIC_DATA_TREE_HEIGHT);
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
         { // VALUE_IS_CORRECT
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
-            auto tmp = (FF(1) - new_term.public_data_check_write) *
-                       (new_term.public_data_check_low_leaf_value * public_data_check_LEAF_EXISTS -
-                        new_term.public_data_check_value);
+            auto tmp = (FF(1) - in.get(C::public_data_check_write)) *
+                       (in.get(C::public_data_check_low_leaf_value) * public_data_check_LEAF_EXISTS -
+                        in.get(C::public_data_check_value));
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
         {
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
-            auto tmp = (new_term.public_data_check_leaf_not_exists * new_term.public_data_check_write -
-                        new_term.public_data_check_should_insert);
+            auto tmp = (in.get(C::public_data_check_leaf_not_exists) * in.get(C::public_data_check_write) -
+                        in.get(C::public_data_check_should_insert));
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
         { // UPDATE_ROOT_VALIDATION
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp = public_data_check_SHOULD_UPDATE *
-                       (new_term.public_data_check_write_root - new_term.public_data_check_intermediate_root);
+                       (in.get(C::public_data_check_write_root) - in.get(C::public_data_check_intermediate_root));
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
