@@ -87,7 +87,6 @@ spec:
             - name: validator-data
               mountPath: {{ .Values.validator.dataDir }}
           env:
-            # TODO(md): unify
             - name: KEY_INDEX_START
               value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
             - name: MNEMONIC

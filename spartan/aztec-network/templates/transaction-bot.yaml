@@ -94,10 +94,10 @@ spec:
             - "-c"
             - |
               source /scripts/get-private-key.sh
+              source /shared/config/keys.env
 
               source /shared/config/service-addresses
               cat /shared/config/service-addresses
-              source /shared/config/keys.env
               source /shared/config/otel-resource
               {{- if .Values.bot.nodeUrl }}
               export AZTEC_NODE_URL={{ .Values.bot.nodeUrl }}
