@@ -41,7 +41,7 @@ images:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
   foundry:
-    image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
+    image: ghcr.io/foundry-rs/foundry:nightly-7825a06862b0c97a510618f5c6901eca279e4802
     pullPolicy: IfNotPresent
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8

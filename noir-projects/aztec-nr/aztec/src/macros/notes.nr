@@ -1,8 +1,9 @@
 use crate::{macros::utils::AsStrQuote, note::note_getter_options::PropertySelector};
+use poseidon::poseidon2::Poseidon2Hasher;
 use protocol_types::meta::{derive_packable_and_get_packed_len, generate_serialize_to_fields};
 use std::{
     collections::umap::UHashMap,
-    hash::{BuildHasherDefault, Hash, Hasher, poseidon2::Poseidon2Hasher},
+    hash::{BuildHasherDefault, Hash, Hasher},
     meta::{type_of, unquote},
 };
 

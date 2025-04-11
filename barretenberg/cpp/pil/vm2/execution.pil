@@ -21,6 +21,7 @@ include "context.pil";
 include "context_stack.pil";
 include "public_data_read.pil";
 include "update_check.pil";
+include "nullifier_read.pil";
 
 namespace execution;
 
