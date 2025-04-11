@@ -69,7 +69,6 @@ export async function deployL1Contracts(
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
-    log(`Genesis block hash: ${genesisBlockHash.toString()}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }
