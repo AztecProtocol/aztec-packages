@@ -23,7 +23,7 @@ pub(crate) struct PendingTaggedLog {
 }
 
 mod test {
-    use crate::discovery::pending_tagged_log::PendingTaggedLog;
+    use crate::messages::discovery::pending_tagged_log::PendingTaggedLog;
     use protocol_types::{address::AztecAddress, traits::{FromField, Serialize}};
 
     #[test]

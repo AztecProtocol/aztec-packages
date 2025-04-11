@@ -1,11 +1,12 @@
 use crate::{
     context::PrivateContext,
-    encrypted_logs::{
-        encoding::encode_message, encrypt::aes128::AES128,
-        log_assembly_strategies::default_aes128::utils::prefix_with_tag,
-        log_encryption::LogEncryption, msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
-    },
     event::event_interface::EventInterface,
+    messages::{
+        encoding::encode_message,
+        encryption::{aes128::AES128, log_encryption::LogEncryption},
+        logs::utils::prefix_with_tag,
+        msg_type::PRIVATE_EVENT_MSG_TYPE_ID,
+    },
     prelude::AztecAddress,
 };
 use protocol_types::{constants::PRIVATE_LOG_SIZE_IN_FIELDS, traits::{Serialize, ToField}};

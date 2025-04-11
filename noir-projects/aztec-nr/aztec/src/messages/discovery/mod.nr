@@ -39,7 +39,7 @@ pub struct NoteHashAndNullifier {
 ///         let inner_nullifier = note.compute_nullifier_unconstrained(note_hash_for_nullify);
 ///
 ///         Option::some(
-///             aztec::discovery::NoteHashAndNullifier {
+///             aztec::messages::discovery::NoteHashAndNullifier {
 ///                 note_hash, inner_nullifier
 ///             }
 ///         )
