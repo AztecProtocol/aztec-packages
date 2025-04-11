@@ -88,6 +88,12 @@ class AcirToSmtLoader {
      */
     smt_circuit::UltraCircuit get_integer_smt_circuit(smt_solver::Solver* solver);
 
+    /**
+     * @brief Gets the circuit schema from the loaded ACIR program
+     * @return CircuitSchema instance
+     */
+    smt_circuit::CircuitSchema get_circuit_schema();
+
   private:
     std::string instruction_name;              ///< Name of the instruction/filename being processed
     std::vector<uint8_t> acir_program_buf;     ///< Buffer containing the raw ACIR program data read from file

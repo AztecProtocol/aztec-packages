@@ -1,3 +1,4 @@
+#include "acir_loader.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "barretenberg/smt_verification/util/smt_util.hpp"
@@ -282,6 +283,24 @@ bool verify_idiv(smt_solver::Solver* solver, smt_circuit::UltraCircuit circuit, 
     if (res) {
         std::unordered_map<std::string, cvc5::Term> terms({ { "a", a }, { "b", b }, { "c", c }, { "cr", cr } });
         debug_solution(solver, terms);
+    }
+    return res;
+}
+
+bool verify_non_uniqueness_for_casts(smt_solver::Solver* solver, AcirToSmtLoader* loader, smt_circuit::TermType type)
+{
+    auto schema = loader->get_circuit_schema();
+    auto cirs = smt_circuit::UltraCircuit::unique_witness_ext(schema,
+                                                              solver,
+                                                              type,
+                                                              /*equal_vars=*/{ "a" },
+                                                              /*distinct_vars=*/{ "b" },
+                                                              /*equal_at_the_same_time=*/{},
+                                                              /*not_equal_at_the_same_time=*/{},
+                                                              /*enable_optimizations=*/true);
+    bool res = solver->check();
+    if (res) {
+        debug_solution(solver, {});
     }
     return res;
 }
