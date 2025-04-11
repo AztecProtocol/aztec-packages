@@ -9,7 +9,7 @@ use crate::{
         log_assembly_strategies::default_aes128::arithmetic_generics_utils::{
             get_arr_of_size__log_bytes__from_PT, get_arr_of_size__log_bytes_padding__from_PT,
         },
-        log_encryption::{
+        messages::{
             EPH_PK_SIGN_BYTE_SIZE_IN_BYTES, EPH_PK_X_SIZE_IN_FIELDS,
             HEADER_CIPHERTEXT_SIZE_IN_BYTES, LogEncryption, PRIVATE_LOG_CIPHERTEXT_LEN,
             PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS,
@@ -320,7 +320,7 @@ impl LogEncryption for AES128 {
 
 mod test {
     use crate::{
-        encrypted_logs::log_encryption::{LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS},
+        encrypted_logs::messages::{LogEncryption, PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS},
         keys::ecdh_shared_secret::derive_ecdh_shared_secret_using_aztec_address,
         test::helpers::test_environment::TestEnvironment,
     };

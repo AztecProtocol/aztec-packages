@@ -1,5 +1,5 @@
 // TODO(#12750): don't make these values assume we're using AES.
-use crate::{encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS, utils::array};
+use crate::{encrypted_logs::messages::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS, utils::array};
 
 global MAX_MESSAGE_LEN: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
