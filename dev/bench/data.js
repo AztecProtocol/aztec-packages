@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744368922551,
+  "lastUpdate": 1744369961375,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "007811df98c86f29b89ad218eedfa4dfaadc44d4",
-          "message": "docs: update utility fn docs (#13310)\n\nReplacement for\nhttps://github.com/AztecProtocol/aztec-packages/pull/13248 to get it out\nof the graphite stack.\n\nThis PR updates mentions of top-level unconstrained contract fns for the\nnew 'utility' term. Some instances may be missing, but I think we\ncovered the vast majority of it. I also updated language in some parts\nwere explanations were outdated, and tried to remove bits that conflated\nNoir unconstrained functions and utility functions. We'll likely want to\nexpand on this given the apparent confusion.\n\n---------\n\nCo-authored-by: benesjan <janbenes1234@gmail.com>",
-          "timestamp": "2025-04-08T19:55:01Z",
-          "tree_id": "7be517c7601f05a23cf05f78b324cf77c16f8939",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/007811df98c86f29b89ad218eedfa4dfaadc44d4"
-        },
-        "date": 1744145614714,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 30054,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 18060,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9274,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10833,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12684,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3006,6 +2952,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12767,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "cf18f8e674406ca0a50674cf200b58be0cbf4856",
+          "message": "chore: Bump Noir reference (#13478)\n\nAutomated pull of nightly from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: add benchmark for ACVM arithmetic solver\n(https://github.com/noir-lang/noir/pull/8003)\nfeat: attribute locations (https://github.com/noir-lang/noir/pull/8006)\nfix(LSP): implement missing members associated constants\n(https://github.com/noir-lang/noir/pull/8016)\nchore: bump a few versions in yarn.lock\n(https://github.com/noir-lang/noir/pull/8014)\nchore: bump external pinned commits\n(https://github.com/noir-lang/noir/pull/8015)\nchore(deps): bump koa from 2.14.2 to 2.16.1\n(https://github.com/noir-lang/noir/pull/8013)\nchore: improve checking of github urls in `noir_wasm`\n(https://github.com/noir-lang/noir/pull/8012)\nfix(parser): error on missing function body\n(https://github.com/noir-lang/noir/pull/8001)\nfix: better tests to check for unused struct error\n(https://github.com/noir-lang/noir/pull/8007)\nfix: checks for index out of bounds also for arrays\n(https://github.com/noir-lang/noir/pull/7827)\nfeat(stdlib): Expose the times a mock oracle is called\n(https://github.com/noir-lang/noir/pull/7996)\nfeat: add `loop` generator to AST fuzzer\n(https://github.com/noir-lang/noir/pull/7985)\nfeat: allow splicing a resolved function into an attribute name\n(https://github.com/noir-lang/noir/pull/7956)\nchore: bump `crossbeam-channel` to `v0.5.15`\n(https://github.com/noir-lang/noir/pull/8005)\nchore: add `teddav/tdd.nr` to external repo checks\n(https://github.com/noir-lang/noir/pull/7994)\nchore: clippy fixes (https://github.com/noir-lang/noir/pull/8002)\nEND_COMMIT_OVERRIDE\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-04-11T09:51:33Z",
+          "tree_id": "f20afbf6148f9ac475df7e674e06cece9129f426",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/cf18f8e674406ca0a50674cf200b58be0cbf4856"
+        },
+        "date": 1744369953578,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 30980,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18315,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 9116,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10799,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12928,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
