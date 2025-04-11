@@ -85,7 +85,7 @@ When a PXE creates a Schnorr account, there are three key things that occur:
 
 **Create the keys and account in the PXE**
 
-Lets first create the account but only register the instance in the pxe. Its address will be calculated, and in a later step we can deploy it counterfactually to the network.
+Lets first create the account but only register the instance in the PXE. Its address will be calculated, and in a later step we can deploy it to the network.
 
 ```bash
 aztec-wallet create-account --register-only -a main
@@ -125,8 +125,8 @@ Via the CLI:
 The alias set earlier can be confirmed using: `aztec-wallet get-alias accounts:main`, this is specified here in `--from main`.
 
 ```bash
-SPONSORED_FPC_ADDRESS=`aztec-wallet --get-canonical-sponsored-fpc-address`
-aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=$SPONSORED_FPC_ADDRESS
+aztec-wallet register-contract contracts:sponsoredfpc SponsoredFPC --from main
+aztec-wallet deploy-account --from main --payment method=fpc-sponsored,fpc=contracts:sponsoredfpc
 ```
 
 The equivalent using aztec.js - get sponsored fpc address and use payment method:
