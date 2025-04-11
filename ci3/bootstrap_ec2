@@ -217,9 +217,10 @@ function run {
             else
                 pid=\$(docker inspect -f '{{.State.Pid}}' \$cid)
                 if [[ -z \"\$pid\" ]]; then
-                    echo \"Container \$cid not found, skipping netstat dump.\" >> \$filename;
+                    echo \"Container \$cid not found at \$(date), skipping netstat dump.\" >> \$filename;
+                    docker ps --no-trunc >> \$filename;
                 else
-                  sudo nsenter -t \$(docker inspect -f '{{.State.Pid}}' \$cid) -n netstat -tulnp >> \$filename;
+                  sudo nsenter -t \$pid -n netstat -tulnp >> \$filename;
                 fi
             fi
             echo \"End netstat dump for container \$cid at \$timestamp\" >> \$filename
