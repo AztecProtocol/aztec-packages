@@ -62,9 +62,7 @@ const config = {
             );
           },
           routeBasePath: "/",
-          include: process.env.SHOW_PROTOCOL_SPECS
-            ? ["**/*.{md,mdx}"]
-            : ["**/*.{md,mdx}", "!protocol-specs/**"],
+          include: ["**/*.{md,mdx}"],
 
           remarkPlugins: [math],
           rehypePlugins: [
@@ -297,16 +295,6 @@ const config = {
                 label: "Roadmap",
                 className: "no-external-icon",
               },
-              ...(process.env.SHOW_PROTOCOL_SPECS
-                ? [
-                    {
-                      type: "docSidebar",
-                      sidebarId: "protocolSpecSidebar",
-                      label: "Protocol Specification",
-                      className: "no-external-icon",
-                    },
-                  ]
-                : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
@@ -437,5 +425,19 @@ const config = {
       },
     }),
 };
+
+if (process.env.PROTOCOL_SPECS) {
+  //@ts-ignore
+  const index = config.themeConfig.navbar.items.findIndex(
+    (e) => e.type == "dropdown"
+  );
+
+  //@ts-ignore
+  config.themeConfig.navbar.items.splice(index, 0, {
+    type: "docSidebar",
+    sidebarId: "protocolSpecSidebar",
+    label: "Protocol Specification",
+  });
+}
 
 module.exports = config;
