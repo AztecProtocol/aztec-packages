@@ -32,6 +32,8 @@ import { AztecContext } from '../../../aztecEnv';
 import { FunctionParameter } from '../../common/FnParameter';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { dialogBody, form, progressIndicator } from '../../../styles/common';
+import { InfoText } from '../../common/InfoText';
+import { INFO_TEXT } from '../../../constants';
 
 export function CreateContractDialog({
   open,
@@ -156,6 +158,7 @@ export function CreateContractDialog({
                 setAlias(event.target.value);
               }}
             />
+            <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
           {/* Always deploy for now */}
           {/* <FormControl>

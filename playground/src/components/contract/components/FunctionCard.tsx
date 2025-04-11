@@ -23,6 +23,7 @@ import { FunctionParameter } from '../../common/FnParameter';
 import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import { SendTxDialog } from './SendTxDialog';
+import { CreateAuthwitDialog } from './CreateAuthwitDialog';
 
 type SimulationResult = {
   success: boolean;
@@ -63,16 +64,15 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
   const [openSendTxDialog, setOpenSendTxDialog] = useState(false);
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
 
-  const { wallet, walletDB } = useContext(AztecContext);
+  const { wallet } = useContext(AztecContext);
 
   const simulate = async (fnName: string) => {
     setIsWorking(true);
     let result;
     try {
-      const fnParameters = parameters[fnName] ?? [];
-      const call = contract.methods[fnName](...fnParameters);
+      const call = contract.methods[fnName](...parameters);
 
-      result = await call.simulate();
+      result = await call.simulate({ skipFeeEnforcement: true });
       setSimulationResults({ success: true, data: result });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
@@ -87,11 +87,15 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
     setParameters([...parameters]);
   };
 
-  const handleAuthwitCreation = async (witness?: AuthWitness, alias?: string) => {
-    if (witness && alias) {
-      await walletDB.storeAuthwitness(witness, undefined, alias);
-    }
+  const handleAuthwitCreation = async (
+    isPublic?: boolean,
+    interaction?: ContractFunctionInteraction,
+    opts?: SendMethodOptions,
+  ) => {
     setOpenCreateAuthwitDialog(false);
+    if (isPublic && interaction && opts) {
+      onSendTxRequested(`${fn.name} public authwit`, interaction, contract?.address, opts);
+    }
   };
 
   const handleSendDialogClose = async (
@@ -100,7 +104,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
     opts?: SendMethodOptions,
   ) => {
     setOpenSendTxDialog(false);
-    if (name !== undefined && interaction !== undefined && opts !== undefined) {
+    if (name && interaction && opts) {
       onSendTxRequested(name, interaction, contract.address, opts);
     }
   };
@@ -192,7 +196,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           size="small"
           color="secondary"
           variant="contained"
-          onClick={() => {}}
+          onClick={() => setOpenCreateAuthwitDialog(true)}
           endIcon={<VpnKeyIcon />}
         >
           Authwit
@@ -204,6 +208,16 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           interaction={contract.methods[fn.name](...parameters)}
           open={openSendTxDialog}
           onClose={handleSendDialogClose}
+        />
+      )}
+      {contract && (
+        <CreateAuthwitDialog
+          fnName={fn.name}
+          contract={contract}
+          args={parameters}
+          isPrivate={fn.functionType === FunctionType.PRIVATE}
+          open={openCreateAuthwitDialog}
+          onClose={handleAuthwitCreation}
         />
       )}
     </Card>

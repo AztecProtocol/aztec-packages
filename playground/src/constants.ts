@@ -64,7 +64,9 @@ export const FUNCTION_DESCRIPTIONS = {
 export const INFO_TEXT = {
   ACCOUNT_ABSTRACTION:
     'Aztec has native Account Abstraction, you can choose the type of signature you want for your account contract',
-  ALIASES: "Give friendly names to contracts you interact with, so they're easier to find later",
+  ALIASES: "Give friendly names to objects you interact with, so they're easier to find later",
   FEE_ABSTRACTION:
     'Aztec has native Fee Abstraction, so you can choose to pay fees in multiple ways. For test networks, we have you covered! Use our Sponsored FPC (Fee Paying Contract) and your transactions are on us',
+  AUTHWITS:
+    'Authorization witnesses (AuthWits) allow execution of functions on behalf of other addresses you own (you have their secret keys)',
 };
