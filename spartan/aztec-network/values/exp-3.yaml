@@ -1,9 +1,6 @@
-## 192 validators - large transactions (192kb) - 1 tps
+## 208 validators - 1 tps - 640 full nodes
 network:
   public: false
-
-storage:
-  localSsd: true
 
 aztec:
   setupL2Contracts: true
@@ -18,12 +15,11 @@ images:
 
 validator:
   storageSize: "300Gi"
-  replicas: 192
+  replicas: 208
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
-      ephemeral-storage: "275Gi"
+      cpu: "1"
   maxOldSpaceSize: "4608"
   validator:
     disabled: false
@@ -33,12 +29,11 @@ validator:
 
 fullNode:
   storageSize: "300Gi"
-  replicas: 208
+  replicas: 640
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
-      ephemeral-storage: "275Gi"
+      cpu: "1"
   maxOldSpaceSize: "4608"
   validator:
     disabled: true
@@ -49,8 +44,7 @@ bootNode:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
-      ephemeral-storage: "275Gi"
+      cpu: "1"
   maxOldSpaceSize: "4608"
 
 proverAgent:
@@ -58,27 +52,26 @@ proverAgent:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
+      cpu: "1"
   maxOldSpaceSize: "4608"
 
 proverBroker:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
-      ephemeral-storage: "275Gi"
+      cpu: "1"
   maxOldSpaceSize: "4608"
+  storageSize: "100Gi"
 
 proverNode:
   resources:
     requests:
       memory: "5Gi"
-      cpu: "1.5"
-      ephemeral-storage: "275Gi"
+      cpu: "1"
   maxOldSpaceSize: "4608"
 
 bot:
-  replicas: 10
+  replicas: 3
   followChain: "NONE"
   enabled: true
   txIntervalSeconds: 1
@@ -92,17 +85,17 @@ ethereum:
     resources:
       requests:
         memory: "5Gi"
-        cpu: "1.5"
+        cpu: "1"
     storageSize: "80Gi"
   beacon:
     resources:
       requests:
         memory: "5Gi"
-        cpu: "1.5"
+        cpu: "1"
     storageSize: "80Gi"
   validator:
     resources:
       requests:
         memory: "5Gi"
-        cpu: "1.5"
+        cpu: "1"
     storageSize: "80Gi"
