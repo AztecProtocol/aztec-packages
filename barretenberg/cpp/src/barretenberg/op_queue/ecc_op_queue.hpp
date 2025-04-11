@@ -28,14 +28,14 @@ class ECCOpQueue {
     // The operations written to the queue are also performed natively; the result is stored in accumulator
     Point accumulator = point_at_infinity;
 
-    static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-
     EccvmOpsTable eccvm_ops_table;    // table of ops in the ECCVM format
     UltraEccOpsTable ultra_ops_table; // table of ops in the Ultra-arithmetization format
 
     // Storage for the reconstructed eccvm ops table in contiguous memory. (Intended to be constructed once and for all
     // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
+
+    std::vector<UltraOp> ultra_ops_reconstructed; // Storage for the reconstructed ultra ops table in contiguous memory
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -71,6 +71,7 @@ class ECCOpQueue {
 
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
+    void construct_full_ultra_ops_table() { ultra_ops_reconstructed = ultra_ops_table.get().get_reconstructed(); }
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
@@ -82,6 +83,14 @@ class ECCOpQueue {
             construct_full_eccvm_ops_table();
         }
         return eccvm_ops_reconstructed;
+    }
+
+    std::vector<UltraOp>& get_ultra_ops()
+    {
+        if (ultra_ops_reconstructed.empty()) {
+            construct_full_ultra_ops_table();
+        }
+        return ultra_ops_reconstructed;
     }
 
     /**

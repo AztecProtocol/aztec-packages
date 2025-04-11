@@ -3,9 +3,13 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/eccvm/eccvm_builder_types.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 #include <deque>
 namespace bb {
 
+static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
+
+const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 /**
  * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
  * - addition: add = true, value() = 8
@@ -35,6 +39,7 @@ struct EccOpCode {
 
 struct UltraOp {
     using Fr = curve::BN254::ScalarField;
+    using Fq = curve::BN254::BaseField;
     EccOpCode op_code;
     Fr x_lo;
     Fr x_hi;
@@ -43,6 +48,18 @@ struct UltraOp {
     Fr z_1;
     Fr z_2;
     bool return_is_infinity;
+
+    std::array<uint256_t, 2> get_base_point_standard_form() const
+    {
+        uint256_t x = (uint256_t(x_hi) << 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) + uint256_t(x_lo);
+        uint256_t y = (uint256_t(y_hi) << 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) + uint256_t(y_lo);
+
+        if (return_is_infinity) {
+            x = 0;
+            y = 0;
+        }
+        return { x, y };
+    }
 };
 
 template <typename CycleGroup> struct VMOperation {
@@ -141,7 +158,7 @@ template <typename OpFormat> class EccOpsTable {
     }
 };
 
-/***
+/**
  * @brief A VM operation is represented as one row with 6 columns in the ECCVM version of the Op Queue.
  * | OP | X | Y | z_1 | z_2 | mul_scalar_full |
  */
@@ -181,6 +198,8 @@ class UltraEccOpsTable {
     size_t previous_ultra_table_size() const { return (ultra_table_size() - current_ultra_subtable_size()); }
     void create_new_subtable(size_t size_hint = 0) { table.create_new_subtable(size_hint); }
     void push(const UltraOp& op) { table.push(op); }
+
+    UltraOpsTable& get() { return table; }
 
     // Construct the columns of the full ultra ecc ops table
     ColumnPolynomials construct_table_columns() const
