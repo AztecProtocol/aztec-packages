@@ -1,5 +1,3 @@
-use dep::protocol_types::debug_log::debug_log_format;
-
 use crate::{
     context::{inputs::PrivateContextInputs, returns_hash::ReturnsHash},
     hash::{ArgsHasher, hash_args_array, hash_calldata_array},
@@ -145,12 +143,6 @@ impl PrivateContext {
 
     pub fn push_note_hash(&mut self, note_hash: Field) {
         self.note_hashes.push(NoteHash { value: note_hash, counter: self.next_counter() });
-
-        // WARNING(https://github.com/AztecProtocol/aztec-packages/issues/10558): if you delete this debug_log_format line, some tests fail.
-        debug_log_format(
-            "Context.note_hashes, after pushing new note hash: {0}",
-            self.note_hashes.storage().map(|nh: NoteHash| nh.value),
-        );
     }
 
     pub fn push_nullifier(&mut self, nullifier: Field) {
