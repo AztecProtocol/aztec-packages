@@ -5,7 +5,7 @@ include "constants_gen.pil";
 include "precomputed.pil";
 
 /**
- * This gadget checks reads and writes in the nullifier tree. The nullifier tree is an indexed tree where leaves
+ * This gadget reads and writes in the nullifier tree. The nullifier tree is an indexed tree where leaves
  * contain nullifiers. When we read from the nullifier tree, we check whether a nullifier exists or not.
  * For this we perform a low leaf membership proof and:
  *  - if the low leaf nullifier is equal to the nullifier, that means that nullifier is present in the tree, and we assert that
@@ -18,6 +18,8 @@ include "precomputed.pil";
  * In order to write, we perform the above, and also:
  *  - We update the low leaf. The low leaf must now point to the leaf we are going to insert.
  *  - We construct the new leaf and insert it into the tree at 'tree_size_before_write'
+ * Note: Indexed trees start prefilled with at least two items, so we can assume that no low leaf will be all zeroes
+ * and that there will always be a low leaf for any given value.
  *
  * Read usage:
  * sel { exists, nullifier, nullifier_tree_root }
