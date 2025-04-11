@@ -1,6 +1,7 @@
 #include "barretenberg/stdlib/honk_verifier/decider_recursive_verifier.hpp"
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
 namespace bb::stdlib::recursion::honk {
@@ -29,17 +30,20 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): fix log_circuit_size usage in stdlib cases.
     const size_t log_circuit_size = static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value());
+
+    const auto padding_indicator_array =
+        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(accumulator->verification_key->log_circuit_size);
     Sumcheck sumcheck(log_circuit_size, transcript, accumulator->target_sum);
 
-    SumcheckOutput<Flavor> output =
-        sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
+    SumcheckOutput<Flavor> output = sumcheck.verify(
+        accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges, padding_indicator_array);
 
     // Execute Shplemini rounds.
     ClaimBatcher claim_batcher{
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
-    const auto opening_claim = Shplemini::compute_batch_opening_claim(log_circuit_size,
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                                       claim_batcher,
                                                                       output.challenge,
                                                                       Commitment::one(builder),

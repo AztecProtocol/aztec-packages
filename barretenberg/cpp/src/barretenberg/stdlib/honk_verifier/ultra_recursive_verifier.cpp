@@ -2,6 +2,7 @@
 #include "barretenberg/commitment_schemes/shplonk/shplemini.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/plonk_honk_shared/library/grand_product_delta.hpp"
+#include "barretenberg/stdlib/primitives/padding_indicator_array/padding_indicator_array.hpp"
 #include "barretenberg/stdlib/primitives/public_input_component/public_input_component.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
@@ -93,15 +94,22 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     // multivariate evaluations at u
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Suspicious get_value().
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
-    Sumcheck sumcheck(log_circuit_size, transcript);
+
+    const auto padding_indicator_array =
+        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
+    size_t counter = 0;
+    for (auto indicator : padding_indicator_array) {
+        info(counter++, "   ", indicator);
+    }
+    auto sumcheck = Sumcheck(log_circuit_size, transcript);
 
     // Receive commitments to Libra masking polynomials
     std::array<Commitment, NUM_LIBRA_COMMITMENTS> libra_commitments = {};
     if constexpr (Flavor::HasZK) {
         libra_commitments[0] = transcript->template receive_from_prover<Commitment>("Libra:concatenation_commitment");
     }
-    SumcheckOutput<Flavor> sumcheck_output =
-        sumcheck.verify(verification_key->relation_parameters, verification_key->alphas, gate_challenges);
+    SumcheckOutput<Flavor> sumcheck_output = sumcheck.verify(
+        verification_key->relation_parameters, verification_key->alphas, gate_challenges, padding_indicator_array);
 
     // For MegaZKFlavor: the sumcheck output contains claimed evaluations of the Libra polynomials
     if constexpr (Flavor::HasZK) {
@@ -115,7 +123,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), sumcheck_output.claimed_evaluations.get_shifted() }
     };
     const BatchOpeningClaim<Curve> opening_claim =
-        Shplemini::compute_batch_opening_claim(log_circuit_size,
+        Shplemini::compute_batch_opening_claim(padding_indicator_array,
                                                claim_batcher,
                                                sumcheck_output.challenge,
                                                Commitment::one(builder),

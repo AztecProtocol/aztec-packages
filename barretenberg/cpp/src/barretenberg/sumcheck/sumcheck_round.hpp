@@ -596,7 +596,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
-        // This method is used by TranslatorRecursiveFlavor where dummy_round flags are not needed.
+        // This method is also used by TranslatorRecursiveFlavor where dummy_round flags are not needed.
         if constexpr (IsRecursiveFlavor<Flavor>) {
             sumcheck_round_failed = target_total_sum.get_value() != total_sum.get_value();
             target_total_sum.assert_equal(total_sum);
@@ -617,15 +617,16 @@ template <typename Flavor> class SumcheckVerifierRound {
      *
      */
     template <typename Builder>
-    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate, stdlib::bool_t<Builder> dummy_round)
+    bool check_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
+                   const stdlib::field_t<Builder>& indicator)
     {
         FF total_sum =
-            FF::conditional_assign(dummy_round, target_total_sum, univariate.value_at(0) + univariate.value_at(1));
+            (FF(1) - indicator) * target_total_sum + indicator * (univariate.value_at(0) + univariate.value_at(1));
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
         // This bool is only needed for debugging
-        if (!dummy_round.get_value()) {
+        if (indicator.get_value() == FF{ 1 }.get_value()) {
             sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
         }
 
@@ -659,10 +660,10 @@ template <typename Flavor> class SumcheckVerifierRound {
     template <typename Builder>
     void compute_next_target_sum(bb::Univariate<FF, BATCHED_RELATION_PARTIAL_LENGTH>& univariate,
                                  FF& round_challenge,
-                                 stdlib::bool_t<Builder> dummy_round)
+                                 const stdlib::field_t<Builder>& indicator)
     {
         // Evaluate \f$\tilde{S}^{i}(u_{i}) \f$
-        target_total_sum = FF::conditional_assign(dummy_round, target_total_sum, univariate.evaluate(round_challenge));
+        target_total_sum = (FF(1) - indicator) * target_total_sum + indicator * univariate.evaluate(round_challenge);
     }
 
     /**

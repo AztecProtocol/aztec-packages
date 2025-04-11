@@ -84,16 +84,13 @@ template <typename FF> struct GateSeparatorPolynomial {
     /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
      */
-    template <typename Bool> FF univariate_eval(const FF& challenge, const Bool& dummy_round) const
+    FF univariate_eval(const FF& challenge, const FF& indicator) const
     {
         // For the Ultra Recursive flavor to ensure constant size proofs, we perform constant amount of hashing
         // producing 28 gate betas and we need to use the betas in the dummy rounds to ensure the permutation related
         // selectors stay the same regardless of real circuit size.
         FF one{ 1 };
-        one.convert_constant_to_fixed_witness(challenge.get_context());
-
-        FF beta_val = FF::conditional_assign(dummy_round, one, betas[current_element_idx]);
-        return (FF(1) + (challenge * (beta_val - FF(1))));
+        return (one + indicator * challenge * (betas[current_element_idx] - one));
     }
 
     /**
@@ -116,12 +113,12 @@ template <typename FF> struct GateSeparatorPolynomial {
      * (1-X_i) + X_i\cdot \beta_i\right)\vert_{X_i = u_i}\f$ computed by \ref univariate_eval.
      * @param challenge \f$ i \f$-th verifier challenge \f$ u_{i}\f$
      */
-    template <typename Builder> void partially_evaluate(const FF& challenge, const stdlib::bool_t<Builder>& dummy)
+    template <typename Builder> void partially_evaluate(const FF& challenge, const stdlib::field_t<Builder>& indicator)
     {
-        FF current_univariate_eval = univariate_eval(challenge, dummy);
+        FF current_univariate_eval = univariate_eval(challenge);
         // If dummy round, make no update to the partial_evaluation_result
-        partial_evaluation_result = FF::conditional_assign(
-            dummy, partial_evaluation_result, partial_evaluation_result * current_univariate_eval);
+        partial_evaluation_result = (FF(1) - indicator) * partial_evaluation_result +
+                                    indicator * partial_evaluation_result * current_univariate_eval;
         current_element_idx++;
         periodicity *= 2;
     }
