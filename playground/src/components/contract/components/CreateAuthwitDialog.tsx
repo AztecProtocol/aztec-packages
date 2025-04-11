@@ -1,12 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import {
-  type AbiType,
-  AztecAddress,
-  Contract,
-  ContractFunctionInteraction,
-  type SendMethodOptions,
-} from '@aztec/aztec.js';
+import { AztecAddress, Contract, ContractFunctionInteraction, type SendMethodOptions } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
@@ -22,12 +16,7 @@ import { InfoText } from '../../common/InfoText';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { formatFrAsString } from '../../../utils/conversion';
 import { css } from '@emotion/react';
-
-const aztecAddressTypeLike: AbiType = {
-  kind: 'struct',
-  path: 'address::AztecAddress',
-  fields: [{ name: 'inner', type: { kind: 'field' } }],
-};
+import { AztecAddressTypeLike } from '../../../utils/types';
 
 const fixedText = css({
   fontSize: '0.8rem',
@@ -110,7 +99,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
             required
             parameter={{
               name: 'caller',
-              type: aztecAddressTypeLike,
+              type: AztecAddressTypeLike,
               visibility: 'private',
             }}
             onParameterChange={setCaller}

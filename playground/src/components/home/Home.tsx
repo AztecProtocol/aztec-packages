@@ -26,6 +26,7 @@ const contentLayout = css({
   minHeight: 0,
   overflow: 'auto',
   margin: '24px 60px',
+  scrollbarWidth: 'none',
   '@media (max-width: 1200px)': {
     height: 'calc(100% - 150px)',
     flexDirection: 'column',

@@ -2,7 +2,6 @@ import { useContext, useEffect, useState } from 'react';
 import { css, keyframes } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
-import loadingIcon from '../../assets/loading_icon.gif';
 import IconButton from '@mui/material/IconButton';
 import CloseIcon from '@mui/icons-material/Close';
 import Button from '@mui/material/Button';

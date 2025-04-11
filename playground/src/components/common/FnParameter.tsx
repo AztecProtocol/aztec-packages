@@ -17,6 +17,7 @@ const container = css({
   justifyContent: 'center',
   marginRight: '1rem',
   marginTop: '1rem',
+  width: '100%',
 });
 
 interface FunctionParameterProps {

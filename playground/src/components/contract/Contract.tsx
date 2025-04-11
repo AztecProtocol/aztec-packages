@@ -179,13 +179,15 @@ export function ContractComponent() {
               {!currentContractAddress && wallet && (
                 <div css={contractActions}>
                   <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
-                    Register
+                    Register/Deploy
                   </Button>
-                  <CreateContractDialog
-                    contractArtifact={currentContractArtifact}
-                    open={openCreateContractDialog}
-                    onClose={handleContractCreation}
-                  />
+                  {openCreateContractDialog && (
+                    <CreateContractDialog
+                      contractArtifact={currentContractArtifact}
+                      open={openCreateContractDialog}
+                      onClose={handleContractCreation}
+                    />
+                  )}
                 </div>
               )}
               {currentContractAddress && (
