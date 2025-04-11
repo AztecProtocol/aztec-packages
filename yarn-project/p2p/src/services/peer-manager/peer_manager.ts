@@ -274,7 +274,6 @@ export class PeerManager {
     const dialQueue = this.libP2PNode
       .getDialQueue()
       .filter(peer => !!peer.peerId)
-      .filter(peer => !this.isPrivatePeer(peer.peerId!))
       .map(peer => ({
         id: peer.peerId!.toString(),
         status: 'dialing' as const,

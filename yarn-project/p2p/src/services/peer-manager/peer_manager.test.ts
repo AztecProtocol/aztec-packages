@@ -710,16 +710,18 @@ describe('PeerManager', () => {
       expect(peers.some(peer => peer.id === privatePeerId.toString())).toBe(false);
     });
 
-    it('should not include private peers in getPeers results when includePending is true', async () => {
+    it('should only include private peers in the dial queue in getPeers results when includePending is true', async () => {
       const privatePeerId = await createSecp256k1PeerId();
+      const privateDialPeerId = await createSecp256k1PeerId();
       const regularPeerId = await createSecp256k1PeerId();
 
       peerManager.addPrivatePeer(privatePeerId);
+      peerManager.addPrivatePeer(privateDialPeerId);
 
-      mockLibP2PNode.getPeers.mockReturnValue([privatePeerId, regularPeerId]);
+      mockLibP2PNode.getPeers.mockReturnValue([privatePeerId, privateDialPeerId, regularPeerId]);
 
       const privateDialPeer = {
-        peerId: privatePeerId,
+        peerId: privateDialPeerId,
         status: 'queued',
         multiaddrs: [multiaddr('/ip4/127.0.0.1/tcp/8000')],
       };
@@ -755,6 +757,7 @@ describe('PeerManager', () => {
       const peers = peerManager.getPeers(true);
 
       expect(peers.every(peer => peer.id !== privatePeerId.toString())).toBe(true);
+      expect(peers.some(peer => peer.id === privateDialPeerId.toString())).toBe(true);
       expect(peers.some(peer => peer.id === regularPeerId.toString())).toBe(true);
     });
 
