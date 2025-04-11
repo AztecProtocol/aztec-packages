@@ -14,6 +14,10 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/attribute-naming/}
  */
 
+/** The host of an HTTP request */
+export const HTTP_REQUEST_HOST = 'http.header.request.host';
+export const HTTP_RESPONSE_STATUS_CODE = 'http.response.status_code';
+
 /** The Aztec network identifier */
 export const NETWORK_NAME = 'aztec.network_name';
 

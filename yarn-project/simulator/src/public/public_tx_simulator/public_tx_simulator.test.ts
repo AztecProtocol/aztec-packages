@@ -121,11 +121,9 @@ describe('public_tx_simulator', () => {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const balancePublicDataTreeLeafSlot = await computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
-    await merkleTrees.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
-      0,
-    );
+    await merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [
+      new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer(),
+    ]);
   };
 
   const mockPublicExecutor = (

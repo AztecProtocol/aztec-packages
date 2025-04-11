@@ -193,7 +193,6 @@ tests:
   # kind tests
   - regex: "spartan/bootstrap.sh"
     # Will skip all kind tests for now. Too unstable, blocking merge queue.
-    skip: true
     error_regex: "timeout: sending signal TERM to command"
     owners:
       - *alex

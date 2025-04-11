@@ -8,7 +8,7 @@ Simulating a function implies generating the partial witness and the public inpu
 
 ## Simulating functions
 
-It simulates three types of functions:
+It simulates all [three types of contract functions](../call_types.md#aztec-call-types):
 
 ### Private Functions
 
@@ -26,10 +26,10 @@ They are run with the assistance of an oracle that provides any value read from 
 
 Public functions can call other public functions as well as private functions. Public function composability can happen atomically, but public to private function calls happen asynchronously (the private function call must happen in a future block).
 
-### Unconstrained Functions
+### Utility Functions
 
-Unconstrained functions are used to extract useful data for users, such as the user balance. They are not proven, and are simulated client-side.
+Utility functions are used to extract useful data for users, such as the user balance. They are not proven, and are simulated client-side.
 
-They are run with the assistance of a DB oracle that provides any private data requested by the function.
+They are run with the assistance of an [oracle resolver](https://noir-lang.org/docs/explainers/explainer-oracle) that provides any private data requested by the function.
 
-At the moment, unconstrained functions cannot call any other function. It is not possible for them to call constrained functions, but it is on the roadmap to allow them to call other unconstrained functions.
+At the moment, utility functions cannot call any other function. It is not possible for them to call private or public functions, but it is on the roadmap to allow them to call other utility functions.

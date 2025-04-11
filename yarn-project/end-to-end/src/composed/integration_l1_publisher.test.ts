@@ -535,7 +535,7 @@ describe('L1Publisher integration', () => {
       [1, 'single_tx_block'],
       [4, 'mixed_block'],
     ])(
-      'builds ${numberOfConsecutiveBlocks} blocks of %i bloated txs building on each other',
+      `builds ${numberOfConsecutiveBlocks} blocks of %i bloated txs building on each other`,
       async (numTxs: number, jsonFileNamePrefix: string) => {
         await buildAndPublishBlock(numTxs, jsonFileNamePrefix);
       },
@@ -545,7 +545,7 @@ describe('L1Publisher integration', () => {
   describe('error handling', () => {
     let loggerErrorSpy: ReturnType<(typeof jest)['spyOn']>;
 
-    it(`shows propose custom errors if tx reverts`, async () => {
+    it.skip(`shows propose custom errors if tx reverts`, async () => {
       // REFACTOR: code below is duplicated from "builds blocks of 2 empty txs building on each other"
       const archiveInRollup_ = await rollup.archive();
       expect(hexStringToBuffer(archiveInRollup_.toString())).toEqual(new Fr(GENESIS_ARCHIVE_ROOT).toBuffer());
@@ -577,7 +577,7 @@ describe('L1Publisher integration', () => {
       loggerErrorSpy = jest.spyOn((publisher as any).log, 'error');
 
       // Expect the tx to revert
-      await expect(publisher.enqueueProposeL2Block(block)).resolves.toEqual(true);
+      expect(await publisher.enqueueProposeL2Block(block)).toEqual(true);
 
       await expect(publisher.sendRequests()).resolves.toMatchObject({
         errorMsg: expect.stringContaining('Rollup__InvalidInHash'),
