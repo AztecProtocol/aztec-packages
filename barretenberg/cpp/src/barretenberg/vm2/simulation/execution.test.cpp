@@ -24,7 +24,7 @@ namespace bb::avm2::simulation {
 namespace {
 
 using ::testing::_;
-using ::testing::Ref;
+using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::ReturnRef;
 using ::testing::StrictMock;
@@ -72,9 +72,14 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
     EXPECT_CALL(memory, get).WillOnce(Return(ValueRefAndTag({ .value = nested_address, .tag = MemoryTag::U32 })));
 
-    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
-        .WillOnce(Return(std::make_unique<MockContext>()));
+    auto nested_context = std::make_unique<NiceMock<MockContext>>();
+    ON_CALL(*nested_context, halted())
+        .WillByDefault(Return(true)); // We just want the recursive call to return immediately.
 
+    EXPECT_CALL(execution_components, make_nested_context(nested_address, parent_address, _, _, _, _))
+        .WillOnce(Return(std::move(nested_context)));
+
+    // Back in parent context
     EXPECT_CALL(context, set_child_context(_));
     EXPECT_CALL(context, set_last_rd_offset(_));
     EXPECT_CALL(context, set_last_rd_size(_));

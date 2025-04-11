@@ -1,6 +1,4 @@
-import { AGGREGATION_OBJECT_LENGTH } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
-import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import type { PublisherConfig, TxSenderConfig } from '@aztec/sequencer-client';
@@ -152,7 +150,7 @@ describe('prover-node-publisher', () => {
       ourPublicInputs.endArchive = blocks[toBlock - 1]?.endArchive ?? Fr.ZERO;
 
       // Return our public inputs
-      const totalFields = ourPublicInputs.toFields().concat(times(AGGREGATION_OBJECT_LENGTH, Fr.zero));
+      const totalFields = ourPublicInputs.toFields();
       rollup.getEpochProofPublicInputs.mockResolvedValue(totalFields.map(x => x.toString()));
 
       const result = await publisher

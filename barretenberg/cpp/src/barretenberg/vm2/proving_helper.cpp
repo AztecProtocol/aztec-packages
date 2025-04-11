@@ -8,13 +8,13 @@
 #include "barretenberg/common/serialize.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
-#include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/constraining/check_circuit.hpp"
 #include "barretenberg/vm2/constraining/polynomials.hpp"
 #include "barretenberg/vm2/constraining/prover.hpp"
 #include "barretenberg/vm2/constraining/verifier.hpp"
-#include "barretenberg/vm2/debugger.hpp"
+#include "barretenberg/vm2/tooling/debugger.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2 {
 

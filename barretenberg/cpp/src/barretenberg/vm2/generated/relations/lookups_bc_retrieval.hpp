@@ -10,6 +10,202 @@
 
 namespace bb::avm2 {
 
+/////////////////// lookup_bc_retrieval_silo_deployment_nullifier_poseidon2 ///////////////////
+
+class lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_SILO_DEPLOYMENT_NULLIFIER_POSEIDON2";
+    static constexpr std::string_view RELATION_NAME = "bc_retrieval";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 4;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr Column DST_SELECTOR = Column::poseidon2_hash_end;
+    static constexpr Column COUNTS = Column::lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_counts;
+    static constexpr Column INVERSES = Column::lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_retrieval_outer_nullifier_domain_separator,
+        ColumnAndShifts::bc_retrieval_deployer_protocol_contract_address,
+        ColumnAndShifts::bc_retrieval_address,
+        ColumnAndShifts::bc_retrieval_siloed_address
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::poseidon2_hash_input_0,
+        ColumnAndShifts::poseidon2_hash_input_1,
+        ColumnAndShifts::poseidon2_hash_input_2,
+        ColumnAndShifts::poseidon2_hash_output
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._bc_retrieval_sel() == 1 || in._poseidon2_hash_end() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._bc_retrieval_sel());
+        const auto is_table_entry = View(in._poseidon2_hash_end());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_inv(),
+                                     in._lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_counts(),
+                                     in._bc_retrieval_sel(),
+                                     in._poseidon2_hash_end(),
+                                     in._bc_retrieval_outer_nullifier_domain_separator(),
+                                     in._bc_retrieval_deployer_protocol_contract_address(),
+                                     in._bc_retrieval_address(),
+                                     in._bc_retrieval_siloed_address(),
+                                     in._poseidon2_hash_input_0(),
+                                     in._poseidon2_hash_input_1(),
+                                     in._poseidon2_hash_input_2(),
+                                     in._poseidon2_hash_output());
+    }
+};
+
+template <typename FF_>
+class lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_relation
+    : public GenericLookupRelation<lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings, FF_> {
+  public:
+    using Settings = lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings;
+    static constexpr std::string_view NAME = lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_bc_retrieval_silo_deployment_nullifier_poseidon2_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
+/////////////////// lookup_bc_retrieval_deployment_nullifier_read ///////////////////
+
+class lookup_bc_retrieval_deployment_nullifier_read_settings {
+  public:
+    static constexpr std::string_view NAME = "LOOKUP_BC_RETRIEVAL_DEPLOYMENT_NULLIFIER_READ";
+    static constexpr std::string_view RELATION_NAME = "bc_retrieval";
+
+    static constexpr size_t READ_TERMS = 1;
+    static constexpr size_t WRITE_TERMS = 1;
+    static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
+    static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 3;
+    static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
+    static constexpr size_t READ_TERM_DEGREE = 0;
+    static constexpr size_t WRITE_TERM_DEGREE = 0;
+
+    // Columns using the Column enum.
+    static constexpr Column SRC_SELECTOR = Column::bc_retrieval_sel;
+    static constexpr Column DST_SELECTOR = Column::nullifier_check_sel;
+    static constexpr Column COUNTS = Column::lookup_bc_retrieval_deployment_nullifier_read_counts;
+    static constexpr Column INVERSES = Column::lookup_bc_retrieval_deployment_nullifier_read_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_retrieval_nullifier_exists,
+        ColumnAndShifts::bc_retrieval_siloed_address,
+        ColumnAndShifts::bc_retrieval_nullifier_tree_root
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
+        ColumnAndShifts::nullifier_check_exists,
+        ColumnAndShifts::nullifier_check_nullifier,
+        ColumnAndShifts::nullifier_check_root
+    };
+
+    template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
+    {
+        return (in._bc_retrieval_sel() == 1 || in._nullifier_check_sel() == 1);
+    }
+
+    template <typename Accumulator, typename AllEntities>
+    static inline auto compute_inverse_exists(const AllEntities& in)
+    {
+        using View = typename Accumulator::View;
+        const auto is_operation = View(in._bc_retrieval_sel());
+        const auto is_table_entry = View(in._nullifier_check_sel());
+        return (is_operation + is_table_entry - is_operation * is_table_entry);
+    }
+
+    template <typename AllEntities> static inline auto get_const_entities(const AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_nonconst_entities(AllEntities& in)
+    {
+        return get_entities(in);
+    }
+
+    template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
+    {
+        return std::forward_as_tuple(in._lookup_bc_retrieval_deployment_nullifier_read_inv(),
+                                     in._lookup_bc_retrieval_deployment_nullifier_read_counts(),
+                                     in._bc_retrieval_sel(),
+                                     in._nullifier_check_sel(),
+                                     in._bc_retrieval_nullifier_exists(),
+                                     in._bc_retrieval_siloed_address(),
+                                     in._bc_retrieval_nullifier_tree_root(),
+                                     in._nullifier_check_exists(),
+                                     in._nullifier_check_nullifier(),
+                                     in._nullifier_check_root());
+    }
+};
+
+template <typename FF_>
+class lookup_bc_retrieval_deployment_nullifier_read_relation
+    : public GenericLookupRelation<lookup_bc_retrieval_deployment_nullifier_read_settings, FF_> {
+  public:
+    using Settings = lookup_bc_retrieval_deployment_nullifier_read_settings;
+    static constexpr std::string_view NAME = lookup_bc_retrieval_deployment_nullifier_read_settings::NAME;
+    static constexpr std::string_view RELATION_NAME =
+        lookup_bc_retrieval_deployment_nullifier_read_settings::RELATION_NAME;
+
+    template <typename AllEntities> inline static bool skip(const AllEntities& in)
+    {
+        return in.lookup_bc_retrieval_deployment_nullifier_read_inv.is_zero();
+    }
+
+    static std::string get_subrelation_label(size_t index)
+    {
+        if (index == 0) {
+            return "INVERSES_ARE_CORRECT";
+        } else if (index == 1) {
+            return "ACCUMULATION_IS_CORRECT";
+        }
+        return std::to_string(index);
+    }
+};
+
 /////////////////// lookup_bc_retrieval_address_derivation ///////////////////
 
 class lookup_bc_retrieval_address_derivation_settings {

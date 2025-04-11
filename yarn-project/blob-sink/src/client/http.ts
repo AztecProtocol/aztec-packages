@@ -177,13 +177,19 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         if (typeof blockHashOrSlot === 'number' && maxRetries > 0) {
           const nextSlot = Number(blockHashOrSlot) + 1;
           this.log.debug(`L1 slot ${blockHashOrSlot} not found, trying next slot ${nextSlot}`);
-          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1);
+          return this.getBlobSidecarFrom(hostUrl, nextSlot, blobHashes, indices, maxRetries - 1, l1ConsensusHostIndex);
         }
       }
 
-      this.log.debug(`Unable to get blob sidecar for ${blockHashOrSlot}`, {
+      // we already handle the two _expected_ cases above & return early
+      // warn if we can't communicate with the remote blob provider
+      this.log.warn(`Unable to get blob sidecar for ${blockHashOrSlot}: ${res.statusText} (${res.status})`, {
         status: res.status,
         statusText: res.statusText,
+        body: await res.text().catch(err => {
+          this.log.warn('Failed to read response body', err);
+          return '';
+        }),
       });
       return [];
     } catch (err: any) {
@@ -270,8 +276,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
 async function getRelevantBlobs(data: any, blobHashes: Buffer[], logger: Logger): Promise<Blob[]> {
   const preFilteredBlobsPromise = data
-    // Filter out blobs that did not come from our rollup
+    // Filter out blobs not requested
     .filter((b: BlobJson) => {
+      if (blobHashes.length === 0) {
+        return true;
+      }
       const commitment = Buffer.from(b.kzg_commitment.slice(2), 'hex');
       const blobHash = Blob.getEthVersionedBlobHash(commitment);
       logger.trace(`Filtering blob with hash ${blobHash.toString('hex')}`);

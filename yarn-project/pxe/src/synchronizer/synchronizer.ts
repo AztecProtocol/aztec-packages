@@ -24,7 +24,7 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     private noteDataProvider: NoteDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private l2TipsStore: L2TipsKVStore,
-    config: Partial<Pick<PXEConfig, 'l2StartingBlock'>> = {},
+    config: Partial<Pick<PXEConfig, 'l2StartingBlock' | 'l2BlockBatchSize'>> = {},
     loggerOrSuffix?: string | Logger,
   ) {
     this.log =
@@ -34,9 +34,10 @@ export class Synchronizer implements L2BlockStreamEventHandler {
     this.blockStream = this.createBlockStream(config);
   }
 
-  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock'>>) {
+  protected createBlockStream(config: Partial<Pick<PXEConfig, 'l2StartingBlock' | 'l2BlockBatchSize'>>) {
     return new L2BlockStream(this.node, this.l2TipsStore, this, createLogger('pxe:block_stream'), {
       startingBlock: config.l2StartingBlock,
+      batchSize: config.l2BlockBatchSize,
     });
   }
 

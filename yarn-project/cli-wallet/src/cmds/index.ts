@@ -267,7 +267,13 @@ export function injectCommands(
     .addOption(
       createSecretKeyOption("The sender's secret key", !db, sk => aliasedSecretKeyParser(sk, db)).conflicts('account'),
     )
-    .addOption(createAuthwitnessOption('Authorization witness to use for the transaction', !db, db))
+    .addOption(
+      createAuthwitnessOption(
+        'Authorization witness to use for the transaction. If using multiple, pass a comma separated string',
+        !db,
+        db,
+      ),
+    )
     .addOption(createAccountOption('Alias or address of the account to send the transaction from', !db, db))
     .option('--no-wait', 'Print transaction hash without waiting for it to be mined')
     .option('--no-cancel', 'Do not allow the transaction to be cancelled. This makes for cheaper transactions.');
@@ -285,7 +291,7 @@ export function injectCommands(
       secretKey,
       alias,
       cancel,
-      authWitness,
+      authWitness: authWitnessArray,
     } = options;
     const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
     const account = await createOrRetrieveAccount(client, parsedFromAddress, db, secretKey);
@@ -294,7 +300,7 @@ export function injectCommands(
 
     debugLogger.info(`Using wallet with address ${wallet.getCompleteAddress().address.toString()}`);
 
-    const authWitnesses = cleanupAuthWitnesses(authWitness);
+    const authWitnesses = cleanupAuthWitnesses(authWitnessArray);
     const sentTx = await send(
       wallet,
       functionName,
@@ -427,7 +433,6 @@ export function injectCommands(
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      log(`Minting ${amount} fee juice on L1 and pushing to L2`);
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
