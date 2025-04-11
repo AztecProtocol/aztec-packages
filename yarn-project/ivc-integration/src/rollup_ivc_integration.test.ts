@@ -31,6 +31,7 @@ import {
   witnessGenMockRollupRootCircuit,
 } from './index.js';
 import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
+import { proveClientIVC as proveClientIVCWASM } from './prove_wasm.js';
 import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
@@ -58,7 +59,7 @@ describe('Rollup IVC Integration', () => {
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger);
+    const proof = await proveClientIVCWASM(bytecodes, witnessStack, 16);
     await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
     const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
