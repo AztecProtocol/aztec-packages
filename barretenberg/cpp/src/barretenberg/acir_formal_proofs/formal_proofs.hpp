@@ -1,10 +1,10 @@
 #pragma once
+#include "acir_loader.hpp"
 #include "barretenberg/smt_verification/circuit/ultra_circuit.hpp"
 #include "barretenberg/smt_verification/solver/solver.hpp"
 #include "cvc5/cvc5.h"
 #include <string>
 #include <unordered_map>
-#include "acir_loader.hpp"
 /**
  * @brief Debug helper to print solver assertions and model values
  * @param solver SMT solver instance

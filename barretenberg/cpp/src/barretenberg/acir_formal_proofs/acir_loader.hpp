@@ -93,6 +93,7 @@ class AcirToSmtLoader {
      * @return CircuitSchema instance
      */
     smt_circuit::CircuitSchema get_circuit_schema();
+
   private:
     std::string instruction_name;              ///< Name of the instruction/filename being processed
     std::vector<uint8_t> acir_program_buf;     ///< Buffer containing the raw ACIR program data read from file
