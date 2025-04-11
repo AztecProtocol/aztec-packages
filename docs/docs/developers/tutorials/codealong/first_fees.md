@@ -16,7 +16,7 @@ By the end of this tutorial you will...
 
 ## Background
 
-As a quick summary of required knowledge:
+As a quick summary of some Aztec components:
 
 (**TODO: Each of these as snippets**)
 
@@ -28,6 +28,10 @@ An Aztec node is a prover/sequencer that is part of a decentralised Aztec networ
 
 **The Aztec Sandbox**
 The Aztec Sandbox runs a local environment for rapid development, it includes: an Ethereum node, an Aztec node, and PXE.
+
+**The Aztec Wallet (command line)**
+The CLI wallet, `aztec-wallet`, allows a user to manage accounts and interact with an Aztec network. It includes a PXE.
+
 
 ## Connect to the network
 
@@ -42,12 +46,13 @@ To use Aztec's suite of tools you'll need to:
 
 Test the cli wallet with: `aztec-wallet --version`
 
-By default the sandbox runs everything including a pxe. For this tutorial, and more realistically when using testnet, we will be using PXEs client side. Eg as part of a wallet.
+By default the sandbox runs everything including a pxe locally. For this tutorial, and more realistically when using testnet, we will be using the PXE as part of the client tools (eg `aztec-wallet`).
 
-Start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sandbox`
+With docker running, start the sandbox (L1, L2, but not the PXE) via: `NO_PXE=true aztec start --sandbox`
 
 ### Specifying the network URL in commands
 
+Testing locally on the sandbox vs using the testnet, you may need to specify which node you would like to connect with.
 When using `aztec-wallet`, the Aztec network node to connect to can be specified in each relevant command:
 
 ```bash
@@ -104,6 +109,24 @@ import { getSchnorrAccount } from '@aztec/accounts/schnorr';
 ```
 
 Your PXE now has keys for an account that can be deployed on Aztec network(s).
+
+## Payment option overview
+
+To get a quick overview of the payment options currently supported...
+
+**Sponsored Fee Paying Contract (Sponsored FPC)**
+A small amount of funds from a limited faucet-like contract. Useful for bootstraping first tx(s), eg deloying an account
+
+**Fee juice**
+- Claimed from the fee asset bridged from L1
+- From a funded account sending a transaction (default)
+- From a different funded account to deploy an account, (not possible with other tx types, only deployment)
+
+**General Fee Paying Contracts**
+Pay in one asset (publicly or privately) for the FPC to (publicly) pay for the transaction.
+Great for privacy when an account is paying privately, and interacting with a private contract function.
+
+Remember, we will go into these in the following sections.
 
 ## Paying for an account deployment transaction
 
@@ -197,6 +220,7 @@ The equivalent using aztec.js - Create a fee juice payment method with a test ac
 
 ```javascript
 import { FeeJuicePaymentMethod } from "@aztec/aztec.js";
+  //... building upon the previous section
   const useFeeJuice = new FeeJuicePaymentMethod(testWallets[0].getAddress())
   await schnorrAccount.deploy({ fee: { paymentMethod: useFeeJuice }}).wait()
 ```
@@ -254,7 +278,7 @@ Options for claim+pay with bridged funds that can be used in multiple commands:
 - .js: `{ fee: { paymentMethod: new FeeJuicePaymentMethodWithClaim(newWallet, claim) }}`
 :::
 
-### Fee Paying Contract payment (public/private)
+### Fee Paying Contract payment (public/private) - Advanced
 
 Setting up your own FPC and authorising the asset is an involved process outside the scope of this tutorial.
 Below we will look at the syntax for understanding.
