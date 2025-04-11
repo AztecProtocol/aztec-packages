@@ -1,10 +1,10 @@
 #pragma once
 
-#include "barretenberg/vm2/common/field.hpp"
-#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
-
 #include <cstdint>
 #include <vector>
+
+#include "barretenberg/vm2/common/field.hpp"
+#include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {
 

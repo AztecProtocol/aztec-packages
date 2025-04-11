@@ -1,6 +1,5 @@
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 #include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
-#include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_field_gt.hpp"
 #include "barretenberg/vm2/simulation/testing/mock_merkle_check.hpp"

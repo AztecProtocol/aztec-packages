@@ -66,9 +66,9 @@ void MerkleDB::storage_write(const FF& leaf_slot, const FF& value)
                                                                          snapshot_before,
                                                                          insertion_hint.path);
 
-    if (snapshot_after != get_tree_roots().publicDataTree) {
-        throw std::runtime_error("Bad hint public data tree write");
-    }
+    (void)snapshot_after; // Silence unused variable warning when assert is stripped out
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().publicDataTree);
 }
 
 bool MerkleDB::nullifier_exists(const FF& nullifier) const

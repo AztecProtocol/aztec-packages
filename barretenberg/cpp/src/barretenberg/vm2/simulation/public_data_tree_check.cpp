@@ -1,7 +1,5 @@
 #include "barretenberg/vm2/simulation/public_data_tree_check.hpp"
 
-#include "barretenberg/vm2/common/avm_inputs.hpp"
-#include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/simulation/lib/db_interfaces.hpp"
 
 namespace bb::avm2::simulation {

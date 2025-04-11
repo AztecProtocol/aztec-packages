@@ -88,7 +88,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     typename S::template DefaultEventEmitter<MerkleCheckEvent> merkle_check_emitter;
     typename S::template DefaultDeduplicatingEventEmitter<RangeCheckEvent> range_check_emitter;
     typename S::template DefaultEventEmitter<ContextStackEvent> context_stack_emitter;
-    typename S::template DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_check_emitter;
+    typename S::template DefaultEventEmitter<PublicDataTreeCheckEvent> public_data_tree_check_emitter;
     typename S::template DefaultEventEmitter<UpdateCheckEvent> update_check_emitter;
     typename S::template DefaultEventEmitter<NullifierTreeCheckEvent> nullifier_tree_check_emitter;
 
@@ -100,7 +100,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
     MerkleCheck merkle_check(poseidon2, merkle_check_emitter);
     RangeCheck range_check(range_check_emitter);
     FieldGreaterThan field_gt(range_check, field_gt_emitter);
-    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_check_emitter);
+    PublicDataTreeCheck public_data_tree_check(poseidon2, merkle_check, field_gt, public_data_tree_check_emitter);
     NullifierTreeCheck nullifier_tree_check(poseidon2, merkle_check, field_gt, nullifier_tree_check_emitter);
 
     AddressDerivation address_derivation(poseidon2, ecc, address_derivation_emitter);
@@ -155,7 +155,7 @@ template <typename S> EventsContainer AvmSimulationHelper::simulate_with_setting
              merkle_check_emitter.dump_events(),
              range_check_emitter.dump_events(),
              context_stack_emitter.dump_events(),
-             public_data_check_emitter.dump_events(),
+             public_data_tree_check_emitter.dump_events(),
              update_check_emitter.dump_events(),
              nullifier_tree_check_emitter.dump_events() };
 }

@@ -260,9 +260,9 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                 [&]() {
                     PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
                     AVM_TRACK_TIME(
-                        "tracegen/public_data_check",
-                        public_data_tree_check_trace_builder.process(events.public_data_check_events, trace));
-                    clear_events(events.public_data_check_events);
+                        "tracegen/public_data_tree_check",
+                        public_data_tree_check_trace_builder.process(events.public_data_tree_check_events, trace));
+                    clear_events(events.public_data_tree_check_events);
                 },
                 [&]() {
                     UpdateCheckTraceBuilder update_check_trace_builder;
