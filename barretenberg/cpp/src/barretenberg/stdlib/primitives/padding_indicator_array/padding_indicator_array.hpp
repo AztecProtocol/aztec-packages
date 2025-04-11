@@ -28,16 +28,13 @@ namespace bb::stdlib {
  * \f$ [b_0(x-1), \ldots, b_{N-1}(x-1)] \f$ only depends on \f$ N \f$ adding ~\f$ 4\cdot N \f$ gates to the circuit.
  *
  */
-template <typename Fr, typename Builder, size_t virtual_log_n>
+template <typename Fr, size_t virtual_log_n>
 static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& log_n)
 {
     // Create a domain of size `virtual_log_n` and compute Lagrange denominators
     using Data = BarycentricDataRunTime<Fr, virtual_log_n, /*num_evals=*/1>;
 
     std::array<Fr, virtual_log_n> result{};
-    Builder* builder = log_n.get_context();
-    Fr zero{ 0 };
-    zero.convert_constant_to_fixed_witness(builder);
     // 1) Build prefix products:
     //    prefix[i] = ∏_{m=0..(i-1)} (x - 1 - big_domain[m]), with prefix[0] = 1.
     std::vector<Fr> prefix(virtual_log_n + 1, Fr{ 1 });
@@ -56,7 +53,7 @@ static std::array<Fr, virtual_log_n> compute_padding_indicator_array(const Fr& l
 
     // To ensure 0 < log_n < N, note that suffix[1] = \prod_{i=1}^{N-1} (x - 1 - i), therefore we just need to ensure
     // that this product is 0.
-    suffix[1].assert_equal(zero);
+    suffix[1].assert_equal(Fr{ 0 });
 
     // 3) Combine prefixes & suffixes to get L_i(x-1):
     //    L_i(x-1) = (1 / lagrange_denominators[i]) * prefix[i] * suffix[i+1].

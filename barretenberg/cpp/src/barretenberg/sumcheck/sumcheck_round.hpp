@@ -596,7 +596,7 @@ template <typename Flavor> class SumcheckVerifierRound {
         // TODO(#673): Conditionals like this can go away once native verification is is just recursive verification
         // with a simulated builder.
         bool sumcheck_round_failed(false);
-        // This method is used by TranslatorRecursiveFlavor where dummy_round flags are not needed.
+        // This method is also used by TranslatorRecursiveFlavor where dummy_round flags are not needed.
         if constexpr (IsRecursiveFlavor<Flavor>) {
             sumcheck_round_failed = target_total_sum.get_value() != total_sum.get_value();
             target_total_sum.assert_equal(total_sum);
@@ -626,9 +626,9 @@ template <typename Flavor> class SumcheckVerifierRound {
         // with a simulated builder.
         bool sumcheck_round_failed(false);
         // This bool is only needed for debugging
-        // if (!dummy_round.get_value()) {
-        //     sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
-        // }
+        if (indicator.get_value() == FF{ 1 }.get_value()) {
+            sumcheck_round_failed = (target_total_sum.get_value() != total_sum.get_value());
+        }
 
         target_total_sum.assert_equal(total_sum);
 

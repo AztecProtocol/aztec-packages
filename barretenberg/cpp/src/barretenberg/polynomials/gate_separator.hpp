@@ -84,16 +84,13 @@ template <typename FF> struct GateSeparatorPolynomial {
     /**
      * @brief Evaluate  \f$ ((1−X_{i}) + X_{i}\cdot \beta_{i})\f$ at the challenge point \f$ X_{i}=u_{i} \f$.
      */
-    template <typename Bool> FF univariate_eval(const FF& challenge, const Bool& dummy_round) const
+    FF univariate_eval(const FF& challenge, const FF& indicator) const
     {
         // For the Ultra Recursive flavor to ensure constant size proofs, we perform constant amount of hashing
         // producing 28 gate betas and we need to use the betas in the dummy rounds to ensure the permutation related
         // selectors stay the same regardless of real circuit size.
         FF one{ 1 };
-        one.convert_constant_to_fixed_witness(challenge.get_context());
-
-        FF beta_val = FF::conditional_assign(dummy_round, one, betas[current_element_idx]);
-        return (FF(1) + (challenge * (beta_val - FF(1))));
+        return (one + indicator * challenge * (betas[current_element_idx] - one));
     }
 
     /**

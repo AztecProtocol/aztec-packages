@@ -580,35 +580,24 @@ template <typename Curve> class GeminiVerifier_ {
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
             if constexpr (use_padding) {
-                if constexpr (Curve::is_stdlib_type) {
-                    auto builder = evaluation_point[0].get_context();
-                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                    stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > log_n);
-                    // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-                    // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
-                    eval_pos_prev = Fr::conditional_assign(dummy_round, eval_pos_prev, eval_pos);
-                    // If current index is bigger than log_n, we emplace 0, which is later multiplied against
-                    // Commitment::one().
-                    value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
+                // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
+                // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+                bool dummy_round = l > log_n;
+                eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
+                value_to_emplace = dummy_round ? zero : eval_pos_prev;
 
-                } else {
-                    // Perform the same logic natively
-                    bool dummy_round = l > log_n;
-                    eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
-                    value_to_emplace = dummy_round ? zero : eval_pos_prev;
-                };
             } else {
                 eval_pos_prev = eval_pos;
                 value_to_emplace = eval_pos_prev;
             }
             fold_pos_evaluations.emplace_back(value_to_emplace);
-            info("native , l = ", l - 1, "  value ", value_to_emplace);
         }
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());
 
         return fold_pos_evaluations;
     }
+
     template <size_t virtual_log_n>
     static std::vector<Fr> compute_fold_pos_evaluations(
         const std::array<Fr, virtual_log_n>& padding_indicator_array,
@@ -616,6 +605,7 @@ template <typename Curve> class GeminiVerifier_ {
         std::span<const Fr> evaluation_point, // CONST_PROOF_SIZE
         std::span<const Fr> challenge_powers, // r_squares CONST_PROOF_SIZE_LOG_N
         std::span<const Fr> fold_neg_evals)
+        requires Curve::is_stdlib_type
     {
         std::vector<Fr> evals(fold_neg_evals.begin(), fold_neg_evals.end());
 
@@ -647,7 +637,6 @@ template <typename Curve> class GeminiVerifier_ {
             // Commitment::one().
             value_to_emplace = padding_indicator_array[l - 1] * eval_pos_prev;
             fold_pos_evaluations.emplace_back(value_to_emplace);
-            info("recursive , l = ", l - 1, "  value ", value_to_emplace);
         }
 
         std::reverse(fold_pos_evaluations.begin(), fold_pos_evaluations.end());

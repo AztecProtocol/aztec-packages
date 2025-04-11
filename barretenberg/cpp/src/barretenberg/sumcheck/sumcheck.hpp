@@ -700,10 +700,7 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
             // Ultra, Mega, and their derivatives constant. Note that there's no artificial padding in
             // Translator
             if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
-                typename Flavor::CircuitBuilder* builder = round_challenge.get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, round_idx >= multivariate_d);
-                bool checked = round.check_sum(round_univariate, dummy_round);
+                bool checked = round.check_sum(round_univariate, padding_indicator_array[round_idx]);
                 // Only utilize the checked value if this is not a constant proof size padding round
                 if (round_idx < multivariate_d) {
                     verified = verified && checked;
@@ -738,13 +735,15 @@ template <typename Flavor, size_t virtual_log_n = CONST_PROOF_SIZE_LOG_N> class 
         // For ZK Flavors: the evaluation of the Row Disabling Polynomial at the sumcheck challenge
         if constexpr (Flavor::HasZK) {
             libra_evaluation = transcript->template receive_from_prover<FF>("Libra:claimed_evaluation");
-            if constexpr (!IsRecursiveFlavor<Flavor>) {
+            if constexpr (IsRecursiveFlavor<Flavor> && Flavor::USE_PADDING) {
+                correcting_factor =
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, padding_indicator_array);
+            } else if constexpr (Flavor::USE_PADDING) {
                 correcting_factor =
                     RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
             } else {
-                typename Flavor::CircuitBuilder* builder = libra_evaluation.get_context();
                 correcting_factor =
-                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d, builder);
+                    RowDisablingPolynomial<FF>::evaluate_at_challenge(multivariate_challenge, multivariate_d);
             }
 
             full_honk_purported_value =

@@ -96,7 +96,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
     const size_t log_circuit_size = numeric::get_msb(static_cast<uint32_t>(key->circuit_size.get_value()));
 
     const auto padding_indicator_array =
-        compute_padding_indicator_array<FF, Builder, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
+        compute_padding_indicator_array<FF, CONST_PROOF_SIZE_LOG_N>(key->log_circuit_size);
     size_t counter = 0;
     for (auto indicator : padding_indicator_array) {
         info(counter++, "   ", indicator);
