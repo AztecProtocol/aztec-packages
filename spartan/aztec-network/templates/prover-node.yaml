@@ -95,8 +95,6 @@ spec:
             - name: prover-node-data
               mountPath: {{ .Values.proverNode.dataDir }}
           env:
-            - name: P2P_ENABLED
-              value: "{{ .Values.proverNode.p2p.enabled }}"
             - name: BOOTSTRAP_NODES
               value: "{{ .Values.aztec.bootstrapENRs }}"
             - name: REGISTRY_CONTRACT_ADDRESS
