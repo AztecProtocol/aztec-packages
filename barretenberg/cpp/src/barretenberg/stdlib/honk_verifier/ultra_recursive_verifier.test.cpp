@@ -27,7 +27,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     using InnerVerifier = UltraVerifier_<InnerFlavor>;
     using InnerBuilder = typename InnerFlavor::CircuitBuilder;
     using InnerDeciderProvingKey = DeciderProvingKey_<InnerFlavor>;
-    using InnerCurve = bn254<InnerBuilder>;
     using InnerCommitment = InnerFlavor::Commitment;
     using InnerFF = InnerFlavor::FF;
 
@@ -56,7 +55,6 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
     static InnerBuilder create_inner_circuit(size_t log_num_gates = 10)
     {
         using AggState = aggregation_state<InnerBuilder>;
-        using fr = typename InnerCurve::ScalarFieldNative;
 
         InnerBuilder builder;
 
@@ -85,7 +83,7 @@ template <typename RecursiveFlavor> class RecursiveVerifierTest : public testing
             builder.ipa_proof = ipa_proof;
         }
         return builder;
-    };
+    }
 
   public:
     static void SetUpTestSuite()
