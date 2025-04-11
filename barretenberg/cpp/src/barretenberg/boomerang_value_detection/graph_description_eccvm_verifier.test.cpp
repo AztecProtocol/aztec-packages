@@ -106,8 +106,9 @@ template <typename RecursiveFlavor> class ECCVMRecursiveTests : public ::testing
         EXPECT_EQ(connected_components.size(), 1);
         auto variables_in_one_gate = graph.show_variables_in_one_gate(outer_circuit);
         EXPECT_EQ(variables_in_one_gate.size(), 0);
-        info("first variable in one gate == ", std::vector<uint32_t>(variables_in_one_gate.begin(), variables_in_one_gate.end())[0]);
-
+        for (const auto& elem: variables_in_one_gate) {
+            info("elem == ", elem);
+        } 
     }
 };
 using FlavorTypes = testing::Types<ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

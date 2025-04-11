@@ -54,6 +54,6 @@ static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x
     }
     // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
-    translation_masking_term_eval *= x_to_NUM_DISABLED_ROWS_IN_SUMCHECK.invert();
+    translation_masking_term_eval *= x_to_masking_offset.invert();
 };
 } // namespace bb
