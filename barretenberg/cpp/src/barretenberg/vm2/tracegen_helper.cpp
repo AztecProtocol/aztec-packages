@@ -21,7 +21,7 @@
 #include "barretenberg/vm2/generated/relations/lookups_instr_fetching.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_merkle_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
-#include "barretenberg/vm2/generated/relations/lookups_public_data_read.hpp"
+#include "barretenberg/vm2/generated/relations/lookups_public_data_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_range_check.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_scalar_mul.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
@@ -45,7 +45,7 @@
 #include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/precomputed_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_read_trace.hpp"
+#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/sha256_trace.hpp"
 #include "barretenberg/vm2/tracegen/to_radix_trace.hpp"
@@ -273,10 +273,11 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
                     clear_events(events.range_check);
                 },
                 [&]() {
-                    PublicDataTreeReadTraceBuilder public_data_tree_read_trace_builder;
-                    AVM_TRACK_TIME("tracegen/public_data_read",
-                                   public_data_tree_read_trace_builder.process(events.public_data_read_events, trace));
-                    clear_events(events.public_data_read_events);
+                    PublicDataTreeCheckTraceBuilder public_data_tree_check_trace_builder;
+                    AVM_TRACK_TIME(
+                        "tracegen/public_data_check",
+                        public_data_tree_check_trace_builder.process(events.public_data_check_events, trace));
+                    clear_events(events.public_data_check_events);
                 },
                 [&]() {
                     UpdateCheckTraceBuilder update_check_trace_builder;
@@ -387,13 +388,26 @@ TraceContainer AvmTraceGenHelper::generate_trace(EventsContainer&& events)
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_read_settings>>(),
             std::make_unique<LookupIntoDynamicTableSequential<lookup_merkle_check_merkle_poseidon2_write_settings>>(),
             // Public data read
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_0_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_poseidon2_1_settings>>(),
-            std::make_unique<LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_membership_settings>>(),
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_slot_validation_settings>>(),
+                LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_slot_validation_settings>>(),
             std::make_unique<
-                LookupIntoDynamicTableSequential<lookup_public_data_read_low_leaf_next_slot_validation_settings>>(),
+                LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_next_slot_validation_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_poseidon2_0_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_updated_low_leaf_poseidon2_0_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_updated_low_leaf_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_low_leaf_merkle_check_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_poseidon2_0_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_poseidon2_1_settings>>(),
+            std::make_unique<
+                LookupIntoDynamicTableSequential<lookup_public_data_check_new_leaf_merkle_check_settings>>(),
             // Update check
             std::make_unique<LookupIntoDynamicTableSequential<lookup_update_check_update_hash_poseidon2_settings>>(),
             std::make_unique<
