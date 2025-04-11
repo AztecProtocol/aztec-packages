@@ -377,25 +377,33 @@ describe('HttpBlobSinkClient', () => {
       const client = new HttpBlobSinkClient({
         l1RpcUrls: [`http://localhost:${executionHostPort}`],
         l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
+        l1ConsensusHostApiKeys: ['my-api-key'],
       });
 
       // Add spy on the fetch method
       const fetchSpy = jest.spyOn(client as any, 'fetch');
 
-      const retrievedBlobs = await client.getBlobSidecarFrom(`http://localhost:${consensusHostPort}`, 33, [
-        testEncodedBlobHash,
-      ]);
+      const retrievedBlobs = await client.getBlobSidecarFrom(
+        `http://localhost:${consensusHostPort}`,
+        33,
+        [testEncodedBlobHash],
+        [],
+        3,
+        0,
+      );
 
       expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
-      // Verify we hit the 404 for slot 33 before trying slot 34
+      // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key header
+      // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining('/eth/v1/beacon/blob_sidecars/33'),
-        expect.any(Object),
+        expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining('/eth/v1/beacon/blob_sidecars/34'),
-        expect.any(Object),
+        expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
     });
 

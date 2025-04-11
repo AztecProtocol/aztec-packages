@@ -1,8 +1,5 @@
 use crate::{
-    discovery::{
-        ComputeNoteHashAndNullifier,
-        nonce_discovery::{attempt_note_nonce_discovery, DiscoveredNoteInfo},
-    },
+    discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
     encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
     oracle,
     utils::array,
@@ -73,26 +70,23 @@ pub unconstrained fn attempt_note_discovery<Env>(
         [discovered_notes.len() as Field],
     );
 
-    array::for_each_in_bounded_vec(
-        discovered_notes,
-        |discovered_note: DiscoveredNoteInfo, _| {
-            // TODO:(#10728): handle notes that fail delivery. This could be due to e.g. a temporary node connectivity
-            // issue, and we should perhaps not have marked the tag index as taken.
-            assert(
-                oracle::message_discovery::deliver_note(
-                    contract_address,
-                    storage_slot,
-                    discovered_note.nonce,
-                    packed_note,
-                    discovered_note.note_hash,
-                    discovered_note.inner_nullifier,
-                    tx_hash,
-                    recipient,
-                ),
-                "Failed to deliver note",
-            );
-        },
-    );
+    discovered_notes.for_each(|discovered_note| {
+        // TODO:(#10728): handle notes that fail delivery. This could be due to e.g. a temporary node connectivity
+        // issue, and we should perhaps not have marked the tag index as taken.
+        assert(
+            oracle::message_discovery::deliver_note(
+                contract_address,
+                storage_slot,
+                discovered_note.nonce,
+                packed_note,
+                discovered_note.note_hash,
+                discovered_note.inner_nullifier,
+                tx_hash,
+                recipient,
+            ),
+            "Failed to deliver note",
+        );
+    });
 }
 
 fn decode_private_note_msg(
