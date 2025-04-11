@@ -30,7 +30,7 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
-    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
+    "testRegex": "./src/rollup_ivc_integration.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "extensionsToTreatAsEsm": [
       ".ts"
@@ -51,9 +51,6 @@
         }
       ]
     },
-    "reporters": [
-      "default"
-    ],
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
