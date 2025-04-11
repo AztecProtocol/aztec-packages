@@ -61,7 +61,6 @@ export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogP
   }, []);
 
   const send = async () => {
-    console.log('Selected authwits:', selectedAuthwits);
     onClose(name, interaction, { authWitnesses: selectedAuthwits, fee: { paymentMethod: feePaymentMethod } });
   };
 

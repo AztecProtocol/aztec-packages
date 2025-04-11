@@ -202,7 +202,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           Authwit
         </Button>
       </CardActions>
-      {contract && (
+      {contract && openSendTxDialog && (
         <SendTxDialog
           name={fn.name}
           interaction={contract.methods[fn.name](...parameters)}
@@ -210,7 +210,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           onClose={handleSendDialogClose}
         />
       )}
-      {contract && (
+      {contract && openCreateAuthwitDialog && (
         <CreateAuthwitDialog
           fnName={fn.name}
           contract={contract}
