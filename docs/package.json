@@ -4,8 +4,8 @@
   "private": true,
   "scripts": {
     "docs": "yarn preprocess && yarn typedoc && docusaurus start --host ${HOST:-localhost}",
-    "dev": "HOST=0.0.0.0 ENV=dev yarn docs",
-    "dev:local": "ENV=dev yarn docs",
+    "dev": "PROTOCOL_SPECS=true HOST=0.0.0.0 ENV=dev yarn docs",
+    "dev:local": "PROTOCOL_SPECS=true ENV=dev yarn docs",
     "build": "yarn preprocess && yarn typedoc && yarn preprocess:move && docusaurus build",
     "swizzle": "docusaurus swizzle",
     "clean": "./scripts/clean.sh",
