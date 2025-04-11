@@ -61,7 +61,7 @@ class AvmGoblinRecursiveVerifier {
         HonkProof mega_proof;                                 // \pi_M
         GoblinProof goblin_proof;                             // \pi_G
         std::shared_ptr<MegaFlavor::VerificationKey> mega_vk; // VK_M
-        GoblinVerifier::VerifierInput goblin_vk;              // VK_G
+        Goblin::VerificationKey goblin_vk;                    // VK_G
         size_t mega_hash_public_input_index;                  // Index of hash h_M in the Mega proof opub inputs
     };
 
@@ -177,14 +177,14 @@ class AvmGoblinRecursiveVerifier {
         using AvmRecursiveFlavor = AvmRecursiveFlavor_<MegaBuilder>;
         using AvmRecursiveVerificationKey = AvmRecursiveFlavor::VerificationKey;
         using AvmRecursiveVerifier = AvmRecursiveVerifier_<AvmRecursiveFlavor>;
-        using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-        using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+        using ECCVMVK = Goblin::ECCVMVerificationKey;
+        using TranslatorVK = Goblin::TranslatorVerificationKey;
         using MegaProver = UltraProver_<MegaFlavor>;
         using MegaVerificationKey = MegaFlavor::VerificationKey;
         using FF = AvmRecursiveFlavor::FF;
 
         // Instantiate Mega builder for the inner circuit (AVM2 proof recursive verifier)
-        GoblinProver goblin;
+        Goblin goblin;
         MegaBuilder mega_builder(goblin.op_queue);
 
         // lambda to convert from Ultra to Mega stdlib field buffer and add all elements to respective hash buffers
@@ -232,8 +232,7 @@ class AvmGoblinRecursiveVerifier {
 
         // Recursively verify the goblin proof in the Ultra circuit
         auto mega_vk = std::make_shared<MegaVerificationKey>(mega_prover.proving_key->proving_key);
-        GoblinVerifier::VerifierInput goblin_vk{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                                                 std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) };
+        Goblin::VerificationKey goblin_vk{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
 
         return {
             .mega_proof = mega_proof,

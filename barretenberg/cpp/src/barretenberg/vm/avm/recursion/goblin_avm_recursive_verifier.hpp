@@ -87,8 +87,8 @@ class AvmGoblinRecursiveVerifier {
 
         using FF = AvmRecursiveFlavor::FF;
         using AvmRecursiveVerifier = avm::AvmRecursiveVerifier_<AvmRecursiveFlavor>;
-        using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-        using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+        using ECCVMVK = Goblin::ECCVMVerificationKey;
+        using TranslatorVK = Goblin::TranslatorVerificationKey;
         using MegaProver = UltraProver_<MegaFlavor>;
         using MegaRecursiveFlavorForUltraCircuit = MegaRecursiveFlavor_<UltraCircuitBuilder>;
         using MegaVerificationKey = MegaFlavor::VerificationKey;
@@ -105,7 +105,7 @@ class AvmGoblinRecursiveVerifier {
         // checked on the result. The corresponding hash buffers are constructed here.
 
         // Instantiate Mega builder for the inner circuit (AVM proof recursive verifier)
-        GoblinProver goblin;
+        Goblin goblin;
         MegaBuilder mega_builder(goblin.op_queue);
 
         // Buffers to be hashed containing the elements of the Mega and Ultra proof, public inputs, and VK
@@ -170,9 +170,7 @@ class AvmGoblinRecursiveVerifier {
         auto outer_verifier_output = outer_verifier.verify_proof(ultra_proof, input_agg_obj);
 
         // Recursively verify the goblin proof in the Ultra circuit
-        GoblinVerifier::VerifierInput goblin_vinput{ std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                                                     std::make_shared<TranslatorVK>(
-                                                         goblin.get_translator_proving_key()) };
+        Goblin::VerificationKey goblin_vinput{ std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() };
         GoblinRecursiveVerifier gverifier{ ultra_builder, goblin_vinput };
         GoblinRecursiveVerifierOutput goblin_verifier_output = gverifier.verify(goblin_proof);
 
