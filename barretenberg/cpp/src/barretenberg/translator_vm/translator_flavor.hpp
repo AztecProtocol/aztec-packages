@@ -17,6 +17,7 @@
 #include "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp"
 #include "barretenberg/relations/translator_vm/translator_permutation_relation.hpp"
 #include "barretenberg/translator_vm/translator_circuit_builder.hpp"
+#include "barretenberg/translator_vm/translator_fixed_vk.hpp"
 
 namespace bb {
 
@@ -40,7 +41,9 @@ class TranslatorFlavor {
 
     // Indicates that this flavor runs with ZK Sumcheck.
     static constexpr bool HasZK = true;
-    // Important: these constants cannot be  arbitrarily changes - please consult with a member of the Crypto team if
+    // Translator proof size and its recursive verifier circuit are genuinely fixed, hence no padding is needed.
+    static constexpr bool USE_PADDING = false;
+    // Important: these constants cannot be arbitrarily changed - please consult with a member of the Crypto team if
     // they become too small.
 
     // The log of the full Translator circuit size. It determines MINI_CIRCUIT_SIZE and, in the current design,
@@ -716,15 +719,28 @@ class TranslatorFlavor {
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey() = default;
+        // Default constuct the fixed VK based on circuit size 1 << CONST_TRANSLATOR_LOG_N
+        VerificationKey()
+            : VerificationKey_(1UL << CONST_TRANSLATOR_LOG_N, /*num_public_inputs=*/0)
+        {
+            this->pub_inputs_offset = 0;
+            this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
+
+            // Populate the commitments of the precomputed polynomials
+            for (auto [vk_commitment, fixed_commitment] :
+                 zip_view(this->get_all(), TranslatorFixedVKCommitments::get_all())) {
+                vk_commitment = fixed_commitment;
+            }
+        }
+
         VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
             : VerificationKey_(circuit_size, num_public_inputs)
         {}
         VerificationKey(const std::shared_ptr<ProvingKey>& proving_key)
         {
             this->pcs_verification_key = std::make_shared<VerifierCommitmentKey>();
-            this->circuit_size = proving_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
+            this->circuit_size = 1UL << TranslatorFlavor::CONST_TRANSLATOR_LOG_N;
+            this->log_circuit_size = CONST_TRANSLATOR_LOG_N;
             this->num_public_inputs = proving_key->num_public_inputs;
             this->pub_inputs_offset = proving_key->pub_inputs_offset;
 
@@ -733,7 +749,8 @@ class TranslatorFlavor {
                 commitment = proving_key->commitment_key->commit(polynomial);
             }
         }
-
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1324): Remove `circuit_size` and `log_circuit_size`
+        // from MSGPACK and the verification key.
         MSGPACK_FIELDS(circuit_size,
                        log_circuit_size,
                        num_public_inputs,

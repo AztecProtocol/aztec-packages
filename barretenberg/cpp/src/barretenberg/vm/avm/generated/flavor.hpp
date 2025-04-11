@@ -90,6 +90,10 @@ class AvmFlavor {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = true;
+
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 21;
     static constexpr size_t NUM_WITNESS_ENTITIES = 743;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 49;

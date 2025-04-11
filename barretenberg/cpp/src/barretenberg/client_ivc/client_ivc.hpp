@@ -46,6 +46,7 @@ class ClientIVC {
     using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
     using MegaProver = UltraProver_<Flavor>;
     using MegaVerifier = UltraVerifier_<Flavor>;
+    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<ClientCircuit>;
 
     using RecursiveFlavor = MegaRecursiveFlavor_<bb::MegaCircuitBuilder>;
     using RecursiveDeciderVerificationKeys =
@@ -187,7 +188,7 @@ class ClientIVC {
 
     std::shared_ptr<typename MegaFlavor::CommitmentKey> bn254_commitment_key;
 
-    GoblinProver goblin;
+    Goblin goblin;
 
     bool initialized = false; // Is the IVC accumulator initialized
 
@@ -225,7 +226,6 @@ class ClientIVC {
                     const std::shared_ptr<MegaVerificationKey>& precomputed_vk = nullptr,
                     const bool mock_vk = false);
 
-    void construct_vk();
     Proof prove();
 
     std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, MergeProof> construct_hiding_circuit_key();
@@ -233,7 +233,7 @@ class ClientIVC {
 
     static bool verify(const Proof& proof, const VerificationKey& vk);
 
-    bool verify(const Proof& proof);
+    bool verify(const Proof& proof) const;
 
     bool prove_and_verify();
 
@@ -244,9 +244,7 @@ class ClientIVC {
 
     VerificationKey get_vk() const
     {
-        return { honk_vk,
-                 std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key()),
-                 std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key()) };
+        return { honk_vk, std::make_shared<ECCVMVerificationKey>(), std::make_shared<TranslatorVerificationKey>() };
     }
 };
 } // namespace bb

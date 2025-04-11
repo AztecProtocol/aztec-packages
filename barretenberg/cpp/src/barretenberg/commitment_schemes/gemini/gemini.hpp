@@ -360,6 +360,8 @@ template <typename Curve> class GeminiVerifier_ {
     {
         const size_t log_n = multilinear_challenge.size();
         const bool has_interleaved = claim_batcher.interleaved.has_value();
+        // GeminiVerifier is only used in tests, so no padding required.
+        static constexpr bool use_padding = false;
 
         const Fr rho = transcript->template get_challenge<Fr>("rho");
 
@@ -444,7 +446,7 @@ template <typename Curve> class GeminiVerifier_ {
         }
 
         // Compute the evaluations  Aₗ(r^{2ˡ}) for l = 0, ..., m-1
-        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations(
+        std::vector<Fr> gemini_fold_pos_evaluations = compute_fold_pos_evaluations<use_padding>(
             log_n, batched_evaluation, multilinear_challenge, r_squares, evaluations, p_neg);
         // Extract the evaluation A₀(r) = A₀₊(r) + P₊(r^s)
         auto full_a_0_pos = gemini_fold_pos_evaluations[0];
@@ -538,6 +540,7 @@ template <typename Curve> class GeminiVerifier_ {
      * @param fold_neg_evals  Evaluations \f$ A_{i-1}(-r^{2^{i-1}}) \f$.
      * @return Evaluation \f$ A_0(r) \f$.
      */
+    template <bool use_padding>
     static std::vector<Fr> compute_fold_pos_evaluations(
         const size_t log_n,
         const Fr& batched_evaluation,
@@ -550,7 +553,7 @@ template <typename Curve> class GeminiVerifier_ {
 
         Fr eval_pos_prev = batched_evaluation;
         // Virtual size allows padding in Shplemini.
-        const size_t virtual_log_n = evaluation_point.size();
+        const size_t virtual_log_n = use_padding ? evaluation_point.size() : log_n;
 
         Fr zero{ 0 };
         if constexpr (Curve::is_stdlib_type) {
@@ -576,24 +579,28 @@ template <typename Curve> class GeminiVerifier_ {
             Fr eval_pos = ((challenge_power * eval_pos_prev * 2) - eval_neg * (challenge_power * (Fr(1) - u) - u));
             // Divide by the denominator
             eval_pos *= (challenge_power * (Fr(1) - u) + u).invert();
+            if constexpr (use_padding) {
+                if constexpr (Curve::is_stdlib_type) {
+                    auto builder = evaluation_point[0].get_context();
+                    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
+                    stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > log_n);
+                    // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
+                    // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
+                    eval_pos_prev = Fr::conditional_assign(dummy_round, eval_pos_prev, eval_pos);
+                    // If current index is bigger than log_n, we emplace 0, which is later multiplied against
+                    // Commitment::one().
+                    value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
 
-            if constexpr (Curve::is_stdlib_type) {
-                auto builder = evaluation_point[0].get_context();
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1114): insecure dummy_round derivation!
-                stdlib::bool_t dummy_round = stdlib::witness_t(builder, l > log_n);
-                // If current index is bigger than log_n, we propagate `batched_evaluation` to the next
-                // round.  Otherwise, current `eval_pos` A₍ₗ₋₁₎(−r²⁽ˡ⁻¹⁾) becomes `eval_pos_prev` in the round l-2.
-                eval_pos_prev = Fr::conditional_assign(dummy_round, eval_pos_prev, eval_pos);
-                // If current index is bigger than log_n, we emplace 0, which is later multiplied against
-                // Commitment::one().
-                value_to_emplace = Fr::conditional_assign(dummy_round, zero, eval_pos_prev);
-
+                } else {
+                    // Perform the same logic natively
+                    bool dummy_round = l > log_n;
+                    eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
+                    value_to_emplace = dummy_round ? zero : eval_pos_prev;
+                };
             } else {
-                // Perform the same logic natively
-                bool dummy_round = l > log_n;
-                eval_pos_prev = dummy_round ? eval_pos_prev : eval_pos;
-                value_to_emplace = dummy_round ? zero : eval_pos_prev;
-            };
+                eval_pos_prev = eval_pos;
+                value_to_emplace = eval_pos_prev;
+            }
             fold_pos_evaluations.emplace_back(value_to_emplace);
         }
 
