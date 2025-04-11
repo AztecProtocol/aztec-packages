@@ -60,7 +60,7 @@ class MerkleDB final : public HighLevelMerkleDBInterface {
     FF storage_read(const FF& leaf_slot) const override;
 
     bool nullifier_exists(const FF& nullifier) const override;
-    // Infallible write
+    // Throws if the nullifier already exists
     void nullifier_write(const FF& nullifier) override;
 
     LowLevelMerkleDBInterface& as_unconstrained() const override { return raw_merkle_db; }
