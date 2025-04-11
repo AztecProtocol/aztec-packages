@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [Aztec.nr] Renamed `encrypted_logs` to `messages`
+
+As this module now handles much more than just encrypted logs (including unconstrained message delivery, message encoding, etc.), it's been renamed.
+
 ### [noir-contracts] Reference Noir contracts directory structure change
 
 `noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
