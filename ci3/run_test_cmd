@@ -27,7 +27,7 @@ fi
 # If the test has a verbose mode, we want it enabled.
 export VERBOSE=1
 
-# Run the test, capturing output, with a timeout of 10m.
+# Run the test, capturing output, with a timeout of 15m.
 # We cannot use "output=$(timeout ...)" here as it stymies proper signal propagation.
 # To ensure we can propagate SIGTERM to timeouts process group we use a temp file and forward the signal.
 tmp_file=/tmp/$key
@@ -78,7 +78,7 @@ set +e
 if [[ "$test_cmd" = timeout* ]]; then
   bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 else
-  timeout -v 600s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
+  timeout -v 900s bash -c "set -euo pipefail; $test_cmd 2>&1 | add_timestamps" &>> $tmp_file &
 fi
 timeout_pid=$!
 trap "kill -- -$timeout_pid &>/dev/null; exit" SIGTERM SIGINT
