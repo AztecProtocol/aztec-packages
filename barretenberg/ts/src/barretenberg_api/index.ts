@@ -635,8 +635,8 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirProveUltraStarknetHonk(acirVec: Uint8Array, recursive: boolean, witnessVec: Uint8Array): Promise<Uint8Array> {
-    const inArgs = [acirVec, recursive, witnessVec].map(serializeBufferable);
+  async acirProveUltraStarknetHonk(acirVec: Uint8Array, witnessVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec, witnessVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_prove_ultra_starknet_honk',
@@ -707,8 +707,8 @@ export class BarretenbergApi {
     return out[0];
   }
 
-  async acirWriteVkUltraStarknetHonk(acirVec: Uint8Array, recursive: boolean): Promise<Uint8Array> {
-    const inArgs = [acirVec, recursive].map(serializeBufferable);
+  async acirWriteVkUltraStarknetHonk(acirVec: Uint8Array): Promise<Uint8Array> {
+    const inArgs = [acirVec].map(serializeBufferable);
     const outTypes: OutputType[] = [BufferDeserializer()];
     const result = await this.wasm.callWasmExport(
       'acir_write_vk_ultra_starknet_honk',

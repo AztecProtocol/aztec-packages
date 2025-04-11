@@ -206,8 +206,8 @@ export class UltraHonkBackend {
     const proveUltraHonk = options?.keccak
       ? this.api.acirProveUltraKeccakHonk.bind(this.api)
       : options?.starknet
-          ? this.api.acirProveUltraStarknetHonk.bind(this.api)
-          : this.api.acirProveUltraHonk.bind(this.api);
+        ? this.api.acirProveUltraStarknetHonk.bind(this.api)
+        : this.api.acirProveUltraHonk.bind(this.api);
 
     const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
 
@@ -215,8 +215,8 @@ export class UltraHonkBackend {
     const writeVKUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.starknet
-          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : this.api.acirWriteVkUltraHonk.bind(this.api);
+        ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+        : this.api.acirWriteVkUltraHonk.bind(this.api);
 
     const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
     const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
@@ -239,13 +239,13 @@ export class UltraHonkBackend {
     const writeVkUltraHonk = options?.keccak
       ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
       : options?.starknet
-          ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
-          : this.api.acirWriteVkUltraHonk.bind(this.api);
+        ? this.api.acirWriteVkUltraStarknetHonk.bind(this.api)
+        : this.api.acirWriteVkUltraHonk.bind(this.api);
     const verifyUltraHonk = options?.keccak
       ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
       : options?.starknet
-          ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
-          : this.api.acirVerifyUltraHonk.bind(this.api);
+        ? this.api.acirVerifyUltraStarknetHonk.bind(this.api)
+        : this.api.acirVerifyUltraHonk.bind(this.api);
 
     const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
     return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
@@ -256,8 +256,8 @@ export class UltraHonkBackend {
     return options?.keccak
       ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
       : options?.starknet
-          ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
-          : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+        ? await this.api.acirWriteVkUltraStarknetHonk(this.acirUncompressedBytecode)
+        : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
   }
 
   /** @description Returns a solidity verifier */

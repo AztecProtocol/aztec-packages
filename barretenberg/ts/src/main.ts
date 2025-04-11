@@ -436,8 +436,8 @@ export async function proveUltraHonk(
     const acirProveUltraHonk = options?.keccak
       ? api.acirProveUltraKeccakHonk.bind(api)
       : options?.starknet
-          ? api.acirProveUltraStarknetHonk.bind(api)
-          : api.acirProveUltraHonk.bind(api);
+        ? api.acirProveUltraStarknetHonk.bind(api)
+        : api.acirProveUltraHonk.bind(api);
     const proof = await acirProveUltraHonk(bytecode, witness);
 
     if (outputPath === '-') {
@@ -466,8 +466,8 @@ export async function writeVkUltraHonk(
     const acirWriteVkUltraHonk = options?.keccak
       ? api.acirWriteVkUltraKeccakHonk.bind(api)
       : options?.starknet
-          ? api.acirWriteVkUltraStarknetHonk.bind(api)
-          : api.acirWriteVkUltraHonk.bind(api);
+        ? api.acirWriteVkUltraStarknetHonk.bind(api)
+        : api.acirWriteVkUltraHonk.bind(api);
     const vk = await acirWriteVkUltraHonk(bytecode);
 
     if (outputPath === '-') {
@@ -493,8 +493,8 @@ export async function verifyUltraHonk(
     const acirVerifyUltraHonk = options?.keccak
       ? api.acirVerifyUltraKeccakHonk.bind(api)
       : options?.starknet
-          ? api.acirVerifyUltraStarknetHonk.bind(api)
-          : api.acirVerifyUltraHonk.bind(api);
+        ? api.acirVerifyUltraStarknetHonk.bind(api)
+        : api.acirVerifyUltraHonk.bind(api);
     const verified = await acirVerifyUltraHonk(
       Uint8Array.from(readFileSync(proofPath)),
       new RawBuffer(readFileSync(vkPath)),
@@ -733,7 +733,7 @@ program
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, recursive, witnessPath, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await proveUltraHonk(bytecodePath, recursive, witnessPath, crsPath, outputPath, { starknet: true });
+    await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath, { starknet: true });
   });
 
 program
@@ -764,7 +764,7 @@ program
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, recursive, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await writeVkUltraHonk(bytecodePath, recursive, crsPath, outputPath, { starknet: true });
+    await writeVkUltraHonk(bytecodePath, crsPath, outputPath, { starknet: true });
   });
 
 program
