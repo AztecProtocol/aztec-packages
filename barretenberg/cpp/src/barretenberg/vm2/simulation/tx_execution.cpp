@@ -58,9 +58,12 @@ std::unique_ptr<ContextInterface> TxExecution::make_enqueued_context(AztecAddres
     return execution_provider.make_enqueued_context(address, msg_sender, calldata, is_static);
 }
 
-void TxExecution::insert_non_revertibles(const Tx&)
+void TxExecution::insert_non_revertibles(const Tx& tx)
 {
     // 1. Write the already siloed nullifiers.
+    for (const auto& nullifier : tx.nonRevertibleAccumulatedData.nullifiers) {
+        merkle_db.nullifier_write(nullifier);
+    }
     // 2. Write the note hashes.
     // 3. Write the new contracts.
 }
