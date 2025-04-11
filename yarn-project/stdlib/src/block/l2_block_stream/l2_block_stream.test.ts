@@ -156,7 +156,7 @@ describe('L2BlockStream', () => {
   });
 
   describe('with memory tips store', () => {
-    let handler: TestL2BlockStreamEventHandler;
+    let handler: TestL2TipsMemoryStore;
     let localData: TestL2BlockStreamLocalDataProvider;
     let blockStream: TestL2BlockStream;
 
