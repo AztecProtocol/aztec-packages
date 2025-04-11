@@ -131,7 +131,7 @@ jobs:
       GCP_API_KEY_HEADER: "X-goog-api-key"
       EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
       EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
-      RESPECT_TF_LOCK: "true"
+      RESPECT_TF_LOCK: ${{ inputs.respect_tf_lock || 'true' }}
 
     steps:
       - name: Checkout code
