@@ -92,8 +92,8 @@ void ClientIVC::perform_recursive_verification_and_databus_consistency_checks(
 
     // Recursively verify the merge proof for the circuit being recursively verified
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] AggregationObject pairing_points =
-        GoblinVerifier::recursive_verify_merge(circuit, verifier_inputs.merge_proof);
+    RecursiveMergeVerifier merge_verifier{ &circuit };
+    [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(verifier_inputs.merge_proof);
 
     // Set the return data commitment to be propagated on the public inputs of the present kernel and perform
     // consistency checks between the calldata commitments and the return data commitments contained within the public
@@ -235,7 +235,8 @@ std::pair<std::shared_ptr<ClientIVC::DeciderZKProvingKey>, ClientIVC::MergeProof
         bb::convert_native_proof_to_stdlib(&builder, verification_queue[0].merge_proof);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/950): handle pairing point accumulation
-    [[maybe_unused]] auto pairing_points = GoblinVerifier::recursive_verify_merge(builder, stdlib_merge_proof);
+    RecursiveMergeVerifier merge_verifier{ &builder };
+    [[maybe_unused]] AggregationObject pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
 
     // Construct stdlib accumulator, decider vkey and folding proof
     auto stdlib_verifier_accumulator =
@@ -281,12 +282,6 @@ std::pair<HonkProof, ClientIVC::MergeProof> ClientIVC::construct_and_prove_hidin
     return { proof, merge_proof };
 }
 
-void ClientIVC::construct_vk()
-{
-    construct_hiding_circuit_key();
-    goblin.construct_vks();
-};
-
 /**
  * @brief Construct a proof for the IVC, which, if verified, fully establishes its correctness
  *
@@ -300,14 +295,12 @@ ClientIVC::Proof ClientIVC::prove()
 
 bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
 {
-
     // Verify the hiding circuit proof
     MegaZKVerifier verifer{ vk.mega };
     bool mega_verified = verifer.verify_proof(proof.mega_proof);
     vinfo("Mega verified: ", mega_verified);
     // Goblin verification (final merge, eccvm, translator)
-    GoblinVerifier goblin_verifier{ vk.eccvm, vk.translator };
-    bool goblin_verified = goblin_verifier.verify(proof.goblin_proof);
+    bool goblin_verified = Goblin::verify(proof.goblin_proof);
     vinfo("Goblin verified: ", goblin_verified);
     return goblin_verified && mega_verified;
 }
@@ -318,11 +311,9 @@ bool ClientIVC::verify(const Proof& proof, const VerificationKey& vk)
  * @param proof
  * @return bool
  */
-bool ClientIVC::verify(const Proof& proof)
+bool ClientIVC::verify(const Proof& proof) const
 {
-    auto eccvm_vk = std::make_shared<ECCVMVerificationKey>(goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorVerificationKey>(goblin.get_translator_proving_key());
-    return verify(proof, { honk_vk, eccvm_vk, translator_vk });
+    return verify(proof, get_vk());
 }
 
 /**
