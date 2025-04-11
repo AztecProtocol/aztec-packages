@@ -1,8 +1,9 @@
-#include <gmock/gmock.h>
-#include <gtest/gtest.h>
+#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 
 #include <cmath>
 #include <cstdint>
+#include <gmock/gmock.h>
+#include <gtest/gtest.h>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
@@ -19,10 +20,10 @@
 #include "barretenberg/vm2/simulation/testing/mock_range_check.hpp"
 #include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
+#include "barretenberg/vm2/testing/test_tree.hpp"
 #include "barretenberg/vm2/tracegen/field_gt_trace.hpp"
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
-#include "barretenberg/vm2/tracegen/nullifier_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 

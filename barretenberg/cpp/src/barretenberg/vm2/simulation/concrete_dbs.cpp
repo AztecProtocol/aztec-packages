@@ -73,9 +73,8 @@ void MerkleDB::nullifier_write(const FF& nullifier)
     AppendOnlyTreeSnapshot snapshot_after = nullifier_tree_check.write(
         nullifier, low_leaf_hint.leaf, low_leaf_hint.index, low_leaf_hint.path, snapshot_before, insertion_hint.path);
 
-    if (snapshot_after != get_tree_roots().nullifierTree) {
-        throw std::runtime_error("Bad hint nullifier tree write");
-    }
+    // Sanity check.
+    assert(snapshot_after == get_tree_roots().nullifierTree);
 }
 
 void MerkleDB::create_checkpoint()
