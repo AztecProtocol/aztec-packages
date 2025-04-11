@@ -5,7 +5,6 @@
 #include "barretenberg/op_queue/ecc_ops_table.hpp"
 #include "barretenberg/op_queue/eccvm_row_tracker.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
-#include "barretenberg/stdlib/primitives/bigfield/constants.hpp"
 namespace bb {
 
 /**
@@ -248,7 +247,7 @@ class ECCOpQueue {
         ultra_op.op_code = op_code;
 
         // Decompose point coordinates (Fq) into hi-lo chunks (Fr)
-        const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        const size_t CHUNK_SIZE = 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
         uint256_t x_256(point.x);
         uint256_t y_256(point.y);
         ultra_op.return_is_infinity = point.is_point_at_infinity();

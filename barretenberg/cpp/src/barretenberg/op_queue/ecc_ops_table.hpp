@@ -7,9 +7,6 @@
 #include <deque>
 namespace bb {
 
-static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS = stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION;
-
-const size_t CHUNK_SIZE = 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 /**
  * @brief Defines the opcodes for ECC operations used in both the Ultra and ECCVM formats. There are four opcodes:
  * - addition: add = true, value() = 8
@@ -51,8 +48,8 @@ struct UltraOp {
 
     std::array<uint256_t, 2> get_base_point_standard_form() const
     {
-        uint256_t x = (uint256_t(x_hi) << 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) + uint256_t(x_lo);
-        uint256_t y = (uint256_t(y_hi) << 2 * DEFAULT_NON_NATIVE_FIELD_LIMB_BITS) + uint256_t(y_lo);
+        uint256_t x = (uint256_t(x_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(x_lo);
+        uint256_t y = (uint256_t(y_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(y_lo);
 
         if (return_is_infinity) {
             x = 0;
@@ -69,24 +66,6 @@ template <typename CycleGroup> struct VMOperation {
     uint256_t z2 = 0;
     typename CycleGroup::subgroup_field mul_scalar_full = 0;
     bool operator==(const VMOperation<CycleGroup>& other) const = default;
-
-    /**
-     * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
-     * infinity whose coordinates are set to (0,0).
-     *
-     * @details These are represented as uint265_t to make chunking easier, the function being used in translator
-     * where each coordinate is chunked to efficiently be represented in the scalar field.
-     */
-    std::array<uint256_t, 2> get_base_point_standard_form() const
-    {
-        uint256_t x(base_point.x);
-        uint256_t y(base_point.y);
-        if (base_point.is_point_at_infinity()) {
-            x = 0;
-            y = 0;
-        }
-        return { x, y };
-    }
 };
 using ECCVMOperation = VMOperation<curve::BN254::Group>;
 
@@ -181,7 +160,6 @@ class UltraEccOpsTable {
   public:
     static constexpr size_t TABLE_WIDTH = 4;     // dictated by the number of wires in the Ultra arithmetization
     static constexpr size_t NUM_ROWS_PER_OP = 2; // A single ECC op is split across two width-4 rows
-
   private:
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
