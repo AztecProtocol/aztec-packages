@@ -146,7 +146,7 @@ class AvmGoblinRecursiveVerifier {
         // Propagate the IPA claim via the public inputs of the outer circuit
         // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity to
         // handle this IPA data propagation.
-        ultra_builder.add_ipa_claim(goblin_verifier_output.opening_claim.get_witness_indices());
+        goblin_verifier_output.opening_claim.set_public();
         ultra_builder.ipa_proof = convert_stdlib_proof_to_native(goblin_verifier_output.ipa_transcript->proof_data);
         ASSERT(ultra_builder.ipa_proof.size() && "IPA proof should not be empty");
 

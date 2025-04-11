@@ -187,7 +187,7 @@ template <typename FF_> class CircuitBuilderBase {
      *
      * @param witness_index The index of the witness.
      * */
-    virtual void set_public_input(uint32_t witness_index);
+    virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
     // TODO(#216)(Adrian): This method should belong in the ComposerHelper, where the number of reserved gates can be
@@ -215,8 +215,6 @@ template <typename FF_> class CircuitBuilderBase {
      */
     void add_pairing_point_accumulator_for_plonk(
         const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices);
-
-    void add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices);
 
     bool failed() const;
     const std::string& err() const;

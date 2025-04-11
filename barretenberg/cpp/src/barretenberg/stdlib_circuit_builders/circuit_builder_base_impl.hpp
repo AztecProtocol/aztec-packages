@@ -176,17 +176,20 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(co
     return index;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
+template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
     for (const uint32_t public_input : public_inputs) {
         if (public_input == witness_index) {
             if (!failed()) {
                 failure("Attempted to set a public input that is already public!");
             }
-            return;
+            return 0;
         }
     }
+    uint32_t public_input_index = static_cast<uint32_t>(public_inputs.size());
     public_inputs.emplace_back(witness_index);
+
+    return public_input_index;
 }
 
 /**
@@ -251,22 +254,6 @@ void CircuitBuilderBase<FF_>::add_pairing_point_accumulator_for_plonk(
     for (const auto& idx : pairing_point_accum_witness_indices) {
         set_public_input(idx);
         pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
-        ++i;
-    }
-}
-
-template <typename FF_> void CircuitBuilderBase<FF_>::add_ipa_claim(const IPAClaimIndices& ipa_claim_witness_indices)
-{
-    if (contains_ipa_claim) {
-        failure("added IPA claim when one already exists");
-        ASSERT(0);
-    }
-    contains_ipa_claim = true;
-
-    size_t i = 0;
-    for (const auto& idx : ipa_claim_witness_indices) {
-        set_public_input(idx);
-        ipa_claim_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
         ++i;
     }
 }

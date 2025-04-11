@@ -55,9 +55,13 @@ class CircuitSimulatorBN254 {
     inline bb::fr get_variable([[maybe_unused]] const uint32_t index) const { return 1028; }
 
     uint32_t put_constant_variable([[maybe_unused]] const bb::fr& variable) { return 1028; }
-    void set_public_input([[maybe_unused]] const uint32_t witness_index) {}
+    uint32_t set_public_input([[maybe_unused]] const uint32_t witness_index) { return 0; }
 
-    void set_public_input(const bb::fr value) { public_inputs.emplace_back(value); }
+    uint32_t set_public_input(const bb::fr value)
+    {
+        public_inputs.emplace_back(value);
+        return 0;
+    }
 
     void fix_witness([[maybe_unused]] const uint32_t witness_index, [[maybe_unused]] const bb::fr& witness_value){};
 

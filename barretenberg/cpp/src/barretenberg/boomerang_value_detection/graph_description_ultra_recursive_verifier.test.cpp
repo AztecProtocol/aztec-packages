@@ -83,7 +83,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         if constexpr (HasIPAAccumulator<RecursiveFlavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<grumpkin<InnerBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+            stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
         return builder;
@@ -125,7 +125,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         pairing_points.P1.x.fix_witness();
         pairing_points.P1.y.fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
+            output.ipa_opening_claim.set_public();
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());

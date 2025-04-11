@@ -160,7 +160,7 @@ class IPARecursiveTests : public CommitmentTest<NativeCurve> {
         // polynomial.
         auto [output_claim, ipa_proof] =
             RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
-        builder.add_ipa_claim(output_claim.get_witness_indices());
+        output_claim.set_public();
         builder.ipa_proof = ipa_proof;
         builder.finalize_circuit(/*ensure_nonzero=*/false);
         info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
@@ -266,7 +266,7 @@ TEST_F(IPARecursiveTests, AccumulationAndFullRecursiveVerifier)
     // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
     // polynomial.
     auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
-    builder.add_ipa_claim(output_claim.get_witness_indices());
+    output_claim.set_public();
     builder.ipa_proof = ipa_proof;
     builder.finalize_circuit(/*ensure_nonzero=*/false);
     info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",
@@ -314,7 +314,7 @@ TEST_F(IPARecursiveTests, AccumulationWithDifferentSizes)
     // Creates two IPA accumulators and accumulators from the two claims. Also constructs the accumulated h
     // polynomial.
     auto [output_claim, ipa_proof] = RecursiveIPA::accumulate(this->ck(), transcript_1, claim_1, transcript_2, claim_2);
-    builder.add_ipa_claim(output_claim.get_witness_indices());
+    output_claim.set_public();
     builder.ipa_proof = ipa_proof;
     builder.finalize_circuit(/*ensure_nonzero=*/false);
     info("Circuit with 2 IPA Recursive Verifiers and IPA Accumulation num finalized gates = ",

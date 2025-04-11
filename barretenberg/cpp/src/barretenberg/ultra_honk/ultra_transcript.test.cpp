@@ -161,7 +161,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+            stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
     }
@@ -177,7 +177,7 @@ template <typename Flavor> class UltraTranscriptTests : public ::testing::Test {
         if constexpr (HasIPAAccumulator<Flavor>) {
             auto [stdlib_opening_claim, ipa_proof] =
                 IPA<stdlib::grumpkin<typename Flavor::CircuitBuilder>>::create_fake_ipa_claim_and_proof(builder);
-            builder.add_ipa_claim(stdlib_opening_claim.get_witness_indices());
+            stdlib_opening_claim.set_public();
             builder.ipa_proof = ipa_proof;
         }
     }
