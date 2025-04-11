@@ -400,23 +400,24 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     for (auto& constraint : constraint_system.honk_recursion_constraints) {
         if (constraint.proof_type == HONK) {
             auto [next_aggregation_object, _ipa_claim, _ipa_proof] =
-                create_honk_recursion_constraints<Builder, UltraRecursiveFlavor_<Builder>>(
+                create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
                     builder, constraint, current_aggregation_object, has_valid_witness_assignments);
             current_aggregation_object = next_aggregation_object;
         } else if (constraint.proof_type == ROLLUP_HONK || constraint.proof_type == ROOT_ROLLUP_HONK) {
             if constexpr (!IsUltraBuilder<Builder>) {
                 throw_or_abort("Rollup Honk proof type not supported on MegaBuilder");
-            }
-            if (constraint.proof_type == ROOT_ROLLUP_HONK) {
-                is_root_rollup = true;
-            }
-            auto [next_aggregation_object, ipa_claim, ipa_proof] =
-                create_honk_recursion_constraints<Builder, UltraRollupRecursiveFlavor_<Builder>>(
-                    builder, constraint, current_aggregation_object, has_valid_witness_assignments);
-            current_aggregation_object = next_aggregation_object;
+            } else {
+                if (constraint.proof_type == ROOT_ROLLUP_HONK) {
+                    is_root_rollup = true;
+                }
+                auto [next_aggregation_object, ipa_claim, ipa_proof] =
+                    create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
+                        builder, constraint, current_aggregation_object, has_valid_witness_assignments);
+                current_aggregation_object = next_aggregation_object;
 
-            nested_ipa_claims.push_back(ipa_claim);
-            nested_ipa_proofs.push_back(ipa_proof);
+                nested_ipa_claims.push_back(ipa_claim);
+                nested_ipa_proofs.push_back(ipa_proof);
+            }
         } else {
             throw_or_abort("Invalid Honk proof type");
         }

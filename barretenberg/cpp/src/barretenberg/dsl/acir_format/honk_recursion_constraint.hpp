@@ -17,11 +17,12 @@ template <typename Builder> struct HonkRecursionConstraintOutput {
     StdlibProof<Builder> ipa_proof;
 };
 
-template <typename Builder, typename Flavor>
-HonkRecursionConstraintOutput<Builder> create_honk_recursion_constraints(
-    Builder& builder,
+template <typename Flavor>
+HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
+    typename Flavor::CircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<Builder> input_aggregation_object,
-    bool has_valid_witness_assignments = false);
+    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_aggregation_object,
+    bool has_valid_witness_assignments = false)
+    requires IsRecursiveFlavor<Flavor>;
 
 } // namespace acir_format

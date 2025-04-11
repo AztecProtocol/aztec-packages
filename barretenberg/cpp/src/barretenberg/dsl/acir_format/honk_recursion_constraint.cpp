@@ -205,13 +205,15 @@ void create_dummy_vkey_and_proof(Builder& builder,
  *       or we need non-witness data to be provided as metadata in the ACIR opcode
  */
 
-template <typename Builder, typename Flavor>
-HonkRecursionConstraintOutput<Builder> create_honk_recursion_constraints(
-    Builder& builder,
+template <typename Flavor>
+HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
+    typename Flavor::CircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
+    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments)
+    requires IsRecursiveFlavor<Flavor>
 {
+    using Builder = typename Flavor::CircuitBuilder;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
@@ -272,26 +274,22 @@ HonkRecursionConstraintOutput<Builder> create_honk_recursion_constraints(
     return output;
 }
 
-template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
-    MegaCircuitBuilder,
-    UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
-                                               const RecursionConstraint& input,
-                                               stdlib::recursion::aggregation_state<MegaCircuitBuilder> input_agg_obj,
-                                               bool has_valid_witness_assignments);
-
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraCircuitBuilder,
     UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
                                                 const RecursionConstraint& input,
                                                 stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
                                                 bool has_valid_witness_assignments);
 
 template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
-    UltraCircuitBuilder,
     UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
     UltraCircuitBuilder& builder,
     const RecursionConstraint& input,
     stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments);
 
+template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
+    UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                               const RecursionConstraint& input,
+                                               stdlib::recursion::aggregation_state<MegaCircuitBuilder> input_agg_obj,
+                                               bool has_valid_witness_assignments);
 } // namespace acir_format
