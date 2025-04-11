@@ -91,7 +91,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr = Fr.ZERO,
+    private readonly proverId: Fr,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -534,7 +534,6 @@ export class ProvingOrchestrator implements EpochProver {
         }`,
         {
           [Attributes.TX_HASH]: processedTx.hash.toString(),
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
@@ -604,7 +603,6 @@ export class ProvingOrchestrator implements EpochProver {
         'ProvingOrchestrator.prover.getTubeProof',
         {
           [Attributes.TX_HASH]: txHash,
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
         },
         signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
@@ -629,7 +627,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'merge-rollup' satisfies CircuitName,
         },
         signal => this.prover.getMergeRollupProof(inputs, signal, provingState.epochNumber),
@@ -662,7 +659,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
@@ -722,7 +718,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBaseParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' satisfies CircuitName,
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
@@ -758,7 +753,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' satisfies CircuitName,
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
@@ -786,7 +780,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-merge-rollup' satisfies CircuitName,
         },
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
@@ -814,7 +807,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
         },
         signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
@@ -844,7 +836,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' satisfies CircuitName,
         },
         signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),

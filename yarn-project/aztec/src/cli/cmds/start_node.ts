@@ -1,5 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
 import { type AztecNodeConfig, aztecNodeConfigMappings, getConfigEnvVars } from '@aztec/aztec-node';
+import { Fr } from '@aztec/aztec.js';
 import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
@@ -54,7 +55,7 @@ export async function startNode(
 
   userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
 
-  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
   userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
 
@@ -73,6 +74,7 @@ export async function startNode(
       assumeProvenThroughBlockNumber: nodeSpecificOptions.assumeProvenThroughBlockNumber,
       salt: nodeSpecificOptions.deployAztecContractsSalt,
       genesisArchiveRoot,
+      feeJuicePortalInitialBalance: fundingNeeded,
     });
   }
   // If not deploying, validate that any addresses and config provided are correct.
@@ -84,7 +86,14 @@ export async function startNode(
       nodeConfig.l1Contracts.registryAddress,
       nodeConfig.l1RpcUrls,
       nodeConfig.l1ChainId,
+      nodeConfig.rollupVersion,
     );
+
+    if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
+      throw new Error(
+        `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
+      );
+    }
 
     // TODO(#12272): will clean this up.
     nodeConfig = {

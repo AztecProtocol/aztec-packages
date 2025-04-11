@@ -26,7 +26,6 @@ describe('Forwarder', () => {
 
   let vkTreeRoot: Fr;
   let protocolContractTreeRoot: Fr;
-  let l2FeeJuiceAddress: Fr;
   let walletClient: ViemWalletClient;
   let publicClient: ViemPublicClient;
   let forwarder: ForwarderContract;
@@ -40,8 +39,6 @@ describe('Forwarder', () => {
     privateKey = privateKeyToAccount('0x8b3a350cf5c34c9194ca85829a2df0ec3153be0318b5e2d3348e872092edffba');
     vkTreeRoot = Fr.random();
     protocolContractTreeRoot = Fr.random();
-    // Valid AztecAddress represented by its xCoord as a Fr
-    l2FeeJuiceAddress = Fr.fromHexString('0x302dbc2f9b50a73283d5fb2f35bc01eae8935615817a0b4219a057b2ba8a5a3f');
 
     ({ anvil, rpcUrl } = await startAnvil());
 
@@ -52,7 +49,6 @@ describe('Forwarder', () => {
       salt: undefined,
       vkTreeRoot,
       protocolContractTreeRoot,
-      l2FeeJuiceAddress,
       genesisArchiveRoot: Fr.random(),
     });
 
@@ -133,5 +129,10 @@ describe('Forwarder', () => {
     expect(err).toBeDefined();
     expect(err).toBeInstanceOf(FormattedViemError);
     expect(err.message).toMatch(/GovernanceProposer__OnlyProposerCanVote/);
+  });
+
+  it('gets expected address', () => {
+    const expected = ForwarderContract.expectedAddress('0x8048539a57619864fdcAE35282731809CD1f5E8D');
+    expect(expected).toBe('0xEB416A0f18CEf8Ce5C9dd4BceF4BeFfb771703c6');
   });
 });

@@ -22,7 +22,7 @@ import {
   PublicInputArgs,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -30,7 +30,8 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IRewardDistributor, IRegistry} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
@@ -55,37 +56,6 @@ import {MinimalFeeModel} from "./MinimalFeeModel.sol";
 // solhint-disable comprehensive-interface
 
 uint256 constant MANA_TARGET = 100000000;
-
-contract FakeCanonical is IRewardDistributor {
-  uint256 public constant BLOCK_REWARD = 50e18;
-  IERC20 public immutable UNDERLYING;
-
-  address public canonicalRollup;
-
-  constructor(IERC20 _asset) {
-    UNDERLYING = _asset;
-  }
-
-  function setCanonicalRollup(address _rollup) external {
-    canonicalRollup = _rollup;
-  }
-
-  function claim(address _recipient) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, BLOCK_REWARD);
-    return BLOCK_REWARD;
-  }
-
-  function claimBlockRewards(address _recipient, uint256 _blocks) external returns (uint256) {
-    TestERC20(address(UNDERLYING)).mint(_recipient, _blocks * BLOCK_REWARD);
-    return _blocks * BLOCK_REWARD;
-  }
-
-  function distributeFees(address _recipient, uint256 _amount) external {
-    TestERC20(address(UNDERLYING)).mint(_recipient, _amount);
-  }
-
-  function updateRegistry(IRegistry _registry) external {}
-}
 
 contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
   using stdStorage for StdStorage;
@@ -115,7 +85,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   address internal coinbase = address(bytes20("MONEY MAKER"));
   TestERC20 internal asset;
-  FakeCanonical internal fakeCanonical;
+  RewardDistributor internal rewardDistributor;
 
   constructor() {
     FeeLib.initialize(MANA_TARGET, EthValue.wrap(100));
@@ -130,12 +100,12 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     asset = new TestERC20("test", "TEST", address(this));
 
-    fakeCanonical = new FakeCanonical(IERC20(address(asset)));
-    asset.transferOwnership(address(fakeCanonical));
+    Registry registry = new Registry(address(this), asset);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
 
     rollup = new Rollup(
-      IFeeJuicePortal(address(fakeCanonical)),
-      IRewardDistributor(address(fakeCanonical)),
+      asset,
+      IRewardDistributor(address(rewardDistributor)),
       asset,
       address(this),
       TestConstants.getGenesisState(),
@@ -151,11 +121,16 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         provingCostPerMana: TestConstants.AZTEC_PROVING_COST_PER_MANA
       })
     );
-    fakeCanonical.setCanonicalRollup(address(rollup));
+
+    registry.addRollup(IRollup(address(rollup)));
+
+    asset.mint(address(rewardDistributor), 1e6 * rewardDistributor.BLOCK_REWARD());
+    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
 
     vm.label(coinbase, "coinbase");
     vm.label(address(rollup), "ROLLUP");
-    vm.label(address(fakeCanonical), "FAKE CANONICAL");
+    vm.label(address(rewardDistributor), "REWARD DISTRIBUTOR");
+    vm.label(address(rollup.getFeeAssetPortal()), "FEE ASSET PORTAL");
     vm.label(address(asset), "ASSET");
     vm.label(rollup.getBurnAddress(), "BURN_ADDRESS");
   }
@@ -205,6 +180,8 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // Put coinbase onto the stack
     address cb = coinbase;
 
+    uint256 version = rollup.getVersion();
+
     // Updating the header with important information!
     assembly {
       let headerRef := add(header, 0x20)
@@ -219,6 +196,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
       // Store the modified word back
       mstore(add(headerRef, 0x20), word)
 
+      mstore(add(headerRef, 0x0154), version)
       mstore(add(headerRef, 0x0174), bn)
       mstore(add(headerRef, 0x0194), slotNumber)
       mstore(add(headerRef, 0x01b4), ts)
@@ -476,7 +454,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
               args: args,
               fees: fees,
               blobPublicInputs: blobPublicInputs,
-              aggregationObject: "",
               proof: ""
             })
           );
@@ -487,7 +464,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
         // The reward is not yet distributed, but only accumulated.
         {
-          uint256 newFees = fakeCanonical.BLOCK_REWARD() * epochSize / 2 + sequencerFees;
+          uint256 newFees = rewardDistributor.BLOCK_REWARD() * epochSize / 2 + sequencerFees;
           assertEq(
             rollup.getSequencerRewards(coinbase),
             sequencerRewardsBefore + newFees,
@@ -497,7 +474,7 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         {
           assertEq(
             rollup.getCollectiveProverRewardsForEpoch(rollup.getEpochForBlock(start)),
-            fakeCanonical.BLOCK_REWARD() * epochSize / 2 + proverFees,
+            rewardDistributor.BLOCK_REWARD() * epochSize / 2 + proverFees,
             "prover rewards"
           );
         }

@@ -4,8 +4,8 @@
 #include <cstdint>
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_hash.hpp"
 #include "barretenberg/vm2/generated/relations/poseidon2_perm.hpp"
@@ -185,7 +185,6 @@ TEST(Poseidon2ConstrainingTest, HashPermInteractions)
 
     check_relation<poseidon2_hash>(trace);
     check_relation<poseidon2_perm>(trace);
-    check_interaction<lookup_poseidon2_perm_relation>(trace);
 }
 
 TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
@@ -215,8 +214,6 @@ TEST(Poseidon2ConstrainingTest, NegativeHashPermInteractions)
     EXPECT_EQ(trace.get_num_rows(), /*start_row=*/1 + /*first_invocation=*/2);
 
     check_relation<poseidon2_hash>(trace);
-    EXPECT_THROW_WITH_MESSAGE(check_interaction<lookup_poseidon2_perm_relation>(trace),
-                              "Relation.*POSEIDON2_PERM.* ACCUMULATION.* is non-zero");
 }
 
 } // namespace bb::avm2::constraining

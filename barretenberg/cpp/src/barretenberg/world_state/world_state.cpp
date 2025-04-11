@@ -166,6 +166,18 @@ void WorldState::create_canonical_fork(const std::string& dataDir,
     _forks[fork->_forkId] = fork;
 }
 
+void WorldState::copy_stores(const std::string& dstPath, bool compact) const
+{
+    auto copyStore = [&](const LMDBTreeStore::SharedPtr& store) {
+        std::filesystem::path directory = dstPath;
+        directory /= store->get_name();
+        std::filesystem::create_directories(directory);
+        store->copy_store(directory, compact);
+    };
+
+    std::for_each(_persistentStores->begin(), _persistentStores->end(), copyStore);
+}
+
 Fork::SharedPtr WorldState::retrieve_fork(const uint64_t& forkId) const
 {
     std::unique_lock lock(mtx);

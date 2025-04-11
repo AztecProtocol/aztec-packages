@@ -25,7 +25,7 @@ void Memory::set(MemoryAddress index, MemoryValue value, MemoryTag tag)
 {
     // TODO: validate tag-value makes sense.
     memory[index] = { value, tag };
-    vinfo("Memory write: ", index, " <- ", value, " (tag: ", static_cast<int>(tag), ")");
+    debug("Memory write: ", index, " <- ", value, " (tag: ", static_cast<int>(tag), ")");
     events.emit({ .mode = MemoryMode::WRITE, .addr = index, .value = value, .tag = tag, .space_id = space_id });
 }
 
@@ -37,7 +37,7 @@ ValueRefAndTag Memory::get(MemoryAddress index) const
     const auto& vt = it != memory.end() ? it->second : default_value;
     events.emit({ .mode = MemoryMode::READ, .addr = index, .value = vt.value, .tag = vt.tag, .space_id = space_id });
 
-    vinfo("Memory read: ", index, " -> ", vt.value, " (tag: ", static_cast<int>(vt.tag), ")");
+    debug("Memory read: ", index, " -> ", vt.value, " (tag: ", static_cast<int>(vt.tag), ")");
     return { vt.value, vt.tag };
 }
 

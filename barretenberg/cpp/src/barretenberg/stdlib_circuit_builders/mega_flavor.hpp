@@ -38,6 +38,9 @@ class MegaFlavor {
     static constexpr bool USE_SHORT_MONOMIALS = true;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = true;
     static constexpr size_t NUM_WIRES = CircuitBuilder::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -159,9 +162,9 @@ class MegaFlavor {
         }
         auto get_selectors() { return concatenate(get_non_gate_selectors(), get_gate_selectors()); }
 
-        auto get_sigma_polynomials() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
-        auto get_id_polynomials() { return RefArray{ id_1, id_2, id_3, id_4 }; };
-        auto get_table_polynomials() { return RefArray{ table_1, table_2, table_3, table_4 }; };
+        auto get_sigmas() { return RefArray{ sigma_1, sigma_2, sigma_3, sigma_4 }; };
+        auto get_ids() { return RefArray{ id_1, id_2, id_3, id_4 }; };
+        auto get_tables() { return RefArray{ table_1, table_2, table_3, table_4 }; };
     };
 
     // Mega needs to expose more public classes than most flavors due to MegaRecursive reuse, but these
@@ -297,20 +300,12 @@ class MegaFlavor {
       public:
         DEFINE_COMPOUND_GET_ALL(PrecomputedEntities<DataType>, WitnessEntities<DataType>, ShiftedEntities<DataType>)
 
-        auto get_wires() { return WitnessEntities<DataType>::get_wires(); };
-        auto get_non_gate_selectors() { return PrecomputedEntities<DataType>::get_non_gate_selectors(); }
-        auto get_gate_selectors() { return PrecomputedEntities<DataType>::get_gate_selectors(); }
-        auto get_selectors() { return PrecomputedEntities<DataType>::get_selectors(); }
-        auto get_sigmas() { return PrecomputedEntities<DataType>::get_sigma_polynomials(); };
-        auto get_ids() { return PrecomputedEntities<DataType>::get_id_polynomials(); };
-        auto get_tables() { return PrecomputedEntities<DataType>::get_table_polynomials(); };
         auto get_unshifted()
         {
             return concatenate(PrecomputedEntities<DataType>::get_all(), WitnessEntities<DataType>::get_all());
         };
         auto get_precomputed() { return PrecomputedEntities<DataType>::get_all(); }
         auto get_witness() { return WitnessEntities<DataType>::get_all(); };
-        auto get_to_be_shifted() { return WitnessEntities<DataType>::get_to_be_shifted(); };
         auto get_shifted() { return ShiftedEntities<DataType>::get_all(); };
     };
 
@@ -369,10 +364,10 @@ class MegaFlavor {
         [[nodiscard]] AllValues get_row_for_permutation_arg(size_t row_idx)
         {
             AllValues result;
-            for (auto [result_field, polynomial] : zip_view(result.get_sigma_polynomials(), get_sigma_polynomials())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_sigmas(), get_sigmas())) {
                 result_field = polynomial[row_idx];
             }
-            for (auto [result_field, polynomial] : zip_view(result.get_id_polynomials(), get_id_polynomials())) {
+            for (auto [result_field, polynomial] : zip_view(result.get_ids(), get_ids())) {
                 result_field = polynomial[row_idx];
             }
             for (auto [result_field, polynomial] : zip_view(result.get_wires(), get_wires())) {
@@ -426,6 +421,8 @@ class MegaFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      * @todo TODO(https://github.com/AztecProtocol/barretenberg/issues/876)
+     * TODO(// TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Clean up the constructors here and
+     * ensure the pcs_verification_key is initialized everywhere it needs to be.
      */
     class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:

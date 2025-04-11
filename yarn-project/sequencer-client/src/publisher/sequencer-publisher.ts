@@ -334,15 +334,17 @@ export class SequencerPublisher {
     const cachedLastVote = this.myLastVotes[voteType];
     this.myLastVotes[voteType] = slotNumber;
 
+    const action = voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote';
+
     this.addRequest({
-      action: voteType === VoteType.GOVERNANCE ? 'governance-vote' : 'slashing-vote',
+      action,
       request: base.createVoteRequest(payload.toString()),
       lastValidL2Slot: slotNumber,
       onResult: (_request, result) => {
         if (!result || result.receipt.status !== 'success') {
           this.myLastVotes[voteType] = cachedLastVote;
         } else {
-          this.log.info(`Cast [${voteType}] vote for slot ${slotNumber}`);
+          this.log.info(`Voting in [${action}] for ${payload} at slot ${slotNumber} in round ${round}`);
         }
       },
     });

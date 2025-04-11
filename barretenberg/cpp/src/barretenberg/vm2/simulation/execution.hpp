@@ -23,7 +23,8 @@
 namespace bb::avm2::simulation {
 
 struct ExecutionResult {
-    std::vector<FF> returndata;
+    MemoryAddress rd_offset;
+    MemoryAddress rd_size;
     bool success;
 };
 
@@ -44,11 +45,13 @@ class Execution : public ExecutionInterface {
     Execution(AluInterface& alu,
               ExecutionComponentsProviderInterface& execution_components,
               const InstructionInfoDBInterface& instruction_info_db,
-              EventEmitterInterface<ExecutionEvent>& event_emitter)
+              EventEmitterInterface<ExecutionEvent>& event_emitter,
+              EventEmitterInterface<ContextStackEvent>& ctx_stack_emitter)
         : execution_components(execution_components)
         , instruction_info_db(instruction_info_db)
         , alu(alu)
         , events(event_emitter)
+        , ctx_stack_events(ctx_stack_emitter)
     {}
 
     ExecutionResult execute(ContextInterface& enqueued_call_context) override;
@@ -60,10 +63,12 @@ class Execution : public ExecutionInterface {
     void mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr);
     void jump(ContextInterface& context, uint32_t loc);
     void jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32_t loc);
-    void call(ContextInterface& context, MemoryAddress addr);
+    void call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size);
     void ret(ContextInterface& context, MemoryAddress ret_offset, MemoryAddress ret_size_offset);
 
   private:
+    void set_execution_result(ExecutionResult exec_result) { this->exec_result = exec_result; }
+    ExecutionResult get_execution_result() const { return exec_result; }
     ExecutionResult execute_internal(ContextInterface& context);
     void dispatch_opcode(ExecutionOpCode opcode,
                          ContextInterface& context,
@@ -74,11 +79,16 @@ class Execution : public ExecutionInterface {
                             const std::vector<Operand>& resolved_operands);
     std::vector<Operand> resolve_operands(const Instruction& instruction, const ExecInstructionSpec& spec);
 
+    void emit_context_snapshot(ContextInterface& context);
+
     ExecutionComponentsProviderInterface& execution_components;
     const InstructionInfoDBInterface& instruction_info_db;
 
     AluInterface& alu;
     EventEmitterInterface<ExecutionEvent>& events;
+    EventEmitterInterface<ContextStackEvent>& ctx_stack_events;
+
+    ExecutionResult exec_result;
 };
 
 } // namespace bb::avm2::simulation

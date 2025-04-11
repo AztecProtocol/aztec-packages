@@ -41,6 +41,10 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = true;
+
     // define the containers for storing the contributions from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
@@ -75,7 +79,7 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
          * @param builder
          * @param elements
          */
-        VerificationKey(CircuitBuilder& builder, std::span<FF> elements)
+        VerificationKey(CircuitBuilder& builder, std::span<const FF> elements)
         {
             size_t num_frs_read = 0;
             size_t num_frs_FF = bb::stdlib::field_conversion::calc_num_bn254_frs<CircuitBuilder, FF>();

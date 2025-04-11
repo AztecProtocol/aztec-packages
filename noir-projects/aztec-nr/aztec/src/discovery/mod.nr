@@ -1,19 +1,10 @@
-// TODO(#12750): don't make this value assume we're using AES.
-use crate::encrypted_logs::log_assembly_strategies::default_aes128::note::encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
-use dep::protocol_types::{address::AztecAddress, debug_log::debug_log};
+use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
+pub mod nonce_discovery;
+pub mod partial_notes;
+pub mod pending_tagged_log;
 pub mod private_logs;
 pub mod private_notes;
-pub mod partial_notes;
-pub mod nonce_discovery;
-
-/// We reserve two fields in the note private log that are not part of the note content: one for the storage slot, and
-/// one for the combined log and note type ID.
-global PRIVATE_LOG_EXPANDED_METADATA_LEN: u32 = 1;
-
-/// The maximum length of the log's content, i.e. after log type ID and metadata extraction.
-pub global MAX_LOG_CONTENT_LEN: u32 =
-    PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - PRIVATE_LOG_EXPANDED_METADATA_LEN;
 
 use private_notes::MAX_NOTE_PACKED_LEN;
 
@@ -63,7 +54,7 @@ type ComputeNoteHashAndNullifier<Env> = unconstrained fn[Env](/* packed_note */B
 
 /// Performs the message discovery process, in which private are downloaded and inspected to find new private notes,
 /// partial notes and events, etc., and pending partial notes are processed to search for their completion logs.
-/// This is the mechanism via which a contract updates its knowldge of its private state.
+/// This is the mechanism via which a contract updates its knowledge of its private state.
 ///
 /// Receives the address of the contract on which discovery is performed along with its
 /// `compute_note_hash_and_nullifier` function.

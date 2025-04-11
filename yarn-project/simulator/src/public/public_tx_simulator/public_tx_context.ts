@@ -4,13 +4,18 @@ import {
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX,
-  NULLIFIER_SUBTREE_HEIGHT,
 } from '@aztec/constants';
 import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import { type AvmCircuitPublicInputs, AvmExecutionHints, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
+import {
+  type AvmCircuitPublicInputs,
+  AvmExecutionHints,
+  AvmTxHint,
+  PublicDataWrite,
+  RevertCode,
+} from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -38,10 +43,10 @@ import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
 import type { PublicContractsDBInterface } from '../../server.js';
-import { AvmPersistableStateManager } from '../avm/index.js';
 import { HintingPublicContractsDB, HintingPublicTreesDB } from '../hinting_db_sources.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
+import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { getCallRequestsWithCalldataByPhase } from '../utils.js';
 
 /**
@@ -105,12 +110,19 @@ export class PublicTxContext {
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
     // We wrap the DB to collect AVM hints.
-    const hints = new AvmExecutionHints();
+    const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
     const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
     const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
+    const startStateReference = await treesDB.getStateReference();
+    hints.startingTreeRoots = new TreeSnapshots(
+      startStateReference.l1ToL2MessageTree,
+      startStateReference.partial.noteHashTree,
+      startStateReference.partial.nullifierTree,
+      startStateReference.partial.publicDataTree,
+    );
 
     // Transaction level state manager that will be forked for revertible phases.
-    const txStateManager = AvmPersistableStateManager.create(
+    const txStateManager = PublicPersistableStateManager.create(
       hintingTreesDB,
       hintingContractsDB,
       trace,
@@ -388,16 +400,10 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager
-      .deprecatedGetTreesForPIGeneration()
-      .appendLeaves(MerkleTreeId.NOTE_HASH_TREE, padArrayEnd([], Fr.ZERO, numNoteHashesToPad));
+    await stateManager.deprecatedGetTreesForPIGeneration().padTree(MerkleTreeId.NOTE_HASH_TREE, numNoteHashesToPad);
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.deprecatedGetTreesForPIGeneration().batchInsert(
-      MerkleTreeId.NULLIFIER_TREE,
-      padArrayEnd([], Fr.ZERO, numNullifiersToPad).map(nullifier => nullifier.toBuffer()),
-      NULLIFIER_SUBTREE_HEIGHT,
-    );
+    await stateManager.deprecatedGetTreesForPIGeneration().padTree(MerkleTreeId.NULLIFIER_TREE, numNullifiersToPad);
 
     const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
     avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
@@ -424,9 +430,9 @@ export class PublicTxContext {
 class PhaseStateManager {
   private log: Logger;
 
-  private currentlyActiveStateManager: AvmPersistableStateManager | undefined;
+  private currentlyActiveStateManager: PublicPersistableStateManager | undefined;
 
-  constructor(private readonly txStateManager: AvmPersistableStateManager) {
+  constructor(private readonly txStateManager: PublicPersistableStateManager) {
     this.log = createLogger(`simulator:public_phase_state_manager`);
   }
 

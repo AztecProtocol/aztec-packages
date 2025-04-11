@@ -10,6 +10,8 @@
 
 using namespace bb;
 
+static constexpr size_t MAX_NUM_KERNELS = 17;
+
 class ClientIVCTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
@@ -45,70 +47,6 @@ class ClientIVCTests : public ::testing::Test {
             }
         }
     }
-};
-
-/**
- * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format
- *
- */
-TEST_F(ClientIVCTests, MsgpackProofFromFile)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    const auto proof = ivc.prove();
-
-    // Serialize/deserialize the proof to/from a file as proof-of-concept
-    const std::string filename = "proof.msgpack";
-    proof.to_file_msgpack(filename);
-    auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
-
-    EXPECT_TRUE(ivc.verify(proof_deserialized));
-};
-
-/**
- * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
- * random buffer of bytes fails gracefully with a type error
- */
-TEST_F(ClientIVCTests, RandomProofBytes)
-{
-    ClientIVC ivc;
-
-    ClientIVCMockCircuitProducer circuit_producer;
-
-    // Initialize the IVC with an arbitrary circuit
-    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_0);
-
-    // Create another circuit and accumulate
-    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
-    ivc.accumulate(circuit_1);
-
-    const auto proof = ivc.prove();
-
-    // Serialize/deserialize proof to msgpack buffer, check that it verifies
-    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
-    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
-    EXPECT_TRUE(ivc.verify(proof_deserialized));
-
-    // Overwrite the buffer with random bytes for testing failure case
-    {
-        std::vector<uint8_t> random_bytes(buffer.size());
-        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
-        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
-    }
-
-    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
-    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
 };
 
 /**
@@ -438,6 +376,34 @@ TEST(ClientIVCBenchValidation, Full6MockedVKs)
     ASSERT_NO_FATAL_FAILURE(run_test());
 }
 
+TEST(ClientIVCKernelCapacity, MaxCapacityPassing)
+{
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    const size_t total_num_circuits{ 2 * MAX_NUM_KERNELS };
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    auto proof = ivc.prove();
+    bool verified = verify_ivc(proof, ivc);
+    EXPECT_TRUE(verified);
+}
+
+TEST(ClientIVCKernelCapacity, MaxCapacityFailing)
+{
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+    bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
+    const size_t total_num_circuits{ 2 * (MAX_NUM_KERNELS + 1) };
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    auto precomputed_vkeys = circuit_producer.precompute_verification_keys(total_num_circuits, ivc.trace_settings);
+    perform_ivc_accumulation_rounds(total_num_circuits, ivc, precomputed_vkeys);
+    EXPECT_ANY_THROW(ivc.prove());
+}
+
 /**
  * @brief Test use of structured trace overflow block mechanism
  * @details Accumulate 4 circuits which have progressively more arithmetic gates. The final two overflow the prescribed
@@ -520,4 +486,68 @@ TEST_F(ClientIVCTests, DynamicOverflowCircuitSizeChange)
 
     EXPECT_EQ(check_accumulator_target_sum_manual(ivc.fold_output.accumulator), true);
     EXPECT_TRUE(ivc.prove_and_verify());
+};
+
+/**
+ * @brief Test methods for serializing and deserializing a proof to/from a file in msgpack format
+ *
+ */
+TEST_F(ClientIVCTests, MsgpackProofFromFile)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize the proof to/from a file as proof-of-concept
+    const std::string filename = "proof.msgpack";
+    proof.to_file_msgpack(filename);
+    auto proof_deserialized = ClientIVC::Proof::from_file_msgpack(filename);
+
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+};
+
+/**
+ * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
+ * random buffer of bytes fails gracefully with a type error
+ */
+TEST_F(ClientIVCTests, RandomProofBytes)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to msgpack buffer, check that it verifies
+    msgpack::sbuffer buffer = proof.to_msgpack_buffer();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+
+    // Overwrite the buffer with random bytes for testing failure case
+    {
+        std::vector<uint8_t> random_bytes(buffer.size());
+        std::generate(random_bytes.begin(), random_bytes.end(), []() { return static_cast<uint8_t>(rand() % 256); });
+        std::copy(random_bytes.begin(), random_bytes.end(), buffer.data());
+    }
+
+    // Expect deserialization to fail with error msgpack::v1::type_error with description "std::bad_cast"
+    EXPECT_THROW(ClientIVC::Proof::from_msgpack_buffer(buffer), msgpack::v1::type_error);
 };

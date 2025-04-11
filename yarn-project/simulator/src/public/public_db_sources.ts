@@ -1,3 +1,4 @@
+import { NULLIFIER_SUBTREE_HEIGHT, PUBLIC_DATA_SUBTREE_HEIGHT } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { Timer } from '@aztec/foundation/timer';
@@ -24,10 +25,10 @@ import type {
 } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
-import { MerkleTreeId, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { MerkleTreeId, NullifierLeaf, PublicDataTreeLeaf, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
-import type { PublicContractsDBInterface, PublicStateDBInterface } from '../common/db_interfaces.js';
+import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
 
 /**
@@ -418,7 +419,7 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return lowLeafResult.alreadyPresent ? preimage.value : Fr.ZERO;
+    return lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
   }
 
   /**
@@ -437,6 +438,9 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
   public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.getLeafValue(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
+
     this.logger.debug(`[DB] Fetched L1 to L2 message leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -448,6 +452,9 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
   public async getNoteHash(leafIndex: bigint): Promise<Fr | undefined> {
     const timer = new Timer();
     const leafValue = await this.getLeafValue(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
+
     this.logger.debug(`[DB] Fetched note hash leaf value`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
@@ -456,14 +463,50 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     return leafValue;
   }
 
-  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+  public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
     const timer = new Timer();
-    const index = (await this.findLeafIndices(MerkleTreeId.NULLIFIER_TREE, [nullifier.toBuffer()]))[0];
-    this.logger.debug(`[DB] Fetched nullifier index`, {
+    const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
+    if (!lowLeafResult) {
+      throw new Error('Low leaf not found');
+    }
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
+    await this.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
+    const exists = lowLeafResult.alreadyPresent;
+
+    this.logger.debug(`[DB] Checked nullifier exists`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'get-nullifier-index',
+      operation: 'check-nullifier-exists',
     } satisfies PublicDBAccessStats);
-    return index;
+    return exists;
+  }
+
+  public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {
+    switch (treeId) {
+      // Indexed trees.
+      case MerkleTreeId.NULLIFIER_TREE:
+        await this.batchInsert(
+          treeId,
+          Array(leavesToInsert).fill(NullifierLeaf.empty().toBuffer()),
+          NULLIFIER_SUBTREE_HEIGHT,
+        );
+        break;
+      case MerkleTreeId.PUBLIC_DATA_TREE:
+        await this.batchInsert(
+          treeId,
+          Array(leavesToInsert).fill(PublicDataTreeLeaf.empty().toBuffer()),
+          PUBLIC_DATA_SUBTREE_HEIGHT,
+        );
+        break;
+      // Non-indexed trees.
+      case MerkleTreeId.L1_TO_L2_MESSAGE_TREE:
+      case MerkleTreeId.NOTE_HASH_TREE:
+        await this.appendLeaves(treeId, Array(leavesToInsert).fill(Fr.ZERO));
+        break;
+      default:
+        throw new Error(`Padding not supported for tree ${treeId}`);
+    }
   }
 }

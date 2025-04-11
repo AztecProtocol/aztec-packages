@@ -42,7 +42,11 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
     using OuterVerificationKey = UltraFlavor::VerificationKey;
     using OuterBuilder = UltraCircuitBuilder;
 
-    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
+    static void SetUpTestSuite()
+    {
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        bb::srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
+    }
 
     // mutate the input kernel_public_inputs_vec to add end gas values
     static InnerBuilder create_inner_circuit([[maybe_unused]] std::vector<FF>& kernel_public_inputs_vec)
@@ -129,6 +133,8 @@ class AcirAvmRecursionConstraint : public ::testing::Test {
 
 TEST_F(AcirAvmRecursionConstraint, TestBasicSingleAvmRecursionConstraint)
 {
+    GTEST_SKIP(); // Will be decomissioned in favour of avm2.
+
     std::vector<FF> public_inputs_vec;
     // public_inputs_vec.resize(PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH);
     // public_inputs_vec.at(L2_START_GAS_LEFT_PCPI_OFFSET) = FF(1000000);

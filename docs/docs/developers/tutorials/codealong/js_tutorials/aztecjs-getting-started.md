@@ -112,7 +112,7 @@ A successful run should show something like this:
   enr: undefined,
   nodeVersion: '0.82.0',
   l1ChainId: 31337,
-  protocolVersion: 1,
+  rollupVersion: 1,
   l1ContractAddresses: {
     rollupAddress: EthAddress<0x759f145841f36282f23e0935697c7b2e00401902>,
     registryAddress: EthAddress<0xd5448148ccca5b2f27784c72265fc37201741778>,
@@ -149,7 +149,7 @@ An explanation on accounts on Aztec can be found [here](../../../../aztec/concep
 
 ## Deploy a contract
 
-Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/token_contract/src). Add this to `index.ts` below the code you added earlier:
+Now that we have our accounts loaded, let's move on to deploy our pre-compiled token smart contract. You can find the full code for the contract [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/tree/master/noir-projects/noir-contracts/contracts/app/token_contract/src). Add this to `index.ts` below the code you added earlier:
 
 #include_code Deployment /yarn-project/end-to-end/src/composed/e2e_sandbox_example.test.ts typescript
 
@@ -196,9 +196,9 @@ No transaction is submitted as a result but a user's state can be queried.
 
 We can see that each account has the expected balance of tokens.
 
-### Calling an unconstrained (view) function
+### Calling a view function
 
-<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
+<a href="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/6b9e2cc6d13051c4ed38387264600a3cc6d28210/docs/static/img/sandbox_unconstrained_function.png"><img src="@site/static/img/sandbox_unconstrained_function.png" alt="Unconstrained function call" /></a>
 
 ## Create and submit a transaction
 

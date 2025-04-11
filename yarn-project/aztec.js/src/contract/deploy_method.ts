@@ -11,17 +11,18 @@ import {
 } from '@aztec/stdlib/contract';
 import type { GasSettings } from '@aztec/stdlib/gas';
 import type { PublicKeys } from '@aztec/stdlib/keys';
-import type { TxExecutionRequest } from '@aztec/stdlib/tx';
+import type { TxExecutionRequest, TxProfileResult } from '@aztec/stdlib/tx';
 
 import { deployInstance } from '../deployment/deploy_instance.js';
 import { registerContractClass } from '../deployment/register_class.js';
 import type { Wallet } from '../wallet/wallet.js';
-import { BaseContractInteraction, type SendMethodOptions } from './base_contract_interaction.js';
+import { BaseContractInteraction } from './base_contract_interaction.js';
 import type { Contract } from './contract.js';
 import type { ContractBase } from './contract_base.js';
 import { ContractFunctionInteraction } from './contract_function_interaction.js';
 import { DeployProvenTx } from './deploy_proven_tx.js';
 import { DeploySentTx } from './deploy_sent_tx.js';
+import type { ProfileMethodOptions, SendMethodOptions } from './interaction_options.js';
 
 /**
  * Options for deploying a contract on the Aztec network.
@@ -112,6 +113,19 @@ export class DeployMethod<TContract extends ContractBase = Contract> extends Bas
     }
 
     return mergeExecutionPayloads(exec);
+  }
+
+  /**
+   * Simulate a deployment and profile the gate count for each function in the transaction.
+   * @param options - Same options as `send`, plus extra profiling options.
+   *
+   * @returns An object containing the function return value and profile result.
+   */
+  public async profile(
+    options: DeployOptions & ProfileMethodOptions = { profileMode: 'gates' },
+  ): Promise<TxProfileResult> {
+    const txRequest = await this.create(options);
+    return await this.wallet.profileTx(txRequest, options.profileMode, options?.from);
   }
 
   /**

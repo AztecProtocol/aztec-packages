@@ -1,8 +1,9 @@
 import { L1_TO_L2_MSG_TREE_HEIGHT } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
+import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
-import { Fr, Point } from '@aztec/foundation/fields';
+import { Fr } from '@aztec/foundation/fields';
 import { type JsonRpcTestContext, createJsonRpcTestSetup } from '@aztec/foundation/json-rpc/test';
 import { SiblingPath } from '@aztec/foundation/trees';
 
@@ -15,7 +16,6 @@ import type { AbiDecoded } from '../abi/decoder.js';
 import { EventSelector } from '../abi/event_selector.js';
 import { AuthWitness } from '../auth_witness/auth_witness.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import {
   CompleteAddress,
@@ -35,7 +35,14 @@ import { UniqueNote } from '../note/index.js';
 import type { NotesFilter } from '../note/notes_filter.js';
 import { ClientIvcProof } from '../proofs/client_ivc_proof.js';
 import { getTokenContractArtifact } from '../tests/fixtures.js';
-import { PrivateExecutionResult, Tx, TxHash, TxReceipt, TxSimulationResult } from '../tx/index.js';
+import {
+  type IndexedTxEffect,
+  PrivateExecutionResult,
+  Tx,
+  TxHash,
+  TxReceipt,
+  TxSimulationResult,
+} from '../tx/index.js';
 import { TxProfileResult } from '../tx/profiled_tx.js';
 import { TxProvingResult } from '../tx/proven_tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
@@ -219,8 +226,8 @@ describe('PXESchema', () => {
     expect(result).toEqual(GasFees.empty());
   });
 
-  it('simulateUnconstrained', async () => {
-    const result = await context.client.simulateUnconstrained('function', [], address, [], address, [address]);
+  it('simulateUtility', async () => {
+    const result = await context.client.simulateUtility('function', [], address, [], address, [address]);
     expect(result).toEqual(10n);
   });
 
@@ -280,10 +287,11 @@ describe('PXESchema', () => {
 
   it('getPrivateEvents', async () => {
     const result = await context.client.getPrivateEvents<{ value: bigint }>(
+      address,
       { abiType: { kind: 'boolean' }, eventSelector: EventSelector.random(), fieldNames: ['name'] },
       1,
       1,
-      [await Point.random()],
+      [await AztecAddress.random()],
     );
     expect(result).toEqual([{ value: 1n }]);
   });
@@ -394,9 +402,14 @@ class MockPXE implements PXE {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return { data: await TxEffect.random(), l2BlockHash: Fr.random().toString(), l2BlockNumber: 1 };
+    return {
+      data: await TxEffect.random(),
+      l2BlockHash: Fr.random().toString(),
+      l2BlockNumber: 1,
+      txIndexInBlock: randomInt(10),
+    };
   }
   getPublicStorageAt(contract: AztecAddress, slot: Fr): Promise<Fr> {
     expect(contract).toBeInstanceOf(AztecAddress);
@@ -429,7 +442,7 @@ class MockPXE implements PXE {
   getCurrentBaseFees(): Promise<GasFees> {
     return Promise.resolve(GasFees.empty());
   }
-  simulateUnconstrained(
+  simulateUtility(
     _functionName: string,
     _args: any[],
     to: AztecAddress,
@@ -465,7 +478,7 @@ class MockPXE implements PXE {
     return {
       nodeVersion: '1.0',
       l1ChainId: 1,
-      protocolVersion: 1,
+      rollupVersion: 1,
       enr: 'enr',
       l1ContractAddresses: Object.fromEntries(
         L1ContractsNames.map(name => [name, EthAddress.random()]),
@@ -501,14 +514,15 @@ class MockPXE implements PXE {
     });
   }
   getPrivateEvents<T>(
+    _contractAddress: AztecAddress,
     _eventMetadata: EventMetadataDefinition,
     from: number,
     limit: number,
-    vpks: Point[],
+    _recipients: AztecAddress[],
   ): Promise<T[]> {
     expect(from).toBe(1);
     expect(limit).toBe(1);
-    expect(vpks[0]).toBeInstanceOf(Point);
+    expect(_recipients[0]).toBeInstanceOf(AztecAddress);
     return Promise.resolve([{ value: 1n } as T]);
   }
   getPublicEvents<T>(_eventMetadata: EventMetadataDefinition, from: number, limit: number): Promise<T[]> {

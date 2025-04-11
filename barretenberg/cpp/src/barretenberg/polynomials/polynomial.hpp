@@ -264,9 +264,10 @@ template <typename Fr> class Polynomial {
     void mask()
     {
         // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
-        ASSERT(virtual_size() >= MASKING_OFFSET);
+        ASSERT(virtual_size() >= NUM_MASKED_ROWS);
         ASSERT(virtual_size() == end_index());
-        for (size_t i = virtual_size() - 1; i <= virtual_size() - MASKING_OFFSET; i--) {
+
+        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
             at(i) = FF::random_element();
         }
     }

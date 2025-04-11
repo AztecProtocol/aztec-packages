@@ -37,9 +37,9 @@ import { jest } from '@jest/globals';
 import { mock } from 'jest-mock-extended';
 
 import { AvmFinalizedCallResult } from '../avm/avm_contract_call_result.js';
-import { AvmPersistableStateManager } from '../avm/journal/journal.js';
 import type { InstructionSet } from '../avm/serialization/bytecode_serialization.js';
 import { PublicContractsDB, PublicTreesDB } from '../public_db_sources.js';
+import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
 import { type PublicTxResult, PublicTxSimulator } from './public_tx_simulator.js';
 
 describe('public_tx_simulator', () => {
@@ -69,7 +69,7 @@ describe('public_tx_simulator', () => {
   let simulator: PublicTxSimulator;
   let simulateInternal: jest.SpiedFunction<
     (
-      stateManager: AvmPersistableStateManager,
+      stateManager: PublicPersistableStateManager,
       executionResult: any,
       allocatedGas: Gas,
       transactionFee: any,
@@ -121,20 +121,18 @@ describe('public_tx_simulator', () => {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const balancePublicDataTreeLeafSlot = await computePublicDataTreeLeafSlot(feeJuiceAddress, balanceSlot);
-    await merkleTrees.batchInsert(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      [new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer()],
-      0,
-    );
+    await merkleTrees.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [
+      new PublicDataTreeLeaf(balancePublicDataTreeLeafSlot, balance).toBuffer(),
+    ]);
   };
 
   const mockPublicExecutor = (
-    mockedSimulatorExecutions: ((stateManager: AvmPersistableStateManager) => Promise<SimulationError | void>)[],
+    mockedSimulatorExecutions: ((stateManager: PublicPersistableStateManager) => Promise<SimulationError | void>)[],
   ) => {
     for (const executeSimulator of mockedSimulatorExecutions) {
       simulateInternal.mockImplementationOnce(
         async (
-          stateManager: AvmPersistableStateManager,
+          stateManager: PublicPersistableStateManager,
           _executionResult: any,
           allocatedGas: Gas,
           _transactionFee: any,
@@ -259,7 +257,7 @@ describe('public_tx_simulator', () => {
     );
     simulateInternal.mockImplementation(
       (
-        _stateManager: AvmPersistableStateManager,
+        _stateManager: PublicPersistableStateManager,
         _executionResult: any,
         allocatedGas: Gas,
         _transactionFee: any,
@@ -492,17 +490,17 @@ describe('public_tx_simulator', () => {
 
     mockPublicExecutor([
       // SETUP
-      async (_stateManager: AvmPersistableStateManager) => {
+      async (_stateManager: PublicPersistableStateManager) => {
         // Nothing happened in setup phase.
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         // mock storage writes on the state manager
         await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x101));
         await stateManager.writeStorage(contractAddress, contractSlotB, fr(0x151));
         await stateManager.readStorage(contractAddress, contractSlotA);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         // mock storage writes on the state manager
         await stateManager.writeStorage(contractAddress, contractSlotA, fr(0x103));
         await stateManager.writeStorage(contractAddress, contractSlotC, fr(0x201));
@@ -564,20 +562,20 @@ describe('public_tx_simulator', () => {
     const siloedNullifiers = [new Fr(0x10000), new Fr(0x20000), new Fr(0x30000), new Fr(0x40000), new Fr(0x50000)];
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
       },
     ]);
@@ -650,19 +648,19 @@ describe('public_tx_simulator', () => {
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
         return Promise.resolve(teardownFailure);
       },
@@ -733,20 +731,20 @@ describe('public_tx_simulator', () => {
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
         return Promise.resolve(teardownFailure);
       },
@@ -818,19 +816,19 @@ describe('public_tx_simulator', () => {
 
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
       },
     ]);
@@ -855,20 +853,20 @@ describe('public_tx_simulator', () => {
     const siloedNullifiers = [new Fr(10000), new Fr(20000), new Fr(30000), new Fr(40000), new Fr(50000)];
     mockPublicExecutor([
       // SETUP
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[0]);
       },
       // APP LOGIC
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[1]);
         await stateManager.writeSiloedNullifier(siloedNullifiers[2]);
       },
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[3]);
         return Promise.resolve(appLogicFailure);
       },
       // TEARDOWN
-      async (stateManager: AvmPersistableStateManager) => {
+      async (stateManager: PublicPersistableStateManager) => {
         await stateManager.writeSiloedNullifier(siloedNullifiers[4]);
       },
     ]);

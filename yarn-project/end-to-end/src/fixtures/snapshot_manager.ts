@@ -308,6 +308,9 @@ async function setupFromFresh(
   aztecNodeConfig.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
   // Only enable proving if specifically requested.
   aztecNodeConfig.realProofs = !!opts.realProofs;
+  // Only enforce the time table if requested
+  aztecNodeConfig.enforceTimeTable = !!opts.enforceTimeTable;
+  aztecNodeConfig.listenAddress = '127.0.0.1';
 
   // Create a temp directory for all ephemeral state and cleanup afterwards
   const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
@@ -317,7 +320,7 @@ async function setupFromFresh(
   } else {
     aztecNodeConfig.dataDirectory = statePath;
   }
-  aztecNodeConfig.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+  aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
 
   // Start anvil. We go via a wrapper script to ensure if the parent dies, anvil dies.
   logger.verbose('Starting anvil...');
@@ -345,7 +348,7 @@ async function setupFromFresh(
 
   const initialFundedAccounts = await generateSchnorrAccounts(numberOfInitialFundedAccounts);
   const sponsoredFPCAddress = await getSponsoredFPCAddress();
-  const { genesisArchiveRoot, prefilledPublicData } = await getGenesisValues(
+  const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
     initialFundedAccounts.map(a => a.address).concat(sponsoredFPCAddress),
     opts.initialAccountFeeJuice,
   );
@@ -353,6 +356,7 @@ async function setupFromFresh(
   const deployL1ContractsValues = await setupL1Contracts(aztecNodeConfig.l1RpcUrls[0], hdAccount, logger, {
     ...getL1ContractsConfigEnvVars(),
     genesisArchiveRoot,
+    feeJuicePortalInitialBalance: fundingNeeded,
     salt: opts.salt,
     ...deployL1ContractsArgs,
     initialValidators: opts.initialValidators,
@@ -409,7 +413,7 @@ async function setupFromFresh(
     {
       l1ChainId: aztecNodeConfig.l1ChainId,
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
-      rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
+      l1Contracts: aztecNodeConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: aztecNodeConfig.dataDirectory,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,
@@ -489,6 +493,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
   );
   aztecNodeConfig.dataDirectory = statePath;
   aztecNodeConfig.blobSinkUrl = `http://127.0.0.1:${blobSinkPort}`;
+  aztecNodeConfig.listenAddress = '127.0.0.1';
 
   const initialFundedAccounts: InitialAccountData[] =
     JSON.parse(readFileSync(`${statePath}/accounts.json`, 'utf-8'), reviver) || [];
@@ -531,7 +536,7 @@ async function setupFromState(statePath: string, logger: Logger): Promise<Subsys
     {
       l1ChainId: aztecNodeConfig.l1ChainId,
       l1RpcUrls: aztecNodeConfig.l1RpcUrls,
-      rollupAddress: aztecNodeConfig.l1Contracts.rollupAddress,
+      l1Contracts: aztecNodeConfig.l1Contracts,
       port: blobSinkPort,
       dataDirectory: statePath,
       dataStoreMapSizeKB: aztecNodeConfig.dataStoreMapSizeKB,

@@ -51,5 +51,6 @@ export async function getGenesisValues(
   return {
     genesisArchiveRoot,
     prefilledPublicData,
+    fundingNeeded: BigInt(initialAccounts.length) * initialAccountFeeJuice.toBigInt(),
   };
 }

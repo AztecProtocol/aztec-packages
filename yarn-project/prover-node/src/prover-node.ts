@@ -8,13 +8,14 @@ import type { P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
@@ -142,7 +143,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.txFetcher.start();
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
-    this.log.info('Started ProverNode', this.options);
+    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.options);
   }
 
   /**
@@ -161,6 +162,16 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.l1Metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
+  }
+
+  /** Returns world state status. */
+  public getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    return this.worldState.status().then(s => s.syncSummary);
+  }
+
+  /** Returns archiver status. */
+  public getL2Tips() {
+    return this.l2BlockSource.getL2Tips();
   }
 
   /**
@@ -245,9 +256,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.telemetryClient,
     );
 
-    const [_, endTimestamp] = getTimestampRangeForEpoch(epochNumber + 1n, await this.getL1Constants());
-    const deadline = new Date(Number(endTimestamp) * 1000);
-
+    const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
+    const deadline = new Date(Number(deadlineTs) * 1000);
     const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory);
     this.jobs.set(job.getId(), job);
     return job;

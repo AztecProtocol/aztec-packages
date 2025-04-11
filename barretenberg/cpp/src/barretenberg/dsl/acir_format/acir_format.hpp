@@ -2,7 +2,7 @@
 #include "aes128_constraint.hpp"
 
 #ifndef DISABLE_AZTEC_VM
-#include "avm_recursion_constraint.hpp"
+#include "avm2_recursion_constraint.hpp"
 #endif
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -173,9 +173,9 @@ struct AcirProgramStack {
     std::vector<AcirFormat> constraint_systems;
     WitnessVectorStack witness_stack;
 
-    AcirProgramStack(const std::vector<AcirFormat>& constraint_systems_in, const WitnessVectorStack& witness_stack_in)
-        : constraint_systems(constraint_systems_in)
-        , witness_stack(witness_stack_in)
+    AcirProgramStack(std::vector<AcirFormat> constraint_systems_in, WitnessVectorStack witness_stack_in)
+        : constraint_systems(std::move(constraint_systems_in))
+        , witness_stack(std::move(witness_stack_in))
     {}
 
     size_t size() const { return witness_stack.size(); }
@@ -287,9 +287,12 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
                                        GateCounter<MegaCircuitBuilder>& gate_counter);
 
 #ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       GateCounter<Builder>& gate_counter);
+stdlib::recursion::aggregation_state<Builder> process_avm_recursion_constraints(
+    Builder& builder,
+    AcirFormat& constraint_system,
+    bool has_valid_witness_assignments,
+    GateCounter<Builder>& gate_counter,
+    stdlib::recursion::aggregation_state<Builder> current_aggregation_object);
 #endif
 
 } // namespace acir_format

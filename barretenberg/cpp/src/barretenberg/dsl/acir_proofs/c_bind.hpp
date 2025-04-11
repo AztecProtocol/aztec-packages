@@ -36,7 +36,6 @@ WASM_EXPORT void acir_create_proof(in_ptr acir_composer_ptr,
  *
  */
 WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_system_buf,
-                                                  bool const* recursive,
                                                   uint8_t const* witness_buf,
                                                   bool* result);
 
@@ -45,7 +44,6 @@ WASM_EXPORT void acir_prove_and_verify_ultra_honk(uint8_t const* constraint_syst
  * @deprecated
  */
 WASM_EXPORT void acir_prove_and_verify_mega_honk(uint8_t const* constraint_system_buf,
-                                                 bool const* recursive,
                                                  uint8_t const* witness_buf,
                                                  bool* result);
 
@@ -59,15 +57,6 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
                                          uint8_t** out_vk);
 
 WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
-
-/**
- * @brief Fold and verify a set of circuits using ClientIvc
- *
- */
-WASM_EXPORT void acir_fold_and_verify_program_stack(uint8_t const* constraint_system_buf,
-                                                    bool const* recursive,
-                                                    uint8_t const* witness_buf,
-                                                    bool* result);
 
 WASM_EXPORT void acir_load_verification_key(in_ptr acir_composer_ptr, uint8_t const* vk_buf);
 
@@ -94,20 +83,14 @@ WASM_EXPORT void acir_serialize_verification_key_into_fields(in_ptr acir_compose
                                                              fr::vec_out_buf out_vkey,
                                                              fr::out_buf out_key_hash);
 
-WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec,
-                                       bool const* recursive,
-                                       uint8_t const* witness_vec,
-                                       uint8_t** out);
-WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec,
-                                              bool const* recursive,
-                                              uint8_t const* witness_vec,
-                                              uint8_t** out);
+WASM_EXPORT void acir_prove_ultra_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
+WASM_EXPORT void acir_prove_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t const* witness_vec, uint8_t** out);
 
 WASM_EXPORT void acir_verify_ultra_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 WASM_EXPORT void acir_verify_ultra_keccak_honk(uint8_t const* proof_buf, uint8_t const* vk_buf, bool* result);
 
-WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, bool const* recursive, uint8_t** out);
-WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, bool const* recursive, uint8_t** out);
+WASM_EXPORT void acir_write_vk_ultra_honk(uint8_t const* acir_vec, uint8_t** out);
+WASM_EXPORT void acir_write_vk_ultra_keccak_honk(uint8_t const* acir_vec, uint8_t** out);
 
 WASM_EXPORT void acir_proof_as_fields_ultra_honk(uint8_t const* proof_buf, fr::vec_out_buf out);
 

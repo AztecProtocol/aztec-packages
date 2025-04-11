@@ -138,9 +138,6 @@ pub global GENESIS_BLOCK_HASH: Field =
     0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75;
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
-// The following and the value in `deploy_l1_contracts` must match. We should not have the code both places, but
-// we are running into circular dependency issues. #3342
-pub global FEE_JUICE_INITIAL_MINT: Field = 200000000000000000000000;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
 pub global PUBLIC_DISPATCH_SELECTOR: Field = 0xd5441b0d;
 
@@ -149,12 +146,12 @@ pub global MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS: u32 = 3000;
 // Bytecode size for private functions is per function, not for the entire contract.
 // Note that private functions bytecode includes a mix of acir and brillig.
 pub global MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS: u32 = 3000;
-// Same for unconstrained functions: the size is per function.
-pub global MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS: u32 = 3000;
+// Same for utility functions: the size is per function.
+pub global MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS: u32 = 3000;
 // How many fields are on the serialized ClassPrivateFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS.
 pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 19;
-// How many fields are on the serialized ClassUnconstrainedFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS.
-pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
+// How many fields are on the serialized ClassUtilityFunctionBroadcasted event in addition to MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS.
+pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_ADDITIONAL_FIELDS: u32 = 12;
 // Since we are not yet emitting selectors we'll use this magic value to identify events emitted by the ClassRegisterer.
 // This is just a stopgap until we implement proper selectors.
 // sha224sum 'struct ContractClassRegistered {contract_class_id: ContractClassId, version: Field, artifact_hash: Field, private_functions_root: Field, packed_public_bytecode: [Field; MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS] }'
@@ -163,8 +160,8 @@ pub global REGISTERER_CONTRACT_CLASS_REGISTERED_MAGIC_VALUE: Field =
 // sha224sum 'struct ClassPrivateFunctionBroadcasted'
 pub global REGISTERER_PRIVATE_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0x1b70e95fde0b70adc30496b90a327af6a5e383e028e7a43211a07bcd;
-// sha224sum 'struct ClassUnconstrainedFunctionBroadcasted'
-pub global REGISTERER_UNCONSTRAINED_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
+// sha224sum 'struct ClassUtilityFunctionBroadcasted'
+pub global REGISTERER_UTILITY_FUNCTION_BROADCASTED_MAGIC_VALUE: Field =
     0xe7af816635466f128568edb04c9fa024f6c87fb9010fdbffa68b3d99;
 
 // CONTRACT INSTANCE CONSTANTS
@@ -507,6 +504,21 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
+pub global AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE: u32 = 1;
+// pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 5452;
+// VK is composed of
+// - circuit size encoded as a fr field element (32 bytes)
+// - num of inputs encoded as a fr field element (32 bytes)
+// - 45 affine elements (curve base field fq) encoded as fr elements takes (45 * 4 * 32 bytes)
+// 45 above refers to the constant AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES
+//pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
+
+// We introduce padded version for two AVM constants and we will use the padded ones
+// until we freeze the number of columns in AVM.
+// TODO(#13390): Remove these constants and use the above ones (commented out) in noir/TS.
+pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
+pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
+
 // Note hash generator index which can be used by custom implementations of NoteHash::compute_note_hash
 pub global GENERATOR_INDEX__NOTE_HASH: u32 = 1;
 pub global GENERATOR_INDEX__NOTE_HASH_NONCE: u32 = 2;
@@ -776,6 +788,8 @@ pub global PROOF_TYPE_ROOT_ROLLUP_HONK: u32 = 6;
 pub global AVM_PC_SIZE_IN_BITS: u8 = 32;
 pub global TWO_POW_64: Field = 18446744073709551616;
 
+pub global BLOCK_NUMBER_BIT_SIZE: u32 = 32;
+
 // 24 hours with a slot duration of 24 seconds
 pub global DEFAULT_UPDATE_DELAY: u32 = 3600;
 // 10 minutes with a slot duration of 24 seconds
@@ -784,6 +798,14 @@ pub global MINIMUM_UPDATE_DELAY: u32 = 25;
 // Updates hold contract class id, which fit in 1 field.
 pub global UPDATES_VALUE_SIZE: u32 = 1;
 pub global UPDATES_SHARED_MUTABLE_VALUES_LEN: u32 = 2 * UPDATES_VALUE_SIZE + 1;
+
+// These bit sizes are used in PIL. If need change, consult with the AVM team.
+pub global UPDATES_SHARED_MUTABLE_SDC_DELAY_BIT_SIZE: u32 = 32;
+pub global UPDATES_SHARED_MUTABLE_SDC_IS_SOME_BIT_SIZE: u32 = 8;
+pub global UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE: u32 =
+    UPDATES_SHARED_MUTABLE_SDC_DELAY_BIT_SIZE + UPDATES_SHARED_MUTABLE_SDC_IS_SOME_BIT_SIZE;
+pub global UPDATES_SHARED_MUTABLE_METADATA_BIT_SIZE: u32 =
+    UPDATES_SHARED_MUTABLE_SDC_OPTION_DELAY_BIT_SIZE * 2 + BLOCK_NUMBER_BIT_SIZE * 2;
 
 pub global GRUMPKIN_ONE_X: Field = 1;
 pub global GRUMPKIN_ONE_Y: Field = 17631683881184975370165255887551781615748388533673675138860;

@@ -26,11 +26,12 @@ async function createPXEService(): Promise<PXE> {
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const config: PXEServiceConfig = {
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+    l2BlockBatchSize: 200,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts: { rollupAddress: EthAddress.random() },
     l1ChainId: 31337,
-    version: 1,
+    rollupVersion: 1,
   };
 
   // Setup the relevant mocks
@@ -75,11 +76,12 @@ describe('PXEService', () => {
 
     config = {
       l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+      l2BlockBatchSize: 200,
       proverEnabled: false,
       dataDirectory: undefined,
       dataStoreMapSizeKB: 1024 * 1024,
       l1Contracts: { rollupAddress: EthAddress.random() },
-      version: 1,
+      rollupVersion: 1,
       l1ChainId: 31337,
     };
   });
@@ -88,7 +90,10 @@ describe('PXEService', () => {
     const settledTx = await TxEffect.random();
     const duplicateTx = await mockTx();
 
-    node.getTxEffect.mockResolvedValue(randomInBlock(settledTx));
+    node.getTxEffect.mockResolvedValue({
+      ...randomInBlock(settledTx),
+      txIndexInBlock: 0,
+    });
 
     const pxe = await PXEService.create(
       node,
