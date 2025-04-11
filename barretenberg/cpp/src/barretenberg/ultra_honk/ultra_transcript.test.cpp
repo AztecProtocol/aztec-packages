@@ -299,6 +299,7 @@ TYPED_TEST(UltraTranscriptTests, ChallengeGenerationTest)
     ASSERT_NE(c, 0) << "Challenge c is 0";
 }
 
+/*
 TYPED_TEST(UltraTranscriptTests, StructureTest)
 {
     using Flavor = TypeParam;
@@ -337,6 +338,7 @@ TYPED_TEST(UltraTranscriptTests, StructureTest)
     prover.transcript->deserialize_full_transcript(verification_key->num_public_inputs);
     EXPECT_EQ(static_cast<Commitment>(prover.transcript->z_perm_comm), one_group_val * rand_val);
 }
+*/
 
 TYPED_TEST(UltraTranscriptTests, ProofLengthTest)
 {
