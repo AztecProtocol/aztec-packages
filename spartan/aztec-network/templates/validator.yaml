@@ -78,6 +78,8 @@ spec:
             timeoutSeconds: 30
             failureThreshold: 3
           volumeMounts:
+            - name: scripts
+              mountPath: /scripts
             - name: contracts-env
               mountPath: /shared/contracts
             - name: config
