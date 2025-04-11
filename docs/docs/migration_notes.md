@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
+
+PXE now fast-syncs by skipping finalized blocks and never downloads all blocks, so there is no longer a need to specify a starting block.
+
 ### [noir-contracts] Reference Noir contracts directory structure change
 
 `noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
