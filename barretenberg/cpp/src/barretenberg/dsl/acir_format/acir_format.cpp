@@ -606,8 +606,8 @@ template <> MegaCircuitBuilder create_circuit(AcirProgram& program, const Progra
  * @param witness
  * @return Builder
  */
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161): Delete this or refactor it.
 template <>
-// WORKTODO: maybe try just deleting this entirely?
 UltraCircuitBuilder create_circuit(AcirFormat& constraint_system,
                                    bool recursive,
                                    const size_t size_hint,
