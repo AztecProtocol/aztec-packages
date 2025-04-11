@@ -551,32 +551,7 @@
           },
           "unit": "Ξ"
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "prover-node"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 11,
@@ -985,7 +960,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1020,7 +996,7 @@
             "uid": "spartan-metrics-prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (aztec_db_type) (aztec_db_used_size_bytes{k8s_namespace_name=~\"$namespace\"})",
+          "expr": "avg by (aztec_db_type) (aztec_db_used_size_bytes{k8s_namespace_name=~\"$namespace\"})",
           "interval": "",
           "legendFormat": "__auto",
           "range": true,
@@ -1793,7 +1769,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -1894,7 +1871,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               }
             ]
           },
@@ -1992,7 +1970,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green"
+                "color": "green",
+                "value": null
               },
               {
                 "color": "red",
@@ -2056,8 +2035,8 @@
       {
         "current": {
           "selected": false,
-          "text": "ignition-testnet",
-          "value": "ignition-testnet"
+          "text": "alpha-testnet",
+          "value": "alpha-testnet"
         },
         "datasource": {
           "type": "prometheus",
@@ -2092,6 +2071,6 @@
   "timezone": "browser",
   "title": "Network overview",
   "uid": "aztec-network",
-  "version": 29,
+  "version": 33,
   "weekStart": ""
 }

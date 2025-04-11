@@ -80,6 +80,7 @@ spec:
               source /shared/config/service-addresses && \
               source /scripts/configure-prover-env.sh ${BOOT_NODE_HOST} && \
               source /scripts/get-private-key.sh && \
+              source /shared/config/keys.env && \
               source /shared/contracts/contracts.env && \
               source /shared/config/p2p-addresses && \
               source /shared/config/otel-resource && \
