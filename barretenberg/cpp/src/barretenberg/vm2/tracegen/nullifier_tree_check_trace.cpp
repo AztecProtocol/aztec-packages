@@ -41,8 +41,6 @@ void NullifierTreeCheckTraceBuilder::process(
             intermediate_root = event.write_data->intermediate_root;
         }
 
-        // std::cout << "write" << write << "low_leaf_hash" << event.low_leaf_hash << "low_leaf_index"
-        //           << event.low_leaf_index << "tree_height" <<
 
         trace.set(
             row,
