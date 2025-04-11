@@ -61,6 +61,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     setCurrentContractAddress,
     setCurrentContractArtifact,
     setShowContractInterface,
+    setTotalLogCount,
     network,
     connecting,
   } = useContext(AztecContext);
@@ -110,7 +111,7 @@ export function NetworkSelector({}: NetworkSelectorProps) {
     setCurrentContractAddress(null);
     setCurrentContractArtifact(null);
     setShowContractInterface(false);
-    const pxe = await AztecEnv.initPXE(node, setLogs);
+    const pxe = await AztecEnv.initPXE(node, setLogs, setTotalLogCount);
     const rollupAddress = (await pxe.getNodeInfo()).l1ContractAddresses.rollupAddress;
     const walletLogger = WebLogger.getInstance().createLogger('wallet:data:idb');
     const walletDBStore = await createStore(

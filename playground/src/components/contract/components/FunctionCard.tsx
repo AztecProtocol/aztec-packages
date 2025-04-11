@@ -173,7 +173,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
       <CardActions>
         <Button
           disabled={!wallet || !contract || isWorking}
-          color="secondary"
+          color="primary"
           variant="contained"
           size="small"
           onClick={() => simulate(fn.name)}
@@ -184,7 +184,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
         <Button
           disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
           size="small"
-          color="secondary"
+          color="primary"
           variant="contained"
           onClick={() => setOpenSendTxDialog(true)}
           endIcon={<SendIcon />}
@@ -194,7 +194,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
         <Button
           disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
           size="small"
-          color="secondary"
+          color="primary"
           variant="contained"
           onClick={() => setOpenCreateAuthwitDialog(true)}
           endIcon={<VpnKeyIcon />}

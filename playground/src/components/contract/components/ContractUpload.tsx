@@ -13,17 +13,16 @@ const dropZoneContainer = css({
   flexDirection: 'column',
   width: '100%',
   height: '100%',
-  border: '3px dashed #9894FF',
+  border: '3px dashed var(--mui-palette-primary-dark)',
   borderRadius: '15px',
   margin: '2rem 0',
-  backgroundColor: 'rgba(152, 148, 255, 0.04)',
   alignItems: 'center',
   justifyContent: 'center',
 });
 
 const uploadIcon = css({
   fontSize: '64px',
-  color: '#9894FF',
+  color: 'var(--mui-palette-primary-dark)',
   marginBottom: '1rem',
 });
 
@@ -51,7 +50,7 @@ export function ContractUpload() {
       <div {...getRootProps({ className: 'dropzone' })}>
         <input {...getInputProps()} />
         <UploadFileIcon css={uploadIcon} />
-        <Typography variant="h5" sx={{ mb: 2, color: '#9894FF' }}>
+        <Typography variant="h5" sx={{ mb: 2, color: 'var(--mui-palette-primary-dark)' }}>
           Upload Contract JSON Artifact
         </Typography>
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
@@ -60,7 +59,8 @@ export function ContractUpload() {
         </Typography>
         <Button
           variant="contained"
-          sx={{ mt: 2, backgroundColor: '#9894FF', '&:hover': { backgroundColor: '#8C7EFF' } }}
+          color="primary"
+          sx={{ mt: 2, '&:hover': { backgroundColor: 'var(--mui-palette-primary-dark)' } }}
         >
           Select File
         </Button>

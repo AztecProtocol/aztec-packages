@@ -211,7 +211,11 @@ export function AccountSelector() {
             &nbsp;Create
           </MenuItem>
         </Select>
-        {wallet && !isAccountsLoading && (
+        {isAccountsLoading ? (
+          <div style={{ display: 'flex', alignItems: 'center', marginLeft: '0.5rem' }}>
+            <CircularProgress size={20} />
+          </div>
+        ) : (
           <CopyToClipboardButton disabled={!wallet} data={wallet?.getAddress().toString()} />
         )}
       </FormControl>
