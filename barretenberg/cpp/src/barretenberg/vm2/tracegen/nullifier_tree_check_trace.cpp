@@ -41,7 +41,6 @@ void NullifierTreeCheckTraceBuilder::process(
             intermediate_root = event.write_data->intermediate_root;
         }
 
-
         trace.set(
             row,
             { { { C::nullifier_check_sel, 1 },
