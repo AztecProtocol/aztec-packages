@@ -44,6 +44,7 @@ export function ContractSelector() {
   const [selectedPredefinedContract, setSelectedPredefinedContract] = useState<string | undefined>(undefined);
 
   const {
+    pxe,
     currentContractAddress,
     wallet,
     walletDB,

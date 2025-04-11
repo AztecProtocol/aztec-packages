@@ -107,6 +107,7 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
       <div css={dialogBody}>
         <FormGroup css={form}>
           <FunctionParameter
+            required
             parameter={{
               name: 'caller',
               type: aztecAddressTypeLike,
@@ -119,7 +120,8 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
             <Typography css={authwitData}>{caller !== '' ? formatFrAsString(caller) : '<caller>'}</Typography>
             <Typography css={fixedText}>to call</Typography>
             <Typography css={authwitData}>
-              {fnName}({args.join(',')})
+              {fnName}(
+              {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
             </Typography>
             <Typography css={fixedText}>on contract</Typography>
             <Typography css={authwitData}>

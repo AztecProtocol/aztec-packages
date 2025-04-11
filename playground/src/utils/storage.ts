@@ -258,7 +258,7 @@ export class WalletDB {
     const aliasesBuffers = await this.listAliases('accounts');
     const aliases = parseAliasedBuffersAsString(aliasesBuffers);
     const alias = aliases.find(alias => address.equals(AztecAddress.fromString(alias.value)));
-    await this.#aliases.delete(`accounts:${alias?.key}`);
+    await this.#aliases.delete(alias?.key);
   }
 }
 

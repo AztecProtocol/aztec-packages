@@ -19,14 +19,14 @@ const container = css({
   marginTop: '1rem',
 });
 
-export function FunctionParameter({
-  parameter,
-  onParameterChange,
-}: {
+interface FunctionParameterProps {
+  required?: boolean;
   parameter: ABIParameter;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onParameterChange: (value: any) => void;
-}) {
+}
+
+export function FunctionParameter({ parameter, required, onParameterChange }: FunctionParameterProps) {
   const { walletDB } = useContext(AztecContext);
 
   const [manualInput, setManualInput] = useState(false);
@@ -87,6 +87,7 @@ export function FunctionParameter({
           renderInput={params => (
             <TextField
               {...params}
+              required={required}
               label={capitalize(parameter.name)}
               slotProps={{
                 input: {
@@ -104,6 +105,7 @@ export function FunctionParameter({
         />
       ) : (
         <TextField
+          required={required}
           fullWidth
           css={css}
           variant="outlined"

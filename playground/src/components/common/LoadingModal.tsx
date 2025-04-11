@@ -1,5 +1,5 @@
 import { useContext, useEffect, useState } from 'react';
-import { css } from '@emotion/react';
+import { css, keyframes } from '@emotion/react';
 import { AztecContext } from '../../aztecEnv';
 import Typography from '@mui/material/Typography';
 import loadingIcon from '../../assets/loading_icon.gif';
@@ -67,14 +67,32 @@ const subtitleText = css({
   color: 'rgba(0, 0, 0, 0.6)',
 });
 
-// Loading animation styling
-const loadingAnimation = css({
-  width: '100px',
-  height: '100px',
-  display: 'flex',
-  justifyContent: 'center',
-  alignItems: 'center',
-  margin: '20px 0',
+const loadingAnimationLayer1 = keyframes`
+  0% { box-shadow: 0px 0px 0 0px  }
+  90% , 100% { box-shadow: 20px 20px 0 -4px  }
+`;
+
+const loadingAnimationLayerTr = keyframes`
+  0% { transform:  translate(0, 0) scale(1) }
+  100% {  transform: translate(-25px, -25px) scale(1) }
+`;
+
+const loader = css({
+  margin: '1rem',
+  position: 'relative',
+  width: '48px',
+  height: '48px',
+  background: 'var(--mui-palette-primary-main)',
+  transform: 'rotateX(65deg) rotate(45deg)',
+  color: 'var(--mui-palette-primary-dark)',
+  animation: `${loadingAnimationLayer1} 1s linear infinite alternate`,
+  ':after': {
+    content: '""',
+    position: 'absolute',
+    inset: 0,
+    background: 'var(--mui-palette-primary-light)',
+    animation: `${loadingAnimationLayerTr} 1s linear infinite alternate`,
+  },
 });
 
 // Error message styling
@@ -211,7 +229,7 @@ export function LoadingModal() {
                 ? 'A client-side zero-knowledge proof is being generated in your browser. This may take 20-60 seconds.'
                 : 'Your transaction is being sent to the Aztec network. This may take a few seconds.'}
             </Typography>
-            <img src={loadingIcon} alt="Loading..." css={loadingAnimation} />
+            <span css={loader}></span>
             <Typography css={funFactText}>Did you know? {funFacts[currentFunFact]}</Typography>
             <div css={logContainer}>
               <Typography css={logTitle}>Don't click away! This is what we're currently working on:</Typography>
