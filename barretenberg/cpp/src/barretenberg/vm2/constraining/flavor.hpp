@@ -11,7 +11,7 @@
 #include "barretenberg/polynomials/evaluation_domain.hpp"
 #include "barretenberg/transcript/transcript.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/macros.hpp"
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 
