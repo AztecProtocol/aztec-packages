@@ -55,13 +55,13 @@ describe('L2BlockStream', () => {
   });
 
   describe('with mock local data provider', () => {
-    let handler: TestL2BlockStreamEventHandler;
     let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
     let blockStream: TestL2BlockStream;
 
     beforeEach(() => {
-      handler = new TestL2BlockStreamEventHandler();
       localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
       blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, { batchSize: 10 });
     });
 
@@ -156,8 +156,8 @@ describe('L2BlockStream', () => {
   });
 
   describe('with memory tips store', () => {
-    let handler: TestL2TipsMemoryStore;
-    let localData: TestL2BlockStreamLocalDataProvider;
+    let localData: TestL2TipsMemoryStore;
+    let handler: TestL2BlockStreamEventHandler;
     let blockStream: TestL2BlockStream;
 
     beforeEach(() => {
@@ -191,13 +191,13 @@ describe('L2BlockStream', () => {
   });
 
   describe('skipFinalized', () => {
-    let handler: TestL2BlockStreamEventHandler;
     let localData: TestL2BlockStreamLocalDataProvider;
+    let handler: TestL2BlockStreamEventHandler;
     let blockStream: TestL2BlockStream;
 
     beforeEach(() => {
-      handler = new TestL2BlockStreamEventHandler();
       localData = new TestL2BlockStreamLocalDataProvider();
+      handler = new TestL2BlockStreamEventHandler();
       blockStream = new TestL2BlockStream(blockSource, localData, handler, undefined, {
         batchSize: 10,
         skipFinalized: true,
