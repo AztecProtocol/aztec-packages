@@ -21,7 +21,7 @@ template <typename Flavor>
 HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
     typename Flavor::CircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_aggregation_object,
+    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments = false)
     requires IsRecursiveFlavor<Flavor>;
 

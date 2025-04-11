@@ -34,16 +34,19 @@ namespace {
  * @param key_fields
  * @param proof_fields
  */
-template <typename Builder, typename Flavor>
-void create_dummy_vkey_and_proof(Builder& builder,
+template <typename Flavor>
+void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
                                  size_t proof_size,
                                  size_t public_inputs_size,
-                                 const std::vector<field_ct<Builder>>& key_fields,
-                                 const std::vector<field_ct<Builder>>& proof_fields)
+                                 const std::vector<field_ct<typename Flavor::CircuitBuilder>>& key_fields,
+                                 const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields)
+    requires IsRecursiveFlavor<Flavor>
 {
+    using Builder = typename Flavor::CircuitBuilder;
+    using NativeFlavor = typename Flavor::NativeFlavor;
     using AggregationObject = aggregation_state_ct<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
-    ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    ASSERT(proof_size == NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     // First key field is circuit size
@@ -51,7 +54,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Second key field is number of public inputs
     builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
     // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
+    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
     // Fourth key field is the whether the proof contains an aggregation object.
     builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
     uint32_t offset = 4;
@@ -253,7 +256,7 @@ HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recur
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }
-        create_dummy_vkey_and_proof<Builder, typename Flavor::NativeFlavor>(
+        create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }
 
