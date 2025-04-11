@@ -95,10 +95,6 @@ on:
         description: The salt to use for this deployment. Defaults to random
         required: false
         default: ""
-      respect_tf_lock:
-        description: Whether to respect the Terraform lock
-        required: false
-        default: "true"
       run_terraform_destroy:
         description: Whether to run terraform destroy before deploying
         required: false
@@ -135,6 +131,7 @@ jobs:
       GCP_API_KEY_HEADER: "X-goog-api-key"
       EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
       EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
+      RESPECT_TF_LOCK: ${{ inputs.respect_tf_lock || 'true' }}
 
     steps:
       - name: Checkout code
