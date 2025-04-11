@@ -14,7 +14,7 @@ set(DSL_DEPENDENCIES
     stdlib_honk_verifier)
 
 if (NOT WASM AND NOT DISABLE_AZTEC_VM)
-    list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static vm)
+    list(APPEND DSL_DEPENDENCIES libdeflate::libdeflate_static vm vm2)
 endif()
 
 barretenberg_module(

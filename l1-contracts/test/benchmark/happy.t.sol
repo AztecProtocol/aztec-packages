@@ -23,7 +23,7 @@ import {
   PublicInputArgs,
   RollupConfigInput
 } from "@aztec/core/interfaces/IRollup.sol";
-import {FeeJuicePortal} from "@aztec/core/FeeJuicePortal.sol";
+import {FeeJuicePortal} from "@aztec/core/messagebridge/FeeJuicePortal.sol";
 import {NaiveMerkle} from "../merkle/Naive.sol";
 import {MerkleTestUtil} from "../merkle/TestUtil.sol";
 import {TestERC20} from "@aztec/mock/TestERC20.sol";
@@ -31,7 +31,8 @@ import {TestConstants} from "../harnesses/TestConstants.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {IERC20Errors} from "@oz/interfaces/draft-IERC6093.sol";
 import {IFeeJuicePortal} from "@aztec/core/interfaces/IFeeJuicePortal.sol";
-import {IRewardDistributor, IRegistry} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IRewardDistributor} from "@aztec/governance/interfaces/IRewardDistributor.sol";
+import {IRegistry} from "@aztec/governance/interfaces/IRegistry.sol";
 import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup/ProposeLib.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {
@@ -137,7 +138,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     fakeCanonical = new FakeCanonical(IERC20(address(asset)));
 
     rollup = new Rollup(
-      IFeeJuicePortal(address(fakeCanonical)),
+      asset,
       IRewardDistributor(address(fakeCanonical)),
       asset,
       address(this),
@@ -185,6 +186,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
     asset.mint(address(this), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     asset.approve(address(rollup), TestConstants.AZTEC_MINIMUM_STAKE * VALIDATOR_COUNT);
     rollup.cheat__InitialiseValidatorSet(initialValidators);
+    asset.mint(address(rollup.getFeeAssetPortal()), 1e30);
 
     asset.transferOwnership(address(fakeCanonical));
   }
@@ -217,6 +219,8 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
 
     address proposer = rollup.getCurrentProposer();
 
+    uint256 version = rollup.getVersion();
+
     // Updating the header with important information!
     assembly {
       let headerRef := add(header, 0x20)
@@ -231,6 +235,7 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
       // Store the modified word back
       mstore(add(headerRef, 0x20), word)
 
+      mstore(add(headerRef, 0x0154), version)
       mstore(add(headerRef, 0x0174), bn)
       mstore(add(headerRef, 0x0194), slotNumber)
       mstore(add(headerRef, 0x01b4), ts)
@@ -380,7 +385,6 @@ contract BenchmarkRollupTest is FeeModelTestPoints, DecoderBase {
               args: args,
               fees: fees,
               blobPublicInputs: blobPublicInputs,
-              aggregationObject: "",
               proof: ""
             })
           );

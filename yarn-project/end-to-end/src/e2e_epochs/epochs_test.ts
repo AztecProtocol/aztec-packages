@@ -24,13 +24,14 @@ import {
 
 // This can be lowered to as much as 2s in non-CI
 export const L1_BLOCK_TIME_IN_S = process.env.L1_BLOCK_TIME ? parseInt(process.env.L1_BLOCK_TIME) : 8;
-export const EPOCH_DURATION_IN_L2_SLOTS = 4;
 export const L2_SLOT_DURATION_IN_L1_SLOTS = 2;
 export const WORLD_STATE_BLOCK_HISTORY = 2;
 export const WORLD_STATE_BLOCK_CHECK_INTERVAL = 50;
 export const ARCHIVER_POLL_INTERVAL = 50;
 
-export type EpochsTestOpts = Partial<Pick<SetupOptions, 'startProverNode'>>;
+export type EpochsTestOpts = Partial<
+  Pick<SetupOptions, 'startProverNode' | 'aztecProofSubmissionWindow' | 'aztecEpochDuration' | 'proverTestDelayMs'>
+>;
 
 /**
  * Tests building of epochs using fast block times and short epochs.
@@ -50,6 +51,8 @@ export class EpochsTestContext {
   public proverNodes: ProverNode[] = [];
   public nodes: AztecNodeService[] = [];
 
+  public epochDuration!: number;
+
   public static async setup(opts: EpochsTestOpts = {}) {
     const test = new EpochsTestContext();
     await test.setup(opts);
@@ -59,19 +62,22 @@ export class EpochsTestContext {
   public async setup(opts: EpochsTestOpts = {}) {
     // Set up system without any account nor protocol contracts
     // and with faster block times and shorter epochs.
+    const aztecEpochDuration = opts.aztecEpochDuration ?? 4;
+    const proofSubmissionWindow = opts.aztecProofSubmissionWindow ?? aztecEpochDuration * 2 - 1;
     const context = await setup(0, {
       checkIntervalMs: 50,
       archiverPollingIntervalMS: ARCHIVER_POLL_INTERVAL,
       worldStateBlockCheckIntervalMS: WORLD_STATE_BLOCK_CHECK_INTERVAL,
       skipProtocolContracts: true,
       salt: 1,
-      aztecEpochDuration: EPOCH_DURATION_IN_L2_SLOTS,
+      aztecEpochDuration,
       aztecSlotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
-      aztecProofSubmissionWindow: EPOCH_DURATION_IN_L2_SLOTS * 2 - 1,
+      aztecProofSubmissionWindow: proofSubmissionWindow,
       minTxsPerBlock: 0,
       realProofs: false,
       startProverNode: true,
+      proverTestDelayMs: opts.proverTestDelayMs ?? 0,
       // We use numeric incremental prover ids for simplicity, but we can switch to
       // using the prover's eth address if the proverId is used for something in the rollup contract
       proverId: Fr.fromString('1'),
@@ -106,12 +112,14 @@ export class EpochsTestContext {
     }
 
     // Constants used for time calculation
+    this.epochDuration = aztecEpochDuration;
     this.constants = {
-      epochDuration: EPOCH_DURATION_IN_L2_SLOTS,
+      epochDuration: aztecEpochDuration,
       slotDuration: L1_BLOCK_TIME_IN_S * L2_SLOT_DURATION_IN_L1_SLOTS,
       l1StartBlock: await this.rollup.getL1StartBlock(),
       l1GenesisTime: await this.rollup.getL1GenesisTime(),
       ethereumSlotDuration: L1_BLOCK_TIME_IN_S,
+      proofSubmissionWindow,
     };
 
     this.logger.info(

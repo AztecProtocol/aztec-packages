@@ -1,10 +1,11 @@
 use crate::{
     context::PrivateContext,
     encrypted_logs::{
-        log_assembly_strategies::default_aes128::{aes128::AES128, utils::prefix_with_tag},
+        encoding::encode_message,
+        encrypt::aes128::AES128,
+        log_assembly_strategies::default_aes128::utils::prefix_with_tag,
         log_encryption::LogEncryption,
-        log_type::{PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID, PRIVATE_NOTE_LOG_TYPE_ID},
-        metadata_packing::to_expanded_metadata,
+        msg_type::{PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID},
     },
     note::{note_emission::NoteEmission, note_interface::NoteType},
 };
@@ -21,33 +22,6 @@ fn assert_note_exists<let N: u32>(context: PrivateContext, note_hash_counter: u3
     assert(note_exists, "Can only emit a note log for an existing note.");
 }
 
-/// This particular log assembly strategy (AES 128) requires the note (and the
-/// note_id and the storage_slot) to be converted into bytes, because the aes function
-/// operates on bytes; not fields.
-/// NB: The "2" in "N + 2" is for the note_id and the storage_slot of the note:
-fn compute_note_plaintext_for_this_strategy<Note, let N: u32>(
-    note: Note,
-    storage_slot: Field,
-    log_type_id: u64,
-) -> [Field; (N + 2)]
-where
-    Note: NoteType + Packable<N>,
-{
-    let packed_note = note.pack();
-
-    let mut fields = [0; N + 2];
-
-    // We pack log type id and log metadata into the first field. Search for `decode_log_plaintext` function to see
-    // where the value gets decoded.
-    fields[0] = to_expanded_metadata(Note::get_id() as u64, log_type_id);
-    fields[1] = storage_slot;
-    for i in 0..packed_note.len() {
-        fields[i + 2] = packed_note[i];
-    }
-
-    fields
-}
-
 pub fn compute_note_log<Note, let N: u32>(
     note: Note,
     storage_slot: Field,
@@ -62,7 +36,7 @@ where
         storage_slot,
         recipient,
         sender,
-        PRIVATE_NOTE_LOG_TYPE_ID,
+        PRIVATE_NOTE_MSG_TYPE_ID,
     )
 }
 
@@ -80,7 +54,7 @@ where
         storage_slot,
         recipient,
         sender,
-        PARTIAL_NOTE_PRIVATE_LOG_TYPE_ID,
+        PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID,
     )
 }
 
@@ -89,12 +63,22 @@ fn compute_log<Note, let N: u32>(
     storage_slot: Field,
     recipient: AztecAddress,
     sender: AztecAddress,
-    log_type_id: u64,
+    msg_type: u64,
 ) -> [Field; PRIVATE_LOG_SIZE_IN_FIELDS]
 where
     Note: NoteType + Packable<N>,
 {
-    let plaintext = compute_note_plaintext_for_this_strategy(note, storage_slot, log_type_id);
+    let packed_note = note.pack();
+
+    // A note message's content is the storage slot followed by the packed note representation
+    let mut msg_content: [Field; N + 1] = std::mem::zeroed();
+    msg_content[0] = storage_slot;
+    for i in 0..packed_note.len() {
+        msg_content[1 + i] = packed_note[i];
+    }
+
+    // Notes use the note type id for metadata
+    let plaintext = encode_message(msg_type, Note::get_id() as u64, msg_content);
 
     let ciphertext = AES128::encrypt_log(plaintext, recipient);
 

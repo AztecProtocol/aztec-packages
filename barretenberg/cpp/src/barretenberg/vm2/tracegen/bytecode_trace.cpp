@@ -162,8 +162,7 @@ void BytecodeTraceBuilder::process_retrieval(
     for (const auto& event : events) {
         trace.set(
             row,
-            { {
-                { C::bc_retrieval_sel, 1 },
+            { { { C::bc_retrieval_sel, 1 },
                 { C::bc_retrieval_bytecode_id, event.bytecode_id },
                 { C::bc_retrieval_address, event.address },
                 // TODO: handle errors.
@@ -171,7 +170,8 @@ void BytecodeTraceBuilder::process_retrieval(
                 // Contract instance.
                 { C::bc_retrieval_salt, event.contract_instance.salt },
                 { C::bc_retrieval_deployer_addr, event.contract_instance.deployer_addr },
-                { C::bc_retrieval_class_id, event.contract_instance.contract_class_id },
+                { C::bc_retrieval_current_class_id, event.contract_instance.current_class_id },
+                { C::bc_retrieval_original_class_id, event.contract_instance.original_class_id },
                 { C::bc_retrieval_init_hash, event.contract_instance.initialisation_hash },
                 { C::bc_retrieval_nullifier_key_x, event.contract_instance.public_keys.nullifier_key.x },
                 { C::bc_retrieval_nullifier_key_y, event.contract_instance.public_keys.nullifier_key.y },
@@ -185,9 +185,15 @@ void BytecodeTraceBuilder::process_retrieval(
                 { C::bc_retrieval_artifact_hash, event.contract_class.artifact_hash },
                 { C::bc_retrieval_private_function_root, event.contract_class.private_function_root },
                 { C::bc_retrieval_public_bytecode_commitment, event.contract_class.public_bytecode_commitment },
+                // State.
+                { C::bc_retrieval_block_number, event.current_block_number },
+                { C::bc_retrieval_public_data_tree_root, event.public_data_tree_root },
+                { C::bc_retrieval_nullifier_tree_root, event.nullifier_root },
                 // Siloing.
+                { C::bc_retrieval_outer_nullifier_domain_separator, GENERATOR_INDEX__OUTER_NULLIFIER },
+                { C::bc_retrieval_deployer_protocol_contract_address, DEPLOYER_CONTRACT_ADDRESS },
                 { C::bc_retrieval_siloed_address, event.siloed_address },
-            } });
+                { C::bc_retrieval_nullifier_exists, true } } });
         row++;
     }
 }

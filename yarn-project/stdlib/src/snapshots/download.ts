@@ -40,7 +40,7 @@ export async function getLatestSnapshotMetadata(
 }
 
 export function getBasePath(metadata: SnapshotsIndexMetadata): string {
-  return `aztec-${metadata.l1ChainId}-${metadata.l2Version}-${metadata.rollupAddress}`;
+  return `aztec-${metadata.l1ChainId}-${metadata.rollupVersion}-${metadata.rollupAddress}`;
 }
 
 export function getSnapshotIndexPath(metadata: SnapshotsIndexMetadata): string {

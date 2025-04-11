@@ -7,11 +7,12 @@ import assert from "assert";
 createDebug.enable("*");
 const debug = createDebug("bbjs-test");
 
-const UH_PROOF_FIELDS_LENGTH = 440;
+const UH_PROOF_FIELDS_LENGTH = 456;
 const BYTES_PER_FIELD = 32;
 const UH_PROOF_LENGTH_IN_BYTES = UH_PROOF_FIELDS_LENGTH * BYTES_PER_FIELD;
 
 const proofPath = (dir: string) => path.join(dir, "proof");
+const proofAsFieldsPath = (dir: string) => path.join(dir, "proof_fields.json");
 const publicInputsAsFieldsPath = (dir: string) =>
   path.join(dir, "public_inputs_fields.json");
 const vkeyPath = (dir: string) => path.join(dir, "vk");
@@ -29,7 +30,7 @@ async function generateProof({
   oracleHash?: string;
   multiThreaded?: boolean;
 }) {
-  const { UltraHonkBackend } = await import("@aztec/bb.js");
+  const { UltraHonkBackend, deflattenFields } = await import("@aztec/bb.js");
 
   debug(`Generating proof for ${bytecodePath}...`);
   const circuitArtifact = await fs.readFile(bytecodePath);
@@ -59,6 +60,11 @@ async function generateProof({
     "Public inputs written to " + publicInputsAsFieldsPath(outputDirectory)
   );
 
+  await fs.writeFile(
+    proofAsFieldsPath(outputDirectory),
+    JSON.stringify(deflattenFields(proof.proof))
+  );
+
   const verificationKey = await backend.getVerificationKey({
     keccak: oracleHash === "keccak",
     starknet: oracleHash === "starknet",
@@ -77,12 +83,13 @@ async function verifyProof({ directory }: { directory: string }) {
   const proof = await fs.readFile(proofPath(directory));
   assert(
     proof.length === UH_PROOF_LENGTH_IN_BYTES,
-    `Unexpected proof length ${proof.length}`
+    `Unexpected proof length ${proof.length}, expected ${UH_PROOF_LENGTH_IN_BYTES}`
   );
 
   const publicInputs = JSON.parse(
     await fs.readFile(publicInputsAsFieldsPath(directory), "utf8")
   );
+  debug(`publicInputs: ${JSON.stringify(publicInputs)}`);
   const vkey = await fs.readFile(vkeyPath(directory));
 
   const verified = await verifier.verifyUltraHonkProof(
@@ -92,6 +99,7 @@ async function verifyProof({ directory }: { directory: string }) {
 
   await verifier.destroy();
   debug(`Proof verified: ${verified}`);
+  return verified;
 }
 
 // Prepare a minimal command line interface
@@ -109,6 +117,9 @@ program
 program
   .command("verify")
   .option("-d, --directory <path>", "directory")
-  .action((args) => verifyProof(args));
+  .action(async (args) => {
+    const result = await verifyProof(args);
+    process.exit(result ? 0 : 1);
+  });
 
 program.parse(process.argv);

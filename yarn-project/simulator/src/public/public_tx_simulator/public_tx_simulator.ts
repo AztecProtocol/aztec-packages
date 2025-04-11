@@ -5,7 +5,6 @@ import { computeFeePayerBalanceStorageSlot } from '@aztec/protocol-contracts/fee
 import {
   AvmCircuitInputs,
   AvmCircuitPublicInputs,
-  AvmEnqueuedCallHint,
   AvmExecutionHints,
   type AvmProvingRequest,
   type RevertCode,
@@ -70,8 +69,8 @@ export class PublicTxSimulator {
   public async simulate(tx: Tx): Promise<PublicTxResult> {
     try {
       const txHash = await this.computeTxHash(tx);
-
       this.log.debug(`Simulating ${tx.publicFunctionCalldata.length} public calls for tx ${txHash}`, { txHash });
+
       const context = await PublicTxContext.create(
         this.treesDB,
         this.contractsDB,
@@ -265,18 +264,7 @@ export class PublicTxSimulator {
 
     const allocatedGas = context.getGasLeftAtPhase(phase);
 
-    // The reason we need enqueued hints at all (and cannot just use the public inputs) is
-    // because they don't have the actual calldata, just the hash of it.
-    // If/when we pass the whole TX to C++, we can remove this class of hints.
     stateManager.traceEnqueuedCall(callRequest.request);
-    context.hints.enqueuedCalls.push(
-      new AvmEnqueuedCallHint(
-        callRequest.request.msgSender,
-        contractAddress,
-        callRequest.calldata,
-        callRequest.request.isStaticCall,
-      ),
-    );
 
     const result = await this.simulateEnqueuedCallInternal(
       context.state.getActiveStateManager(),
@@ -448,7 +436,7 @@ export class PublicTxSimulator {
   ): AvmProvingRequest {
     return {
       type: ProvingRequestType.PUBLIC_VM,
-      inputs: new AvmCircuitInputs('public_dispatch', [], hints, publicInputs),
+      inputs: new AvmCircuitInputs(hints, publicInputs),
     };
   }
 }

@@ -80,3 +80,9 @@ variable "BOOTNODE_IP_REGION" {
   default = "us-west1"
   type    = string
 }
+
+variable "METRICS_NAMESPACE" {
+  description = "Namespace to deploy the metrics to"
+  type        = string
+  default     = "metrics"
+}

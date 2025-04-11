@@ -35,7 +35,7 @@ void write(const ProverOutput& prover_output,
         case ObjectToWrite::PUBLIC_INPUTS: {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Try to avoid include_size=true, which is
             // used for deserialization.
-            const auto buf = to_buffer</*include_size*/ true>(prover_output.public_inputs);
+            const auto buf = to_buffer(prover_output.public_inputs);
             if (output_to_stdout) {
                 write_bytes_to_stdout(buf);
             } else {
@@ -47,7 +47,7 @@ void write(const ProverOutput& prover_output,
         case ObjectToWrite::PROOF: {
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1312): Try to avoid include_size=true, which is
             // used for deserialization.
-            const auto buf = to_buffer</*include_size*/ true>(prover_output.proof);
+            const auto buf = to_buffer(prover_output.proof);
             if (output_to_stdout) {
                 write_bytes_to_stdout(buf);
             } else {

@@ -32,7 +32,6 @@ struct SubmitEpochRootProofArgs {
   PublicInputArgs args;
   bytes32[] fees;
   bytes blobPublicInputs;
-  bytes aggregationObject;
   bytes proof;
 }
 
@@ -191,8 +190,7 @@ interface IRollup is IRollupCore {
     uint256 _end,
     PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputs,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory);
 
   function validateBlobs(bytes calldata _blobsInputs)

@@ -1,18 +1,10 @@
-use crate::encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 use protocol_types::{address::AztecAddress, debug_log::debug_log};
 
 pub mod nonce_discovery;
 pub mod partial_notes;
+pub mod pending_tagged_log;
 pub mod private_logs;
 pub mod private_notes;
-
-/// We reserve two fields in the note private log that are not part of the note content: one for the storage slot, and
-/// one for the combined log and note type ID.
-global PRIVATE_LOG_EXPANDED_METADATA_LEN: u32 = 1;
-
-/// The maximum length of the log's content, i.e. after log type ID and metadata extraction.
-pub global MAX_LOG_CONTENT_LEN: u32 =
-    PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS - PRIVATE_LOG_EXPANDED_METADATA_LEN;
 
 use private_notes::MAX_NOTE_PACKED_LEN;
 

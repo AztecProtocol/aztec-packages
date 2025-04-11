@@ -2,7 +2,6 @@ import { MockL2BlockSource } from '@aztec/archiver/test';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
-import { sleep } from '@aztec/foundation/sleep';
 import type { AztecAsyncKVStore } from '@aztec/kv-store';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
@@ -50,10 +49,6 @@ describe('In-Memory P2P Client', () => {
     client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
   });
 
-  afterEach(async () => {
-    await kvStore.close();
-  });
-
   const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
     await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
@@ -63,6 +58,7 @@ describe('In-Memory P2P Client', () => {
     if (client.isReady()) {
       await client.stop();
     }
+    await kvStore.close();
   });
 
   it('can start & stop', async () => {
@@ -153,8 +149,7 @@ describe('In-Memory P2P Client', () => {
 
       blockSource.removeBlocks(10);
 
-      // give the client a chance to react to the reorg
-      await sleep(1000);
+      await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 90, hash: expect.any(String) },
@@ -164,8 +159,7 @@ describe('In-Memory P2P Client', () => {
 
       blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
 
-      // give the client a chance to react to the new blocks
-      await sleep(1000);
+      await client.sync();
 
       await expect(client.getL2Tips()).resolves.toEqual({
         latest: { number: 92, hash: expect.any(String) },
@@ -193,7 +187,7 @@ describe('In-Memory P2P Client', () => {
       txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
 
       blockSource.removeBlocks(10);
-      await sleep(150);
+      await client.sync();
       expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
       await client.stop();
     });
@@ -224,9 +218,8 @@ describe('In-Memory P2P Client', () => {
       ]);
 
       blockSource.removeBlocks(10);
-      await sleep(150);
+      await client.sync();
       expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
-      await sleep(150);
       expect(txPool.markMinedAsPending).toHaveBeenCalledWith([await goodTx.getTxHash()]);
       await client.stop();
     });
