@@ -506,18 +506,18 @@ pub global AVM_PUBLIC_COLUMN_MAX_SIZE: u32 = 1024;
 pub global AVM_PUBLIC_INPUTS_FLATTENED_SIZE: u32 =
     2 * AVM_PUBLIC_COLUMN_MAX_SIZE + PUBLIC_CIRCUIT_PUBLIC_INPUTS_LENGTH;
 
-pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 5452;
 pub global AVM_V2_PUBLIC_INPUTS_FLATTENED_SIZE: u32 = 1;
+// pub global AVM_V2_PROOF_LENGTH_IN_FIELDS: u32 = 5452;
 // VK is composed of
 // - circuit size encoded as a fr field element (32 bytes)
 // - num of inputs encoded as a fr field element (32 bytes)
 // - 45 affine elements (curve base field fq) encoded as fr elements takes (45 * 4 * 32 bytes)
 // 45 above refers to the constant AvmFlavorVariables::NUM_PRECOMPUTED_ENTITIES
-pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
+//pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS: u32 = 2 + 45 * 4;
 
 // We introduce padded version for two AVM constants and we will use the padded ones
 // until we freeze the number of columns in AVM.
-// TODO(#13390): Remove these constants and use the above ones in noir/TS.
+// TODO(#13390): Remove these constants and use the above ones (commented out) in noir/TS.
 pub global AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED: u32 = 20000;
 pub global AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED: u32 = 1000;
 

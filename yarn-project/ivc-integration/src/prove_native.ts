@@ -208,6 +208,10 @@ export async function proveAvm(
   while (!reader.isEmpty()) {
     proof.push(Fr.fromBuffer(reader));
   }
+
+  // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
+  // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
+  // TODO(#13390): Revive a non-padded AVM proof
   while (proof.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
     proof.push(new Fr(0));
   }
@@ -219,6 +223,9 @@ export async function proveAvm(
   while (!vkReader.isEmpty()) {
     vk.push(Fr.fromBuffer(vkReader));
   }
+  // We extend to a fixed-size padded vk as during development any new AVM circuit precomputed
+  // column changes the vk length and we do not have a mechanism to feedback a cpp constant to noir/TS.
+  // TODO(#13390): Revive a non-padded vk proof
   while (vk.length < AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED) {
     vk.push(new Fr(0));
   }
