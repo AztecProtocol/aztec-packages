@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744325918654,
+  "lastUpdate": 1744329868742,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "b4221efeb67a16e037b68416b9bd6e3677fc897d",
-          "message": "fix: port_change test + testbench (#13326)\n\n## Overview\n\nA few prs had made this test fall behind, it being a flake left stuff un\ncorrected.\n\nThere are a couple of problems with this test / the testbench. \n**Testbench**\n- log out puts had changed, leaving the testbench itself bricked\n- Turning off transaction validation as we are producing a dummy\ntransaction\n\n**Port Change**\n- reducing node counts so my resource hypothesis can hopefully not be a\ncrutch for me to fallback on\n- Treat the bootnodes as full peers so we actually re discover them",
-          "timestamp": "2025-04-07T18:26:32Z",
-          "tree_id": "0c77e04334aa9101912539ecfd5249ff1dc3bcfa",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b4221efeb67a16e037b68416b9bd6e3677fc897d"
-        },
-        "date": 1744053880881,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9332,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23733429912570791,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 135890,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 144913,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "29d737e7811be26586577061c0b409a3da9f2dcb",
+          "message": "feat: Reorg cheat codes (#13367)\n\nLeverages [`anvil_reorg` and\n`anvil_rollback`](https://github.com/foundry-rs/foundry/discussions/10267)\nto simulate reorgs in EthCheatCodes.\n\nRequires foundry `nightly-fe92e7ef225c6380e657e49452ce931871ae56bc`\n(2025-01-31T00:20:44.300723007Z) or later.",
+          "timestamp": "2025-04-10T23:04:17Z",
+          "tree_id": "8b96731538e53f3333947fd6ad6b1bf2e6f55099",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/29d737e7811be26586577061c0b409a3da9f2dcb"
+        },
+        "date": 1744329867718,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 10436,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.26540595300244463,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 154804,
             "unit": "us"
           }
         ]
