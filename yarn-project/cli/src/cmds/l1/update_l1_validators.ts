@@ -8,9 +8,9 @@ import {
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import type { LogFn, Logger } from '@aztec/foundation/log';
-import { ForwarderAbi, ForwarderBytecode, RollupAbi, TestERC20Abi } from '@aztec/l1-artifacts';
+import { ForwarderAbi, ForwarderBytecode, RollupAbi, StakingAssetHandlerAbi } from '@aztec/l1-artifacts';
 
-import { createPublicClient, createWalletClient, fallback, getContract, http } from 'viem';
+import { createPublicClient, createWalletClient, fallback, formatEther, getContract, http } from 'viem';
 import { generatePrivateKey, mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 
 export interface RollupCommandArgs {
@@ -20,6 +20,14 @@ export interface RollupCommandArgs {
   mnemonic?: string;
   rollupAddress: EthAddress;
   withdrawerAddress?: EthAddress;
+}
+
+export interface StakingAssetHandlerCommandArgs {
+  rpcUrls: string[];
+  chainId: number;
+  privateKey?: string;
+  mnemonic?: string;
+  stakingAssetHandlerAddress: EthAddress;
 }
 
 export interface LoggerArgs {
@@ -42,56 +50,46 @@ export async function addL1Validator({
   chainId,
   privateKey,
   mnemonic,
-  validatorAddress,
-  rollupAddress,
-  withdrawerAddress,
+  attesterAddress,
+  proposerEOAAddress,
+  stakingAssetHandlerAddress,
   log,
   debugLogger,
-}: RollupCommandArgs & LoggerArgs & { validatorAddress: EthAddress }) {
-  const config = getL1ContractsConfigEnvVars();
+}: StakingAssetHandlerCommandArgs & LoggerArgs & { attesterAddress: EthAddress; proposerEOAAddress: EthAddress }) {
   const dualLog = makeDualLog(log, debugLogger);
   const publicClient = getPublicClient(rpcUrls, chainId);
   const walletClient = getWalletClient(rpcUrls, chainId, privateKey, mnemonic);
-  const rollup = getContract({
-    address: rollupAddress.toString(),
-    abi: RollupAbi,
+
+  const stakingAssetHandler = getContract({
+    address: stakingAssetHandlerAddress.toString(),
+    abi: StakingAssetHandlerAbi,
     client: walletClient,
   });
 
-  const stakingAsset = getContract({
-    address: await rollup.read.getStakingAsset(),
-    abi: TestERC20Abi,
-    client: walletClient,
-  });
+  const rollup = await stakingAssetHandler.read.getRollup();
 
-  await Promise.all(
-    [
-      await stakingAsset.write.mint([walletClient.account.address, config.minimumStake], {} as any),
-      await stakingAsset.write.approve([rollupAddress.toString(), config.minimumStake], {} as any),
-    ].map(txHash => publicClient.waitForTransactionReceipt({ hash: txHash })),
+  const forwarderAddress = getExpectedAddress(
+    ForwarderAbi,
+    ForwarderBytecode,
+    [proposerEOAAddress.toString()],
+    proposerEOAAddress.toString(),
+  ).address;
+
+  dualLog(
+    `Adding validator (${attesterAddress}, ${proposerEOAAddress} [forwarder: ${forwarderAddress}]) to rollup ${rollup.toString()}`,
   );
-
-  dualLog(`Adding validator ${validatorAddress.toString()} to rollup ${rollupAddress.toString()}`);
-  const txHash = await rollup.write.deposit([
-    validatorAddress.toString(),
-    // TODO(#11451): custom forwarders
-    getExpectedAddress(ForwarderAbi, ForwarderBytecode, [validatorAddress.toString()], validatorAddress.toString())
-      .address,
-    withdrawerAddress?.toString() ?? validatorAddress.toString(),
-    config.minimumStake,
-  ]);
+  const txHash = await stakingAssetHandler.write.addValidator([attesterAddress.toString(), forwarderAddress]);
   dualLog(`Transaction hash: ${txHash}`);
   await publicClient.waitForTransactionReceipt({ hash: txHash });
   if (isAnvilTestChain(chainId)) {
     dualLog(`Funding validator on L1`);
     const cheatCodes = new EthCheatCodes(rpcUrls, debugLogger);
-    await cheatCodes.setBalance(validatorAddress, 10n ** 20n);
+    await cheatCodes.setBalance(proposerEOAAddress, 10n ** 20n);
   } else {
-    const balance = await publicClient.getBalance({ address: validatorAddress.toString() });
-    const balanceInEth = Number(balance) / 10 ** 18;
-    dualLog(`Validator balance: ${balanceInEth.toFixed(6)} ETH`);
-    if (balanceInEth === 0) {
-      dualLog(`WARNING: Validator has no balance. Remember to fund it!`);
+    const balance = await publicClient.getBalance({ address: proposerEOAAddress.toString() });
+    dualLog(`Proposer balance: ${formatEther(balance)} ETH`);
+    if (balance === 0n) {
+      dualLog(`WARNING: Proposer has no balance. Remember to fund it!`);
     }
   }
 }

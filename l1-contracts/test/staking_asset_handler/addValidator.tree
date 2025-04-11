@@ -1,16 +1,19 @@
 AddValidatorTest
-├── when caller is not canAddValidator
-│   └── it reverts
-└── when caller is canAddValidator
-    ├── when it needs to mint
-    │   ├── when not enough time has passed since last mint
+├── when caller is unhinged
+│   ├── it exits the attester if needed
+│   ├── it deposits into the rollup
+│   └── it emits a {ValidatorAdded} event
+└── when caller is not unhinged
+    ├── given balance LT depositamount
+    │   ├── when insufficient time passed
     │   │   └── it reverts
-    │   └── when enough time has passed since last mint
+    │   └── when sufficient time passed
     │       ├── it mints staking asset
     │       ├── it emits a {ToppedUp} event
     │       ├── it updates the lastMintTimestamp
     │       ├── it deposits into the rollup
     │       └── it emits a {ValidatorAdded} event
-    └── when it does not need to mint
+    └── given balance GE depositAmount
+        ├── it exits the attester if needed
         ├── it deposits into the rollup
         └── it emits a {ValidatorAdded} event
