@@ -149,6 +149,22 @@ import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
 
+## Versioning
+
+Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not: it allows you to hot-fix previous versions.
+
+The way docs builds work is the following:
+
+- [This Github Action](../.github/workflows/docs-deploy.yml) runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
+- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
+- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
+
+### How do I change the versions that show in the website
+
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
+When release-please merges, it also checks for the versions we want: the latest non-alpha-testnet, and the latest alpha-testnet. It writes those to versions.json.
+
 ## Contributing
 
 We welcome contributions from the community. Please review our [contribution guidelines](CONTRIBUTING.md) for more information.

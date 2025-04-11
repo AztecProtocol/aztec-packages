@@ -28,7 +28,7 @@ import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
 import { MerkleTreeId, NullifierLeaf, PublicDataTreeLeaf, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
 import type { BlockHeader, StateReference, Tx } from '@aztec/stdlib/tx';
 
-import type { PublicContractsDBInterface, PublicStateDBInterface } from '../common/db_interfaces.js';
+import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
 import { TxContractCache } from './tx_contract_cache.js';
 
 /**
@@ -463,7 +463,7 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     return leafValue;
   }
 
-  public async getNullifierIndex(nullifier: Fr): Promise<bigint | undefined> {
+  public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
     const timer = new Timer();
     const lowLeafResult = await this.getPreviousValueIndex(MerkleTreeId.NULLIFIER_TREE, nullifier.toBigInt());
     if (!lowLeafResult) {
@@ -473,14 +473,14 @@ export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInt
     await this.getSiblingPath(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
     // TODO(fcarreiro): We need this for the hints. Might move it to the hinting layer.
     await this.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
-    const index = lowLeafResult.alreadyPresent ? lowLeafResult.index : undefined;
+    const exists = lowLeafResult.alreadyPresent;
 
-    this.logger.debug(`[DB] Fetched nullifier index`, {
+    this.logger.debug(`[DB] Checked nullifier exists`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
-      operation: 'get-nullifier-index',
+      operation: 'check-nullifier-exists',
     } satisfies PublicDBAccessStats);
-    return index;
+    return exists;
   }
 
   public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {

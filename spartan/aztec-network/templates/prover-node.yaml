@@ -50,7 +50,7 @@ spec:
             - "/bin/sh"
             - "-c"
             - |
-              source /scripts/get-private-key.sh
+              . /scripts/get-private-key.sh
           volumeMounts:
             - name: scripts
               mountPath: /scripts

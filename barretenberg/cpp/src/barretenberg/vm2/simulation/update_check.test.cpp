@@ -26,10 +26,7 @@ using ::testing::SizeIs;
 using ::testing::StrictMock;
 using ::testing::TestWithParam;
 
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using GetLowIndexedLeafResponse = crypto::merkle_tree::GetLowIndexedLeafResponse;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
+using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
 
 namespace {
 

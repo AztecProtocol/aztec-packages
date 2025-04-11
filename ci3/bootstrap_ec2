@@ -140,7 +140,7 @@ container_script=$(cat <<EOF
   while true; do redis_cli SETEX hb-\$ci_log_id 60 1 &>/dev/null || true; sleep 30; done &
 
   function run {
-    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL DRY_RUN=\${DRY_RUN:-0}"
+    echo "env: REF_NAME=\$REF_NAME COMMIT_HASH=\$COMMIT_HASH CURRENT_VERSION=\$CURRENT_VERSION CI=\$CI CI_FULL=\$CI_FULL CI_NIGHTLY=\$CI_NIGHTLY DRY_RUN=\${DRY_RUN:-0}"
     if semver check "\$REF_NAME"; then
       echo "Performing a release because \$REF_NAME is a semver."
     fi
@@ -151,7 +151,7 @@ container_script=$(cat <<EOF
     local code=\${PIPESTATUS[0]}
     set +x
     sudo dmesg 2>&1 | cache_log 'dmesg'
-    sudo cat /tmp/netfile | cache_log 'netfile'
+    sudo cat /tmp/netfile* | cache_log 'netfile'
     sudo cat /tmp/cpufile | cache_log 'cpufile'
     sudo cat /tmp/memfile | cache_log 'memfile'
     return \$code
@@ -197,18 +197,46 @@ function run {
     sudo cp -r \$HOME/.bb-crs/* /mnt/bb-crs
     echo Done in \$SECONDS seconds.
 
+    # Capture net status.
     echo Installing and starting sysdig...
     sudo apt-get update &>/dev/null
-    sudo apt-get install -y sysdig &>/dev/null
+    sudo apt-get install -y sysdig net-tools &>/dev/null
     sudo sysdig -p '%evt.time (cid: %container.id) (event: %evt.dir %evt.type) (args: %evt.args): %proc.cmdline' 'evt.type=bind or evt.type=listen' > /tmp/netfile &
     netfile_pid=\$!
+
+    # Tail the sysdig log and watch for "Address already in use" errors.
+    tail -F /tmp/netfile | while read -r line; do
+        if echo \"\$line\" | grep -q EADDRINUSE; then
+            timestamp=\$(echo \"\$line\" | awk '{print \$1}')
+            cid=\$(echo \"\$line\" | grep -oP '(?<=\(cid: )[^\)]+')
+            filename=\"/tmp/netfile-\${timestamp//[:.]/}\"
+
+            echo \"Begin netstat dump for container \$cid at \$timestamp\" > \$filename
+            if [[ \"\$cid\" = \"host\" ]]; then
+                sudo netstat -tulnp | grep LISTEN >> \$filename;
+            else
+                pid=\$(docker inspect -f '{{.State.Pid}}' \$cid)
+                if [[ -z \"\$pid\" ]]; then
+                    echo \"Container \$cid not found, skipping netstat dump.\" >> \$filename;
+                else
+                  sudo nsenter -t \$(docker inspect -f '{{.State.Pid}}' \$cid) -n netstat -tulnp >> \$filename;
+                fi
+            fi
+            echo \"End netstat dump for container \$cid at \$timestamp\" >> \$filename
+        fi
+    done &
+    netstat_pid=\$!
+
     # Capture cpu load.
     mpstat 2 &> /tmp/cpufile &
     cpufile_pid=\$!
+
     # Capture mem load.
     vmstat -w -S M 2 &> /tmp/memfile &
     memfile_pid=\$!
-    trap 'sudo kill \$netfile_pid \$cpufile_pid \$memfile_pid' EXIT
+
+    # Kill monitoring processes on exit
+    trap 'sudo kill \$netstat_pid \$netfile_pid \$cpufile_pid \$memfile_pid' EXIT
 
     echo Starting devbox...
     docker run --privileged ${docker_args:-} \

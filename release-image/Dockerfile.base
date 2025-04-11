@@ -25,6 +25,7 @@ RUN apt update && apt install -y \
     rm -rf /var/lib/apt/lists/*
 # Install anvil.
 COPY --from=build /opt/foundry/bin/anvil /opt/foundry/bin/anvil
+COPY --from=build /opt/foundry/bin/cast /opt/foundry/bin/cast
 ENV PATH="/opt/foundry/bin:$PATH"
 # Copy in production dependencies.
 COPY --from=build /usr/src/yarn-project/node_modules /usr/src/yarn-project/node_modules

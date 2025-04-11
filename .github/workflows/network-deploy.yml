@@ -233,6 +233,8 @@ jobs:
               -lock=${{ inputs.respect_tf_lock }}
           fi
 
+          kubectl delete ns ${{env.NAMESPACE}}
+
       - name: Terraform Plan
         working-directory: ./spartan/terraform/deploy-release
         run: |

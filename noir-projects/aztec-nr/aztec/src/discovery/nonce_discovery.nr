@@ -1,7 +1,4 @@
-use crate::{
-    discovery::{ComputeNoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN},
-    utils::array,
-};
+use crate::discovery::{ComputeNoteHashAndNullifier, private_notes::MAX_NOTE_PACKED_LEN};
 
 use dep::protocol_types::{
     address::AztecAddress,
@@ -44,49 +41,46 @@ pub unconstrained fn attempt_note_nonce_discovery<Env>(
 
     // We need to find nonces (typically just one) that result in a note hash that, once siloed into a unique note hash,
     // is one of the note hashes created by the transaction.
-    array::for_each_in_bounded_vec(
-        unique_note_hashes_in_tx,
-        |expected_unique_note_hash, i| {
-            // Nonces are computed by hashing the first nullifier in the transaction with the index of the note in the
-            // new note hashes array. We therefore know for each note in every transaction what its nonce is.
-            let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
+    unique_note_hashes_in_tx.for_eachi(|i, expected_unique_note_hash| {
+        // Nonces are computed by hashing the first nullifier in the transaction with the index of the note in the
+        // new note hashes array. We therefore know for each note in every transaction what its nonce is.
+        let candidate_nonce = compute_note_hash_nonce(first_nullifier_in_tx, i);
 
-            // Given nonce, note content and metadata, we can compute the note hash and silo it to check if it matches
-            // the note hash at the array index we're currently processing.
-            // TODO(#11157): handle failed note_hash_and_nullifier computation
-            let hashes = compute_note_hash_and_nullifier(
-                packed_note,
-                storage_slot,
-                note_type_id,
-                contract_address,
-                candidate_nonce,
-            )
-                .expect(f"Failed to compute a note hash for note type {note_type_id}");
+        // Given nonce, note content and metadata, we can compute the note hash and silo it to check if it matches
+        // the note hash at the array index we're currently processing.
+        // TODO(#11157): handle failed note_hash_and_nullifier computation
+        let hashes = compute_note_hash_and_nullifier(
+            packed_note,
+            storage_slot,
+            note_type_id,
+            contract_address,
+            candidate_nonce,
+        )
+            .expect(f"Failed to compute a note hash for note type {note_type_id}");
 
-            let siloed_note_hash = compute_siloed_note_hash(contract_address, hashes.note_hash);
-            let unique_note_hash = compute_unique_note_hash(candidate_nonce, siloed_note_hash);
+        let siloed_note_hash = compute_siloed_note_hash(contract_address, hashes.note_hash);
+        let unique_note_hash = compute_unique_note_hash(candidate_nonce, siloed_note_hash);
 
-            if unique_note_hash == expected_unique_note_hash {
-                // Note that while we did check that the note hash is the preimage of the expected unique note hash, we
-                // perform no validations on the nullifier - we fundamentally cannot, since only the application knows
-                // how to compute nullifiers. We simply trust it to have provided the correct one: if it hasn't, then
-                // PXE may fail to realize that a given note has been nullified already, and calls to the application
-                // could result in invalid transactions (with duplicate nullifiers). This is not a concern because an
-                // application already has more direct means of making a call to it fail the transaction.
-                discovered_notes.push(
-                    DiscoveredNoteInfo {
-                        nonce: candidate_nonce,
-                        note_hash: hashes.note_hash,
-                        inner_nullifier: hashes.inner_nullifier,
-                    },
-                );
+        if unique_note_hash == expected_unique_note_hash {
+            // Note that while we did check that the note hash is the preimage of the expected unique note hash, we
+            // perform no validations on the nullifier - we fundamentally cannot, since only the application knows
+            // how to compute nullifiers. We simply trust it to have provided the correct one: if it hasn't, then
+            // PXE may fail to realize that a given note has been nullified already, and calls to the application
+            // could result in invalid transactions (with duplicate nullifiers). This is not a concern because an
+            // application already has more direct means of making a call to it fail the transaction.
+            discovered_notes.push(
+                DiscoveredNoteInfo {
+                    nonce: candidate_nonce,
+                    note_hash: hashes.note_hash,
+                    inner_nullifier: hashes.inner_nullifier,
+                },
+            );
 
-                // We don't exit the loop - it is possible (though rare) for the exact same note content to be present
-                // multiple times in the same transaction with different nonces. This typically doesn't happen due to
-                // notes containing random values in order to hide their contents.
-            }
-        },
-    );
+            // We don't exit the loop - it is possible (though rare) for the exact same note content to be present
+            // multiple times in the same transaction with different nonces. This typically doesn't happen due to
+            // notes containing random values in order to hide their contents.
+        }
+    });
 
     debug_log_format(
         "Discovered a total of {0} notes",
