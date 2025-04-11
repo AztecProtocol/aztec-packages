@@ -74,7 +74,7 @@ jobs:
           COMMIT_TAG=$({{ steps.version.outputs.semver }})
           echo "[]" > versions.json
           yarn
-          COMMIT_TAG=$COMMIT_TAG yarn yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn build
           COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
 
       - name: Filter
