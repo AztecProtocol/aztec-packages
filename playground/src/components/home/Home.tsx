@@ -126,6 +126,7 @@ export default function Home() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [network, setNetwork] = useState(null);
+  const [totalLogCount, setTotalLogCount] = useState(0);
 
   const AztecContextInitialValue = {
     pxe,
@@ -143,6 +144,8 @@ export default function Home() {
     logsOpen,
     drawerOpen,
     showContractInterface,
+    totalLogCount,
+    setTotalLogCount,
     setNetwork,
     setConnecting,
     setDrawerOpen,

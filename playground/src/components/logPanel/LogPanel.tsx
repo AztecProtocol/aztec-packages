@@ -68,7 +68,7 @@ const safeStringify = (obj: any) => JSON.stringify(obj, (_, v) => (typeof v === 
 const drawerBleeding = 56;
 
 export function LogPanel() {
-  const { logs, logsOpen, setLogsOpen } = useContext(AztecContext);
+  const { logs, logsOpen, totalLogCount, setLogsOpen } = useContext(AztecContext);
 
   const toggleDrawer = (newOpen: boolean) => () => {
     setLogsOpen(newOpen);
@@ -111,7 +111,7 @@ export function LogPanel() {
             }}
           >
             <Puller />
-            <Typography sx={{ p: 2, color: 'text.secondary' }}>{logs.length}&nbsp;logs</Typography>
+            <Typography sx={{ p: 2, color: 'text.secondary' }}>{totalLogCount}&nbsp;logs</Typography>
           </StyledBox>
           <StyledBox sx={{ px: 0.5, height: '100%', overflow: 'auto' }}>
             {logs.map((log, index) => (
