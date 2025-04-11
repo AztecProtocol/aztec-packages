@@ -2,7 +2,20 @@
 sidebar_position: 2
 title: How to Run a Prover Node
 description: A comprehensive guide to setting up and running an Aztec Prover node on testnet or mainnet, including hardware requirements, configuration options, and performance optimization tips.
-keywords: [aztec, prover, node, blockchain, L2, scaling, ethereum, zero-knowledge, ZK, setup, tutorial]
+keywords:
+  [
+    aztec,
+    prover,
+    node,
+    blockchain,
+    L2,
+    scaling,
+    ethereum,
+    zero-knowledge,
+    ZK,
+    setup,
+    tutorial,
+  ]
 tags:
   - prover
   - node
@@ -10,70 +23,52 @@ tags:
   - infrastructure
 ---
 
-Prover nodes are core to the Aztec network. They orchestrate proving processes that verify every single public transaction and roll them up to a root proof that is then published to L1. Aztec utilizes advanced cryptography and mathematics to ensure security and privacy.
+Prover nodes are a critical part of the Aztec network's infrastructure. They generate cryptographic proofs that attest to the correctness of public transactions, ultimately producing a single rollup proof that is submitted to Ethereum.
 
-Running a prover means having deep understanding of blockchain technology, crypto economics, devops and hardware. It is an expensive endeavour that is often run by highly skilled engineers or teams.
+Operating a prover node requires a solid grasp of blockchain protocols, cryptographic systems, DevOps best practices, and high-performance hardware. It’s a resource-intensive role typically undertaken by experienced engineers or specialized teams due to its technical and operational complexity.
 
 ## Prerequisites
 
 Before following this guide, make sure you:
 
-- Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox) and updated to the latest version
+- Have the `aztec` tool [installed](../../../developers/getting_started.md#install-the-sandbox)
 - Fully understand the [concepts](../../concepts/provers-and-sequencers/) on proving and sequencing
 - Have sufficient hardware resources for proving operations
 - Your confidence level is expected to be around "I'd be able to run a Prover _without_ this guide"
 
 ## Understanding Prover Architecture
 
-Running an Aztec Prover node means that the client will automatically monitor L1 for unclaimed epochs and propose bids for proving them. The prover node watches the L1 to see when a bid they submitted has been accepted by a sequencer, and will then kick off an epoch proving job which performs the following tasks:
+The Aztec network's proof generation process involves three key components: the Prover Node, the Proving Broker, and the Proving Agent.
 
-- Downloads the transaction hashes in the epoch and all L1 to L2 messages from L1
-- Downloads the transaction objects with their ClientIVC proofs from a remote node (to be replaced by loading them from the P2P pool)
-- Executes transactions in the epoch in order, generating proving jobs for each of them
-- Generates the inputs for each circuit and kicks off individual proving jobs to prover agents, recursively proving until it gets to the root rollup proof
-- Submits the root rollup proof to L1 to advance the proven chain
+#### Prover Node
 
-```mermaid
-flowchart TD
-    style prover-node stroke:#333,stroke-width:4px
+The Prover Node is responsible for polling the L1 for unproven epochs and initiating the proof process. When an epoch is ready to be proven, the prover node creates proving jobs and distributes them to the broker. The Prover Node is also responsible for submitting the final rollup proof to the rollup contract.
 
-    prover-node[Prover Node]
-    proving-job[Proving Job]
-    tx-provider[Tx Provider]
-    l1-publisher[L1 Publisher]
-    l2-block-source[L2 Block Source]
-    world-state[World State DB]
-    tx-processor[Tx Processor]
-    prover-client[Proving Orchestrator]
-    proving-queue[Proof Broker]
-    prover-agent[Prover Agent]
-    bb[Barretenberg]
+The Prover Node is relatively lightweight and is expected to use up to 8 cores and 16GB of memory. The Prover Node, like any other node, stores state so it would need some disk space. We recommend 1TB for the prover node.
 
-    prover-node --trigger--> proving-job
-    proving-job --"process-tx"--> tx-processor --"add-tx"--> prover-client
-    proving-job --start-batch--> prover-client
-    proving-job --get-tx-hashes--> l2-block-source
-    proving-job --"advance-to"--> world-state
-    proving-job --"get-txs"--> tx-provider
-    tx-processor --rw--> world-state
-    world-state --"get-blocks"--> l2-block-source
-    prover-client --"rw"--> world-state
-    proving-job --publish-proof--> l1-publisher
-    prover-client --"push-job"--> proving-queue
-    prover-agent --"pull-jobs"---> proving-queue
-    subgraph "Prover Agent"
-        prover-agent --"prove"--> bb
-    end
-```
+#### Proving Broker
+
+The Proving Broker acts as an intermediary, managing the queue of proving jobs and distributing them to available agents. The broker receives results from agents and sends them back to the prover node.
+
+The Proving Broker is relatively lightweight and is expected to use up to 4 cores and 16GB of memory. For alpha-testnet, the proving broker needs around 1GB of disk space.
+
+#### Proving Agents
+
+The Proving Agent is responsible for executing the proof for a given job. It requests jobs from the broker, and sends the result back to the broker.
+
+The Proving Agent is very resource intensive, with each agent using up to 16cores and 128GB of memory.
 
 ## Setting Up Your Prover Node
 
-Thanks to the modular nature of the `aztec start` command, running a prover is fairly straightforward despite its complexity. You'll need to provide several key flags:
+Aztec provides a modular CLI command, `aztec start`, which makes it easy to launch and configure the prover system. Each component can run independently or together on a single machine, depending on your architecture.
+
+Here are the main flags and what they control:
 
 | Flag                                             | Description                                                                             |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------- |
 | `--network <network>`                            | Selects the Docker image for the target network (e.g., `alpha-testnet`)                 |
-| `--l1-rpc-urls <execution-node>`                 | The URL of your L1 execution node                                                       |
+| `--l1-rpc-urls`                                  | The URL of your L1 execution node                                                       |
+| `--l1-consensus-host-urls`                       | The URL of your L1 consensus node                                                       |
 | `--archiver`                                     | Starts the archiver service to store synced data                                        |
 | `--prover-node`                                  | The node that connects to both networks to fetch jobs and transactions                  |
 | `--prover-broker`                                | Talks with the node and the prover agents to assign jobs                                |
@@ -83,14 +78,51 @@ Thanks to the modular nature of the `aztec start` command, running a prover is f
 
 You can run all components on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
 
+#### L1 Access
+
+Before running a prover node, it’s important to understand that it must interface directly with Ethereum (Layer 1). This allows it to monitor on-chain activity and publish proofs. To do this, the prover requires access to both:
+
+- An L1 execution client (for reading transactions and state)
+
+- An L1 consensus client (for blobs)
+
+These are typically provided via RPC endpoints — often from infrastructure providers like Alchemy, Infura, or your own hosted clients.
+
+:::tip
+If you're hosting your own Ethereum execution or consensus client locally (rather than using an external RPC like Alchemy), you need to ensure that the prover node inside Docker can reach it.
+
+By default, Docker runs containers on a bridge network that isolates them from the host machine’s network interfaces. This means localhost inside the container won’t point to the host’s localhost.
+
+To fix this:
+
+Option 1: Use the special hostname host.docker.internal
+This tells Docker to route traffic from the container to the host machine. For example:
+
+```bash
+--l1-rpc-urls http://host.docker.internal:8545
+```
+
+Option 2: Add a host network entry to your Docker Compose file (advanced users)
+This gives your container direct access to the host’s network stack, but removes Docker’s network isolation. In your `docker-compose.yml`, add:
+
+```yaml
+network_mode: "host"
+```
+
+⚠️ Note: network_mode: "host" only works on Linux. On macOS and Windows, use host.docker.internal.
+
+Make sure your local node is listening on 0.0.0.0 or your LAN IP, not just 127.0.0.1. Otherwise, it won’t be accessible from Docker.
+:::
+
 ### Example Command
 
-Here's an example of a complete command to start a prover node:
+Here's an example of a complete command to run a prover on the alpha-testnet.
 
 ```bash
 aztec start \
   --network alpha-testnet \
   --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key \
+  --l1-consensus-host-urls \
   --prover-node \
   --prover-broker \
   --prover-agent \
@@ -126,6 +158,8 @@ Then source this file before running your command:
 source .env
 aztec start --network alpha-testnet --prover-node --prover-broker --prover-agent --archiver
 ```
+
+For a complete review of all environment variables, refer to the [Configuration](URL/HERE/)
 
 ### Customization Options
 
