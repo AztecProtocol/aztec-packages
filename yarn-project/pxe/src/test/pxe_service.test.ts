@@ -26,6 +26,7 @@ async function createPXEService(): Promise<PXE> {
   const protocolContractsProvider = new BundledProtocolContractsProvider();
   const config: PXEServiceConfig = {
     l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+    l2BlockBatchSize: 200,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 1024 * 1024,
     l1Contracts: { rollupAddress: EthAddress.random() },
@@ -75,6 +76,7 @@ describe('PXEService', () => {
 
     config = {
       l2StartingBlock: INITIAL_L2_BLOCK_NUM,
+      l2BlockBatchSize: 200,
       proverEnabled: false,
       dataDirectory: undefined,
       dataStoreMapSizeKB: 1024 * 1024,

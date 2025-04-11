@@ -11,6 +11,11 @@ on:
         description: The namespace to deploy to, e.g. smoke
         required: true
         type: string
+      metrics_namespace:
+        description: The namespace of the metrics deployment, e.g. metrics
+        required: false
+        type: string
+        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
@@ -66,6 +71,11 @@ on:
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
+      metrics_namespace:
+        description: The namespace of the metrics deployment, e.g. metrics
+        required: false
+        type: string
+        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
@@ -112,6 +122,7 @@ jobs:
     env:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
+      METRICS_NAMESPACE: ${{ inputs.metrics_namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
       RESOURCES_FILE: ${{ inputs.resources_file }}
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
@@ -253,6 +264,7 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}
@@ -265,6 +277,7 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
               -lock=${{ inputs.respect_tf_lock }}

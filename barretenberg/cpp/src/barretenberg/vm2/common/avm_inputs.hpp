@@ -63,8 +63,17 @@ struct PublicInputs {
     bool reverted;
 
     static PublicInputs from(const std::vector<uint8_t>& data);
-    // TODO: implement this.
-    std::vector<std::vector<FF>> to_columns() const { return { { reverted } }; }
+    // TODO: implement three following methods.
+    std::vector<std::vector<FF>> to_columns() const { return { { static_cast<uint8_t>(reverted) } }; }
+    // Flatten public input columns as a single vector.
+    static std::vector<FF> columns_to_flat(std::vector<std::vector<FF>> columns) { return columns[0]; }
+
+    // Reverse direction as the above but needs to templated as recursive verifier needs it with a circuit type.
+    template <typename FF_> static std::vector<std::vector<FF_>> flat_to_columns(const std::vector<FF_>& input)
+    {
+        return { input };
+    }
+
     bool operator==(const PublicInputs& other) const = default;
 
     MSGPACK_FIELDS(globalVariables, startTreeSnapshots, reverted);
