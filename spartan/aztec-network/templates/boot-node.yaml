@@ -50,9 +50,8 @@ spec:
             - /bin/bash
             - -c
             - |
-              source /scripts/get-validator-addresses.sh
-
               source /shared/config/service-addresses
+              source /scripts/get-validator-addresses.sh
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
 
               /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
