@@ -27,7 +27,7 @@ export async function deployL1Contracts(
   const initialAccounts = testAccounts ? await getInitialTestAccounts() : [];
   const sponsoredFPCAddress = sponsoredFPC ? await getSponsoredFPCAddress() : [];
   const initialFundedAccounts = initialAccounts.map(a => a.address).concat(sponsoredFPCAddress);
-  const { genesisBlockHash, genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
+  const { genesisArchiveRoot, fundingNeeded } = await getGenesisValues(initialFundedAccounts);
 
   const { l1ContractAddresses } = await deployAztecContracts(
     rpcUrls,
@@ -38,7 +38,6 @@ export async function deployL1Contracts(
     salt,
     initialValidators,
     genesisArchiveRoot,
-    genesisBlockHash,
     fundingNeeded,
     acceleratedTestDeployments,
     config,
@@ -70,7 +69,6 @@ export async function deployL1Contracts(
     log(`StakingAssetHandler Address: ${l1ContractAddresses.stakingAssetHandlerAddress?.toString()}`);
     log(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
     log(`Initial validators: ${initialValidators.map(a => a.toString()).join(', ')}`);
-    log(`Genesis block hash: ${genesisBlockHash.toString()}`);
     log(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
   }
 }

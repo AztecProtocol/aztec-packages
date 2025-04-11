@@ -69,7 +69,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
   struct Block {
     bytes32 archive;
-    bytes32 blockHash;
     bytes header;
     bytes body;
     bytes blobInputs;
@@ -210,7 +209,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
 
     return Block({
       archive: archiveRoot,
-      blockHash: bytes32(Constants.GENESIS_BLOCK_HASH),
       header: header,
       body: body,
       blobInputs: full.block.blobInputs,
@@ -237,7 +235,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            blockHash: b.blockHash,
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
@@ -340,7 +337,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
           ProposeArgs({
             header: b.header,
             archive: b.archive,
-            blockHash: b.blockHash,
             oracleInput: OracleInput({
               feeAssetPriceModifier: point.oracle_input.fee_asset_price_modifier
             }),
@@ -437,8 +433,6 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
         PublicInputArgs memory args = PublicInputArgs({
           previousArchive: rollup.getBlock(start).archive,
           endArchive: rollup.getBlock(start + epochSize - 1).archive,
-          previousBlockHash: rollup.getBlock(start).blockHash,
-          endBlockHash: rollup.getBlock(start + epochSize - 1).blockHash,
           endTimestamp: Timestamp.wrap(0),
           outHash: bytes32(0),
           proverId: address(0)

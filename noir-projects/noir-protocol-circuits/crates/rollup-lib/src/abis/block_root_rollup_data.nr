@@ -13,13 +13,14 @@ pub struct BlockRootRollupData {
     // Hint for inserting the new l1 to l2 message subtree.
     pub l1_to_l2_message_subtree_sibling_path: [Field; L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH],
 
+    // Hint for checking the hash of previous_block_header is the last leaf of the previous archive.
+    pub previous_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
+
     // Hint for inserting the new block hash to the last archive.
     pub new_archive_sibling_path: [Field; ARCHIVE_HEIGHT],
 
     // Previous block header is used to verify the start state of the first tx in a block.
-    // Its hash will be included in the public inputs. It will be checked:
-    // - against previous block hash on L1 for the first block in batch.
-    // - against previous block_root.end_block_hash in a block_merge.
+    // Its hash is checked against the previous archive.
     pub previous_block_header: BlockHeader,
 
     // TODO(#7346): Temporarily added prover_id while we verify block-root proofs on L1

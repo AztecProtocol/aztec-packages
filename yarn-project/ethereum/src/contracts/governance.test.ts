@@ -39,7 +39,6 @@ describe('Governance', () => {
       vkTreeRoot,
       protocolContractTreeRoot,
       genesisArchiveRoot: Fr.random(),
-      genesisBlockHash: Fr.random(),
     });
 
     governance = new GovernanceContract(

@@ -29,7 +29,7 @@ import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
 import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
 import { createBlobSinkClient } from '@aztec/blob-sink/client';
 import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
-import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { GENESIS_ARCHIVE_ROOT, SPONSORED_FPC_SALT } from '@aztec/constants';
 import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
   type DeployL1ContractsArgs,
@@ -125,7 +125,6 @@ export const setupL1Contracts = async (
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
     genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
-    genesisBlockHash: args.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
     salt: args.salt,
     initialValidators: args.initialValidators,
     ...getL1ContractsConfigEnvVars(),
@@ -425,7 +424,7 @@ export async function setup(
     const initialFundedAccounts =
       opts.initialFundedAccounts ??
       (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
-    const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+    const { genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
       initialFundedAccounts.map(a => a.address),
       opts.initialAccountFeeJuice,
       opts.genesisPublicData,
@@ -437,7 +436,7 @@ export async function setup(
         config.l1RpcUrls,
         publisherHdAccount!,
         logger,
-        { ...opts, genesisArchiveRoot, genesisBlockHash, feeJuicePortalInitialBalance: fundingNeeded },
+        { ...opts, genesisArchiveRoot, feeJuicePortalInitialBalance: fundingNeeded },
         chain,
       ));
 
