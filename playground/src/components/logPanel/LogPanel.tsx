@@ -7,6 +7,8 @@ import SwipeableDrawer from '@mui/material/SwipeableDrawer';
 import Typography from '@mui/material/Typography';
 import ArticleIcon from '@mui/icons-material/Article';
 import { styled } from '@mui/material/styles';
+import IconButton from '@mui/material/IconButton';
+import DownloadIcon from '@mui/icons-material/Download';
 
 const Root = styled('div')(({ theme }) => ({
   height: '100%',
@@ -73,6 +75,27 @@ export function LogPanel() {
   const toggleDrawer = (newOpen: boolean) => () => {
     setLogsOpen(newOpen);
   };
+
+  const downloadLogs = () => {
+    const element = document.createElement('a');
+    const file = new Blob(
+      [
+        logs
+          .map(log => {
+            return `${new Date(log.timestamp).toISOString()} [${log.type.toUpperCase()}] ${log.prefix} ${
+              log.message
+            } ${safeStringify(log.data)}`;
+          })
+          .join('\n'),
+      ],
+      { type: 'text/plain' },
+    );
+    element.href = URL.createObjectURL(file);
+    element.download = 'myFile.txt';
+    document.body.appendChild(element); // Required for this to work in FireFox
+    element.click();
+  };
+
   return (
     <>
       <Root>
@@ -112,6 +135,12 @@ export function LogPanel() {
           >
             <Puller />
             <Typography sx={{ p: 2, color: 'text.secondary' }}>{totalLogCount}&nbsp;logs</Typography>
+            <div style={{ flexGrow: 1, margin: 'auto' }} />
+            {logsOpen && (
+              <IconButton css={[{ marginRight: '0.5rem' }]} onClick={() => downloadLogs()}>
+                <DownloadIcon />
+              </IconButton>
+            )}
           </StyledBox>
           <StyledBox sx={{ px: 0.5, height: '100%', overflow: 'auto' }}>
             {logs.map((log, index) => (

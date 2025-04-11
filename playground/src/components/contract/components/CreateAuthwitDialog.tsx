@@ -6,7 +6,6 @@ import {
   Contract,
   ContractFunctionInteraction,
   type SendMethodOptions,
-  isAddressStruct,
 } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
