@@ -35,7 +35,8 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
     using NativePCS = std::conditional_t<std::same_as<NativeCurve, curve::BN254>, KZG<NativeCurve>, IPA<NativeCurve>>;
     using CommitmentKey = typename NativePCS::CK;
     using ShpleminiProver = ShpleminiProver_<NativeCurve>;
-    using ShpleminiVerifier = ShpleminiVerifier_<Curve>;
+    static constexpr bool USE_PADDING = true;
+    using ShpleminiVerifier = ShpleminiVerifier_<Curve, USE_PADDING>;
     using Fr = typename Curve::ScalarField;
     using NativeFr = typename Curve::NativeCurve::ScalarField;
     using Transcript = bb::BaseTranscript<bb::stdlib::recursion::honk::StdlibTranscriptParams<Builder>>;
@@ -122,7 +123,7 @@ TEST(ShpleminiRecursionTest, ProveAndVerifySingle)
             .k_shift_magnitude = MockClaimGen::k_magnitude
         };
 
-        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(Fr::from_witness(&builder, N),
+        const auto opening_claim = ShpleminiVerifier::compute_batch_opening_claim(log_circuit_size,
                                                                                   claim_batcher,
                                                                                   u_challenge_in_circuit,
                                                                                   Commitment::one(&builder),

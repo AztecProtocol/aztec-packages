@@ -56,11 +56,7 @@ using simulation::UpdateCheckEvent;
 using FF = AvmFlavorSettings::FF;
 using C = Column;
 using poseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using GetLowIndexedLeafResponse = crypto::merkle_tree::GetLowIndexedLeafResponse;
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
-using PublicDataTreeLeafPreimage = crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>;
+using PublicDataTreeLeafPreimage = IndexedLeaf<PublicDataLeafValue>;
 
 using update_hash_poseidon2 = lookup_update_check_update_hash_poseidon2_relation<FF>;
 using shared_mutable_slot_poseidon2 = lookup_update_check_shared_mutable_slot_poseidon2_relation<FF>;
@@ -108,7 +104,7 @@ TEST(UpdateCheckTracegenTest, HashZeroInteractions)
     uint32_t leaf_index = 27;
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillOnce(Return(crypto::merkle_tree::fr_sibling_path{ 0 }));
+        .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillOnce(Return(PublicDataTreeLeafPreimage(PublicDataLeafValue(1, 0), 0, 0)));
     EXPECT_CALL(mock_low_level_merkle_db,
@@ -190,7 +186,7 @@ TEST(UpdateCheckTracegenTest, HashNonzeroInteractions)
 
     EXPECT_CALL(mock_low_level_merkle_db, get_tree_roots()).WillRepeatedly(ReturnRef(trees));
     EXPECT_CALL(mock_low_level_merkle_db, get_sibling_path(world_state::MerkleTreeId::PUBLIC_DATA_TREE, _))
-        .WillOnce(Return(crypto::merkle_tree::fr_sibling_path{ 0 }));
+        .WillOnce(Return(fr_sibling_path{ 0 }));
     EXPECT_CALL(mock_low_level_merkle_db, get_leaf_preimage_public_data_tree(_))
         .WillRepeatedly([&](const uint64_t& index) {
             return PublicDataTreeLeafPreimage(

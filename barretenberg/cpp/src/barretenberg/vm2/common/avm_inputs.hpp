@@ -277,6 +277,7 @@ struct AccumulatedData {
 // That's why I'm not calling it TxHint. We can reconsider if the inner types seem to dirty.
 struct Tx {
     std::string hash;
+    GlobalVariables globalVariables;
     AccumulatedData nonRevertibleAccumulatedData;
     AccumulatedData revertibleAccumulatedData;
     std::vector<EnqueuedCallHint> setupEnqueuedCalls;
@@ -286,6 +287,7 @@ struct Tx {
     bool operator==(const Tx& other) const = default;
 
     MSGPACK_FIELDS(hash,
+                   globalVariables,
                    nonRevertibleAccumulatedData,
                    revertibleAccumulatedData,
                    setupEnqueuedCalls,
@@ -300,6 +302,7 @@ struct ExecutionHints {
     std::vector<ContractClassHint> contractClasses;
     std::vector<BytecodeCommitmentHint> bytecodeCommitments;
     // Merkle DB.
+    TreeSnapshots startingTreeRoots;
     std::vector<GetSiblingPathHint> getSiblingPathHints;
     std::vector<GetPreviousValueIndexHint> getPreviousValueIndexHints;
     std::vector<GetLeafPreimageHint<crypto::merkle_tree::IndexedLeaf<crypto::merkle_tree::PublicDataLeafValue>>>
@@ -320,6 +323,7 @@ struct ExecutionHints {
                    contractInstances,
                    contractClasses,
                    bytecodeCommitments,
+                   startingTreeRoots,
                    getSiblingPathHints,
                    getPreviousValueIndexHints,
                    getLeafPreimageHintsPublicDataTree,

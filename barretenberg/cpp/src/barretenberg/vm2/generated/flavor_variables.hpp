@@ -16,6 +16,7 @@
 #include "relations/ff_gt.hpp"
 #include "relations/instr_fetching.hpp"
 #include "relations/merkle_check.hpp"
+#include "relations/nullifier_read.hpp"
 #include "relations/poseidon2_hash.hpp"
 #include "relations/poseidon2_perm.hpp"
 #include "relations/public_data_read.hpp"
@@ -35,6 +36,7 @@
 #include "relations/lookups_ff_gt.hpp"
 #include "relations/lookups_instr_fetching.hpp"
 #include "relations/lookups_merkle_check.hpp"
+#include "relations/lookups_nullifier_read.hpp"
 #include "relations/lookups_poseidon2_hash.hpp"
 #include "relations/lookups_public_data_read.hpp"
 #include "relations/lookups_range_check.hpp"
@@ -47,10 +49,10 @@ namespace bb::avm2 {
 
 struct AvmFlavorVariables {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = 45;
-    static constexpr size_t NUM_WITNESS_ENTITIES = 975;
+    static constexpr size_t NUM_WITNESS_ENTITIES = 998;
     static constexpr size_t NUM_SHIFTED_ENTITIES = 135;
     static constexpr size_t NUM_WIRES = NUM_WITNESS_ENTITIES + NUM_PRECOMPUTED_ENTITIES;
-    static constexpr size_t NUM_ALL_ENTITIES = 1155;
+    static constexpr size_t NUM_ALL_ENTITIES = 1178;
 
     // Need to be templated for recursive verifier
     template <typename FF_>
@@ -70,6 +72,7 @@ struct AvmFlavorVariables {
         avm2::ff_gt<FF_>,
         avm2::instr_fetching<FF_>,
         avm2::merkle_check<FF_>,
+        avm2::nullifier_read<FF_>,
         avm2::poseidon2_hash<FF_>,
         avm2::poseidon2_perm<FF_>,
         avm2::public_data_read<FF_>,
@@ -117,6 +120,10 @@ struct AvmFlavorVariables {
         lookup_instr_fetching_wire_instruction_info_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_read_relation<FF_>,
         lookup_merkle_check_merkle_poseidon2_write_relation<FF_>,
+        lookup_nullifier_read_low_leaf_membership_relation<FF_>,
+        lookup_nullifier_read_low_leaf_next_nullifier_validation_relation<FF_>,
+        lookup_nullifier_read_low_leaf_nullifier_validation_relation<FF_>,
+        lookup_nullifier_read_low_leaf_poseidon2_relation<FF_>,
         lookup_poseidon2_hash_poseidon2_perm_relation<FF_>,
         lookup_public_data_read_low_leaf_membership_relation<FF_>,
         lookup_public_data_read_low_leaf_next_slot_validation_relation<FF_>,

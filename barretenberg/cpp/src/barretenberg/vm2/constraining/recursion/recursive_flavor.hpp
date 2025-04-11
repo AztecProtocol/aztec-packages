@@ -43,6 +43,10 @@ template <typename BuilderType> class AvmRecursiveFlavor_ {
     // This flavor would not be used with ZK Sumcheck
     static constexpr bool HasZK = false;
 
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = true;
+
     // define the containers for storing the contributions from each relation in Sumcheck
     using TupleOfArraysOfValues = decltype(create_tuple_of_arrays_of_values<Relations>());
 
