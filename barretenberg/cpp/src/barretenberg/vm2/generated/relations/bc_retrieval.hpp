@@ -12,7 +12,7 @@ template <typename FF_> class bc_retrievalImpl {
   public:
     using FF = FF_;
 
-    static constexpr std::array<size_t, 1> SUBRELATION_PARTIAL_LENGTHS = { 2 };
+    static constexpr std::array<size_t, 3> SUBRELATION_PARTIAL_LENGTHS = { 3, 3, 2 };
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
@@ -26,12 +26,28 @@ template <typename FF_> class bc_retrievalImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
+        const auto constants_DEPLOYER_CONTRACT_ADDRESS = FF(2);
+        const auto constants_GENERATOR_INDEX__OUTER_NULLIFIER = FF(7);
 
         {
             using Accumulator = typename std::tuple_element_t<0, ContainerOverSubrelations>;
-            auto tmp = (new_term.bc_retrieval_sel - new_term.bc_retrieval_sel);
+            auto tmp = new_term.bc_retrieval_sel * (constants_GENERATOR_INDEX__OUTER_NULLIFIER -
+                                                    new_term.bc_retrieval_outer_nullifier_domain_separator);
             tmp *= scaling_factor;
             std::get<0>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<1, ContainerOverSubrelations>;
+            auto tmp = new_term.bc_retrieval_sel *
+                       (constants_DEPLOYER_CONTRACT_ADDRESS - new_term.bc_retrieval_deployer_protocol_contract_address);
+            tmp *= scaling_factor;
+            std::get<1>(evals) += typename Accumulator::View(tmp);
+        }
+        {
+            using Accumulator = typename std::tuple_element_t<2, ContainerOverSubrelations>;
+            auto tmp = (new_term.bc_retrieval_sel - new_term.bc_retrieval_sel);
+            tmp *= scaling_factor;
+            std::get<2>(evals) += typename Accumulator::View(tmp);
         }
     }
 };

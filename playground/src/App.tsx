@@ -1,7 +1,7 @@
 import { Global } from '@emotion/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { globalStyle, theme } from './common.styles';
-import Home from './components/home/home';
+import Home from './components/home/Home';
 
 function App() {
   return (

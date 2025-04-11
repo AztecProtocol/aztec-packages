@@ -2,6 +2,7 @@
 
 #include <vector>
 
+#include "barretenberg/crypto/merkle_tree/memory_tree.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"

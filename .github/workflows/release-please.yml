@@ -71,10 +71,11 @@ jobs:
       - name: Cut version
         working-directory: ./docs
         run: |
+          COMMIT_TAG=$({{ steps.version.outputs.semver }})
           echo "[]" > versions.json
           yarn
-          yarn build
-          yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
 
       - name: Filter
         working-directory: ./docs

@@ -28,6 +28,7 @@ export async function createPXEService(
   const configWithContracts = {
     ...config,
     l1Contracts,
+    l2BlockBatchSize: 200,
   } as PXEServiceConfig;
 
   const store = await createStore(

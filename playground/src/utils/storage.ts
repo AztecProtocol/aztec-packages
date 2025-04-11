@@ -1,19 +1,21 @@
-import {
-  type ContractArtifact,
-  type AztecAddress,
-  Fr,
-  TxReceipt,
-  type AuthWitness,
-  type TxHash,
-} from '@aztec/aztec.js';
+import { type ContractArtifact, AztecAddress, Fr, TxReceipt, type AuthWitness, type TxHash, Fq } from '@aztec/aztec.js';
 import { type LogFn } from '@aztec/foundation/log';
 import { type AztecAsyncMap, type AztecAsyncKVStore, type AztecAsyncMultiMap } from '@aztec/kv-store';
 import { stringify } from 'buffer-json';
+import { parseAliasedBuffersAsString } from './conversion';
 
-export const Aliases = ['accounts', 'contracts', 'artifacts', 'secrets', 'transactions', 'authwits'] as const;
+export const Aliases = [
+  'accounts',
+  'contracts',
+  'artifacts',
+  'secrets',
+  'transactions',
+  'authwits',
+  'senders',
+] as const;
 export type AliasType = (typeof Aliases)[number];
 
-export const AccountTypes = ['schnorr', 'ecdsasecp256r1ssh', 'ecdsasecp256k1'] as const;
+export const AccountTypes = ['schnorr', 'ecdsasecp256r1', 'ecdsasecp256k1'] as const;
 export type AccountType = (typeof AccountTypes)[number];
 
 export class WalletDB {
@@ -85,10 +87,12 @@ export class WalletDB {
       secretKey,
       salt,
       alias,
+      signingKey,
     }: {
       type: AccountType;
       secretKey: Fr;
       salt: Fr;
+      signingKey: Fq | Buffer;
       alias: string | undefined;
     },
     log: LogFn = this.#userLog,
@@ -99,6 +103,10 @@ export class WalletDB {
     await this.#accounts.set(`${address.toString()}:type`, Buffer.from(type));
     await this.#accounts.set(`${address.toString()}:sk`, secretKey.toBuffer());
     await this.#accounts.set(`${address.toString()}:salt`, salt.toBuffer());
+    await this.#accounts.set(
+      `${address.toString()}:signingKey`,
+      'toBuffer' in signingKey ? signingKey.toBuffer() : signingKey,
+    );
     log(`Account stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
   }
 
@@ -127,12 +135,12 @@ export class WalletDB {
     {
       contractAddress,
       txHash,
-      fnName,
+      name,
       receipt,
     }: {
       contractAddress: AztecAddress;
       txHash: TxHash;
-      fnName: string;
+      name: string;
       receipt: TxReceipt;
     },
     log: LogFn = this.#userLog,
@@ -143,7 +151,7 @@ export class WalletDB {
     }
     await this.#transactionsPerContract.set(`${contractAddress.toString()}`, Buffer.from(txHash.toString()));
 
-    await this.#transactions.set(`${txHash.toString()}:fnName`, Buffer.from(fnName));
+    await this.#transactions.set(`${txHash.toString()}:name`, Buffer.from(name));
     await this.#transactions.set(`${txHash.toString()}:status`, Buffer.from(receipt.status.toString()));
     await this.#transactions.set(`${txHash.toString()}:date`, Buffer.from(Date.now().toString()));
     log(`Transaction hash stored in database with alias${alias ? `es last & ${alias}` : ' last'}`);
@@ -158,20 +166,20 @@ export class WalletDB {
   }
 
   async retrieveTxData(txHash: TxHash) {
-    const fnNameBuffer = await this.#transactions.getAsync(`${txHash.toString()}:fnName`);
-    if (!fnNameBuffer) {
+    const nameBuffer = await this.#transactions.getAsync(`${txHash.toString()}:name`);
+    if (!nameBuffer) {
       throw new Error(
-        `Could not find ${txHash.toString()}:fnName. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
+        `Could not find ${txHash.toString()}:name. Transaction with hash "${txHash.toString()}" does not exist on this wallet.`,
       );
     }
-    const fnName = fnNameBuffer.toString();
+    const name = nameBuffer.toString();
     const status = (await this.#transactions.getAsync(`${txHash.toString()}:status`))!.toString();
 
     const date = await this.#transactions.getAsync(`${txHash.toString()}:date`)!.toString();
 
     return {
       txHash,
-      fnName,
+      name,
       status,
       date,
     };
@@ -233,12 +241,24 @@ export class WalletDB {
     const secretKey = Fr.fromBuffer(secretKeyBuffer);
     const salt = Fr.fromBuffer(await this.#accounts.getAsync(`${address.toString()}:salt`)!);
     const type = (await this.#accounts.getAsync(`${address.toString()}:type`)!).toString('utf8') as AccountType;
-    return { address, secretKey, salt, type };
+    const signingKey = await this.#accounts.getAsync(`${address.toString()}:signingKey`)!;
+    return { address, secretKey, salt, type, signingKey };
   }
 
   async storeAlias(type: AliasType, key: string, value: Buffer, log: LogFn = this.#userLog) {
     await this.#aliases.set(`${type}:${key}`, value);
     log(`Data stored in database with alias ${type}:${key}`);
+  }
+
+  async deleteAccount(address: AztecAddress) {
+    await this.#accounts.delete(`${address.toString()}:sk`);
+    await this.#accounts.delete(`${address.toString()}:salt`);
+    await this.#accounts.delete(`${address.toString()}:type`);
+    await this.#accounts.delete(`${address.toString()}:signingKey`);
+    const aliasesBuffers = await this.listAliases('accounts');
+    const aliases = parseAliasedBuffersAsString(aliasesBuffers);
+    const alias = aliases.find(alias => address.equals(AztecAddress.fromString(alias.value)));
+    await this.#aliases.delete(`accounts:${alias?.key}`);
   }
 }
 

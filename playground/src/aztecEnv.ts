@@ -3,17 +3,18 @@ import {
   type AztecNode,
   AztecAddress,
   AccountWalletWithSecretKey,
-  Contract,
   type PXE,
   type Logger,
   createLogger,
+  type ContractArtifact,
 } from '@aztec/aztec.js';
 
 import { createPXEService, type PXEServiceConfig, getPXEServiceConfig } from '@aztec/pxe/client/lazy';
 import { createStore } from '@aztec/kv-store/indexeddb';
 import { createContext } from 'react';
 import { NetworkDB, WalletDB } from './utils/storage';
-import { type ContractFunctionInteractionTx } from './utils/txs';
+import { type UserTx } from './utils/txs';
+import type { Network } from './utils/networks';
 
 const logLevel = ['silent', 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'] as const;
 type LogLevel = (typeof logLevel)[number];
@@ -87,17 +88,21 @@ export class WebLogger {
 
 export const AztecContext = createContext<{
   pxe: PXE | null;
-  nodeURL: string;
+  connecting: boolean;
+  network: Network;
   node: AztecNode;
   wallet: AccountWalletWithSecretKey | null;
   isPXEInitialized: boolean;
   walletDB: WalletDB | null;
   currentContractAddress: AztecAddress;
-  currentContract: Contract;
-  currentTx: ContractFunctionInteractionTx;
+  currentTx: UserTx;
   logs: Log[];
   logsOpen: boolean;
   drawerOpen: boolean;
+  showContractInterface: boolean;
+  currentContractArtifact: ContractArtifact;
+  setShowContractInterface: (showContractInterface: boolean) => void;
+  setConnecting: (connecting: boolean) => void;
   setDrawerOpen: (drawerOpen: boolean) => void;
   setLogsOpen: (logsOpen: boolean) => void;
   setLogs: (logs: Log[]) => void;
@@ -106,34 +111,38 @@ export const AztecContext = createContext<{
   setWallet: (wallet: AccountWalletWithSecretKey) => void;
   setAztecNode: (node: AztecNode) => void;
   setPXE: (pxe: PXE) => void;
-  setNodeURL: (nodeURL: string) => void;
-  setCurrentTx: (currentTx: ContractFunctionInteractionTx) => void;
-  setCurrentContract: (currentContract: Contract) => void;
+  setNetwork: (network: Network) => void;
+  setCurrentTx: (currentTx: UserTx) => void;
+  setCurrentContractArtifact: (currentContract: ContractArtifact) => void;
   setCurrentContractAddress: (currentContractAddress: AztecAddress) => void;
 }>({
   pxe: null,
-  nodeURL: '',
+  connecting: false,
+  network: null,
   node: null,
   wallet: null,
   isPXEInitialized: false,
   walletDB: null,
-  currentContract: null,
+  currentContractArtifact: null,
   currentContractAddress: null,
   currentTx: null,
   logs: [],
   logsOpen: false,
   drawerOpen: false,
+  showContractInterface: false,
+  setShowContractInterface: () => {},
+  setConnecting: () => {},
   setDrawerOpen: () => {},
   setLogsOpen: () => {},
   setLogs: () => {},
   setWalletDB: () => {},
   setPXEInitialized: () => {},
   setWallet: () => {},
-  setNodeURL: () => {},
+  setNetwork: () => {},
   setPXE: () => {},
   setAztecNode: () => {},
   setCurrentTx: () => {},
-  setCurrentContract: () => {},
+  setCurrentContractArtifact: () => {},
   setCurrentContractAddress: () => {},
 });
 
@@ -171,7 +180,7 @@ export class AztecEnv {
 
     const pxe = await createPXEService(aztecNode, configWithContracts, {
       loggers: {
-        store: WebLogger.getInstance().createLogger('pxe:data:indexeddb'),
+        store: WebLogger.getInstance().createLogger('pxe:data:idb'),
         pxe: WebLogger.getInstance().createLogger('pxe:service'),
         prover: WebLogger.getInstance().createLogger('bb:wasm:lazy'),
       },
