@@ -2,7 +2,7 @@ import { AbortError } from '@aztec/foundation/error';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 
-import type { L2BlockId, L2BlockSource } from '../l2_block_source.js';
+import { type L2BlockId, type L2BlockSource, makeL2BlockId } from '../l2_block_source.js';
 import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
 /** Creates a stream of events for new blocks, chain tips updates, and reorgs, out of polling an archiver or a node. */
@@ -74,11 +74,11 @@ export class L2BlockStream {
       if (latestBlockNumber < localTips.latest.number) {
         latestBlockNumber = Math.min(latestBlockNumber, sourceTips.latest.number); // see #13471
         const hash = sourceCache.get(latestBlockNumber) ?? (await this.getBlockHashFromSource(latestBlockNumber));
-        if (!hash) {
+        if (latestBlockNumber !== 0 && !hash) {
           throw new Error(`Block hash not found in block source for block number ${latestBlockNumber}`);
         }
         this.log.verbose(`Reorg detected. Pruning blocks from ${latestBlockNumber + 1} to ${localTips.latest.number}.`);
-        await this.emitEvent({ type: 'chain-pruned', block: { number: latestBlockNumber, hash } });
+        await this.emitEvent({ type: 'chain-pruned', block: makeL2BlockId(latestBlockNumber, hash) });
       }
 
       // If we are just starting, use the starting block number from the options.
