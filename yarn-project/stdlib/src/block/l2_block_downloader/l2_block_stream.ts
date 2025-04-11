@@ -21,7 +21,7 @@ export class L2BlockStream {
       pollIntervalMS?: number;
       batchSize?: number;
       startingBlock?: number;
-      /** Instead of downloading all blocks, skip finalized blocks if possible. Does not affect reorg detection. */
+      /** Instead of downloading all blocks, only fetch the smallest subset that results in reliable reorg detection. */
       skipFinalized?: boolean;
     } = {},
   ) {
@@ -97,7 +97,8 @@ export class L2BlockStream {
 
       let nextBlockNumber = latestBlockNumber + 1;
       if (this.opts.skipFinalized) {
-        // Finalized blocks cannot be reorged by definition, so there is no point in fetching them. We do need the very
+        // When skipping finalized blocks we need to provide reliable reorg detection while fetching as few blocks as
+        // possible. Finalized blocks cannot be reorged by definition, so we can skip most of them. We do need the very
         // last finalized block however in order to guarantee that we will eventually find a block in which our local
         // store matches the source.
         // If the last finalized block is behind our local tip, there is nothing to skip.
