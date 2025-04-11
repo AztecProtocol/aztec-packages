@@ -45,7 +45,7 @@ struct EventsContainer {
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
     EventEmitterInterface<RangeCheckEvent>::Container range_check;
     EventEmitterInterface<ContextStackEvent>::Container context_stack;
-    EventEmitterInterface<PublicDataTreeCheckEvent>::Container public_data_check_events;
+    EventEmitterInterface<PublicDataTreeCheckEvent>::Container public_data_tree_check_events;
     EventEmitterInterface<UpdateCheckEvent>::Container update_check_events;
     EventEmitterInterface<NullifierTreeCheckEvent>::Container nullifier_tree_check_events;
 };

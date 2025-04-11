@@ -1,3 +1,5 @@
+#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
+
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
@@ -24,7 +26,6 @@
 #include "barretenberg/vm2/tracegen/lib/lookup_builder.hpp"
 #include "barretenberg/vm2/tracegen/merkle_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/poseidon2_trace.hpp"
-#include "barretenberg/vm2/tracegen/public_data_tree_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
 
 namespace bb::avm2::tracegen {
