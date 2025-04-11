@@ -94,14 +94,14 @@ namespace nullifier_check;
     pol commit low_leaf_next_index;
     pol commit low_leaf_next_nullifier;
 
-    pol commit write_low_leaf_next_index;
-    pol commit write_low_leaf_next_nullifier;
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_nullifier;
 
     pol commit low_leaf_index;
 
     // ========= COMPUTE LOW LEAF UPDATE =========
-    write * (tree_size_before_write - write_low_leaf_next_index) = 0;
-    write * (nullifier - write_low_leaf_next_nullifier) = 0;
+    write * (tree_size_before_write - updated_low_leaf_next_index) = 0;
+    write * (nullifier - updated_low_leaf_next_nullifier) = 0;
 
     // ========= LOW LEAF MERKLE CHECK =========
     pol commit low_leaf_hash;
@@ -118,7 +118,7 @@ namespace nullifier_check;
     pol commit updated_low_leaf_hash;
 
     #[UPDATED_LOW_LEAF_POSEIDON2]
-    write { low_leaf_nullifier, write_low_leaf_next_nullifier, write_low_leaf_next_index, updated_low_leaf_hash }
+    write { low_leaf_nullifier, updated_low_leaf_next_nullifier, updated_low_leaf_next_index, updated_low_leaf_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[LOW_LEAF_MERKLE_CHECK]

@@ -14,7 +14,7 @@
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
-#include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
+#include "barretenberg/vm2/simulation/events/public_data_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/sha256_event.hpp"
 #include "barretenberg/vm2/simulation/events/siloing_event.hpp"
@@ -45,7 +45,7 @@ struct EventsContainer {
     EventEmitterInterface<MerkleCheckEvent>::Container merkle_check;
     EventEmitterInterface<RangeCheckEvent>::Container range_check;
     EventEmitterInterface<ContextStackEvent>::Container context_stack;
-    EventEmitterInterface<PublicDataTreeReadEvent>::Container public_data_read_events;
+    EventEmitterInterface<PublicDataTreeCheckEvent>::Container public_data_tree_check_events;
     EventEmitterInterface<UpdateCheckEvent>::Container update_check_events;
     EventEmitterInterface<NullifierTreeCheckEvent>::Container nullifier_tree_check_events;
 };

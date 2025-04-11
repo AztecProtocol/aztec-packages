@@ -228,7 +228,7 @@ class lookup_update_check_update_hash_public_data_read_settings {
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::update_check_sel;
-    static constexpr Column DST_SELECTOR = Column::public_data_read_sel;
+    static constexpr Column DST_SELECTOR = Column::public_data_check_sel;
     static constexpr Column COUNTS = Column::lookup_update_check_update_hash_public_data_read_counts;
     static constexpr Column INVERSES = Column::lookup_update_check_update_hash_public_data_read_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
@@ -237,14 +237,14 @@ class lookup_update_check_update_hash_public_data_read_settings {
         ColumnAndShifts::update_check_public_data_tree_root
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
-        ColumnAndShifts::public_data_read_value,
-        ColumnAndShifts::public_data_read_slot,
-        ColumnAndShifts::public_data_read_root
+        ColumnAndShifts::public_data_check_value,
+        ColumnAndShifts::public_data_check_slot,
+        ColumnAndShifts::public_data_check_root
     };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._update_check_sel() == 1 || in._public_data_read_sel() == 1);
+        return (in._update_check_sel() == 1 || in._public_data_check_sel() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -252,7 +252,7 @@ class lookup_update_check_update_hash_public_data_read_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._update_check_sel());
-        const auto is_table_entry = View(in._public_data_read_sel());
+        const auto is_table_entry = View(in._public_data_check_sel());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -271,13 +271,13 @@ class lookup_update_check_update_hash_public_data_read_settings {
         return std::forward_as_tuple(in._lookup_update_check_update_hash_public_data_read_inv(),
                                      in._lookup_update_check_update_hash_public_data_read_counts(),
                                      in._update_check_sel(),
-                                     in._public_data_read_sel(),
+                                     in._public_data_check_sel(),
                                      in._update_check_update_hash(),
                                      in._update_check_shared_mutable_leaf_slot(),
                                      in._update_check_public_data_tree_root(),
-                                     in._public_data_read_value(),
-                                     in._public_data_read_slot(),
-                                     in._public_data_read_root());
+                                     in._public_data_check_value(),
+                                     in._public_data_check_slot(),
+                                     in._public_data_check_root());
     }
 };
 

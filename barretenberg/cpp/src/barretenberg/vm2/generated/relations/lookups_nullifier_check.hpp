@@ -132,8 +132,8 @@ class lookup_nullifier_check_updated_low_leaf_poseidon2_settings {
     static constexpr Column INVERSES = Column::lookup_nullifier_check_updated_low_leaf_poseidon2_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::nullifier_check_low_leaf_nullifier,
-        ColumnAndShifts::nullifier_check_write_low_leaf_next_nullifier,
-        ColumnAndShifts::nullifier_check_write_low_leaf_next_index,
+        ColumnAndShifts::nullifier_check_updated_low_leaf_next_nullifier,
+        ColumnAndShifts::nullifier_check_updated_low_leaf_next_index,
         ColumnAndShifts::nullifier_check_updated_low_leaf_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -174,8 +174,8 @@ class lookup_nullifier_check_updated_low_leaf_poseidon2_settings {
                                      in._nullifier_check_write(),
                                      in._poseidon2_hash_end(),
                                      in._nullifier_check_low_leaf_nullifier(),
-                                     in._nullifier_check_write_low_leaf_next_nullifier(),
-                                     in._nullifier_check_write_low_leaf_next_index(),
+                                     in._nullifier_check_updated_low_leaf_next_nullifier(),
+                                     in._nullifier_check_updated_low_leaf_next_index(),
                                      in._nullifier_check_updated_low_leaf_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),
