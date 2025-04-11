@@ -77,10 +77,10 @@ jobs:
           COMMIT_TAG=$COMMIT_TAG yarn build
           COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
 
-      - name: Filter
-        working-directory: ./docs
+      - name: Update versions.json with new version
+        working-directory: ./docs/scripts
         run: |
-          yarn filter-versions
+          ./update_version.sh "${{ steps.version.outputs.semver }}"
 
       - name: Commit new documentation version
         run: |
