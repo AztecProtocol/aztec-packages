@@ -39,6 +39,7 @@
     "./stats": "./dest/stats/index.js",
     "./auth-witness": "./dest/auth_witness/index.js",
     "./block": "./dest/block/index.js",
+    "./block/test": "./dest/block/test/index.js",
     "./versioning": "./dest/versioning/index.js",
     "./interfaces/client": "./dest/interfaces/client.js",
     "./interfaces/server": "./dest/interfaces/server.js",
@@ -84,6 +85,7 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@jest/expect": "^29.5.0",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
     "@types/lodash.chunk": "^4.2.9",

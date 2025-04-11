@@ -11,6 +11,11 @@ on:
         description: The namespace to deploy to, e.g. smoke
         required: true
         type: string
+      metrics_namespace:
+        description: The namespace of the metrics deployment, e.g. metrics
+        required: false
+        type: string
+        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
@@ -66,6 +71,11 @@ on:
       namespace:
         description: The namespace to deploy to, e.g. smoke
         required: true
+      metrics_namespace:
+        description: The namespace of the metrics deployment, e.g. metrics
+        required: false
+        type: string
+        default: metrics
       values_file:
         description: The values file to use, e.g. 1-validators.yaml
         required: true
@@ -85,10 +95,6 @@ on:
         description: The salt to use for this deployment. Defaults to random
         required: false
         default: ""
-      respect_tf_lock:
-        description: Whether to respect the Terraform lock
-        required: false
-        default: "true"
       run_terraform_destroy:
         description: Whether to run terraform destroy before deploying
         required: false
@@ -112,6 +118,7 @@ jobs:
     env:
       AZTEC_DOCKER_IMAGE: ${{ inputs.aztec_docker_image }}
       NAMESPACE: ${{ inputs.namespace }}
+      METRICS_NAMESPACE: ${{ inputs.metrics_namespace }}
       VALUES_FILE: ${{ inputs.values_file }}
       RESOURCES_FILE: ${{ inputs.resources_file }}
       DEPLOYMENT_MNEMONIC_SECRET_NAME: ${{ inputs.deployment_mnemonic_secret_name }}
@@ -124,6 +131,7 @@ jobs:
       GCP_API_KEY_HEADER: "X-goog-api-key"
       EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
       EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
+      RESPECT_TF_LOCK: ${{ inputs.respect_tf_lock || 'true' }}
 
     steps:
       - name: Checkout code
@@ -221,7 +229,7 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -230,7 +238,7 @@ jobs:
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
 
           kubectl delete ns ${{env.NAMESPACE}}
@@ -253,9 +261,10 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -265,11 +274,12 @@ jobs:
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
               -var="L1_DEPLOYMENT_SALT=${DEPLOYMENT_SALT:-$RANDOM}" \
+              -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
 
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
-        run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan
+        run: terraform apply -lock=${{ env.RESPECT_TF_LOCK }} -auto-approve tfplan

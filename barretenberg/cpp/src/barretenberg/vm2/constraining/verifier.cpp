@@ -4,7 +4,7 @@
 #include "barretenberg/common/log.hpp"
 #include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/transcript/transcript.hpp"
-#include "barretenberg/vm/constants.hpp"
+#include "barretenberg/vm2/common/constants.hpp"
 
 namespace bb::avm2 {
 
