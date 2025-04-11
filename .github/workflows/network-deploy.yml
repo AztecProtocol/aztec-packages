@@ -131,7 +131,7 @@ jobs:
       GCP_API_KEY_HEADER: "X-goog-api-key"
       EXTERNAL_ETHEREUM_HOSTS: "https://json-rpc.${{ secrets.GCP_SEPOLIA_URL }}?key=${{ secrets.GCP_SEPOLIA_API_KEY }},${{ secrets.INFURA_SEPOLIA_URL }}"
       EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
-      RESPECT_TF_LOCK: true
+      RESPECT_TF_LOCK: "true"
 
     steps:
       - name: Checkout code
@@ -229,7 +229,7 @@ jobs:
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST=${{ env.EXTERNAL_ETHEREUM_CONSENSUS_HOST }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY=${{ secrets.GCP_SEPOLIA_API_KEY }}" \
               -var="EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER=${{ env.GCP_API_KEY_HEADER }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform destroy -auto-approve \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -238,7 +238,7 @@ jobs:
               -var="GKE_CLUSTER_CONTEXT=${{ env.GKE_CLUSTER_CONTEXT }}" \
               -var="AZTEC_DOCKER_IMAGE=${{ env.AZTEC_DOCKER_IMAGE }}" \
               -var="L1_DEPLOYMENT_MNEMONIC=${{ steps.get-mnemonic.outputs.mnemonic }}" \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
 
           kubectl delete ns ${{env.NAMESPACE}}
@@ -264,7 +264,7 @@ jobs:
               -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           else
             terraform plan \
               -var="RELEASE_NAME=${{ env.NAMESPACE }}" \
@@ -277,9 +277,9 @@ jobs:
               -var="METRICS_NAMESPACE=${{ env.METRICS_NAMESPACE }}" \
               ${{ contains(env.VALUES_FILE, 'devnet') && '-var="EXPOSE_HTTPS_BOOTNODE=true"' || '' }} \
               -out=tfplan \
-              -lock=${{ inputs.respect_tf_lock }}
+              -lock=${{ env.RESPECT_TF_LOCK }}
           fi
 
       - name: Terraform Apply
         working-directory: ./spartan/terraform/deploy-release
-        run: terraform apply -lock=${{ inputs.respect_tf_lock }} -auto-approve tfplan
+        run: terraform apply -lock=${{ env.RESPECT_TF_LOCK }} -auto-approve tfplan
