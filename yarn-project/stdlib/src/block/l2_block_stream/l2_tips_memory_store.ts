@@ -1,16 +1,14 @@
-import type {
-  L2BlockId,
-  L2BlockStreamEvent,
-  L2BlockStreamEventHandler,
-  L2BlockStreamLocalDataProvider,
-  L2BlockTag,
-  L2Tips,
-} from '@aztec/stdlib/block';
+import type { L2Block } from '../l2_block.js';
+import type { L2BlockId, L2BlockTag, L2Tips } from '../l2_block_source.js';
+import type { L2BlockStreamEvent, L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider } from './interfaces.js';
 
-/** Stores currently synced L2 tips and unfinalized block hashes. */
+/**
+ * Stores currently synced L2 tips and unfinalized block hashes.
+ * @dev tests in kv-store/src/stores/l2_tips_memory_store.test.ts
+ */
 export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStreamLocalDataProvider {
-  private readonly l2TipsStore: Map<L2BlockTag, number> = new Map();
-  private readonly l2BlockHashesStore: Map<number, string> = new Map();
+  protected readonly l2TipsStore: Map<L2BlockTag, number> = new Map();
+  protected readonly l2BlockHashesStore: Map<number, string> = new Map();
 
   public getL2BlockHash(number: number): Promise<string | undefined> {
     return Promise.resolve(this.l2BlockHashesStore.get(number));
@@ -42,7 +40,7 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
       case 'blocks-added': {
         const blocks = event.blocks.map(b => b.block);
         for (const block of blocks) {
-          this.l2BlockHashesStore.set(block.number, (await block.header.hash()).toString());
+          this.l2BlockHashesStore.set(block.number, await this.computeBlockHash(block));
         }
         this.l2TipsStore.set('latest', blocks.at(-1)!.number);
         break;
@@ -64,10 +62,14 @@ export class L2TipsMemoryStore implements L2BlockStreamEventHandler, L2BlockStre
     }
   }
 
-  private saveTag(name: L2BlockTag, block: L2BlockId) {
+  protected saveTag(name: L2BlockTag, block: L2BlockId) {
     this.l2TipsStore.set(name, block.number);
     if (block.hash) {
       this.l2BlockHashesStore.set(block.number, block.hash);
     }
+  }
+
+  protected computeBlockHash(block: L2Block) {
+    return block.header.hash().then(hash => hash.toString());
   }
 }

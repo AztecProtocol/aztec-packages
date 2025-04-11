@@ -1359,6 +1359,7 @@ __metadata:
     "@aztec/ethereum": "workspace:^"
     "@aztec/foundation": "workspace:^"
     "@google-cloud/storage": "npm:^7.15.0"
+    "@jest/expect": "npm:^29.5.0"
     "@jest/globals": "npm:^29.5.0"
     "@types/jest": "npm:^29.5.0"
     "@types/lodash.chunk": "npm:^4.2.9"
@@ -2880,7 +2881,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@jest/expect@npm:^29.7.0":
+"@jest/expect@npm:^29.5.0, @jest/expect@npm:^29.7.0":
   version: 29.7.0
   resolution: "@jest/expect@npm:29.7.0"
   dependencies:
