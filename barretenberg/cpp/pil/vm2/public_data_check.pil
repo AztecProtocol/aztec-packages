@@ -63,9 +63,9 @@ namespace public_data_check;
     pol commit low_leaf_next_index;
     pol commit low_leaf_next_slot;
 
-    pol commit write_low_leaf_value;
-    pol commit write_low_leaf_next_index;
-    pol commit write_low_leaf_next_slot;
+    pol commit updated_low_leaf_value;
+    pol commit updated_low_leaf_next_index;
+    pol commit updated_low_leaf_next_slot;
 
     pol commit low_leaf_index;
 
@@ -109,11 +109,11 @@ namespace public_data_check;
     // ========= COMPUTE LOW LEAF UPDATE =========
     // On write, if the leaf exists, we update the value. Otherwise, we'll insert so we update the pointers.
     #[LOW_LEAF_VALUE_UPDATE]
-    write * ((low_leaf_value - value) * leaf_not_exists + value - write_low_leaf_value) = 0;
+    write * ((low_leaf_value - value) * leaf_not_exists + value - updated_low_leaf_value) = 0;
     #[LOW_LEAF_NEXT_INDEX_UPDATE]
-    write * ((tree_size_before_write - low_leaf_next_index) * leaf_not_exists + low_leaf_next_index - write_low_leaf_next_index) = 0;
+    write * ((tree_size_before_write - low_leaf_next_index) * leaf_not_exists + low_leaf_next_index - updated_low_leaf_next_index) = 0;
     #[LOW_LEAF_NEXT_SLOT_UPDATE]
-    write * ((slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot - write_low_leaf_next_slot) = 0;
+    write * ((slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot - updated_low_leaf_next_slot) = 0;
 
     // ========= LOW LEAF MEMBERSHIP =========
     pol commit low_leaf_hash;
@@ -134,11 +134,11 @@ namespace public_data_check;
     pol commit updated_low_leaf_hash;
 
     #[UPDATED_LOW_LEAF_POSEIDON2_0]
-    write { low_leaf_slot, write_low_leaf_value, write_low_leaf_next_index, updated_low_leaf_hash }
+    write { low_leaf_slot, updated_low_leaf_value, updated_low_leaf_next_index, updated_low_leaf_hash }
     in poseidon2_hash.start { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[UPDATED_LOW_LEAF_POSEIDON2_1]
-    write { write_low_leaf_next_slot, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
+    write { updated_low_leaf_next_slot, precomputed.zero, precomputed.zero, updated_low_leaf_hash }
     in poseidon2_hash.end { poseidon2_hash.input_0, poseidon2_hash.input_1, poseidon2_hash.input_2, poseidon2_hash.output };
 
     #[LOW_LEAF_MERKLE_CHECK]

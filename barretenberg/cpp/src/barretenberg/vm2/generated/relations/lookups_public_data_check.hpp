@@ -421,8 +421,8 @@ class lookup_public_data_check_updated_low_leaf_poseidon2_0_settings {
     static constexpr Column INVERSES = Column::lookup_public_data_check_updated_low_leaf_poseidon2_0_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
         ColumnAndShifts::public_data_check_low_leaf_slot,
-        ColumnAndShifts::public_data_check_write_low_leaf_value,
-        ColumnAndShifts::public_data_check_write_low_leaf_next_index,
+        ColumnAndShifts::public_data_check_updated_low_leaf_value,
+        ColumnAndShifts::public_data_check_updated_low_leaf_next_index,
         ColumnAndShifts::public_data_check_updated_low_leaf_hash
     };
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = {
@@ -463,8 +463,8 @@ class lookup_public_data_check_updated_low_leaf_poseidon2_0_settings {
                                      in._public_data_check_write(),
                                      in._poseidon2_hash_start(),
                                      in._public_data_check_low_leaf_slot(),
-                                     in._public_data_check_write_low_leaf_value(),
-                                     in._public_data_check_write_low_leaf_next_index(),
+                                     in._public_data_check_updated_low_leaf_value(),
+                                     in._public_data_check_updated_low_leaf_next_index(),
                                      in._public_data_check_updated_low_leaf_hash(),
                                      in._poseidon2_hash_input_0(),
                                      in._poseidon2_hash_input_1(),
@@ -520,7 +520,7 @@ class lookup_public_data_check_updated_low_leaf_poseidon2_1_settings {
     static constexpr Column COUNTS = Column::lookup_public_data_check_updated_low_leaf_poseidon2_1_counts;
     static constexpr Column INVERSES = Column::lookup_public_data_check_updated_low_leaf_poseidon2_1_inv;
     static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        ColumnAndShifts::public_data_check_write_low_leaf_next_slot,
+        ColumnAndShifts::public_data_check_updated_low_leaf_next_slot,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::precomputed_zero,
         ColumnAndShifts::public_data_check_updated_low_leaf_hash
@@ -562,7 +562,7 @@ class lookup_public_data_check_updated_low_leaf_poseidon2_1_settings {
                                      in._lookup_public_data_check_updated_low_leaf_poseidon2_1_counts(),
                                      in._public_data_check_write(),
                                      in._poseidon2_hash_end(),
-                                     in._public_data_check_write_low_leaf_next_slot(),
+                                     in._public_data_check_updated_low_leaf_next_slot(),
                                      in._precomputed_zero(),
                                      in._precomputed_zero(),
                                      in._public_data_check_updated_low_leaf_hash(),

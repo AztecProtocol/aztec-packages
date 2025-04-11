@@ -94,7 +94,7 @@ template <typename FF_> class public_data_checkImpl {
                        (((new_term.public_data_check_low_leaf_value - new_term.public_data_check_value) *
                              new_term.public_data_check_leaf_not_exists +
                          new_term.public_data_check_value) -
-                        new_term.public_data_check_write_low_leaf_value);
+                        new_term.public_data_check_updated_low_leaf_value);
             tmp *= scaling_factor;
             std::get<7>(evals) += typename Accumulator::View(tmp);
         }
@@ -105,7 +105,7 @@ template <typename FF_> class public_data_checkImpl {
                 (((new_term.public_data_check_tree_size_before_write - new_term.public_data_check_low_leaf_next_index) *
                       new_term.public_data_check_leaf_not_exists +
                   new_term.public_data_check_low_leaf_next_index) -
-                 new_term.public_data_check_write_low_leaf_next_index);
+                 new_term.public_data_check_updated_low_leaf_next_index);
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
@@ -115,7 +115,7 @@ template <typename FF_> class public_data_checkImpl {
                        (((new_term.public_data_check_slot - new_term.public_data_check_low_leaf_next_slot) *
                              new_term.public_data_check_leaf_not_exists +
                          new_term.public_data_check_low_leaf_next_slot) -
-                        new_term.public_data_check_write_low_leaf_next_slot);
+                        new_term.public_data_check_updated_low_leaf_next_slot);
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }

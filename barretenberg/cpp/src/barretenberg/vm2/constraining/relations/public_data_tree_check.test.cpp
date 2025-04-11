@@ -374,34 +374,34 @@ TEST(PublicDataTreeCheckConstrainingTest, PositiveWriteNotExists)
 
 TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafValueUpdate)
 {
-    // Test constraint: write * ((low_leaf_value - value) * leaf_not_exists + value - write_low_leaf_value) = 0
+    // Test constraint: write * ((low_leaf_value - value) * leaf_not_exists + value - updated_low_leaf_value) = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 0 },
             { C::public_data_check_low_leaf_value, 27 },
             { C::public_data_check_value, 28 },
-            { C::public_data_check_write_low_leaf_value, 28 },
+            { C::public_data_check_updated_low_leaf_value, 28 },
         },
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 1 },
             { C::public_data_check_low_leaf_value, 27 },
             { C::public_data_check_value, 28 },
-            { C::public_data_check_write_low_leaf_value, 27 },
+            { C::public_data_check_updated_low_leaf_value, 27 },
         },
     });
 
     check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_VALUE_UPDATE);
 
-    // Invalid, if leaf exists, write_low_leaf_value should be the value to write
+    // Invalid, if leaf exists, updated_low_leaf_value should be the value to write
     trace.set(C::public_data_check_leaf_not_exists, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_VALUE_UPDATE),
                               "LOW_LEAF_VALUE_UPDATE");
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
-    // Invalid, if leaf does not exist, write_low_leaf_value should be the low leaf value
+    // Invalid, if leaf does not exist, updated_low_leaf_value should be the low leaf value
     trace.set(C::public_data_check_leaf_not_exists, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_VALUE_UPDATE),
@@ -411,27 +411,27 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafValueUpdate)
 TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
 {
     // Test constraint: write * ((tree_size_before_write - low_leaf_next_index) * leaf_not_exists + low_leaf_next_index
-    // - write_low_leaf_next_index) = 0
+    // - updated_low_leaf_next_index) = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 0 },
             { C::public_data_check_low_leaf_next_index, 27 },
             { C::public_data_check_tree_size_before_write, 128 },
-            { C::public_data_check_write_low_leaf_next_index, 27 },
+            { C::public_data_check_updated_low_leaf_next_index, 27 },
         },
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 1 },
             { C::public_data_check_low_leaf_next_index, 27 },
             { C::public_data_check_tree_size_before_write, 128 },
-            { C::public_data_check_write_low_leaf_next_index, 128 },
+            { C::public_data_check_updated_low_leaf_next_index, 128 },
         },
     });
 
     check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_INDEX_UPDATE);
 
-    // Invalid, if leaf not exists, the next index should be the newly inserted leaf
+    // Invalid, if leaf not exists, the updated_low_leaf_next_index should be the newly inserted leaf
     trace.set(C::public_data_check_leaf_not_exists, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(
@@ -439,7 +439,7 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
         "LOW_LEAF_NEXT_INDEX_UPDATE");
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
-    // Invalid, if leaf exists, the next index should be untouched
+    // Invalid, if leaf exists, the updated_low_leaf_next_index should be untouched
     trace.set(C::public_data_check_leaf_not_exists, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(
@@ -450,34 +450,34 @@ TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextIndexUpdate)
 TEST(PublicDataTreeCheckConstrainingTest, NegativeLowLeafNextSlotUpdate)
 {
     // Test constraint: write * ((slot - low_leaf_next_slot) * leaf_not_exists + low_leaf_next_slot -
-    // write_low_leaf_next_slot) = 0
+    // updated_low_leaf_next_slot) = 0
     TestTraceContainer trace({
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 0 },
             { C::public_data_check_low_leaf_next_slot, 27 },
             { C::public_data_check_slot, 28 },
-            { C::public_data_check_write_low_leaf_next_slot, 27 },
+            { C::public_data_check_updated_low_leaf_next_slot, 27 },
         },
         {
             { C::public_data_check_write, 1 },
             { C::public_data_check_leaf_not_exists, 1 },
             { C::public_data_check_low_leaf_next_slot, 27 },
             { C::public_data_check_slot, 28 },
-            { C::public_data_check_write_low_leaf_next_slot, 28 },
+            { C::public_data_check_updated_low_leaf_next_slot, 28 },
         },
     });
 
     check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE);
 
-    // Invalid, if leaf not exists, the next slot should be the newly inserted leaf slot
+    // Invalid, if leaf not exists, the updated_low_leaf_next_slot should be the newly inserted leaf slot
     trace.set(C::public_data_check_leaf_not_exists, 0, 1);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE),
                               "LOW_LEAF_NEXT_SLOT_UPDATE");
 
     trace.set(C::public_data_check_leaf_not_exists, 0, 0);
-    // Invalid, if leaf exists, the next slot should be untouched
+    // Invalid, if leaf exists, the updated_low_leaf_next_slot should be untouched
     trace.set(C::public_data_check_leaf_not_exists, 1, 0);
 
     EXPECT_THROW_WITH_MESSAGE(check_relation<public_data_check>(trace, public_data_check::SR_LOW_LEAF_NEXT_SLOT_UPDATE),
