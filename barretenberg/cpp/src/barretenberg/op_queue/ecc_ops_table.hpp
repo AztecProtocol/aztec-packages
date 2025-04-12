@@ -53,13 +53,12 @@ struct UltraOp {
      */
     std::array<Fq, 2> get_base_point_standard_form() const
     {
+        if (return_is_infinity) {
+            return { Fq(0), Fq(0) };
+        }
         auto x = Fq((uint256_t(x_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(x_lo));
         auto y = Fq((uint256_t(y_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(y_lo));
 
-        if (return_is_infinity) {
-            x = 0;
-            y = 0;
-        }
         return { x, y };
     }
 };
