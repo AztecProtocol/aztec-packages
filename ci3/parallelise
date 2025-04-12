@@ -39,9 +39,9 @@ function wait_for_job {
   complete_jobs=$((complete_jobs + 1))
   status
   if [ $ret -ne 0 ]; then
-    if [ -t 1 ]; then
-      echo
-      cat $output | grep FAILED
+    if [ $no_term -eq 0 ]; then
+      echo_stderr
+      cat $output | grep FAILED >&2
     fi
     exit 1
   fi
@@ -80,11 +80,7 @@ complete_jobs=0
 
 # We'll handle errors explicitly.
 set +e
-if [ -t 1 ]; then
-  run_tests > >(tee $output | cache_log "Test run")
-else
-  run_tests > >(tee $output)
-fi
+run_tests > >(tee $output | cache_log "Test run")
 
 # Loop to monitor jobs until one fails or all finish.
 while (( $(jobs -p | wc -l) > 0 )); do

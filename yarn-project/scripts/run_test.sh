@@ -12,30 +12,12 @@ dir=${test%%/*}
 CPUS=${CPUS:-2}
 MEM=${MEM:-4g}
 
+export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
+cd ../$dir
+
 if [ "${ISOLATE:-0}" -eq 1 ]; then
-  # Strip leading non alpha numerics and replace / with _ for the container name.
-  name=$(echo "$test" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')
-  [ "${UNNAMED:-0}" -eq 0 ] && name_arg="--name $name"
-  [ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
-  trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM
-  docker rm -f $name &>/dev/null || true
-  docker run --rm \
-    ${name_arg:-} \
-    --cpus=$CPUS \
-    --memory=$MEM \
-    ${cpuset_arg:-} \
-    -v$(git rev-parse --show-toplevel):/root/aztec-packages \
-    -v$HOME/.bb-crs:/root/.bb-crs \
-    --workdir /root/aztec-packages/yarn-project/$dir \
-    -e FORCE_COLOR=true \
-    -e FAKE_PROOFS \
-    -e NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register" \
-    -e LOG_LEVEL \
-    aztecprotocol/build:3.0 \
-      node ../node_modules/.bin/jest --forceExit --runInBand $test &
-  wait $!
+  export ENV_VARS_TO_INJECT="NODE_OPTIONS LOG_LEVEL FAKE_PROOFS"
+  NAME=$test docker_isolate "node ../node_modules/.bin/jest --forceExit --runInBand $test"
 else
-  export NODE_OPTIONS="--no-warnings --experimental-vm-modules --loader @swc-node/register"
-  cd ../$dir
   node ../node_modules/.bin/jest --forceExit --runInBand $test
 fi

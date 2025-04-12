@@ -179,7 +179,7 @@ function test {
   start_txes
 
   # Make sure KIND starts so it is running by the time we do spartan tests.
-  spartan/bootstrap.sh kind &>/dev/null &
+  # spartan/bootstrap.sh kind &>/dev/null &
 
   # We will start half as many jobs as we have cpu's.
   # This is based on the slightly magic assumption that many tests can benefit from 2 cpus,

@@ -72,14 +72,15 @@ function live_publish_log {
   sleep 30 &
   local sleep_pid=$!
   wait $sleep_pid
+  publish_log
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
-    if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
-      publish_log
-    fi
     sleep 5 &
     sleep_pid=$!
     wait $sleep_pid
+    if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
+      publish_log
+    fi
   done
 }
 

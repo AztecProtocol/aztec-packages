@@ -15,35 +15,18 @@ export TEST=$2
 
 [ -n "${3:-}" ] && NAME_POSTFIX=_$3
 
+function cleanup {
+  if [ -n "${cid:-}" ]; then
+    docker rm -f $cid &>/dev/null
+  fi
+  exit
+}
+trap cleanup SIGINT SIGTERM
+
 case "$type" in
   "simple")
-    # Strip leading non alpha numerics and replace / with _ for the container name.
-    name="$(echo "${TEST}" | sed 's/^[^a-zA-Z0-9]*//' | tr '/' '_')${NAME_POSTFIX:-}"
-    [ -n "${CPU_LIST:-}" ] && cpuset_arg="--cpuset-cpus=$CPU_LIST"
-    name_arg="--name $name"
-    repo_dir=$(git rev-parse --show-toplevel)
-    trap 'docker rm -f $name &>/dev/null' SIGINT SIGTERM EXIT
-    docker rm -f $name &>/dev/null || true
-    docker run --rm \
-      $name_arg \
-      --cpus=${CPUS:-4} \
-      --memory=${MEM:-8g} \
-      ${cpuset_arg:-} \
-      --user $(id -u):$(id -g) \
-      "-v$repo_dir:$repo_dir" \
-      "-v$HOME/.bb-crs:$HOME/.bb-crs" \
-      --mount type=tmpfs,target=/tmp,tmpfs-size=1g \
-      --mount type=tmpfs,target=/tmp-jest,tmpfs-size=512m \
-      -e HOME \
-      -e JEST_CACHE_DIR=/tmp-jest \
-      -e FAKE_PROOFS \
-      -e BENCH_OUTPUT \
-      -e CAPTURE_IVC_FOLDER \
-      -e LOG_LEVEL \
-      -e COLLECT_METRICS \
-      --workdir "$repo_dir/yarn-project/end-to-end" \
-      aztecprotocol/build:3.0 ./scripts/test_simple.sh $TEST &
-    wait $!
+    export ENV_VARS_TO_INJECT="FAKE_PROOFS BENCH_OUTPUT CAPTURE_IVC_FOLDER LOG_LEVEL COLLECT_METRICS"
+    NAME=$TEST docker_isolate "./test_simple.sh $TEST"
   ;;
   "compose")
     # Strip leading non alpha numerics and replace / and . with _.
