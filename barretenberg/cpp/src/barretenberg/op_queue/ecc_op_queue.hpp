@@ -34,7 +34,9 @@ class ECCOpQueue {
     // prior to ECCVM construction to avoid repeated prepending of subtables in physical memory).
     std::vector<ECCVMOperation> eccvm_ops_reconstructed;
 
-    std::vector<UltraOp> ultra_ops_reconstructed; // Storage for the reconstructed ultra ops table in contiguous memory
+    // Storage for the reconstructed ultra ops table in contiguous memory. (Intended to be constructed once and for all
+    // prior to Translator circuit construction to avoid repeated prepending of subtables in physical memory).
+    std::vector<UltraOp> ultra_ops_reconstructed;
 
     // Tracks number of muls and size of eccvm in real time as the op queue is updated
     EccvmRowTracker eccvm_row_tracker;
@@ -70,10 +72,15 @@ class ECCOpQueue {
 
     // Reconstruct the full table of eccvm ops in contiguous memory from the independent subtables
     void construct_full_eccvm_ops_table() { eccvm_ops_reconstructed = eccvm_ops_table.get_reconstructed(); }
+
+    // Reconstruct the full table of ultra ops in contiguous memory from the independent subtables
     void construct_full_ultra_ops_table() { ultra_ops_reconstructed = ultra_ops_table.get_reconstructed(); }
 
     size_t get_ultra_ops_table_num_rows() const { return ultra_ops_table.ultra_table_size(); }
     size_t get_current_ultra_ops_subtable_num_rows() const { return ultra_ops_table.current_ultra_subtable_size(); }
+
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1339): Consider making the ultra and eccvm ops getters
+    // more memory efficient
 
     // Get the full table of ECCVM ops in contiguous memory; construct it if it has not been constructed already
     std::vector<ECCVMOperation>& get_eccvm_ops()

@@ -36,6 +36,7 @@ struct EccOpCode {
 
 struct UltraOp {
     using Fr = curve::BN254::ScalarField;
+    using Fq = curve::BN254::BaseField;
     EccOpCode op_code;
     Fr x_lo;
     Fr x_hi;
@@ -45,10 +46,15 @@ struct UltraOp {
     Fr z_2;
     bool return_is_infinity;
 
-    std::array<uint256_t, 2> get_base_point_standard_form() const
+    /**
+     * @brief Get the point in standard form i.e. as two coordinates x and y in the base field or as a point at
+     * infinity whose coordinates are set to (0,0).
+     *
+     */
+    std::array<Fq, 2> get_base_point_standard_form() const
     {
-        uint256_t x = (uint256_t(x_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(x_lo);
-        uint256_t y = (uint256_t(y_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(y_lo);
+        auto x = Fq((uint256_t(x_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(x_lo));
+        auto y = Fq((uint256_t(y_hi) << 2 * stdlib::NUM_LIMB_BITS_IN_FIELD_SIMULATION) + uint256_t(y_lo));
 
         if (return_is_infinity) {
             x = 0;
@@ -162,7 +168,6 @@ class UltraEccOpsTable : public EccOpsTable<UltraOp> {
   private:
     using Curve = curve::BN254;
     using Fr = Curve::ScalarField;
-    using UltraOpsTable = EccOpsTable<UltraOp>;
     using TableView = std::array<std::span<Fr>, TABLE_WIDTH>;
     using ColumnPolynomials = std::array<Polynomial<Fr>, TABLE_WIDTH>;
 
