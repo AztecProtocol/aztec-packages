@@ -52,6 +52,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
   protected async init() {
     this.initialSlot = this.epochCache.getEpochAndSlotNow().slot;
     const startingBlock = await this.archiver.getBlockNumber();
+    this.logger.info(`Starting validator sentinel with initial slot ${this.initialSlot} and block ${startingBlock}`);
     this.blockStream = new L2BlockStream(this.archiver, this.l2TipsStore, this, this.logger, { startingBlock });
   }
 
@@ -122,7 +123,7 @@ export class Sentinel implements L2BlockStreamEventHandler {
     }
 
     if (targetSlot <= this.initialSlot) {
-      this.logger.debug(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
+      this.logger.trace(`Refusing to process slot ${targetSlot} given initial slot ${this.initialSlot}`);
       return false;
     }
 

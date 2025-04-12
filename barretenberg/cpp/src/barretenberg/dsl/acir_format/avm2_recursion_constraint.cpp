@@ -8,8 +8,8 @@
 #include "barretenberg/stdlib/plonk_recursion/aggregation_state/aggregation_state.hpp"
 #include "barretenberg/stdlib/primitives/curves/bn254.hpp"
 #include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
 #include "barretenberg/vm2/common/avm_inputs.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/constraining/recursion/goblin_avm_recursive_verifier.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_flavor.hpp"
 #include "barretenberg/vm2/constraining/recursion/recursive_verifier.hpp"
@@ -192,7 +192,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
+HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     const aggregation_state_ct& input_aggregation_object,

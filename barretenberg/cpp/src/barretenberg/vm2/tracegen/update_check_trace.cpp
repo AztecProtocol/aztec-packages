@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/tracegen/update_check_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::tracegen {
 

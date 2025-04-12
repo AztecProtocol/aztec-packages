@@ -176,7 +176,7 @@ Now conclude adding all dependencies to the `Crowdfunding` contract:
 
 ```rust title="all-deps" showLineNumbers
 use dep::aztec::{
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+    messages::logs::note::encode_and_encrypt_note,
     event::event_interface::EventInterface,
     macros::{
         events::event,
