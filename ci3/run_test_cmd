@@ -67,14 +67,19 @@ function publish_log {
 }
 
 function live_publish_log {
+  trap 'kill $sleep_pid &>/dev/null' SIGTERM SIGINT
   # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
-  sleep 30
+  sleep 30 &
+  local sleep_pid=$!
+  wait $sleep_pid
   echo -e "${blue}RUNNING${reset}${log_info:-}: $test_cmd"
   while [ -f $tmp_file ]; do
     if [ $(( $(date +%s) - $(stat -c %Y "$tmp_file") )) -le 5 ]; then
       publish_log
     fi
-    sleep 5
+    sleep 5 &
+    sleep_pid=$!
+    wait $sleep_pid
   done
 }
 
@@ -86,6 +91,7 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
     # If we're in CI, we want to publish the log live.
     live_publish_log &
     publish_pid=$!
+    trap "kill $publish_pid &>/dev/null" SIGTERM SIGINT
   fi
 fi
 

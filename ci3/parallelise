@@ -39,9 +39,40 @@ function wait_for_job {
   complete_jobs=$((complete_jobs + 1))
   status
   if [ $ret -ne 0 ]; then
-    # echo "A job failed with exit status $ret. Terminating others..."
+    if [ -t 1 ]; then
+      echo
+      cat $output | grep FAILED
+    fi
     exit 1
   fi
+}
+
+function run_tests {
+  while IFS= read -r cmd || [ -n "$cmd" ]; do
+    # Default.
+    export CPUS=2
+
+    # Extract the first token and export any variable assignments.
+    hash_part="${cmd%% *}"
+    if [[ "$hash_part" == *:* ]]; then
+      IFS=':' read -ra parts <<< "$hash_part"
+      # The first element is the actual hash; remaining elements are variable assignments.
+      for var_assignment in "${parts[@]:1}"; do
+        export "$var_assignment"
+      done
+    fi
+
+    # Acquire some cpus.
+    until CPU_LIST=$(sem_sched acquire $CPUS); do
+      # Not enough available. Wait for a job to complete and release some cpus.
+      wait_for_job
+    done
+
+    run_and_release $CPU_LIST &
+
+    num_jobs=$((num_jobs + 1))
+    status
+  done
 }
 
 num_jobs=0
@@ -49,31 +80,11 @@ complete_jobs=0
 
 # We'll handle errors explicitly.
 set +e
-while IFS= read -r cmd || [ -n "$cmd" ]; do
-  # Default.
-  export CPUS=2
-
-  # Extract the first token and export any variable assignments.
-  hash_part="${cmd%% *}"
-  if [[ "$hash_part" == *:* ]]; then
-    IFS=':' read -ra parts <<< "$hash_part"
-    # The first element is the actual hash; remaining elements are variable assignments.
-    for var_assignment in "${parts[@]:1}"; do
-      export "$var_assignment"
-    done
-  fi
-
-  # Acquire some cpus.
-  until CPU_LIST=$(sem_sched acquire $CPUS); do
-    # Not enough available. Wait for a job to complete and release some cpus.
-    wait_for_job
-  done
-
-  run_and_release $CPU_LIST &
-
-  num_jobs=$((num_jobs + 1))
-  status
-done > >(tee $output | DUP=$no_term cache_log "Test run")
+if [ -t 1 ]; then
+  run_tests > >(tee $output | cache_log "Test run")
+else
+  run_tests > >(tee $output)
+fi
 
 # Loop to monitor jobs until one fails or all finish.
 while (( $(jobs -p | wc -l) > 0 )); do
