@@ -192,7 +192,7 @@ aggregation_state_ct create_avm2_recursion_constraints(Builder& builder,
  * @param has_valid_witness_assignments
  * @return HonkRecursionConstraintOutput {pairing agg object, ipa claim, ipa proof}
  */
-HonkRecursionConstraintOutput create_avm2_recursion_constraints_goblin(
+HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     Builder& builder,
     const RecursionConstraint& input,
     const aggregation_state_ct& input_aggregation_object,

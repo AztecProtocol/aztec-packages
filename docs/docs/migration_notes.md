@@ -12,6 +12,22 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 PXE now fast-syncs by skipping finalized blocks and never downloads all blocks, so there is no longer a need to specify a starting block.
 
+### [Aztec.nr] Logs and messages renaming
+
+The following renamings have taken place:
+
+- `encrypted_logs` to `messages`: this module now handles much more than just encrypted logs (including unconstrained message delivery, message encoding, etc.)
+- `log_assembly_strategies` to `logs`
+- `discovery` moved to `messages`: given that what is discovered are messages
+- `default_aes128` removed
+
+Most contracts barely used these modules, the only frequent imports are the `encode_and_encrypt` functions:
+
+```diff
+- use dep::aztec::messages::logs::note::encode_and_encrypt_note;
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note;
+```
+
 ### [noir-contracts] Reference Noir contracts directory structure change
 
 `noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
@@ -648,7 +664,7 @@ We're preparing to make log assembly more customisable. These paths have changed
 
 ```diff
 - use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-+ use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note,
 ```
 
 And similar paths for `encode_and_encrypt_note_unconstrained`, and for events and partial notes.

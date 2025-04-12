@@ -3,7 +3,7 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+        messages::logs::note::encode_and_encrypt_note,
         macros::{functions::{initializer, private, utility}, storage::storage},
         prelude::{AztecAddress, Map, PrivateMutable},
     };
