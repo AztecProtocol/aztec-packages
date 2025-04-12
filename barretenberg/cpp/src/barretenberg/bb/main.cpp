@@ -549,21 +549,9 @@ int main(int argc, char* argv[])
     const auto add_avm_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-inputs", avm_inputs_path, "");
     };
-    std::filesystem::path avm_hints_path{ "./target/avm_hints.bin" };
-    const auto add_avm_hints_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--avm-hints", avm_hints_path, "");
-    };
     std::filesystem::path avm_public_inputs_path{ "./target/avm_public_inputs.bin" };
     const auto add_avm_public_inputs_option = [&](CLI::App* subcommand) {
         return subcommand->add_option("--avm-public-inputs", avm_public_inputs_path, "");
-    };
-    extern std::filesystem::path avm_dump_trace_path;
-    const auto add_avm_dump_trace_option = [&](CLI::App* subcommand) {
-        return subcommand->add_option("--avm-dump-trace", avm_dump_trace_path, "");
-    };
-    bool check_circuit_only{ false };
-    const auto add_check_circuit_only_flag = [&](CLI::App* subcommand) {
-        return subcommand->add_flag("--check-circuit-only", check_circuit_only, "");
     };
 
     /***************************************************************************************************************
@@ -608,11 +596,8 @@ int main(int argc, char* argv[])
     add_verbose_flag(avm_check_circuit_command);
     add_debug_flag(avm_check_circuit_command);
     add_crs_path_option(avm_check_circuit_command);
-    add_avm_hints_option(avm_check_circuit_command);
     add_avm_public_inputs_option(avm_check_circuit_command);
     add_output_path_option(avm_check_circuit_command, output_path);
-    add_avm_dump_trace_option(avm_check_circuit_command);
-    add_check_circuit_only_flag(avm_check_circuit_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_prove
@@ -623,11 +608,8 @@ int main(int argc, char* argv[])
     add_debug_flag(avm_prove_command);
     add_crs_path_option(avm_prove_command);
     std::filesystem::path avm_prove_output_path{ "./proofs" };
-    add_avm_hints_option(avm_prove_command);
     add_avm_public_inputs_option(avm_prove_command);
     add_output_path_option(avm_prove_command, avm_prove_output_path);
-    add_avm_dump_trace_option(avm_prove_command);
-    add_check_circuit_only_flag(avm_prove_command);
 
     /***************************************************************************************************************
      * Subcommand: avm_verify
@@ -637,10 +619,8 @@ int main(int argc, char* argv[])
     add_verbose_flag(avm_verify_command);
     add_debug_flag(avm_verify_command);
     add_crs_path_option(avm_verify_command);
-    add_avm_hints_option(avm_verify_command);
     add_avm_public_inputs_option(avm_verify_command);
     add_output_path_option(avm_verify_command, output_path);
-    add_check_circuit_only_flag(avm_verify_command);
     add_proof_path_option(avm_verify_command);
     add_vk_path_option(avm_verify_command);
 #endif
@@ -750,10 +730,10 @@ int main(int argc, char* argv[])
         } else if (avm2_verify_command->parsed()) {
             return avm2_verify(proof_path, avm_public_inputs_path, vk_path) ? 0 : 1;
         } else if (avm_check_circuit_command->parsed()) {
-            avm_check_circuit(avm_public_inputs_path, avm_hints_path);
+            avm_check_circuit(avm_public_inputs_path, "ignored");
         } else if (avm_prove_command->parsed()) {
             // This outputs both files: proof and vk, under the given directory.
-            avm_prove(avm_public_inputs_path, avm_hints_path, avm_prove_output_path);
+            avm_prove(avm_public_inputs_path, "ignored", avm_prove_output_path);
         } else if (avm_verify_command->parsed()) {
             return avm_verify(proof_path, vk_path) ? 0 : 1;
         }

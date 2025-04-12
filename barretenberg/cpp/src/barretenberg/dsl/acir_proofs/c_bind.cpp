@@ -195,7 +195,7 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
         folding_stack.push_back(Program{ constraints, witness });
     }
     // TODO(#7371) dedupe this with the rest of the similar code
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
@@ -249,7 +249,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
         acir_format::AcirFormat constraints = acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
         folding_stack.push_back(Program{ constraints, witness });
     }
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
@@ -282,9 +282,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
-    *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
+    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to serialize vk: ", diff.count());
@@ -295,10 +293,8 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
     const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    vk.eccvm->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
-    vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     *result = ClientIVC::verify(proof, vk);
 }
@@ -446,7 +442,7 @@ WASM_EXPORT void acir_gates_aztec_client(uint8_t const* acir_stack, uint8_t** ou
     std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
     std::vector<uint32_t> totals;
 
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     for (auto& bincode : acirs) {
         const acir_format::AcirFormat constraint_system =
             acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);

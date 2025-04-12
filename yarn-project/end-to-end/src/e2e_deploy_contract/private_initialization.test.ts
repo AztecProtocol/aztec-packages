@@ -1,5 +1,5 @@
 import { type AztecNode, BatchCall, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { NoConstructorContract } from '@aztec/noir-contracts.js/NoConstructor';
 import { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
 import { TestContract } from '@aztec/noir-contracts.js/Test';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -36,10 +36,10 @@ describe('e2e_deploy_contract private initialization', () => {
   // Requires registering the contract artifact and instance locally in the pxe.
   // This contract does not have a constructor, so the fn does not need the noinitcheck flag.
   it('executes a function in a contract without initializer', async () => {
-    const contract = await t.registerContract(wallet, DocsExampleContract);
-    await expect(contract.methods.is_legendary_initialized().simulate()).resolves.toEqual(false);
-    await contract.methods.initialize_private(0, 1).send().wait();
-    await expect(contract.methods.is_legendary_initialized().simulate()).resolves.toEqual(true);
+    const contract = await t.registerContract(wallet, NoConstructorContract);
+    await expect(contract.methods.is_private_mutable_initialized().simulate()).resolves.toEqual(false);
+    await contract.methods.initialize_private_mutable(42).send().wait();
+    await expect(contract.methods.is_private_mutable_initialized().simulate()).resolves.toEqual(true);
   });
 
   // Tests privately initializing an undeployed contract. Also requires pxe registration in advance.

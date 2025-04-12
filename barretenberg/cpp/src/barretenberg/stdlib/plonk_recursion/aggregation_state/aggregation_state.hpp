@@ -158,6 +158,8 @@ template <typename Builder_> struct aggregation_state {
         return { Group(x0, y0), Group(x1, y1) };
     }
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/984): Check how many gates this costs and if they're
+    // necessary.
     static void add_default_pairing_points_to_public_inputs(Builder& builder)
     {
         aggregation_state<Builder> agg_obj = construct_default(builder);

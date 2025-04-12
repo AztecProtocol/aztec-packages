@@ -16,7 +16,7 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
     using Sumcheck = ::bb::SumcheckVerifier<Flavor>;
     using PCS = typename Flavor::PCS;
     using Curve = typename Flavor::Curve;
-    using Shplemini = ::bb::ShpleminiVerifier_<Curve>;
+    using Shplemini = ::bb::ShpleminiVerifier_<Curve, Flavor::USE_PADDING>;
     using VerifierCommitments = typename Flavor::VerifierCommitments;
     using Transcript = typename Flavor::Transcript;
     using ClaimBatcher = ClaimBatcher_<Curve>;
@@ -28,9 +28,8 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
     VerifierCommitments commitments{ accumulator->verification_key, accumulator->witness_commitments };
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): fix log_circuit_size usage in stdlib cases.
-    auto sumcheck = Sumcheck(static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value()),
-                             transcript,
-                             accumulator->target_sum);
+    const size_t log_circuit_size = static_cast<uint32_t>(accumulator->verification_key->log_circuit_size.get_value());
+    Sumcheck sumcheck(log_circuit_size, transcript, accumulator->target_sum);
 
     SumcheckOutput<Flavor> output =
         sumcheck.verify(accumulator->relation_parameters, accumulator->alphas, accumulator->gate_challenges);
@@ -40,7 +39,7 @@ DeciderRecursiveVerifier_<Flavor>::AggregationObject DeciderRecursiveVerifier_<F
         .unshifted = ClaimBatch{ commitments.get_unshifted(), output.claimed_evaluations.get_unshifted() },
         .shifted = ClaimBatch{ commitments.get_to_be_shifted(), output.claimed_evaluations.get_shifted() }
     };
-    const auto opening_claim = Shplemini::compute_batch_opening_claim(accumulator->verification_key->circuit_size,
+    const auto opening_claim = Shplemini::compute_batch_opening_claim(log_circuit_size,
                                                                       claim_batcher,
                                                                       output.challenge,
                                                                       Commitment::one(builder),

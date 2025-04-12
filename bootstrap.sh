@@ -76,13 +76,14 @@ function check_toolchains {
     exit 1
   fi
   # Check foundry version.
+  local foundry_version="nightly-256cc50331d8a00b86c8e1f18ca092a66e220da5"
   for tool in forge anvil; do
-    if ! $tool --version 2> /dev/null | grep 25f24e6 > /dev/null; then
+    if ! $tool --version 2> /dev/null | grep "${foundry_version#nightly-}" > /dev/null; then
       encourage_dev_container
-      echo "$tool not in PATH or incorrect version (requires 25f24e677a6a32a62512ad4f561995589ac2c7dc)."
+      echo "$tool not in PATH or incorrect version (requires $foundry_version)."
       echo "Installation: https://book.getfoundry.sh/getting-started/installation"
       echo "  curl -L https://foundry.paradigm.xyz | bash"
-      echo "  foundryup -i nightly-25f24e677a6a32a62512ad4f561995589ac2c7dc"
+      echo "  foundryup -i $foundry_version"
       exit 1
     fi
   done
@@ -215,8 +216,7 @@ function build {
     yarn-project
     boxes
     playground
-    # Blocking release.
-    # docs
+    docs
     release-image
     aztec-up
   )
@@ -288,8 +288,7 @@ function release {
     boxes
     aztec-up
     playground
-    # Blocking release.
-    # docs
+    docs
     release-image
   )
   if [ $(arch) == arm64 ]; then
@@ -339,21 +338,23 @@ case "$cmd" in
   ;;
   "ci")
     build
+    ./spartan/bootstrap.sh lint
     if ! semver check $REF_NAME; then
       test
       bench
       echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
     else
-      echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
       release
+      if [ "$CI_NIGHTLY" -eq 1 ]; then
+        echo_stderr -e "${yellow}Not benching $REF_NAME because it is a nightly release.${reset}"
+        test
+      else
+        echo_stderr -e "${yellow}Not testing or benching $REF_NAME because it is a release tag.${reset}"
+      fi
     fi
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
-    ;;
-  "docs-release")
-    build
-    docs/bootstrap.sh docs-release
     ;;
   *)
     echo "Unknown command: $cmd"

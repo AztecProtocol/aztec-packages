@@ -162,6 +162,7 @@ export async function createNewPXE(
   const l1Contracts = await node.getL1ContractAddresses();
   const { l1ChainId, rollupVersion } = await node.getNodeInfo();
   const pxeConfig = {
+    l2BlockBatchSize: 200,
     l2StartingBlock: startingBlock,
     l2BlockPollingIntervalMS: 100,
     dataDirectory: undefined,

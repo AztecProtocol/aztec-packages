@@ -496,18 +496,20 @@ export class Oracle {
     [contractAddress]: ACVMField[],
     [recipient]: ACVMField[],
     [eventSelector]: ACVMField[],
-    logContentBVecStorage: ACVMField[],
-    [logContentLength]: ACVMField[],
+    msgContentBVecStorage: ACVMField[],
+    [msgContentLength]: ACVMField[],
     [txHash]: ACVMField[],
     [logIndexInTx]: ACVMField[],
+    [txIndexInBlock]: ACVMField[],
   ) {
     await this.typedOracle.storePrivateEventLog(
       AztecAddress.fromField(Fr.fromString(contractAddress)),
       AztecAddress.fromField(Fr.fromString(recipient)),
       EventSelector.fromField(Fr.fromString(eventSelector)),
-      fromBoundedVec(logContentBVecStorage, logContentLength),
+      fromBoundedVec(msgContentBVecStorage, msgContentLength),
       new TxHash(Fr.fromString(txHash)),
       Fr.fromString(logIndexInTx).toNumber(),
+      Fr.fromString(txIndexInBlock).toNumber(),
     );
     return [];
   }
