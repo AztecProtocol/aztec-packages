@@ -400,7 +400,7 @@ export class SequencerPublisher {
   ): Promise<boolean> {
     const consensusPayload = new ConsensusPayload(block.header, block.archive.root, txHashes ?? []);
 
-    const digest = await getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
+    const digest = getHashedSignaturePayload(consensusPayload, SignatureDomainSeparator.blockAttestation);
 
     const blobs = await Blob.getBlobs(block.body.toBlobFields());
     const proposeTxArgs = {

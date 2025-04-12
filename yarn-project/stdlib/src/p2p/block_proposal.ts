@@ -61,7 +61,7 @@ export class BlockProposal extends Gossipable {
     payload: ConsensusPayload,
     payloadSigner: (payload: Buffer32) => Promise<Signature>,
   ) {
-    const hashed = await getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
+    const hashed = getHashedSignaturePayload(payload, SignatureDomainSeparator.blockProposal);
     const sig = await payloadSigner(hashed);
 
     return new BlockProposal(payload, sig);
@@ -70,12 +70,9 @@ export class BlockProposal extends Gossipable {
   /**Get Sender
    * Lazily evaluate the sender of the proposal; result is cached
    */
-  async getSender() {
+  getSender() {
     if (!this.sender) {
-      const hashed = await getHashedSignaturePayloadEthSignedMessage(
-        this.payload,
-        SignatureDomainSeparator.blockProposal,
-      );
+      const hashed = getHashedSignaturePayloadEthSignedMessage(this.payload, SignatureDomainSeparator.blockProposal);
       // Cache the sender for later use
       this.sender = recoverAddress(hashed, this.signature);
     }
