@@ -117,8 +117,8 @@ function test_cmds {
     if [[ "$test" =~ testbench ]]; then
       prefix+=":CPUS=8:MEM=16g"
     fi
-    if [[ "$test" =~ ^ivc-integration/src/wasm_client_ivc_integration ]]; then
-      prefix+=":CPUS=4"
+    if [[ "$test" =~ ^ivc-integration/ ]]; then
+      prefix+=":CPUS=8"
     fi
 
     # Add debug logging for tests that require a bit more info
@@ -135,9 +135,7 @@ function test_cmds {
       fi
     fi
 
-    # if [ "$test" == "bb-prover/src/avm_proving_tests/avm_v2.test.ts" ]; then
-      echo "$prefix yarn-project/scripts/run_test.sh $test"
-    # fi
+    echo "$prefix yarn-project/scripts/run_test.sh $test"
   done
 
   # Uses mocha for browser tests, so we have to treat it differently.

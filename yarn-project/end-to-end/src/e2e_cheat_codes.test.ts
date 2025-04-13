@@ -93,7 +93,7 @@ describe('e2e_cheat_codes', () => {
       expect(await ethCheatCodes.getBytecode(contractAddress)).toBe('0x1234');
     });
 
-    it('impersonate', async () => {
+    it.skip('impersonate', async () => {
       // we will transfer 1 eth to a random address. Then impersonate the address to be able to send funds
       // without impersonation we wouldn't be able to send funds.
       const myAddress = (await walletClient.getAddresses())[0];

@@ -188,14 +188,15 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    // Show current value
-    vprintf_verbose("Current semaphore value: %d\n", get_sem_value(sem));
-
-    // If no amount specified, exit.
+    // If no amount specified, print value and exit.
     if (!has_amount) {
+        printf("%d\n", get_sem_value(sem));
         sem_close(sem);
         return 0;
     }
+
+    // Show current value
+    vprintf_verbose("Current semaphore value: %d\n", get_sem_value(sem));
 
     // Perform increment or decrement
     if (amount >= 0) {

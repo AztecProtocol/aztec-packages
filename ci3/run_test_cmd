@@ -13,6 +13,16 @@ CPUS=${CPUS:-$(cpuset_count $CPU_LIST)}
 MEM=${MEM:-8g}
 TIMEOUT=${TIMEOUT:-600s}
 
+# Extract the first token and export any variable assignments.
+hash_part="${cmd%% *}"
+if [[ "$hash_part" == *:* ]]; then
+  IFS=':' read -ra parts <<< "$hash_part"
+  # The first element is the actual hash; remaining elements are variable assignments.
+  for var_assignment in "${parts[@]:1}"; do
+    export "$var_assignment"
+  done
+fi
+
 # Remove the rebuild hash (first field) that is in front of the test command.
 # Exported for use in yq.
 export test_cmd="${cmd#* }"
@@ -96,10 +106,9 @@ if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
   fi
 fi
 
-# Run the test.
-# Reset timer after we blocked acquiring CPUs.
-# Bind it to the CPUs we acquired.
+# Reset timer.
 # Disable exit on error so we can capture code.
+# Run the test. Bind it to the given or default range of CPUs.
 # Append timestamps. Use process substitution to avoid a subshell which interferes with signal processing.
 SECONDS=0
 set +e

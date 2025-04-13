@@ -16,6 +16,10 @@ export NUM_TXES=8
 cmd=${1:-}
 [ -n "$cmd" ] && shift
 
+if [ ! -v NOIR_HASH ]; then
+  export NOIR_HASH=$(./noir/bootstrap.sh hash)
+fi
+
 function encourage_dev_container {
   echo -e "${bold}${red}ERROR: Toolchain incompatibility. We encourage use of our dev container. See build-images/README.md.${reset}"
 }
@@ -175,7 +179,6 @@ export -f start_txes
 
 function test {
   echo_header "test all"
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   start_txes
 
@@ -198,8 +201,6 @@ function test {
 function build {
   echo_header "pull submodules"
   denoise "git submodule update --init --recursive"
-  echo_header "sync noir repo"
-  export NOIR_HASH=$(./noir/bootstrap.sh hash)
 
   check_toolchains
 
