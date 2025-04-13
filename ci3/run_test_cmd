@@ -77,7 +77,7 @@ function publish_log {
 }
 
 function live_publish_log {
-  trap 'kill $sleep_pid &>/dev/null' SIGTERM SIGINT
+  trap 'kill $sleep_pid &>/dev/null; exit' SIGTERM SIGINT
   # If the test takes longer than 30s, we enter a loop to publish the log every 5s.
   sleep 30 &
   local sleep_pid=$!

@@ -26,7 +26,7 @@ trap cleanup SIGINT SIGTERM
 case "$type" in
   "simple")
     export ENV_VARS_TO_INJECT="FAKE_PROOFS BENCH_OUTPUT CAPTURE_IVC_FOLDER LOG_LEVEL COLLECT_METRICS"
-    NAME=$TEST docker_isolate "./test_simple.sh $TEST"
+    NAME=${TEST}_$NAME_POSTFIX docker_isolate "./test_simple.sh $TEST"
   ;;
   "compose")
     # Strip leading non alpha numerics and replace / and . with _.
