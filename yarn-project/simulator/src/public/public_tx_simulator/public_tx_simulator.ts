@@ -344,7 +344,11 @@ export class PublicTxSimulator {
   protected async insertNonRevertiblesFromPrivate(context: PublicTxContext, tx: Tx) {
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.nonRevertibleAccumulatedDataFromPrivate.nullifiers);
+      for (const siloedNullifier of context.nonRevertibleAccumulatedDataFromPrivate.nullifiers.filter(
+        n => !n.isEmpty(),
+      )) {
+        await stateManager.writeSiloedNullifier(siloedNullifier);
+      }
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         throw new NullifierCollisionError(
@@ -373,7 +377,9 @@ export class PublicTxSimulator {
     await context.state.fork();
     const stateManager = context.state.getActiveStateManager();
     try {
-      await stateManager.writeSiloedNullifiersFromPrivate(context.revertibleAccumulatedDataFromPrivate.nullifiers);
+      for (const siloedNullifier of context.revertibleAccumulatedDataFromPrivate.nullifiers.filter(n => !n.isEmpty())) {
+        await stateManager.writeSiloedNullifier(siloedNullifier);
+      }
     } catch (e) {
       if (e instanceof NullifierCollisionError) {
         // Instead of throwing, revert the app_logic phase

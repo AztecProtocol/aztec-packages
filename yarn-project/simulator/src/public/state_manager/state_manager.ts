@@ -233,7 +233,6 @@ export class PublicPersistableStateManager {
       this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists})`);
       return Promise.resolve(exists);
     } else {
-      // TODO: same here, this CAN hit the db.
       const { exists, cacheHit } = await this.nullifiers.checkExists(siloedNullifier);
       this.log.trace(`Checked siloed nullifier ${siloedNullifier} (exists=${exists}), cacheHit=${cacheHit}`);
       return Promise.resolve(exists);
@@ -275,12 +274,6 @@ export class PublicPersistableStateManager {
     }
 
     this.trace.traceNewNullifier(siloedNullifier);
-  }
-
-  public async writeSiloedNullifiersFromPrivate(siloedNullifiers: Fr[]) {
-    for (const siloedNullifier of siloedNullifiers.filter(n => !n.isEmpty())) {
-      await this.writeSiloedNullifier(siloedNullifier);
-    }
   }
 
   /**
@@ -348,7 +341,7 @@ export class PublicPersistableStateManager {
     );
     assert(
       exists == nullifierExistsInTree,
-      'treesDB contains contract instance, but nullifier tree does not contain contract address (or vice versa).... This is a bug!',
+      `Contract instance for address ${contractAddress} in DB: ${exists} != nullifier tree: ${nullifierExistsInTree}. This is a bug!`,
     );
 
     // All that is left is tocheck that the contract updatability information is correct.

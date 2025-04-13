@@ -17,7 +17,13 @@ import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
 import { ContractClassLog, PrivateLog } from '@aztec/stdlib/logs';
 import type { PublicDBAccessStats } from '@aztec/stdlib/stats';
-import { MerkleTreeId, NullifierLeaf, PublicDataTreeLeaf, type PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import {
+  MerkleTreeId,
+  NullifierLeaf,
+  PublicDataTreeLeaf,
+  type PublicDataTreeLeafPreimage,
+  getTreeName,
+} from '@aztec/stdlib/trees';
 import { TreeSnapshots, type Tx } from '@aztec/stdlib/tx';
 
 import type { PublicContractsDBInterface, PublicStateDBInterface } from './db_interfaces.js';
@@ -285,6 +291,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
   constructor(private readonly db: MerkleTreeWriteOperations) {}
 
   public async storageRead(contract: AztecAddress, slot: Fr): Promise<Fr> {
+    const timer = new Timer();
     const leafSlot = (await computePublicDataTreeLeafSlot(contract, slot)).toBigInt();
 
     const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
@@ -300,13 +307,27 @@ export class PublicTreesDB implements PublicStateDBInterface {
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
+    const result = lowLeafResult.alreadyPresent ? preimage.leaf.value : Fr.ZERO;
+    this.logger.debug(`Storage read (contract=${contract}, slot=${slot}, value=${result})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'storage-read',
+    } satisfies PublicDBAccessStats);
+
+    return result;
   }
 
   public async storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void> {
+    const timer = new Timer();
     const leafSlot = await computePublicDataTreeLeafSlot(contract, slot);
     const publicDataWrite = new PublicDataWrite(leafSlot, newValue);
     await this.db.sequentialInsert(MerkleTreeId.PUBLIC_DATA_TREE, [publicDataWrite.toBuffer()]);
+
+    this.logger.debug(`Storage write (contract=${contract}, slot=${slot}, value=${newValue})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'storage-write',
+    } satisfies PublicDBAccessStats);
   }
 
   public async getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined> {
@@ -315,7 +336,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.L1_TO_L2_MESSAGE_TREE, leafIndex);
 
-    this.logger.debug(`[DB] Fetched L1 to L2 message leaf value`, {
+    this.logger.debug(`Fetched L1 to L2 message leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'get-l1-to-l2-message-leaf-value',
@@ -329,7 +350,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     // TODO: We need this for the hints. See class comment for more details.
     await this.db.getSiblingPath(MerkleTreeId.NOTE_HASH_TREE, leafIndex);
 
-    this.logger.debug(`[DB] Fetched note hash leaf value`, {
+    this.logger.debug(`Fetched note hash leaf value (leafIndex=${leafIndex}, value=${leafValue})`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'get-note-hash',
@@ -338,7 +359,14 @@ export class PublicTreesDB implements PublicStateDBInterface {
   }
 
   public async writeNoteHash(noteHash: Fr): Promise<void> {
+    const timer = new Timer();
     await this.db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, [noteHash]);
+
+    this.logger.debug(`Wrote note hash (noteHash=${noteHash})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'write-note-hash',
+    } satisfies PublicDBAccessStats);
   }
 
   public async checkNullifierExists(nullifier: Fr): Promise<boolean> {
@@ -353,7 +381,7 @@ export class PublicTreesDB implements PublicStateDBInterface {
     await this.db.getLeafPreimage(MerkleTreeId.NULLIFIER_TREE, lowLeafResult.index);
     const exists = lowLeafResult.alreadyPresent;
 
-    this.logger.debug(`[DB] Checked nullifier exists`, {
+    this.logger.debug(`Checked nullifier exists (nullifier=${nullifier}, exists=${exists})`, {
       eventName: 'public-db-access',
       duration: timer.ms(),
       operation: 'check-nullifier-exists',
@@ -362,10 +390,19 @@ export class PublicTreesDB implements PublicStateDBInterface {
   }
 
   public async writeNullifier(siloedNullifier: Fr): Promise<void> {
+    const timer = new Timer();
     await this.db.sequentialInsert(MerkleTreeId.NULLIFIER_TREE, [siloedNullifier.toBuffer()]);
+
+    this.logger.debug(`Wrote nullifier (nullifier=${siloedNullifier})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'write-nullifier',
+    } satisfies PublicDBAccessStats);
   }
 
   public async padTree(treeId: MerkleTreeId, leavesToInsert: number): Promise<void> {
+    const timer = new Timer();
+
     switch (treeId) {
       // Indexed trees.
       case MerkleTreeId.NULLIFIER_TREE:
@@ -390,6 +427,12 @@ export class PublicTreesDB implements PublicStateDBInterface {
       default:
         throw new Error(`Padding not supported for tree ${treeId}`);
     }
+
+    this.logger.debug(`Padded tree (tree=${getTreeName(treeId)}, leavesToInsert=${leavesToInsert})`, {
+      eventName: 'public-db-access',
+      duration: timer.ms(),
+      operation: 'pad-tree',
+    } satisfies PublicDBAccessStats);
   }
 
   public async createCheckpoint(): Promise<void> {

@@ -106,7 +106,7 @@ export class HintingPublicContractsDB implements PublicContractsDBInterface {
  * A low-level merkle DB that collects hints.
  */
 export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
-  private static readonly log: Logger = createLogger('HintingPublicTreesDB');
+  private static readonly log: Logger = createLogger('simulator:hinting-merkle-db');
   // This stack is only for debugging purposes.
   // The top of the stack is the current checkpoint id.
   // We need the stack to be non-empty and use 0 as an arbitrary initial checkpoint id.
@@ -227,8 +227,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
     const result = await this.db.sequentialInsert<TreeHeight, ID>(treeId, leaves);
 
     const afterState = await this.getHintKey(treeId);
-    HintingMerkleWriteOperations.log.debug('[sequentialInsert] Evolved tree state.');
-    HintingMerkleWriteOperations.logTreeChange(beforeState, afterState, treeId);
+    HintingMerkleWriteOperations.logTreeChange('sequentialInsert', beforeState, afterState, treeId);
 
     switch (treeId) {
       case MerkleTreeId.PUBLIC_DATA_TREE:
@@ -301,7 +300,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     this.hints.createCheckpointHints.push(new AvmCreateCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
-    HintingMerkleWriteOperations.log.debug(
+    HintingMerkleWriteOperations.log.trace(
       `[createCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
@@ -317,7 +316,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     this.hints.commitCheckpointHints.push(new AvmCommitCheckpointHint(actionCounter, oldCheckpointId, newCheckpointId));
 
-    HintingMerkleWriteOperations.log.debug(
+    HintingMerkleWriteOperations.log.trace(
       `[commitCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
   }
@@ -351,11 +350,11 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
       AvmRevertCheckpointHint.create(actionCounter, oldCheckpointId, newCheckpointId, beforeState, afterState),
     );
 
-    HintingMerkleWriteOperations.log.debug(
+    HintingMerkleWriteOperations.log.trace(
       `[revertCheckpoint:${actionCounter}] Checkpoint evolved ${oldCheckpointId} -> ${newCheckpointId} at trees state ${treesStateHash}.`,
     );
     for (const treeId of merkleTreeIds()) {
-      HintingMerkleWriteOperations.logTreeChange(beforeState[treeId], afterState[treeId], treeId);
+      HintingMerkleWriteOperations.logTreeChange('revertCheckpoint', beforeState[treeId], afterState[treeId], treeId);
     }
   }
 
@@ -376,13 +375,14 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
   }
 
   private static logTreeChange(
+    action: string,
     beforeState: AppendOnlyTreeSnapshot,
     afterState: AppendOnlyTreeSnapshot,
     treeId: MerkleTreeId,
   ) {
     const treeName = getTreeName(treeId);
-    HintingMerkleWriteOperations.log.debug(
-      `[${treeName}] Evolved tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
+    HintingMerkleWriteOperations.log.trace(
+      `[${action}] ${treeName} tree state: ${beforeState.root}, ${beforeState.nextAvailableLeafIndex} -> ${afterState.root}, ${afterState.nextAvailableLeafIndex}.`,
     );
   }
 
@@ -399,8 +399,7 @@ export class HintingMerkleWriteOperations implements MerkleTreeWriteOperations {
 
     const afterState = await this.getHintKey(treeId);
 
-    HintingMerkleWriteOperations.log.debug('[appendLeaves] Evolved tree state.');
-    HintingMerkleWriteOperations.logTreeChange(beforeState, afterState, treeId);
+    HintingMerkleWriteOperations.logTreeChange('appendLeaves', beforeState, afterState, treeId);
 
     this.hints.appendLeavesHints.push(new AvmAppendLeavesHint(beforeState, afterState, treeId, [leaf as Fr]));
 

@@ -1,4 +1,5 @@
-import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX } from '@aztec/constants';
+import { MAX_NOTE_HASHES_PER_TX, MAX_NULLIFIERS_PER_TX, NULLIFIER_SUBTREE_HEIGHT } from '@aztec/constants';
+import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { type DateProvider, Timer, elapsed, executeTimeout } from '@aztec/foundation/timer';
@@ -108,11 +109,10 @@ class PublicProcessorTimeoutError extends Error {
  */
 export class PublicProcessor implements Traceable {
   private metrics: PublicProcessorMetrics;
-  protected treesDB: PublicTreesDB;
 
   constructor(
     protected globalVariables: GlobalVariables,
-    merkleTree: MerkleTreeWriteOperations,
+    private merkleTree: MerkleTreeWriteOperations,
     protected contractsDB: PublicContractsDB,
     protected publicTxSimulator: PublicTxSimulator,
     private dateProvider: DateProvider,
@@ -120,9 +120,6 @@ export class PublicProcessor implements Traceable {
     private log = createLogger('simulator:public-processor'),
   ) {
     this.metrics = new PublicProcessorMetrics(telemetryClient, 'PublicProcessor');
-    // This high-level db is used as a convenient helper to process the private-only txs.
-    // It could be done with the merkleTree directly.
-    this.treesDB = new PublicTreesDB(merkleTree);
   }
 
   get tracer(): Tracer {
@@ -224,7 +221,7 @@ export class PublicProcessor implements Traceable {
       // We checkpoint the transaction here, then within the try/catch we
       // 1. Revert the checkpoint if the tx fails or needs to be discarded for any reason
       // 2. Commit the transaction in the finally block. Note that by using the ForkCheckpoint lifecycle only the first commit/revert takes effect
-      const checkpoint = await ForkCheckpoint.new(this.treesDB);
+      const checkpoint = await ForkCheckpoint.new(this.merkleTree);
 
       try {
         const [processedTx, returnValues] = await this.processTx(tx, deadline);
@@ -243,6 +240,8 @@ export class PublicProcessor implements Traceable {
           continue;
         }
 
+        // FIXME(fcarreiro): it's ugly to have to notify the validator of nullifiers.
+        // I'd rather pass the validators the processedTx as well and let them deal with it.
         nullifierCache?.addNullifiers(processedTx.txEffect.nullifiers.map(n => n.toBuffer()));
         result.push(processedTx);
         returns = returns.concat(returnValues);
@@ -325,11 +324,16 @@ export class PublicProcessor implements Traceable {
     // b) always had a txHandler with the same db passed to it as this.db, which updated the db in buildBaseRollupHints in this loop
     // To see how this ^ happens, move back to one shared db in test_context and run orchestrator_multi_public_functions.test.ts
     // The below is taken from buildBaseRollupHints:
-    const noteHashesToPad = MAX_NOTE_HASHES_PER_TX - processedTx.txEffect.noteHashes.length;
-    await this.treesDB.padTree(MerkleTreeId.NOTE_HASH_TREE, noteHashesToPad);
+    await this.merkleTree.appendLeaves(
+      MerkleTreeId.NOTE_HASH_TREE,
+      padArrayEnd(processedTx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX),
+    );
     try {
-      const nullifiersToPad = MAX_NULLIFIERS_PER_TX - processedTx.txEffect.nullifiers.length;
-      await this.treesDB.padTree(MerkleTreeId.NULLIFIER_TREE, nullifiersToPad);
+      await this.merkleTree.batchInsert(
+        MerkleTreeId.NULLIFIER_TREE,
+        padArrayEnd(processedTx.txEffect.nullifiers, Fr.ZERO, MAX_NULLIFIERS_PER_TX).map(n => n.toBuffer()),
+        NULLIFIER_SUBTREE_HEIGHT,
+      );
     } catch (error) {
       if (txValidator) {
         // Ideally the validator has already caught this above, but just in case:
@@ -385,10 +389,12 @@ export class PublicProcessor implements Traceable {
     const feeJuiceAddress = ProtocolContractAddress.FeeJuice;
     const balanceSlot = await computeFeePayerBalanceStorageSlot(feePayer);
     const leafSlot = await computeFeePayerBalanceLeafSlot(feePayer);
+    // This high-level db is used as a convenient helper. It could be done with the merkleTree directly.
+    const treesDB = new PublicTreesDB(this.merkleTree);
 
     this.log.debug(`Deducting ${txFee.toBigInt()} balance in Fee Juice for ${feePayer}`);
 
-    const balance = await this.treesDB.storageRead(feeJuiceAddress, balanceSlot);
+    const balance = await treesDB.storageRead(feeJuiceAddress, balanceSlot);
 
     if (balance.lt(txFee)) {
       throw new Error(
@@ -397,7 +403,7 @@ export class PublicProcessor implements Traceable {
     }
 
     const updatedBalance = balance.sub(txFee);
-    await this.treesDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
+    await treesDB.storageWrite(feeJuiceAddress, balanceSlot, updatedBalance);
 
     return new PublicDataWrite(leafSlot, updatedBalance);
   }
@@ -429,13 +435,13 @@ export class PublicProcessor implements Traceable {
         .map(log => ContractClassRegisteredEvent.fromLog(log)),
     );
 
+    // Fee payment insertion has already been done. Do the rest.
+    await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
+
     // Add any contracts registered/deployed in this private-only tx to the block-level cache
     // (add to tx-level cache and then commit to block-level cache)
     await this.contractsDB.addNewContracts(tx);
     this.contractsDB.commitContractsForTx();
-
-    // Fee payment insertion has already been done.
-    await this.doTreeInsertionsForPrivateOnlyTx(processedTx);
 
     return [processedTx, undefined];
   }
