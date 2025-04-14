@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744426876951,
+  "lastUpdate": 1744626767899,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "nicolas.venturo@gmail.com",
-            "name": "Nicolás Venturo",
-            "username": "nventuro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "7aabf7c22a6f7bd044c00c591c120c576c00d22b",
-          "message": "chore: add encode/decode fns (#13369)\n\nHopefully the last step for a while in our msg encode/decode adventures.\nThis creates `encoding::{encode_message, decode_message}`, which are\nfunctions that already existed in other modules but were not yet a core\nconcept. I also added some tests.\n\n---------\n\nCo-authored-by: Jan Beneš <janbenes1234@gmail.com>",
-          "timestamp": "2025-04-08T15:52:23Z",
-          "tree_id": "f22dcbe39fd6d2689236e6dfecc8c6fcf5f818a9",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/7aabf7c22a6f7bd044c00c591c120c576c00d22b"
-        },
-        "date": 1744129869623,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 9374,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.23840345971100732,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 143686,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1943,6 +1904,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 146278,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "49558828+AztecBot@users.noreply.github.com",
+            "name": "Aztec Bot",
+            "username": "AztecBot"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "b184863da69d6512bc4455d3c4ce7f9cd2c85aec",
+          "message": "chore: Bump Noir reference (#13505)\n\nAutomated pull of nightly from the\n[noir](https://github.com/noir-lang/noir) programming language, a\ndependency of Aztec.\nBEGIN_COMMIT_OVERRIDE\nchore: parse IfElse in SSA parser\n(https://github.com/noir-lang/noir/pull/8043)\nfeat: `ssa::create_program_with_passes`\n(https://github.com/noir-lang/noir/pull/8035)\nchore: don't use `set_value_from_id` in\n`remove_truncate_after_range_checks`\n(https://github.com/noir-lang/noir/pull/8037)\nfix(ssa): Remove OOB checks inserted during DIE\n(https://github.com/noir-lang/noir/pull/7995)\nfix(fuzz): remove duplicate gen_loop, move unconstrained generators up\n(https://github.com/noir-lang/noir/pull/8029)\nchore: remove unnecessary double compilation\n(https://github.com/noir-lang/noir/pull/8031)\nfix(ssa): Map terminator instructions after constant folding\n(https://github.com/noir-lang/noir/pull/8019)\nfix: use proper max bit size during truncation\n(https://github.com/noir-lang/noir/pull/8010)\nfix(docs): fix proof splitting script in solidity guide\n(https://github.com/noir-lang/noir/pull/8033)\nchore: add workflow to run nightly tests on ARM64\n(https://github.com/noir-lang/noir/pull/8027)\nchore: correct name of acvm benchmark\n(https://github.com/noir-lang/noir/pull/8032)\nchore: fix failing test on MacOS\n(https://github.com/noir-lang/noir/pull/8030)\nfeat: add `while` generator to AST fuzzer\n(https://github.com/noir-lang/noir/pull/8021)\nchore: clippy fixes (https://github.com/noir-lang/noir/pull/8020)\nfeat(fuzz): Generate arbitrary `Call` in function body\n(https://github.com/noir-lang/noir/pull/7987)\nchore: use insta snapshots for ssa tests\n(https://github.com/noir-lang/noir/pull/7989)\nchore: add snapshot tests for the build artifacts as produced by\ntest_programs (https://github.com/noir-lang/noir/pull/7986)\nEND_COMMIT_OVERRIDE\n\n---------\n\nCo-authored-by: AztecBot <tech@aztecprotocol.com>",
+          "timestamp": "2025-04-14T09:33:42Z",
+          "tree_id": "8b1964ee61275182b24ab57a3cda29e25c5077d8",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b184863da69d6512bc4455d3c4ce7f9cd2c85aec"
+        },
+        "date": 1744626766617,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9663,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2595764905725712,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 154901,
             "unit": "us"
           }
         ]
