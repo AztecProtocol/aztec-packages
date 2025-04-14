@@ -30,7 +30,6 @@ class ContextInterface {
     virtual void set_next_pc(uint32_t new_next_pc) = 0;
     virtual bool halted() const = 0;
     virtual void halt() = 0;
-
     virtual uint32_t get_context_id() const = 0;
 
     // Environment.
@@ -166,16 +165,20 @@ class EnqueuedCallContext : public BaseContext {
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
-        return { .id = get_context_id(),
-                 .pc = get_pc(),
-                 .msg_sender = get_msg_sender(),
-                 .contract_addr = get_address(),
-                 .is_static = get_is_static(),
-                 .parent_cd_addr = 0,
-                 .parent_cd_size_addr = 0,
-                 .last_child_rd_addr = get_last_rd_offset(),
-                 .last_child_rd_size_addr = get_last_rd_size(),
-                 .last_child_success = get_last_success() };
+        return {
+            .id = get_context_id(),
+            .parent_id = 0,
+            .pc = get_pc(),
+            .next_pc = get_next_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = 0,
+            .parent_cd_size_addr = 0,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+        };
     };
 
     // Input / Output
@@ -220,13 +223,20 @@ class NestedContext : public BaseContext {
     // Event Emitting
     ContextEvent serialize_context_event() override
     {
-        return { .id = get_context_id(),
-                 .pc = get_pc(),
-                 .msg_sender = get_msg_sender(),
-                 .contract_addr = get_address(),
-                 .is_static = get_is_static(),
-                 .parent_cd_addr = parent_cd_offset,
-                 .parent_cd_size_addr = parent_cd_size };
+        return {
+            .id = get_context_id(),
+            .parent_id = parent_context.get_context_id(),
+            .pc = get_pc(),
+            .next_pc = get_next_pc(),
+            .msg_sender = get_msg_sender(),
+            .contract_addr = get_address(),
+            .is_static = get_is_static(),
+            .parent_cd_addr = parent_cd_offset,
+            .parent_cd_size_addr = parent_cd_size,
+            .last_child_rd_addr = get_last_rd_offset(),
+            .last_child_rd_size_addr = get_last_rd_size(),
+            .last_child_success = get_last_success(),
+        };
     };
 
     // Input / Output

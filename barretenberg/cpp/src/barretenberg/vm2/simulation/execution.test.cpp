@@ -58,9 +58,12 @@ TEST_F(ExecutionSimulationTest, Add)
 
 TEST_F(ExecutionSimulationTest, Call)
 {
-    AztecAddress parent_address = 1;
-    AztecAddress nested_address = 2;
+    AztecAddress parent_address = 0xdeadbeef;
+    AztecAddress nested_address = 0xc0ffee;
     MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
+    MemoryValue l2_gas_allocated = TaggedValue::from<uint32_t>(6);
+    MemoryValue da_gas_allocated = TaggedValue::from<uint32_t>(7);
+
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_next_pc);
@@ -69,7 +72,10 @@ TEST_F(ExecutionSimulationTest, Call)
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
-    EXPECT_CALL(memory, get).WillOnce(ReturnRef(nested_address_value));
+    EXPECT_CALL(memory, get)
+        .WillOnce(ReturnRef(l2_gas_allocated))      // l2_gas_offset
+        .WillOnce(ReturnRef(da_gas_allocated))      // da_gas_offset
+        .WillOnce(ReturnRef(nested_address_value)); // contract_address
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
@@ -84,7 +90,12 @@ TEST_F(ExecutionSimulationTest, Call)
     EXPECT_CALL(context, set_last_rd_size(_));
     EXPECT_CALL(context, set_last_success(_));
 
-    execution.call(context, 10, 20, 30);
+    execution.call(context,
+                   /*l2_gas_offset=*/1,
+                   /*da_gas_offset=*/2,
+                   /*addr=*/3,
+                   /*cd_offset=*/5,
+                   /*cd_size=*/4);
 }
 
 } // namespace
