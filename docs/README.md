@@ -1,4 +1,3 @@
-
 # Aztec Network Documentation
 
 Documentation for the Aztec Network, built with docusaurus
@@ -36,6 +35,7 @@ Aztec docs pull some code from the rest of the repository. This allows for great
 For that reason, there's a preprocessing step. You can run that step ad-hoc with `yarn preprocess` or `yarn preprocess:dev` if you want it to stay running and watching for changes.
 
 This step does the following:
+
 - Pulls the code from the source files using the `#include` macros explained below.
 - Autogenerates documentation using the scripts in the `src` file.
 - Puts the final documentation in a `processed-docs` folder.
@@ -79,31 +79,32 @@ This is done via macros which are processed in the `process` step described abov
 ### `#include_code`
 
 You can embed code snippets into a `.md`/`.mdx` file from code which lives elsewhere in the repo.
+
 - In your markdown file:
-    - `#include_code identifier path/from/repo/root/to/file.ts language`
-    - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
-    - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
+  - `#include_code identifier path/from/repo/root/to/file.ts language`
+  - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
+  - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
 - In the corresponding code delineate the code snippet with comments:
-    - ```typescript
-      some code
-      some code
-      // docs:start:hello
-      more code
-      more code
-      // this-will-error <-- you can use docusaurus highlighting comments.
-      this code will be highlighted red
-      more code
-      // highlight-next-line
-      this line will be highlighted
-      more code
-      // highlight-start
-      this line will be highlighted
-      this line will be highlighted
-      // highlight-end
-      more code
-      // docs:end:hello
-      more code
-      ```
+  - ```typescript
+    some code
+    some code
+    // docs:start:hello
+    more code
+    more code
+    // this-will-error <-- you can use docusaurus highlighting comments.
+    this code will be highlighted red
+    more code
+    // highlight-next-line
+    this line will be highlighted
+    more code
+    // highlight-start
+    this line will be highlighted
+    this line will be highlighted
+    // highlight-end
+    more code
+    // docs:end:hello
+    more code
+    ```
 - You can even include chunks of the same piece of code (with different highlighting preferences) into different parts of the docs:
   - ```typescript
       some code
@@ -127,7 +128,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
       // docs:end:hello
       some code
       some code
-      ```
+    ```
   - Somewhere in your markdown, you can then write:
     - `#include_code hello path/from/repo/root/to/file.ts typescript`
   - And somewhere else, you can write:
@@ -164,6 +165,12 @@ The way docs builds work is the following:
 When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
 
 When release-please merges, it also checks for the versions we want: the latest non-alpha-testnet, and the latest alpha-testnet. It writes those to versions.json.
+
+## Viewing (outdated) protocol specs
+
+The protocol specs pages are outdated, but it may still be useful to view them in some cases.
+
+To view the protocol specs, you can run `yarn dev` or `yarn dev:local`. When viewing the protocol specs locally, versioning is disabled, so you can view the protocol specs in the browser. It would error otherwise because the protocol specs pages are not included in the pages in `versioned_docs` and `versioned_sidebars`.
 
 ## Contributing
 
