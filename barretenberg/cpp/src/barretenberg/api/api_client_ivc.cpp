@@ -295,7 +295,6 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
     init_bn254_crs(1);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
