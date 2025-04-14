@@ -93,6 +93,10 @@ If you are using a consensus node provider that requires non standard ways to su
 When providing multiple urls that require api key headers, the index in the comma seperated list must correspond to the index of the `--l1-consensus-host-urls` that are being provided.
 :::
 
+:::info
+The `--network` flag will automatically set options depending on the network that you provide it. However keep in mind that the variables you set will take precedence over `--network`'s defaults. These include the following values: ETHEREUM_SLOT_DURATION, AZTEC_SLOT_DURATION, AZTEC_EPOCH_DURATION, AZTEC_PROOF_SUBMISSION_WINDOW, BOOTSTRAP_NODES, TEST_ACCOUNTS, SPONSORED_FPC, P2P_ENABLED, L1_CHAIN_ID, SEQ_MIN_TX_PER_BLOCK, SEQ_MAX_TX_PER_BLOCK, DATA_DIRECTORY, PROVER_REAL_PROOFS, PXE_PROVER_ENABLED, SYNC_SNAPSHOTS_URL, REGISTRY_CONTRACT_ADDRESS, SLASH_FACTORY_CONTRACT_ADDRESS, FEE_ASSET_HANDLER_CONTRACT_ADDRESS
+:::
+
 #### Example Command
 
 Here's an example of a complete command to start a sequencer node:
@@ -169,7 +173,7 @@ aztec start --network alpha-testnet --archiver --node --sequencer # other flags.
 ```
 
 ### Using a Docker Compose
-If you would like to, you can use a configuration like the one below:
+If you would like to run in a docker compose, you can use a configuration like the one below:
 
 ```
 name: aztec-node
