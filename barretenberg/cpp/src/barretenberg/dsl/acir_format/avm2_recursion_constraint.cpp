@@ -224,12 +224,10 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     // Execute the Goblin AVM2 recursive verifier
     RecursiveVerifier verifier(builder, key_fields);
 
-    auto output_agg_object = verifier.verify_proof(
+    bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output = verifier.verify_proof(
         proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_aggregation_object);
 
-    return { .agg_obj = output_agg_object.aggregation_object,
-             .ipa_claim = output_agg_object.ipa_claim,
-             .ipa_proof = output_agg_object.ipa_proof };
+    return { .agg_obj = output.agg_obj, .ipa_claim = output.ipa_claim, .ipa_proof = output.ipa_proof };
 }
 
 } // namespace acir_format

@@ -46,7 +46,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
     using VerificationKey = typename RecursiveVerifier::VerificationKey;
 
     using AggState = aggregation_state<OuterBuilder>;
-    using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
+    using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<OuterBuilder>;
 
     /**
      * @brief Create a non-trivial arbitrary inner circuit, the proof of which will be recursively verified
@@ -125,7 +125,7 @@ template <typename RecursiveFlavor> class BoomerangRecursiveVerifierTest : publi
         pairing_points.P1.x.fix_witness();
         pairing_points.P1.y.fix_witness();
         if constexpr (HasIPAAccumulator<OuterFlavor>) {
-            outer_circuit.add_ipa_claim(output.ipa_opening_claim.get_witness_indices());
+            outer_circuit.add_ipa_claim(output.ipa_claim.get_witness_indices());
             outer_circuit.ipa_proof = convert_stdlib_proof_to_native(output.ipa_proof);
         }
         info("Recursive Verifier: num gates = ", outer_circuit.get_estimated_num_finalized_gates());

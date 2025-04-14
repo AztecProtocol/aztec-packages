@@ -166,7 +166,7 @@ UltraRecursiveVerifier_<Flavor>::Output UltraRecursiveVerifier_<Flavor>::verify_
                 verification_key->public_inputs[verification_key->verification_key->ipa_claim_public_input_indices[9]],
                 false
             };
-            output.ipa_opening_claim = std::move(ipa_claim);
+            output.ipa_claim = std::move(ipa_claim);
         }
     }
 
