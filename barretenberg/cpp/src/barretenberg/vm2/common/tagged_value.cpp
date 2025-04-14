@@ -1,0 +1,237 @@
+#include "barretenberg/vm2/common/tagged_value.hpp"
+
+#include <cassert>
+#include <functional>
+#include <stdexcept>
+#include <variant>
+
+#include "barretenberg/numeric/uint128/uint128.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
+
+namespace bb::avm2 {
+
+namespace {
+
+// Helper type for ad-hoc visitors.
+template <class... Ts> struct overloads : Ts... {
+    using Ts::operator()...;
+};
+template <class... Ts> overloads(Ts...) -> overloads<Ts...>;
+
+template <typename T>
+constexpr bool is_supported_type_v =
+    std::is_same_v<T, uint8_t> || std::is_same_v<T, uint1_t> || std::is_same_v<T, uint16_t> ||
+    std::is_same_v<T, uint32_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, uint128_t> || std::is_same_v<T, FF>;
+
+struct shift_left {
+    template <typename T, typename U> T operator()(const T& a, const U& b) const { return static_cast<T>(a << b); }
+};
+
+struct shift_right {
+    template <typename T, typename U> T operator()(const T& a, const U& b) const { return static_cast<T>(a >> b); }
+};
+
+template <typename Op>
+constexpr bool is_bitwise_operation_v =
+    std::is_same_v<Op, std::bit_and<>> || std::is_same_v<Op, std::bit_or<>> || std::is_same_v<Op, std::bit_xor<>> ||
+    std::is_same_v<Op, std::bit_not<>> || std::is_same_v<Op, shift_left> || std::is_same_v<Op, shift_right>;
+
+// Helper visitor for binary operations. These assume that the types are the same.
+template <typename Op> struct BinaryOperationVisitor {
+    template <typename T, typename U> TaggedValue::value_type operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, U>) {
+            if constexpr (std::is_same_v<T, FF> && is_bitwise_operation_v<Op>) {
+                throw std::runtime_error("Bitwise operations not valid for FF");
+            } else {
+                // Why this static_cast since I introduced uint1_t?
+                return static_cast<T>(Op{}(a, b));
+            }
+        } else {
+            throw std::runtime_error("Type mismatch in BinaryOperationVisitor!");
+        }
+    }
+};
+
+// Helper visitor for shift operations. The right hand side is a different type.
+template <typename Op> struct ShiftOperationVisitor {
+    template <typename T, typename U> TaggedValue::value_type operator()(const T& a, const U& b) const
+    {
+        // FIXME: Require/cast right hand type.
+        if constexpr (std::is_same_v<T, FF> || std::is_same_v<U, FF>) {
+            throw std::runtime_error("Bitwise operations not valid for FF");
+        } else {
+            return Op{}(a, b);
+        }
+    }
+};
+
+// Helper visitor for unary operations
+template <typename Op> struct UnaryOperationVisitor {
+    template <typename T> TaggedValue::value_type operator()(const T& a) const
+    {
+        if constexpr (std::is_same_v<T, FF> && std::is_same_v<Op, std::bit_not<>>) {
+            throw std::runtime_error("Can't do 'bitwise not' on an FF");
+        } else {
+            return Op{}(a);
+        }
+    }
+};
+
+} // namespace
+
+// Constructor
+TaggedValue::TaggedValue(TaggedValue::value_type value_)
+    : value(value_)
+{}
+
+TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
+{
+    // TODO: check bounds?
+    switch (tag) {
+    case ValueTag::U1:
+        return TaggedValue(static_cast<uint1_t>(value.is_zero()));
+    case ValueTag::U8:
+        return TaggedValue(static_cast<uint8_t>(value));
+    case ValueTag::U16:
+        return TaggedValue(static_cast<uint16_t>(value));
+    case ValueTag::U32:
+        return TaggedValue(static_cast<uint32_t>(value));
+    case ValueTag::U64:
+        return TaggedValue(static_cast<uint64_t>(value));
+    case ValueTag::U128:
+        return TaggedValue(static_cast<uint128_t>(value));
+    case ValueTag::FF:
+        return TaggedValue(value);
+    default:
+        throw std::runtime_error("Invalid tag");
+    }
+}
+
+// Arithmetic operators
+TaggedValue TaggedValue::operator+(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::plus<>>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator-(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::minus<>>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator*(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::multiplies<>>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator/(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::divides<>>(), value, other.value);
+}
+
+// Bitwise operators
+TaggedValue TaggedValue::operator&(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::bit_and<>>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator|(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::bit_or<>>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator^(const TaggedValue& other) const
+{
+    return std::visit(BinaryOperationVisitor<std::bit_xor<>>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator<<(const TaggedValue& other) const
+{
+    return std::visit(ShiftOperationVisitor<shift_left>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator>>(const TaggedValue& other) const
+{
+    return std::visit(ShiftOperationVisitor<shift_right>(), value, other.value);
+}
+
+TaggedValue TaggedValue::operator~() const
+{
+    return std::visit(UnaryOperationVisitor<std::bit_not<>>(), value);
+}
+
+FF TaggedValue::as_ff() const
+{
+    const auto visitor = overloads{ [](FF val) -> FF { return val; },
+                                    [](uint1_t val) -> FF { return val.value(); },
+                                    [](uint128_t val) -> FF { return uint256_t::from_uint128(val); },
+                                    [](auto&& val) -> FF { return val; } };
+
+    return std::visit(visitor, value);
+}
+
+ValueTag TaggedValue::get_tag() const
+{
+    if (std::holds_alternative<uint8_t>(value)) {
+        return ValueTag::U8;
+    } else if (std::holds_alternative<uint1_t>(value)) {
+        return ValueTag::U1;
+    } else if (std::holds_alternative<uint16_t>(value)) {
+        return ValueTag::U16;
+    } else if (std::holds_alternative<uint32_t>(value)) {
+        return ValueTag::U32;
+    } else if (std::holds_alternative<uint64_t>(value)) {
+        return ValueTag::U64;
+    } else if (std::holds_alternative<uint128_t>(value)) {
+        return ValueTag::U128;
+    } else if (std::holds_alternative<FF>(value)) {
+        return ValueTag::FF;
+    } else {
+        throw std::runtime_error("Unknown value type");
+    }
+
+    assert(false && "This should never happen.");
+    return ValueTag::FF; // Only to make the compiler happy.
+}
+
+std::string TaggedValue::to_string() const
+{
+    std::string v =
+        std::visit(overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
+                              [](const uint128_t&) -> std::string { return "some uint128_t"; },
+                              [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
+                              [](auto&& val) -> std::string { return std::to_string(val); } },
+                   value);
+    return "TaggedValue(" + v + ", " + std::to_string(get_tag()) + ")";
+}
+
+} // namespace bb::avm2
+
+std::string std::to_string(bb::avm2::ValueTag tag)
+{
+    using namespace bb::avm2;
+    switch (tag) {
+    case ValueTag::U1:
+        return "U1";
+    case ValueTag::U8:
+        return "U8";
+    case ValueTag::U16:
+        return "U16";
+    case ValueTag::U32:
+        return "U32";
+    case ValueTag::U64:
+        return "U64";
+    case ValueTag::U128:
+        return "U128";
+    case ValueTag::FF:
+        return "FF";
+    default:
+        return "Unknown";
+    }
+}
+
+std::string std::to_string(const bb::avm2::TaggedValue& value)
+{
+    return value.to_string();
+}
