@@ -7,6 +7,7 @@ metadata:
     app: {{- include "aztec-network.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.bot.replicas }}
+  podManagementPolicy: Parallel
   selector:
     matchLabels:
       app: {{- include "aztec-network.selectorLabels" . | nindent 6 }}

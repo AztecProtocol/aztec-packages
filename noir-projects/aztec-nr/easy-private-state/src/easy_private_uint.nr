@@ -1,6 +1,5 @@
 use dep::aztec::{
-    context::PrivateContext,
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+    context::PrivateContext, messages::logs::note::encode_and_encrypt_note,
     note::note_getter_options::NoteGetterOptions, protocol_types::address::AztecAddress,
     state_vars::PrivateSet,
 };

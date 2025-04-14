@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/tracegen/address_derivation_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"

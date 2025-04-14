@@ -1,8 +1,8 @@
 #include "barretenberg/vm2/avm_api.hpp"
 
-#include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/proving_helper.hpp"
 #include "barretenberg/vm2/simulation_helper.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 #include "barretenberg/vm2/tracegen_helper.hpp"
 
 namespace bb::avm2 {
