@@ -114,13 +114,14 @@ class BaseContext : public ContextInterface {
     std::vector<FF> get_returndata(uint32_t rd_offset, uint32_t rd_size) override
     {
         MemoryInterface& child_memory = get_child_context().get_memory();
-        auto get_returndata_size = child_memory.get(last_child_rd_size);
-        uint32_t returndata_size = static_cast<uint32_t>(get_returndata_size.value);
+        AvmTaggedMemoryWrapper& get_returndata_size = child_memory.get(last_child_rd_size);
+        auto returndata_size = static_cast<uint32_t>(get_returndata_size.get_memory_value());
         uint32_t write_size = std::min(rd_offset + rd_size, returndata_size);
 
-        std::vector<FF> retrieved_returndata =
-            child_memory.get_slice(get_last_rd_offset() + rd_offset, write_size).first;
-        retrieved_returndata.resize(rd_size);
+        std::vector<FF> retrieved_returndata(rd_size, 0);
+        for (uint32_t i = 0; i < write_size; i++) {
+            retrieved_returndata[i] = child_memory.get(get_last_rd_offset() + rd_offset + i).get_memory_value();
+        }
 
         return retrieved_returndata;
     };
@@ -224,18 +225,24 @@ class NestedContext : public BaseContext {
                  .contract_addr = get_address(),
                  .is_static = get_is_static(),
                  .parent_cd_addr = parent_cd_offset,
-                 .parent_cd_size_addr = parent_cd_size };
+                 .parent_cd_size_addr = parent_cd_size,
+                 .last_child_rd_addr = get_last_rd_offset(),
+                 .last_child_rd_size_addr = get_last_rd_size(),
+                 .last_child_success = get_last_success() };
     };
 
     // Input / Output
     std::vector<FF> get_calldata(uint32_t cd_offset, uint32_t cd_size) const override
     {
-        ValueRefAndTag get_calldata_size = parent_context.get_memory().get(parent_cd_size);
+        auto& memory = parent_context.get_memory();
         // TODO(ilyas): error if tag != U32
-        auto calldata_size = static_cast<uint32_t>(get_calldata_size.value);
+        uint32_t calldata_size = static_cast<uint32_t>(memory.get(parent_cd_size).get_memory_value());
         uint32_t read_size = std::min(cd_offset + cd_size, calldata_size);
 
-        auto retrieved_calldata = parent_context.get_memory().get_slice(parent_cd_offset + cd_offset, read_size).first;
+        std::vector<FF> retrieved_calldata(cd_size, 0);
+        for (uint32_t i = 0; i < read_size; i++) {
+            retrieved_calldata[i] = memory.get(parent_cd_offset + cd_offset + i).get_memory_value();
+        }
 
         // Pad the calldata
         retrieved_calldata.resize(cd_size, 0);

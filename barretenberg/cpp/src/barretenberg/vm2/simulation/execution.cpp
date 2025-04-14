@@ -4,35 +4,39 @@
 #include <concepts>
 #include <cstdint>
 #include <functional>
+#include <memory>
 
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 #include "barretenberg/vm2/simulation/addressing.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
 #include "barretenberg/vm2/simulation/events/execution_event.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
-    ValueRefAndTag a = memory.get(a_addr);
-    ValueRefAndTag b = memory.get(b_addr);
-    FF c = alu.add(a, b);
-    memory.set(dst_addr, c, a.tag);
+    AvmTaggedMemoryWrapper& a = memory.get(a_addr);
+    AvmTaggedMemoryWrapper& b = memory.get(b_addr);
+    AvmTaggedMemoryWrapper c = alu.add(a, b);
+    memory.set(dst_addr, std::make_unique<AvmTaggedMemoryWrapper>(std::move(c)));
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
-void Execution::set(ContextInterface& context, MemoryAddress dst_addr, uint8_t tag, MemoryValue value)
+void Execution::set(ContextInterface& context, MemoryAddress dst_addr, [[maybe_unused]] uint8_t tag, MemoryValue value)
 {
-    context.get_memory().set(dst_addr, std::move(value), static_cast<MemoryTag>(tag));
+    // We need to something with tag here
+    auto result = std::make_unique<AvmFieldType>(value);
+    context.get_memory().set(dst_addr, std::make_unique<AvmTaggedMemoryWrapper>(std::move(result)));
 }
 
 void Execution::mov(ContextInterface& context, MemoryAddress src_addr, MemoryAddress dst_addr)
 {
     auto& memory = context.get_memory();
-    auto [value, tag] = memory.get(src_addr);
-    memory.set(dst_addr, value, tag);
+    auto& tagged_value = memory.get(src_addr);
+    memory.set(dst_addr, std::make_unique<AvmTaggedMemoryWrapper>(std::move(tagged_value)));
 }
 
 void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddress cd_offset, MemoryAddress cd_size)
@@ -44,7 +48,8 @@ void Execution::call(ContextInterface& context, MemoryAddress addr, MemoryAddres
 
     // TODO: Read more stuff from call operands (e.g., calldata, gas)
     // TODO(ilyas): How will we tag check these?
-    const auto [contract_address, _] = memory.get(addr);
+    const auto& tagged_address_value = memory.get(addr);
+    auto contract_address = static_cast<AztecAddress>(tagged_address_value.get_memory_value());
 
     // We could load cd_size here, but to keep symmetry with cd_offset - we will defer the loads to a (possible)
     // calldatacopy
@@ -85,8 +90,8 @@ void Execution::jumpi(ContextInterface& context, MemoryAddress cond_addr, uint32
     auto& memory = context.get_memory();
 
     // TODO: in gadget.
-    auto resolved_cond = memory.get(cond_addr);
-    if (!resolved_cond.value.is_zero()) {
+    auto& resolved_cond = memory.get(cond_addr);
+    if (!resolved_cond.get_memory_value().is_zero()) {
         context.set_next_pc(loc);
     }
 }

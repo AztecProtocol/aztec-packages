@@ -12,7 +12,11 @@ class MockBitwise : public BitwiseInterface {
     MockBitwise();
     ~MockBitwise() override;
 
-    MOCK_METHOD(uint128_t, and_op, (MemoryTag tag, const uint128_t& a, const uint128_t& b), (override));
+    // MOCK_METHOD(uint128_t, and_op, (MemoryTag tag, const uint128_t& a, const uint128_t& b), (override));
+    MOCK_METHOD(AvmTaggedMemoryWrapper,
+                and_op,
+                (const AvmTaggedMemoryWrapper& a, const AvmTaggedMemoryWrapper& b),
+                (override));
     MOCK_METHOD(uint128_t, or_op, (MemoryTag tag, const uint128_t& a, const uint128_t& b), (override));
     MOCK_METHOD(uint128_t, xor_op, (MemoryTag tag, const uint128_t& a, const uint128_t& b), (override));
 };

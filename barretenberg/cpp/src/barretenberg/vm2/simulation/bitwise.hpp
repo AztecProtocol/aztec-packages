@@ -14,7 +14,7 @@ namespace bb::avm2::simulation {
 class BitwiseInterface {
   public:
     virtual ~BitwiseInterface() = default;
-    virtual uint128_t and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) = 0;
+    virtual AvmTaggedMemoryWrapper and_op(const AvmTaggedMemoryWrapper& a, const AvmTaggedMemoryWrapper& b) = 0;
     virtual uint128_t or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) = 0;
     virtual uint128_t xor_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) = 0;
 };
@@ -26,7 +26,7 @@ class Bitwise : public BitwiseInterface {
     {}
 
     // Operands are expected to be direct.
-    uint128_t and_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) override;
+    AvmTaggedMemoryWrapper and_op(const AvmTaggedMemoryWrapper& a, const AvmTaggedMemoryWrapper& b) override;
     uint128_t or_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) override;
     uint128_t xor_op(MemoryTag tag, const uint128_t& a, const uint128_t& b) override;
 

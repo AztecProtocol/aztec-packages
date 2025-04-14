@@ -20,14 +20,14 @@ void Sha256::compression(ContextInterface& context,
 
     // Load 8 elements representing the state from memory.
     for (uint32_t i = 0; i < 8; ++i) {
-        auto memory_value = memory.get(state_addr + i).value;
+        auto memory_value = memory.get(state_addr + i).get_memory_value();
         // TODO: Check that the tag is U32 and do error handling.
         state[i] = static_cast<uint32_t>(memory_value);
     }
 
     // Load 16 elements representing the input from memory.
     for (uint32_t i = 0; i < 16; ++i) {
-        auto memory_value = memory.get(input_addr + i).value;
+        auto memory_value = memory.get(input_addr + i).get_memory_value();
         // TODO: Check that the tag is U32 and do error handling.
         input[i] = static_cast<uint32_t>(memory_value);
     }
@@ -37,7 +37,8 @@ void Sha256::compression(ContextInterface& context,
 
     // Write the output back to memory.
     for (uint32_t i = 0; i < 8; ++i) {
-        memory.set(output_addr + i, output[i], MemoryTag::U32);
+        auto result = std::make_unique<Uint32>(output[i]);
+        memory.set(output_addr + i, std::make_unique<AvmTaggedMemoryWrapper>(std::move(result)));
     }
 
     events.emit({ .state_addr = state_addr,

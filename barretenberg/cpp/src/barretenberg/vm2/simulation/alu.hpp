@@ -15,7 +15,7 @@ class AluInterface {
   public:
     virtual ~AluInterface() = default;
     // I'd like to return a ValueRefAndTag, but the MemoryValue& doesnt live long enough.
-    virtual FF add(const ValueRefAndTag& a, const ValueRefAndTag& b) = 0;
+    virtual AvmTaggedMemoryWrapper add(const AvmTaggedMemoryWrapper& a, const AvmTaggedMemoryWrapper& b) = 0;
 };
 
 class Alu : public AluInterface {
@@ -24,7 +24,7 @@ class Alu : public AluInterface {
         : events(event_emitter)
     {}
 
-    FF add(const ValueRefAndTag& a, const ValueRefAndTag& b) override;
+    AvmTaggedMemoryWrapper add(const AvmTaggedMemoryWrapper& a, const AvmTaggedMemoryWrapper& b) override;
 
   private:
     EventEmitterInterface<AluEvent>& events;

@@ -30,13 +30,15 @@ TEST(Sha256CompressionSimulationTest, Sha256Compression)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        auto result = std::make_unique<simulation::Uint32>(state[i]);
+        mem.set(state_addr + i, std::make_unique<simulation::AvmTaggedMemoryWrapper>(std::move(result)));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        auto result = std::make_unique<simulation::Uint32>(input[i]);
+        mem.set(input_addr + i, std::make_unique<simulation::AvmTaggedMemoryWrapper>(std::move(result)));
     }
     MemoryAddress dst_addr = 25;
 
@@ -46,8 +48,8 @@ TEST(Sha256CompressionSimulationTest, Sha256Compression)
 
     std::array<uint32_t, 8> result_from_memory;
     for (uint32_t i = 0; i < 8; ++i) {
-        auto c = mem.get(dst_addr + i);
-        result_from_memory[i] = static_cast<uint32_t>(c.value);
+        auto& c = mem.get(dst_addr + i);
+        result_from_memory[i] = static_cast<uint32_t>(c.get_memory_value());
     }
     EXPECT_EQ(result_from_memory, result);
 }

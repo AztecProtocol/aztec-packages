@@ -17,12 +17,12 @@ TEST(AvmSimulationAluTest, Add)
     EventEmitter<AluEvent> alu_event_emitter;
     Alu alu(alu_event_emitter);
 
-    ValueRefAndTag a = { .value = 1, .tag = MemoryTag::U32 };
-    ValueRefAndTag b = { .value = 2, .tag = MemoryTag::U32 };
+    auto a = AvmTaggedMemoryWrapper(std::make_unique<simulation::Uint32>(1));
+    auto b = AvmTaggedMemoryWrapper(std::make_unique<simulation::Uint32>(2));
 
-    FF c = alu.add(a, b);
+    auto c = alu.add(a, b);
 
-    EXPECT_EQ(c, 3);
+    EXPECT_EQ(c.get_memory_value(), 3);
 }
 
 } // namespace

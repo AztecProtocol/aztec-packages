@@ -5,6 +5,7 @@
 #include "barretenberg/vm2/common/memory_types.hpp"
 #include "barretenberg/vm2/simulation/alu.hpp"
 #include "barretenberg/vm2/simulation/context.hpp"
+#include "barretenberg/vm2/simulation/memory.hpp"
 
 namespace bb::avm2::simulation {
 
@@ -14,7 +15,10 @@ class MockAlu : public AluInterface {
     MockAlu();
     ~MockAlu() override;
 
-    MOCK_METHOD(FF, add, (const ValueRefAndTag& a, const ValueRefAndTag& b), (override));
+    MOCK_METHOD(AvmTaggedMemoryWrapper,
+                add,
+                (const AvmTaggedMemoryWrapper& a, const AvmTaggedMemoryWrapper& b),
+                (override));
 };
 
 } // namespace bb::avm2::simulation

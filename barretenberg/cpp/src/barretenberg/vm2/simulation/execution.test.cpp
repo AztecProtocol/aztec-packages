@@ -46,13 +46,14 @@ class ExecutionSimulationTest : public ::testing::Test {
 
 TEST_F(ExecutionSimulationTest, Add)
 {
-    ValueRefAndTag a = { .value = 4, .tag = MemoryTag::U32 };
-    ValueRefAndTag b = { .value = 5, .tag = MemoryTag::U32 };
+    auto a = AvmTaggedMemoryWrapper(std::make_unique<simulation::Uint32>(4));
+    auto b = AvmTaggedMemoryWrapper(std::make_unique<simulation::Uint32>(5));
+    auto result = AvmTaggedMemoryWrapper(std::make_unique<simulation::Uint32>(9));
 
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, get).Times(2).WillOnce(Return(a)).WillOnce(Return(b));
-    EXPECT_CALL(alu, add(a, b)).WillOnce(Return(9));
-    EXPECT_CALL(memory, set(6, FF(9), MemoryTag::U32));
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
+    EXPECT_CALL(alu, add).WillOnce(Return(std::move(result)));
+    EXPECT_CALL(memory, set(6, _));
     execution.add(context, 4, 5, 6);
 }
 
@@ -62,6 +63,8 @@ TEST_F(ExecutionSimulationTest, Call)
     AztecAddress parent_address = 1;
     AztecAddress nested_address = 2;
 
+    auto mem_get = AvmTaggedMemoryWrapper(std::make_unique<simulation::AvmFieldType>(nested_address));
+
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_next_pc);
@@ -70,7 +73,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
-    EXPECT_CALL(memory, get).WillOnce(Return(ValueRefAndTag({ .value = nested_address, .tag = MemoryTag::U32 })));
+    EXPECT_CALL(memory, get).WillOnce(ReturnRef(mem_get));
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())

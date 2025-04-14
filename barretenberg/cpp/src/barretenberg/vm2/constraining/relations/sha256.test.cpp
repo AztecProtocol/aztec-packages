@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 
 #include <cstdint>
+#include <memory>
 
 #include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
@@ -64,13 +65,15 @@ TEST(Sha256ConstrainingTest, Basic)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        auto result = std::make_unique<simulation::Uint32>(state[i]);
+        mem.set(state_addr + i, std::make_unique<simulation::AvmTaggedMemoryWrapper>(std::move(result)));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        auto result = std::make_unique<simulation::Uint32>(input[i]);
+        mem.set(input_addr + i, std::make_unique<simulation::AvmTaggedMemoryWrapper>(std::move(result)));
     }
     MemoryAddress dst_addr = 25;
 
@@ -100,13 +103,15 @@ TEST(Sha256ConstrainingTest, Interaction)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        auto result = std::make_unique<simulation::Uint32>(state[i]);
+        mem.set(state_addr + i, std::make_unique<simulation::AvmTaggedMemoryWrapper>(std::move(result)));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        auto result = std::make_unique<simulation::Uint32>(input[i]);
+        mem.set(input_addr + i, std::make_unique<simulation::AvmTaggedMemoryWrapper>(std::move(result)));
     }
     MemoryAddress dst_addr = 25;
 

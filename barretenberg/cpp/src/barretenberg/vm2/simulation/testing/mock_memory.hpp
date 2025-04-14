@@ -14,9 +14,8 @@ class MockMemory : public MemoryInterface {
     MockMemory();
     ~MockMemory() override;
 
-    MOCK_METHOD(void, set, (MemoryAddress index, MemoryValue value, MemoryTag tag), (override));
-    MOCK_METHOD(ValueRefAndTag, get, (MemoryAddress index), (const, override));
-    MOCK_METHOD(SliceWithTags, get_slice, (MemoryAddress start, size_t size), (const, override));
+    MOCK_METHOD(void, set, (MemoryAddress index, std::unique_ptr<AvmTaggedMemoryWrapper> value), (override));
+    MOCK_METHOD(AvmTaggedMemoryWrapper&, get, (MemoryAddress index), (const, override));
     MOCK_METHOD(uint32_t, get_space_id, (), (const, override));
 };
 
