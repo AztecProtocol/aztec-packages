@@ -9,7 +9,7 @@ barretenberg_module(
     libdeflate::libdeflate_static)
 
 if(NOT DISABLE_AZTEC_VM)
-    add_dependencies(bb-cli-lib vm)
+    add_dependencies(bb-cli-lib vm2)
 endif()
 
 if (NOT(FUZZING))

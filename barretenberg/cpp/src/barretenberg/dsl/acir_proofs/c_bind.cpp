@@ -11,6 +11,7 @@
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/plonk/proof_system/proving_key/serialize.hpp"
 #include "barretenberg/plonk/proof_system/verification_key/verification_key.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "honk_contract.hpp"
 #include <cstdint>
@@ -273,7 +274,8 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     PrivateExecutionSteps steps;
     steps.parse(acir_stack, witness_stack, vk_stack);
 
-    auto ivc = std::make_shared<ClientIVC>(AZTEC_TRACE_STRUCTURE);
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const acir_format::ProgramMetadata metadata{ ivc };
 

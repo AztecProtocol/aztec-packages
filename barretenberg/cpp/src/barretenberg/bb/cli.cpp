@@ -816,7 +816,7 @@ int parse_and_run_cli_command(int argc, char* argv[])
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
             if (prove->parsed()) {
-                api.prove(ivc_inputs_path, output_path);
+                api.prove(flags, ivc_inputs_path, output_path);
                 return 0;
             }
             if (write_vk->parsed() && flags.verifier_type == "ivc") {
