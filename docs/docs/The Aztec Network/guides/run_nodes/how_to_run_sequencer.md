@@ -151,7 +151,7 @@ Every flag in the `aztec start` command corresponds to an environment variable. 
 For example:
 
 - `--l1-rpc-urls` maps to `ETHEREUM_HOSTS`
-- `--l1-consensus-host-url` maps to `L1_CONSENSUS_HOSTS_URLS`
+- `--l1-consensus-host-urls` maps to `L1_CONSENSUS_HOSTS_URLS`
 
 You can create a `.env` file with these variables:
 
