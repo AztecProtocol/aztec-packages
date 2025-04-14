@@ -40,14 +40,14 @@ export class BootstrapNode implements P2PBootstrapApi {
       config.p2pBroadcastPort = p2pPort;
     }
 
-    const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort, 'udp'));
+    const listenAddrUdp = multiaddr(convertToMultiaddr(listenAddress, config.p2pBroadcastPort!, 'udp'));
 
     const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
 
     const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
       peerIdPrivateKey,
       p2pIp,
-      config.p2pBroadcastPort,
+      config.p2pBroadcastPort!,
       config.l1ChainId,
     );
     this.peerId = peerId;

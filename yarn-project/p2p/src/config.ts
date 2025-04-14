@@ -401,7 +401,7 @@ export type BootnodeConfig = Pick<
   P2PConfig,
   'p2pIp' | 'p2pPort' | 'p2pBroadcastPort' | 'peerIdPrivateKey' | 'bootstrapNodes' | 'listenAddress'
 > &
-  Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort' | 'p2pBroadcastPort'>> &
+  Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
   Pick<ChainConfig, 'l1ChainId'>;
 

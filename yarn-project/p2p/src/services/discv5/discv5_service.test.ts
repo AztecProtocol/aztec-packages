@@ -81,6 +81,15 @@ describe('Discv5Service', () => {
     await node.stop();
   });
 
+  it('should allow broadcast port to be set', async () => {
+    const broadcastPort = 7891;
+    const node = await createNode({ p2pBroadcastPort: broadcastPort });
+    const enr = node.getEnr();
+    expect(enr.ip).toEqual('127.0.0.1');
+    expect(enr.udp).toEqual(broadcastPort);
+    expect(enr.tcp).toEqual(broadcastPort);
+  });
+
   it('should discover & add a peer', async () => {
     const node1 = await createNode();
     const node2 = await createNode();

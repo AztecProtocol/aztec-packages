@@ -59,6 +59,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Add aztec identification to ENR
     this.versions = setAztecEnrKey(this.enr, config);
 
+    // If no overridden broadcast port is provided, use the p2p port as the broadcast port
     if (!p2pBroadcastPort) {
       config.p2pBroadcastPort = p2pPort;
     }
@@ -69,11 +70,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
     if (p2pIp) {
       const multiAddrTcp = multiaddr(
-        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort, 'tcp')}/p2p/${peerId.toString()}`,
+        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'tcp')}/p2p/${peerId.toString()}`,
       );
-      // if no udp announce address is provided, use the tcp announce address
       const multiAddrUdp = multiaddr(
-        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort, 'udp')}/p2p/${peerId.toString()}`,
+        `${convertToMultiaddr(p2pIp!, config.p2pBroadcastPort!, 'udp')}/p2p/${peerId.toString()}`,
       );
 
       // set location multiaddr in ENR record
