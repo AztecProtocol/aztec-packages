@@ -51,6 +51,9 @@
         }
       ]
     },
+    "reporters": [
+      "default"
+    ],
     "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
