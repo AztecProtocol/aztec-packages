@@ -88,19 +88,30 @@ TaggedValue::TaggedValue(TaggedValue::value_type value_)
 
 TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
 {
-    // TODO: check bounds?
+    auto assert_bounds = [](const FF& value, uint16_t bits) {
+        if (uint256_t(value) >= uint256_t(1) << bits) {
+            throw std::runtime_error("Value out of bounds");
+        }
+    };
+
     switch (tag) {
     case ValueTag::U1:
+        assert_bounds(value, 1);
         return TaggedValue(static_cast<uint1_t>(value.is_zero()));
     case ValueTag::U8:
+        assert_bounds(value, 8);
         return TaggedValue(static_cast<uint8_t>(value));
     case ValueTag::U16:
+        assert_bounds(value, 16);
         return TaggedValue(static_cast<uint16_t>(value));
     case ValueTag::U32:
+        assert_bounds(value, 32);
         return TaggedValue(static_cast<uint32_t>(value));
     case ValueTag::U64:
+        assert_bounds(value, 64);
         return TaggedValue(static_cast<uint64_t>(value));
     case ValueTag::U128:
+        assert_bounds(value, 128);
         return TaggedValue(static_cast<uint128_t>(value));
     case ValueTag::FF:
         return TaggedValue(value);

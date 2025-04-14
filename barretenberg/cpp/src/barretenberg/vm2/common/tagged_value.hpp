@@ -34,6 +34,7 @@ class TaggedValue {
 
     // Using this constructor you can specify the type explicitly via the template.
     template <typename T> static TaggedValue from(T value) { return TaggedValue(value); }
+    // Constructs from a tag and value. Throws if the value is out of bounds for the tag.
     static TaggedValue from_tag(ValueTag tag, FF value);
 
     // Arithmetic operators.
