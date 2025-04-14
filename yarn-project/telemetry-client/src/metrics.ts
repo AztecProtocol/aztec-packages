@@ -62,6 +62,7 @@ export const SEQUENCER_CURRENT_BLOCK_NUMBER = 'aztec.sequencer.current.block_num
 export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size';
 export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
 export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
+export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
@@ -82,9 +83,6 @@ export const L1_BLOCK_HEIGHT = 'aztec.l1.block_height';
 export const L1_BALANCE_ETH = 'aztec.l1.balance';
 export const L1_GAS_PRICE_WEI = 'aztec.l1.gas_price';
 export const L1_BLOB_BASE_FEE_WEI = 'aztec.l1.blob_base_fee';
-
-export const L1_REWARDS_BALANCE = 'aztec.l1.rewards_balance';
-export const L1_REWARDS_BALANCE_SUM = 'aztec.l1.rewards_balance_sum';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
@@ -141,6 +139,8 @@ export const PROVER_NODE_EXECUTION_DURATION = 'aztec.prover_node.execution.durat
 export const PROVER_NODE_JOB_DURATION = 'aztec.prover_node.job_duration';
 export const PROVER_NODE_JOB_BLOCKS = 'aztec.prover_node.job_blocks';
 export const PROVER_NODE_JOB_TRANSACTIONS = 'aztec.prover_node.job_transactions';
+export const PROVER_NODE_REWARDS_TOTAL = 'aztec.prover_node.rewards_total';
+export const PROVER_NODE_REWARDS_PER_EPOCH = 'aztec.prover_node.rewards_per_epoch';
 
 export const WORLD_STATE_FORK_DURATION = 'aztec.world_state.fork.duration';
 export const WORLD_STATE_SYNC_DURATION = 'aztec.world_state.sync.duration';
@@ -160,6 +160,8 @@ export const PROOF_VERIFIER_COUNT = 'aztec.proof_verifier.count';
 
 export const VALIDATOR_RE_EXECUTION_TIME = 'aztec.validator.re_execution_time';
 export const VALIDATOR_FAILED_REEXECUTION_COUNT = 'aztec.validator.failed_reexecution_count';
+export const VALIDATOR_ATTESTATION_COUNT = 'aztec.validator.attestation_count';
+export const VALIDATOR_FAILED_ATTESTATION_COUNT = 'aztec.validator.failed_attestation_count';
 
 export const NODEJS_EVENT_LOOP_DELAY_MIN = 'nodejs.eventloop.delay.min';
 export const NODEJS_EVENT_LOOP_DELAY_MEAN = 'nodejs.eventloop.delay.mean';

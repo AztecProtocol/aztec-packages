@@ -109,7 +109,7 @@ export class SequencerMetrics {
       [Attributes.STATUS]: 'built',
     });
 
-    this.rewards = this.meter.createObservableGauge(Metrics.L1_REWARDS_BALANCE, {
+    this.rewards = this.meter.createObservableGauge(Metrics.SEQUENCER_CURRENT_BLOCK_REWARDS, {
       valueType: ValueType.DOUBLE,
       description: 'The rewards earned',
     });
@@ -130,7 +130,6 @@ export class SequencerMetrics {
     const fmt = parseFloat(formatUnits(rewards, 18));
     observer.observe(this.rewards, fmt, {
       [Attributes.L1_SENDER]: this.coinbase.toString(),
-      [Attributes.NODE_ROLE]: 'sequencer',
     });
   };
 

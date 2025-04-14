@@ -12,46 +12,24 @@ import {
   type ObservableGauge,
   type ObservableUpDownCounter,
   type TelemetryClient,
+  type Tracer,
   type UpDownCounter,
   ValueType,
 } from '@aztec/telemetry-client';
 
 import { formatEther, formatUnits } from 'viem';
 
-export class ProverNodeMetrics {
+export class ProverNodeJobMetrics {
   proverEpochExecutionDuration: Histogram;
   provingJobDuration: Histogram;
   provingJobBlocks: Gauge;
   provingJobTransactions: Gauge;
 
-  gasPrice: Histogram;
-  txCount: UpDownCounter;
-  txDuration: Histogram;
-  txGas: Histogram;
-  txCalldataSize: Histogram;
-  txCalldataGas: Histogram;
-  txBlobDataGasUsed: Histogram;
-  txBlobDataGasCost: Histogram;
-  txTotalFee: Histogram;
-
-  private senderBalance: Gauge;
-
-  private rewards: ObservableGauge;
-  private accumulatedRewards: ObservableUpDownCounter;
-  private prevEpoch = -1n;
-  private proofSubmissionWindow = 0n;
-
-  private meter: Meter;
-
   constructor(
-    public readonly client: TelemetryClient,
-    private coinbase: EthAddress,
-    private rollup: RollupContract,
-    name = 'ProverNode',
+    private meter: Meter,
+    public readonly tracer: Tracer,
     private logger = createLogger('prover-node:publisher:metrics'),
   ) {
-    this.meter = client.getMeter(name);
-
     this.proverEpochExecutionDuration = this.meter.createHistogram(Metrics.PROVER_NODE_EXECUTION_DURATION, {
       description: 'Duration of execution of an epoch by the prover',
       unit: 'ms',
@@ -70,6 +48,93 @@ export class ProverNodeMetrics {
       description: 'Number of transactions in a proven epoch',
       valueType: ValueType.INT,
     });
+  }
+
+  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
+    this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
+    this.provingJobDuration.record(totalTimeMs / 1000);
+    this.provingJobBlocks.record(Math.floor(numBlocks));
+    this.provingJobTransactions.record(Math.floor(numTxs));
+  }
+}
+
+export class ProverNodeRewardsMetrics {
+  private rewards: ObservableGauge;
+  private accumulatedRewards: ObservableUpDownCounter;
+  private prevEpoch = -1n;
+  private proofSubmissionWindow = 0n;
+
+  constructor(
+    private meter: Meter,
+    private coinbase: EthAddress,
+    private rollup: RollupContract,
+    private logger = createLogger('prover-node:publisher:metrics'),
+  ) {
+    this.rewards = this.meter.createObservableGauge(Metrics.PROVER_NODE_REWARDS_PER_EPOCH, {
+      valueType: ValueType.DOUBLE,
+      description: 'The rewards earned',
+    });
+
+    this.accumulatedRewards = this.meter.createObservableUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL, {
+      valueType: ValueType.DOUBLE,
+      description: 'The rewards earned (total)',
+    });
+  }
+
+  public async start() {
+    this.proofSubmissionWindow = await this.rollup.getProofSubmissionWindow();
+    this.meter.addBatchObservableCallback(this.observe, [this.rewards, this.accumulatedRewards]);
+  }
+
+  public stop() {
+    this.meter.removeBatchObservableCallback(this.observe, [this.rewards, this.accumulatedRewards]);
+  }
+
+  private observe = async (observer: BatchObservableResult): Promise<void> => {
+    const slot = await this.rollup.getSlotNumber();
+
+    // look at the prev epoch so that we get an accurate value, after proof submission window has closed
+    if (slot > this.proofSubmissionWindow) {
+      const closedEpoch = await this.rollup.getEpochNumberForSlotNumber(slot - this.proofSubmissionWindow);
+      const rewards = await this.rollup.getSpecificProverRewardsForEpoch(closedEpoch, this.coinbase);
+
+      const fmt = parseFloat(formatUnits(rewards, 18));
+
+      observer.observe(this.rewards, fmt, {
+        [Attributes.L1_SENDER]: this.coinbase.toString(),
+      });
+
+      // only accumulate once per epoch
+      if (closedEpoch > this.prevEpoch) {
+        this.prevEpoch = closedEpoch;
+        observer.observe(this.accumulatedRewards, fmt, {
+          [Attributes.L1_SENDER]: this.coinbase.toString(),
+        });
+      }
+    }
+  };
+}
+
+export class ProverNodePublisherMetrics {
+  gasPrice: Histogram;
+  txCount: UpDownCounter;
+  txDuration: Histogram;
+  txGas: Histogram;
+  txCalldataSize: Histogram;
+  txCalldataGas: Histogram;
+  txBlobDataGasUsed: Histogram;
+  txBlobDataGasCost: Histogram;
+  txTotalFee: Histogram;
+
+  private senderBalance: Gauge;
+  private meter: Meter;
+
+  constructor(
+    public readonly client: TelemetryClient,
+    name = 'ProverNode',
+    private logger = createLogger('prover-node:publisher:metrics'),
+  ) {
+    this.meter = client.getMeter(name);
 
     this.gasPrice = this.meter.createHistogram(Metrics.L1_PUBLISHER_GAS_PRICE, {
       description: 'The gas price used for transactions',
@@ -133,52 +198,7 @@ export class ProverNodeMetrics {
       description: 'The balance of the sender address',
       valueType: ValueType.DOUBLE,
     });
-
-    this.rewards = this.meter.createObservableGauge(Metrics.L1_REWARDS_BALANCE, {
-      valueType: ValueType.DOUBLE,
-      description: 'The rewards earned',
-    });
-
-    this.accumulatedRewards = this.meter.createObservableUpDownCounter(Metrics.L1_REWARDS_BALANCE_SUM, {
-      valueType: ValueType.DOUBLE,
-      description: 'The rewards earned (total)',
-    });
   }
-
-  public async start() {
-    this.proofSubmissionWindow = await this.rollup.getProofSubmissionWindow();
-    this.meter.addBatchObservableCallback(this.observe, [this.rewards, this.accumulatedRewards]);
-  }
-
-  public stop() {
-    this.meter.removeBatchObservableCallback(this.observe, [this.rewards, this.accumulatedRewards]);
-  }
-
-  private observe = async (observer: BatchObservableResult): Promise<void> => {
-    const slot = await this.rollup.getSlotNumber();
-
-    // look at the prev epoch so that we get an accurate value, after proof submission window has closed
-    if (slot > this.proofSubmissionWindow) {
-      const closedEpoch = await this.rollup.getEpochNumberForSlotNumber(slot - this.proofSubmissionWindow);
-      const rewards = await this.rollup.getSpecificProverRewardsForEpoch(closedEpoch, this.coinbase);
-
-      const fmt = parseFloat(formatUnits(rewards, 18));
-
-      observer.observe(this.rewards, fmt, {
-        [Attributes.L1_SENDER]: this.coinbase.toString(),
-        [Attributes.NODE_ROLE]: 'prover',
-      });
-
-      // only accumulate once per epoch
-      if (closedEpoch > this.prevEpoch) {
-        this.prevEpoch = closedEpoch;
-        observer.observe(this.accumulatedRewards, fmt, {
-          [Attributes.L1_SENDER]: this.coinbase.toString(),
-          [Attributes.NODE_ROLE]: 'prover',
-        });
-      }
-    }
-  };
 
   recordFailedTx() {
     this.txCount.add(1, {
@@ -189,13 +209,6 @@ export class ProverNodeMetrics {
 
   recordSubmitProof(durationMs: number, stats: L1PublishProofStats) {
     this.recordTx(durationMs, stats);
-  }
-
-  public recordProvingJob(executionTimeMs: number, totalTimeMs: number, numBlocks: number, numTxs: number) {
-    this.proverEpochExecutionDuration.record(Math.ceil(executionTimeMs));
-    this.provingJobDuration.record(totalTimeMs / 1000);
-    this.provingJobBlocks.record(Math.floor(numBlocks));
-    this.provingJobTransactions.record(Math.floor(numTxs));
   }
 
   public recordSenderBalance(wei: bigint, senderAddress: string) {
