@@ -262,7 +262,7 @@ shared_ptr<ClientIVC> _accumulate(vector<acir_format::AcirProgram>& folding_stac
     return ivc;
 }
 
-void ClientIVCAPI::prove(const filesystem::path& input_path, const filesystem::path& output_dir)
+void ClientIVCAPI::prove(const Flags& flags, const filesystem::path& input_path, const filesystem::path& output_dir)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -300,7 +300,7 @@ void ClientIVCAPI::prove(const filesystem::path& input_path, const filesystem::p
 
     if (flags.write_vk) {
         vinfo("writing ClientIVC vk in directory ", output_dir);
-        write_vk_for_ivc(bytecode_path, output_dir);
+        write_vk_for_ivc(input_path, output_dir);
     }
 }
 

@@ -11,7 +11,7 @@ namespace bb {
 class ClientIVCAPI : public API {
 
   public:
-    void prove(const std::filesystem::path& input_path, const std::filesystem::path& output_dir);
+    void prove(const Flags& flags, const std::filesystem::path& input_path, const std::filesystem::path& output_dir);
 
     bool verify(const Flags& flags,
                 const std::filesystem::path& public_inputs_path,
@@ -47,5 +47,4 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
 
 std::vector<uint8_t> decompress(const void* bytes, size_t size);
 
-void write_vk_for_ivc(const bool output_fields, const std::string& bytecode_path, const std::string& output_path);
 } // namespace bb
