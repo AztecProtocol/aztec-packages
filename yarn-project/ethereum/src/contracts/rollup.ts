@@ -310,7 +310,6 @@ export class RollupContract {
       `0x${string}`,
       ViemSignature[],
       `0x${string}`,
-      bigint,
       `0x${string}`,
       {
         ignoreDA: boolean;

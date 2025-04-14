@@ -562,7 +562,7 @@ export class Sequencer {
     pendingTxs: Iterable<Tx> | AsyncIterable<Tx>,
     proposalHeader: BlockHeader,
   ): Promise<void> {
-    await this.publisher.validateBlockForSubmission(proposalHeader);
+    await this.publisher.validateBlockHeader(proposalHeader);
 
     const newGlobalVariables = proposalHeader.globalVariables;
     const blockNumber = newGlobalVariables.blockNumber.toNumber();
@@ -579,7 +579,7 @@ export class Sequencer {
 
       // TODO(@PhilWindle) We should probably periodically check for things like another
       // block being published before ours instead of just waiting on our block
-      await this.publisher.validateBlockForSubmission(block.header);
+      await this.publisher.validateBlockForSubmission(block);
 
       const blockStats: L2BlockBuiltStats = {
         eventName: 'l2-block-built',

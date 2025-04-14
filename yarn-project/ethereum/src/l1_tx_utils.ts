@@ -720,19 +720,19 @@ export class L1TxUtils {
     }
   }
 
-  public async simulateGasUsed(
+  public async simulate(
     request: L1TxRequest & { gas?: bigint },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
-  ): Promise<bigint> {
+  ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
     const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
 
     try {
-      const result = await this.publicClient.simulate({
+      const result = await this.publicClient.simulateBlocks({
         validation: true,
         blocks: [
           {
@@ -762,14 +762,14 @@ export class L1TxUtils {
         });
         throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
       }
-      return result[0].gasUsed;
+      return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data };
     } catch (err) {
       if (err instanceof MethodNotFoundRpcError || err instanceof MethodNotSupportedRpcError) {
         if (gasConfig.fallbackGasEstimate) {
           this.logger?.warn(
             `Node does not support eth_simulateV1 API. Using fallback gas estimate: ${gasConfig.fallbackGasEstimate}`,
           );
-          return gasConfig.fallbackGasEstimate;
+          return { gasUsed: gasConfig.fallbackGasEstimate, result: '0x' };
         }
         this.logger?.error('Node does not support eth_simulateV1 API');
       }
