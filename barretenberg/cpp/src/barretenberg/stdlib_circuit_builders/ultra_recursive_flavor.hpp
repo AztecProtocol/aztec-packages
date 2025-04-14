@@ -128,11 +128,9 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
             this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
             // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
             this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
-            this->num_public_inputs =
-                stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->num_public_inputs);
-            this->pub_inputs_offset =
-                stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->pub_inputs_offset);
             this->pairing_inputs_public_input_key = native_key->pairing_inputs_public_input_key;
+            this->num_public_inputs = FF::from_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset = FF::from_witness(builder, native_key->pub_inputs_offset);
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
