@@ -8,6 +8,7 @@ import ListItem from '@mui/material/ListItem';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useContext } from 'react';
 import { AztecContext } from '../../../aztecEnv';
+import Box from '@mui/material/Box';
 
 const dropZoneContainer = css({
   display: 'flex',
@@ -57,19 +58,15 @@ export function ContractUpload() {
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
 
         <Typography variant="body2" color="text.secondary" sx={{ my: 3 }}>
-          <Typography align="left">
+          <Box sx={{ textAlign: 'left' }}>
             To generate a contract artifact:
-          </Typography>
-
-          <ListItem sx={{ p: 0 }}>
+            <br />
             1. Install latest version of Aztec CLI by running `aztec-up`
-          </ListItem>
-          <ListItem sx={{ p: 0 }}>
+            <br />
             2. Run `aztec-nargo compile` in your project directory
-          </ListItem>
-          <ListItem sx={{ p: 0 }}>
+            <br />
             3. Look for `{'<your-project-name>'}.json` file in the ./target directory
-          </ListItem>
+          </Box>
         </Typography>
 
         <Button
