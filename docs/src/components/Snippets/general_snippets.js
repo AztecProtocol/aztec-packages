@@ -1,9 +1,25 @@
 import React from "react";
 
 export const General = {
+  InstallationInstructions: () => (
+    <p>
+      To use Aztec's suite of tools you'll need to:
+      <ul>
+        <li>
+          <a href="https://docs.docker.com/get-started/get-docker/">
+            Get docker
+          </a>
+        </li>
+        <li>
+          Run <code>bash -i &lt;(curl -s https://install.aztec.network)</code>
+        </li>
+      </ul>
+    </p>
+  ),
+
   PXE: () => (
     <p>
-      The PXE is a client-side key manager, private contract storage, and
+      <b>PXE</b> - a client-side key manager, private contract storage, and
       Private eXecution Environment for private transactions. A PXE is a core
       part of an Aztec wallet and Sandbox, but can be decoupled and run
       independently.
@@ -12,15 +28,51 @@ export const General = {
 
   AztecNode: () => (
     <p>
-      An Aztec node is a prover/sequencer that is part of a decentralised Aztec
-      network. The Aztec testnet rolls up to Ethereum Sepolia.
+      <b>Aztec Node</b> - a prover/sequencer that is part of a decentralised
+      Aztec network. The Aztec testnet rolls up to Ethereum Sepolia.
     </p>
   ),
 
   AztecSandbox: () => (
     <p>
-      The Aztec Sandbox runs a local environment for rapid development, it
-      includes: an Ethereum node, an Aztec node, and PXE.
+      <b>Aztec Sandbox</b> - runs a set of Aztec tools for convenient local
+      development, it includes: an Ethereum node, an Aztec node, and PXE.
+    </p>
+  ),
+
+  AztecWalletCLI: () => (
+    <p>
+      <b>AztecWallet</b> - is a CLI wallet, <code>aztec-wallet</code>, that
+      allows a user to manage accounts and interact with an Aztec network. It
+      includes a PXE.
+    </p>
+  ),
+
+  Account: () => (
+    <p>
+      An account on Aztec is a smart contract that specifies a method of
+      authentication and a method of payment, allowing it to be used by the
+      protocol to perform a transaction.
+    </p>
+  ),
+};
+
+export const Fees = {
+  FPC: () => (
+    <p>
+      A fee paying contract (FPC) effectively implements fee abstraction. It is
+      a contract that pays for transactions of other accounts, when its own
+      custom criteria is met.
+    </p>
+  ),
+
+  FeeAsset_NonTransferrable: () => (
+    <p>
+      The fee asset is only transferrable within a block to the current
+      sequencer, as it powers the fee abstraction mechanism on Aztec. The asset
+      is not transferable beyond this to ensure credible neutrality between all
+      third party developer made asset portals and to ensure local compliance
+      rules can be followed.
     </p>
   ),
 };

@@ -4,7 +4,11 @@ sidebar_position: 0
 tags: [fees, accounts, transactions, cli, contracts]
 ---
 
+import { General, Fees } from '@site/src/components/Snippets/general_snippets';
+
 The Aztec network is a privacy preserving layer 2 secured by Ethereum, and for the consensus mechanism to work, Aztec makes use of an asset to pay for transactions called, "Fee juice".
+
+With account and fee abstraction on Aztec, there are several options for users and dApps to pay fees for themselves or their users.
 
 By the end of this tutorial you will...
 - Connect to the Aztec sandbox and/or testnet
@@ -13,25 +17,20 @@ By the end of this tutorial you will...
 	- the `aztec.js` library
 - Understand the pros/cons of different payment methods
 
+**Note:**
+<Fees.FeeAsset_NonTransferrable />
 
 ## Background
 
-As a quick summary of some Aztec components:
+For this tutorial we'll need to be familiar with a few components:
 
-(**TODO: Each of these as snippets**)
+<General.PXE />
 
-**The PXE**
-The PXE is a client-side key manager, private contract storage, and Private eXecution Environment for private transactions. It interfaces with the Aztec network, and can be used via its json RPC client. A PXE is a core part of an Aztec wallet and Sandbox, but can be decoupled and run independently.
+<General.AztecNode />
 
-**An Aztec node**
-An Aztec node is a prover/sequencer that is part of a decentralised Aztec network. The Aztec testnet rolls up to Ethereum Sepolia.
+<General.AztecSandbox />
 
-**The Aztec Sandbox**
-The Aztec Sandbox runs a local environment for rapid development, it includes: an Ethereum node, an Aztec node, and PXE.
-
-**The Aztec Wallet (command line)**
-The CLI wallet, `aztec-wallet`, allows a user to manage accounts and interact with an Aztec network. It includes a PXE.
-
+<General.AztecWalletCLI />
 
 ## Connect to the network
 
@@ -39,10 +38,7 @@ We'll go through both the `aztec-wallet` cli wallet and the `aztec.js` library, 
 
 ### Tools
 
-**TODO: as snippet**
-To use Aztec's suite of tools you'll need to:
- - [Get docker](https://docs.docker.com/get-started/get-docker/)
- - Run `bash -i <(curl -s https://install.aztec.network)`
+<General.InstallationInstructions />
 
 Test the cli wallet with: `aztec-wallet --version`
 
@@ -76,9 +72,7 @@ async function main() {
 
 ## Create Account Contract in a PXE
 
-**TODO: as snippet**
-
-An account on Aztec is a smart contract that specifies a method of authentication and a method of payment, allowing it to be used by the protocol to perform a transaction.
+<General.Account />
 
 For convenience, Aztec Labs has implemented an account contract that authenticates transactions using Schnorr signatures. The contract class for a Schnorr account is pre-registered on Aztec networks (eg sandbox, testnet) to bootstrap first use. Ordinarily for a contract to be deployed, its class would have to be registered with the network first.
 
@@ -136,8 +130,8 @@ To make transactions on the network, your account contract will need to specify 
 
 To bootstrap first use, a sponsored fee paying contract (the canonical sponsored FPC) can be used to deploy your first account.
 
-**TODO: as snippet**
-A fee paying contract (FPC) effectively implements fee abstraction. It is a contract that pays for transactions of other accounts, when its own custom criteria is met.
+
+<Fees.FPC />
 In the case of the canonical sponsored FPC, the only criteria is an upper bound on how much it sponsors an account's transactions. This will be enough to at least deploy an account.
 
 The PXE can be queried for the canonical sponsored FPC address, and then specified as the payment method.
@@ -324,8 +318,8 @@ The two key ways of paying for transactions: fee juice from an account or via an
 ### Fee juice from an account (default)
 
 - from the sender of a transaction (default)
-  - most common if making transactions from a funded account
-  - difficult to deploy without funds already
+  - when making transactions from an account funded with fee juice
+  - users will require the fee asset on L1 then bridge/claim on deployment
 - specifying a different fee-payer account (new account creation/deployment only)
   - using a funded account to deploy another account, or rapid testing on the sandbox
   - need to already have a funded account
