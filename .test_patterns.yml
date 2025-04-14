@@ -81,6 +81,7 @@ tests:
       - *sean
   - regex: "simple e2e_p2p/reex"
     error_regex: "Nonce provided for the transaction is lower than the current nonce of the account"
+    # Example: (note, will eventually expire) http://ci.aztec-labs.com/e0ca323545d90e02
     owners:
       - *palla
   - regex: "simple e2e_p2p/reex"
