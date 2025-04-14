@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744641364717,
+  "lastUpdate": 1744655594190,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "sirasistant@gmail.com",
-            "name": "Álvaro Rodríguez",
-            "username": "sirasistant"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "ff2e7381d344dbfa18be8deff96c61b01e53d6f4",
-          "message": "fix: Nondeterminism in constant allocation (#13340)\n\nQuick fix to an issue discovered in testnet. We were having\nnondeterministic contract builds between aarch64 and amd64 builds of the\nnoir compiler, reproduced locally. The iterators generated from the\nFxHashMaps/FxHashSets used in constant_allocation were yielding\ndifferently ordered items. I did log the insertions and the input was in\nthe same order (if the insertion ordering was nondeterministic the\niteration order is expected to be nondeterministic) so I have no idea\nwhat was creating the nondeterminism there. Switched to a\nBTreeMap/BTreeSet in that file and nondeterminism is gone.",
-          "timestamp": "2025-04-09T15:22:43Z",
-          "tree_id": "1efcb1efecf60c9a6966f88f74de166abb69c434",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ff2e7381d344dbfa18be8deff96c61b01e53d6f4"
-        },
-        "date": 1744214945827,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 30046,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 18167,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9233,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10919,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12713,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3006,6 +2952,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12812,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "santiago@aztecprotocol.com",
+            "name": "Santiago Palladino",
+            "username": "spalladino"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "1b97cd2055e6b77974eea43ba66503b875d42f14",
+          "message": "feat: Validator waits for archiver sync (#13497)\n\nSlow validators may receive a proposal to attest to before their\narchiver has synced to the block immediately before. Example log:\n\n```\n[18:02:27.581] ERROR: validator Failed to attest to proposal: Error: Unable to sync to block number 4811 (last synced is 4810)\n    at ServerWorldStateSynchronizer.syncImmediate (file:///usr/src/yarn-project/world-state/dest/synchronizer/server_world_state_synchronizer.js:145:19)\n    at async Sequencer.buildBlock (file:///usr/src/yarn-project/sequencer-client/dest/sequencer/sequencer.js:351:9)\n    at async ValidatorClient.reExecuteTransactions (file:///usr/src/yarn-project/validator-client/dest/validator.js:161:41)\n    at async ValidatorClient.attestToProposal (file:///usr/src/yarn-project/validator-client/dest/validator.js:127:17)\n    at async LibP2PService.processValidBlockProposal (file:///usr/src/yarn-project/p2p/dest/services/libp2p/libp2p_service.js:451:29)\n    at async LibP2PService.processBlockFromPeer (file:///usr/src/yarn-project/p2p/dest/services/libp2p/libp2p_service.js:441:9)\n    at async LibP2PService.handleNewGossipMessage (file:///usr/src/yarn-project/p2p/dest/services/libp2p/libp2p_service.js:355:13)\n    at async safeJob (file:///usr/src/yarn-project/p2p/dest/services/libp2p/libp2p_service.js:285:17) {\"slotNumber\":7976,\"blockNumber\":4812,\"archive\":\"0x1f26b22cdad7132d0bb06461300a27b12fde92b633633550e37764d810304cb4\",\"txCount\":0,\"txHashes\":[]}\n[18:02:29.560] INFO: archiver Downloaded L2 block 4811 {\"blockHash\":{},\"blockNumber\":4811,\"txCount\":0,\"globalVariables\":{\"chainId\":11155111,\"version\":3538330213,\"blockNumber\":4811,\"slotNumber\":7975,\"timestamp\":1744394520,\"coinbase\":\"0x2b64d6efab183a85f0b37e02b1975cd9f2d98068\",\"feeRecipient\":\"0x0000000000000000000000000000000000000000000000000000000000000000\",\"feePerDaGas\":0,\"feePerL2Gas\":0}}\n```\n\nThis PR has the validator keep retrying to sync to the target block\nuntil the reexecution deadline, rather than giving up immediately.",
+          "timestamp": "2025-04-14T17:16:26Z",
+          "tree_id": "51d2532f94267dcda9e5aad10e8fff867c4f68b3",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1b97cd2055e6b77974eea43ba66503b875d42f14"
+        },
+        "date": 1744655585845,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 30655,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 17849,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 9225,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10951,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12692,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
