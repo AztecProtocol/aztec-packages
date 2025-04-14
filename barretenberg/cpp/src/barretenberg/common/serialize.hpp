@@ -36,7 +36,6 @@
 #include <iostream>
 #include <map>
 #include <memory>
-#include <msgpack.hpp> // Include the header for msgpack::sbuffer
 #include <optional>
 #include <type_traits>
 #include <vector>
@@ -453,24 +452,6 @@ template <typename T> uint8_t* to_heap_buffer(T const& value)
     return ptr;
 }
 
-// TODO: make this compile
-template <typename T> uint8_t* to_heap_msgpack_buffer(T const& value)
-{
-    using serialize::write;
-    msgpack::sbuffer buffer;
-    msgpack::pack(buffer, value);
-
-    // Initial serialization of the value. Creates a vector of bytes.
-    std::vector<char> buf(buffer.data(), buffer.data() + buffer.size());
-
-    // Serialize this byte vector, giving us a length prefixed buffer of bytes.
-    auto heap_buf = to_buffer(buf);
-
-    auto* ptr = (uint8_t*)aligned_alloc(64, heap_buf.size()); // NOLINT
-    std::copy(heap_buf.begin(), heap_buf.end(), ptr);
-    return ptr;
-}
-
 template <typename T> std::vector<T> many_from_buffer(std::vector<uint8_t> const& buffer)
 {
     const size_t num_elements = buffer.size() / sizeof(T);
@@ -558,7 +539,6 @@ inline void write(auto& buf, const msgpack_concepts::HasMsgPack auto& obj)
         (_write_msgpack_field(buf, obj_fields), ...);
     });
 }
-
 } // namespace serialize
 // clang-format off
 // NOLINTEND(cppcoreguidelines-pro-type-reinterpret-cast, cert-dcl58-cpp)
