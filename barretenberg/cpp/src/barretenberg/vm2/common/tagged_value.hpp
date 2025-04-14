@@ -12,13 +12,13 @@
 namespace bb::avm2 {
 
 enum class ValueTag {
-    FF,
-    U1,
-    U8,
-    U16,
-    U32,
-    U64,
-    U128,
+    FF = 0,
+    U1 = 1,
+    U8 = 2,
+    U16 = 3,
+    U32 = 4,
+    U64 = 5,
+    U128 = 6,
     MAX = U128,
 };
 
