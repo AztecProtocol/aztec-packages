@@ -52,20 +52,26 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
   ) {
     super();
     const { p2pIp, p2pPort, bootstrapNodes } = config;
+    let { p2pBroadcastPort } = config;
+
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
     this.versions = setAztecEnrKey(this.enr, config);
 
+    if (!p2pBroadcastPort) {
+      p2pBroadcastPort = p2pPort;
+    }
+
     const bindAddrs: any = {
       ip4: multiaddr(convertToMultiaddr(config.listenAddress, p2pPort, 'udp')),
     };
 
     if (p2pIp) {
-      const multiAddrTcp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'tcp')}/p2p/${peerId.toString()}`);
+      const multiAddrTcp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pBroadcastPort, 'tcp')}/p2p/${peerId.toString()}`);
       // if no udp announce address is provided, use the tcp announce address
-      const multiAddrUdp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pPort, 'udp')}/p2p/${peerId.toString()}`);
+      const multiAddrUdp = multiaddr(`${convertToMultiaddr(p2pIp!, p2pBroadcastPort, 'udp')}/p2p/${peerId.toString()}`);
 
       // set location multiaddr in ENR record
       this.enr.setLocationMultiaddr(multiAddrUdp);
@@ -113,7 +119,8 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private onMultiaddrUpdated(m: Multiaddr) {
     // We want to update our tcp port to match the udp port
-    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pPort, 'tcp'));
+    // p2pBroadcastPort is optional on config, however it is set to default within the p2p client factory
+    const multiAddrTcp = multiaddr(convertToMultiaddr(m.nodeAddress().address, this.config.p2pBroadcastPort!, 'tcp'));
     this.enr.setLocationMultiaddr(multiAddrTcp);
     this.logger.info('Multiaddr updated', { multiaddr: multiAddrTcp.toString() });
   }

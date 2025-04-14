@@ -54,7 +54,7 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   p2pPort: number;
 
   /**
-   * The port to broadcast the P2P service on.
+   * The port to broadcast the P2P service on (included in the node's ENR).
    */
   p2pBroadcastPort?: number;
 
@@ -229,7 +229,7 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   },
   p2pBroadcastPort: {
     env: 'P2P_BROADCAST_PORT',
-    description: `The port to broadcast the P2P service on. Defaults to P2P_PORT.`,
+    description: `The port to broadcast the P2P service on (included in the node's ENR). Defaults to P2P_PORT.`,
   },
   p2pIp: {
     env: 'P2P_IP',

@@ -181,7 +181,7 @@ export class LibP2PService<T extends P2PClientType = P2PClientType.Full> extends
     logger = createLogger('p2p:libp2p_service'),
   ) {
     const { p2pPort, maxPeerCount, listenAddress } = config;
-    const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort, 'tcp');
+    const bindAddrTcp = convertToMultiaddr(listenAddress, p2pPort!, 'tcp');
 
     const datastore = new AztecDatastore(store);
 
