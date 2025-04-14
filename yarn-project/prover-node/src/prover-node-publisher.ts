@@ -1,11 +1,11 @@
-import { AGGREGATION_OBJECT_LENGTH, AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
+import { AZTEC_MAX_EPOCH_DURATION } from '@aztec/constants';
 import type { L1TxUtils, RollupContract } from '@aztec/ethereum';
 import { makeTuple } from '@aztec/foundation/array';
-import { areArraysEqual, times } from '@aztec/foundation/collection';
+import { areArraysEqual } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { type Tuple, serializeToBuffer } from '@aztec/foundation/serialize';
+import type { Tuple } from '@aztec/foundation/serialize';
 import { InterruptibleSleep } from '@aztec/foundation/sleep';
 import { Timer } from '@aztec/foundation/timer';
 import { RollupAbi } from '@aztec/l1-artifacts';
@@ -97,7 +97,6 @@ export class ProverNodePublisher {
     const ctx = { epochNumber, fromBlock, toBlock };
     if (!this.interrupted) {
       const timer = new Timer();
-
       // Validate epoch proof range and hashes are correct before submitting
       await this.validateEpochProofSubmission(args);
 
@@ -146,7 +145,7 @@ export class ProverNodePublisher {
     publicInputs: RootRollupPublicInputs;
     proof: Proof;
   }) {
-    const { fromBlock, toBlock, publicInputs, proof } = args;
+    const { fromBlock, toBlock, publicInputs } = args;
 
     // Check that the block numbers match the expected epoch to be proven
     const { pendingBlockNumber: pending, provenBlockNumber: proven } = await this.rollupContract.getTips();
@@ -186,10 +185,7 @@ export class ProverNodePublisher {
 
     // Compare the public inputs computed by the contract with the ones injected
     const rollupPublicInputs = await this.rollupContract.getEpochProofPublicInputs(this.getSubmitEpochProofArgs(args));
-    const aggregationObject = proof.isEmpty()
-      ? times(AGGREGATION_OBJECT_LENGTH, Fr.zero)
-      : proof.extractAggregationObject();
-    const argsPublicInputs = [...publicInputs.toFields(), ...aggregationObject];
+    const argsPublicInputs = [...publicInputs.toFields()];
 
     if (!areArraysEqual(rollupPublicInputs.map(Fr.fromHexString), argsPublicInputs, (a, b) => a.equals(b))) {
       const fmt = (inputs: Fr[] | readonly string[]) => inputs.map(x => x.toString()).join(', ');
@@ -215,7 +211,6 @@ export class ProverNodePublisher {
         args: argsArray[2],
         fees: argsArray[3],
         blobPublicInputs: argsArray[4],
-        aggregationObject: argsArray[5],
         proof: proofHex,
       },
     ] as const;
@@ -278,7 +273,6 @@ export class ProverNodePublisher {
         .filter((_, i) => i < args.toBlock - args.fromBlock + 1)
         .map(b => b.toString())
         .join(``)}`,
-      `0x${serializeToBuffer(args.proof.extractAggregationObject()).toString('hex')}`,
     ] as const;
   }
 

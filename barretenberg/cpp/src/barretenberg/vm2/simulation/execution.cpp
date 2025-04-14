@@ -15,7 +15,11 @@ namespace bb::avm2::simulation {
 
 void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddress b_addr, MemoryAddress dst_addr)
 {
-    alu.add(context, a_addr, b_addr, dst_addr);
+    auto& memory = context.get_memory();
+    ValueRefAndTag a = memory.get(a_addr);
+    ValueRefAndTag b = memory.get(b_addr);
+    FF c = alu.add(a, b);
+    memory.set(dst_addr, c, a.tag);
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
@@ -115,7 +119,7 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
             // Go from a wire instruction to an execution opcode.
             const WireInstructionSpec& wire_spec = instruction_info_db.get(instruction.opcode);
             context.set_next_pc(pc + wire_spec.size_in_bytes);
-            info("@", pc, " ", instruction.to_string());
+            debug("@", pc, " ", instruction.to_string());
             ExecutionOpCode opcode = wire_spec.exec_opcode;
             ex_event.opcode = opcode;
 

@@ -1,5 +1,4 @@
-| src/core/Rollup.sol:Rollup contract |                 |          |          |          |         |
-|-------------------------------------|-----------------|----------|----------|----------|---------|
+| src/core/Rollup.sol:Rollup Contract |                 |          |          |          |         |
 | Deployment Cost                     | Deployment Size |          |          |          |         |
 | 8154934                             | 39929           |          |          |          |         |
 | Function Name                       | min             | avg      | median   | max      | # calls |

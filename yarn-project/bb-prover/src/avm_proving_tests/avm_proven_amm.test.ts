@@ -15,7 +15,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   jest.setTimeout(TIMEOUT);
   const admin = AztecAddress.fromNumber(42);
   const liquidityProvider = AztecAddress.fromNumber(111);
-  const otherLiqduidityProvider = AztecAddress.fromNumber(222);
+  const otherLiquidityProvider = AztecAddress.fromNumber(222);
   const swapper = AztecAddress.fromNumber(333);
 
   let token0: ContractInstanceWithAddress;
@@ -25,7 +25,7 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
   let tester: AvmProvingTester;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly*/ true);
   });
 
   // TODO(dbanks12): add tester support for authwit and finish implementing this test
@@ -52,8 +52,8 @@ describe('AVM Witgen & Circuit apps tests: AMM', () => {
 
     await mint(/*to=*/ liquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
     await mint(/*to=*/ liquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
-    await mint(/*to=*/ otherLiqduidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
-    await mint(/*to=*/ otherLiqduidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
+    await mint(/*to=*/ otherLiquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
+    await mint(/*to=*/ otherLiquidityProvider, /*amount=*/ INITIAL_TOKEN_BALANCE, token1);
     await mint(/*to=*/ swapper, /*amount=*/ INITIAL_TOKEN_BALANCE, token0);
 
     //const ammBalancesBefore = await getAmmBalances();

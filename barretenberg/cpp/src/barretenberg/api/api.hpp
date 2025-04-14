@@ -59,6 +59,7 @@ class API {
                        const std::filesystem::path& output_dir) = 0;
 
     virtual bool verify(const Flags& flags,
+                        const std::filesystem::path& public_inputs_path,
                         const std::filesystem::path& proof_path,
                         const std::filesystem::path& vk_path) = 0;
 

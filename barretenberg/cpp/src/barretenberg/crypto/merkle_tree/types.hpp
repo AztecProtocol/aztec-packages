@@ -43,12 +43,12 @@ inline bool is_empty(const fr& leaf)
     return leaf == fr::zero();
 }
 
-template <typename LeafType> bool requires_preimage_for_key()
+template <typename LeafType> constexpr bool requires_preimage_for_key()
 {
     return true;
 }
 
-template <> inline bool requires_preimage_for_key<fr>()
+template <> constexpr bool requires_preimage_for_key<fr>()
 {
     return false;
 }

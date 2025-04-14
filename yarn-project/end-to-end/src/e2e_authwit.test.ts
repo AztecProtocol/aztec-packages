@@ -27,7 +27,7 @@ describe('e2e_authwit_tests', () => {
 
     const nodeInfo = await wallets[0].getNodeInfo();
     chainId = new Fr(nodeInfo.l1ChainId);
-    version = new Fr(nodeInfo.protocolVersion);
+    version = new Fr(nodeInfo.rollupVersion);
 
     auth = await AuthWitTestContract.deploy(wallets[0]).send().deployed();
   });

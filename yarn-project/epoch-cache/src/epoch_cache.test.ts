@@ -1,6 +1,7 @@
 import type { RollupContract } from '@aztec/ethereum';
 import { times } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 
 import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
@@ -38,12 +39,13 @@ describe('EpochCache', () => {
     jest.useFakeTimers();
 
     // Initialize with test constants
-    const testConstants = {
+    const testConstants: L1RollupConstants = {
       l1StartBlock: 0n,
       l1GenesisTime,
       slotDuration: SLOT_DURATION,
       ethereumSlotDuration: SLOT_DURATION,
       epochDuration: EPOCH_DURATION,
+      proofSubmissionWindow: EPOCH_DURATION * 2,
     };
 
     epochCache = new EpochCache(rollupContract, 0n, testCommittee, 0n, testConstants);

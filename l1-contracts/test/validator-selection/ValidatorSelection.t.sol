@@ -22,7 +22,7 @@ import {ProposeArgs, OracleInput, ProposeLib} from "@aztec/core/libraries/rollup
 import {TestConstants} from "../harnesses/TestConstants.sol";
 import {CheatDepositArgs} from "@aztec/core/interfaces/IRollup.sol";
 
-import {Slot, Epoch, EpochLib} from "@aztec/core/libraries/TimeLib.sol";
+import {Slot, Epoch, EpochLib, Timestamp} from "@aztec/core/libraries/TimeLib.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 import {SlashFactory} from "@aztec/periphery/SlashFactory.sol";
 import {Slasher, IPayload} from "@aztec/core/staking/Slasher.sol";
@@ -103,10 +103,10 @@ contract ValidatorSelectionTest is DecoderBase {
     }
 
     testERC20 = new TestERC20("test", "TEST", address(this));
-    Registry registry = new Registry(address(this));
-    rewardDistributor = new RewardDistributor(testERC20, registry, address(this));
+    Registry registry = new Registry(address(this), testERC20);
+    rewardDistributor = RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup({
-      _fpcJuicePortal: new MockFeeJuicePortal(),
+      _feeAsset: testERC20,
       _rewardDistributor: rewardDistributor,
       _stakingAsset: testERC20,
       _governance: address(this),
@@ -274,9 +274,15 @@ contract ValidatorSelectionTest is DecoderBase {
 
     bytes32[] memory txHashes = new bytes32[](0);
 
-    // We update the header to have 0 as the base fee
-    assembly {
-      mstore(add(add(header, 0x20), 0x0228), 0)
+    {
+      uint256 version = rollup.getVersion();
+      uint256 manaBaseFee = rollup.getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true);
+      bytes32 inHash = inbox.getRoot(full.block.decodedHeader.globalVariables.blockNumber);
+      assembly {
+        mstore(add(add(header, 0x20), 0x0064), inHash)
+        mstore(add(add(header, 0x20), 0x0154), version)
+        mstore(add(add(header, 0x20), 0x0228), manaBaseFee)
+      }
     }
 
     ProposeArgs memory args = ProposeArgs({
@@ -383,10 +389,11 @@ contract ValidatorSelectionTest is DecoderBase {
   }
 
   function _populateInbox(address _sender, bytes32 _recipient, bytes32[] memory _contents) internal {
+    uint256 version = rollup.getVersion();
     for (uint256 i = 0; i < _contents.length; i++) {
       vm.prank(_sender);
       inbox.sendL2Message(
-        DataStructures.L2Actor({actor: _recipient, version: 1}), _contents[i], bytes32(0)
+        DataStructures.L2Actor({actor: _recipient, version: version}), _contents[i], bytes32(0)
       );
     }
   }

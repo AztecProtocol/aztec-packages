@@ -1,13 +1,14 @@
 import type { IDBPDatabase, IDBPObjectStore } from 'idb';
+import { hash } from 'ohash';
 
-import type { Key, Range } from '../interfaces/common.js';
+import type { Key, Range, Value } from '../interfaces/common.js';
 import type { AztecAsyncMap } from '../interfaces/map.js';
 import type { AztecIDBSchema } from './store.js';
 
 /**
  * A map backed by IndexedDB.
  */
-export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMap<K, V> {
+export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecAsyncMap<K, V> {
   protected name: string;
   protected container: string;
 
@@ -41,6 +42,7 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMap<K, V> 
   async set(key: K, val: V): Promise<void> {
     await this.db.put({
       value: val,
+      hash: hash(val),
       container: this.container,
       key: this.normalizeKey(key),
       keyCount: 1,

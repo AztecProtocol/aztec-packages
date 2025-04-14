@@ -3,21 +3,21 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
+import type { PublicPersistableStateManager } from '../../state_manager/state_manager.js';
 import type { AvmContext } from '../avm_context.js';
 import { Field } from '../avm_memory_types.js';
 import { StaticCallAlterationError } from '../errors.js';
 import { initContext, initExecutionEnvironment } from '../fixtures/index.js';
-import type { AvmPersistableStateManager } from '../journal/journal.js';
 import { SLoad, SStore } from './storage.js';
 
 describe('Storage Instructions', () => {
   let context: AvmContext;
-  let persistableState: MockProxy<AvmPersistableStateManager>;
+  let persistableState: MockProxy<PublicPersistableStateManager>;
   let address: AztecAddress;
 
   beforeEach(async () => {
     address = await AztecAddress.random();
-    persistableState = mock<AvmPersistableStateManager>();
+    persistableState = mock<PublicPersistableStateManager>();
     context = initContext({
       persistableState: persistableState,
       env: initExecutionEnvironment({ address }),

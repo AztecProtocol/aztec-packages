@@ -1,5 +1,5 @@
 import { mockTx, mockTxForRollup } from '@aztec/stdlib/testing';
-import type { AnyTx } from '@aztec/stdlib/tx';
+import { type AnyTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX, TX_ERROR_EXISTING_NULLIFIER } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
@@ -23,15 +23,24 @@ describe('DoubleSpendTxValidator', () => {
   });
 
   it('rejects duplicates in non revertible data', async () => {
-    const badTx = await mockTxForRollup();
-    badTx.data.forRollup!.end.nullifiers[1] = badTx.data.forRollup!.end.nullifiers[0];
-    await expectInvalid(badTx, 'Duplicate nullifier in tx');
+    const badTx = await mockTx(1, {
+      numberOfNonRevertiblePublicCallRequests: 1,
+      numberOfRevertiblePublicCallRequests: 0,
+    });
+    badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[1] =
+      badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
+    await expectInvalid(badTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX);
   });
 
   it('rejects duplicates in revertible data', async () => {
-    const badTx = await mockTxForRollup();
-    badTx.data.forRollup!.end.nullifiers[1] = badTx.data.forRollup!.end.nullifiers[0];
-    await expectInvalid(badTx, 'Duplicate nullifier in tx');
+    const badTx = await mockTx(1, {
+      numberOfNonRevertiblePublicCallRequests: 0,
+      numberOfRevertiblePublicCallRequests: 1,
+      numberOfRevertibleNullifiers: 1,
+    });
+    badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[1] =
+      badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0];
+    await expectInvalid(badTx, TX_ERROR_DUPLICATE_NULLIFIER_IN_TX);
   });
 
   it('rejects duplicates against history', async () => {
@@ -40,18 +49,11 @@ describe('DoubleSpendTxValidator', () => {
       numberOfRevertiblePublicCallRequests: 0,
     });
     nullifierSource.nullifiersExist.mockResolvedValue([true]);
-    await expectInvalid(badTx, 'Existing nullifier');
+    await expectInvalid(badTx, TX_ERROR_EXISTING_NULLIFIER);
   });
 
-  // If the tx has public calls, all merkle insertions will be performed by the AVM,
-  // and the AVM will catch any duplicates. So we don't need to check during tx validation.
-  it('accepts duplicates if the tx has public calls', async () => {
-    const badTx = await mockTx(1, {
-      numberOfNonRevertiblePublicCallRequests: 1,
-      numberOfRevertiblePublicCallRequests: 1,
-    });
-    badTx.data.forPublic!.revertibleAccumulatedData.nullifiers[0] =
-      badTx.data.forPublic!.nonRevertibleAccumulatedData.nullifiers[0];
-    await expectValid(badTx);
+  it('accepts txs with no duplicates', async () => {
+    const tx = await mockTxForRollup();
+    await expectValid(tx);
   });
 });

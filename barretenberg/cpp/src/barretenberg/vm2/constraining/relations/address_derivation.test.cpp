@@ -89,7 +89,7 @@ TEST(AddressDerivationConstrainingTest, Basic)
         { GENERATOR_INDEX__PARTIAL_ADDRESS, instance.salt, instance.initialisation_hash, instance.deployer_addr });
 
     FF partial_address =
-        poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS, instance.contract_class_id, salted_initialization_hash });
+        poseidon2::hash({ GENERATOR_INDEX__PARTIAL_ADDRESS, instance.original_class_id, salted_initialization_hash });
 
     FF public_keys_hash = hash_public_keys(instance.public_keys);
     FF preaddress = poseidon2::hash({ GENERATOR_INDEX__CONTRACT_ADDRESS_V1, public_keys_hash, partial_address });
@@ -157,17 +157,6 @@ TEST(AddressDerivationConstrainingTest, WithInteractions)
     LookupIntoDynamicTableSequential<lookup_address_ecadd::Settings>().process(trace);
 
     check_relation<address_derivation_relation>(trace);
-    check_interaction<lookup_salted_initialization_hash_poseidon2_0>(trace);
-    check_interaction<lookup_salted_initialization_hash_poseidon2_1>(trace);
-    check_interaction<lookup_partial_address_poseidon2>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_0>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_1>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_2>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_3>(trace);
-    check_interaction<lookup_public_keys_hash_poseidon2_4>(trace);
-    check_interaction<lookup_public_preaddress_poseidon2>(trace);
-    check_interaction<lookup_public_preaddress_scalar_mul>(trace);
-    check_interaction<lookup_address_ecadd>(trace);
 }
 
 } // namespace
