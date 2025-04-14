@@ -50,7 +50,6 @@ export async function proveClientIVC(
   };
   const encoded = new Encoder().pack(bytecodes.map(stepToStruct));
   const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
-  // serializePrivateExecutionSteps
   await fs.writeFile(ivcInputsPath, encoded);
 
   const provingResult = await executeBbClientIvcProof(
