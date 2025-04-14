@@ -17,10 +17,6 @@ while [ "$#" -gt 0 ]; do
       P2P_PORT="$2"
       shift 2
       ;;
-    --p2p.p2pBroadcastPort)
-      P2P_BROADCAST_PORT="$2"
-      shift 2
-      ;;
     -a | --anvil-port)
       # Override default port exposed on container.
       ANVIL_PORT="$2"
@@ -102,13 +98,6 @@ case ${1:-} in
       P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
 
       PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
-
-      # If a broadcast port is provided, add it to the list of ports to expose.
-      if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
-        P2P_TCP_BROADCAST_MAPPING="$P2P_BROADCAST_PORT:$P2P_BROADCAST_PORT"
-        P2P_UDP_BROADCAST_MAPPING="${P2P_TCP_BROADCAST_MAPPING}/udp"
-        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_BROADCAST_MAPPING $P2P_UDP_BROADCAST_MAPPING"
-      fi
 
       exec $(dirname $0)/.aztec-run aztec-start \
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
