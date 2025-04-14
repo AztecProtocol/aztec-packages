@@ -40,17 +40,23 @@ export async function proveClientIVC(
   bytecodes: string[],
   logger: Logger,
 ): Promise<ClientIvcProof> {
-  await fs.writeFile(
-    path.join(bbWorkingDirectory, 'acir.msgpack'),
-    new Encoder().encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
-  );
+  const stepToStruct = (bytecode: string, index: number) => {
+    return {
+      bytecode: Buffer.from(bytecode, 'base64'),
+      witness: witnessStack[index],
+      vk: Buffer.from([]),
+      functionName: `unknown_${index}`,
+    };
+  };
+  const encoded = new Encoder().pack(bytecodes.map(stepToStruct));
+  const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
+  // serializePrivateExecutionSteps
+  await fs.writeFile(ivcInputsPath, encoded);
 
-  await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
   const provingResult = await executeBbClientIvcProof(
     bbBinaryPath,
     bbWorkingDirectory,
-    path.join(bbWorkingDirectory, 'acir.msgpack'),
-    path.join(bbWorkingDirectory, 'witnesses.msgpack'),
+    ivcInputsPath,
     logger.info,
     true,
   );
