@@ -3,7 +3,7 @@
 #include <string>
 
 // Tool to make header only libraries (i.e. CLI11 and msgpack, though it has a bundled copy)
-// not uses exeptions with minimally invaslive changes
+// not use exceptions with minimally invaslive changes
 
 #ifdef BB_NO_EXCEPTIONS
 struct __AbortStream {
