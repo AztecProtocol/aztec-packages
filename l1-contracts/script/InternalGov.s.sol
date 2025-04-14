@@ -20,6 +20,7 @@ import {StakingAssetHandler} from "../src/mock/StakingAssetHandler.sol";
 import {FeeAssetHandler} from "../src/mock/FeeAssetHandler.sol";
 import {Timestamp, Slot} from "@aztec/core/libraries/TimeLib.sol";
 import {IStaking} from "@aztec/core/interfaces/IStaking.sol";
+import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
 
 contract GovScript is Test {
   using ProposalLib for DataStructures.Proposal;
@@ -173,6 +174,26 @@ contract GovScript is Test {
   /* -------------------------------------------------------------------------- */
   /*                          MUTATING FUNCTIONS START HERE                     */
   /* -------------------------------------------------------------------------- */
+
+  function fundRewardDistributor() public {
+    RewardDistributor rewardDistributor =
+      RewardDistributor(address(registry.getRewardDistributor()));
+
+    TestERC20 asset = TestERC20(address(rewardDistributor.ASSET()));
+    uint256 blockReward = rewardDistributor.BLOCK_REWARD();
+
+    emit log_named_decimal_uint(
+      "Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18
+    );
+
+    vm.startBroadcast(ME);
+    asset.mint(address(rewardDistributor), 200000 * blockReward);
+    vm.stopBroadcast();
+
+    emit log_named_decimal_uint(
+      "Reward distributor balance", asset.balanceOf(address(rewardDistributor)), 18
+    );
+  }
 
   // This should only be called if we figure that we are minting too little fee asset
   function updateFeeHandlerConfig() public {
