@@ -1,0 +1,7 @@
+AddTest
+├── when validator is not in the set
+│   ├── it returns true
+│   ├── it increases the length
+│   └── it creates a checkpoint
+└── when validator is already in the set
+    └── it returns false
