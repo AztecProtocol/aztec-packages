@@ -133,9 +133,7 @@ pub global PUBLIC_LOG_DATA_SIZE_IN_FIELDS: u32 = 13;
 pub global PUBLIC_LOG_SIZE_IN_FIELDS: u32 = PUBLIC_LOG_DATA_SIZE_IN_FIELDS + 1; // This includes the contract address, since it is always emitted with a public log
 pub global PRIVATE_LOG_SIZE_IN_FIELDS: u32 = 18; // This is currently affected by the size of the log overhead defined in aztec-nr/aztec/src/messages/payload.nr.
 pub global AZTEC_MAX_EPOCH_DURATION: u32 = 48;
-// The following genesis values are taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
-pub global GENESIS_BLOCK_HASH: Field =
-    0x2da55666630fdf8594065c377958c827dc1c130dac91f17c6699b53dce60ef75;
+// The genesis value is taken from world_state.test.cpp > WorldStateTest.GetInitialTreeInfoForAllTrees
 pub global GENESIS_ARCHIVE_ROOT: Field =
     0x0237797d6a2c04d20d4fa06b74482bd970ccd51a43d9b05b57e9b91fa1ae1cae;
 // Last 4 bytes of the Poseidon2 hash of 'public_dispatch(Field)'.
