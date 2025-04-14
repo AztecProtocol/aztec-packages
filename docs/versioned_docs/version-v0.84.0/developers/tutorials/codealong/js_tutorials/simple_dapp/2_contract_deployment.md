@@ -27,7 +27,7 @@ compressed_string = {git="https://github.com/AztecProtocol/aztec-packages/", tag
 
 Last, copy-paste the code from the `Token` contract into `contracts/token/main.nr`:
 
-```rust title="token_all" showLineNumbers 
+```rust title="token_all" showLineNumbers
 mod types;
 mod test;
 
@@ -48,7 +48,7 @@ pub contract Token {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        encrypted_logs::log_assembly_strategies::default_aes128::{
+        messages::logs::{
             event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },

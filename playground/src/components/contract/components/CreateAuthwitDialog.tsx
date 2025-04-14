@@ -1,12 +1,6 @@
 import DialogTitle from '@mui/material/DialogTitle';
 import Dialog from '@mui/material/Dialog';
-import {
-  type AbiType,
-  AztecAddress,
-  Contract,
-  ContractFunctionInteraction,
-  type SendMethodOptions,
-} from '@aztec/aztec.js';
+import { AztecAddress, Contract, ContractFunctionInteraction, type SendMethodOptions } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import FormControl from '@mui/material/FormControl';
@@ -22,12 +16,7 @@ import { InfoText } from '../../common/InfoText';
 import { FeePaymentSelector } from '../../common/FeePaymentSelector';
 import { formatFrAsString } from '../../../utils/conversion';
 import { css } from '@emotion/react';
-
-const aztecAddressTypeLike: AbiType = {
-  kind: 'struct',
-  path: 'address::AztecAddress',
-  fields: [{ name: 'inner', type: { kind: 'field' } }],
-};
+import { AztecAddressTypeLike } from '../../../utils/types';
 
 const fixedText = css({
   fontSize: '0.8rem',
@@ -107,9 +96,10 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
       <div css={dialogBody}>
         <FormGroup css={form}>
           <FunctionParameter
+            required
             parameter={{
               name: 'caller',
-              type: aztecAddressTypeLike,
+              type: AztecAddressTypeLike,
               visibility: 'private',
             }}
             onParameterChange={setCaller}
@@ -119,7 +109,8 @@ export function CreateAuthwitDialog({ open, contract, fnName, args, isPrivate, o
             <Typography css={authwitData}>{caller !== '' ? formatFrAsString(caller) : '<caller>'}</Typography>
             <Typography css={fixedText}>to call</Typography>
             <Typography css={authwitData}>
-              {fnName}({args.join(',')})
+              {fnName}(
+              {args.map(arg => (arg.toString().length > 31 ? formatFrAsString(arg.toString()) : arg)).join(', ')})
             </Typography>
             <Typography css={fixedText}>on contract</Typography>
             <Typography css={authwitData}>

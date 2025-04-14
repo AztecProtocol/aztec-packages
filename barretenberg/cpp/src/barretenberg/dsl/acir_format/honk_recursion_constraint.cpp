@@ -17,9 +17,9 @@ namespace acir_format {
 
 using namespace bb;
 using namespace bb::stdlib::recursion::honk;
-using field_ct = stdlib::field_t<Builder>;
-using bn254 = stdlib::bn254<Builder>;
-using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
+template <typename Builder> using field_ct = stdlib::field_t<Builder>;
+template <typename Builder> using bn254 = stdlib::bn254<Builder>;
+template <typename Builder> using aggregation_state_ct = bb::stdlib::recursion::aggregation_state<Builder>;
 
 namespace {
 /**
@@ -35,15 +35,18 @@ namespace {
  * @param proof_fields
  */
 template <typename Flavor>
-void create_dummy_vkey_and_proof(Builder& builder,
+void create_dummy_vkey_and_proof(typename Flavor::CircuitBuilder& builder,
                                  size_t proof_size,
                                  size_t public_inputs_size,
-                                 const std::vector<field_ct>& key_fields,
-                                 const std::vector<field_ct>& proof_fields)
+                                 const std::vector<field_ct<typename Flavor::CircuitBuilder>>& key_fields,
+                                 const std::vector<field_ct<typename Flavor::CircuitBuilder>>& proof_fields)
+    requires IsRecursiveFlavor<Flavor>
 {
-    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
+    using Builder = typename Flavor::CircuitBuilder;
+    using NativeFlavor = typename Flavor::NativeFlavor;
+    using AggregationObject = aggregation_state_ct<Builder>;
     // Set vkey->circuit_size correctly based on the proof size
-    ASSERT(proof_size == Flavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
+    ASSERT(proof_size == NativeFlavor::PROOF_LENGTH_WITHOUT_PUB_INPUTS);
     // Note: this computation should always result in log_circuit_size = CONST_PROOF_SIZE_LOG_N
     auto log_circuit_size = CONST_PROOF_SIZE_LOG_N;
     // First key field is circuit size
@@ -51,7 +54,7 @@ void create_dummy_vkey_and_proof(Builder& builder,
     // Second key field is number of public inputs
     builder.assert_equal(builder.add_variable(public_inputs_size), key_fields[1].witness_index);
     // Third key field is the pub inputs offset
-    builder.assert_equal(builder.add_variable(Flavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
+    builder.assert_equal(builder.add_variable(NativeFlavor::has_zero_row ? 1 : 0), key_fields[2].witness_index);
     // Fourth key field is the whether the proof contains an aggregation object.
     builder.assert_equal(builder.add_variable(1), key_fields[3].witness_index);
     uint32_t offset = 4;
@@ -206,12 +209,14 @@ void create_dummy_vkey_and_proof(Builder& builder,
  */
 
 template <typename Flavor>
-HonkRecursionConstraintOutput create_honk_recursion_constraints(
-    Builder& builder,
+HonkRecursionConstraintOutput<typename Flavor::CircuitBuilder> create_honk_recursion_constraints(
+    typename Flavor::CircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
+    stdlib::recursion::aggregation_state<typename Flavor::CircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments)
+    requires IsRecursiveFlavor<Flavor>
 {
+    using Builder = typename Flavor::CircuitBuilder;
     using RecursiveVerificationKey = Flavor::VerificationKey;
     using RecursiveVerifier = bb::stdlib::recursion::honk::UltraRecursiveVerifier_<Flavor>;
 
@@ -221,21 +226,21 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     // Construct an in-circuit representation of the verification key.
     // For now, the v-key is a circuit constant and is fixed for the circuit.
     // (We may need a separate recursion opcode for this to vary, or add more config witnesses to this opcode)
-    std::vector<field_ct> key_fields;
+    std::vector<field_ct<Builder>> key_fields;
     key_fields.reserve(input.key.size());
     for (const auto& idx : input.key) {
-        auto field = field_ct::from_witness_index(&builder, idx);
+        auto field = field_ct<Builder>::from_witness_index(&builder, idx);
         key_fields.emplace_back(field);
     }
 
-    std::vector<field_ct> proof_fields;
+    std::vector<field_ct<Builder>> proof_fields;
 
     // Create witness indices for the proof with public inputs reinserted
     std::vector<uint32_t> proof_indices =
         ProofSurgeon::create_indices_for_reconstructed_proof(input.proof, input.public_inputs);
     proof_fields.reserve(proof_indices.size());
     for (const auto& idx : proof_indices) {
-        auto field = field_ct::from_witness_index(&builder, idx);
+        auto field = field_ct<Builder>::from_witness_index(&builder, idx);
         proof_fields.emplace_back(field);
     }
 
@@ -251,14 +256,14 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
         if constexpr (HasIPAAccumulator<Flavor>) {
             total_num_public_inputs += bb::IPA_CLAIM_SIZE;
         }
-        create_dummy_vkey_and_proof<typename Flavor::NativeFlavor>(
+        create_dummy_vkey_and_proof<Flavor>(
             builder, size_of_proof_with_no_pub_inputs, total_num_public_inputs, key_fields, proof_fields);
     }
 
     // Recursively verify the proof
     auto vkey = std::make_shared<RecursiveVerificationKey>(builder, key_fields);
     RecursiveVerifier verifier(&builder, vkey);
-    HonkRecursionConstraintOutput output;
+    HonkRecursionConstraintOutput<Builder> output;
     UltraRecursiveVerifierOutput<Flavor> verifier_output = verifier.verify_proof(proof_fields, input_agg_obj);
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/996): investigate whether assert_equal on public inputs
     // is important, like what the plonk recursion constraint does.
@@ -272,16 +277,22 @@ HonkRecursionConstraintOutput create_honk_recursion_constraints(
     return output;
 }
 
-template HonkRecursionConstraintOutput create_honk_recursion_constraints<UltraRecursiveFlavor_<Builder>>(
-    Builder& builder,
+template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
+    UltraRecursiveFlavor_<UltraCircuitBuilder>>(UltraCircuitBuilder& builder,
+                                                const RecursionConstraint& input,
+                                                stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
+                                                bool has_valid_witness_assignments);
+
+template HonkRecursionConstraintOutput<UltraCircuitBuilder> create_honk_recursion_constraints<
+    UltraRollupRecursiveFlavor_<UltraCircuitBuilder>>(
+    UltraCircuitBuilder& builder,
     const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
+    stdlib::recursion::aggregation_state<UltraCircuitBuilder> input_agg_obj,
     bool has_valid_witness_assignments);
 
-template HonkRecursionConstraintOutput create_honk_recursion_constraints<UltraRollupRecursiveFlavor_<Builder>>(
-    Builder& builder,
-    const RecursionConstraint& input,
-    stdlib::recursion::aggregation_state<Builder> input_agg_obj,
-    bool has_valid_witness_assignments);
-
+template HonkRecursionConstraintOutput<MegaCircuitBuilder> create_honk_recursion_constraints<
+    UltraRecursiveFlavor_<MegaCircuitBuilder>>(MegaCircuitBuilder& builder,
+                                               const RecursionConstraint& input,
+                                               stdlib::recursion::aggregation_state<MegaCircuitBuilder> input_agg_obj,
+                                               bool has_valid_witness_assignments);
 } // namespace acir_format

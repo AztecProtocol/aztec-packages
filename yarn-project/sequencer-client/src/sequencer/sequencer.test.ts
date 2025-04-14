@@ -310,7 +310,7 @@ describe('sequencer', () => {
   it('does not build a block if it does not have enough time left in the slot', async () => {
     // Trick the sequencer into thinking that we are just too far into slot 1
     sequencer.setL1GenesisTime(
-      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initialTime + 1),
+      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initializeDeadline + 1),
     );
 
     const tx = await makeTx();
