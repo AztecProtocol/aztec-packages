@@ -69,6 +69,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   peerIdPrivateKey?: string;
 
   /**
+   * An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory.
+   */
+  peerIdPrivateKeyPath?: string;
+
+  /**
    * A list of bootstrap peers to connect to.
    */
   bootstrapNodes: string[];
@@ -227,6 +232,11 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   peerIdPrivateKey: {
     env: 'PEER_ID_PRIVATE_KEY',
     description: 'An optional peer id private key. If blank, will generate a random key.',
+  },
+  peerIdPrivateKeyPath: {
+    env: 'PEER_ID_PRIVATE_KEY_PATH',
+    description:
+      'An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.',
   },
   bootstrapNodes: {
     env: 'BOOTSTRAP_NODES',
@@ -388,7 +398,7 @@ export function getP2PDefaultConfig(): P2PConfig {
  */
 export type BootnodeConfig = Pick<
   P2PConfig,
-  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'bootstrapNodes' | 'listenAddress'
+  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'peerIdPrivateKeyPath' | 'bootstrapNodes' | 'listenAddress'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
@@ -399,6 +409,7 @@ const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'p2pPort',
   'listenAddress',
   'peerIdPrivateKey',
+  'peerIdPrivateKeyPath',
   'dataDirectory',
   'dataStoreMapSizeKB',
   'bootstrapNodes',

@@ -78,7 +78,7 @@ export class SequencerTimetable {
     return this.attestationPropagationTime + this.l1PublishingTime;
   }
 
-  public getValidatorReexecTimeEnd(secondsIntoSlot: number): number {
+  public getValidatorReexecTimeEnd(secondsIntoSlot?: number): number {
     // We need to leave for `afterBlockReexecTimeNeeded` seconds available.
     const validationTimeEnd = this.aztecSlotDuration - this.afterBlockReexecTimeNeeded;
     this.log.debug(`Validator re-execution time deadline is ${validationTimeEnd}`, {
