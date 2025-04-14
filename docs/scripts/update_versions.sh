@@ -22,7 +22,7 @@ REGULAR_VERSION=$(echo $VERSIONS | jq -r '.[] | select(contains("alpha-testnet")
 # Get the latest alpha version
 ALPHA_VERSION=$(echo $VERSIONS | jq -r '.[] | select(contains("alpha-testnet")) | .' | sort -V | tail -n1)
 
-# Filter versions.json to only keep the latest regular and alpha versions
+# Create json to only keep the latest regular and alpha versions
 NEW_VERSIONS=$(jq --null-input --arg regular "$REGULAR_VERSION" --arg alpha "$ALPHA_VERSION" '[ $regular, $alpha ]')
 
 # Write back to file
