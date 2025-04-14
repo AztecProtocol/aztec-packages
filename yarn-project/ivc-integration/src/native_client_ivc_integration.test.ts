@@ -3,12 +3,10 @@ import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
 import { promises as fs } from 'fs';
-import { Encoder } from 'msgpackr';
 import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-import vk from '../artifacts/keys/app_creator.vk.data.json';
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
 
@@ -28,28 +26,6 @@ describe('Client IVC Integration', () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
   });
 
-<<<<<<< HEAD
-  async function createClientIvcProof(witnessStack: Uint8Array[], bytecodes: string[]): Promise<ClientIvcProof> {
-    const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
-    const ivcInputs = witnessStack.map((witness, i) => ({
-      functionName: '',
-      bytecode: Buffer.from(bytecodes[i], 'base64'),
-      witness,
-      vk: Buffer.from([]),
-    }));
-    await fs.writeFile(ivcInputsPath, new Encoder().pack(ivcInputs));
-
-    const provingResult = await executeBbClientIvcProof(bbBinaryPath, bbWorkingDirectory, ivcInputsPath, logger.info);
-
-    if (provingResult.status === BB_RESULT.FAILURE) {
-      throw new Error(provingResult.reason);
-    }
-
-    return readFromOutputDirectory(bbWorkingDirectory);
-  }
-
-=======
->>>>>>> origin/ad/ivc-no-make-verifier-keys
   // This test will verify a client IVC proof of a simple tx:
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
