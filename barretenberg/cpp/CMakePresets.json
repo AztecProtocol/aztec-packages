@@ -18,8 +18,7 @@
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       },
       "cacheVariables": {
-        "TARGET_ARCH": "skylake",
-        "OMP_MULTITHREADING": "ON"
+        "TARGET_ARCH": "skylake"
       }
     },
     {
@@ -182,8 +181,7 @@
       "inherits": "clang16",
       "binaryDir": "build-wasm-tracy",
       "cacheVariables": {
-        "ENABLE_TRACY": "ON",
-        "OMP_MULTITHREADING": "OFF"
+        "ENABLE_TRACY": "ON"
       }
     },
     {
@@ -431,8 +429,7 @@
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
         "MULTITHREADING": "OFF",
-        "DISABLE_AZTEC_VM": "ON",
-        "OMP_MULTITHREADING": "OFF"
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -445,8 +442,7 @@
         "CMAKE_BUILD_TYPE": "Release"
       },
       "cacheVariables": {
-        "MULTITHREADING": "ON",
-        "OMP_MULTITHREADING": "OFF"
+        "MULTITHREADING": "ON"
       }
     },
     {
@@ -459,8 +455,7 @@
         "CMAKE_BUILD_TYPE": "Debug"
       },
       "cacheVariables": {
-        "MULTITHREADING": "ON",
-        "OMP_MULTITHREADING": "OFF"
+        "MULTITHREADING": "ON"
       }
     },
     {

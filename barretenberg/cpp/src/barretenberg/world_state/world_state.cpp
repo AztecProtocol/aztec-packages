@@ -769,9 +769,7 @@ bool WorldState::set_finalised_block(const block_number_t& blockNumber)
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     std::array<Response, NUM_TREES> local;
     std::mutex mtx;
-    for (auto& t : fork->_trees) {
-        auto& id = t.first;
-        auto& tree = t.second;
+    for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, blockNumber, id, &mtx](auto&& wrapper) {
                 wrapper.tree->finalise_block(blockNumber, [&signal, &local, &mtx, id](Response& resp) {
@@ -1043,9 +1041,7 @@ void WorldState::checkpoint(const uint64_t& forkId)
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     std::array<Response, NUM_TREES> local;
     std::mutex mtx;
-    for (auto& t : fork->_trees) {
-        const auto& id = t.first;
-        auto& tree = t.second;
+    for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, id, &mtx](auto&& wrapper) {
                 wrapper.tree->checkpoint([&signal, &local, &mtx, id](Response& resp) {
@@ -1072,9 +1068,7 @@ void WorldState::commit_checkpoint(const uint64_t& forkId)
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     std::array<Response, NUM_TREES> local;
     std::mutex mtx;
-    for (auto& t : fork->_trees) {
-        const auto& id = t.first;
-        auto& tree = t.second;
+    for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, id, &mtx](auto&& wrapper) {
                 wrapper.tree->commit_checkpoint([&signal, &local, &mtx, id](Response& resp) {
@@ -1101,9 +1095,7 @@ void WorldState::revert_checkpoint(const uint64_t& forkId)
     Signal signal(static_cast<uint32_t>(fork->_trees.size()));
     std::array<Response, NUM_TREES> local;
     std::mutex mtx;
-    for (auto& t : fork->_trees) {
-        const auto& id = t.first;
-        auto& tree = t.second;
+    for (auto& [id, tree] : fork->_trees) {
         std::visit(
             [&signal, &local, id, &mtx](auto&& wrapper) {
                 wrapper.tree->revert_checkpoint([&signal, &local, &mtx, id](Response& resp) {

@@ -7,7 +7,7 @@ set -eu
 cd $(dirname $0)/../build
 
 export GTEST_COLOR=1
-export HARDWARE_CONCURRENCY=${CPUS:-8}
+export HARDWARE_CONCURRENCY=8
 # export IGNITION_CRS_PATH="./barretenberg/cpp/srs_db/ignition"
 # export GRUMPKIN_CRS_PATH="./barretenberg/cpp/srs_db/grumpkin"
 
