@@ -20,6 +20,9 @@ void Execution::add(ContextInterface& context, MemoryAddress a_addr, MemoryAddre
     MemoryValue b = memory.get(b_addr);
     MemoryValue c = alu.add(a, b);
     memory.set(dst_addr, c);
+
+    set_inputs({ a, b });
+    set_outputs({ c });
 }
 
 // TODO: My dispatch system makes me have a uint8_t tag. Rethink.
@@ -135,6 +138,9 @@ ExecutionResult Execution::execute_internal(ContextInterface& context)
 
             // Execute the opcode.
             dispatch_opcode(opcode, context, resolved_operands);
+            // TODO: we set the inputs and outputs here and into the execution event, but maybe there's a better way
+            ex_event.inputs = get_inputs();
+            ex_event.output = get_outputs();
 
             // Move on to the next pc.
             context.set_pc(context.get_next_pc());
