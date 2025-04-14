@@ -1,7 +1,7 @@
 use crate::{filter::filter_notes_min_sum, value_note::ValueNote};
 
 use aztec::{
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+    messages::logs::note::encode_and_encrypt_note,
     note::{note_getter_options::SortOrder, note_interface::NoteProperties},
     prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet},
     protocol_types::traits::Packable,

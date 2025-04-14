@@ -10,8 +10,8 @@ namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifierTests : public testing::Test {
   public:
     using Builder = GoblinRecursiveVerifier::Builder;
-    using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-    using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+    using ECCVMVK = Goblin::ECCVMVerificationKey;
+    using TranslatorVK = Goblin::TranslatorVerificationKey;
 
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
@@ -34,7 +34,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     struct ProverOutput {
         GoblinProof proof;
-        GoblinVerifier::VerifierInput verfier_input;
+        Goblin::VerificationKey verfier_input;
     };
 
     /**
@@ -44,7 +44,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      */
     static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
-        GoblinProver goblin;
+        Goblin goblin;
 
         // Construct and accumulate multiple circuits
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
@@ -53,9 +53,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(),
-                 { std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                   std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) } };
+        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -67,9 +65,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    GoblinVerifier verifier{ verifier_input };
-
-    EXPECT_TRUE(verifier.verify(proof));
+    EXPECT_TRUE(Goblin::verify(proof));
 }
 
 /**

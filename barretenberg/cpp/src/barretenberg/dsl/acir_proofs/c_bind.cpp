@@ -282,9 +282,7 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     vinfo("time to serialize proof: ", diff.count());
 
     start = std::chrono::steady_clock::now();
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc->goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc->goblin.get_translator_proving_key());
-    *out_vk = to_heap_buffer(to_buffer(ClientIVC::VerificationKey{ ivc->honk_vk, eccvm_vk, translator_vk }));
+    *out_vk = to_heap_buffer(to_buffer(ivc->get_vk()));
     end = std::chrono::steady_clock::now();
     diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to serialize vk: ", diff.count());
@@ -295,10 +293,8 @@ WASM_EXPORT void acir_verify_aztec_client(uint8_t const* proof_buf, uint8_t cons
     const auto proof = from_buffer<ClientIVC::Proof>(from_buffer<std::vector<uint8_t>>(proof_buf));
     const auto vk = from_buffer<ClientIVC::VerificationKey>(from_buffer<std::vector<uint8_t>>(vk_buf));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    vk.eccvm->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>((1UL << CONST_ECCVM_LOG_N) + 1);
-    vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     *result = ClientIVC::verify(proof, vk);
 }

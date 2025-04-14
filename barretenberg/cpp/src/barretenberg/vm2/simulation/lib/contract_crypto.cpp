@@ -2,7 +2,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 
 namespace bb::avm2::simulation {
 

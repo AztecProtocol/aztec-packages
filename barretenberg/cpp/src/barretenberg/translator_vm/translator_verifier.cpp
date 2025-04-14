@@ -5,6 +5,10 @@
 
 namespace bb {
 
+TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<Transcript>& transcript)
+    : transcript(transcript)
+{}
+
 TranslatorVerifier::TranslatorVerifier(const std::shared_ptr<VerificationKey>& verifier_key,
                                        const std::shared_ptr<Transcript>& transcript)
     : key(verifier_key)

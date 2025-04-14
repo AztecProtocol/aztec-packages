@@ -521,3 +521,21 @@ The main memory graph will only keep track of a sum of active allocations, which
 ##### Final Thoughts
 
 What's described here is mostly relating to memory, but should in part pertain to time, gate count, and other metric analysis that we have set up with tracy. It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
+
+##### Getting Stack Traces from WASM
+
+By default, the barretenberg.wasm.gz that is used by bb.js (aka barretenberg/ts) has debug symbols stripped.
+One can get stack traces working from WASM by running root level ./bootstrap.sh (or otherwise building what you need) and then doing:
+```
+cmake --build --preset wasm-threads --target barretenberg-debug.wasm.gz
+mv build-wasm-threads/barretenberg-debug.wasm.gz build-wasm-threads/barretenberg.wasm.gz
+```
+
+This will mean that any yarn-project or barretenberg/ts tests that run will get stack traces with function names.
+To get more detailed information use the following (NOTE: takes >10 minutes!):
+
+```
+cmake --preset wasm-threads-dbg
+cmake --build --preset wasm-threads-dbg --target barretenberg-debug.wasm.gz
+mv build-wasm-threads-dbg/barretenberg-debug.wasm.gz build-wasm-threads/barretenberg.wasm.gz
+```

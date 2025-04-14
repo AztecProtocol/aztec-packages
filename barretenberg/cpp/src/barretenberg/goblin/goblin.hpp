@@ -21,7 +21,7 @@
 
 namespace bb {
 
-class GoblinProver {
+class Goblin {
     using Commitment = MegaFlavor::Commitment;
     using FF = MegaFlavor::FF;
 
@@ -35,9 +35,9 @@ class GoblinProver {
     using ECCVMProvingKey = ECCVMFlavor::ProvingKey;
     using TranslationEvaluations = ECCVMProver::TranslationEvaluations;
     using TranslatorBuilder = TranslatorCircuitBuilder;
-
-    using VerificationKey = MegaFlavor::VerificationKey;
     using MergeProof = MergeProver::MergeProof;
+    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
+    using TranslatorVerificationKey = TranslatorFlavor::VerificationKey;
 
     std::shared_ptr<OpQueue> op_queue = std::make_shared<OpQueue>();
     std::shared_ptr<CommitmentKey<curve::BN254>> commitment_key;
@@ -45,23 +45,17 @@ class GoblinProver {
     MergeProof merge_proof;
     GoblinProof goblin_proof;
 
-    std::shared_ptr<ECCVMProvingKey> get_eccvm_proving_key() const { return eccvm_key; }
-    std::shared_ptr<TranslatorProvingKey::ProvingKey> get_translator_proving_key() const
-    {
-        return translator_key->proving_key;
-    }
+    fq translation_batching_challenge_v;    // challenge for batching the translation polynomials
+    fq evaluation_challenge_x;              // challenge for evaluating the translation polynomials
+    std::shared_ptr<Transcript> transcript; // shared between ECCVM and Translator
 
-  private:
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/798) unique_ptr use is a hack
-    std::unique_ptr<TranslatorProver> translator_prover;
-    std::unique_ptr<ECCVMProver> eccvm_prover;
-    std::shared_ptr<ECCVMProvingKey> eccvm_key;
-    std::shared_ptr<TranslatorProvingKey> translator_key;
+    struct VerificationKey {
+        std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key = std::make_shared<ECCVMVerificationKey>();
+        std::shared_ptr<TranslatorVerificationKey> translator_verification_key =
+            std::make_shared<TranslatorVerificationKey>();
+    };
 
-    GoblinAccumulationOutput accumulator; // Used only for ACIR methods for now
-
-  public:
-    GoblinProver(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
+    Goblin(const std::shared_ptr<CommitmentKey<curve::BN254>>& bn254_commitment_key = nullptr)
         : commitment_key(bn254_commitment_key)
     {}
 
@@ -87,35 +81,19 @@ class GoblinProver {
         return merge_proof;
     };
 
-    void construct_eccvm_prover()
-    {
-        PROFILE_THIS_NAME("Create ECCVMBuilder and ECCVMProver");
-
-        auto eccvm_builder = std::make_unique<ECCVMBuilder>(op_queue);
-        eccvm_prover = std::make_unique<ECCVMProver>(*eccvm_builder);
-        eccvm_key = eccvm_prover->key;
-    }
-
     /**
      * @brief Construct an ECCVM proof and the translation polynomial evaluations
      */
     void prove_eccvm()
     {
-        construct_eccvm_prover();
-        goblin_proof.eccvm_proof = eccvm_prover->construct_proof();
-        goblin_proof.translation_evaluations = eccvm_prover->translation_evaluations;
-    }
+        ECCVMBuilder eccvm_builder(op_queue);
+        ECCVMProver eccvm_prover(eccvm_builder);
+        goblin_proof.eccvm_proof = eccvm_prover.construct_proof();
 
-    void construct_translator_prover(const fq& translation_batching_challenge_v,
-                                     const fq& evaluation_challenge_x,
-                                     const std::shared_ptr<Transcript>& transcript)
-    {
-        PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
-        auto translator_builder =
-            std::make_unique<TranslatorBuilder>(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
-        translator_key = std::make_shared<TranslatorProvingKey>(*translator_builder, commitment_key);
-        translator_prover = std::make_unique<TranslatorProver>(translator_key, transcript);
-        eccvm_prover = nullptr;
+        translation_batching_challenge_v = eccvm_prover.batching_challenge_v;
+        evaluation_challenge_x = eccvm_prover.evaluation_challenge_x;
+        transcript = eccvm_prover.transcript;
+        goblin_proof.translation_evaluations = eccvm_prover.translation_evaluations;
     }
 
     /**
@@ -124,16 +102,12 @@ class GoblinProver {
      */
     void prove_translator()
     {
-        construct_translator_prover(
-            eccvm_prover->batching_challenge_v, eccvm_prover->evaluation_challenge_x, eccvm_prover->transcript);
-        goblin_proof.translator_proof = translator_prover->construct_proof();
+        PROFILE_THIS_NAME("Create TranslatorBuilder and TranslatorProver");
+        TranslatorBuilder translator_builder(translation_batching_challenge_v, evaluation_challenge_x, op_queue);
+        auto translator_key = std::make_shared<TranslatorProvingKey>(translator_builder, commitment_key);
+        TranslatorProver translator_prover(translator_key, transcript);
+        goblin_proof.translator_proof = translator_prover.construct_proof();
     }
-
-    void construct_vks()
-    {
-        construct_eccvm_prover();
-        construct_translator_prover(0, 0, nullptr);
-    };
 
     /**
      * @brief Constuct a full Goblin proof (ECCVM, Translator, merge)
@@ -164,49 +138,6 @@ class GoblinProver {
         }
         return goblin_proof;
     };
-};
-
-class GoblinVerifier {
-  public:
-    using ECCVMVerificationKey = ECCVMFlavor::VerificationKey;
-    using TranslatorVerificationKey = bb::TranslatorFlavor::VerificationKey;
-    using Builder = MegaCircuitBuilder;
-    using RecursiveMergeVerifier = stdlib::recursion::goblin::MergeRecursiveVerifier_<Builder>;
-    using AggregationObject = RecursiveMergeVerifier::AggregationObject;
-
-    struct VerifierInput {
-        std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
-        std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
-    };
-
-  private:
-    std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key;
-    std::shared_ptr<TranslatorVerificationKey> translator_verification_key;
-
-  public:
-    GoblinVerifier(std::shared_ptr<ECCVMVerificationKey> eccvm_verification_key,
-                   std::shared_ptr<TranslatorVerificationKey> translator_verification_key)
-        : eccvm_verification_key(eccvm_verification_key)
-        , translator_verification_key(translator_verification_key)
-    {}
-
-    GoblinVerifier(VerifierInput input)
-        : eccvm_verification_key(input.eccvm_verification_key)
-        , translator_verification_key(input.translator_verification_key)
-    {}
-
-    /**
-     * @brief Append recursive verification of a merge proof to a provided circuit
-     *
-     * @param circuit_builder
-     * @return AggregationObject Inputs to the final pairing check
-     */
-    static AggregationObject recursive_verify_merge(Builder& circuit_builder, const StdlibProof<Builder>& proof)
-    {
-        PROFILE_THIS_NAME("Goblin::merge");
-        RecursiveMergeVerifier merge_verifier{ &circuit_builder };
-        return merge_verifier.verify_proof(proof);
-    };
 
     /**
      * @brief Verify a full Goblin proof (ECCVM, Translator, merge)
@@ -215,15 +146,15 @@ class GoblinVerifier {
      * @return true
      * @return false
      */
-    bool verify(const GoblinProof& proof)
+    static bool verify(const GoblinProof& proof)
     {
         MergeVerifier merge_verifier;
         bool merge_verified = merge_verifier.verify_proof(proof.merge_proof);
 
-        ECCVMVerifier eccvm_verifier(eccvm_verification_key);
+        ECCVMVerifier eccvm_verifier{};
         bool eccvm_verified = eccvm_verifier.verify_proof(proof.eccvm_proof);
 
-        TranslatorVerifier translator_verifier(translator_verification_key, eccvm_verifier.transcript);
+        TranslatorVerifier translator_verifier(eccvm_verifier.transcript);
 
         bool accumulator_construction_verified = translator_verifier.verify_proof(
             proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
@@ -239,4 +170,5 @@ class GoblinVerifier {
         return merge_verified && eccvm_verified && accumulator_construction_verified && translation_verified;
     };
 };
+
 } // namespace bb

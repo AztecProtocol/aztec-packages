@@ -12,7 +12,7 @@
 #include "barretenberg/vm2/simulation/events/field_gt_event.hpp"
 #include "barretenberg/vm2/simulation/events/memory_event.hpp"
 #include "barretenberg/vm2/simulation/events/merkle_check_event.hpp"
-#include "barretenberg/vm2/simulation/events/nullifier_tree_read_event.hpp"
+#include "barretenberg/vm2/simulation/events/nullifier_tree_check_event.hpp"
 #include "barretenberg/vm2/simulation/events/poseidon2_event.hpp"
 #include "barretenberg/vm2/simulation/events/public_data_tree_read_event.hpp"
 #include "barretenberg/vm2/simulation/events/range_check_event.hpp"
@@ -47,7 +47,7 @@ struct EventsContainer {
     EventEmitterInterface<ContextStackEvent>::Container context_stack;
     EventEmitterInterface<PublicDataTreeReadEvent>::Container public_data_read_events;
     EventEmitterInterface<UpdateCheckEvent>::Container update_check_events;
-    EventEmitterInterface<NullifierTreeReadEvent>::Container nullifier_tree_read_events;
+    EventEmitterInterface<NullifierTreeCheckEvent>::Container nullifier_tree_check_events;
 };
 
 } // namespace bb::avm2::simulation
