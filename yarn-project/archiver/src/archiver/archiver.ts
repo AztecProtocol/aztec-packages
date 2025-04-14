@@ -182,6 +182,8 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
       throw new Error('Archiver is already running');
     }
 
+    await this.blobSinkClient.testSources();
+
     if (blockUntilSynced) {
       await this.syncSafe(blockUntilSynced);
     }

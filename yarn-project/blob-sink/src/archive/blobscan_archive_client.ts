@@ -42,6 +42,17 @@ export const BlobscanBlockResponseSchema = z
     ),
   ) satisfies ZodFor<BlobJson[]>;
 
+// Response from https://api.blobscan.com/blocks?sort=desc&type=canonical
+export const BlobscanBlocksResponseSchema = z.object({
+  blocks: z.array(
+    z.object({
+      hash: z.string(),
+      slot: z.number().int(),
+      number: z.number().int(),
+    }),
+  ),
+});
+
 export class BlobscanArchiveClient implements BlobArchiveClient {
   private readonly logger = createLogger('blob-sink:blobscan-archive-client');
   private readonly fetchOpts = { headers: { accept: 'application/json' } };
@@ -68,6 +79,30 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
     );
   }
 
+  public async getLatestBlock(): Promise<{ hash: string; number: number; slot: number }> {
+    const url = `https://${this.baseUrl}/blocks?sort=desc&type=canonical&p=1&ps=1`;
+    this.logger.trace(`Fetching latest block from ${url}`);
+    const response = await this.fetch(url, this.fetchOpts);
+
+    if (response.status !== 200) {
+      throw new Error(`Failed to fetch latest block: ${response.statusText} (${response.status})`, {
+        cause: {
+          httpResponse: {
+            status: response.status,
+            body: await response.text().catch(() => 'Failed to read response body'),
+          },
+        },
+      });
+    }
+
+    const parsed = await response.json().then((data: any) => BlobscanBlocksResponseSchema.parse(data));
+    if (parsed.blocks.length === 0) {
+      throw new Error(`No blocks found at ${this.baseUrl}`);
+    }
+
+    return parsed.blocks[0];
+  }
+
   public getBaseUrl(): string {
     return this.baseUrl;
   }
@@ -87,10 +122,7 @@ export class BlobscanArchiveClient implements BlobArchiveClient {
         cause: {
           httpResponse: {
             status: response.status,
-            body: await response.text().catch(err => {
-              this.logger.warn('Failed to read response body', err);
-              return '';
-            }),
+            body: await response.text().catch(() => 'Failed to read response body'),
           },
         },
       });
