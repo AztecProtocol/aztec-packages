@@ -67,7 +67,6 @@ export class PublicProcessorFactory {
       globalVariables,
       /*doMerkleOperations=*/ true,
       skipFeeEnforcement,
-      this.telemetryClient,
     );
 
     return new PublicProcessor(
@@ -86,7 +85,6 @@ export class PublicProcessorFactory {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
-    telemetryClient: TelemetryClient,
   ): PublicTxSimulator {
     return new TelemetryPublicTxSimulator(
       treesDB,
@@ -94,7 +92,7 @@ export class PublicProcessorFactory {
       globalVariables,
       doMerkleOperations,
       skipFeeEnforcement,
-      telemetryClient,
+      this.telemetryClient,
     );
   }
 }
