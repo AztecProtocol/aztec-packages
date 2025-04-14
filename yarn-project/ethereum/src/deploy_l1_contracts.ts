@@ -419,6 +419,28 @@ export const deploySharedContracts = async (
 
   const registry = new RegistryContract(clients.publicClient, registryAddress);
 
+  /* -------------------------------------------------------------------------- */
+  /*                      FUND REWARD DISTRIBUTOR START                         */
+  /* -------------------------------------------------------------------------- */
+
+  const rewardDistributorAddress = await registry.getRewardDistributor();
+
+  const funding = 50n ** (10n ** 18n) * 200000n;
+  const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
+    to: rewardDistributorAddress.toString(),
+    data: encodeFunctionData({
+      abi: l1Artifacts.feeAsset.contractAbi,
+      functionName: 'mint',
+      args: [rewardDistributorAddress.toString(), funding],
+    }),
+  });
+
+  logger.verbose(`Funded reward distributor with ${funding} fee asset in ${fundRewardDistributorTxHash}`);
+
+  /* -------------------------------------------------------------------------- */
+  /*                      FUND REWARD DISTRIBUTOR STOP                          */
+  /* -------------------------------------------------------------------------- */
+
   return {
     feeAssetAddress,
     feeAssetHandlerAddress,
