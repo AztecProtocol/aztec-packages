@@ -97,17 +97,20 @@ case ${1:-} in
         node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
       "
     else
+
       export P2P_PORT="${P2P_PORT:-40400}"
-      P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
-      P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
-
-      PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
-
       # If the p2p broadcast port if provided, then map it to the p2p port on the container.
       if [ -n "${P2P_BROADCAST_PORT:-}" ]; then
+        export P2P_BROADCAST_PORT
         P2P_TCP_BROADCAST_MAPPING="$P2P_BROADCAST_PORT:$P2P_PORT"
         P2P_UDP_BROADCAST_MAPPING="${P2P_TCP_BROADCAST_MAPPING}/udp"
+
         PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_BROADCAST_MAPPING $P2P_UDP_BROADCAST_MAPPING"
+      else
+        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
+        P2P_UDP_LISTEN_MAPPING="${P2P_TCP_LISTEN_MAPPING}/udp"
+
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING $P2P_UDP_LISTEN_MAPPING"
       fi
 
       exec $(dirname $0)/.aztec-run aztec-start \
