@@ -2,7 +2,19 @@
 sidebar_position: 1
 title: How to Run a Sequencer Node
 description: A comprehensive guide to setting up and running an Aztec Sequencer node on testnet or mainnet, including infrastructure requirements, configuration options, and troubleshooting tips.
-keywords: [aztec, sequencer, node, blockchain, L2, scaling, ethereum, validator, setup, tutorial]
+keywords:
+  [
+    aztec,
+    sequencer,
+    node,
+    blockchain,
+    L2,
+    scaling,
+    ethereum,
+    validator,
+    setup,
+    tutorial,
+  ]
 tags:
   - sequencer
   - node
@@ -37,7 +49,7 @@ Sequencing involves fetching data from both L2 and L1. You'll need to provide yo
 
 :::warning
 
-The `free` route will likely get you rate-limited, making it impossible to sync properly. You will need to set up a paid plan or use a pay-as-you-go service for reliable operation.
+The `free` route will likely get you rate-limited, making it impossible to sync properly. You will need to set up a paid plan use a pay-as-you-go service for reliable operation.
 
 :::
 
@@ -58,20 +70,28 @@ You'll need Sepolia ETH to cover gas costs. Here are some options:
 
 To boot up a sequencer, you'll need to use the following flags:
 
-| Flag                                              | Description                                                                                                                                      |
+| Flag                                            | Env Var                  | Description                                                                                                                                      |
+| ----------------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `--network <network>`                           | `NETWORK`                | Selects the Docker image for the target network (e.g., `alpha-testnet`). Sets default values for contract addresses, bootnodes, L1 ChainID, etc. |
+| `--node`                                        | n/a                      | Starts the node service that fetches data from L1 RPCs                                                                                           |
+| `--archiver`                                    | n/a                      | Starts the archiver service to store synced blocks                                                                                               |
+| `--sequencer`                                   | n/a                      | Starts the sequencer module                                                                                                                      |
+| `--l1-rpc-urls <execution-node>`                | `ETHEREUM_HOSTS`         | The URL of your L1 execution node. Multiple can be provided, as a comma seperated list                                                           |
+| `--l1-consensus-host-urls <beacon-node>`        | `L1_CONSENSUS_HOST_URLS` | The URL of your L1 beacon node. Multiple can be provided, as a comma seperated list                                                              |
+| `--archiver.blobSinkUrl <url>`                  | `BLOB_SINK_URL`          | URL for the blob sink containing blobs that have expired from the consensus host (specific to alpha testnet)                                     |
+| `--sequencer.validatorPrivateKey <private-key>` | `VALIDATOR_PRIVATE_KEY`  | Your sequencer's private key for signing attestations and blocks                                                                                 |
+| `--sequencer.coinbase <address>`                | `COINBASE`               | Address to receive any block rewards                                                                                                             |
+| `--p2p.p2pIp <your-ip>`                         | `P2P_IP`                 | Your node's public IP so other nodes can connect                                                                                                 |
+
+:::info
+If you are using a consensus node provider that requires non standard ways to supply an api key, such as google cloud's hosted service, there are extra environment variables to perform that:
+| Flag | Env Var | Description |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `--network <network>`                             | Selects the Docker image for the target network (e.g., `alpha-testnet`). Sets default values for contract addresses, bootnodes, L1 ChainID, etc. |
-| `--l1-rpc-urls <execution-node>`                  | The URL of your L1 execution node                                                                                                                |
-| `--l1-consensus-host-url <beacon-node>`           | The URL of your L1 beacon node                                                                                                                   |
-| `--l1-consensus-host-api-key-header <header-key>` | If your beacon RPC requires an API key in a header, provide the header name here (e.g., "API-KEY"). Leave empty if using query parameters        |
-| `--l1-consensus-host-api-key <api-key>`           | The beacon node API key. Can be omitted if included in the URL                                                                                   |
-| `--archiver`                                      | Starts the archiver service to store synced blocks                                                                                               |
-| `--archiver.blobSinkUrl <url>`                    | URL for the blob sink containing blobs that have expired from the consensus host (specific to alpha testnet)                                     |
-| `--node`                                          | Starts the node service that fetches data from L1 RPCs                                                                                           |
-| `--sequencer`                                     | Starts the sequencer module                                                                                                                      |
-| `--sequencer.validatorPrivateKey <private-key>`   | Your sequencer's private key for signing attestations and blocks                                                                                 |
-| `--sequencer.coinbase <address>`                  | Address to receive any block rewards                                                                                                             |
-| `--p2p.p2pIp <your-ip>`                           | Your node's public IP so other nodes can connect                                                                                                 |
+| `--l1-consensus-host-api-key-headers <header-key>` | `L1_CONSENSUS_HOST_API_KEYS` | If your beacon RPC requires an API key in a header, provide the header name here (e.g., "API-KEY"). Leave empty if using query parameters (comma seperated list) |
+| `--l1-consensus-host-api-keys <api-key>` | `L1_CONSENSUS_HOST_API_KEY_HEADERS` | The beacon node API key. Can be omitted if included in the URL, (Comma seperated list) |
+
+When providing multiple urls that require api key headers, the index in the comma seperated list must correspond to the index of the `--l1-consensus-host-urls` that are being provided.
+:::
 
 #### Example Command
 
@@ -93,8 +113,8 @@ aztec start \
 
 :::tip
 
+If you are unable to determine your public ip. Running the command `curl ifconfig.me` can retreive it for you.
 If your IP changes frequently, consider using a dynamic DNS service like [NoIP](https://www.noip.com/) to assign a fixed hostname.
-
 :::
 
 Your node will sync from the genesis block of the Aztec network, which may take several hours. This is a good time to take a break or work on something else.
@@ -114,13 +134,13 @@ aztec add-l1-validator \
 
 The key parameters are:
 
-| Flag                             | Description                                                                 |
-| -------------------------------- | --------------------------------------------------------------------------- |
-| `--network <network>`            | Same network as your sequencer                                              |
-| `--l1-rpc-urls <execution-node>` | L1 node endpoint (can be the same as used for the sequencer)                |
-| `--private-key` or `--mnemonic`  | The private key or seed phrase to deploy your forwarder contract            |
-| `--validator <address>`          | Your validator address (derived from the `--sequencer.validatorPrivateKey`) |
-| `--faucet <address>`             | For alpha-testnet, this will mint and deposit funds on your behalf          |
+| Flag                             | Env Var                        | Description                                                                 |
+| -------------------------------- | ------------------------------ | --------------------------------------------------------------------------- |
+| `--network <network>`            | `NETWORK`                      | Same network as your sequencer                                              |
+| `--l1-rpc-urls <execution-node>` | `ETHEREUM_HOSTS`               | L1 node endpoint (can be the same as used for the sequencer)                |
+| `--private-key` or `--mnemonic`  | `L1_PRIVATE_KEY` \| `MNEMONIC` | The private key or seed phrase to deploy your forwarder contract            |
+| `--validator <address>`          | n/a                            | Your validator address (derived from the `--sequencer.validatorPrivateKey`) |
+| `--faucet <address>`             | n/a                            | For alpha-testnet, this will mint and deposit funds on your behalf          |
 
 ## Advanced Configuration
 
