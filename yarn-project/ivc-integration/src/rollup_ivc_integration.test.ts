@@ -33,6 +33,7 @@ import {
 import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
 import { proveClientIVC as proveClientIVCWASM } from './prove_wasm.js';
 import type { KernelPublicInputs } from './types/index.js';
+import { getWorkingDirectory } from './bb_working_directory.js';
 
 /* eslint-disable camelcase */
 
@@ -55,7 +56,7 @@ describe('Rollup IVC Integration', () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
     // Create a client IVC proof
-    const clientIVCWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
+    const clientIVCWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-client-ivc-');
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
@@ -72,7 +73,7 @@ describe('Rollup IVC Integration', () => {
     tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
 
     // Create an AVM proof
-    const avmWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-avm-'));
+    const avmWorkingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-avm-');
 
     const simTester = await PublicTxSimulationTester.create();
     const avmTestContractInstance = await simTester.registerAndDeployContract(
@@ -91,7 +92,7 @@ describe('Rollup IVC Integration', () => {
   });
 
   beforeEach(async () => {
-    workingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-'));
+    workingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-');
   });
 
   it.only('Should be able to generate a proof of a 3 transaction rollup', async () => {
