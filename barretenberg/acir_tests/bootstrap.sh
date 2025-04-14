@@ -179,8 +179,8 @@ function test_cmds_internal {
   for t in $honk_tests; do
     echo SYS=ultra_honk FLOW=prove_then_verify $run_test $(basename $t)
   done
-  echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test assert_statement
-  echo SYS=ultra_honk FLOW=prove_then_verify RECURSIVE=true $run_test double_verify_honk_proof
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test assert_statement
+  echo SYS=ultra_honk FLOW=prove_then_verify $run_test double_verify_honk_proof
   echo SYS=ultra_honk FLOW=prove_then_verify HASH=keccak $run_test assert_statement
   echo SYS=ultra_honk FLOW=prove_then_verify ROLLUP=true $run_test verify_rollup_honk_proof
 

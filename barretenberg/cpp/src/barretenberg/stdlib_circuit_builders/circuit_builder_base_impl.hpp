@@ -238,7 +238,7 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::add_pairing_point_accumulator(
+void CircuitBuilderBase<FF_>::add_pairing_point_accumulator_for_plonk(
     const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
 {
     if (contains_pairing_point_accumulator) {
@@ -290,7 +290,7 @@ template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
     if (!has_dummy_witnesses) {
         // We have a builder failure when we have real witnesses which is a mistake.
-        info("Builder failure when we have real witnesses!"); // not a catch-all error
+        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
     }
     _failed = true;
     set_err(std::move(msg));

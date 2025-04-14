@@ -58,7 +58,7 @@ This prevents the network-wide privacy set from being split between transactions
 
 Unlike other state variables, `SharedMutable` receives not only a type parameter for the underlying datatype, but also a `DELAY` type parameter with the value change delay as a number of blocks.
 
-#include_code shared_mutable_storage /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_storage /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 :::note
 `SharedMutable` requires that the underlying type `T` implements both the `ToField` and `FromField` traits, meaning it must fit in a single `Field` value. There are plans to extend support by requiring instead an implementation of the `Serialize` and `Deserialize` traits, therefore allowing for multi-field variables, such as complex structs.
@@ -72,7 +72,7 @@ This is the means by which a `SharedMutable` variable mutates its contents. It s
 
 This function can only be called in public, typically after some access control check:
 
-#include_code shared_mutable_schedule /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_schedule /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 If one wishes to schedule a value change from private, simply enqueue a public call to a public `internal` contract function. Recall that **all scheduled value changes, including the new value and scheduled block are public**.
 
@@ -82,20 +82,20 @@ A `SharedMutable`'s storage **must** only be mutated via `schedule_value_change`
 
 ### `get_current_value`
 
-Returns the current value in a public, private or unconstrained execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
+Returns the current value in a public, private or utility execution context. Once a value change is scheduled via `schedule_value_change` and a number of blocks equal to the delay passes, this automatically returns the new value.
 
-#include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_get_current_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 Calling this function in a private execution context will have a 1 block delay, as compared to calling in the public context. This is because calling `get_current_value` in private constructs a historical state proof, using the latest proven block, for the public value, so the "current value" in private execution will be delayed by 1 block when compared to what the public value is.
 
 Also, calling in private will set the `max_block_number` property of the transaction request, introducing a new validity condition to the entire transaction: it cannot be included in any block with a block number larger than `max_block_number`. This could [potentially leak some privacy](#privacy-considerations).
 
-#include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_get_current_private /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 ### `get_scheduled_value`
 
 Returns the last scheduled value change, along with the block number at which the scheduled value becomes the current value. This may either be a pending change, if the block number is in the future, or the last executed scheduled change if the block number is in the past (in which case there are no pending changes).
 
-#include_code shared_mutable_get_scheduled_public /noir-projects/noir-contracts/contracts/auth_contract/src/main.nr rust
+#include_code shared_mutable_get_scheduled_public /noir-projects/noir-contracts/contracts/app/auth_contract/src/main.nr rust
 
 It is not possible to call this function in private: doing so would not be very useful at it cannot be asserted that a scheduled value change will not be immediately replaced if `shcedule_value_change` where to be called.

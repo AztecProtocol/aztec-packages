@@ -77,6 +77,8 @@ Diagnostics:
       - modernize-use-emplace
       # We only really use macros where a constexpr would NOT be able to replace its functionality.
       - cppcoreguidelines-macro-usage
+      # Opinionated, we sometimes just want to use a default-derived constructor.
+      - modernize-use-designated-initializers
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench

@@ -17,7 +17,7 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     using namespace stdlib::recursion::honk;
 
     using Builder = UltraCircuitBuilder;
-    using GrumpkinVk = bb::VerifierCommitmentKey<curve::Grumpkin>;
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     std::string proof_path = output_path + "/proof";
 
@@ -28,11 +28,6 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
     // Read the proof  and verification data from given files
     auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
-
-    // We don't serialise and deserialise the Grumkin SRS so initialise with circuit_size + 1 to be able to recursively
-    // verify IPA. The + 1 is to satisfy IPA verification key requirements.
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1025)
-    vk.eccvm->pcs_verification_key = std::make_shared<GrumpkinVk>(vk.eccvm->circuit_size + 1);
 
     auto builder = std::make_shared<Builder>();
 
@@ -50,12 +45,9 @@ void prove_tube(const std::string& output_path, const std::string& vk_path)
 
     ClientIVCRecursiveVerifier::Output client_ivc_rec_verifier_output = verifier.verify(proof);
 
-    PairingPointAccumulatorIndices current_aggregation_object =
-        stdlib::recursion::init_default_agg_obj_indices<Builder>(*builder);
-
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1069): Add aggregation to goblin recursive verifiers.
     // This is currently just setting the aggregation object to the default one.
-    builder->add_pairing_point_accumulator(current_aggregation_object);
+    AggregationObject::add_default_pairing_points_to_public_inputs(*builder);
 
     // The tube only calls an IPA recursive verifier once, so we can just add this IPA claim and proof
     builder->add_ipa_claim(client_ivc_rec_verifier_output.opening_claim.get_witness_indices());

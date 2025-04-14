@@ -34,8 +34,7 @@ import {
   TelemetryPublicTxSimulator,
 } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
-import type { Tx } from '@aztec/stdlib/tx';
-import type { TelemetryClient } from '@aztec/telemetry-client';
+import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -369,7 +368,9 @@ describe('e2e_block_building', () => {
       it('private -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          TX_ERROR_EXISTING_NULLIFIER,
+        );
       });
 
       it('public -> public', async () => {
@@ -391,7 +392,9 @@ describe('e2e_block_building', () => {
       it('public -> private', async () => {
         const nullifier = Fr.random();
         await contract.methods.emit_nullifier_public(nullifier).send().wait();
-        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow('dropped');
+        await expect(contract.methods.emit_nullifier(nullifier).send().wait()).rejects.toThrow(
+          TX_ERROR_EXISTING_NULLIFIER,
+        );
       });
     });
   });
@@ -640,15 +643,7 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
-    telemetryClient?: TelemetryClient,
   ) {
-    return new TestPublicTxSimulator(
-      treesDB,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      telemetryClient,
-    );
+    return new TestPublicTxSimulator(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
   }
 }

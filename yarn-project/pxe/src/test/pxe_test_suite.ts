@@ -92,8 +92,8 @@ export const pxeTestSuite = (testName: string, pxeSetup: () => Promise<PXE>) => 
       await expect(pxe.registerContract({ instance, artifact })).rejects.toThrow(/Artifact does not match/i);
     });
 
-    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUnconstrained` here as it requires
-    //       a larger setup and it's sufficiently tested in the e2e tests.
+    // Note: Not testing a successful run of `proveTx`, `sendTx`, `getTxReceipt` and `simulateUtility` here as it
+    //       requires a larger setup and it's sufficiently tested in the e2e tests.
 
     // Note: Not testing `getContractData`, `getPublicLogs` and `getPublicStorageAt` here as these
     //       functions only call AztecNode and these methods are frequently used by the e2e tests.

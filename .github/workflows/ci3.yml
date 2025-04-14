@@ -36,7 +36,7 @@ jobs:
     if: github.event.pull_request.head.repo.fork != true
     environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'master' || '' }}
     strategy:
-      fail-fast: false
+      fail-fast: true
       matrix:
         # Only run arm64 build with arm64-ci label or on master or on tagged releases.
         # The way to do conditions here is to parse full strings as JSON.
@@ -63,11 +63,10 @@ jobs:
 
       - name: CI Full Override
         # TODO consolidate legacy labels to just ci-full.
-        if: |
-          contains(github.event.pull_request.labels.*.name, 'e2e-all') ||
-          contains(github.event.pull_request.labels.*.name, 'network-all') ||
-          contains(github.event.pull_request.labels.*.name, 'ci-full')
-        run: echo "CI_FULL=1" >> $GITHUB_ENV
+        if: contains(github.event.pull_request.labels.*.name, 'ci-full')
+        run: |
+          echo "CI_FULL=1" >> $GITHUB_ENV
+          echo "USE_TEST_CACHE=0" >> $GITHUB_ENV
 
       - name: CI Nightly Check
         if: contains(github.ref, '-nightly.')
@@ -104,8 +103,7 @@ jobs:
           EXTERNAL_ETHEREUM_CONSENSUS_HOST: "https://beacon.${{ secrets.GCP_SEPOLIA_URL }}"
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY: ${{ secrets.GCP_SEPOLIA_API_KEY }}
           EXTERNAL_ETHEREUM_CONSENSUS_HOST_API_KEY_HEADER: "X-goog-api-key"
-        run: |
-          ./ci.sh ec2
+        run: exec ./ci.sh ec2
 
       - name: Download benchmarks
         if: matrix.settings.arch == 'amd64' && github.event_name == 'push' && github.ref_name == 'master'
@@ -184,7 +182,7 @@ jobs:
     strategy:
       matrix:
         number: [1, 2]
-      fail-fast: false
+      fail-fast: true
     steps:
       #############
       # Prepare Env
@@ -217,8 +215,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           CI: 1
           CI_FULL: 1
-        run: |
-          ./ci.sh ec2-test
+        run: exec ./ci.sh ec2-test
 
   # Necessary as github actions won't allow checks on matrix builds.
   merge-check:

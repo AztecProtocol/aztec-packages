@@ -3,9 +3,10 @@
 #include <cassert>
 
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
+#include "barretenberg/vm2/common/stringify.hpp"
 #include "barretenberg/vm2/simulation/lib/contract_crypto.hpp"
 #include "barretenberg/vm2/simulation/lib/serialization.hpp"
 
@@ -20,11 +21,16 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
 
     // TODO: catch errors etc.
     std::optional<ContractInstance> maybe_instance = contract_db.get_contract_instance(address);
-    auto siloed_address = siloing.silo_nullifier(address, DEPLOYER_CONTRACT_ADDRESS);
-    // TODO: check nullifier in the merkle tree. Prove (non-)membership.
+    auto siloed_address = poseidon2.hash({ GENERATOR_INDEX__OUTER_NULLIFIER, DEPLOYER_CONTRACT_ADDRESS, address });
+
+    if (!merkle_db.nullifier_exists(siloed_address)) {
+        throw std::runtime_error("Contract " + field_to_string(address) + " is not deployed");
+    }
 
     auto& instance = maybe_instance.value();
-    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.contract_class_id);
+    update_check.check_current_class_id(address, instance);
+
+    std::optional<ContractClass> maybe_klass = contract_db.get_contract_class(instance.current_class_id);
     // Note: we don't need to silo and check the class id because the deployer contract guarrantees
     // that if a contract instance exists, the class has been registered.
     assert(maybe_klass.has_value());
@@ -42,13 +48,18 @@ BytecodeId TxBytecodeManager::get_bytecode(const AztecAddress& address)
     // We now save the bytecode so that we don't repeat this process.
     resolved_addresses[address] = bytecode_id;
     bytecodes.emplace(bytecode_id, std::move(shared_bytecode));
+
+    auto tree_snapshots = merkle_db.get_tree_roots();
+
     retrieval_events.emit({
         .bytecode_id = bytecode_id,
         .address = address,
         .siloed_address = siloed_address,
         .contract_instance = instance,
         .contract_class = klass, // WARNING: this class has the whole bytecode.
-        .nullifier_root = merkle_db.get_tree_roots().nullifierTree.root,
+        .nullifier_root = tree_snapshots.nullifierTree.root,
+        .public_data_tree_root = tree_snapshots.publicDataTree.root,
+        .current_block_number = current_block_number,
     });
 
     return bytecode_id;

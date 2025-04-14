@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/common/instruction_spec.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp" // Move over.
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/opcodes.hpp"
 
 #include <array>

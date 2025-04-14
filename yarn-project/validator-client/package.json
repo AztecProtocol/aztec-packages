@@ -68,7 +68,7 @@
     "@aztec/p2p": "workspace:^",
     "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
-    "koa": "^2.14.2",
+    "koa": "^2.16.1",
     "koa-router": "^12.0.0",
     "tslib": "^2.4.0",
     "viem": "2.23.7"

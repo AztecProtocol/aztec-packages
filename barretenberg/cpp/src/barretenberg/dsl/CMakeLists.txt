@@ -10,7 +10,7 @@ set(DSL_DEPENDENCIES
     stdlib_honk_verifier)
 
 if (NOT DISABLE_AZTEC_VM)
-    list(APPEND DSL_DEPENDENCIES vm)
+    list(APPEND DSL_DEPENDENCIES vm2)
 endif()
 
 barretenberg_module(

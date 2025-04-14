@@ -6,6 +6,66 @@ keywords: [sandbox, aztec, notes, migration, updating, upgrading]
 
 Aztec is in full-speed development. Literally every version breaks compatibility with the previous ones. This page attempts to target errors and difficulties you might encounter when upgrading, and how to resolve them.
 
+## TBD
+
+### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
+
+PXE now fast-syncs by skipping finalized blocks and never downloads all blocks, so there is no longer a need to specify a starting block.
+
+### [Aztec.nr] Logs and messages renaming
+
+The following renamings have taken place:
+
+- `encrypted_logs` to `messages`: this module now handles much more than just encrypted logs (including unconstrained message delivery, message encoding, etc.)
+- `log_assembly_strategies` to `logs`
+- `discovery` moved to `messages`: given that what is discovered are messages
+- `default_aes128` removed
+
+Most contracts barely used these modules, the only frequent imports are the `encode_and_encrypt` functions:
+
+```diff
+- use dep::aztec::messages::logs::note::encode_and_encrypt_note;
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note;
+```
+
+### [noir-contracts] Reference Noir contracts directory structure change
+
+`noir-projects/noir-contracts/contracts` directory became too cluttered so we grouped contracts into `account`, `app`, `docs`, `fees`, `libs`, `protocol` and `test` dirs.
+If you import contract from the directory make sure to update the paths accordingly.
+E.g. for a token contract:
+
+```diff
+#[dependencies]
+-token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/src/token_contract" }
++token = { git = "https://github.com/AztecProtocol/aztec-packages/", tag = "v0.83.0", directory = "noir-projects/noir-contracts/contracts/app/src/token_contract" }
+```
+
+### [Aztec.nr] #[utility] contract functions
+
+Aztec contracts have three kinds of functions: `#[private]`, `#[public]` and what was sometimes called 'top-level unconstrained': an unmarked unconstrained function in the contract module. These are now called `[#utility]` functions, and must be explicitly marked as such:
+
+```diff
++    #[utility]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
+        storage.balances.at(owner).balance_of()
+    }
+```
+
+Utility functions are standalone unconstrained functions that cannot be called from private or public functions: they are meant to be called by _applications_ to perform auxiliary tasks: query contract state (e.g. a token balance), process messages received off-chain, etc.
+
+All functions in a `contract` block must now be marked as one of either `#[private]`, `#[public]`, `#[utility]`, `#[contract_library_method]`, or `#[test]`.
+
+Additionally, the `UnconstrainedContext` type has been renamed to `UtilityContext`. This led us to rename the `unkonstrained` method on `TestEnvironment` to `utility`, so any tests using it also need updating:
+
+```diff
+-     SharedMutable::new(env.unkonstrained(), storage_slot)
++     SharedMutable::new(env.utility(), storage_slot)
+```
+
+### [AuthRegistry] function name change
+
+As part of the broader transition from "top-level unconstrained" to "utility" name (detailed in the note above), the `unconstrained_is_consumable` function in AuthRegistry has been renamed to `utility_is_consumable`. The function's signature and behavior remain unchanged - only the name has been updated to align with the new convention. If you're currently using this function, a simple rename in your code will suffice.
+
 ## 0.83.0
 
 ### [aztec.js] AztecNode.getPrivateEvents API change
@@ -604,7 +664,7 @@ We're preparing to make log assembly more customisable. These paths have changed
 
 ```diff
 - use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-+ use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note,
 ```
 
 And similar paths for `encode_and_encrypt_note_unconstrained`, and for events and partial notes.

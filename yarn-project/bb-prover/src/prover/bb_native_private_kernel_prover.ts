@@ -11,7 +11,7 @@ import path from 'path';
 import { BB_RESULT, computeGateCountForCircuit, executeBbClientIvcProof } from '../bb/execute.js';
 import type { BBConfig } from '../config.js';
 import { BBPrivateKernelProver } from './bb_private_kernel_prover.js';
-import { readFromOutputDirectory } from './client_ivc_proof_utils.js';
+import { readClientIVCProofFromOutputDirectory } from './proof_utils.js';
 
 /**
  * This proof creator implementation uses the native bb binary.
@@ -51,7 +51,7 @@ export class BBNativePrivateKernelProver extends BBPrivateKernelProver {
       throw new Error(provingResult.reason);
     }
 
-    const proof = await readFromOutputDirectory(directory);
+    const proof = await readClientIVCProofFromOutputDirectory(directory);
 
     this.log.info(`Generated IVC proof`, {
       duration: provingResult.durationMs,

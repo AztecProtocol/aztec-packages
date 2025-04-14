@@ -1,30 +1,27 @@
-import { MerkleTreeId } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import {
   AggregateTxValidator,
+  ArchiveCache,
   BlockHeaderTxValidator,
   DataTxValidator,
   DoubleSpendTxValidator,
+  GasTxValidator,
   MetadataTxValidator,
+  PhasesTxValidator,
   TxProofValidator,
 } from '@aztec/p2p';
 import { ProtocolContractAddress } from '@aztec/protocol-contracts';
-import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
 import type { GasFees } from '@aztec/stdlib/gas';
-import { computePublicDataTreeLeafSlot } from '@aztec/stdlib/hash';
 import type {
   AllowedElement,
   ClientProtocolCircuitVerifier,
   MerkleTreeReadOperations,
 } from '@aztec/stdlib/interfaces/server';
-import type { PublicDataTreeLeafPreimage } from '@aztec/stdlib/trees';
+import { DatabasePublicStateSource, type PublicStateSource } from '@aztec/stdlib/trees';
 import { GlobalVariables, type Tx, type TxValidator } from '@aztec/stdlib/tx';
 
-import { ArchiveCache } from './archive_cache.js';
-import { GasTxValidator, type PublicStateSource } from './gas_validator.js';
 import { NullifierCache } from './nullifier_cache.js';
-import { PhasesTxValidator } from './phases_validator.js';
 
 export function createValidatorForAcceptingTxs(
   db: MerkleTreeReadOperations,
@@ -89,26 +86,6 @@ export function createValidatorForBlockBuilding(
     ),
     nullifierCache,
   };
-}
-
-class DatabasePublicStateSource implements PublicStateSource {
-  constructor(private db: MerkleTreeReadOperations) {}
-
-  async storageRead(contractAddress: AztecAddress, slot: Fr): Promise<Fr> {
-    const leafSlot = (await computePublicDataTreeLeafSlot(contractAddress, slot)).toBigInt();
-
-    const lowLeafResult = await this.db.getPreviousValueIndex(MerkleTreeId.PUBLIC_DATA_TREE, leafSlot);
-    if (!lowLeafResult || !lowLeafResult.alreadyPresent) {
-      return Fr.ZERO;
-    }
-
-    const preimage = (await this.db.getLeafPreimage(
-      MerkleTreeId.PUBLIC_DATA_TREE,
-      lowLeafResult.index,
-    )) as PublicDataTreeLeafPreimage;
-
-    return preimage.leaf.value;
-  }
 }
 
 function preprocessValidator(

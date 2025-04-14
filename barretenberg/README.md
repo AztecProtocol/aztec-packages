@@ -469,15 +469,14 @@ Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect 
 
 #### Running Realistic ClientIVC from barretenberg folder
 
-Realistic IVC inputs poses a problem as the only code to sequence them requires a full end to end run.
+Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
 One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
 `barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
 
 To do a single benchmark you can do e.g.
 `IVC_BENCH=amm-add-liquidity ./bootstrap.sh bench_ivc origin/master~3`
 
-If one doesn't provide the commit this generate these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
-
+If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
 To use these inputs manually, just abort after input download and run ClientIVC proving with --input runtime_stack on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
