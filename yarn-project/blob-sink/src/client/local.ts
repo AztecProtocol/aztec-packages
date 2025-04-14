@@ -19,16 +19,14 @@ export class LocalBlobSinkClient implements BlobSinkClientInterface {
     return true;
   }
 
-  public async getBlobSidecar(blockId: string, blobHashes: Buffer[], indices?: number[]): Promise<Blob[]> {
+  public async getBlobSidecar(blockId: string, blobHashes: Buffer[], indices?: number[]): Promise<BlobWithIndex[]> {
     const blobSidecars = await this.blobStore.getBlobSidecars(blockId, indices);
     if (!blobSidecars) {
       return [];
     }
-    return blobSidecars
-      .filter(blob => {
-        const blobHash = blob.blob.getEthVersionedBlobHash();
-        return blobHashes.some(hash => hash.equals(blobHash));
-      })
-      .map(blob => blob.blob);
+    return blobSidecars.filter(blob => {
+      const blobHash = blob.blob.getEthVersionedBlobHash();
+      return blobHashes.some(hash => hash.equals(blobHash));
+    });
   }
 }

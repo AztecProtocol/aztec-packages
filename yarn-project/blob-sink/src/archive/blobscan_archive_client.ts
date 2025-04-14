@@ -31,15 +31,17 @@ export const BlobscanBlockResponseSchema = z
     ),
   })
   .transform(data =>
-    data.transactions.flatMap(tx =>
-      tx.blobs.map(blob => ({
-        blob: blob.data,
-        // eslint-disable-next-line camelcase
-        kzg_commitment: blob.commitment,
-        // eslint-disable-next-line camelcase
-        kzg_proof: blob.proof,
-      })),
-    ),
+    data.transactions
+      .flatMap(tx =>
+        tx.blobs.map(blob => ({
+          blob: blob.data,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: blob.commitment,
+          // eslint-disable-next-line camelcase
+          kzg_proof: blob.proof,
+        })),
+      )
+      .map((blob, index) => ({ ...blob, index: index.toString() })),
   ) satisfies ZodFor<BlobJson[]>;
 
 export class BlobscanArchiveClient implements BlobArchiveClient {
