@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744629755926,
+  "lastUpdate": 1744634269151,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "16aa932f5a1fc06a05bad90d7b6de35a0289bb4f",
-          "message": "chore(sol): fix off by one in test gen (#13410)\n\n## Overview\n\nultra tests have not been running in ci and failing locally for some\ntime, this pr makes em green again",
-          "timestamp": "2025-04-09T13:13:23Z",
-          "tree_id": "23a823af2a918ba6fc5ecce7c8b6019b559d9e28",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/16aa932f5a1fc06a05bad90d7b6de35a0289bb4f"
-        },
-        "date": 1744207969865,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 30101,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 18186,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9273,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 11016,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12865,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3006,6 +2952,60 @@ window.BENCHMARK_DATA = {
           {
             "name": "ivc-token-transfer-ivc-proof",
             "value": 12707,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "e09699ff628bb14bbb9fe0b07111fe80b1aa1c7c",
+          "message": "feat!: remove PXE starting block (#13504)\n\nAs of https://github.com/AztecProtocol/aztec-packages/pull/13475, PXE no\nlonger needs to use the `startingBlock` option, and hence we can also\nremove the environment variable used to configure it. The effects of\npassing no value are equivalent to a value of 1, which was the default\nif the envvar was unset.",
+          "timestamp": "2025-04-14T11:28:14Z",
+          "tree_id": "47902f8d544767fcaf01fbf0e9cbafa201a5aa74",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e09699ff628bb14bbb9fe0b07111fe80b1aa1c7c"
+        },
+        "date": 1744634260916,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "ivc-amm-add-liquidity-ivc-proof",
+            "value": 30579,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
+            "value": 18129,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-mint-ivc-proof",
+            "value": 9162,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-nft-transfer-in-private-ivc-proof",
+            "value": 10803,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "ivc-token-transfer-ivc-proof",
+            "value": 12629,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
           }
