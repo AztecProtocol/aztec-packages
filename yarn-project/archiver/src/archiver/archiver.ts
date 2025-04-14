@@ -183,7 +183,9 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     }
 
     if (blockUntilSynced) {
-      await this.syncSafe(blockUntilSynced);
+      while (!(await this.syncSafe(true))) {
+        this.log.info(`Retrying initial archiver sync in ${this.config.pollingIntervalMs}ms`);
+      }
     }
 
     this.runningPromise = new RunningPromise(
@@ -211,8 +213,14 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
   private async syncSafe(initialRun: boolean) {
     try {
       await this.sync(initialRun);
+      return true;
     } catch (error) {
-      this.log.error('Error during sync', { error });
+      if (error instanceof NoBlobBodiesFoundError) {
+        this.log.error(`Error syncing archiver: ${error.message}`);
+      } else {
+        this.log.error('Error during archiver sync', error);
+      }
+      return false;
     }
   }
 
