@@ -293,11 +293,6 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
             current_aggregation_object.set_public();
         }
 
-        // If we have IPA claims, we should have honk_recursion set to 2.
-        if (honk_output.nested_ipa_claims.size() > 0) {
-            ASSERT(metadata.honk_recursion == 2);
-        }
-
         // Accumulate the IPA claims and set it to be public inputs
         if constexpr (IsUltraBuilder<Builder>) {
             if (metadata.honk_recursion == 2) {
@@ -353,10 +348,11 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                         final_ipa_proof = ipa_proof;
                     }
                 }
-
+                // If we have an output IPA claim/proof, we should have honk_recursion set to 2 and vice versa.
+                ASSERT((metadata.honk_recursion == 2) == (final_ipa_proof.size() > 0));
                 // Propagate the IPA claim via the public inputs of the outer circuit
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity
-                // to handle this IPA data propagation.
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
+                // location/entity to handle this IPA data propagation.
                 builder.add_ipa_claim(final_ipa_claim.get_witness_indices());
                 builder.ipa_proof = final_ipa_proof;
             }
@@ -530,9 +526,9 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // Create stdlib representations of each {proof, vkey} pair to be recursively verified
     ivc->instantiate_stdlib_verification_queue(builder, stdlib_verification_keys);
 
-    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the internal
-    // verification queue. This ensures that the witnesses utilized in constraints generated based on acir are properly
-    // connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
+    // Connect the public_input witnesses in each constraint to the corresponding public input witnesses in the
+    // internal verification queue. This ensures that the witnesses utilized in constraints generated based on acir
+    // are properly connected to the constraints generated herein via the ivc scheme (e.g. recursive verifications).
     for (auto [constraint, queue_entry] :
          zip_view(constraints.ivc_recursion_constraints, ivc->stdlib_verification_queue)) {
 
@@ -549,8 +545,8 @@ void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
     // Complete the kernel circuit with all required recursive verifications, databus consistency checks etc.
     ivc->complete_kernel_circuit_logic(builder);
 
-    // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they are
-    // handled simultaneously in the above function call; instead we track the total contribution
+    // Note: we can't easily track the gate contribution from each individual ivc_recursion_constraint since they
+    // are handled simultaneously in the above function call; instead we track the total contribution
     gate_counter.track_diff(constraints.gates_per_opcode,
                             constraints.original_opcode_indices.ivc_recursion_constraints.at(0));
 }
