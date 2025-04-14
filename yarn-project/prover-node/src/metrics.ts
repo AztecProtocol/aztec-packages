@@ -10,7 +10,6 @@ import {
   type Meter,
   Metrics,
   type ObservableGauge,
-  type ObservableUpDownCounter,
   type TelemetryClient,
   type Tracer,
   type UpDownCounter,
@@ -60,7 +59,7 @@ export class ProverNodeJobMetrics {
 
 export class ProverNodeRewardsMetrics {
   private rewards: ObservableGauge;
-  private accumulatedRewards: ObservableUpDownCounter;
+  private accumulatedRewards: UpDownCounter;
   private prevEpoch = -1n;
   private proofSubmissionWindow = 0n;
 
@@ -75,7 +74,7 @@ export class ProverNodeRewardsMetrics {
       description: 'The rewards earned',
     });
 
-    this.accumulatedRewards = this.meter.createObservableUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL, {
+    this.accumulatedRewards = this.meter.createUpDownCounter(Metrics.PROVER_NODE_REWARDS_TOTAL, {
       valueType: ValueType.DOUBLE,
       description: 'The rewards earned (total)',
     });
@@ -83,11 +82,11 @@ export class ProverNodeRewardsMetrics {
 
   public async start() {
     this.proofSubmissionWindow = await this.rollup.getProofSubmissionWindow();
-    this.meter.addBatchObservableCallback(this.observe, [this.rewards, this.accumulatedRewards]);
+    this.meter.addBatchObservableCallback(this.observe, [this.rewards]);
   }
 
   public stop() {
-    this.meter.removeBatchObservableCallback(this.observe, [this.rewards, this.accumulatedRewards]);
+    this.meter.removeBatchObservableCallback(this.observe, [this.rewards]);
   }
 
   private observe = async (observer: BatchObservableResult): Promise<void> => {
@@ -101,14 +100,14 @@ export class ProverNodeRewardsMetrics {
       const fmt = parseFloat(formatUnits(rewards, 18));
 
       observer.observe(this.rewards, fmt, {
-        [Attributes.L1_SENDER]: this.coinbase.toString(),
+        [Attributes.COINBASE]: this.coinbase.toString(),
       });
 
       // only accumulate once per epoch
       if (closedEpoch > this.prevEpoch) {
         this.prevEpoch = closedEpoch;
-        observer.observe(this.accumulatedRewards, fmt, {
-          [Attributes.L1_SENDER]: this.coinbase.toString(),
+        this.accumulatedRewards.add(fmt, {
+          [Attributes.COINBASE]: this.coinbase.toString(),
         });
       }
     }

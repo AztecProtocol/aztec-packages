@@ -150,7 +150,7 @@ export class SequencerMetrics {
 
     const fmt = parseFloat(formatUnits(rewards, 18));
     observer.observe(this.rewards, fmt, {
-      [Attributes.L1_SENDER]: this.coinbase.toString(),
+      [Attributes.COINBASE]: this.coinbase.toString(),
     });
   };
 
