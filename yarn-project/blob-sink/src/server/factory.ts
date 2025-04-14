@@ -29,7 +29,7 @@ export async function createBlobSinkServer(
   telemetry?: TelemetryClient,
 ): Promise<BlobSinkServer> {
   const store = await getDataStore(config);
-  const blobClient = new HttpBlobSinkClient(config, { onBlobDeserializationError: 'debug' });
+  const blobClient = new HttpBlobSinkClient(config, { onBlobDeserializationError: 'trace' });
   const { l1ChainId, l1RpcUrls } = config;
   const l1PublicClient = l1ChainId && l1RpcUrls ? getPublicClient({ l1ChainId, l1RpcUrls }) : undefined;
 

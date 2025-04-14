@@ -20,11 +20,15 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
 
   constructor(
     config?: BlobSinkConfig,
-    private readonly opts: { archiveClient?: BlobArchiveClient; onBlobDeserializationError?: 'warn' | 'debug' } = {},
+    private readonly opts: {
+      logger?: Logger;
+      archiveClient?: BlobArchiveClient;
+      onBlobDeserializationError?: 'warn' | 'trace';
+    } = {},
   ) {
     this.config = config ?? getBlobSinkConfigFromEnv();
     this.archiveClient = opts.archiveClient ?? createBlobArchiveClient(this.config);
-    this.log = createLogger('aztec:blob-sink-client');
+    this.log = opts.logger ?? createLogger('aztec:blob-sink-client');
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
         () => fetch(...args),
@@ -153,7 +157,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       }
     }
 
-    this.log.debug('No blob sources available');
+    this.log.warn(`Failed to fetch blobs for ${blockHash} from all blob sources`, {
+      blobSinkUrl,
+      l1ConsensusHostUrls,
+      archiveUrl: this.archiveClient?.getBaseUrl(),
+    });
     return [];
   }
 
@@ -194,14 +202,11 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       this.log.warn(`Unable to get blob sidecar for ${blockHashOrSlot}: ${res.statusText} (${res.status})`, {
         status: res.status,
         statusText: res.statusText,
-        body: await res.text().catch(err => {
-          this.log.warn('Failed to read response body', err);
-          return '';
-        }),
+        body: await res.text().catch(() => 'Failed to read response body'),
       });
       return [];
-    } catch (err: any) {
-      this.log.warn(`Unable to get blob sidecar from ${hostUrl}`, err.message);
+    } catch (error: any) {
+      this.log.warn(`Error getting blob sidecar from ${hostUrl}: ${error.message ?? error}`);
       return [];
     }
   }
@@ -286,7 +291,7 @@ async function getRelevantBlobs(
   data: BlobJson[],
   blobHashes: Buffer[],
   logger: Logger,
-  onBlobDeserializationError: 'warn' | 'debug' = 'warn',
+  onBlobDeserializationError: 'warn' | 'trace' = 'warn',
 ): Promise<BlobWithIndex[]> {
   const blobsPromise = data
     // Filter out blobs not requested
