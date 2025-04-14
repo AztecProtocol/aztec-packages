@@ -70,7 +70,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
      * @brief Constuct a mock app circuit with a UH recursive verifier
      *
      */
-    static Builder construct_mock_UH_recursion_app_circuit(const std::shared_ptr<ClientIVC>& ivc)
+    static Builder construct_mock_UH_recursion_app_circuit(const std::shared_ptr<ClientIVC>& ivc, const bool tamper_vk)
     {
         AcirProgram program;
         std::vector<RecursionConstraint> recursion_constraints;
@@ -93,6 +93,11 @@ class IvcRecursionConstraintTest : public ::testing::Test {
             auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
             auto inner_proof = prover.construct_proof();
 
+            if (tamper_vk) {
+                honk_vk->q_l = g1::one;
+                UltraVerifier_<UltraFlavor> verifier(honk_vk);
+                EXPECT_FALSE(verifier.verify_proof(inner_proof));
+            }
             // Instantiate the recursive verifier using the native verification key
             stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
 
@@ -485,7 +490,7 @@ TEST_F(IvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     // construct a mock app_circuit
-    Builder app_circuit = construct_mock_app_circuit(ivc);
+    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
 
     // Complete instance and generate an oink proof
     ivc->accumulate(app_circuit);
@@ -499,5 +504,34 @@ TEST_F(IvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
     EXPECT_TRUE(CircuitChecker::check(kernel));
     ivc->accumulate(kernel);
 
+    EXPECT_TRUE(ivc->prove_and_verify());
+}
+
+/**
+ * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier that
+ * verifies a failed proof. This test was copied from the AccumulateTwo test.
+ */
+TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
+{
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+
+    // construct a mock app_circuit that has bad pairing point object
+    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
+
+    // Complete instance and generate an oink proof
+    ivc->accumulate(app_circuit);
+
+    // Construct kernel consisting only of the kernel completion logic
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    const ProgramMetadata metadata{ ivc };
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    EXPECT_TRUE(CircuitChecker::check(kernel));
+    ivc->accumulate(kernel);
+
+    // Still expect this to be true since we don't aggregate pairing point objects correctly.
+    // If we fix aggregation, we should expect this test to fail.
     EXPECT_TRUE(ivc->prove_and_verify());
 }
