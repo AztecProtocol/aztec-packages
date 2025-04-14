@@ -34,6 +34,12 @@ export class SequencerMetrics {
 
   private rewards: ObservableGauge;
 
+  private slots: UpDownCounter;
+  private filledSlots: UpDownCounter;
+  private missedSlots: UpDownCounter;
+
+  private lastSeenSlot?: bigint;
+
   constructor(
     client: TelemetryClient,
     getState: SequencerStateCallback,
@@ -113,6 +119,21 @@ export class SequencerMetrics {
       valueType: ValueType.DOUBLE,
       description: 'The rewards earned',
     });
+
+    this.slots = this.meter.createUpDownCounter(Metrics.SEQUENCER_SLOT_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of slots this sequencer was selected for',
+    });
+
+    this.filledSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_FILLED_SLOT_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of slots this sequencer has filled',
+    });
+
+    this.missedSlots = this.meter.createUpDownCounter(Metrics.SEQUENCER_MISSED_SLOT_COUNT, {
+      valueType: ValueType.INT,
+      description: 'The number of slots this sequencer has missed to fill',
+    });
   }
 
   public start() {
@@ -180,6 +201,34 @@ export class SequencerMetrics {
     this.stateTransitionBufferDuration.record(durationMs, {
       [Attributes.SEQUENCER_STATE]: state,
     });
+  }
+
+  observeSlotChange(slot: bigint | undefined, proposer: string) {
+    // sequencer went through the loop a second time. Noop
+    if (slot === this.lastSeenSlot) {
+      return;
+    }
+
+    if (typeof this.lastSeenSlot === 'bigint') {
+      this.missedSlots.add(1, {
+        [Attributes.BLOCK_PROPOSER]: proposer,
+      });
+    }
+
+    if (typeof slot === 'bigint') {
+      this.slots.add(1, {
+        [Attributes.BLOCK_PROPOSER]: proposer,
+      });
+    }
+
+    this.lastSeenSlot = slot;
+  }
+
+  incFilledSlot(proposer: string) {
+    this.filledSlots.add(1, {
+      [Attributes.BLOCK_PROPOSER]: proposer,
+    });
+    this.lastSeenSlot = undefined;
   }
 
   private setCurrentBlock(blockNumber: number, txCount: number) {

@@ -274,6 +274,7 @@ export class Sequencer {
     const chainTipArchive = chainTip.archive;
 
     const slot = await this.slotForProposal(chainTipArchive.toBuffer(), BigInt(newBlockNumber));
+    this.metrics.observeSlotChange(slot, this.publisher.getSenderAddress().toString());
     if (!slot) {
       this.log.debug(`Cannot propose block ${newBlockNumber}`);
       return;
@@ -341,7 +342,13 @@ export class Sequencer {
       this.log.error(`Error enqueuing slashing vote`, err, { blockNumber: newBlockNumber, slot });
     });
 
-    await this.publisher.sendRequests();
+    const resp = await this.publisher.sendRequests();
+    if (resp) {
+      const proposedBlock = resp.validActions.find(a => a === 'propose');
+      if (proposedBlock) {
+        this.metrics.incFilledSlot(this.publisher.getSenderAddress().toString());
+      }
+    }
 
     if (finishedFlushing) {
       this.isFlushing = false;

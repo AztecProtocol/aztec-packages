@@ -63,6 +63,9 @@ export const SEQUENCER_CURRENT_BLOCK_SIZE = 'aztec.sequencer.current.block_size'
 export const SEQUENCER_TIME_TO_COLLECT_ATTESTATIONS = 'aztec.sequencer.time_to_collect_attestations';
 export const SEQUENCER_BLOCK_BUILD_INSERTION_TIME = 'aztec.sequencer.block_builder_tree_insertion_duration';
 export const SEQUENCER_CURRENT_BLOCK_REWARDS = 'aztec.sequencer.current_block_rewards';
+export const SEQUENCER_SLOT_COUNT = 'aztec.sequencer.slot.total_count';
+export const SEQUENCER_FILLED_SLOT_COUNT = 'aztec.sequencer.slot.filled_count';
+export const SEQUENCER_MISSED_SLOT_COUNT = 'aztec.sequencer.slot.missed_count';
 
 export const L1_PUBLISHER_GAS_PRICE = 'aztec.l1_publisher.gas_price';
 export const L1_PUBLISHER_TX_COUNT = 'aztec.l1_publisher.tx_count';
