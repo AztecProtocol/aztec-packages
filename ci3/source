@@ -13,6 +13,9 @@ export ci3="$root/ci3"
 [ -z "${CI:-}" ] && export CI=0
 [ "$CI" == "true" ] && export CI=1
 
+# We are fine using foundry nightly.
+export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
 source $ci3/source_options
 source $ci3/source_stdlib
 source $ci3/source_color

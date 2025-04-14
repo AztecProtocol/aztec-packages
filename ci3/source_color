@@ -28,5 +28,14 @@ export reset="\033[0m"
 export link_open='\033]8;;'
 export link_close='\x07'
 
+function term_link {
+  echo -e "${link_open}$1${link_close}$2${link_open}${link_close}"
+}
+
+function ci_term_link {
+  term_link "http://ci.aztec-labs.com/$1" "$1"
+}
+export -f term_link ci_term_link
+
 # We always want color.
 export FORCE_COLOR=true

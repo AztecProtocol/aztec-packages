@@ -46,6 +46,13 @@ library EpochProofLib {
     uint256 totalBurn;
   }
 
+  // This is a temporary struct to avoid stack too deep errors
+  struct BlobVarsTemp {
+    uint256 blobOffset;
+    uint256 offset;
+    uint256 i;
+  }
+
   // A Cuauhxicalli [kʷaːʍʃiˈkalːi] ("eagle gourd bowl") is a ceremonial Aztec vessel or altar used to hold offerings,
   // such as sacrificial hearts, during rituals performed within temples.
   address public constant BURN_ADDRESS = address(bytes20("CUAUHXICALLI"));
@@ -69,7 +76,6 @@ library EpochProofLib {
    *          _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    *          _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    *          _blobPublicInputs - The blob public inputs for the proof
-   *          _aggregationObject - The aggregation object for the proof
    *          _proof - The proof to verify
    */
   function submitEpochRootProof(SubmitEpochRootProofArgs calldata _args) internal {
@@ -101,15 +107,13 @@ library EpochProofLib {
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
    * @param _blobPublicInputs- The blob public inputs for the proof
-   * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
     PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputs,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputs
   ) internal view returns (bytes32[] memory) {
     RollupStore storage rollupStore = STFLib.getStorage();
     // Args are defined as an array because Solidity complains with "stack too deep" otherwise
@@ -160,9 +164,7 @@ library EpochProofLib {
       }
     }
 
-    bytes32[] memory publicInputs = new bytes32[](
-      Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH + Constants.AGGREGATION_OBJECT_LENGTH
-    );
+    bytes32[] memory publicInputs = new bytes32[](Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH);
 
     // Structure of the root rollup public inputs we need to reassemble:
     //
@@ -231,47 +233,35 @@ library EpochProofLib {
     offset += 1;
 
     {
+      BlobVarsTemp memory tmp = BlobVarsTemp({blobOffset: 0, offset: offset, i: 0});
       // blob_public_inputs
-      uint256 blobOffset = 0;
-      for (uint256 i = 0; i < _end - _start + 1; i++) {
-        uint8 blobsInBlock = uint8(_blobPublicInputs[blobOffset++]);
+      for (; tmp.i < _end - _start + 1; tmp.i++) {
+        uint8 blobsInBlock = uint8(_blobPublicInputs[tmp.blobOffset++]);
         for (uint256 j = 0; j < Constants.BLOBS_PER_BLOCK; j++) {
           if (j < blobsInBlock) {
             // z
-            publicInputs[offset++] = bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]);
+            publicInputs[tmp.offset++] =
+              bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]);
             // y
-            (publicInputs[offset++], publicInputs[offset++], publicInputs[offset++]) =
-              bytes32ToBigNum(bytes32(_blobPublicInputs[blobOffset:blobOffset += 32]));
+            (publicInputs[tmp.offset++], publicInputs[tmp.offset++], publicInputs[tmp.offset++]) =
+              bytes32ToBigNum(bytes32(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 32]));
             // To fit into 2 fields, the commitment is split into 31 and 17 byte numbers
             // See yarn-project/foundation/src/blob/index.ts -> commitmentToFields()
             // TODO: The below left pads, possibly inefficiently
             // c[0]
-            publicInputs[offset++] =
-              bytes32(uint256(uint248(bytes31(_blobPublicInputs[blobOffset:blobOffset += 31]))));
+            publicInputs[tmp.offset++] = bytes32(
+              uint256(uint248(bytes31(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 31])))
+            );
             // c[1]
-            publicInputs[offset++] =
-              bytes32(uint256(uint136(bytes17(_blobPublicInputs[blobOffset:blobOffset += 17]))));
+            publicInputs[tmp.offset++] = bytes32(
+              uint256(uint136(bytes17(_blobPublicInputs[tmp.blobOffset:tmp.blobOffset += 17])))
+            );
           } else {
-            offset += Constants.BLOB_PUBLIC_INPUTS;
+            tmp.offset += Constants.BLOB_PUBLIC_INPUTS;
           }
         }
       }
     }
-
-    {
-      // the block proof is recursive, which means it comes with an aggregation object
-      // this snippet copies it into the public inputs needed for verification
-      // it also guards against empty _aggregationObject used with mocked proofs
-      uint256 aggregationLength = _aggregationObject.length / 32;
-      for (uint256 i = 0; i < Constants.AGGREGATION_OBJECT_LENGTH && i < aggregationLength; i++) {
-        bytes32 part;
-        assembly {
-          part := calldataload(add(_aggregationObject.offset, mul(i, 32)))
-        }
-        publicInputs[i + Constants.ROOT_ROLLUP_PUBLIC_INPUTS_LENGTH] = part;
-      }
-    }
-
     return publicInputs;
   }
 
@@ -397,12 +387,7 @@ library EpochProofLib {
     }
 
     bytes32[] memory publicInputs = getEpochProofPublicInputs(
-      _args.start,
-      _args.end,
-      _args.args,
-      _args.fees,
-      _args.blobPublicInputs,
-      _args.aggregationObject
+      _args.start, _args.end, _args.args, _args.fees, _args.blobPublicInputs
     );
 
     require(

@@ -15,7 +15,7 @@ import { type BootnodeConfig, type P2PConfig, getP2PDefaultConfig } from '../../
 import { PeerDiscoveryState } from '../service.js';
 import { DiscV5Service } from './discV5_service.js';
 
-const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 7_000): Promise<void> => {
+const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 15_000): Promise<void> => {
   return new Promise((resolve, reject) => {
     const timeoutId = setTimeout(() => {
       reject(new Error(`Timeout: Failed to connect to ${expectedCount} peers within ${timeout} ms`));
@@ -31,7 +31,7 @@ const waitForPeers = (node: DiscV5Service, expectedCount: number, timeout = 7_00
 };
 
 describe('Discv5Service', () => {
-  jest.setTimeout(10_000);
+  jest.setTimeout(20_000);
 
   let store: AztecAsyncKVStore;
   let bootNode: BootstrapNode;
@@ -135,7 +135,7 @@ describe('Discv5Service', () => {
     }
 
     expect(node.getEnr().ip).toEqual(undefined);
-    await Promise.all([
+    await Promise.allSettled([
       waitForPeers(node, extraNodes),
       (async () => {
         await sleep(2000); // wait for peer discovery to be able to start

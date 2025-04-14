@@ -330,17 +330,17 @@ static constexpr TraceStructure EXAMPLE_20{ .ecc_op = 1 << 11,
 /**
  * @brief Structuring tailored to the full e2e TS test (Currently optimized for five key testnet transactions)
  */
-static constexpr TraceStructure E2E_FULL_TEST_STRUCTURE{ .ecc_op = 1 << 10,
-                                                         .busread = 6000,
-                                                         .lookup = 15000,
-                                                         .pub_inputs = 5000,
-                                                         .arithmetic = 56000,
-                                                         .delta_range = 18000,
-                                                         .elliptic = 6000,
-                                                         .aux = 26000,
-                                                         .poseidon2_external = 17000,
-                                                         .poseidon2_internal = 92000,
-                                                         .overflow = 0 };
+static constexpr TraceStructure AZTEC_TRACE_STRUCTURE{ .ecc_op = 1 << 10,
+                                                       .busread = 6000,
+                                                       .lookup = 15000,
+                                                       .pub_inputs = 5000,
+                                                       .arithmetic = 56000,
+                                                       .delta_range = 18000,
+                                                       .elliptic = 6000,
+                                                       .aux = 26000,
+                                                       .poseidon2_external = 17000,
+                                                       .poseidon2_internal = 92000,
+                                                       .overflow = 0 };
 
 template <typename T>
 concept HasAdditionalSelectors = IsAnyOf<T, MegaExecutionTraceBlocks>;

@@ -491,7 +491,7 @@ export async function setup(
       {
         l1ChainId: config.l1ChainId,
         l1RpcUrls: config.l1RpcUrls,
-        rollupAddress: config.l1Contracts.rollupAddress,
+        l1Contracts: config.l1Contracts,
         port: blobSinkPort,
         dataDirectory: config.dataDirectory,
         dataStoreMapSizeKB: config.dataStoreMapSizeKB,

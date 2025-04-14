@@ -17,7 +17,6 @@ using ::testing::Return;
 using ::testing::SizeIs;
 using ::testing::StrictMock;
 
-using PublicDataLeafValue = crypto::merkle_tree::PublicDataLeafValue;
 using RawPoseidon2 = crypto::Poseidon2<crypto::Poseidon2Bn254ScalarFieldParams>;
 
 namespace {

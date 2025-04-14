@@ -7,6 +7,7 @@ import { type IFeeOpts, printGasEstimates } from '../utils/options/fees.js';
 export async function deployAccount(
   account: AccountManager,
   wait: boolean,
+  registerClass: boolean,
   feeOpts: IFeeOpts,
   json: boolean,
   debugLogger: Logger,
@@ -43,6 +44,7 @@ export async function deployAccount(
   const deployOpts: DeployAccountOptions = {
     skipInitialization: false,
     skipPublicDeployment: false,
+    skipClassRegistration: !registerClass,
     ...(await feeOpts.toDeployAccountOpts(wallet)),
   };
 

@@ -183,10 +183,11 @@ template <typename FF> struct RowDisablingPolynomial {
                                     const size_t log_circuit_size,
                                     Builder* builder)
     {
+        const size_t virtual_log_n = multivariate_challenge.size();
         FF evaluation_at_multivariate_challenge{ 1 };
         const FF one = FF{ 1 };
 
-        for (size_t idx = 2; idx < CONST_PROOF_SIZE_LOG_N; idx++) {
+        for (size_t idx = 2; idx < virtual_log_n; idx++) {
             stdlib::bool_t dummy_round = stdlib::witness_t(builder, idx >= log_circuit_size);
             evaluation_at_multivariate_challenge =
                 FF::conditional_assign(dummy_round,

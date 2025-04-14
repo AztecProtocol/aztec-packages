@@ -43,7 +43,7 @@ export class TXEPublicContractDataSource implements ContractDataSource {
       privateFunctionsRoot,
       version: contractClass!.version,
       privateFunctions: [],
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
     };
   }
 

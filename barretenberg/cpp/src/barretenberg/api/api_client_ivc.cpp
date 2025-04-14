@@ -103,6 +103,7 @@ void write_standalone_vk(const std::string& output_data_type,
     using VerificationKey = ClientIVC::MegaVerificationKey;
     using Program = acir_format::AcirProgram;
     using ProgramMetadata = acir_format::ProgramMetadata;
+    using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -111,7 +112,7 @@ void write_standalone_vk(const std::string& output_data_type,
     Program program{ get_constraint_system(bytecode_path, /*honk_recursion=*/0), /*witness=*/{} };
     auto& ivc_constraints = program.constraints.ivc_recursion_constraints;
 
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     const ProgramMetadata metadata{ .ivc = ivc_constraints.empty()
                                                ? nullptr
@@ -119,7 +120,7 @@ void write_standalone_vk(const std::string& output_data_type,
     Builder builder = acir_format::create_circuit<Builder>(program, metadata);
 
     // Add public inputs corresponding to pairing point accumulator
-    builder.add_pairing_point_accumulator(stdlib::recursion::init_default_agg_obj_indices<Builder>(builder));
+    AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
     auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
@@ -152,7 +153,7 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
     // MAGIC_NUMBER is bb::PAIRING_POINT_ACCUMULATOR_SIZE or bb::PROPAGATED_DATABUS_COMMITMENTS_SIZE
     static constexpr size_t MAGIC_NUMBER = 16;
 
-    ClientIVC ivc{ { E2E_FULL_TEST_STRUCTURE } };
+    ClientIVC ivc{ { AZTEC_TRACE_STRUCTURE } };
     ClientIVCMockCircuitProducer circuit_producer;
 
     // Initialize the IVC with an arbitrary circuit
@@ -166,14 +167,11 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
         ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
     ivc.accumulate(circuit_1);
 
-    ivc.construct_vk();
-
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    // Construct the hiding circuit and its VK (stored internally in the IVC)
+    ivc.construct_hiding_circuit_key();
 
     const bool output_to_stdout = output_dir == "-";
-    const auto vk = std::make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
-    const auto buf = to_buffer(vk);
+    const auto buf = to_buffer(ivc.get_vk());
 
     if (output_to_stdout) {
         write_bytes_to_stdout(buf);
@@ -228,7 +226,7 @@ std::shared_ptr<ClientIVC> _accumulate(std::vector<acir_format::AcirProgram>& fo
     using Program = acir_format::AcirProgram;
     using namespace acir_format;
 
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = std::make_shared<ClientIVC>(trace_settings);
 
     const ProgramMetadata metadata{ ivc };
@@ -284,6 +282,11 @@ void ClientIVCAPI::prove(const Flags& flags,
     };
 
     write_proof();
+
+    if (flags.write_vk) {
+        vinfo("writing ClientIVC vk in directory ", output_dir);
+        write_vk_for_ivc(bytecode_path, output_dir);
+    }
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
@@ -298,10 +301,8 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    vk.eccvm->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
-    vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;
@@ -371,7 +372,7 @@ void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per
     // Initialize an SRS to make the ClientIVC constructor happy
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
-    TraceSettings trace_settings{ E2E_FULL_TEST_STRUCTURE };
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
 
     size_t i = 0;
     for (const auto& constraint_system : constraint_systems) {
@@ -441,9 +442,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-    write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
 }
 
 } // namespace bb

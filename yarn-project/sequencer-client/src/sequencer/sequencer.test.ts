@@ -227,6 +227,7 @@ describe('sequencer', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
 
     // all txs use the same allowed FPC class
@@ -309,7 +310,7 @@ describe('sequencer', () => {
   it('does not build a block if it does not have enough time left in the slot', async () => {
     // Trick the sequencer into thinking that we are just too far into slot 1
     sequencer.setL1GenesisTime(
-      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initialTime + 1),
+      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initializeDeadline + 1),
     );
 
     const tx = await makeTx();
@@ -511,7 +512,13 @@ describe('sequencer', () => {
         finalized: { number: 0, hash: undefined },
       }),
     );
-    l1ToL2MessageSource.getBlockNumber.mockImplementation(() => Promise.resolve(currentTip.number));
+    l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
+      Promise.resolve({
+        latest: syncedToL2Block,
+        proven: { number: 0, hash: undefined },
+        finalized: { number: 0, hash: undefined },
+      }),
+    );
 
     // simulate a synch happening right after
     l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);

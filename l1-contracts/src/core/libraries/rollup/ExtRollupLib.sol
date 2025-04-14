@@ -38,12 +38,9 @@ library ExtRollupLib {
     uint256 _end,
     PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputs,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory) {
-    return EpochProofLib.getEpochProofPublicInputs(
-      _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
-    );
+    return EpochProofLib.getEpochProofPublicInputs(_start, _end, _args, _fees, _blobPublicInputs);
   }
 
   function validateBlobs(bytes calldata _blobsInput, bool _checkBlob)
