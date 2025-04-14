@@ -1,4 +1,4 @@
-use crate::encrypted_logs::log_encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES;
+use crate::messages::encryption::log_encryption::HEADER_CIPHERTEXT_SIZE_IN_BYTES;
 
 /********************************************************/
 // Disgusting arithmetic on generics

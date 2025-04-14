@@ -1,15 +1,14 @@
 use crate::{
     capsules::CapsuleArray,
-    discovery::{
-        ComputeNoteHashAndNullifier,
-        partial_notes::process_partial_note_private_msg,
-        pending_tagged_log::{PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, PendingTaggedLog},
-        private_notes::process_private_note_msg,
-    },
-    encrypted_logs::{
+    messages::{
+        discovery::{
+            ComputeNoteHashAndNullifier,
+            partial_notes::process_partial_note_private_msg,
+            pending_tagged_log::{PENDING_TAGGED_LOG_ARRAY_BASE_SLOT, PendingTaggedLog},
+            private_notes::process_private_note_msg,
+        },
         encoding::decode_message,
-        encrypt::aes128::AES128,
-        log_encryption::LogEncryption,
+        encryption::{aes128::AES128, log_encryption::LogEncryption},
         msg_type::{
             PARTIAL_NOTE_PRIVATE_MSG_TYPE_ID, PRIVATE_EVENT_MSG_TYPE_ID, PRIVATE_NOTE_MSG_TYPE_ID,
         },

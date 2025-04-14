@@ -1,5 +1,7 @@
 // TODO(#12750): don't make these values assume we're using AES.
-use crate::{encrypted_logs::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS, utils::array};
+use crate::{
+    messages::encryption::log_encryption::PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS, utils::array,
+};
 
 global MAX_MESSAGE_LEN: u32 = PRIVATE_LOG_PLAINTEXT_SIZE_IN_FIELDS;
 
@@ -33,7 +35,7 @@ pub global MAX_MESSAGE_CONTENT_LEN: u32 = MAX_MESSAGE_LEN - MESSAGE_EXPANDED_MET
 /// `decode_message` to retrieve the original values.
 ///
 /// - The `msg_type` is an identifier that groups types of messages that are all processed the same way, e.g. private
-/// notes or events. Possible values are defined in `aztec::encrypted_logs::msg_type`.
+/// notes or events. Possible values are defined in `aztec::messages::msg_type`.
 /// - The `msg_metadata` and `msg_content` are the values stored in the message, whose meaning depends on the
 ///  `msg_type`. The only special thing about `msg_metadata` that separates it from `msg_content` is that it is a u64
 /// instead of a full Field (due to details of how messages are encoded), allowing applications that can fit values into

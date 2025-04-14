@@ -1,6 +1,8 @@
 use crate::{
-    discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
-    encrypted_logs::encoding::MAX_MESSAGE_CONTENT_LEN,
+    messages::{
+        discovery::{ComputeNoteHashAndNullifier, nonce_discovery::attempt_note_nonce_discovery},
+        encoding::MAX_MESSAGE_CONTENT_LEN,
+    },
     oracle,
     utils::array,
 };
