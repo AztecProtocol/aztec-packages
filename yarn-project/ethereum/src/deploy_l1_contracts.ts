@@ -425,7 +425,7 @@ export const deploySharedContracts = async (
 
   const rewardDistributorAddress = await registry.getRewardDistributor();
 
-  const funding = 50n ** (10n ** 18n) * 200000n;
+  const funding = 50n * 10n ** 18n * 200000n;
   const { txHash: fundRewardDistributorTxHash } = await deployer.sendTransaction({
     to: rewardDistributorAddress.toString(),
     data: encodeFunctionData({
