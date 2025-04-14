@@ -353,6 +353,10 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
                         final_ipa_proof = ipa_proof;
                     }
                 }
+
+                // Propagate the IPA claim via the public inputs of the outer circuit
+                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right location/entity
+                // to handle this IPA data propagation.
                 builder.add_ipa_claim(final_ipa_claim.get_witness_indices());
                 builder.ipa_proof = final_ipa_proof;
             }
