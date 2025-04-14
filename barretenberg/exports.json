@@ -417,10 +417,6 @@
         "type": "const uint8_t *"
       },
       {
-        "name": "recursive",
-        "type": "const bool *"
-      },
-      {
         "name": "witness_buf",
         "type": "const uint8_t *"
       }
@@ -439,10 +435,6 @@
       {
         "name": "constraint_system_buf",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
       },
       {
         "name": "witness_buf",
@@ -518,30 +510,6 @@
       },
       {
         "name": "vk_buf",
-        "type": "const uint8_t *"
-      }
-    ],
-    "outArgs": [
-      {
-        "name": "result",
-        "type": "bool *"
-      }
-    ],
-    "isAsync": false
-  },
-  {
-    "functionName": "acir_fold_and_verify_program_stack",
-    "inArgs": [
-      {
-        "name": "constraint_system_buf",
-        "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
-      },
-      {
-        "name": "witness_buf",
         "type": "const uint8_t *"
       }
     ],
@@ -727,10 +695,6 @@
         "type": "const uint8_t *"
       },
       {
-        "name": "recursive",
-        "type": "const bool *"
-      },
-      {
         "name": "witness_vec",
         "type": "const uint8_t *"
       }
@@ -749,10 +713,6 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
       },
       {
         "name": "witness_vec",
@@ -813,10 +773,6 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
       }
     ],
     "outArgs": [
@@ -833,10 +789,6 @@
       {
         "name": "acir_vec",
         "type": "const uint8_t *"
-      },
-      {
-        "name": "recursive",
-        "type": "const bool *"
       }
     ],
     "outArgs": [
