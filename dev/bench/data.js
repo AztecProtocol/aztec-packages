@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744634269151,
+  "lastUpdate": 1744636700722,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1994b2ccb3976644074beabeddf708427a2b6700",
-          "message": "chore(avm): dont use PIs in simulation (#13409)\n\nWe would not have PIs in standalone simulation. We have to make sure\nthat our inputs either come from the DBs or TX.",
-          "timestamp": "2025-04-09T13:22:44Z",
-          "tree_id": "8075083f52d03f05c9ca572f055a409bd82f8b35",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1994b2ccb3976644074beabeddf708427a2b6700"
-        },
-        "date": 1744208667125,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20938.89579400002,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16001.893899000002 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 123987785396.6,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2225071798,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 295879534,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 19891.86316600012,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16859.932721000005 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56876.65696099999,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56876661000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4100.1088630000595,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3459.585764000001 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 12029.898798,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 12029902000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2337.56",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3008,6 +2930,84 @@ window.BENCHMARK_DATA = {
             "value": 12629,
             "unit": "ms/iter",
             "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "saleel@aztecprotocol.com",
+            "name": "saleel",
+            "username": "saleel"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "c87685fc4740fa74ea0ef0350bcf65dff7ced81f",
+          "message": "chore: set bbup version for noir 1.0.0-beta4 (#13518)",
+          "timestamp": "2025-04-14T11:40:22Z",
+          "tree_id": "723935d3cf4d35871fdd0fcdb144cdea33863ea1",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/c87685fc4740fa74ea0ef0350bcf65dff7ced81f"
+        },
+        "date": 1744636692787,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 20897.01582600014,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 15780.54499 ms\nthreads: 1"
+          },
+          {
+            "name": "field_ops_heuristic",
+            "value": 123227093692.7,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2128623294,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 230071949,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 20119.881157999997,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16851.404921 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 56742.989834,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 56742985000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4074.5891430001393,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3517.8960169999996 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11960.990271,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11960993000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2209.56",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
