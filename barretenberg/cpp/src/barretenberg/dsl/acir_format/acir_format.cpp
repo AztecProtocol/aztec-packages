@@ -492,7 +492,7 @@ HonkRecursionConstraintsOutput<Builder> process_honk_recursion_constraints(
     }
     ASSERT(!(is_root_rollup && output.nested_ipa_claims.size() != 2) && "Root rollup must accumulate two IPA proofs.");
     output.agg_obj = current_aggregation_object;
-
+    output.is_root_rollup = is_root_rollup;
     return output;
 }
 
