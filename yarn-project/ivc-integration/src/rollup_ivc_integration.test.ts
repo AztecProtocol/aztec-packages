@@ -14,6 +14,7 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MockRollupBasePrivateCircuit,
   MockRollupBasePublicCircuit,
@@ -32,7 +33,6 @@ import {
 } from './index.js';
 import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
 import type { KernelPublicInputs } from './types/index.js';
-import { getWorkingDirectory } from './bb_working_directory.js';
 
 /* eslint-disable camelcase */
 

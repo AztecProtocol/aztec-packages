@@ -7,9 +7,9 @@ import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
-import { getWorkingDirectory } from './bb_working_directory.js';
 
 /* eslint-disable camelcase */
 
