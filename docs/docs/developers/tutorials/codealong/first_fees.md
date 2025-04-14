@@ -333,7 +333,7 @@ The two key ways of paying for transactions: fee juice from an account or via an
   - great for bootstrapping an account on Aztec
   - need to already have aztec fee asset on an L1 account
 
-### Fee juice from a fee paying contract
+### Fee juice from a Fee Paying Contract
 
 - via public/private payment
   - can pay in other assets, and not hold fee juice
