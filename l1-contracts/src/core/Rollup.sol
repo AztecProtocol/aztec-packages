@@ -137,16 +137,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   /**
    * @notice  Get the committee for a given timestamp
    *
-   * @param _ts - The timestamp to get the committee for
-   *
    * @return The committee for the given timestamp
    */
-  function getCommitteeAt(Timestamp _ts)
-    external
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
+  function getCurrentCommittee() external override(IValidatorSelection) returns (address[] memory) {
+    Timestamp ts = Timestamp.wrap(block.timestamp);
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(ts));
   }
 
   /**

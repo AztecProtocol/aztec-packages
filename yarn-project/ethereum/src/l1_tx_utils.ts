@@ -200,7 +200,7 @@ export class L1TxUtils {
 
   constructor(
     public publicClient: ViemPublicClient,
-    public walletClient: ViemWalletClient,
+    public walletClient?: ViemWalletClient,
     protected logger: Logger = createLogger('L1TxUtils'),
     config?: Partial<L1TxUtilsConfig>,
     private debugMaxGasLimit: boolean = false,
@@ -220,6 +220,9 @@ export class L1TxUtils {
   }
 
   public getSenderAddress() {
+    if (!this.walletClient) {
+      throw new Error('Wallet client not set');
+    }
     return this.walletClient.account.address;
   }
 
@@ -248,6 +251,9 @@ export class L1TxUtils {
     _gasConfig?: L1GasConfig,
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils wallet client not set');
+    }
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
       const account = this.walletClient.account;
@@ -317,6 +323,9 @@ export class L1TxUtils {
     _blobInputs?: L1BlobInputs,
     isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils wallet client not set');
+    }
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
     const account = this.walletClient.account;
@@ -671,6 +680,9 @@ export class L1TxUtils {
     blobInputs: (L1BlobInputs & { maxFeePerBlobGas: bigint }) | undefined,
     stateOverride: StateOverride = [],
   ) {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils wallet client not set');
+    }
     try {
       await this.publicClient.simulateContract({
         ...args,
@@ -726,6 +738,9 @@ export class L1TxUtils {
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils wallet client not set');
+    }
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
@@ -790,6 +805,9 @@ export class L1TxUtils {
    * @returns The hash of the cancellation transaction
    */
   protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils wallet client not set');
+    }
     if (isBlobTx) {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');
     }

@@ -5,12 +5,21 @@ import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
 import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
 import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
+import {
+  type Account,
+  type GetContractReturnType,
+  type Hex,
+  decodeFunctionResult,
+  encodeFunctionData,
+  getAddress,
+  getContract,
+} from 'viem';
 
 import { getPublicClient } from '../client.js';
 import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
 import type { L1ContractAddresses } from '../l1_contract_addresses.js';
 import type { L1ReaderConfig } from '../l1_reader.js';
+import { L1TxUtils } from '../l1_tx_utils.js';
 import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
@@ -39,6 +48,7 @@ export type EpochProofPublicInputArgs = {
 
 export class RollupContract {
   private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private l1TxUtils: L1TxUtils;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -67,6 +77,7 @@ export class RollupContract {
       address = address.toString();
     }
     this.rollup = getContract({ address, abi: RollupAbi, client });
+    this.l1TxUtils = new L1TxUtils(this.client);
   }
 
   public get address() {
@@ -178,14 +189,25 @@ export class RollupContract {
   }
 
   async getCommitteeAt(timestamp: bigint) {
-    const { result } = await this.client.simulateContract({
-      address: this.address,
-      abi: RollupAbi,
-      functionName: 'getCommitteeAt',
-      args: [timestamp],
-    });
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({
+          abi: RollupAbi,
+          functionName: 'getCurrentCommittee',
+        }),
+      },
+      {
+        // @note we add 1n to the timestamp because geth implementation doesn't like simulation timestamp to be equal to the current block timestamp
+        time: timestamp + 1n,
+      },
+    );
 
-    return result;
+    return decodeFunctionResult<readonly `0x${string}`[]>({
+      abi: RollupAbi,
+      functionName: 'getCurrentCommittee',
+      data: result,
+    });
   }
 
   getSampleSeedAt(timestamp: bigint) {

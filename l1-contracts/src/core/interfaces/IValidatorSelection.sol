@@ -35,7 +35,7 @@ interface IValidatorSelection is IValidatorSelectionCore {
 
   // Non view as uses transient storage
   function getCurrentEpochCommittee() external returns (address[] memory);
-  function getCommitteeAt(Timestamp _ts) external returns (address[] memory);
+  function getCurrentCommittee() external returns (address[] memory);
   function getEpochCommittee(Epoch _epoch) external returns (address[] memory);
 
   // Stable
