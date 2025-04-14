@@ -210,22 +210,6 @@ export async function proveAndVerifyMegaHonk(
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPath: string, crsPath: string) {
-  /* eslint-disable camelcase */
-  const { api } = await initClientIVC(crsPath);
-  try {
-    const bytecode = readStack(bytecodePath);
-    const witness = readStack(witnessPath);
-
-    const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
-    debug(`Verification ${verified ? 'successful' : 'failed'}`);
-    return verified;
-  } finally {
-    await api.destroy();
-  }
-  /* eslint-enable camelcase */
-}
-
 export async function prove(
   bytecodePath: string,
   recursive: boolean,
