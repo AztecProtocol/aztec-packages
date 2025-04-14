@@ -146,7 +146,7 @@ The key parameters are:
 
 ### Using Environment Variables
 
-Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`.
+Every flag in the `aztec start` command corresponds to an environment variable. You can see the variable names by running `aztec start --help`. [A reference is provided](./cli_reference.md).
 
 For example:
 
@@ -166,6 +166,32 @@ Then source this file before running your command:
 ```bash
 source .env
 aztec start --network alpha-testnet --archiver --node --sequencer # other flags...
+```
+
+### Using a Docker Compose
+If you would like to, you can use a configuration like the one below:
+
+```
+name: aztec-node
+services:
+  network_mode: host # Optional, run with host networking
+  node:
+    image: aztecprotocol/aztec:0.84.0-alpha-testnet.3
+    environment:
+      ETHEREUM_HOSTS: ""
+      L1_CONSENSUS_HOST_URLS: ""
+      DATA_DIRECTORY: /var/lib/aztec
+      VALIDATOR_PRIVATE_KEY: $VALIDATOR_PRIVATE_KEY
+      P2P_IP: $P2P_IP
+    entrypoint: >
+      sh -c 'node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --network alpha-testnet start --node --archiver --sequencer'
+    ports:
+      - 40400:40400/tcp
+      - 40400:40400/udp
+      - 8080:8080
+
+  volumes:
+    - aztec_data:/var/lib/aztec
 ```
 
 ### Customization Options
