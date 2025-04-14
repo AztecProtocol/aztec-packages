@@ -4,4 +4,5 @@ LengthTest
 ├── when adding validators
 │   └── it increases the length
 └── when removing validators
-    └── it decreases the length
+    ├── it decreases the length
+    └── it maintains historical values correctly

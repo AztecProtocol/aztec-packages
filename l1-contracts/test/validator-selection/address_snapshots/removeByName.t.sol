@@ -13,10 +13,16 @@ contract RemoveByNameTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenAddressNotInTheSet() public {
+    // It returns false
     assertFalse(validatorSet.remove(address(1)));
   }
 
   function test_WhenValidatorIsInTheSet() public {
+    // It returns true
+    // It decreases the length
+    // It updates the snapshot for that index
+    // It maintains historical values correctly
+
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
 
@@ -28,6 +34,9 @@ contract RemoveByNameTest is AddressSnapshotsBase {
   }
 
   function test_WhenRemovingMultipleValidators() public {
+    // It maintains correct order of remaining validators
+    // It updates snapshots correctly for each removal
+
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
     validatorSet.add(address(2));

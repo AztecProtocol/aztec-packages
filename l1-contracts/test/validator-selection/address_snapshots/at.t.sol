@@ -12,11 +12,13 @@ contract AtTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenNoValidatorsAreRegistered() public {
+    // It reverts
     vm.expectRevert();
     validatorSet.at(0);
   }
 
   function test_WhenIndexIsOutOfBounds() public {
+    // It reverts
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
 
@@ -25,6 +27,7 @@ contract AtTest is AddressSnapshotsBase {
   }
 
   function test_WhenIndexIsValid() public {
+    // it returns the current validator at that index
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
     validatorSet.add(address(2));
@@ -33,14 +36,8 @@ contract AtTest is AddressSnapshotsBase {
     assertEq(validatorSet.at(0), address(1));
     assertEq(validatorSet.at(1), address(2));
     assertEq(validatorSet.at(2), address(3));
-  }
 
-  function test_WhenValidatorsAreRemoved() public {
-    timeCheater.cheat__setEpochNow(1);
-    validatorSet.add(address(1));
-    validatorSet.add(address(2));
-    validatorSet.add(address(3));
-
+    // it returns the correct validator after reordering
     timeCheater.cheat__setEpochNow(2);
     validatorSet.remove(1);
 

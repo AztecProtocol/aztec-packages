@@ -3,13 +3,20 @@
 pragma solidity >=0.8.27;
 
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
 contract AddTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenValidatorIsNotInTheSet() public {
+    // It returns true
+    // It increases the length
+    // It creates a checkpoint
+
     timeCheater.cheat__setEpochNow(1);
     assertTrue(validatorSet.add(address(1)));
     assertEq(validatorSet.length(), 1);
@@ -17,6 +24,8 @@ contract AddTest is AddressSnapshotsBase {
   }
 
   function test_WhenValidatorIsAlreadyInTheSet() public {
+    // It returns false
+
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
     assertFalse(validatorSet.add(address(1)));

@@ -4,9 +4,13 @@ GetAddressFromIndexAtEpochTest
 ├── when validators exist
 │   ├── when querying current epoch
 │   │   └── it returns the correct validator address
+│   ├── when querying future epoch
+│   │   └── it returns the correct (current) validator address
 │   ├── when querying past epoch
 │   │   └── it maintains historical values correctly
-│   └── when validator was removed
-│       └── it returns address(0) for that epoch
+│   ├── when validator was removed
+│   │   └── it returns address(0) for that epoch
+│   └── when validator is removed and new one added at same position
+│       └── it maintains both current and historical values correctly
 └── when index is out of bounds
     └── it returns address(0)

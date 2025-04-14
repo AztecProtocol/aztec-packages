@@ -2,18 +2,25 @@
 // Copyright 2025 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {AddressSnapshotLib, SnapshottedAddressSet} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
+import {
+  AddressSnapshotLib,
+  SnapshottedAddressSet
+} from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
 contract ValuesTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
-  function test_WhenNoValidatorsAreRegistered() view public {
+  function test_WhenNoValidatorsAreRegistered() public view {
+    // It returns empty array
     address[] memory vals = validatorSet.values();
     assertEq(vals.length, 0);
   }
 
   function test_WhenValidatorsExist() public {
+    // It returns array with correct length
+    // It returns array with addresses in order
+
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
     validatorSet.add(address(2));
@@ -27,6 +34,7 @@ contract ValuesTest is AddressSnapshotsBase {
   }
 
   function test_WhenValidatorsAreRemoved() public {
+    // It returns array of remaining validators
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
     validatorSet.add(address(2));
