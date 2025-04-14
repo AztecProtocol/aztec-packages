@@ -9,6 +9,7 @@ import { fileURLToPath } from 'url';
 
 import { generate3FunctionTestingIVCStack, generate6FunctionTestingIVCStack } from './index.js';
 import { proveClientIVC } from './prove_native.js';
+import { getWorkingDirectory } from './bb_working_directory.js';
 
 /* eslint-disable camelcase */
 
@@ -22,7 +23,7 @@ describe('Client IVC Integration', () => {
 
   beforeEach(async () => {
     // Create a temp working dir
-    bbWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-client-ivc-integration-'));
+    bbWorkingDirectory = await getWorkingDirectory('bb-client-ivc-integration-');
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
   });
 
