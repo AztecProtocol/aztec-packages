@@ -157,7 +157,7 @@ pub contract NFT {
         compute_authwit_nullifier,
     };
     use dep::aztec::{
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+        messages::logs::note::encode_and_encrypt_note,
         macros::{
             events::event,
             functions::{initializer, internal, private, public, utility, view},

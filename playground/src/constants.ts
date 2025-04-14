@@ -69,4 +69,7 @@ export const INFO_TEXT = {
     'Aztec has native Fee Abstraction, so you can choose to pay fees in multiple ways. For test networks, we have you covered! Use our Sponsored FPC (Fee Paying Contract) and your transactions are on us',
   AUTHWITS:
     'Authorization witnesses (AuthWits) allow execution of functions on behalf of other addresses you own (you have their secret keys)',
+  CREATE_CONTRACT:
+    "Just like in other networks, you can register an existing contract instance (if you know it's ABI and address) or create a new one",
+  CONTACTS: 'Register contacts so you can discover notes sent by them',
 };

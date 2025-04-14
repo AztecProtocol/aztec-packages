@@ -120,7 +120,7 @@ export function ContractComponent() {
         public: true,
         utility: true,
       });
-      if (currentContractAddress && currentContract?.address !== currentContractAddress) {
+      if (currentContractAddress) {
         const { isContractPubliclyDeployed } = await wallet.getContractMetadata(currentContractAddress);
         // Temporarily filter out undeployed contracts
         if (isContractPubliclyDeployed) {
@@ -129,16 +129,13 @@ export function ContractComponent() {
           const contract = await Contract.at(currentContractAddress, currentContractArtifact, wallet);
           setCurrentContract(contract);
         }
-      } else {
-        setCurrentContractAddress(null);
-        setCurrentContract(null);
       }
       setIsLoadingArtifact(false);
     };
     if (!!currentContractArtifact) {
       loadCurrentContract();
     }
-  }, [currentContractArtifact, currentContractAddress]);
+  }, [currentContractArtifact, currentContractAddress, wallet]);
 
   const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
@@ -182,13 +179,15 @@ export function ContractComponent() {
               {!currentContractAddress && wallet && (
                 <div css={contractActions}>
                   <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
-                    Register
+                    Register/Deploy
                   </Button>
-                  <CreateContractDialog
-                    contractArtifact={currentContractArtifact}
-                    open={openCreateContractDialog}
-                    onClose={handleContractCreation}
-                  />
+                  {openCreateContractDialog && (
+                    <CreateContractDialog
+                      contractArtifact={currentContractArtifact}
+                      open={openCreateContractDialog}
+                      onClose={handleContractCreation}
+                    />
+                  )}
                 </div>
               )}
               {currentContractAddress && (

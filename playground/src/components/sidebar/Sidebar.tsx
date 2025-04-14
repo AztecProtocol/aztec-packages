@@ -28,6 +28,7 @@ const container = css({
   transition: 'all 0.3s ease-out',
   padding: '20px',
   margin: '0 24px 0 0',
+  scrollbarWidth: 'none',
   '@media (max-width: 1200px)': {
     padding: '12px',
     width: 'auto',

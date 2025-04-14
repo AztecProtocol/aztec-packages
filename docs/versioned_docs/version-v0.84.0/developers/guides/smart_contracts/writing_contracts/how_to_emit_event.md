@@ -14,7 +14,7 @@ There are also public logs, which are similar to events, but are unstructured da
 
 To emit encrypted logs you can import the `encode_and_encrypt_event` or `encode_and_encrypt_event_unconstrained` functions and pass them into the `emit` function. An example can be seen in the reference token contract's transfer function:
 
-```rust title="encrypted_unconstrained" showLineNumbers 
+```rust title="encrypted_unconstrained" showLineNumbers
 Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
     &mut context,
     to,
@@ -31,7 +31,7 @@ Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
 Developer can choose whether to emit encrypted events or not. Emitting the events means that they will be posted to Ethereum, in blobs, and will inherit the availability guarantees of Ethereum. Developers may choose not to emit events and to share information with recipients off-chain, or through alternative mechanisms that are to be developed (e.g. alternative, cheaper data availability solutions).
 :::
 
-You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/aztec-nr/aztec/src/encrypted_logs/log_assembly_strategies/default_aes128/event.nr)
+You can find the implementation of event logging [here](https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/aztec-nr/aztec/src/messages/logs/event.nr)
 
 ### Processing encrypted events
 
@@ -41,7 +41,7 @@ Contracts created using aztec-nr will try to discover newly created events by se
 
 You can emit public events by calling the `emit` function on the event type that you would like to emit. For example:
 
-```rust title="emit_public" showLineNumbers 
+```rust title="emit_public" showLineNumbers
 let event0 = ExampleEvent0 { value0: preimages[0], value1: preimages[1] };
 
 event0.emit(encode_event(&mut context));
@@ -57,7 +57,7 @@ Public logs are unstructured data which can be read by anyone. They can be emitt
 
 To emit public logs you don't need to import any library. You call the context method `emit_public_log`:
 
-```rust title="emit_public" showLineNumbers 
+```rust title="emit_public" showLineNumbers
 context.emit_public_log(/*message=*/ value);
 context.emit_public_log(/*message=*/ [10, 20, 30]);
 context.emit_public_log(/*message=*/ "Hello, world!");
@@ -69,7 +69,7 @@ context.emit_public_log(/*message=*/ "Hello, world!");
 
 Once emitted, unencrypted events are stored in AztecNode and can be queried by anyone:
 
-```typescript title="get_logs" showLineNumbers 
+```typescript title="get_logs" showLineNumbers
 const fromBlock = await pxe.getBlockNumber();
 const logFilter = {
   fromBlock,

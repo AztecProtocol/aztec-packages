@@ -631,7 +631,7 @@ We're preparing to make log assembly more customisable. These paths have changed
 
 ```diff
 - use dep::aztec::encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-+ use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
++ use dep::aztec::messages::logs::note::encode_and_encrypt_note,
 ```
 
 And similar paths for `encode_and_encrypt_note_unconstrained`, and for events and partial notes.
@@ -2345,7 +2345,7 @@ This will be further simplified in future versions (See [4496](https://github.co
 
 The prelude consists of
 
-```rust title="prelude" showLineNumbers 
+```rust title="prelude" showLineNumbers
 pub use crate::{
     context::{PrivateContext, PublicContext, ReturnsHash},
     note::{
