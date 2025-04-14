@@ -83,19 +83,19 @@ class ClientIVC {
             return buffer;
         }
 
+        /**
+         * @brief Very quirky method to convert a msgpack buffer to a "heap" buffer
+         * @details This method results in a buffer that is double-size-prefixed with the buffer size. This is to mimmic
+         * the original bb.js behavior which did a *out_proof = to_heap_buffer(to_buffer(proof));
+         *
+         * @return uint8_t* Double size-prefixed msgpack buffer
+         */
         uint8_t* to_msgpack_heap_buffer() const
         {
             msgpack::sbuffer buffer = to_msgpack_buffer();
 
             std::vector<uint8_t> buf(buffer.data(), buffer.data() + buffer.size());
-
-            auto heap_buf = to_buffer</*include_size=*/true>(buf);
-            auto* ptr = (uint8_t*)aligned_alloc(64, heap_buf.size()); // NOLINT
-            std::copy(heap_buf.begin(), heap_buf.end(), ptr);
-            return ptr;
-
-            // WORKTODO: not sure why the above can't be replaced with:
-            // return to_heap_buffer(buf);
+            return to_heap_buffer(buf);
         }
 
         class DeserializationError : public std::runtime_error {

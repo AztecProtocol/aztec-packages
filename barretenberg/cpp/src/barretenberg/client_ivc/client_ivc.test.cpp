@@ -538,7 +538,9 @@ TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
 
     // Serialize/deserialize proof to/from a heap buffer, check that it verifies
     uint8_t const* buffer = proof.to_msgpack_heap_buffer();
-    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(buffer);
+    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+    uint8_t const* uint8_ptr = uint8_buffer.data();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
     EXPECT_TRUE(ivc.verify(proof_deserialized));
 };
 
