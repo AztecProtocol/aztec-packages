@@ -14,7 +14,7 @@ import path from 'path';
 
 import type { P2PConfig } from './config.js';
 
-const PEER_ID_DATA_DIR_SUBDIR = '/var/lib/aztec/p2p-private-key';
+const PEER_ID_DATA_DIR_FILE = 'p2p-private-key';
 
 export interface PubSubLibp2p extends Libp2p {
   services: {
@@ -110,7 +110,7 @@ export async function getPeerIdPrivateKey(
 ): Promise<string> {
   const peerIdPrivateKeyFilePath =
     config.peerIdPrivateKeyPath ??
-    (config.dataDirectory ? path.join(config.dataDirectory, PEER_ID_DATA_DIR_SUBDIR) : undefined);
+    (config.dataDirectory ? path.join(config.dataDirectory, PEER_ID_DATA_DIR_FILE) : undefined);
   let peerIdPrivateKeySingleton: AztecAsyncSingleton<string> | undefined;
 
   const writePrivateKeyToFile = async (filePath: string, privateKey: string) => {

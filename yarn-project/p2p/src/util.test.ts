@@ -71,7 +71,7 @@ describe('p2p utils', () => {
 
       expect(peerIdPrivateKey).toBeDefined();
 
-      const storedPeerIdPrivateKey = await fs.readFile(path.join(tempDir, 'var/lib/aztec/p2p-private-key'), 'utf8');
+      const storedPeerIdPrivateKey = await fs.readFile(path.join(tempDir, 'p2p-private-key'), 'utf8');
       expect(storedPeerIdPrivateKey).toBe(peerIdPrivateKey);
 
       // When we try again, it should read the value from the file, not generate a new one
@@ -136,7 +136,7 @@ describe('p2p utils', () => {
 
       expect(peerIdPrivateKey).toBe(privateKeyString);
 
-      const storedPeerIdPrivateKey = await fs.readFile(path.join(tempDir, 'var/lib/aztec/p2p-private-key'), 'utf8');
+      const storedPeerIdPrivateKey = await fs.readFile(path.join(tempDir, 'p2p-private-key'), 'utf8');
       expect(storedPeerIdPrivateKey).toBe(privateKeyString);
 
       // Now when given an empty private key, it should read the value from the file in the data directory

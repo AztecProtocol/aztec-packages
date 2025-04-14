@@ -17,7 +17,6 @@ export async function initStoreForRollup<T extends AztecKVStore | AztecAsyncKVSt
   rollupAddress: EthAddress,
   log?: Logger,
 ): Promise<T> {
-  // TODO: investigate if we should store off the key here instead of writing to a new file
   if (!rollupAddress) {
     throw new Error('Rollup address is required');
   }
