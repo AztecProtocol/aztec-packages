@@ -29,8 +29,8 @@ import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
 import type { ClientIvcProof, Proof } from '@aztec/stdlib/proofs';
 import type { VerificationKeyData } from '@aztec/stdlib/vks';
 
-import { encode } from '@msgpack/msgpack';
 import * as fs from 'fs/promises';
+import { Encoder } from 'msgpackr';
 import * as path from 'path';
 
 export async function proveClientIVC(
@@ -42,7 +42,7 @@ export async function proveClientIVC(
 ): Promise<ClientIvcProof> {
   await fs.writeFile(
     path.join(bbWorkingDirectory, 'acir.msgpack'),
-    encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
+    new Encoder().encode(bytecodes.map(bytecode => Buffer.from(bytecode, 'base64'))),
   );
 
   await fs.writeFile(path.join(bbWorkingDirectory, 'witnesses.msgpack'), encode(witnessStack));
