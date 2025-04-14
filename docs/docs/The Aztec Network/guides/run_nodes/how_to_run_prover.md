@@ -64,17 +64,17 @@ Aztec provides a modular CLI command, `aztec start`, which makes it easy to laun
 
 Here are the main flags and what they control:
 
-| Flag                                             | Description                                                             |
-| ------------------------------------------------ | ----------------------------------------------------------------------- |
-| `--network <network>`                            | Selects the Docker image for the target network (e.g., `alpha-testnet`) |
-| `--l1-rpc-urls`                                  | The URL(s) of your L1 execution node                                    |
-| `--l1-consensus-host-urls`                       | The URL(s) of your L1 consensus node                                    |
-| `--archiver`                                     | Starts the archiver service to store synced data                        |
-| `--prover-node`                                  | Starts a prover node                                                    |
-| `--prover-broker`                                | Starts a prover broker                                                  |
-| `--prover-agent`                                 | Starts a proving agent                                                  |
-| `--p2p.p2pIp <your-ip>`                          | Your node's public IP                                                   |
-| `--proverNode.publisherPrivateKey <private-key>` | Your private key for submitting proofs to L1                            |
+| Flag                                             | Env Var                        | Description                                                             |
+| ------------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
+| `--network <network>`                            | `NETWORK`                      | Selects the Docker image for the target network (e.g., `alpha-testnet`) |
+| `--archiver`                                     | n/a                            | Starts the archiver service to store synced data                        |
+| `--prover-node`                                  | n/a                            | Starts a prover node                                                    |
+| `--prover-broker`                                | n/a                            | Starts a prover broker                                                  |
+| `--prover-agent`                                 | n/a                            | Starts a proving agent                                                  |
+| `--l1-rpc-urls`                                  | `ETHEREUM_HOSTS`               | The URL(s) of your L1 execution node. Comma seperated string.           |
+| `--l1-consensus-host-urls`                       | `L1_CONSENSUS_HOST_URLS`       | The URL(s) of your L1 consensus node. Comma seperated string.           |
+| `--p2p.p2pIp <your-ip>`                          | `P2P_IP`                       | Your node's public IP                                                   |
+| `--proverNode.publisherPrivateKey <private-key>` | `PROVER_PUBLISHER_PRIVATE_KEY` | Your private key for submitting proofs to L1                            |
 
 You can run all components on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
 
