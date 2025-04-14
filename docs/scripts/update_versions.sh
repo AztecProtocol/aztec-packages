@@ -1,12 +1,14 @@
 #!/bin/bash
 
-# Get the version from the first argument
-NEW_VERSION=$1
-
-if [ -z "$NEW_VERSION" ]; then
-    echo "Error: Version argument is required"
-    exit 1
-fi
+# This script updates versions.json to only contain the latest regular version and latest alpha-testnet version.
+# It:
+# 1. Reads the current versions from versions.json
+# 2. Identifies the highest version number for both regular and alpha-testnet versions
+# 3. Creates a new array containing only these two latest versions
+# 4. Writes the filtered array back to versions.json
+# The resulting versions.json will always contain exactly two versions:
+# - The latest regular version (e.g. "v0.85.0")
+# - The latest alpha-testnet version (e.g. "v0.84.0-alpha-testnet.2")
 
 # Path to versions.json
 VERSIONS_FILE="../versions.json"

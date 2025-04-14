@@ -80,7 +80,7 @@ jobs:
       - name: Update versions.json with new version
         working-directory: ./docs/scripts
         run: |
-          ./update_version.sh "${{ steps.version.outputs.semver }}"
+          ./update_versions.sh
 
       - name: Commit new documentation version
         run: |
