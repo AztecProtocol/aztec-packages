@@ -36,6 +36,7 @@ import {
 import {
   Attributes,
   L1Metrics,
+  RewardMetrics,
   type TelemetryClient,
   type Tracer,
   getTelemetryClient,
@@ -80,6 +81,7 @@ export class Sequencer {
   private maxBlockGas: Gas = new Gas(100e9, 100e9);
   private metrics: SequencerMetrics;
   private l1Metrics: L1Metrics;
+  private rewardsMetrics: RewardMetrics;
   private isFlushing: boolean = false;
 
   /** The maximum number of seconds that the sequencer can be into a slot to transition to a particular state. */
@@ -109,6 +111,13 @@ export class Sequencer {
     this.l1Metrics = new L1Metrics(telemetry.getMeter('SequencerL1Metrics'), publisher.l1TxUtils.publicClient, [
       publisher.getSenderAddress(),
     ]);
+
+    this.rewardsMetrics = new RewardMetrics(
+      telemetry.getMeter('ValidatorL1Metrics'),
+      this._coinbase,
+      'sequencer',
+      this.publisher.getRollupContract(),
+    );
 
     // Register the block builder with the validator client for re-execution
     this.validatorClient?.registerBlockBuilder(this.buildBlock.bind(this));

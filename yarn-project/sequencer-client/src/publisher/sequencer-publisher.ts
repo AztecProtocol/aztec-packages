@@ -136,6 +136,10 @@ export class SequencerPublisher {
     this.slashingProposerContract = deps.slashingProposerContract;
   }
 
+  public getRollupContract(): RollupContract {
+    return this.rollupContract;
+  }
+
   public registerSlashPayloadGetter(callback: GetSlashPayloadCallBack) {
     this.getSlashPayload = callback;
   }

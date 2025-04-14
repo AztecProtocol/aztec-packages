@@ -1,5 +1,7 @@
+import { RollupContract, getPublicClient } from '@aztec/ethereum';
 import { compact } from '@aztec/foundation/collection';
 import { memoize } from '@aztec/foundation/decorators';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { createLogger } from '@aztec/foundation/log';
 import { RunningPromise } from '@aztec/foundation/running-promise';
 import { DateProvider } from '@aztec/foundation/timer';
@@ -92,7 +94,13 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       ...compact(options),
     };
 
-    this.metrics = new ProverNodeMetrics(telemetryClient, 'ProverNode');
+    this.metrics = new ProverNodeMetrics(
+      telemetryClient,
+
+      EthAddress.fromField(this.prover.getProverId()),
+      this.publisher.getRollupContract(),
+      'ProverNode',
+    );
     this.tracer = telemetryClient.getTracer('ProverNode');
     this.txFetcher = new RunningPromise(() => this.checkForTxs(), this.log, this.options.txGatheringIntervalMs);
   }
@@ -143,6 +151,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     this.txFetcher.start();
     this.epochsMonitor.start(this);
     this.l1Metrics.start();
+    this.metrics.start();
     this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.options);
   }
 
@@ -160,6 +169,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await this.worldState.stop();
     await tryStop(this.coordination);
     this.l1Metrics.stop();
+    this.metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }

@@ -64,6 +64,8 @@ export const ERROR_TYPE = 'aztec.error_type';
 export const L1_TX_TYPE = 'aztec.l1.tx_type';
 /** The L1 address of the entity that sent a transaction to L1 */
 export const L1_SENDER = 'aztec.l1.sender';
+/** The role of node on the network (e.g. sequencer, prover) */
+export const NODE_ROLE = 'aztec.node_role';
 /** The phase of the transaction */
 export const TX_PHASE_NAME = 'aztec.tx.phase_name';
 /** The reason for disconnecting a peer */

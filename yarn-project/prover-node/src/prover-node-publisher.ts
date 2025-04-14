@@ -66,6 +66,10 @@ export class ProverNodePublisher {
     this.l1TxUtils = deps.l1TxUtils;
   }
 
+  public getRollupContract() {
+    return this.rollupContract;
+  }
+
   /**
    * Calling `interrupt` will cause any in progress call to `publishRollup` to return `false` asap.
    * Be warned, the call may return false even if the tx subsequently gets successfully mined.
