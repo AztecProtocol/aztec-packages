@@ -4,6 +4,7 @@ import './dropzone.css';
 import { loadContractArtifact } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
+import ListItem from '@mui/material/ListItem';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useContext } from 'react';
 import { AztecContext } from '../../../aztecEnv';
@@ -54,9 +55,23 @@ export function ContractUpload() {
           Upload Contract JSON Artifact
         </Typography>
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 1, mb: 3, display: 'block' }}>
-          The contract artifact should be a JSON file exported from your Noir/Aztec project
+
+        <Typography variant="body2" color="text.secondary" sx={{ my: 3 }}>
+          <Typography align="left">
+            To generate a contract artifact:
+          </Typography>
+
+          <ListItem sx={{ p: 0 }}>
+            1. Install latest version of Aztec CLI by running `aztec-up`
+          </ListItem>
+          <ListItem sx={{ p: 0 }}>
+            2. Run `aztec-nargo compile` in your project directory
+          </ListItem>
+          <ListItem sx={{ p: 0 }}>
+            3. Look for `{'<your-project-name>'}.json` file in the ./target directory
+          </ListItem>
         </Typography>
+
         <Button
           variant="contained"
           color="primary"
