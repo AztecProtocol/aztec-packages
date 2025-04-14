@@ -38,7 +38,7 @@ export class BootstrapNode implements P2PBootstrapApi {
       throw new Error('You need to provide a P2P IP address.');
     }
 
-    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store);
+    const peerIdPrivateKey = await getPeerIdPrivateKey(config, this.store, this.logger);
 
     const { enr: ourEnr, peerId } = await createBootnodeENRandPeerId(
       peerIdPrivateKey,
