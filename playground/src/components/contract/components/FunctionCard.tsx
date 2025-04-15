@@ -241,7 +241,6 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           disabled={!wallet || !contract || isWorking}
           color="primary"
           variant="contained"
-          sx={{ marginLeft: 0 }}
           size="small"
           onClick={() => simulate(fn.name)}
           endIcon={<PsychologyIcon />}
@@ -253,7 +252,6 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           size="small"
           color="primary"
           variant="contained"
-          sx={{ marginLeft: 0 }}
           onClick={() => setOpenSendTxDialog(true)}
           endIcon={<SendIcon />}
         >
@@ -264,7 +262,6 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           size="small"
           color="primary"
           variant="contained"
-          sx={{ marginLeft: 0 }}
           onClick={() => setOpenCreateAuthwitDialog(true)}
           endIcon={<VpnKeyIcon />}
         >
@@ -274,7 +271,6 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
           disabled={!wallet || !contract || isWorking || fn.functionType !== 'private'}
           color="primary"
           variant="contained"
-          sx={{ marginLeft: 0 }}
           size="small"
           onClick={() => profile(fn.name)}
           endIcon={<TroubleshootIcon />}
