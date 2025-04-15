@@ -1,62 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744759473167,
+  "lastUpdate": 1744759476008,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "a045f7852fa17320666daa65b658601559585bb7",
-          "message": "chore(dep): bump crypto polyfill (#13466)\n\ntitle",
-          "timestamp": "2025-04-10T22:01:02Z",
-          "tree_id": "fb6c55075aef14cbfffc53184b99288810e03db8",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a045f7852fa17320666daa65b658601559585bb7"
-        },
-        "date": 1744325908751,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 30414,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 18413,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9136,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10788,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12838,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3346,6 +3292,90 @@ window.BENCHMARK_DATA = {
             "value": "2263.75",
             "unit": "MiB/iter",
             "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "3048a14c958976b9ce14b7a8640a4e671a6f882e",
+          "message": "chore(bb): Make goblin a proper source module (#13580)\n\n- Also, don't just display one error in the IDE",
+          "timestamp": "2025-04-15T21:59:00Z",
+          "tree_id": "b374a9d481f578e80b1bdba6a788c4ad78d74366",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3048a14c958976b9ce14b7a8640a4e671a6f882e"
+        },
+        "date": 1744759475175,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
+            "value": 87561,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
+            "value": 2184,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
+            "value": 52213,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
+            "value": 1863,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm",
+            "value": 29529,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm-memory",
+            "value": 1813,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
+            "value": 33631,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
+            "value": 1800,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm",
+            "value": 42507,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
+            "value": 1885,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
         ]
       }
