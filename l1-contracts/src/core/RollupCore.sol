@@ -120,7 +120,6 @@ contract RollupCore is
     onlyOwner
   {
     CheatLib.cheat__InitialiseValidatorSet(_args);
-    setupEpoch();
   }
 
   function setEpochVerifier(address _verifier) external override(ITestRollup) onlyOwner {
