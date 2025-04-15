@@ -4,7 +4,11 @@
 source $(git rev-parse --show-toplevel)/ci3/source
 
 if [[ $# -ne 2 ]]; then
+<<<<<<< HEAD
   echo "Usage: $0 <bench_input_folder> <benchmark_output>"
+=======
+  echo "Usage: $0 <bench_input_folder> <output_folder>"
+>>>>>>> origin/master
   exit 1
 fi
 cd ..
@@ -33,7 +37,11 @@ function verify_ivc_flow {
   "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/private-civc-vk 1>&2
   local private_result=$?
   echo_stderr "Private verify: $private_result."
+<<<<<<< HEAD
   "./$native_build_dir/bin/bb" verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+=======
+  ./build/bin/bb verify --scheme client_ivc -p "$proof" -k ../../yarn-project/bb-prover/artifacts/public-civc-vk 1>&2
+>>>>>>> origin/master
   local public_result=$?
   echo_stderr "Public verify: $public_result."
   if [[ $private_result -eq $public_result ]]; then
@@ -46,6 +54,7 @@ function verify_ivc_flow {
   fi
 }
 
+<<<<<<< HEAD
 function run_bb_cli_bench {
   local runtime="$1"
   local output="$2"
@@ -73,11 +82,15 @@ function run_bb_cli_bench {
 }
 
 function client_ivc_flow {
+=======
+function client_ivc_flow_native {
+>>>>>>> origin/master
   set -eu
   local runtime="$1"
   local flow="$2"
   local flow_folder="$input_folder/$flow"
   local start=$(date +%s%N)
+<<<<<<< HEAD
 
   local output="bench-out/ivc-$flow-$runtime"
   rm -rf "$output"
@@ -90,10 +103,27 @@ function client_ivc_flow {
     scripts/google-bench/summarize-op-counts "$output/op-counts.json"
   fi
 
+=======
+  mkdir -p "bench-out/$flow-proof-files"
+  export MEMUSAGE_OUT="bench-out/$flow-proof-files/peak-memory-native-mb.txt"
+
+  function bb_cli_bench_native {
+    export MAIN_ARGS="$*"
+    memusage ./build/bin/bb_cli_bench \
+        --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
+        --benchmark_out_format=json || {
+      echo "bb_cli_bench failed with args: $*"
+      exit 1
+    }
+  }
+
+  bb_cli_bench_native prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
+>>>>>>> origin/master
   local end=$(date +%s%N)
   local elapsed_ns=$(( end - start ))
   local elapsed_ms=$(( elapsed_ns / 1000000 ))
   local memory_taken_mb=$(cat "$MEMUSAGE_OUT")
+<<<<<<< HEAD
 
   echo "$flow ($runtime) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
   dump_fail "verify_ivc_flow $flow $output/proof"
@@ -103,6 +133,12 @@ function client_ivc_flow {
   [[ "$runtime" == "wasm" ]] && runtime_suffix="-wasm"
 
   cat > "$output/benchmarks.json" <<EOF
+=======
+  echo "$flow (native) has proven in $((elapsed_ms / 1000))s and peak memory of ${memory_taken_mb}MB."
+  dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
+  echo "$flow (native) has verified."
+  cat > "./bench-out/ivc/$flow-ivc-native.json" <<EOF
+>>>>>>> origin/master
   {
     "benchmarks": [
     {
@@ -111,9 +147,59 @@ function client_ivc_flow {
       "real_time": ${elapsed_ms}
     },
     {
+<<<<<<< HEAD
       "name": "$flow-ivc-proof$runtime_suffix-memory",
       "time_unit": "MB",
       "real_time": ${elapsed_ms}
+=======
+      "name": "$flow-ivc-proof-memory",
+      "time_unit": "MB",
+      "real_time": ${elapsed_ms}
+    }
+    ]
+  }
+EOF
+}
+
+function client_ivc_flow_wasm {
+  set -eu
+  local flow=$1
+  local flow_folder="$input_folder/$flow"
+  local start=$(date +%s%N)
+  mkdir -p "bench-out/$flow-proof-files"
+  export MEMUSAGE_OUT="bench-out/$flow-proof-files/peak-memory-wasm-mb.txt"
+
+  function bb_cli_bench_wasm {
+    export MAIN_ARGS="$*"
+    export WASMTIME_ALLOWED_DIRS="--dir=$HOME/.bb-crs --dir="$flow_folder" --dir=bench-out/$flow-proof-files"
+    memusage scripts/wasmtime.sh $WASMTIME_ALLOWED_DIRS ./build-wasm-threads/bin/bb_cli_bench \
+        --benchmark_out=bench-out/$flow-proof-files/op-counts.json \
+        --benchmark_out_format=json || {
+      echo "bb_cli_bench failed with args: $*"
+      exit 1
+    }
+  }
+  bb_cli_bench_wasm prove -o "bench-out/$flow-proof-files" -b "$flow_folder/acir.msgpack" -w "$flow_folder/witnesses.msgpack" --scheme client_ivc --input_type runtime_stack
+  local end=$(date +%s%N)
+  local elapsed_ns=$(( end - start ))
+  local elapsed_ms=$(( elapsed_ns / 1000000 ))
+  local memory_taken_mb=$(cat "$MEMUSAGE_OUT")
+  echo "$flow (WASM) has proven in ${elapsed_ms}ms and peak memory of ${memory_taken_mb}MB."
+  dump_fail "verify_ivc_flow $flow bench-out/$flow-proof-files/proof"
+  echo "$flow (WASM) has verified."
+  cat > "./bench-out/ivc/$flow-ivc-wasm.json" <<EOF
+  {
+    "benchmarks": [
+    {
+      "name": "$flow-ivc-proof-wasm",
+      "time_unit": "ms",
+      "real_time": ${elapsed_ms}
+    },
+    {
+      "name": "$flow-ivc-proof-wasm-memory",
+      "time_unit": "MB",
+      "real_time": ${memory_taken_mb}
+>>>>>>> origin/master
     }
     ]
   }
@@ -128,7 +214,11 @@ function run_benchmark {
   taskset -c $start_core-$end_core bash -c "$2"
 }
 
+<<<<<<< HEAD
 export -f verify_ivc_flow client_ivc_flow run_bb_cli_bench run_benchmark
+=======
+export -f verify_ivc_flow client_ivc_flow_native client_ivc_flow_wasm run_benchmark
+>>>>>>> origin/master
 
 # TODO this does not work with smaller core counts - we will soon have a benchmark-wide mechanism for this.
 num_cpus=$(get_num_cpus)
@@ -137,12 +227,20 @@ jobs=$((num_cpus / HARDWARE_CONCURRENCY))
 # Split up the flows into chunks to run in parallel - otherwise we run out of CPUs to pin.
 if [ -n "${IVC_BENCH:-}" ]; then
   # If IVC_BENCH is set, run only that benchmark.
+<<<<<<< HEAD
   run_benchmark 1 "client_ivc_flow native $IVC_BENCH"
   run_benchmark 1 "client_ivc_flow wasm $IVC_BENCH"
 else
   for runtime in native wasm; do
     parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow '$runtime' {}"' ::: $(ls "$input_folder")
   done
+=======
+  run_benchmark 1 "client_ivc_flow_native $IVC_BENCH"
+  run_benchmark 1 "client_ivc_flow_wasm $IVC_BENCH"
+else
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow_native {}"' ::: $(ls "$input_folder")
+  parallel -v --line-buffer --tag --jobs "$jobs" run_benchmark {#} '"client_ivc_flow_wasm {}"' ::: $(ls "$input_folder")
+>>>>>>> origin/master
 fi
 
 mkdir -p "$benchmark_output"

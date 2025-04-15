@@ -3,6 +3,7 @@
 
 set -eu
 op_count_json="$1"
+<<<<<<< HEAD
 num_lines="${2:-10}"
 if [ -z "$op_count_json" ]; then
   echo "Usage: $0 <input_file> [number of lines]"
@@ -21,3 +22,17 @@ jq -r '.benchmarks[0] | to_entries[] |
   [.seconds,.op] | @tsv' $op_count_json |
   sort -k1 -nr |
   head -$num_lines
+=======
+if [ -z "$op_count_json" ]; then
+  echo "Usage: $0 <input_file>"
+  exit 1
+fi
+
+jq -r '.benchmarks[0] | to_entries[] |
+  select(.key | endswith("(t)")) |
+  {op: (.key | rtrimstr("(t)")), seconds: (.value / 1e9)} |
+  [.op, .seconds] | @tsv' $op_count_json |
+  sort -k2 -nr |
+  head -10 |
+  awk '{printf "%-50s %10.2f seconds\n", $1, $2}'
+>>>>>>> origin/master

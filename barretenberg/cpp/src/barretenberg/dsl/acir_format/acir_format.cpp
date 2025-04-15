@@ -295,7 +295,7 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
         // If we are proving with UltraRollupFlavor, the IPA proof should have nonzero size.
         ASSERT((metadata.honk_recursion == 2) == (output.ipa_proof.size() > 0));
         if (metadata.honk_recursion == 2) {
-            builder.add_ipa_claim(output.ipa_claim.get_witness_indices());
+            output.ipa_claim.set_public();
             builder.ipa_proof = output.ipa_proof;
         }
     }

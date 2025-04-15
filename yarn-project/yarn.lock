@@ -577,6 +577,7 @@ __metadata:
     "@aztec/blob-lib": "workspace:^"
     "@aztec/blob-sink": "workspace:^"
     "@aztec/bot": "workspace:^"
+    "@aztec/cli": "workspace:^"
     "@aztec/constants": "workspace:^"
     "@aztec/entrypoints": "workspace:^"
     "@aztec/epoch-cache": "workspace:^"
