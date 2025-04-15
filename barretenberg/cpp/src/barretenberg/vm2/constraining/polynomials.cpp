@@ -3,9 +3,9 @@
 #include <cstdint>
 
 #include "barretenberg/common/thread.hpp"
-#include "barretenberg/vm/stats.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/generated/columns.hpp"
+#include "barretenberg/vm2/tooling/stats.hpp"
 
 namespace bb::avm2::constraining {
 

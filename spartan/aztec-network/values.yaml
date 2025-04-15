@@ -40,9 +40,6 @@ images:
   curl:
     image: curlimages/curl:7.81.0
     pullPolicy: IfNotPresent
-  foundry:
-    image: ghcr.io/foundry-rs/foundry@sha256:ce4b236f6760fdeb08e82267c9fa17647d29a374760bfe7ee01998fb8c0aaad7
-    pullPolicy: IfNotPresent
   reth:
     image: ghcr.io/paradigmxyz/reth:v1.0.8
     pullPolicy: IfNotPresent
@@ -206,7 +203,7 @@ proverNode:
   pollInterval: 1000
   viemPollingInterval: 1000
   dataDir: "/data"
-  storageSize: "1Gi"
+  storageSize: "10Gi"
   txGathering:
     timeoutMs: 60000
     intervalMs: 1000

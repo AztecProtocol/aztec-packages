@@ -393,7 +393,7 @@ class ForwardMerkleTree implements MerkleTreeWriteOperations {
 export class PublicTreesDB extends ForwardMerkleTree implements PublicStateDBInterface {
   private logger = createLogger('simulator:public-trees-db');
 
-  constructor(private readonly db: MerkleTreeWriteOperations) {
+  constructor(db: MerkleTreeWriteOperations) {
     super(db);
   }
 

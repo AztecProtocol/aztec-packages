@@ -35,7 +35,6 @@ import {
 } from '@aztec/simulator/server';
 import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 import { TX_ERROR_EXISTING_NULLIFIER, type Tx } from '@aztec/stdlib/tx';
-import type { TelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import 'jest-extended';
@@ -644,15 +643,7 @@ class TestPublicProcessorFactory extends PublicProcessorFactory {
     globalVariables: GlobalVariables,
     doMerkleOperations: boolean,
     skipFeeEnforcement: boolean,
-    telemetryClient?: TelemetryClient,
   ) {
-    return new TestPublicTxSimulator(
-      treesDB,
-      contractsDB,
-      globalVariables,
-      doMerkleOperations,
-      skipFeeEnforcement,
-      telemetryClient,
-    );
+    return new TestPublicTxSimulator(treesDB, contractsDB, globalVariables, doMerkleOperations, skipFeeEnforcement);
   }
 }

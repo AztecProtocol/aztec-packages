@@ -17,10 +17,11 @@ pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
 
 mod test {
     use crate::{
-        encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
+        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use super::aes128_decrypt_oracle;
+    use poseidon::poseidon2::Poseidon2;
     use std::aes128::aes128_encrypt;
 
     global TEST_PLAINTEXT_LENGTH: u32 = 10;
@@ -89,7 +90,7 @@ mod test {
         );
 
         let mac_preimage = 0x42;
-        let mac = std::hash::poseidon2::Poseidon2::hash([mac_preimage], 1);
+        let mac = Poseidon2::hash([mac_preimage], 1);
         let mac_as_bytes = mac.to_be_bytes::<TEST_MAC_LENGTH>();
 
         let plaintext: [u8; TEST_PLAINTEXT_LENGTH] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];

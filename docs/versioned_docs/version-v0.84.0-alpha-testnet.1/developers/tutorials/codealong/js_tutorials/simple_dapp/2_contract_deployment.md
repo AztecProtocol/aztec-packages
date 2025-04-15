@@ -48,7 +48,7 @@ pub contract Token {
 
     use dep::aztec::{
         context::{PrivateCallInterface, PrivateContext},
-        encrypted_logs::log_assembly_strategies::default_aes128::{
+        messages::logs::{
             event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
         },
