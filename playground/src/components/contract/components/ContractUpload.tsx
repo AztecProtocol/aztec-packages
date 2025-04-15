@@ -8,6 +8,7 @@ import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useContext } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import Box from '@mui/material/Box';
+import { VERSION } from '../../../utils/constants';
 
 const dropZoneContainer = css({
   display: 'flex',
@@ -60,7 +61,7 @@ export function ContractUpload() {
           <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px' }}>
             To generate a contract artifact:
             <br />
-            1. Install latest version of Aztec CLI by running `aztec-up`
+            1. Install latest version of Aztec CLI by running `aztec-up {VERSION}`
             <br />
             2. Run `aztec-nargo compile` in your project directory
             <br />
