@@ -86,7 +86,8 @@ library AddressSnapshotLib {
     uint256 lastIndex = _self.size.latest() - 1;
     uint256 lastSnapshotLength = _self.checkpoints[lastIndex].length;
 
-    uint256 nextEpoch = Epoch.unwrap(TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1));
+    uint256 nextEpoch =
+      Epoch.unwrap(TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1));
 
     AddressSnapshot memory lastSnapshot = _self.checkpoints[lastIndex][lastSnapshotLength - 1];
 
@@ -237,7 +238,11 @@ library AddressSnapshotLib {
    * @param _epoch The epoch number to query
    * @return uint256 The number of addresses in the set at the given epoch
    */
-  function lengthAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch) internal view returns (uint256) {
+  function lengthAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
+    internal
+    view
+    returns (uint256)
+  {
     return _self.size.upperLookup(Epoch.unwrap(_epoch).toUint32());
   }
 
@@ -266,7 +271,11 @@ library AddressSnapshotLib {
    * @param _epoch The epoch number to query
    * @return address[] Array of all addresses in the set at the given epoch
    */
-  function valuesAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch) internal view returns (address[] memory) {
+  function valuesAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch)
+    internal
+    view
+    returns (address[] memory)
+  {
     uint256 size = lengthAtEpoch(_self, _epoch);
     address[] memory vals = new address[](size);
     for (uint256 i; i < size;) {
