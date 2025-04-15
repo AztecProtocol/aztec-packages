@@ -13,16 +13,12 @@ namespace bb::avm2 {
 
 namespace {
 
-// Helper type for ad-hoc visitors.
+// Helper type for ad-hoc visitors. See https://en.cppreference.com/w/cpp/utility/variant/visit2.
 template <class... Ts> struct overloads : Ts... {
     using Ts::operator()...;
 };
+// This is a deduction guide. Apparently not needed in C++20, but we somehow still need it.
 template <class... Ts> overloads(Ts...) -> overloads<Ts...>;
-
-template <typename T>
-constexpr bool is_supported_type_v =
-    std::is_same_v<T, uint8_t> || std::is_same_v<T, uint1_t> || std::is_same_v<T, uint16_t> ||
-    std::is_same_v<T, uint32_t> || std::is_same_v<T, uint64_t> || std::is_same_v<T, uint128_t> || std::is_same_v<T, FF>;
 
 struct shift_left {
     template <typename T, typename U> T operator()(const T& a, const U& b) const { return static_cast<T>(a << b); }
@@ -45,7 +41,7 @@ template <typename Op> struct BinaryOperationVisitor {
             if constexpr (std::is_same_v<T, FF> && is_bitwise_operation_v<Op>) {
                 throw std::runtime_error("Bitwise operations not valid for FF");
             } else {
-                // Why this static_cast since I introduced uint1_t?
+                // FIXME(fcarreiro): make sure this is not going through FF.
                 return static_cast<T>(Op{}(a, b));
             }
         } else {
@@ -94,24 +90,47 @@ TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
         }
     };
 
+    // Check bounds first.
     switch (tag) {
     case ValueTag::U1:
-        assert_bounds(value, 1);
-        return TaggedValue(static_cast<uint1_t>(value.is_zero()));
+        // No bounds check.
+        break;
     case ValueTag::U8:
         assert_bounds(value, 8);
-        return TaggedValue(static_cast<uint8_t>(value));
+        break;
     case ValueTag::U16:
         assert_bounds(value, 16);
-        return TaggedValue(static_cast<uint16_t>(value));
+        break;
     case ValueTag::U32:
         assert_bounds(value, 32);
-        return TaggedValue(static_cast<uint32_t>(value));
+        break;
     case ValueTag::U64:
         assert_bounds(value, 64);
-        return TaggedValue(static_cast<uint64_t>(value));
+        break;
     case ValueTag::U128:
         assert_bounds(value, 128);
+        break;
+    case ValueTag::FF:
+        break;
+    }
+
+    return from_tag_truncating(tag, value);
+}
+
+TaggedValue TaggedValue::from_tag_truncating(ValueTag tag, FF value)
+{
+    switch (tag) {
+    case ValueTag::U1:
+        return TaggedValue(static_cast<uint1_t>(!value.is_zero()));
+    case ValueTag::U8:
+        return TaggedValue(static_cast<uint8_t>(value));
+    case ValueTag::U16:
+        return TaggedValue(static_cast<uint16_t>(value));
+    case ValueTag::U32:
+        return TaggedValue(static_cast<uint32_t>(value));
+    case ValueTag::U64:
+        return TaggedValue(static_cast<uint64_t>(value));
+    case ValueTag::U128:
         return TaggedValue(static_cast<uint128_t>(value));
     case ValueTag::FF:
         return TaggedValue(value);
@@ -184,6 +203,7 @@ FF TaggedValue::as_ff() const
 
 ValueTag TaggedValue::get_tag() const
 {
+    // The tag is implicit in the type.
     if (std::holds_alternative<uint8_t>(value)) {
         return ValueTag::U8;
     } else if (std::holds_alternative<uint1_t>(value)) {
@@ -208,12 +228,12 @@ ValueTag TaggedValue::get_tag() const
 
 std::string TaggedValue::to_string() const
 {
-    std::string v =
-        std::visit(overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
-                              [](const uint128_t&) -> std::string { return "some uint128_t"; },
-                              [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
-                              [](auto&& val) -> std::string { return std::to_string(val); } },
-                   value);
+    std::string v = std::visit(
+        overloads{ [](const FF& val) -> std::string { return field_to_string(val); },
+                   [](const uint128_t& val) -> std::string { return field_to_string(uint256_t::from_uint128(val)); },
+                   [](const uint1_t& val) -> std::string { return val.value() == 0 ? "0" : "1"; },
+                   [](auto&& val) -> std::string { return std::to_string(val); } },
+        value);
     return "TaggedValue(" + v + ", " + std::to_string(get_tag()) + ")";
 }
 

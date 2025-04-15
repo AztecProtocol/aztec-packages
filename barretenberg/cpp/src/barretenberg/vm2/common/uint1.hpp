@@ -19,48 +19,57 @@ class uint1_t {
 
     // Default constructor initializes to 0
     constexpr uint1_t() noexcept
-        : value_(0)
+        : value_(false)
     {}
 
     // Constructor from bool
-    constexpr uint1_t(bool b) noexcept
-        : value_(b ? 1 : 0)
+    constexpr explicit uint1_t(bool b) noexcept
+        : value_(b)
     {}
 
-    // Constructor from integral types, enforcing 0 or 1 values
+    // Constructor from integral types. Zero becomes 0, non-zero becomes 1.
     template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
     constexpr explicit uint1_t(T v) noexcept
-        : value_(v != 0 ? 1 : 0)
+        : value_(v != 0)
     {}
 
     // Arithmetic operators
-    constexpr uint1_t operator+(const uint1_t& other) const noexcept { return (value_ + other.value_) > 0; }
-    constexpr uint1_t operator-(const uint1_t& other) const noexcept { return (value_ - other.value_) != 0; }
-    constexpr uint1_t operator*(const uint1_t& other) const noexcept { return value_ & other.value_; }
-    constexpr uint1_t operator/(const uint1_t& other) const noexcept { return other.value_ ? value_ : 0; }
+    constexpr uint1_t operator+(const uint1_t& other) const noexcept { return *this ^ other; }
+    constexpr uint1_t operator-(const uint1_t& other) const noexcept { return *this + other; }
+    constexpr uint1_t operator*(const uint1_t& other) const noexcept { return *this & other; }
+    constexpr uint1_t operator/(const uint1_t& other) const noexcept { return uint1_t(value() / other.value()); }
+    constexpr uint1_t operator-() const noexcept { return uint1_t(!value_); }
 
     // Bitwise operators
-    constexpr uint1_t operator&(const uint1_t& other) const noexcept { return value_ & other.value_; }
-    constexpr uint1_t operator|(const uint1_t& other) const noexcept { return value_ | other.value_; }
-    constexpr uint1_t operator^(const uint1_t& other) const noexcept { return value_ ^ other.value_; }
-    constexpr uint1_t operator<<(const uint1_t& other) const noexcept { return (value_ << other.value_) != 0; }
-    constexpr uint1_t operator>>(const uint1_t& other) const noexcept { return (value_ >> other.value_) != 0; }
-    constexpr uint1_t operator~() const noexcept { return !value_; }
+    constexpr uint1_t operator&(const uint1_t& other) const noexcept { return uint1_t(value_ && other.value_); }
+    constexpr uint1_t operator|(const uint1_t& other) const noexcept { return uint1_t(value_ || other.value_); }
+    constexpr uint1_t operator^(const uint1_t& other) const noexcept { return uint1_t(value_ != other.value_); }
+    constexpr uint1_t operator~() const noexcept { return uint1_t(!value_); }
+
+    // Shifts are a bit special.
+    constexpr uint1_t operator<<(const uint1_t& other) const noexcept
+    {
+        return uint1_t((value() << other.value()) % 2);
+    }
+    constexpr uint1_t operator>>(const uint1_t& other) const noexcept
+    {
+        return uint1_t((value() >> other.value()) % 2);
+    }
 
     // Comparison operators
-    constexpr bool operator==(const uint1_t& other) const noexcept { return value_ == other.value_; }
-    constexpr bool operator!=(const uint1_t& other) const noexcept { return value_ != other.value_; }
+    constexpr bool operator==(const uint1_t& other) const noexcept = default;
+    constexpr bool operator!=(const uint1_t& other) const noexcept = default;
     constexpr bool operator<(const uint1_t& other) const noexcept { return value_ < other.value_; }
     constexpr bool operator<=(const uint1_t& other) const noexcept { return value_ <= other.value_; }
     constexpr bool operator>(const uint1_t& other) const noexcept { return value_ > other.value_; }
     constexpr bool operator>=(const uint1_t& other) const noexcept { return value_ >= other.value_; }
 
-    // Get the raw value
-    constexpr uint8_t value() const noexcept { return value_; }
-    constexpr operator uint8_t() const noexcept { return value_; }
+    // Get the raw value. Guaranteed to be 0 or 1.
+    constexpr uint8_t value() const noexcept { return value_ ? 1 : 0; }
+    constexpr operator uint8_t() const noexcept { return value(); }
 
   private:
-    uint8_t value_; // Using uint8_t for storage, but only 0 and 1 are valid values
+    bool value_;
 };
 
 } // namespace bb::avm2

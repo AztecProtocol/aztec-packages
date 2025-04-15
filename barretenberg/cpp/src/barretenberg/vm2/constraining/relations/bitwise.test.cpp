@@ -44,9 +44,9 @@ TEST(BitwiseConstrainingTest, AndWithTracegen)
     BitwiseTraceBuilder builder;
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::AND,
-          .a = MemoryValue::from<uint1_t>(1),
-          .b = MemoryValue::from<uint1_t>(1),
-          .res = MemoryValue::from<uint1_t>(1) },
+          .a = MemoryValue::from(uint1_t(1)),
+          .b = MemoryValue::from(uint1_t(1)),
+          .res = MemoryValue::from(uint1_t(1)) },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
@@ -83,9 +83,9 @@ TEST(BitwiseConstrainingTest, OrWithTracegen)
     BitwiseTraceBuilder builder;
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::OR,
-          .a = MemoryValue::from<uint1_t>(1),
-          .b = MemoryValue::from<uint1_t>(0),
-          .res = MemoryValue::from<uint1_t>(1) },
+          .a = MemoryValue::from(uint1_t(1)),
+          .b = MemoryValue::from(uint1_t(0)),
+          .res = MemoryValue::from(uint1_t(1)) },
         { .operation = BitwiseOperation::OR,
           .a = MemoryValue::from<uint8_t>(128),
           .b = MemoryValue::from<uint8_t>(127),
@@ -124,9 +124,9 @@ TEST(BitwiseConstrainingTest, XorWithTracegen)
 
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::XOR,
-          .a = MemoryValue::from<uint1_t>(1),
-          .b = MemoryValue::from<uint1_t>(1),
-          .res = MemoryValue::from<uint1_t>(0) },
+          .a = MemoryValue::from(uint1_t(1)),
+          .b = MemoryValue::from(uint1_t(1)),
+          .res = MemoryValue::from(uint1_t(0)) },
         { .operation = BitwiseOperation::XOR,
           .a = MemoryValue::from<uint8_t>(85),
           .b = MemoryValue::from<uint8_t>(175),
@@ -163,9 +163,9 @@ TEST(BitwiseConstrainingTest, MixedOperationsWithTracegen)
     BitwiseTraceBuilder builder;
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::OR,
-          .a = MemoryValue::from<uint1_t>(1),
-          .b = MemoryValue::from<uint1_t>(0),
-          .res = MemoryValue::from<uint1_t>(1) },
+          .a = MemoryValue::from(uint1_t(1)),
+          .b = MemoryValue::from(uint1_t(0)),
+          .res = MemoryValue::from(uint1_t(1)) },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),
@@ -380,9 +380,9 @@ TEST(BitwiseConstrainingTest, MixedOperationsInteractions)
     PrecomputedTraceBuilder precomputed_builder;
     std::vector<simulation::BitwiseEvent> events = {
         { .operation = BitwiseOperation::OR,
-          .a = MemoryValue::from<uint1_t>(1),
-          .b = MemoryValue::from<uint1_t>(0),
-          .res = MemoryValue::from<uint1_t>(1) },
+          .a = MemoryValue::from(uint1_t(1)),
+          .b = MemoryValue::from(uint1_t(0)),
+          .res = MemoryValue::from(uint1_t(1)) },
         { .operation = BitwiseOperation::AND,
           .a = MemoryValue::from<uint32_t>(13793),
           .b = MemoryValue::from<uint32_t>(10590617),

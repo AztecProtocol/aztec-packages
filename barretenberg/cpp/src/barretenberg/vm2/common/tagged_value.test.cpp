@@ -1,6 +1,7 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/common/tagged_value.hpp"
 #include "barretenberg/vm2/common/uint1.hpp"
@@ -12,7 +13,7 @@ namespace {
 TEST(TaggedValueTest, ConstructorAndTypeProperties)
 {
     // Test uint1_t
-    auto val_u1 = TaggedValue::from<uint1_t>(true);
+    auto val_u1 = TaggedValue::from(uint1_t(true));
     EXPECT_EQ(val_u1.get_tag(), ValueTag::U1);
     EXPECT_EQ(val_u1.as<uint1_t>().value(), 1);
 
@@ -50,16 +51,15 @@ TEST(TaggedValueTest, ConstructorAndTypeProperties)
 // Test from_tag method
 TEST(TaggedValueTest, FromTag)
 {
-    // Test conversion from FF to different tags
-    FF value(42);
+    FF value = 42;
 
     auto val_u1 = TaggedValue::from_tag(ValueTag::U1, value);
     EXPECT_EQ(val_u1.get_tag(), ValueTag::U1);
-    EXPECT_EQ(val_u1.as<uint1_t>().value(), 0); // Non-zero becomes 1
+    EXPECT_EQ(val_u1.as<uint1_t>().value(), 1); // Non-zero becomes 1
 
-    auto val_u1_zero = TaggedValue::from_tag(ValueTag::U1, FF(0));
+    auto val_u1_zero = TaggedValue::from_tag(ValueTag::U1, 0);
     EXPECT_EQ(val_u1_zero.get_tag(), ValueTag::U1);
-    EXPECT_EQ(val_u1_zero.as<uint1_t>().value(), 1); // Zero becomes 0
+    EXPECT_EQ(val_u1_zero.as<uint1_t>().value(), 0); // Zero becomes 0
 
     auto val_u8 = TaggedValue::from_tag(ValueTag::U8, value);
     EXPECT_EQ(val_u8.get_tag(), ValueTag::U8);
@@ -86,12 +86,76 @@ TEST(TaggedValueTest, FromTag)
     EXPECT_EQ(val_ff.as<FF>(), value);
 }
 
+// Test from_tag_truncating method
+TEST(TaggedValueTest, FromTagTruncating)
+{
+    // U1 - any non-zero value becomes 1
+    auto val_u1 = TaggedValue::from_tag_truncating(ValueTag::U1, 42);
+    EXPECT_EQ(val_u1.get_tag(), ValueTag::U1);
+    EXPECT_EQ(val_u1.as<uint1_t>().value(), 1);
+
+    auto val_u1_zero = TaggedValue::from_tag_truncating(ValueTag::U1, 0);
+    EXPECT_EQ(val_u1_zero.get_tag(), ValueTag::U1);
+    EXPECT_EQ(val_u1_zero.as<uint1_t>().value(), 0);
+
+    // U8 - truncates to 8 bits
+    auto val_u8 = TaggedValue::from_tag_truncating(ValueTag::U8, 42);
+    EXPECT_EQ(val_u8.get_tag(), ValueTag::U8);
+    EXPECT_EQ(val_u8.as<uint8_t>(), 42);
+
+    auto val_u8_truncated = TaggedValue::from_tag_truncating(ValueTag::U8, 300); // 300 = 44 mod 256
+    EXPECT_EQ(val_u8_truncated.get_tag(), ValueTag::U8);
+    EXPECT_EQ(val_u8_truncated.as<uint8_t>(), 44);
+
+    // U16 - truncates to 16 bits
+    auto val_u16 = TaggedValue::from_tag_truncating(ValueTag::U16, 1000);
+    EXPECT_EQ(val_u16.get_tag(), ValueTag::U16);
+    EXPECT_EQ(val_u16.as<uint16_t>(), 1000);
+
+    auto val_u16_truncated = TaggedValue::from_tag_truncating(ValueTag::U16, 70000); // 70000 = 4464 mod 65536
+    EXPECT_EQ(val_u16_truncated.get_tag(), ValueTag::U16);
+    EXPECT_EQ(val_u16_truncated.as<uint16_t>(), 4464);
+
+    // U32 - truncates to 32 bits
+    auto val_u32 = TaggedValue::from_tag_truncating(ValueTag::U32, 100000);
+    EXPECT_EQ(val_u32.get_tag(), ValueTag::U32);
+    EXPECT_EQ(val_u32.as<uint32_t>(), 100000);
+
+    FF large_u32 = FF(uint256_t(1) << 33) + FF(42); // 2^33 + 42 = 42 mod 2^32
+    auto val_u32_truncated = TaggedValue::from_tag_truncating(ValueTag::U32, large_u32);
+    EXPECT_EQ(val_u32_truncated.get_tag(), ValueTag::U32);
+    EXPECT_EQ(val_u32_truncated.as<uint32_t>(), 42);
+
+    // U64 - truncates to 64 bits
+    auto val_u64 = TaggedValue::from_tag_truncating(ValueTag::U64, 1ULL << 40);
+    EXPECT_EQ(val_u64.get_tag(), ValueTag::U64);
+    EXPECT_EQ(val_u64.as<uint64_t>(), 1ULL << 40);
+
+    FF large_u64 = FF(uint256_t(1) << 65) + FF(123); // 2^65 + 123 = 123 mod 2^64
+    auto val_u64_truncated = TaggedValue::from_tag_truncating(ValueTag::U64, large_u64);
+    EXPECT_EQ(val_u64_truncated.get_tag(), ValueTag::U64);
+    EXPECT_EQ(val_u64_truncated.as<uint64_t>(), 123);
+
+    // U128 - truncates to 128 bits
+    auto val_u128 = TaggedValue::from_tag_truncating(ValueTag::U128, uint256_t::from_uint128(uint128_t(1) << 100));
+    EXPECT_EQ(val_u128.get_tag(), ValueTag::U128);
+    EXPECT_EQ(val_u128.as<uint128_t>(), uint128_t(1) << 100);
+
+    FF large_u128 = (uint256_t(1) << 129) + 456; // 2^129 + 456 = 456 mod 2^128
+    auto val_u128_truncated = TaggedValue::from_tag_truncating(ValueTag::U128, large_u128);
+    EXPECT_EQ(val_u128_truncated.get_tag(), ValueTag::U128);
+    EXPECT_EQ(val_u128_truncated.as<uint128_t>(), 456);
+
+    // FF - no truncation
+    FF large_ff = FF::random_element();
+    auto val_ff = TaggedValue::from_tag_truncating(ValueTag::FF, large_ff);
+    EXPECT_EQ(val_ff.get_tag(), ValueTag::FF);
+    EXPECT_EQ(val_ff.as<FF>(), large_ff);
+}
+
 // Test from_tag method with out of bounds values
 TEST(TaggedValueTest, FromTagOutOfBounds)
 {
-    // U1 - only 0 and 1 are valid
-    EXPECT_THROW(TaggedValue::from_tag(ValueTag::U1, FF(2)), std::runtime_error);
-
     // U8 - max value is 255
     EXPECT_NO_THROW(TaggedValue::from_tag(ValueTag::U8, FF(255)));
     EXPECT_THROW(TaggedValue::from_tag(ValueTag::U8, FF(256)), std::runtime_error);
@@ -122,7 +186,7 @@ TEST(TaggedValueTest, FromTagOutOfBounds)
 TEST(TaggedValueTest, AsFF)
 {
     // Test conversion to FF from each type
-    auto val_u1 = TaggedValue::from<uint1_t>(1);
+    auto val_u1 = TaggedValue::from(uint1_t(1));
     EXPECT_EQ(val_u1.as_ff(), FF(1));
 
     auto val_u8 = TaggedValue::from<uint8_t>(42);
@@ -326,8 +390,8 @@ TEST(TaggedValueTest, ShiftOperationsWithDifferentTypes)
 TEST(TaggedValueTest, BoundaryCases)
 {
     // Test uint1_t overflow
-    auto u1_max = TaggedValue::from<uint1_t>(true);
-    auto u1_one = TaggedValue::from<uint1_t>(true);
+    auto u1_max = TaggedValue::from(uint1_t(true));
+    auto u1_one = TaggedValue::from(uint1_t(true));
     auto u1_overflow = u1_max + u1_one;
     EXPECT_EQ(u1_overflow.get_tag(), ValueTag::U1);
     EXPECT_EQ(u1_overflow.as<uint1_t>().value(), 0); // 1+1=0 with overflow
@@ -368,7 +432,7 @@ TEST(TaggedValueTest, BoundaryCases)
     EXPECT_EQ(u128_overflow.as<uint128_t>(), 0); // Overflow wraps around
 
     // Test underflow for all types
-    auto u1_zero = TaggedValue::from<uint1_t>(false);
+    auto u1_zero = TaggedValue::from(uint1_t(0));
     auto u1_underflow = u1_zero - u1_one;
     EXPECT_EQ(u1_underflow.get_tag(), ValueTag::U1);
     EXPECT_EQ(u1_underflow.as<uint1_t>().value(), 1); // 0-1=1 with underflow

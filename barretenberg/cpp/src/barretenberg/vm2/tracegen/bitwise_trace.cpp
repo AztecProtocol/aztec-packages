@@ -38,9 +38,9 @@ void BitwiseTraceBuilder::process(const simulation::EventEmitterInterface<simula
         for (int ctr = start_ctr; ctr > 0; ctr--) {
             trace.set(row,
                       { { { C::bitwise_op_id, static_cast<uint8_t>(event.operation) },
-                          { C::bitwise_acc_ia, event.a },
-                          { C::bitwise_acc_ib, event.b },
-                          { C::bitwise_acc_ic, event.res },
+                          { C::bitwise_acc_ia, uint256_t::from_uint128(input_a) },
+                          { C::bitwise_acc_ib, uint256_t::from_uint128(input_b) },
+                          { C::bitwise_acc_ic, uint256_t::from_uint128(output_c) },
                           { C::bitwise_ia_byte, uint256_t::from_uint128(input_a & mask_low_byte) },
                           { C::bitwise_ib_byte, uint256_t::from_uint128(input_b & mask_low_byte) },
                           { C::bitwise_ic_byte, uint256_t::from_uint128(output_c & mask_low_byte) },

@@ -28,9 +28,9 @@ TEST(BitwiseTraceGenTest, U1And)
         {
             {
                 .operation = BitwiseOperation::AND,
-                .a = MemoryValue::from<uint1_t>(0),
-                .b = MemoryValue::from<uint1_t>(1),
-                .res = MemoryValue::from<uint1_t>(0),
+                .a = MemoryValue::from(uint1_t(0)),
+                .b = MemoryValue::from(uint1_t(1)),
+                .res = MemoryValue::from(uint1_t(0)),
             },
         },
         trace);
