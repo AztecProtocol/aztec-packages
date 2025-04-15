@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744734281514,
+  "lastUpdate": 1744736659697,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "47148561+Maddiaa0@users.noreply.github.com",
-            "name": "Maddiaa",
-            "username": "Maddiaa0"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "16aa932f5a1fc06a05bad90d7b6de35a0289bb4f",
-          "message": "chore(sol): fix off by one in test gen (#13410)\n\n## Overview\n\nultra tests have not been running in ci and failing locally for some\ntime, this pr makes em green again",
-          "timestamp": "2025-04-09T13:13:23Z",
-          "tree_id": "23a823af2a918ba6fc5ecce7c8b6019b559d9e28",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/16aa932f5a1fc06a05bad90d7b6de35a0289bb4f"
-        },
-        "date": 1744207972827,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10061,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2558729232713865,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 147120,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 153503,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "adam.domurad@gmail.com",
+            "name": "ludamad",
+            "username": "ludamad"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "9a73c4a874f4f03f1f9de3a3cd9c8f57f742b32a",
+          "message": "fix: wasm memory benchmark (#13573)",
+          "timestamp": "2025-04-15T15:44:23Z",
+          "tree_id": "e7374c7f21712a84f3e75eb9daef62489303baa7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/9a73c4a874f4f03f1f9de3a3cd9c8f57f742b32a"
+        },
+        "date": 1744736658746,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9538,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.25627784618972504,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 145101,
             "unit": "us"
           }
         ]
