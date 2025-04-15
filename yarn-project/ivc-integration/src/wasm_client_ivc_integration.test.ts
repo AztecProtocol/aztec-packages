@@ -52,9 +52,6 @@ describe('Client IVC Integration', () => {
   it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
-    const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
-    logger.info(`generated then verified proof. result: ${verifyResult}`);
-
     // We use the bb binary for verification / writing out the VK
     const bbBinaryPath = path.join(
       path.dirname(fileURLToPath(import.meta.url)),
