@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744733944580,
+  "lastUpdate": 1744734281514,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "3f11060e5de846f0dc2662985c4b98dd62001302",
-          "message": "feat(avm): tree padding (#13394)\n\nFolded creation of db type aliases into this PR.",
-          "timestamp": "2025-04-09T11:39:41Z",
-          "tree_id": "0dddc76daae5ea17f63d2584e30081bf262b85db",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/3f11060e5de846f0dc2662985c4b98dd62001302"
-        },
-        "date": 1744202275343,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10629,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2703238966865319,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 161027,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 151896,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "47148561+Maddiaa0@users.noreply.github.com",
+            "name": "Maddiaa",
+            "username": "Maddiaa0"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "42dfbbf6e11b63727add72987edbbea08fb21e64",
+          "message": "chore(noir-contracts): update readme (#13563)\n\nCurrent prose is unacceptable\n\nCo-authored-by: ludamad <adam.domurad@gmail.com>",
+          "timestamp": "2025-04-15T15:25:00Z",
+          "tree_id": "78e1c92de1f31112390c265aa97c947583cb9fdb",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/42dfbbf6e11b63727add72987edbbea08fb21e64"
+        },
+        "date": 1744734280580,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9874,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2653170166905629,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 153503,
             "unit": "us"
           }
         ]
