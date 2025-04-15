@@ -35,7 +35,7 @@ export class BlobSinkServer {
   private blobStore: BlobStore;
   private metrics: BlobSinkMetrics;
   private l1PublicClient: ViemPublicClient | undefined;
-  private log: Logger = createLogger('aztec:blob-sink');
+  private log: Logger = createLogger('blob-sink:server');
 
   constructor(
     private config: BlobSinkConfig = {},

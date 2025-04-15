@@ -28,7 +28,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
   ) {
     this.config = config ?? getBlobSinkConfigFromEnv();
     this.archiveClient = opts.archiveClient ?? createBlobArchiveClient(this.config);
-    this.log = opts.logger ?? createLogger('aztec:blob-sink-client');
+    this.log = opts.logger ?? createLogger('blob-sink:client');
     this.fetch = async (...args: Parameters<typeof fetch>): Promise<Response> => {
       return await retry(
         () => fetch(...args),
