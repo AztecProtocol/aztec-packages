@@ -67,13 +67,13 @@ describe('Client IVC Integration', () => {
 
     // Write the WASM proof over the output directory (the bb cli will have output to this folder, we need the vk to be in place).
     await writeClientIVCProofToOutputDirectory(wasmProof, clientIVCWorkingDirectory);
-    const verifyWasmResult = await verifyClientIvcProof(
+    const verifyWasmResultInNative = await verifyClientIvcProof(
       bbBinaryPath,
       clientIVCWorkingDirectory.concat('/proof'),
       clientIVCWorkingDirectory.concat('/vk'),
       logger.info,
     );
-    expect(verifyWasmResult.status).toEqual(BB_RESULT.SUCCESS);
+    expect(verifyWasmResultInNative.status).toEqual(BB_RESULT.SUCCESS);
   });
 
   it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {
