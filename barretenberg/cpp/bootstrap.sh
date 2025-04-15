@@ -298,17 +298,10 @@ case "$cmd" in
     # Takes an optional master commit to download them from. Otherwise, downloads from latest master commit.
     git fetch origin master
 
-<<<<<<< HEAD
-    # # build the benchmarked benches
-    # parallel --line-buffered --tag -v denoise ::: \
-    #   "build_preset $native_preset --target bb_cli_bench" \
-    #   "build_preset wasm-threads --target bb_cli_bench"
-=======
-    build the benchmarked benches
+    # build the benchmarked benches
     parallel --line-buffered --tag -v denoise ::: \
       "build_preset $native_preset --target bb_cli_bench" \
       "build_preset wasm-threads --target bb_cli_bench"
->>>>>>> origin/master
 
     # Setting this env var will cause the script to download the inputs from the given commit (through the behavior of cache_content_hash).
     if [ -n "${1:-}" ]; then

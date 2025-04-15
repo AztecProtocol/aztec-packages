@@ -278,11 +278,7 @@ void ClientIVCAPI::prove(const Flags& flags, const filesystem::path& input_path,
     // and it is mysterious if this transaction fails later in the lifecycle.
     // The files are still written in case they are needed to investigate this failure.
     if (!ivc->verify(proof)) {
-<<<<<<< HEAD
         THROW runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
-=======
-        THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
->>>>>>> origin/master
     }
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string
