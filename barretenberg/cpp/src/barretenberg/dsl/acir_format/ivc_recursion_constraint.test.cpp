@@ -81,7 +81,7 @@ class IvcRecursionConstraintTest : public ::testing::Test {
 
         {
             using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
-            using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
+            using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<Builder>;
             using OuterAggState = bb::stdlib::recursion::aggregation_state<Builder>;
 
             // Create an arbitrary inner circuit
