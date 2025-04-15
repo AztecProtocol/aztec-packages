@@ -65,10 +65,9 @@ contract GovScript is Test {
     emit log_named_decimal_uint("\tMint Amount", feeAssetHandler.mintAmount(), 18);
 
     emit log_named_address("# Staking Asset", address(stakingAsset));
-    emit log_named_decimal_uint("\tDeposit Amount   ", stakingAssetHandler.depositAmount(), 18);
     emit log_named_uint("\tMint Interval    ", stakingAssetHandler.mintInterval());
     emit log_named_uint("\tDeposits Per Mint", stakingAssetHandler.depositsPerMint());
-    emit log_named_address("\tRollup           ", address(stakingAssetHandler.rollup()));
+    emit log_named_address("\tRollup           ", address(stakingAssetHandler.getRollup()));
     emit log_named_address("\tWithdrawer       ", address(stakingAssetHandler.withdrawer()));
 
     emit log_named_address("# Rollup", address(rollup));
@@ -77,7 +76,6 @@ contract GovScript is Test {
     emit log_named_address("\tOwner", Ownable(address(rollup)).owner());
     emit log_named_uint("\tPending block number", rollup.getPendingBlockNumber());
     emit log_named_uint("\tProven block number ", rollup.getProvenBlockNumber());
-    // @todo
     emit log_named_uint(
       "\tNumber of attestors ", IStaking(address(rollup)).getActiveAttesterCount()
     );
@@ -220,21 +218,6 @@ contract GovScript is Test {
     uint256 depositsPerMint = 100;
     address amin = 0x3b218d0F26d15B36C715cB06c949210a0d630637;
 
-    // Update the rollup address if it's not the canonical rollup
-    if (address(rollup) != address(stakingAssetHandler.rollup())) {
-      vm.startBroadcast(ME);
-      stakingAssetHandler.setRollup(address(rollup));
-      vm.stopBroadcast();
-    }
-
-    // Update the deposits per mint if it differs
-    if (IStaking(address(rollup)).getMinimumStake() != stakingAssetHandler.depositAmount()) {
-      uint256 newDepositAmount = IStaking(address(rollup)).getMinimumStake();
-      vm.startBroadcast(ME);
-      stakingAssetHandler.setDepositAmount(newDepositAmount);
-      vm.stopBroadcast();
-    }
-
     // Update the deposits per mint if it differs
     if (stakingAssetHandler.mintInterval() != mintInterval) {
       vm.startBroadcast(ME);
@@ -257,9 +240,9 @@ contract GovScript is Test {
     }
 
     // Add amin if not already in the list
-    if (!stakingAssetHandler.canAddValidator(amin)) {
+    if (!stakingAssetHandler.isUnhinged(amin)) {
       vm.startBroadcast(ME);
-      stakingAssetHandler.grantAddValidatorPermission(amin);
+      stakingAssetHandler.addUnhinged(amin);
       vm.stopBroadcast();
     }
   }
