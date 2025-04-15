@@ -9,7 +9,7 @@ import {
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
-contract RemoveByNameTest is AddressSnapshotsBase {
+contract AddressSnapshotRemoveByNameTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenAddressNotInTheSet() public {
@@ -25,12 +25,22 @@ contract RemoveByNameTest is AddressSnapshotsBase {
 
     timeCheater.cheat__setEpochNow(1);
     validatorSet.add(address(1));
-
-    timeCheater.cheat__setEpochNow(2);
-    assertTrue(validatorSet.remove(address(1)));
+    // Length remains 0 within this epoch
     assertEq(validatorSet.length(), 0);
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(0));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1)), address(1));
+
+    // Length increases to 1 in the next epoch
+    timeCheater.cheat__setEpochNow(2);
+    assertEq(validatorSet.length(), 1);
+
+    assertTrue(validatorSet.remove(address(1)));
+    // Length remains 1 within this epoch
+    assertEq(validatorSet.length(), 1);
+
+    timeCheater.cheat__setEpochNow(3);
+    // Length decreases to 0 in the next epoch
+    assertEq(validatorSet.length(), 0);
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(3)), address(0));
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
   }
 
   function test_WhenRemovingMultipleValidators() public {
@@ -45,24 +55,26 @@ contract RemoveByNameTest is AddressSnapshotsBase {
     timeCheater.cheat__setEpochNow(2);
     validatorSet.remove(address(2));
 
+    timeCheater.cheat__setEpochNow(3);
+
     address[] memory vals = validatorSet.values();
     assertEq(vals.length, 2);
     assertEq(vals[0], address(1));
     assertEq(vals[1], address(3));
 
-    timeCheater.cheat__setEpochNow(3);
     validatorSet.remove(address(1));
+    timeCheater.cheat__setEpochNow(4);
 
     vals = validatorSet.values();
     assertEq(vals.length, 1);
     assertEq(vals[0], address(3));
 
     // Verify snapshots
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(1)), address(2));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(2, Epoch.wrap(1)), address(3));
-
     assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(2)), address(3));
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(2)), address(2));
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(2, Epoch.wrap(2)), address(3));
+
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(3)), address(1));
+    assertEq(validatorSet.getAddressFromIndexAtEpoch(1, Epoch.wrap(3)), address(3));
   }
 }

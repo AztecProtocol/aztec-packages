@@ -8,7 +8,9 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
-contract AtTest is AddressSnapshotsBase {
+import "forge-std/console.sol";
+
+contract AddressSnapshotAtTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenNoValidatorsAreRegistered() public {
@@ -33,14 +35,23 @@ contract AtTest is AddressSnapshotsBase {
     validatorSet.add(address(2));
     validatorSet.add(address(3));
 
+    assertEq(validatorSet.at(0), address(0));
+    assertEq(validatorSet.at(1), address(0));
+    assertEq(validatorSet.at(2), address(0));
+
+    // it returns the correct validator after reordering
+    timeCheater.cheat__setEpochNow(2);
     assertEq(validatorSet.at(0), address(1));
     assertEq(validatorSet.at(1), address(2));
     assertEq(validatorSet.at(2), address(3));
 
-    // it returns the correct validator after reordering
-    timeCheater.cheat__setEpochNow(2);
     validatorSet.remove(1);
 
+    assertEq(validatorSet.at(0), address(1));
+    assertEq(validatorSet.at(1), address(2));
+    assertEq(validatorSet.at(2), address(3));
+
+    timeCheater.cheat__setEpochNow(3);
     assertEq(validatorSet.at(0), address(1));
     assertEq(validatorSet.at(1), address(3));
   }

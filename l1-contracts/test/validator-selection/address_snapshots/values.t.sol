@@ -8,7 +8,7 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
-contract ValuesTest is AddressSnapshotsBase {
+contract AddressSnapshotValuesTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenNoValidatorsAreRegistered() public view {
@@ -26,7 +26,13 @@ contract ValuesTest is AddressSnapshotsBase {
     validatorSet.add(address(2));
     validatorSet.add(address(3));
 
+    // Length remains 0 within this epoch
     address[] memory vals = validatorSet.values();
+    assertEq(vals.length, 0);
+
+    // Move to next epoch for changes to take effect
+    timeCheater.cheat__setEpochNow(2);
+    vals = validatorSet.values();
     assertEq(vals.length, 3);
     assertEq(vals[0], address(1));
     assertEq(vals[1], address(2));
@@ -42,6 +48,8 @@ contract ValuesTest is AddressSnapshotsBase {
 
     timeCheater.cheat__setEpochNow(2);
     validatorSet.remove(address(2));
+
+    timeCheater.cheat__setEpochNow(3);
 
     address[] memory vals = validatorSet.values();
     assertEq(vals.length, 2);

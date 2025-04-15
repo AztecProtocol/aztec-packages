@@ -9,7 +9,7 @@ import {
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 
-contract LengthTest is AddressSnapshotsBase {
+contract AddressSnapshotLengthTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
   function test_WhenNoValidatorsAreRegistered() public view {
@@ -20,10 +20,19 @@ contract LengthTest is AddressSnapshotsBase {
   function test_WhenAddingValidators() public {
     // It increases the length
     timeCheater.cheat__setEpochNow(1);
+    // Length starts at zero
+    assertEq(validatorSet.length(), 0);
+
     validatorSet.add(address(1));
-    assertEq(validatorSet.length(), 1);
+    // Length remains zero within this epoch
+    assertEq(validatorSet.length(), 0);
 
     validatorSet.add(address(2));
+    // Length remains zero within this epoch
+    assertEq(validatorSet.length(), 0);
+
+    timeCheater.cheat__setEpochNow(2);
+    // Length increases to 2
     assertEq(validatorSet.length(), 2);
   }
 
@@ -36,12 +45,12 @@ contract LengthTest is AddressSnapshotsBase {
 
     timeCheater.cheat__setEpochNow(2);
     validatorSet.remove(0);
-    assertEq(validatorSet.length(), 1);
+    assertEq(validatorSet.length(), 2);
 
     validatorSet.remove(0);
-    assertEq(validatorSet.length(), 0);
+    assertEq(validatorSet.length(), 2);
 
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(1)), address(1));
-    assertEq(validatorSet.getAddressFromIndexAtEpoch(0, Epoch.wrap(2)), address(0));
+    timeCheater.cheat__setEpochNow(3);
+    assertEq(validatorSet.length(), 0);
   }
 }
