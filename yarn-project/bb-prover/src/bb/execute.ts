@@ -8,7 +8,6 @@ import { promises as fs } from 'fs';
 import { basename, dirname, join } from 'path';
 
 import type { UltraHonkFlavor } from '../honk.js';
-import { CLIENT_IVC_PROOF_FILE_NAME } from '../prover/client_ivc_proof_utils.js';
 
 export const VK_FILENAME = 'vk';
 export const VK_FIELDS_FILENAME = 'vk_fields.json';
@@ -19,7 +18,7 @@ export const PROOF_FIELDS_FILENAME = 'proof_fields.json';
 export const AVM_INPUTS_FILENAME = 'avm_inputs.bin';
 export const AVM_BYTECODE_FILENAME = 'avm_bytecode.bin';
 export const AVM_PUBLIC_INPUTS_FILENAME = 'avm_public_inputs.bin';
-export const AVM_HINTS_FILENAME = 'avm_hints.bin';
+export const CLIENT_IVC_PROOF_FILE_NAME = 'proof';
 
 export enum BB_RESULT {
   SUCCESS,
@@ -123,6 +122,7 @@ export async function executeBbClientIvcProof(
   bytecodeStackPath: string,
   witnessStackPath: string,
   log: LogFn,
+  writeVk = false,
 ): Promise<BBFailure | BBSuccess> {
   // Check that the working directory exists
   try {
@@ -158,8 +158,10 @@ export async function executeBbClientIvcProof(
       'client_ivc',
       '--input_type',
       'runtime_stack',
-      '--write_vk',
     ];
+    if (writeVk) {
+      args.push('--write_vk');
+    }
 
     const timer = new Timer();
     const logFunction = (message: string) => {
@@ -423,7 +425,7 @@ export async function generateAvmProofV2(
         durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: outputPath,
+        vkPath: join(outputPath, VK_FILENAME),
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -462,7 +464,6 @@ export async function generateAvmProof(
 
   // Paths for the inputs
   const publicInputsPath = join(workingDirectory, AVM_PUBLIC_INPUTS_FILENAME);
-  const avmHintsPath = join(workingDirectory, AVM_HINTS_FILENAME);
 
   // The proof is written to e.g. /workingDirectory/proof
   const outputPath = workingDirectory;
@@ -492,7 +493,7 @@ export async function generateAvmProof(
     //   return { status: BB_RESULT.FAILURE, reason: `Could not write avmHints at ${avmHintsPath}` };
     // }
 
-    const args = ['--avm-public-inputs', publicInputsPath, '--avm-hints', avmHintsPath, '-o', outputPath];
+    const args = ['--avm-public-inputs', publicInputsPath, '-o', outputPath];
     const loggingArg =
       logger.level === 'debug' || logger.level === 'trace' ? '-d' : logger.level === 'verbose' ? '-v' : '';
     if (loggingArg !== '') {

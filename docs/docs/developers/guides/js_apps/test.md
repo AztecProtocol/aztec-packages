@@ -51,7 +51,7 @@ Alternatively, you can [create a new account.](./create_account.md).
 
 You can send transactions within your tests with Aztec.js. Read how to do that in these guides:
 
-- [Call a view (unconstrained) function](./call_view_function.md)
+- [Simulate a function](./call_view_function.md)
 - [Send a transaction](./send_transaction.md)
 
 ### Using debug options
@@ -84,7 +84,7 @@ We can have private transactions that work fine locally, but are dropped by the 
 
 #### A public call fails locally
 
-Public function calls can be caught failing locally similar to how we catch private function calls. For this example, we use a [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) instead of a private one.
+Public function calls can be caught failing locally similar to how we catch private function calls. For this example, we use a [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) instead of a private one.
 
 #include_code local-pub-fails /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 
@@ -114,7 +114,7 @@ Private state in the Aztec is represented via sets of [private notes](../../../a
 
 #### Querying public state
 
-Public state behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
+Public state behaves as a key-value store, much like in the EVM. We can directly query the target slot and get the result back as a buffer. Note that we use the [`TokenContract` (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) in this example, which defines a mapping of public balances on slot 6.
 
 #include_code public-storage /yarn-project/end-to-end/src/guides/dapp_testing.test.ts typescript
 

@@ -1,5 +1,4 @@
 export { AcirSimulator } from './simulator.js';
-export { UnconstrainedExecutionOracle } from './unconstrained_execution_oracle.js';
 export {
   type ExecutionDataProvider,
   ContractClassNotFoundError,
@@ -14,3 +13,4 @@ export { extractCallStack } from './acvm/acvm.js';
 export { type NoteData, TypedOracle } from './acvm/oracle/typed_oracle.js';
 export { Oracle } from './acvm/oracle/oracle.js';
 export { HashedValuesCache } from './hashed_values_cache.js';
+export { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';

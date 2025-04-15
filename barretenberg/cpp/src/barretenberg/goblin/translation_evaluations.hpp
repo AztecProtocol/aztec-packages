@@ -29,7 +29,7 @@ template <typename BF, typename FF = void> struct TranslationEvaluations_ {
 
 /**
  * @brief Efficiently compute \f$ \text{translation_masking_term_eval} \cdot x^{N}\f$, where \f$ N =
- * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{MASKING_OFFSET}  \f$.
+ * 2^{\text{CONST_ECCVM_LOG_N}}  - \text{NUM_DISABLED_ROWS_IN_SUMCHECK}  \f$.
  * @details As described in \ref ECCVMProver::compute_translation_opening_claims(), Translator's
  * `accumulated_result` \f$ A \f$ satisfies \f{align}{ x\cdot A = \sum_i \widetilde{T}_i v^i - X^N \cdot
  * \text{translation_masking_term_eval}. \f} Therefore, before propagating the `translation_masking_term_eval`,
@@ -43,11 +43,11 @@ static void shift_translation_masking_term_eval(const FF& evaluation_challenge_x
 
     FF x_to_circuit_size = evaluation_challenge_x.pow(ECCVM_FIXED_SIZE);
 
-    // Compute X^{MASKING_OFFSET}
-    const FF x_to_masking_offset = evaluation_challenge_x.pow(MASKING_OFFSET);
+    // Compute X^{NUM_DISABLED_ROWS_IN_SUMCHECK}
+    const FF x_to_NUM_DISABLED_ROWS_IN_SUMCHECK = evaluation_challenge_x.pow(NUM_DISABLED_ROWS_IN_SUMCHECK);
 
     // Update `translation_masking_term_eval`
     translation_masking_term_eval *= x_to_circuit_size;
-    translation_masking_term_eval *= x_to_masking_offset.invert();
+    translation_masking_term_eval *= x_to_NUM_DISABLED_ROWS_IN_SUMCHECK.invert();
 };
 } // namespace bb

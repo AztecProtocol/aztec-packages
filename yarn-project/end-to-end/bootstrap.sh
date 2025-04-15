@@ -10,7 +10,7 @@ function test_cmds {
   local prefix="$hash $run_test_script"
 
   if [ "$CI_FULL" -eq 1 ]; then
-    echo "$hash timeout -v 900s bash -c 'CPUS=16 MEM=96g $run_test_script simple e2e_prover/full real'"
+    echo "$hash timeout -v 900s bash -c 'CPUS=32 MEM=96g $run_test_script simple e2e_prover/full real'"
   else
     echo "$hash FAKE_PROOFS=1 $run_test_script simple e2e_prover/full fake"
   fi
@@ -53,6 +53,7 @@ function test_cmds {
   echo "$prefix simple e2e_deploy_contract/private_initialization"
   echo "$prefix simple e2e_double_spend"
   echo "$prefix simple e2e_epochs/epochs_empty_blocks"
+  echo "$prefix simple e2e_epochs/epochs_long_proving_time"
   echo "$prefix simple e2e_epochs/epochs_multi_proof"
   echo "$prefix simple e2e_epochs/epochs_proof_fails"
   echo "$prefix simple e2e_epochs/epochs_sync_after_reorg"
@@ -89,6 +90,7 @@ function test_cmds {
 
   # p2p sub-tests
   echo "$prefix simple e2e_p2p/gossip_network"
+  echo "$prefix simple e2e_p2p/gossip_network_no_cheat"
   echo "$prefix simple e2e_p2p/rediscovery"
   echo "$prefix simple e2e_p2p/reqresp"
   echo "$prefix simple e2e_p2p/reex"

@@ -80,7 +80,6 @@ Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
 ```
 
 **P2P Bootstrap Node**

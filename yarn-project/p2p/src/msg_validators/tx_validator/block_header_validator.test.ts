@@ -1,6 +1,6 @@
 import { Fr } from '@aztec/foundation/fields';
 import { mockTxForRollup } from '@aztec/stdlib/testing';
-import type { AnyTx, TxValidationResult } from '@aztec/stdlib/tx';
+import { type AnyTx, TX_ERROR_BLOCK_HEADER, type TxValidationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
@@ -35,7 +35,7 @@ describe('BlockHeaderTxValidator', () => {
     await expect(txValidator.validateTx(goodTx)).resolves.toEqual({ result: 'valid' } satisfies TxValidationResult);
     await expect(txValidator.validateTx(badTx)).resolves.toEqual({
       result: 'invalid',
-      reason: ['Block header not found'],
+      reason: [TX_ERROR_BLOCK_HEADER],
     } satisfies TxValidationResult);
   });
 });

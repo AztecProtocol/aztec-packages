@@ -1,0 +1,101 @@
+## 208 validators - 1 tps - 640 full nodes
+network:
+  public: false
+
+aztec:
+  setupL2Contracts: true
+  realProofs: false
+
+telemetry:
+  enabled: true
+
+images:
+  aztec:
+    pullPolicy: Always
+
+validator:
+  storageSize: "300Gi"
+  replicas: 208
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1"
+  maxOldSpaceSize: "4608"
+  validator:
+    disabled: false
+  sequencer:
+    maxTxsPerBlock: 40
+    enforceTimeTable: true
+
+fullNode:
+  storageSize: "300Gi"
+  replicas: 640
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1"
+  maxOldSpaceSize: "4608"
+  validator:
+    disabled: true
+
+bootNode:
+  peerIdPrivateKey: 080212200ba8451c6d62b03c4441f0a466c0bce7a3a595f2cf50a055ded3305c77aa3af0
+  storageSize: "100Gi"
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1"
+  maxOldSpaceSize: "4608"
+
+proverAgent:
+  replicas: 8
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1"
+  maxOldSpaceSize: "4608"
+
+proverBroker:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1"
+  maxOldSpaceSize: "4608"
+  storageSize: "100Gi"
+
+proverNode:
+  resources:
+    requests:
+      memory: "5Gi"
+      cpu: "1"
+  maxOldSpaceSize: "4608"
+
+bot:
+  replicas: 3
+  followChain: "NONE"
+  enabled: true
+  txIntervalSeconds: 1
+
+jobs:
+  deployL1Verifier:
+    enable: false
+
+ethereum:
+  execution:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  beacon:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1"
+    storageSize: "80Gi"
+  validator:
+    resources:
+      requests:
+        memory: "5Gi"
+        cpu: "1"
+    storageSize: "80Gi"

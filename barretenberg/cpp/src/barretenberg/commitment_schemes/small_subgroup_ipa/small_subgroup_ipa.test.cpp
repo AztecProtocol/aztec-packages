@@ -268,7 +268,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistency)
         using CK = typename TypeParam::CommitmentKey;
 
         auto prover_transcript = TypeParam::Transcript::prover_init_empty();
-        // Must satisfy num_wires * MASKING_OFFSET + 1 < SUBGROUP_SIZE
+        // Must satisfy num_wires * NUM_DISABLED_ROWS_IN_SUMCHECK + 1 < SUBGROUP_SIZE
         const size_t num_wires = 5;
 
         // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.
@@ -321,7 +321,7 @@ TYPED_TEST(SmallSubgroupIPATest, TranslationMaskingTermConsistencyFailure)
         using CK = typename TypeParam::CommitmentKey;
 
         auto prover_transcript = TypeParam::Transcript::prover_init_empty();
-        // Must satisfy num_wires * MASKING_OFFSET + 1 < SUBGROUP_SIZE
+        // Must satisfy num_wires * NUM_DISABLED_ROWS_IN_SUMCHECK + 1 < SUBGROUP_SIZE
         const size_t num_wires = 5;
 
         // SmallSubgroupIPAProver requires at least CURVE::SUBGROUP_SIZE + 3 elements in the ck.

@@ -598,7 +598,6 @@ contract RollupTest is RollupBase {
     fees[0] = bytes32(uint256(uint160(address(0))));
     fees[1] = bytes32(0);
 
-    bytes memory aggregationObject = "";
     bytes memory proof = "";
 
     bytes memory blobPublicInputs = this.getBlobPublicInputs(data.blobInputs);
@@ -616,7 +615,6 @@ contract RollupTest is RollupBase {
         args: args,
         fees: fees,
         blobPublicInputs: blobPublicInputs,
-        aggregationObject: aggregationObject,
         proof: proof
       })
     );
@@ -947,7 +945,6 @@ contract RollupTest is RollupBase {
         args: args,
         fees: fees,
         blobPublicInputs: _blobPublicInputs,
-        aggregationObject: "",
         proof: ""
       })
     );
