@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744736659697,
+  "lastUpdate": 1744738055513,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "fcarreiro@users.noreply.github.com",
-            "name": "Facundo",
-            "username": "fcarreiro"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "1994b2ccb3976644074beabeddf708427a2b6700",
-          "message": "chore(avm): dont use PIs in simulation (#13409)\n\nWe would not have PIs in standalone simulation. We have to make sure\nthat our inputs either come from the DBs or TX.",
-          "timestamp": "2025-04-09T13:22:44Z",
-          "tree_id": "8075083f52d03f05c9ca572f055a409bd82f8b35",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/1994b2ccb3976644074beabeddf708427a2b6700"
-        },
-        "date": 1744208678854,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10477,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.26645804777912546,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 153865,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 145101,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "b30b5b3bf13cf0aa556fc25c7f57869044a6a4ed",
+          "message": "feat(avm): tagged value type in C++ (#13540)\n\nThe main new class is in `tagged_value.{hpp,cpp}`. You can see its use\nin `memory.{hpp,cpp}` and... everywhere. It was already all over the\nplace so it's a good thing that we tackle it now. It was a bit of a\npain.\n\n## AI generated description\n\nThis PR introduces a new `TaggedValue` class to replace the previous\nmemory value representation. The `TaggedValue` class encapsulates both a\nvalue and its type tag, providing a more robust and type-safe way to\nhandle different data types in the VM.\n\nKey changes:\n- Added `TaggedValue` class that uses a variant to store different\nnumeric types (uint1_t, uint8_t, uint16_t, etc.)\n- Implemented a new `uint1_t` class to represent boolean values\n- Updated memory operations to use `TaggedValue` instead of separate\nvalue and tag parameters\n- Modified bitwise operations to work with the new `TaggedValue` type\n- Updated all related code to use the new type system, including tests\nand simulation code",
+          "timestamp": "2025-04-15T16:09:36Z",
+          "tree_id": "41e26edd1182b5375e58a8477c0efab9eb06c569",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/b30b5b3bf13cf0aa556fc25c7f57869044a6a4ed"
+        },
+        "date": 1744738054026,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9502,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.2553180190181286,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 141752,
             "unit": "us"
           }
         ]
