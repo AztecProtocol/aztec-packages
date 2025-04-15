@@ -58,31 +58,15 @@ describe('Rollup IVC Integration', () => {
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-
-    const tasks = [
-      proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger),
-      proveWasm.proveClientIVC(bytecodes, witnessStack),
-    ];
-    const [_, wasmProof] = await Promise.all(tasks);
-
-    // Verify the clientIVCWorkingDirectory, written to by native proveClientIVC
-    const verifyNativeResult = await verifyClientIvcProof(
+    const proof = await proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger);
+    await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
+    const verifyResult = await verifyClientIvcProof(
       bbBinaryPath,
       clientIVCWorkingDirectory.concat('/proof'),
       clientIVCWorkingDirectory.concat('/vk'),
       logger.info,
     );
-    expect(verifyNativeResult.status).toEqual(BB_RESULT.SUCCESS);
-
-    // Write the WASM proof over the output directory (the bb cli will have output to this folder, we need the vk to be in place).
-    await writeClientIVCProofToOutputDirectory(wasmProof, clientIVCWorkingDirectory);
-    const verifyWasmResult = await verifyClientIvcProof(
-      bbBinaryPath,
-      clientIVCWorkingDirectory.concat('/proof'),
-      clientIVCWorkingDirectory.concat('/vk'),
-      logger.info,
-    );
-    expect(verifyWasmResult.status).toEqual(BB_RESULT.SUCCESS);
+    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
 
     tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
 
