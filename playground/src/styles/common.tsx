@@ -3,8 +3,6 @@ import { css } from '@mui/styled-engine';
 export const dialogBody = css({
   display: 'flex',
   flexDirection: 'column',
-  padding: '1rem',
-  alignItems: 'center',
   minWidth: '350px',
   minHeight: '500px',
 });
