@@ -144,17 +144,7 @@ export async function executeBbClientIvcProof(
   try {
     // Write the bytecode to the working directory
     log(`inputsPath ${inputsPath}`);
-    const args = [
-      '-o',
-      outputPath,
-      '--ivc_inputs_path',
-      inputsPath,
-      '-v',
-      '--scheme',
-      'client_ivc',
-      '--input_type',
-      'runtime_stack',
-    ];
+    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
     if (writeVk) {
       args.push('--write_vk');
     }
