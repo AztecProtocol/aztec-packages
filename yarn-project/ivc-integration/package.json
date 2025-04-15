@@ -30,7 +30,7 @@
     "moduleNameMapper": {
       "^(\\.{1,2}/.*)\\.[cm]?js$": "$1"
     },
-    "testRegex": "./src/rollup_ivc_integration.test\\.(js|mjs|ts)$",
+    "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
     "extensionsToTreatAsEsm": [
       ".ts"

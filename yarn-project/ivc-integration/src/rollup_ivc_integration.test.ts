@@ -9,11 +9,10 @@ import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 
 import { jest } from '@jest/globals';
-import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+import { getWorkingDirectory } from './bb_working_directory.js';
 import {
   MockRollupBasePrivateCircuit,
   MockRollupBasePublicCircuit,
@@ -31,9 +30,8 @@ import {
   witnessGenMockRollupRootCircuit,
 } from './index.js';
 import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
-import { proveClientIVC as proveClientIVCWASM } from './prove_wasm.js';
+import * as proveWasm from './prove_wasm.js';
 import type { KernelPublicInputs } from './types/index.js';
-import { getWorkingDirectory } from './bb_working_directory.js';
 
 /* eslint-disable camelcase */
 
@@ -60,15 +58,31 @@ describe('Rollup IVC Integration', () => {
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
-    const proof = await proveClientIVCWASM(bytecodes, witnessStack, 16);
-    await writeClientIVCProofToOutputDirectory(proof, clientIVCWorkingDirectory);
-    const verifyResult = await verifyClientIvcProof(
+
+    const tasks = [
+      proveClientIVC(bbBinaryPath, clientIVCWorkingDirectory, witnessStack, bytecodes, logger),
+      proveWasm.proveClientIVC(bytecodes, witnessStack),
+    ];
+    const [_, wasmProof] = await Promise.all(tasks);
+
+    // Verify the clientIVCWorkingDirectory, written to by native proveClientIVC
+    const verifyNativeResult = await verifyClientIvcProof(
       bbBinaryPath,
       clientIVCWorkingDirectory.concat('/proof'),
       clientIVCWorkingDirectory.concat('/vk'),
       logger.info,
     );
-    expect(verifyResult.status).toEqual(BB_RESULT.SUCCESS);
+    expect(verifyNativeResult.status).toEqual(BB_RESULT.SUCCESS);
+
+    // Write the WASM proof over the output directory (the bb cli will have output to this folder, we need the vk to be in place).
+    await writeClientIVCProofToOutputDirectory(wasmProof, clientIVCWorkingDirectory);
+    const verifyWasmResult = await verifyClientIvcProof(
+      bbBinaryPath,
+      clientIVCWorkingDirectory.concat('/proof'),
+      clientIVCWorkingDirectory.concat('/vk'),
+      logger.info,
+    );
+    expect(verifyWasmResult.status).toEqual(BB_RESULT.SUCCESS);
 
     tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
 
@@ -95,7 +109,7 @@ describe('Rollup IVC Integration', () => {
     workingDirectory = await getWorkingDirectory('bb-rollup-ivc-integration-');
   });
 
-  it.only('Should be able to generate a proof of a 3 transaction rollup', async () => {
+  it('Should be able to generate a proof of a 3 transaction rollup', async () => {
     const privateBaseRollupWitnessResult = await witnessGenMockRollupBasePrivateCircuit({
       tube_data: {
         public_inputs: clientIVCPublicInputs,

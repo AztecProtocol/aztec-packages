@@ -239,8 +239,6 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
                                          uint8_t** out_vk)
 {
     using Program = acir_format::AcirProgram;
-    vinfo("In prove aztec client");
-    info("In prove aztec client");
 
     std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
     std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);

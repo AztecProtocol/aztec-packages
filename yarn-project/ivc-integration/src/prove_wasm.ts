@@ -1,5 +1,6 @@
 import { ClientIvcProof } from '@aztec/stdlib/proofs';
 
+import os from 'os';
 import { ungzip } from 'pako';
 
 function base64ToUint8Array(base64: string): Uint8Array {
@@ -14,7 +15,7 @@ export async function proveClientIVC(
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-    { threads },
+    { threads: threads || Math.min(os.cpus().length, 16) },
   );
   try {
     const [proof] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
@@ -32,7 +33,7 @@ export async function proveThenVerifyAztecClient(
   const { AztecClientBackend } = await import('@aztec/bb.js');
   const backend = new AztecClientBackend(
     bytecodes.map(base64ToUint8Array).map((arr: Uint8Array) => ungzip(arr)),
-    { threads },
+    { threads: threads || Math.min(os.cpus().length, 16) },
   );
   try {
     const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
