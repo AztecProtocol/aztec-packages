@@ -2,8 +2,8 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 contract Updatable {
-    use aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
     use aztec::macros::{functions::{initializer, private, public, utility}, storage::storage};
+    use aztec::messages::logs::note::encode_and_encrypt_note;
     use aztec::prelude::{PrivateMutable, PublicMutable};
 
     use aztec::protocol_types::{

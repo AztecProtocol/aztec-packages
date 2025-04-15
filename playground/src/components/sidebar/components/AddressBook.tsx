@@ -25,7 +25,7 @@ export function AddressBook() {
           <Button variant="contained" onClick={() => setOpenAddSendersDialog(true)} endIcon={<ContactsIcon />}>
             Contacts
           </Button>
-          <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />
+          {openAddSendersDialog && <AddSendersDialog open={openAddSendersDialog} onClose={handleSenderAdded} />}
         </>
       )}
     </>

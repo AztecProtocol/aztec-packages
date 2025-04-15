@@ -17,7 +17,7 @@ pub unconstrained fn aes128_decrypt_oracle<let N: u32>(
 
 mod test {
     use crate::{
-        encrypted_logs::encrypt::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
+        messages::encryption::aes128::derive_aes_symmetric_key_and_iv_from_ecdh_shared_secret_using_sha256,
         utils::{array::subarray::subarray, point::point_from_x_coord},
     };
     use super::aes128_decrypt_oracle;

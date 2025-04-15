@@ -20,6 +20,8 @@ import Typography from '@mui/material/Typography';
 import InputLabel from '@mui/material/InputLabel';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import Switch from '@mui/material/Switch';
 import { useContext, useEffect, useState } from 'react';
 import {
   type ContractArtifact,
@@ -52,8 +54,11 @@ export function CreateContractDialog({
   const [alias, setAlias] = useState('');
   const [initializer, setInitializer] = useState<FunctionAbi>(null);
   const [parameters, setParameters] = useState([]);
-  const { wallet, walletDB, pxe } = useContext(AztecContext);
+  const { wallet, walletDB, pxe, node } = useContext(AztecContext);
   const [functionAbis, setFunctionAbis] = useState<FunctionAbi[]>([]);
+
+  const [registerExisting, setRegisterExisting] = useState(false);
+  const [address, setAddress] = useState('');
 
   const [feePaymentMethod, setFeePaymentMethod] = useState(null);
   const [publiclyDeploy, setPubliclyDeploy] = useState(true);
@@ -114,40 +119,85 @@ export function CreateContractDialog({
     }
   };
 
+  const registerExistingContract = async () => {
+    setIsRegistering(true);
+    try {
+      const contract = await node.getContract(AztecAddress.fromString(address));
+      await walletDB.storeContract(contract.address, contractArtifact, undefined, alias);
+      onClose(contract);
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
+
   return (
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Create contract</DialogTitle>
+      <div css={{ display: 'flex', padding: '1rem', flexDirection: 'column' }}>
+        <FormControlLabel
+          control={<Switch value={registerExisting} onChange={(_event, checked) => setRegisterExisting(checked)} />}
+          label={registerExisting ? 'Register existing contract' : 'Create & deploy a new contract'}
+        />
+        <InfoText>{INFO_TEXT.CREATE_CONTRACT}</InfoText>
+      </div>
       <div css={dialogBody}>
         <FormGroup css={form}>
-          <FormControl>
-            <InputLabel>Initializer</InputLabel>
-            <Select
-              value={initializer?.name ?? ''}
-              label="Initializer"
-              disabled={!functionAbis.some(fn => fn.isInitializer)}
-              onChange={e => {
-                setInitializer(getInitializer(contractArtifact, e.target.value));
-              }}
-            >
-              {functionAbis
-                .filter(fn => fn.isInitializer)
-                .map(fn => (
-                  <MenuItem key={fn.name} value={fn.name}>
-                    {fn.name}
-                  </MenuItem>
-                ))}
-            </Select>
-            {initializer &&
-              initializer.parameters.map((param, i) => (
-                <FunctionParameter
-                  parameter={param}
-                  key={param.name}
-                  onParameterChange={newValue => {
-                    handleParameterChange(i, newValue);
+          {registerExisting ? (
+            <TextField
+              required
+              fullWidth
+              variant="outlined"
+              type="text"
+              label="Address"
+              value={address}
+              onChange={e => setAddress(e.target.value)}
+            />
+          ) : (
+            <>
+              <FormControl>
+                <InputLabel>Initializer</InputLabel>
+                <Select
+                  value={initializer?.name ?? ''}
+                  label="Initializer"
+                  disabled={!functionAbis.some(fn => fn.isInitializer)}
+                  onChange={e => {
+                    setInitializer(getInitializer(contractArtifact, e.target.value));
                   }}
-                />
-              ))}
-          </FormControl>
+                >
+                  {functionAbis
+                    .filter(fn => fn.isInitializer)
+                    .map(fn => (
+                      <MenuItem key={fn.name} value={fn.name}>
+                        {fn.name}
+                      </MenuItem>
+                    ))}
+                </Select>
+                {initializer &&
+                  initializer.parameters.map((param, i) => (
+                    <FunctionParameter
+                      parameter={param}
+                      key={param.name}
+                      onParameterChange={newValue => {
+                        handleParameterChange(i, newValue);
+                      }}
+                    />
+                  ))}
+              </FormControl>
+              {/* Always deploy for now */}
+              {/* <FormControl>
+            <FormControlLabel
+              value={publiclyDeploy}
+              control={
+                <Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />
+              }
+              label="Deploy"
+            />
+          </FormControl> */}
+              {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
+            </>
+          )}
           <FormControl>
             <TextField
               placeholder="Alias"
@@ -160,17 +210,6 @@ export function CreateContractDialog({
             />
             <InfoText>{INFO_TEXT.ALIASES}</InfoText>
           </FormControl>
-          {/* Always deploy for now */}
-          {/* <FormControl>
-            <FormControlLabel
-              value={publiclyDeploy}
-              control={
-                <Checkbox checked={publiclyDeploy} onChange={event => setPubliclyDeploy(event.target.checked)} />
-              }
-              label="Deploy"
-            />
-          </FormControl> */}
-          {publiclyDeploy && <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />}
         </FormGroup>
         <div css={{ flexGrow: 1, margin: 'auto' }}></div>
         {!error ? (
@@ -181,6 +220,10 @@ export function CreateContractDialog({
               </Typography>
               <CircularProgress size={20} />
             </div>
+          ) : registerExisting ? (
+            <Button disabled={alias === '' || address === '' || isRegistering} onClick={registerExistingContract}>
+              Register
+            </Button>
           ) : (
             <Button
               disabled={alias === '' || (publiclyDeploy && !feePaymentMethod) || isRegistering}

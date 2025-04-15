@@ -261,7 +261,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     // Check the peer is an aztec peer
     const value = enr.kvs.get(AZTEC_ENR_KEY);
     if (!value) {
-      this.logger.warn(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
+      this.logger.debug(`Peer node ${enr.nodeId} does not have aztec key in ENR`);
       return false;
     }
 
