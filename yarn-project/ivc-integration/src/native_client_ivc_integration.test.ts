@@ -2,8 +2,6 @@ import { BB_RESULT, verifyClientIvcProof, writeClientIVCProofToOutputDirectory }
 import { createLogger } from '@aztec/foundation/log';
 
 import { jest } from '@jest/globals';
-import { promises as fs } from 'fs';
-import os from 'os';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
