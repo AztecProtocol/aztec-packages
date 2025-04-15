@@ -1,60 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744729050770,
+  "lastUpdate": 1744732455089,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "committer": {
-            "email": "tech@aztecprotocol.com",
-            "name": "AztecBot"
-          },
-          "distinct": true,
-          "id": "772259aa081e102ff0b4b57f68019c275afbb93b",
-          "message": "git subrepo push --branch=master noir-projects/aztec-nr\n\nsubrepo:\n  subdir:   \"noir-projects/aztec-nr\"\n  merged:   \"b32f8e9b47\"\nupstream:\n  origin:   \"https://github.com/AztecProtocol/aztec-nr\"\n  branch:   \"master\"\n  commit:   \"b32f8e9b47\"\ngit-subrepo:\n  version:  \"0.4.6\"\n  origin:   \"???\"\n  commit:   \"???\"",
-          "timestamp": "2025-04-10T02:29:58Z",
-          "tree_id": "365a83b2865540b221eba17e34a4d4b7c26c661e",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/772259aa081e102ff0b4b57f68019c275afbb93b"
-        },
-        "date": 1744254187934,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "ivc-amm-add-liquidity-ivc-proof",
-            "value": 30254,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-amm-swap-exact-tokens-ivc-proof",
-            "value": 18096,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-mint-ivc-proof",
-            "value": 9235,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-nft-transfer-in-private-ivc-proof",
-            "value": 10892,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          },
-          {
-            "name": "ivc-token-transfer-ivc-proof",
-            "value": 12856,
-            "unit": "ms/iter",
-            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3126,6 +3074,90 @@ window.BENCHMARK_DATA = {
           {
             "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
             "value": 42571,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "fcarreiro@users.noreply.github.com",
+            "name": "Facundo",
+            "username": "fcarreiro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "a89de5d213cf5d5cdbdc4e2e308848a20e64ef5f",
+          "message": "refactor(public/avm): from hints to the end of the world (#13459)\n\nI had a few design goals with this PR\n1. Move the merkle hinting layer to the merkle db directly (from the\nPublicContractsDB)\n1. Make hinting a TxSimulator concept\n1. Divide the tree accesses into low level and high level (like we do in\nC++).\n1. Tighten our exports\n1. Some cleanups\n\nI'm satisfied with the result, but there are some things worth noting\n* Now the TxSimulator wraps the merkle db into a hinting merkle db. This\nmeans that the hints will _always_ be generated and the caller has no\ncontrol. However, reexecution and the TXE could benefit from a model\nwhere no hinting (or tracing) is done. I had a version of this PR where\nthis was done via an extra PublicTreesDBFactory that was passed to the\nTxSimulator, but I found it too much for the moment. I think at some\npoint we can consider having a more flexible factory type for the\nPublicProcessor and the TxSimulator where we can specify, e.g., merkle\nops, tracing, hinting, etc and have a \"Proving\" factory and a\n\"Simulation-only\" factory.\n\n## AI generated description\n\nThis PR refactors the public processor and simulator components to use\n`MerkleTreeWriteOperations` directly instead of going through the\n`PublicTreesDB` abstraction. Key changes include:\n\n- Changed `PublicTxSimulator` to accept a `MerkleTreeWriteOperations`\ninstead of `PublicTreesDB`\n- Moved `PublicTreesDB` to be an internal implementation detail rather\nthan a public API\n- Refactored `HintingPublicTreesDB` to `HintingMerkleWriteOperations` to\nwork directly with the merkle tree interface\n- Moved `SimpleContractDataSource` from `avm/fixtures` to\n`public/fixtures` for better organization\n- Added high-level methods to `PublicTreesDB` for writing note hashes\nand nullifiers\n- Simplified tree operations in `PublicPersistableStateManager` by using\nthe new high-level methods\n- Updated `checkL1ToL2MessageExists` to no longer require a contract\naddress parameter\n\nThis change simplifies the codebase by reducing unnecessary abstractions\nand making the component dependencies more explicit.",
+          "timestamp": "2025-04-15T14:59:39Z",
+          "tree_id": "859d0be15b138c9bbe6d544b98552e8443fb7953",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/a89de5d213cf5d5cdbdc4e2e308848a20e64ef5f"
+        },
+        "date": 1744732446101,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm",
+            "value": 86722,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-add-liquidity-ivc-proof-wasm-memory",
+            "value": 86722,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm",
+            "value": 51013,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmamm-swap-exact-tokens-ivc-proof-wasm-memory",
+            "value": 51013,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm",
+            "value": 30377,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-mint-ivc-proof-wasm-memory",
+            "value": 30377,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm",
+            "value": 33699,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmnft-transfer-in-private-ivc-proof-wasm-memory",
+            "value": 33699,
+            "unit": "MB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm",
+            "value": 42040,
+            "unit": "ms/iter",
+            "extra": "iterations: undefined\ncpu: undefined ms\nthreads: undefined"
+          },
+          {
+            "name": "wasmtoken-transfer-ivc-proof-wasm-memory",
+            "value": 42040,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
           }
