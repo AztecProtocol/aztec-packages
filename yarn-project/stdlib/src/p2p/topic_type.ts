@@ -7,7 +7,7 @@ import { P2PClientType } from './client_type.js';
  * @returns
  */
 export function createTopicString(topicType: TopicType, protocolVersion: string) {
-  return `/aztec/${topicType}/${protocolVersion}`;
+  return `/aztec/${TopicType[topicType]}/${protocolVersion}`;
 }
 
 /**
