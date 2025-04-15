@@ -43,7 +43,7 @@ case "$cmd" in
     bench
     ;;
   bootstrap_e2e_hack)
-    echo "WARNING: This assumes you have only built barretenberg and the rest of the repository is unchanged from master."
+    echo "WARNING: This assumes you have built barretenberg and the rest of the repository is unchanged from master."
     echo "WARNING: This is only sound if you have not changed VK generation! (or noir-projects VKs will be incorrect)."
     echo "WARNING: It builds up until yarn-project and allows end-to-end tests (not boxes/playground/release image etc)."
     merge_base=$(git merge-base HEAD origin/master)
