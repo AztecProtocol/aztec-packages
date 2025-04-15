@@ -24,6 +24,12 @@ using namespace bb;
 template class DSLBigInts<UltraCircuitBuilder>;
 template class DSLBigInts<MegaCircuitBuilder>;
 
+template <typename Builder>
+void handle_IPA_accumulation(Builder& builder,
+                             const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+                             const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
+                             bool is_root_rollup);
+
 template <typename Builder> struct HonkRecursionConstraintsOutput {
     using AggregationObject = stdlib::recursion::aggregation_state<Builder>;
     AggregationObject agg_obj;
