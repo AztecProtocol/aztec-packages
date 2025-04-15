@@ -105,9 +105,9 @@ const docsButton = css({
   '@media (max-width: 1200px)': {
     padding: 0,
     fontSize: '14px',
-    width: '85px',
+    width: '100px',
     gap: 0,
-    right: '12px',
+    right: '10px',
   },
 });
 
