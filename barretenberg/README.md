@@ -532,7 +532,7 @@ By default, the barretenberg.wasm.gz that is used by bb.js (aka barretenberg/ts)
 One can get stack traces working from WASM by running root level ./bootstrap.sh (or otherwise building what you need) and then doing:
 ```
 cmake --build --preset wasm-threads --target barretenberg-debug.wasm.gz
-mv build-wasm-threads/barretenberg-debug.wasm.gz build-wasm-threads/barretenberg.wasm.gz
+cp build-wasm-threads/bin/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 ```
 
 This will mean that any yarn-project or barretenberg/ts tests that run will get stack traces with function names.
@@ -541,5 +541,5 @@ To get more detailed information use the following (NOTE: takes >10 minutes!):
 ```
 cmake --preset wasm-threads-dbg
 cmake --build --preset wasm-threads-dbg --target barretenberg-debug.wasm.gz
-mv build-wasm-threads-dbg/barretenberg-debug.wasm.gz build-wasm-threads/barretenberg.wasm.gz
+cp build-wasm-threads-dbg/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 ```
