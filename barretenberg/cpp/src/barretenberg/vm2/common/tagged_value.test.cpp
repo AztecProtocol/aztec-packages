@@ -214,33 +214,126 @@ TEST(TaggedValueTest, AsFF)
 // Test arithmetic operations for each type
 TEST(TaggedValueTest, ArithmeticOperations)
 {
-    // Test addition
+    // Test uint1_t operations
+    auto u1_val1 = TaggedValue::from(uint1_t(1));
+    auto u1_val2 = TaggedValue::from(uint1_t(0));
+
+    auto u1_add = u1_val1 + u1_val2;
+    EXPECT_EQ(u1_add.get_tag(), ValueTag::U1);
+    EXPECT_EQ(u1_add.as<uint1_t>(), uint1_t(1));
+
+    auto u1_sub = u1_val1 - u1_val2;
+    EXPECT_EQ(u1_sub.get_tag(), ValueTag::U1);
+    EXPECT_EQ(u1_sub.as<uint1_t>(), uint1_t(1));
+
+    auto u1_mul = u1_val1 * u1_val2;
+    EXPECT_EQ(u1_mul.get_tag(), ValueTag::U1);
+    EXPECT_EQ(u1_mul.as<uint1_t>(), uint1_t(0));
+
+    // Division by zero would throw, so we'll test with non-zero
+    auto u1_div = u1_val1 / u1_val1;
+    EXPECT_EQ(u1_div.get_tag(), ValueTag::U1);
+    EXPECT_EQ(u1_div.as<uint1_t>(), uint1_t(1));
+
+    // Test uint8_t operations
     auto u8_val1 = TaggedValue::from<uint8_t>(40);
     auto u8_val2 = TaggedValue::from<uint8_t>(2);
-    auto u8_result = u8_val1 + u8_val2;
-    EXPECT_EQ(u8_result.get_tag(), ValueTag::U8);
-    EXPECT_EQ(u8_result.as<uint8_t>(), 42);
 
-    // Test subtraction
+    auto u8_add = u8_val1 + u8_val2;
+    EXPECT_EQ(u8_add.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_add.as<uint8_t>(), 42);
+
+    auto u8_sub = u8_val1 - u8_val2;
+    EXPECT_EQ(u8_sub.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_sub.as<uint8_t>(), 38);
+
+    auto u8_mul = u8_val1 * u8_val2;
+    EXPECT_EQ(u8_mul.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_mul.as<uint8_t>(), 80);
+
+    auto u8_div = u8_val1 / u8_val2;
+    EXPECT_EQ(u8_div.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_div.as<uint8_t>(), 20);
+
+    // Test uint16_t operations
     auto u16_val1 = TaggedValue::from<uint16_t>(1000);
-    auto u16_val2 = TaggedValue::from<uint16_t>(1);
-    auto u16_result = u16_val1 - u16_val2;
-    EXPECT_EQ(u16_result.get_tag(), ValueTag::U16);
-    EXPECT_EQ(u16_result.as<uint16_t>(), 999);
+    auto u16_val2 = TaggedValue::from<uint16_t>(10);
 
-    // Test multiplication
-    auto u32_val1 = TaggedValue::from<uint32_t>(100);
-    auto u32_val2 = TaggedValue::from<uint32_t>(2);
-    auto u32_result = u32_val1 * u32_val2;
-    EXPECT_EQ(u32_result.get_tag(), ValueTag::U32);
-    EXPECT_EQ(u32_result.as<uint32_t>(), 200);
+    auto u16_add = u16_val1 + u16_val2;
+    EXPECT_EQ(u16_add.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_add.as<uint16_t>(), 1010);
 
-    // Test division
-    auto u64_val1 = TaggedValue::from<uint64_t>(100);
+    auto u16_sub = u16_val1 - u16_val2;
+    EXPECT_EQ(u16_sub.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_sub.as<uint16_t>(), 990);
+
+    auto u16_mul = u16_val1 * u16_val2;
+    EXPECT_EQ(u16_mul.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_mul.as<uint16_t>(), 10000);
+
+    auto u16_div = u16_val1 / u16_val2;
+    EXPECT_EQ(u16_div.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_div.as<uint16_t>(), 100);
+
+    // Test uint32_t operations
+    auto u32_val1 = TaggedValue::from<uint32_t>(100000);
+    auto u32_val2 = TaggedValue::from<uint32_t>(25);
+
+    auto u32_add = u32_val1 + u32_val2;
+    EXPECT_EQ(u32_add.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_add.as<uint32_t>(), 100025);
+
+    auto u32_sub = u32_val1 - u32_val2;
+    EXPECT_EQ(u32_sub.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_sub.as<uint32_t>(), 99975);
+
+    auto u32_mul = u32_val1 * u32_val2;
+    EXPECT_EQ(u32_mul.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_mul.as<uint32_t>(), 2500000);
+
+    auto u32_div = u32_val1 / u32_val2;
+    EXPECT_EQ(u32_div.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_div.as<uint32_t>(), 4000);
+
+    // Test uint64_t operations
+    auto u64_val1 = TaggedValue::from<uint64_t>(1ULL << 32);
     auto u64_val2 = TaggedValue::from<uint64_t>(5);
-    auto u64_result = u64_val1 / u64_val2;
-    EXPECT_EQ(u64_result.get_tag(), ValueTag::U64);
-    EXPECT_EQ(u64_result.as<uint64_t>(), 20);
+
+    auto u64_add = u64_val1 + u64_val2;
+    EXPECT_EQ(u64_add.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_add.as<uint64_t>(), (1ULL << 32) + 5);
+
+    auto u64_sub = u64_val1 - u64_val2;
+    EXPECT_EQ(u64_sub.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_sub.as<uint64_t>(), (1ULL << 32) - 5);
+
+    auto u64_mul = u64_val1 * u64_val2;
+    EXPECT_EQ(u64_mul.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_mul.as<uint64_t>(), (1ULL << 32) * 5);
+
+    auto u64_div = u64_val1 / u64_val2;
+    EXPECT_EQ(u64_div.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_div.as<uint64_t>(), (1ULL << 32) / 5);
+
+    // Test uint128_t operations
+    auto u128_val1 = TaggedValue::from<uint128_t>(1000000000000ULL);
+    auto u128_val2 = TaggedValue::from<uint128_t>(7);
+
+    auto u128_add = u128_val1 + u128_val2;
+    EXPECT_EQ(u128_add.get_tag(), ValueTag::U128);
+    EXPECT_EQ(u128_add.as<uint128_t>(), uint128_t(1000000000000ULL) + uint128_t(7));
+
+    auto u128_sub = u128_val1 - u128_val2;
+    EXPECT_EQ(u128_sub.get_tag(), ValueTag::U128);
+    EXPECT_EQ(u128_sub.as<uint128_t>(), uint128_t(1000000000000ULL) - uint128_t(7));
+
+    auto u128_mul = u128_val1 * u128_val2;
+    EXPECT_EQ(u128_mul.get_tag(), ValueTag::U128);
+    EXPECT_EQ(u128_mul.as<uint128_t>(), uint128_t(1000000000000ULL) * uint128_t(7));
+
+    auto u128_div = u128_val1 / u128_val2;
+    EXPECT_EQ(u128_div.get_tag(), ValueTag::U128);
+    EXPECT_EQ(u128_div.as<uint128_t>(), uint128_t(1000000000000ULL) / uint128_t(7));
 
     // Test arithmetic operations with FF
     auto ff_val1 = TaggedValue::from<FF>(100);
@@ -305,6 +398,47 @@ TEST(TaggedValueTest, BitwiseOperations)
     auto u8_shr = u8_shift_high >> u8_amount;
     EXPECT_EQ(u8_shr.get_tag(), ValueTag::U8);
     EXPECT_EQ(u8_shr.as<uint8_t>(), 0b00100000);
+}
+
+// Test unary operations for all types
+TEST(TaggedValueTest, UnaryOperations)
+{
+    // Test unary bit negation.
+    auto u1_val = TaggedValue::from(uint1_t(1));
+    auto u1_not = ~u1_val;
+    EXPECT_EQ(u1_not.get_tag(), ValueTag::U1);
+    EXPECT_EQ(u1_not.as<uint1_t>().value(), 0);
+
+    auto u8_val = TaggedValue::from<uint8_t>(0xAA); // 10101010
+    auto u8_not = ~u8_val;
+    EXPECT_EQ(u8_not.get_tag(), ValueTag::U8);
+    EXPECT_EQ(u8_not.as<uint8_t>(), 0x55); // 01010101
+
+    auto u16_val = TaggedValue::from<uint16_t>(0xAAAA); // 1010101010101010
+    auto u16_not = ~u16_val;
+    EXPECT_EQ(u16_not.get_tag(), ValueTag::U16);
+    EXPECT_EQ(u16_not.as<uint16_t>(), 0x5555); // 0101010101010101
+
+    auto u32_val = TaggedValue::from<uint32_t>(0xAAAAAAAA); // 10101010...
+    auto u32_not = ~u32_val;
+    EXPECT_EQ(u32_not.get_tag(), ValueTag::U32);
+    EXPECT_EQ(u32_not.as<uint32_t>(), 0x55555555); // 01010101...
+
+    auto u64_val = TaggedValue::from<uint64_t>(0xAAAAAAAAAAAAAAAAULL);
+    auto u64_not = ~u64_val;
+    EXPECT_EQ(u64_not.get_tag(), ValueTag::U64);
+    EXPECT_EQ(u64_not.as<uint64_t>(), 0x5555555555555555ULL);
+
+    uint128_t u128_input = (uint128_t(0xAAAAAAAAAAAAAAAAULL) << 64) | uint128_t(0xAAAAAAAAAAAAAAAAULL);
+    auto u128_val = TaggedValue::from<uint128_t>(u128_input);
+    auto u128_not = ~u128_val;
+    EXPECT_EQ(u128_not.get_tag(), ValueTag::U128);
+    uint128_t expected_u128 = (uint128_t(0x5555555555555555ULL) << 64) | uint128_t(0x5555555555555555ULL);
+    EXPECT_EQ(u128_not.as<uint128_t>(), expected_u128);
+
+    // Test that unary bitwise operations on FF throw exceptions
+    auto ff_val = TaggedValue::from<FF>(123);
+    EXPECT_THROW(~ff_val, std::runtime_error);
 }
 
 // Test edge cases with uint1_t

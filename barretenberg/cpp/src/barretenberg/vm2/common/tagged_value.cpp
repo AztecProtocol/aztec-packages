@@ -41,7 +41,7 @@ template <typename Op> struct BinaryOperationVisitor {
             if constexpr (std::is_same_v<T, FF> && is_bitwise_operation_v<Op>) {
                 throw std::runtime_error("Bitwise operations not valid for FF");
             } else {
-                // FIXME(fcarreiro): make sure this is not going through FF.
+                // Note: IDK why this static_cast is needed, but if you remove it, operations seem to go through FF.
                 return static_cast<T>(Op{}(a, b));
             }
         } else {
@@ -54,11 +54,10 @@ template <typename Op> struct BinaryOperationVisitor {
 template <typename Op> struct ShiftOperationVisitor {
     template <typename T, typename U> TaggedValue::value_type operator()(const T& a, const U& b) const
     {
-        // FIXME: Require/cast right hand type.
         if constexpr (std::is_same_v<T, FF> || std::is_same_v<U, FF>) {
             throw std::runtime_error("Bitwise operations not valid for FF");
         } else {
-            return Op{}(a, b);
+            return static_cast<T>(Op{}(a, b));
         }
     }
 };
@@ -67,10 +66,11 @@ template <typename Op> struct ShiftOperationVisitor {
 template <typename Op> struct UnaryOperationVisitor {
     template <typename T> TaggedValue::value_type operator()(const T& a) const
     {
-        if constexpr (std::is_same_v<T, FF> && std::is_same_v<Op, std::bit_not<>>) {
-            throw std::runtime_error("Can't do 'bitwise not' on an FF");
+        if constexpr (std::is_same_v<T, FF> && is_bitwise_operation_v<Op>) {
+            throw std::runtime_error("Can't do unary bitwise operations on an FF");
         } else {
-            return Op{}(a);
+            // Note: IDK why this static_cast is needed, but if you remove it, operations seem to go through FF.
+            return static_cast<T>(Op{}(a));
         }
     }
 };
