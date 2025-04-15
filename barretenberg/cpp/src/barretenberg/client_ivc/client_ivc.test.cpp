@@ -517,6 +517,34 @@ TEST_F(ClientIVCTests, MsgpackProofFromFile)
 };
 
 /**
+ * @brief Test methods for serializing and deserializing a proof to/from a "heap" buffer in msgpack format
+ *
+ */
+TEST_F(ClientIVCTests, MsgpackProofFromBuffer)
+{
+    ClientIVC ivc;
+
+    ClientIVCMockCircuitProducer circuit_producer;
+
+    // Initialize the IVC with an arbitrary circuit
+    Builder circuit_0 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_0);
+
+    // Create another circuit and accumulate
+    Builder circuit_1 = circuit_producer.create_next_circuit(ivc);
+    ivc.accumulate(circuit_1);
+
+    const auto proof = ivc.prove();
+
+    // Serialize/deserialize proof to/from a heap buffer, check that it verifies
+    uint8_t const* buffer = proof.to_msgpack_heap_buffer();
+    auto uint8_buffer = from_buffer<std::vector<uint8_t>>(buffer);
+    uint8_t const* uint8_ptr = uint8_buffer.data();
+    auto proof_deserialized = ClientIVC::Proof::from_msgpack_buffer(uint8_ptr);
+    EXPECT_TRUE(ivc.verify(proof_deserialized));
+};
+
+/**
  * @brief Check that a CIVC proof can be serialized and deserialized via msgpack and that attempting to deserialize a
  * random buffer of bytes fails gracefully with a type error
  */

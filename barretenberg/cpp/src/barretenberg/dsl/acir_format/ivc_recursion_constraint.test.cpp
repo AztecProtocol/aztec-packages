@@ -40,6 +40,74 @@ class IvcRecursionConstraintTest : public ::testing::Test {
         return circuit;
     }
 
+    static UltraCircuitBuilder create_inner_circuit(size_t log_num_gates = 10)
+    {
+        using InnerAggState = bb::stdlib::recursion::aggregation_state<UltraCircuitBuilder>;
+
+        UltraCircuitBuilder builder;
+
+        // Create 2^log_n many add gates based on input log num gates
+        const size_t num_gates = (1 << log_num_gates);
+        for (size_t i = 0; i < num_gates; ++i) {
+            fr a = fr::random_element();
+            uint32_t a_idx = builder.add_variable(a);
+
+            fr b = fr::random_element();
+            fr c = fr::random_element();
+            fr d = a + b + c;
+            uint32_t b_idx = builder.add_variable(b);
+            uint32_t c_idx = builder.add_variable(c);
+            uint32_t d_idx = builder.add_variable(d);
+
+            builder.create_big_add_gate({ a_idx, b_idx, c_idx, d_idx, fr(1), fr(1), fr(1), fr(-1), fr(0) });
+        }
+
+        InnerAggState::add_default_pairing_points_to_public_inputs(builder);
+        return builder;
+    }
+
+    /**
+     * @brief Constuct a mock app circuit with a UH recursive verifier
+     *
+     */
+    static Builder construct_mock_UH_recursion_app_circuit(const std::shared_ptr<ClientIVC>& ivc, const bool tamper_vk)
+    {
+        AcirProgram program;
+        std::vector<RecursionConstraint> recursion_constraints;
+
+        Builder circuit{ ivc->goblin.op_queue };
+        GoblinMockCircuits::add_some_ecc_op_gates(circuit);
+        MockCircuits::add_arithmetic_gates(circuit);
+
+        {
+            using RecursiveFlavor = UltraRecursiveFlavor_<Builder>;
+            using VerifierOutput = bb::stdlib::recursion::honk::UltraRecursiveVerifierOutput<RecursiveFlavor>;
+            using OuterAggState = bb::stdlib::recursion::aggregation_state<Builder>;
+
+            // Create an arbitrary inner circuit
+            auto inner_circuit = create_inner_circuit();
+
+            // Compute native verification key
+            auto proving_key = std::make_shared<DeciderProvingKey_<UltraFlavor>>(inner_circuit);
+            UltraProver prover(proving_key); // A prerequisite for computing VK
+            auto honk_vk = std::make_shared<UltraFlavor::VerificationKey>(proving_key->proving_key);
+            auto inner_proof = prover.construct_proof();
+
+            if (tamper_vk) {
+                honk_vk->q_l = g1::one;
+                UltraVerifier_<UltraFlavor> verifier(honk_vk);
+                EXPECT_FALSE(verifier.verify_proof(inner_proof));
+            }
+            // Instantiate the recursive verifier using the native verification key
+            stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor> verifier(&circuit, honk_vk);
+
+            VerifierOutput output = verifier.verify_proof(inner_proof, OuterAggState::construct_default(circuit));
+            output.agg_obj.set_public(); // useless for now but just checking if it breaks anything
+        }
+
+        return circuit;
+    }
+
     /**
      * @brief Create an ACIR RecursionConstraint given the corresponding verifier inputs
      * @brief In practice such constraints are created via a call to verify_proof(...) in noir
@@ -410,4 +478,60 @@ TEST_F(IvcRecursionConstraintTest, GenerateInnerKernelVKFromConstraints)
 
     // Compare the VK constructed via running the IVc with the one constructed via mocking
     EXPECT_EQ(*kernel_vk.get(), *expected_kernel_vk.get());
+}
+
+/**
+ * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier.
+ * This test was copied from the AccumulateTwo test.
+ */
+TEST_F(IvcRecursionConstraintTest, RecursiveVerifierAppCircuitTest)
+{
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+
+    // construct a mock app_circuit
+    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/false);
+
+    // Complete instance and generate an oink proof
+    ivc->accumulate(app_circuit);
+
+    // Construct kernel consisting only of the kernel completion logic
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    const ProgramMetadata metadata{ ivc };
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    EXPECT_TRUE(CircuitChecker::check(kernel));
+    ivc->accumulate(kernel);
+
+    EXPECT_TRUE(ivc->prove_and_verify());
+}
+
+/**
+ * @brief Test IVC accumulation of a one app and one kernel. The app includes a UltraHonk Recursive Verifier that
+ * verifies a failed proof. This test was copied from the AccumulateTwo test.
+ */
+TEST_F(IvcRecursionConstraintTest, BadRecursiveVerifierAppCircuitTest)
+{
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+
+    // construct a mock app_circuit that has bad pairing point object
+    Builder app_circuit = construct_mock_UH_recursion_app_circuit(ivc, /*tamper_vk=*/true);
+
+    // Complete instance and generate an oink proof
+    ivc->accumulate(app_circuit);
+
+    // Construct kernel consisting only of the kernel completion logic
+    AcirProgram program = construct_mock_kernel_program(ivc->verification_queue);
+
+    const ProgramMetadata metadata{ ivc };
+    Builder kernel = acir_format::create_circuit<Builder>(program, metadata);
+
+    EXPECT_TRUE(CircuitChecker::check(kernel));
+    ivc->accumulate(kernel);
+
+    // Still expect this to be true since we don't aggregate pairing point objects correctly.
+    // If we fix aggregation, we should expect this test to fail.
+    EXPECT_TRUE(ivc->prove_and_verify());
 }
