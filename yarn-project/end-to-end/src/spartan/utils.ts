@@ -56,6 +56,7 @@ const k8sGCloudConfigSchema = k8sLocalConfigSchema.extend({
   K8S: z.literal('gcloud'),
   CLUSTER_NAME: z.string().min(1, 'CLUSTER_NAME env variable must be set'),
   REGION: z.string().min(1, 'REGION env variable must be set'),
+  PROJECT_ID: z.string().min(1, 'PROJECT_ID env variable must be set'),
 });
 
 const directConfigSchema = z.object({
@@ -84,7 +85,7 @@ export function isGCloudConfig(config: EnvConfig): config is K8sGCloudConfig {
 export function setupEnvironment(env: unknown): EnvConfig {
   const config = envSchema.parse(env);
   if (isGCloudConfig(config)) {
-    const command = `gcloud container clusters get-credentials ${config.CLUSTER_NAME} --region=${config.REGION}`;
+    const command = `gcloud container clusters get-credentials ${config.CLUSTER_NAME} --region=${config.REGION} --project=${config.PROJECT_ID}`;
     execSync(command);
   }
   return config;

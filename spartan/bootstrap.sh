@@ -147,12 +147,12 @@ case "$cmd" in
     # TODO(#12163) reenable bot once not conflicting with transfer
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
     FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
+      ./scripts/test_gke.sh src/spartan/transfer.test.ts ci.yaml transfer${NAME_POSTFIX:-}
     ;;
   "test-kind-1tps")
     OVERRIDES="blobSink.enabled=true,bot.enabled=false" \
-    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false \
-      ./scripts/test_kind.sh src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
+    FRESH_INSTALL=${FRESH_INSTALL:-true} INSTALL_METRICS=false RESOURCES_FILE=gcloud-1tps-sim.yaml \
+      ./scripts/test_gke.sh src/spartan/1tps.test.ts ci-1tps.yaml one-tps${NAME_POSTFIX:-}
     ;;
   "test-kind-upgrade-rollup-version")
     OVERRIDES="bot.enabled=false,ethereum.acceleratedTestDeployments=false" \
