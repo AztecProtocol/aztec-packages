@@ -56,5 +56,5 @@ export function serializePrivateExecutionSteps(steps: PrivateExecutionStep[]) {
       functionName: step.functionName,
     };
   };
-  return new Encoder().pack(steps.map(stepToStruct));
+  return new Encoder({ useRecords: false }).pack(steps.map(stepToStruct));
 }

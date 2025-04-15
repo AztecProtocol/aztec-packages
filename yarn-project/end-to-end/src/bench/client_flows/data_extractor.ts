@@ -150,7 +150,7 @@ async function main() {
   for (const flow of flows) {
     userLog.info(`Processing flow ${flow}`);
     const ivcInputs = await readFile(join(ivcFolder, flow, 'ivc-inputs.msgpack'));
-    const stepsFromFile: PrivateExecutionStep[] = new Decoder().unpack(ivcInputs);
+    const stepsFromFile: PrivateExecutionStep[] = new Decoder({ useRecords: false }).unpack(ivcInputs);
     const witnesses = await readFile(join(ivcFolder, flow, 'witnesses.json'));
 
     const witnessStack = JSON.parse(witnesses.toString()).map((witnessMap: Record<string, string>) => {

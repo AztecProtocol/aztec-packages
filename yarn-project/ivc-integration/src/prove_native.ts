@@ -49,7 +49,6 @@ export async function proveClientIVC(
     };
   };
   const encoded = new Encoder().pack(bytecodes.map(stepToStruct));
-  console.log(encoded);
   const ivcInputsPath = path.join(bbWorkingDirectory, 'ivc-inputs.msgpack');
   await fs.writeFile(ivcInputsPath, encoded);
 
