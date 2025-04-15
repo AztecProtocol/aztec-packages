@@ -1,4 +1,3 @@
-
 #include "goblin.hpp"
 #include "barretenberg/eccvm/eccvm_verifier.hpp"
 #include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
