@@ -31,7 +31,7 @@ import TableBody from '@mui/material/TableBody';
 import TableRow from '@mui/material/TableRow';
 import TableCell from '@mui/material/TableCell';
 import TableContainer from '@mui/material/TableContainer';
-import { Box, Paper } from '@mui/material';
+import { Box, Paper, Tooltip } from '@mui/material';
 
 type SimulationResult = {
   success: boolean;
@@ -235,46 +235,57 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
         {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
       </CardContent>
       <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-        <Button
-          disabled={!wallet || !contract || isWorking}
-          color="primary"
-          variant="contained"
-          size="small"
-          onClick={() => simulate(fn.name)}
-          endIcon={<PsychologyIcon />}
-        >
-          Simulate
-        </Button>
-        <Button
-          disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
-          size="small"
-          color="primary"
-          variant="contained"
-          onClick={() => setOpenSendTxDialog(true)}
-          endIcon={<SendIcon />}
-        >
-          Send
-        </Button>
-        <Button
-          disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
-          size="small"
-          color="primary"
-          variant="contained"
-          onClick={() => setOpenCreateAuthwitDialog(true)}
-          endIcon={<VpnKeyIcon />}
-        >
-          Authwit
-        </Button>
-        <Button
-          disabled={!wallet || !contract || isWorking || fn.functionType !== 'private'}
-          color="primary"
-          variant="contained"
-          size="small"
-          onClick={() => profile(fn.name)}
-          endIcon={<TroubleshootIcon />}
-        >
-          Profile
-        </Button>
+        <Tooltip title="Simulate this function call and see the return value. Can be used to query the state of the contract.">
+          <Button
+            disabled={!wallet || !contract || isWorking}
+            color="primary"
+            variant="contained"
+            size="small"
+            onClick={() => simulate(fn.name)}
+            endIcon={<PsychologyIcon />}
+          >
+            Simulate
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Execute this function and send a transaction to the blockchain.">
+          <Button
+            disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+            size="small"
+            color="primary"
+            variant="contained"
+            onClick={() => setOpenSendTxDialog(true)}
+            endIcon={<SendIcon />}
+          >
+            Send
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Create an authwit to allow other contracts to execute this function on your behalf.">
+          <Button
+            disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+            size="small"
+            color="primary"
+            variant="contained"
+            onClick={() => setOpenCreateAuthwitDialog(true)}
+            endIcon={<VpnKeyIcon />}
+          >
+            Authwit
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Profile this method and get the number of gates used per step. Requires valid function arguments to be set as this runs a simulation internally.">
+          <Button
+            disabled={!wallet || !contract || isWorking || fn.functionType !== 'private'}
+            color="primary"
+            variant="contained"
+            size="small"
+            onClick={() => profile(fn.name)}
+            endIcon={<TroubleshootIcon />}
+          >
+            Profile
+          </Button>
+        </Tooltip>
 
       </CardActions>
       {contract && openSendTxDialog && (
