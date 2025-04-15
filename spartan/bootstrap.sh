@@ -8,7 +8,7 @@ hash=$(hash_str $(cache_content_hash .rebuild_patterns) $(../yarn-project/bootst
 flock scripts/logs/install_deps.lock scripts/install_deps.sh >&2
 
 function build {
-  denoise helm lint ./aztec-network/
+  denoise "helm lint ./aztec-network/"
 }
 
 function network_shaping {
