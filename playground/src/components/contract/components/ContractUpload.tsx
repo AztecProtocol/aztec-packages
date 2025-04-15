@@ -4,7 +4,6 @@ import './dropzone.css';
 import { loadContractArtifact } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
-import ListItem from '@mui/material/ListItem';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
 import { useContext } from 'react';
 import { AztecContext } from '../../../aztecEnv';
@@ -58,7 +57,7 @@ export function ContractUpload() {
         <Typography>Drag and drop a contract JSON file here, or click to select a file</Typography>
 
         <Typography variant="body2" color="text.secondary" sx={{ my: 3 }}>
-          <Box sx={{ textAlign: 'left' }}>
+          <Box sx={{ textAlign: 'left', backgroundColor: 'var(--mui-palette-grey-A200)', p: 2, borderRadius: '5px' }}>
             To generate a contract artifact:
             <br />
             1. Install latest version of Aztec CLI by running `aztec-up`

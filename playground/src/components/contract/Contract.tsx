@@ -19,6 +19,7 @@ import { formatFrAsString } from '../../utils/conversion';
 import { CreateContractDialog } from './components/CreateContractDialog';
 import ClearIcon from '@mui/icons-material/Clear';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
+
 import { ContractUpload } from './components/ContractUpload';
 import { ContractFilter } from './components/ContractFilter';
 import { FunctionCard } from './components/FunctionCard';
