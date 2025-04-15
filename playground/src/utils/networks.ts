@@ -1,3 +1,5 @@
+import { VERSION } from './constants';
+
 export type Network = {
   nodeURL: string;
   name: string;
@@ -17,7 +19,7 @@ export const NETWORKS: Network[] = [
   {
     nodeURL: 'http://localhost:8080',
     name: 'Local Sandbox',
-    description: 'Run your own sandbox',
+    description: `Run your own sandbox (v${VERSION})`,
     hasTestAccounts: true,
     hasSponsoredFPC: true,
   },
