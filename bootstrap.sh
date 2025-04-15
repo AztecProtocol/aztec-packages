@@ -197,7 +197,6 @@ function build {
     yarn-project
     boxes
     playground
-    # Blocking release.
     # docs
     release-image
     aztec-up
@@ -270,7 +269,6 @@ function release {
     boxes
     aztec-up
     playground
-    # Blocking release.
     # docs
     release-image
   )
@@ -338,10 +336,6 @@ case "$cmd" in
     ;;
   test|test_cmds|bench|release|release_dryrun)
     $cmd "$@"
-    ;;
-  "docs-release")
-    build
-    docs/bootstrap.sh docs-release
     ;;
   *)
     echo "Unknown command: $cmd"

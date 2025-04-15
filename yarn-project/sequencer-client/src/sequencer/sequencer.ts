@@ -1,4 +1,4 @@
-import type { L2Block } from '@aztec/aztec.js';
+import { type L2Block, retryUntil } from '@aztec/aztec.js';
 import { INITIAL_L2_BLOCK_NUM } from '@aztec/constants';
 import { omit } from '@aztec/foundation/collection';
 import { EthAddress } from '@aztec/foundation/eth-address';
@@ -433,8 +433,15 @@ export class Sequencer {
       validator: opts.validateOnly,
     });
 
-    // Sync to the previous block at least
-    await this.worldState.syncImmediate(blockNumber - 1);
+    // Sync to the previous block at least. If we cannot sync to that block because the archiver hasn't caught up,
+    // we keep retrying until the reexecution deadline. Note that this could only happen when we are a validator,
+    // for if we are the proposer, then world-state should already be caught up, as we check this earlier.
+    await retryUntil(
+      () => this.worldState.syncImmediate(blockNumber - 1, true).then(syncedTo => syncedTo >= blockNumber - 1),
+      'sync to previous block',
+      this.timetable.getValidatorReexecTimeEnd(),
+      0.1,
+    );
     this.log.debug(`Synced to previous block ${blockNumber - 1}`);
 
     // NB: separating the dbs because both should update the state

@@ -201,6 +201,13 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     this.runningPromise.start();
   }
 
+  public syncImmediate() {
+    if (!this.runningPromise) {
+      throw new Error('Archiver is not running');
+    }
+    return this.runningPromise.trigger();
+  }
+
   private async syncSafe(initialRun: boolean) {
     try {
       await this.sync(initialRun);

@@ -6,6 +6,8 @@
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
+#include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "libdeflate.h"
 #include <stdexcept>
@@ -49,7 +51,7 @@ std::vector<uint8_t> decompress(const void* bytes, size_t size)
             continue;
         }
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            throw std::invalid_argument("bad gzip data in bb main");
+            THROW std::invalid_argument("bad gzip data in bb main");
         }
         content.resize(actual_size);
         break;
@@ -67,13 +69,13 @@ template <typename T> T unpack_from_file(const std::filesystem::path& filename)
     std::ifstream fin;
     fin.open(filename, std::ios::ate | std::ios::binary);
     if (!fin.is_open()) {
-        throw std::invalid_argument("file not found");
+        THROW std::invalid_argument("file not found");
     }
     if (fin.tellg() == -1) {
-        throw std::invalid_argument("something went wrong");
+        THROW std::invalid_argument("something went wrong");
     }
 
-    uint64_t fsize = static_cast<uint64_t>(fin.tellg());
+    size_t fsize = static_cast<size_t>(fin.tellg());
     fin.seekg(0, std::ios_base::beg);
 
     T result;
@@ -165,14 +167,11 @@ void write_vk_for_ivc(const std::string& bytecode_path, const std::filesystem::p
         ivc, SMALL_ARBITRARY_LOG_CIRCUIT_SIZE, num_public_inputs_in_final_circuit + MAGIC_NUMBER);
     ivc.accumulate(circuit_1);
 
-    ivc.construct_vk();
-
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
+    // Construct the hiding circuit and its VK (stored internally in the IVC)
+    ivc.construct_hiding_circuit_key();
 
     const bool output_to_stdout = output_dir == "-";
-    const auto vk = std::make_shared<ClientIVC::VerificationKey>(ivc.honk_vk, eccvm_vk, translator_vk);
-    const auto buf = to_buffer(vk);
+    const auto buf = to_buffer(ivc.get_vk());
 
     if (output_to_stdout) {
         write_bytes_to_stdout(buf);
@@ -264,7 +263,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     // and it is mysterious if this transaction fails later in the lifecycle.
     // The files are still written in case they are needed to investigate this failure.
     if (!ivc->verify(proof)) {
-        throw std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
+        THROW std::runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
     }
 
     // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string
@@ -302,10 +301,8 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     const auto proof = ClientIVC::Proof::from_file_msgpack(proof_path);
     const auto vk = from_buffer<ClientIVC::VerificationKey>(read_file(vk_path));
 
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1335): Should be able to remove this.
     vk.mega->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
-    vk.eccvm->pcs_verification_key =
-        std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(vk.eccvm->circuit_size + 1);
-    vk.translator->pcs_verification_key = std::make_shared<VerifierCommitmentKey<curve::BN254>>();
 
     const bool verified = ClientIVC::verify(proof, vk);
     return verified;
@@ -445,9 +442,7 @@ void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem
     vinfo("writing ClientIVC proof and vk...");
     proof.to_file_msgpack(output_dir / "proof");
 
-    auto eccvm_vk = std::make_shared<ECCVMFlavor::VerificationKey>(ivc.goblin.get_eccvm_proving_key());
-    auto translator_vk = std::make_shared<TranslatorFlavor::VerificationKey>(ivc.goblin.get_translator_proving_key());
-    write_file(output_dir / "vk", to_buffer(ClientIVC::VerificationKey{ ivc.honk_vk, eccvm_vk, translator_vk }));
+    write_file(output_dir / "vk", to_buffer(ivc.get_vk()));
 }
 
 } // namespace bb

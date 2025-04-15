@@ -433,7 +433,6 @@ export function injectCommands(
       const { bridgeL1FeeJuice } = await import('./bridge_fee_juice.js');
       const { rpcUrl, l1ChainId, l1RpcUrls, l1PrivateKey, mnemonic, mint, json, wait, interval: intervalS } = options;
       const client = pxeWrapper?.getPXE() ?? (await createCompatibleClient(rpcUrl, debugLogger));
-      log(`Minting ${amount} fee juice on L1 and pushing to L2`);
 
       const [secret, messageLeafIndex] = await bridgeL1FeeJuice(
         amount,
