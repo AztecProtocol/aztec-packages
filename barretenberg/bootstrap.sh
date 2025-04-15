@@ -42,16 +42,14 @@ case "$cmd" in
   bench)
     bench
     ;;
-  fast-bootstrap)
-    echo "WARNING: This assumes you have only changed barretenberg and the rest of the repository is unchanged."
-    echo "WARNING: It builds only up until yarn-project."
+  bootstrap_e2e_hack)
+    echo "WARNING: This assumes you have only built barretenberg and the rest of the repository is unchanged from master."
+    echo "WARNING: It builds up until yarn-project and allows end-to-end tests (not boxes/playground/release image etc)."
     merge_base=$(git merge-base HEAD origin/master)
-    AZTEC_CACHE_COMMIT=$MERGE_BASE noir/bootstrap.sh
-    ./bootstrap.sh
-    AZTEC_CACHE_COMMIT=$MERGE_BASE avm-transpiler/bootstrap.sh
-    AZTEC_CACHE_COMMIT=$MERGE_BASE noir-projects/bootstrap.sh
-    AZTEC_CACHE_COMMIT=$MERGE_BASE l1-contracts/bootstrap.sh
-    AZTEC_CACHE_COMMIT=$MERGE_BASE yarn-project/bootstrap.sh
+    for project in noir avm-transpiler noir-projects l1-contracts yarn-project ; do
+      AZTEC_CACHE_COMMIT=$merge_base $project/bootstrap.sh
+    done
+    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
