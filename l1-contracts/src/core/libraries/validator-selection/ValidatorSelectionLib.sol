@@ -191,9 +191,6 @@ library ValidatorSelectionLib {
     internal
     returns (address[] memory)
   {
-    // TODO(md): remove this with checkpointing of the sample seed
-    setupEpoch(_stakingStore);
-
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[_epochNumber];
 
