@@ -42,6 +42,16 @@ case "$cmd" in
   bench)
     bench
     ;;
+  fast-bootstrap)
+    echo "WARNING: This assumes you have only changed barretenberg and the rest of the repository is unchanged."
+    echo "WARNING: It builds only up until yarn-project."
+    merge_base=$(git merge-base HEAD origin/master)
+    AZTEC_CACHE_COMMIT=$MERGE_BASE noir/bootstrap.sh
+    ./bootstrap.sh
+    AZTEC_CACHE_COMMIT=$MERGE_BASE avm-transpiler/bootstrap.sh
+    AZTEC_CACHE_COMMIT=$MERGE_BASE noir-projects/bootstrap.sh
+    AZTEC_CACHE_COMMIT=$MERGE_BASE l1-contracts/bootstrap.sh
+    AZTEC_CACHE_COMMIT=$MERGE_BASE yarn-project/bootstrap.sh
   *)
     echo "Unknown command: $cmd"
     exit 1
