@@ -7,7 +7,7 @@ Upgrades involve transitioning the network to a new instance of the Rollup contr
 
 ## AZIP
 
-It is expected that the community will coordinate upgrade proposals via an AZIP process, which is a design document outlining the upgrade rationale and one that allows for collecting technical input from and by the community. 
+It is expected that the community will coordinate upgrade proposals via an AZIP process, which is a design document outlining the upgrade rationale and one that allows for collecting technical input from and by the community.
 
 Once developers of client software agree to support the upgrade, sequencers can begin signaling to table this proposal from a certain block height.
 
@@ -18,15 +18,17 @@ The initial deployment creates a set of contracts, as described in the [Deployme
 ## Upgrading the Rollup Contract
 
 1. **Proposal Creation:**
+
    - A new Rollup contract is deployed to the network
    - Proposal code to execute the upgrade is deployed separately
 
-2. **Governance Approval:**
-   - Governance contract holders vote to approve or reject the proposal. Votes are proportional to the amount of Hypothetical Asset locked in the Governance contract.
+2. **Sequencer Participation:**
 
-3. **Sequencer Participation:**
    - Sequencers must signal their readiness by voting through the Proposals contract.
    - This vote occurs during their assigned L2 slot, as dictated by the L1 Rollup smart contract.
+
+3. **Governance Approval:**
+   - Hypothetical Asset holders vote to approve or reject the proposal. Votes are proportional to the amount of Hypothetical Asset locked in the Governance contract.
 
 ## Proposal Execution
 
