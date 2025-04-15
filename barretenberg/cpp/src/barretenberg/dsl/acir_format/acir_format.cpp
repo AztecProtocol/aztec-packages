@@ -313,6 +313,15 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
     }
 }
 
+/**
+ * @brief Set the IPA claim and proof.
+ *
+ * @tparam Builder
+ * @param builder
+ * @param nested_ipa_claims
+ * @param nested_ipa_proofs
+ * @param is_root_rollup
+ */
 template <typename Builder>
 void handle_IPA_accumulation(Builder& builder,
                              const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
@@ -364,8 +373,10 @@ void handle_IPA_accumulation(Builder& builder,
         // We don't support and shouldn't expect to support circuits with 3+ IPA recursive verifiers.
         throw_or_abort("Too many nested IPA claims to accumulate");
     }
-    // If we have an output IPA claim/proof, we should have honk_recursion set to 2 and vice versa.
-    ASSERT(final_ipa_proof.size() > 0);
+    // If we aren't in the root rollup, we should have an output IPA proof.
+    if (!is_root_rollup) {
+        ASSERT(final_ipa_proof.size() > 0);
+    }
     // Propagate the IPA claim via the public inputs of the outer circuit
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
     // location/entity to handle this IPA data propagation.
