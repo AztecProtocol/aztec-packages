@@ -295,69 +295,76 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
         // Accumulate the IPA claims and set it to be public inputs
         if constexpr (IsUltraBuilder<Builder>) {
+            // honk_recursion should be set to 2 when we're using RollupHonk and have IPA claims
             if (metadata.honk_recursion == 2) {
-                OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
-                HonkProof final_ipa_proof;
-                if (honk_output.nested_ipa_claims.size() == 2) {
-                    // If we have two claims, accumulate.
-                    auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
-                    using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
-
-                    auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(honk_output.nested_ipa_proofs[0]);
-                    auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(honk_output.nested_ipa_proofs[1]);
-                    auto [ipa_claim, ipa_proof] =
-                        IPA<stdlib::grumpkin<Builder>>::accumulate(commitment_key,
-                                                                   ipa_transcript_1,
-                                                                   honk_output.nested_ipa_claims[0],
-                                                                   ipa_transcript_2,
-                                                                   honk_output.nested_ipa_claims[1]);
-                    // If this is the root rollup, do full IPA verification
-                    if (honk_output.is_root_rollup) {
-                        auto verifier_commitment_key =
-                            std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<Builder>>>(
-                                &builder,
-                                1 << CONST_ECCVM_LOG_N,
-                                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N));
-                        // do full IPA verification
-                        auto accumulated_ipa_transcript =
-                            std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&builder, ipa_proof));
-                        IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
-                            verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
-                    } else {
-                        final_ipa_claim = ipa_claim;
-                        final_ipa_proof = ipa_proof;
-                    }
-                } else if (honk_output.nested_ipa_claims.size() == 1) {
-                    // If we have one claim, just forward it along.
-                    final_ipa_claim = honk_output.nested_ipa_claims[0];
-                    // This conversion looks suspicious but there's no need to make this an output of the circuit since
-                    // its a proof that will be checked anyway.
-                    final_ipa_proof = convert_stdlib_proof_to_native(honk_output.nested_ipa_proofs[0]);
-                } else if (honk_output.nested_ipa_claims.size() > 2) {
-                    // We don't support and shouldn't expect to support circuits with 3+ IPA recursive verifiers.
-                    throw_or_abort("Too many nested IPA claims to accumulate");
-                } else {
-                    // If we don't have any claims, we may need to inject a fake one if we're proving with
-                    // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
-                    if (metadata.honk_recursion == 2) {
-                        info("Proving with UltraRollupHonk but no IPA claims exist.");
-                        auto [stdlib_opening_claim, ipa_proof] =
-                            IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
-
-                        final_ipa_claim = stdlib_opening_claim;
-                        final_ipa_proof = ipa_proof;
-                    }
-                }
-                // If we have an output IPA claim/proof, we should have honk_recursion set to 2 and vice versa.
-                ASSERT((metadata.honk_recursion == 2) == (final_ipa_proof.size() > 0));
-                // Propagate the IPA claim via the public inputs of the outer circuit
-                // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
-                // location/entity to handle this IPA data propagation.
-                final_ipa_claim.set_public();
-                builder.ipa_proof = final_ipa_proof;
+                handle_IPA_accumulation(
+                    builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs, honk_output.is_root_rollup);
+            } else {
+                // We shouldn't accidentally have IPA proofs but not set honk_recursion to 2.
+                ASSERT(honk_output.nested_ipa_proofs.size() == 0);
             }
         }
     }
+}
+
+template <typename Builder>
+void handle_IPA_accumulation(Builder& builder,
+                             const std::vector<OpeningClaim<stdlib::grumpkin<Builder>>>& nested_ipa_claims,
+                             const std::vector<StdlibProof<Builder>>& nested_ipa_proofs,
+                             bool is_root_rollup)
+{
+    OpeningClaim<stdlib::grumpkin<Builder>> final_ipa_claim;
+    HonkProof final_ipa_proof;
+    if (nested_ipa_claims.size() == 2) {
+        // If we have two claims, accumulate.
+        auto commitment_key = std::make_shared<CommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N);
+        using StdlibTranscript = bb::stdlib::recursion::honk::UltraStdlibTranscript;
+
+        auto ipa_transcript_1 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[0]);
+        auto ipa_transcript_2 = std::make_shared<StdlibTranscript>(nested_ipa_proofs[1]);
+        auto [ipa_claim, ipa_proof] = IPA<stdlib::grumpkin<Builder>>::accumulate(
+            commitment_key, ipa_transcript_1, nested_ipa_claims[0], ipa_transcript_2, nested_ipa_claims[1]);
+        // If this is the root rollup, do full IPA verification
+        if (is_root_rollup) {
+            auto verifier_commitment_key = std::make_shared<VerifierCommitmentKey<stdlib::grumpkin<Builder>>>(
+                &builder,
+                1 << CONST_ECCVM_LOG_N,
+                std::make_shared<VerifierCommitmentKey<curve::Grumpkin>>(1 << CONST_ECCVM_LOG_N));
+            // do full IPA verification
+            auto accumulated_ipa_transcript =
+                std::make_shared<StdlibTranscript>(convert_native_proof_to_stdlib(&builder, ipa_proof));
+            IPA<stdlib::grumpkin<Builder>>::full_verify_recursive(
+                verifier_commitment_key, ipa_claim, accumulated_ipa_transcript);
+        } else {
+            final_ipa_claim = ipa_claim;
+            final_ipa_proof = ipa_proof;
+        }
+    } else if (nested_ipa_claims.size() == 1) {
+        // If we have one claim, just forward it along.
+        final_ipa_claim = nested_ipa_claims[0];
+        // This conversion looks suspicious but there's no need to make this an output of the circuit since
+        // its a proof that will be checked anyway.
+        final_ipa_proof = convert_stdlib_proof_to_native(nested_ipa_proofs[0]);
+    } else if (nested_ipa_claims.size() == 0) {
+        // If we don't have any claims, we may need to inject a fake one if we're proving with
+        // UltraRollupHonk, indicated by the manual setting of the honk_recursion metadata to 2.
+        info("Proving with UltraRollupHonk but no IPA claims exist.");
+        auto [stdlib_opening_claim, ipa_proof] =
+            IPA<stdlib::grumpkin<Builder>>::create_fake_ipa_claim_and_proof(builder);
+
+        final_ipa_claim = stdlib_opening_claim;
+        final_ipa_proof = ipa_proof;
+    } else {
+        // We don't support and shouldn't expect to support circuits with 3+ IPA recursive verifiers.
+        throw_or_abort("Too many nested IPA claims to accumulate");
+    }
+    // If we have an output IPA claim/proof, we should have honk_recursion set to 2 and vice versa.
+    ASSERT(final_ipa_proof.size() > 0);
+    // Propagate the IPA claim via the public inputs of the outer circuit
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
+    // location/entity to handle this IPA data propagation.
+    final_ipa_claim.set_public();
+    builder.ipa_proof = final_ipa_proof;
 }
 
 void process_plonk_recursion_constraints(Builder& builder,

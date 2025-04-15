@@ -227,7 +227,7 @@ HonkRecursionConstraintOutput<Builder> create_avm2_recursion_constraints_goblin(
     bb::avm2::AvmGoblinRecursiveVerifier::RecursiveAvmGoblinOutput output = verifier.verify_proof(
         proof_fields, bb::avm2::PublicInputs::flat_to_columns(public_inputs_flattened), input_aggregation_object);
 
-    return { .agg_obj = output.agg_obj, .ipa_claim = output.ipa_claim, .ipa_proof = output.ipa_proof };
+    return output;
 }
 
 } // namespace acir_format
