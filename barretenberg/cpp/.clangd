@@ -69,6 +69,8 @@ Diagnostics:
       - readability-avoid-const-params-in-decls
       # const size_t circuit_size = static_cast<size_t>(...) is not better as const auto; auto is for clarity or cheap local polymorphism
       - modernize-use-auto
+      # Not worth rewriting. Redundant types are often clearer.
+      - modernize-return-braced-init-list
 
 --- # this divider is necessary
 # Disable some checks for Google Test/Bench
