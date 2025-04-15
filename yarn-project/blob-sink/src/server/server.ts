@@ -159,8 +159,12 @@ export class BlobSinkServer {
 
     try {
       const blobs = await this.httpClient.getBlobSidecar(blockId);
-      this.log.verbose(`Storing ${pluralize('blob', blobs.length)} downloaded from archive for block ${blockId}`);
-      await this.blobStore.addBlobSidecars(blockId, blobs);
+      if (blobs.length > 0) {
+        this.log.verbose(`Storing ${pluralize('blob', blobs.length)} downloaded from remote sources for ${blockId}`);
+        await this.blobStore.addBlobSidecars(blockId, blobs);
+      } else {
+        this.log.debug(`No blobs found for block ${blockId} from remote sources`);
+      }
       return blobs.filter(blob => !indices || indices.length === 0 || indices.includes(blob.index));
     } catch (err) {
       this.log.error(`Failed to get blobs for block ${blockId} from remote sources`, err);
