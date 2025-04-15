@@ -8,7 +8,8 @@
   "exports": {
     "./server": "./dest/server/index.js",
     "./client": "./dest/client/index.js",
-    "./encoding": "./dest/encoding/index.js"
+    "./encoding": "./dest/encoding/index.js",
+    "./types": "./dest/types/index.js"
   },
   "inherits": [
     "../package.common.json"
