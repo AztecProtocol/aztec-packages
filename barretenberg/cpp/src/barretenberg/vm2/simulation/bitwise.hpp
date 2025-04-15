@@ -22,7 +22,6 @@ class Bitwise : public BitwiseInterface {
         : events(event_emitter)
     {}
 
-    // Operands are expected to be direct.
     MemoryValue and_op(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue or_op(const MemoryValue& a, const MemoryValue& b) override;
     MemoryValue xor_op(const MemoryValue& a, const MemoryValue& b) override;
