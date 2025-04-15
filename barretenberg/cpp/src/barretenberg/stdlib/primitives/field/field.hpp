@@ -281,14 +281,16 @@ template <typename Builder> class field_t {
     void assert_is_not_zero(std::string const& msg = "field_t::assert_is_not_zero") const;
     void assert_is_zero(std::string const& msg = "field_t::assert_is_zero") const;
     bool is_constant() const { return witness_index == IS_CONSTANT; }
-    void set_public() const
+    uint32_t set_public() const
     {
+        uint32_t public_input_index = 0;
         if constexpr (IsSimulator<Builder>) {
             auto value = normalize().get_value();
-            context->set_public_input(value);
+            public_input_index = context->set_public_input(value);
         } else {
-            context->set_public_input(normalize().witness_index);
+            public_input_index = context->set_public_input(normalize().witness_index);
         }
+        return public_input_index;
     }
 
     /**

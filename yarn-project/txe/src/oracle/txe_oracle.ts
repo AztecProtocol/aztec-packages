@@ -46,7 +46,6 @@ import { createTxForPublicCalls } from '@aztec/simulator/public/fixtures';
 import {
   ExecutionError,
   PublicContractsDB,
-  PublicTreesDB,
   type PublicTxResult,
   PublicTxSimulator,
   createSimulationError,
@@ -945,9 +944,13 @@ export class TXE implements TypedOracle {
     // See note at revert below.
     const checkpoint = await ForkCheckpoint.new(db);
     try {
-      const treesDB = new PublicTreesDB(db);
       const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-      const simulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, /*doMerkleOperations=*/ true);
+      const simulator = new PublicTxSimulator(
+        this.baseFork,
+        contractsDB,
+        globalVariables,
+        /*doMerkleOperations=*/ false,
+      );
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
       const firstNullifier = usedTxRequestHashForNonces
