@@ -81,6 +81,8 @@ bootNode:
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
+  gke:
+    spotEnabled: false
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -112,6 +114,8 @@ fullNode:
   peerIdPrivateKey: ""
   externalHost: ""
   replicas: 1
+  gke:
+    spotEnabled: false
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -148,6 +152,8 @@ validator:
   # But it must be used if the boot node is killed, and the validator is restarted.
   dynamicBootNode: false
   replicas: 1
+  gke:
+    spotEnabled: false
   service:
     p2pPort: 40400
     nodePort: 8080
@@ -181,6 +187,8 @@ validator:
 proverNode:
   externalHost: ""
   replicas: 1
+  gke:
+    spotEnabled: false
   p2p:
     enabled: true
     floodPublish: true
@@ -271,6 +279,8 @@ ethereum:
   gasLimit: "1000000000"
   # 10 times the default of 131072
   maxTxInputSizeBytes: "1310720"
+  gke:
+    spotEnabled: false
   args: ""
   execution:
     externalHosts: ""
@@ -320,6 +330,8 @@ proverBroker:
   service:
     nodePort: 8084
   enabled: true
+  gke:
+    spotEnabled: false
   replicas: 1
   jobTimeoutMs: 30000
   pollIntervalMs: 1000
@@ -337,6 +349,8 @@ blobSink:
   enabled: false
   logLevel: "debug; info: aztec:simulator, json-rpc"
   replicas: 1
+  gke:
+    spotEnabled: false
   service:
     nodePort: 5052
   startupProbe:
