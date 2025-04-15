@@ -83,6 +83,10 @@ tests:
     error_regex: "Received promise resolved instead of rejected"
     owners:
       - *sean
+  - regex: "simple e2e_p2p/reex"
+    error_regex: "FormattedViemError: Nonce provided for the transaction is lower than the current nonce of the account."
+    owners:
+      - *sean
   - regex: "simple e2e_p2p"
     error_regex: "TimeoutError: Timeout awaiting blocks mined"
     owners:

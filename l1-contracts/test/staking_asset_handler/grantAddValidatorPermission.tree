@@ -1,6 +1,0 @@
-GrantAddValidatorPermissionTest
-├── when caller of grantAddValidatorPermission is not owner
-│   └── it reverts
-└── when caller of grantAddValidatorPermission is owner
-    ├── it grants add validator permission
-    └── it emits a {AddValidatorPermissionGranted} event

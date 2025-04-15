@@ -8,6 +8,10 @@ Aztec is in full-speed development. Literally every version breaks compatibility
 
 ## TBD
 
+### [PXE] Removed PXE_L2_STARTING_BLOCK environment variable
+
+PXE now fast-syncs by skipping finalized blocks and never downloads all blocks, so there is no longer a need to specify a starting block.
+
 ### [Aztec.nr] Logs and messages renaming
 
 The following renamings have taken place:

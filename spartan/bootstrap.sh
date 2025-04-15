@@ -59,7 +59,7 @@ function test_cmds {
   fi
   # Note: commands that start with 'timeout ...' override the default timeout.
   # TODO figure out why these take long sometimes.
-  echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
+  # echo "$hash ./spartan/bootstrap.sh test-kind-smoke"
 
   if [ "$CI_NIGHTLY" -eq 1 ]; then
     echo "$hash:TIMEOUT=20m ./spartan/bootstrap.sh test-kind-transfer"
