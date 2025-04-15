@@ -4,8 +4,6 @@
 > [!WARNING]
 > :warning: **<https://github.com/AztecProtocol/barretenberg> is a mirror-only repository, please only use <https://github.com/AztecProtocol/aztec-packages>. Do not use this for any purpose other than reference.** :warning:
 
-![banner](../.github/img/bb_banner.png)
-
 # Barretenberg
 
 Barretenberg (or `bb` for short) is an optimized elliptic curve library for the bn128 curve, and a PLONK SNARK prover.
@@ -77,13 +75,6 @@ bb verify --scheme ultra_honk -k ./target/vk -p ./target/proof
 ```
 
 If successful, the verification will complete in silence.
-
-### MegaHonk
-
-The usage with MegaHonk is similar to the above UltraHonk. Refer to all the available `bb` commands, using the `bb <command>_mega_honk` syntax.
-
-> [!WARNING]
-> MegaHonk generates insecure recursion circuits when Goblin recursive verifiers are not present.
 
 ### Solidity verifier
 
@@ -473,6 +464,21 @@ command script import ~/aztec-packages/barretenberg/cpp/scripts/lldb_format.py
 
 Now when you `print` things with e.g. `print bigfield_t.get_value()` or inspect in VSCode (if you opened the debug console and put in these commands) then you will get pretty-printing of these types. This can be expanded fairly easily with more types if needed.
 
+#### Debugging and profiling realistic ClientIVC flows
+
+
+#### Running Realistic ClientIVC from barretenberg folder
+
+Realistic IVC inputs pose a problem as the only code to sequence them requires a full end to end run.
+One can run the fourth newest master commit for example (any master commit that has finished benchmarking can be used):
+`barretenberg/cpp/bootstrap.sh bench_ivc origin/master~3`
+
+To do a single benchmark you can do e.g.
+`IVC_BENCH=amm-add-liquidity ./bootstrap.sh bench_ivc origin/master~3`
+
+If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
+To use these inputs manually, just abort after input download and run ClientIVC proving with --input runtime_stack on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
+
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 
 Tracy is a tool that gives us an in-depth look at certain performance related metrics, including memory, CPU usage, time, and circuit gate counts.
@@ -519,3 +525,21 @@ The main memory graph will only keep track of a sum of active allocations, which
 ##### Final Thoughts
 
 What's described here is mostly relating to memory, but should in part pertain to time, gate count, and other metric analysis that we have set up with tracy. It's likely that these instructions may become outdated, so please adjust accordingly. Also, there may be other valuable ways to use the tracy GUI that isn't mentioned here. Lastly, please keep in mind that tracy is an awesome tool for measuring memory, but because of the way its currently set up, the memory graph does not account for memory fragmentation, but only a sum of all of the active allocations at every step. Do not overfit to optimizing only this displayed Memory usage number; please account for real memory usage which must include memory fragmentation.
+
+##### Getting Stack Traces from WASM
+
+By default, the barretenberg.wasm.gz that is used by bb.js (aka barretenberg/ts) has debug symbols stripped.
+One can get stack traces working from WASM by running root level ./bootstrap.sh (or otherwise building what you need) and then doing:
+```
+cmake --build --preset wasm-threads --target barretenberg-debug.wasm.gz
+mv build-wasm-threads/barretenberg-debug.wasm.gz build-wasm-threads/barretenberg.wasm.gz
+```
+
+This will mean that any yarn-project or barretenberg/ts tests that run will get stack traces with function names.
+To get more detailed information use the following (NOTE: takes >10 minutes!):
+
+```
+cmake --preset wasm-threads-dbg
+cmake --build --preset wasm-threads-dbg --target barretenberg-debug.wasm.gz
+mv build-wasm-threads-dbg/barretenberg-debug.wasm.gz build-wasm-threads/barretenberg.wasm.gz
+```

@@ -99,11 +99,38 @@ const customLevels = { verbose: 25 };
 
 // Global pino options, tweaked for google cloud if running there.
 const useGcloudLogging = parseBooleanEnv(process.env['USE_GCLOUD_LOGGING' satisfies EnvVar]);
+
+const redactedPaths = [
+  'validatorPrivateKey',
+  // for both the validator and the prover
+  'publisherPrivateKey',
+  'peerIdPrivateKey',
+  // bot keys
+  'l1PrivateKey',
+  'senderPrivateKey',
+  // blob sink
+  'l1ConsensusHostApiKeys',
+  // sensitive options used in the CLI
+  'privateKey',
+  'mnemonic',
+  'l1Mnemonic',
+  'l1PrivateKey',
+];
+
 const pinoOpts: pino.LoggerOptions<keyof typeof customLevels> = {
   customLevels,
   messageKey: 'msg',
   useOnlyCustomLevels: false,
   level: logLevel,
+  redact: {
+    paths: [
+      ...redactedPaths,
+      ...redactedPaths.map(p => `config.${p}`),
+      ...redactedPaths.map(p => `cfg.${p}`),
+      ...redactedPaths.map(p => `options.${p}`),
+      ...redactedPaths.map(p => `opts.${p}`),
+    ],
+  },
   ...(useGcloudLogging ? GoogleCloudLoggerConfig : {}),
 };
 

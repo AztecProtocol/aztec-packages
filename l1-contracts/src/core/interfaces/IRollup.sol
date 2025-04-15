@@ -32,7 +32,6 @@ struct SubmitEpochRootProofArgs {
   PublicInputArgs args;
   bytes32[] fees;
   bytes blobPublicInputs;
-  bytes aggregationObject;
   bytes proof;
 }
 
@@ -122,10 +121,13 @@ struct CheatDepositArgs {
 }
 
 interface ITestRollup {
+  event ManaTargetUpdated(uint256 indexed manaTarget);
+
   function setEpochVerifier(address _verifier) external;
   function setVkTreeRoot(bytes32 _vkTreeRoot) external;
   function setProtocolContractTreeRoot(bytes32 _protocolContractTreeRoot) external;
   function cheat__InitialiseValidatorSet(CheatDepositArgs[] memory _args) external;
+  function updateManaTarget(uint256 _manaTarget) external;
 }
 
 interface IRollupCore {
@@ -158,6 +160,17 @@ interface IRollupCore {
 }
 
 interface IRollup is IRollupCore {
+  function validateHeader(
+    bytes calldata _header,
+    Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _blobsHash,
+    BlockHeaderValidationFlags memory _flags
+  ) external;
+
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external returns (Slot, uint256);
+
   function getTips() external view returns (ChainTips memory);
 
   function status(uint256 _myHeaderBlockNumber)
@@ -177,20 +190,8 @@ interface IRollup is IRollupCore {
     uint256 _end,
     PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputs,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputs
   ) external view returns (bytes32[] memory);
-
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    BlockHeaderValidationFlags memory _flags
-  ) external view;
-
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive) external view returns (Slot, uint256);
 
   function validateBlobs(bytes calldata _blobsInputs)
     external

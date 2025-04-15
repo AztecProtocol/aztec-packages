@@ -1,15 +1,17 @@
 import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import {
   type AccountWallet,
+  AztecAddress,
   type CompleteAddress,
   Fr,
   type Logger,
+  type PXE,
   type TxHash,
   computeSecretHash,
   createLogger,
 } from '@aztec/aztec.js';
 import { MAX_NOTE_HASHES_PER_TX } from '@aztec/constants';
-import { DocsExampleContract } from '@aztec/noir-contracts.js/DocsExample';
+import { InvalidAccountContract } from '@aztec/noir-contracts.js/InvalidAccount';
 import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 import { TokenBlacklistContract } from '@aztec/noir-contracts.js/TokenBlacklist';
 
@@ -61,10 +63,11 @@ export class BlacklistTokenContractTest {
   private snapshotManager: ISnapshotManager;
   logger: Logger;
   wallets: AccountWallet[] = [];
+  pxe!: PXE;
   accounts: CompleteAddress[] = [];
   asset!: TokenBlacklistContract;
   tokenSim!: TokenSimulator;
-  badAccount!: DocsExampleContract;
+  badAccount!: InvalidAccountContract;
 
   admin!: AccountWallet;
   other!: AccountWallet;
@@ -94,6 +97,7 @@ export class BlacklistTokenContractTest {
       '3_accounts',
       deployAccounts(3, this.logger),
       async ({ deployedAccounts }, { pxe }) => {
+        this.pxe = pxe;
         this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
         this.admin = this.wallets[0];
         this.other = this.wallets[1];
@@ -115,7 +119,7 @@ export class BlacklistTokenContractTest {
         this.logger.verbose(`Token deployed to ${this.asset.address}`);
 
         this.logger.verbose(`Deploying bad account...`);
-        this.badAccount = await DocsExampleContract.deploy(this.wallets[0]).send().deployed();
+        this.badAccount = await InvalidAccountContract.deploy(this.wallets[0]).send().deployed();
         this.logger.verbose(`Deployed to ${this.badAccount.address}.`);
 
         await this.mineBlocks();
@@ -134,7 +138,7 @@ export class BlacklistTokenContractTest {
           this.accounts.map(a => a.address),
         );
 
-        this.badAccount = await DocsExampleContract.at(badAccountAddress, this.wallets[0]);
+        this.badAccount = await InvalidAccountContract.at(badAccountAddress, this.wallets[0]);
         this.logger.verbose(`Bad account address: ${this.badAccount.address}`);
 
         expect(await this.asset.methods.get_roles(this.admin.getAddress()).simulate()).toEqual(
@@ -164,12 +168,12 @@ export class BlacklistTokenContractTest {
 
   async addPendingShieldNoteToPXE(
     contract: TokenBlacklistContract,
-    wallet: AccountWallet,
+    recipient: AztecAddress,
     amount: bigint,
     secretHash: Fr,
     txHash: TxHash,
   ) {
-    const txEffects = await wallet.getTxEffect(txHash);
+    const txEffects = await this.pxe.getTxEffect(txHash);
     await contract.methods
       .deliver_transparent_note(
         contract.address,
@@ -178,7 +182,7 @@ export class BlacklistTokenContractTest {
         txHash.hash,
         this.#toBoundedVec(txEffects!.data.noteHashes, MAX_NOTE_HASHES_PER_TX),
         txEffects!.data.nullifiers[0],
-        wallet.getAddress(),
+        recipient,
       )
       .simulate();
   }
@@ -218,9 +222,9 @@ export class BlacklistTokenContractTest {
         const secretHash = await computeSecretHash(secret);
         const receipt = await asset.methods.mint_private(amount, secretHash).send().wait();
 
-        await this.addPendingShieldNoteToPXE(asset, wallets[0], amount, secretHash, receipt.txHash);
+        await this.addPendingShieldNoteToPXE(asset, wallets[0].getAddress(), amount, secretHash, receipt.txHash);
         const txClaim = asset.methods.redeem_shield(accounts[0].address, amount, secret).send();
-        await txClaim.wait({ debug: true });
+        await txClaim.wait();
         this.logger.verbose(`Minting complete.`);
 
         return { amount };

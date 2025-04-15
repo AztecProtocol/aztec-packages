@@ -8,13 +8,14 @@ import type { P2P } from '@aztec/p2p';
 import { PublicProcessorFactory } from '@aztec/simulator/server';
 import type { L2Block, L2BlockSource } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import { getTimestampRangeForEpoch } from '@aztec/stdlib/epoch-helpers';
+import { getProofSubmissionDeadlineTimestamp } from '@aztec/stdlib/epoch-helpers';
 import {
   type EpochProverManager,
   EpochProvingJobTerminalState,
   type ProverCoordination,
   type ProverNodeApi,
   type Service,
+  type WorldStateSyncStatus,
   type WorldStateSynchronizer,
   tryStop,
 } from '@aztec/stdlib/interfaces/server';
@@ -23,6 +24,7 @@ import type { P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
   Attributes,
+  L1Metrics,
   type TelemetryClient,
   type Traceable,
   type Tracer,
@@ -54,11 +56,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   private log = createLogger('prover-node');
   private dateProvider = new DateProvider();
 
-  private latestEpochWeAreProving: bigint | undefined;
   private jobs: Map<string, EpochProvingJob> = new Map();
-  private cachedEpochData: { epochNumber: bigint; blocks: L2Block[]; txs: Tx[] } | undefined = undefined;
   private options: ProverNodeOptions;
   private metrics: ProverNodeMetrics;
+  private l1Metrics: L1Metrics;
 
   private txFetcher: RunningPromise;
   private lastBlockNumber: number | undefined;
@@ -77,6 +78,10 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     options: Partial<ProverNodeOptions> = {},
     protected readonly telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
+    this.l1Metrics = new L1Metrics(telemetryClient.getMeter('ProverNodeL1Metrics'), publisher.l1TxUtils.publicClient, [
+      publisher.getSenderAddress(),
+    ]);
+
     this.options = {
       pollingIntervalMs: 1_000,
       maxPendingJobs: 100,
@@ -110,13 +115,16 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   async handleEpochReadyToProve(epochNumber: bigint): Promise<void> {
     try {
-      this.log.debug('jobs', JSON.stringify(this.jobs, null, 2));
+      this.log.debug(`Running jobs as ${epochNumber} is ready to prove`, {
+        jobs: Array.from(this.jobs.values()).map(job => `${job.getEpochNumber()}:${job.getId()}`),
+      });
       const activeJobs = await this.getActiveJobsForEpoch(epochNumber);
       if (activeJobs.length > 0) {
-        this.log.info(`Not starting proof for ${epochNumber} since there are active jobs`);
+        this.log.warn(`Not starting proof for ${epochNumber} since there are active jobs for the epoch`, {
+          activeJobs: activeJobs.map(job => job.uuid),
+        });
         return;
       }
-      // TODO: we probably want to skip starting a proof if we are too far into the current epoch
       await this.startProof(epochNumber);
     } catch (err) {
       if (err instanceof EmptyEpochError) {
@@ -134,7 +142,8 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
   start() {
     this.txFetcher.start();
     this.epochsMonitor.start(this);
-    this.log.info('Started ProverNode', this.options);
+    this.l1Metrics.start();
+    this.log.info(`Started Prover Node with prover id ${this.prover.getProverId().toString()}`, this.options);
   }
 
   /**
@@ -150,16 +159,19 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     await Promise.all(Array.from(this.jobs.values()).map(job => job.stop()));
     await this.worldState.stop();
     await tryStop(this.coordination);
+    this.l1Metrics.stop();
     await this.telemetryClient.stop();
     this.log.info('Stopped ProverNode');
   }
 
-  /**
-   * Creates a proof for a block range. Returns once the proof has been submitted to L1.
-   */
-  public async prove(epochNumber: number | bigint) {
-    const job = await this.createProvingJob(BigInt(epochNumber));
-    return job.run();
+  /** Returns world state status. */
+  public getWorldStateSyncStatus(): Promise<WorldStateSyncStatus> {
+    return this.worldState.status().then(s => s.syncSummary);
+  }
+
+  /** Returns archiver status. */
+  public getL2Tips() {
+    return this.l2BlockSource.getL2Tips();
   }
 
   /**
@@ -167,7 +179,25 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
    */
   public async startProof(epochNumber: number | bigint) {
     const job = await this.createProvingJob(BigInt(epochNumber));
-    void job.run().catch(err => this.log.error(`Error proving epoch ${epochNumber}`, err));
+    void this.runJob(job);
+  }
+
+  private async runJob(job: EpochProvingJob) {
+    const ctx = { id: job.getId(), epochNumber: job.getEpochNumber() };
+    try {
+      await job.run();
+      const state = job.getState();
+      if (state === 'reorg') {
+        this.log.warn(`Running new job for epoch ${job.getEpochNumber()} due to reorg`, ctx);
+        await this.createProvingJob(job.getEpochNumber());
+      } else {
+        this.log.verbose(`Job for ${job.getEpochNumber()} exited with state ${state}`, ctx);
+      }
+    } catch (err) {
+      this.log.error(`Error proving epoch ${job.getEpochNumber()}`, err, ctx);
+    } finally {
+      this.jobs.delete(job.getId());
+    }
   }
 
   /**
@@ -210,8 +240,7 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     }
 
     // Gather blocks for this epoch
-    const cachedEpochData = this.cachedEpochData?.epochNumber === epochNumber ? this.cachedEpochData : undefined;
-    const { blocks, txs } = cachedEpochData ?? (await this.gatherEpochData(epochNumber));
+    const { blocks, txs } = await this.gatherEpochData(epochNumber);
 
     const fromBlock = blocks[0].number;
     const toBlock = blocks.at(-1)!.number;
@@ -227,15 +256,9 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.telemetryClient,
     );
 
-    const cleanUp = () => {
-      this.jobs.delete(job.getId());
-      return Promise.resolve();
-    };
-
-    const [_, endTimestamp] = getTimestampRangeForEpoch(epochNumber + 1n, await this.getL1Constants());
-    const deadline = new Date(Number(endTimestamp) * 1000);
-
-    const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory, cleanUp);
+    const deadlineTs = getProofSubmissionDeadlineTimestamp(epochNumber, await this.getL1Constants());
+    const deadline = new Date(Number(deadlineTs) * 1000);
+    const job = this.doCreateEpochProvingJob(epochNumber, deadline, blocks, txs, publicProcessorFactory);
     this.jobs.set(job.getId(), job);
     return job;
   }
@@ -302,7 +325,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
     blocks: L2Block[],
     txs: Tx[],
     publicProcessorFactory: PublicProcessorFactory,
-    cleanUp: () => Promise<void>,
   ) {
     return new EpochProvingJob(
       this.worldState,
@@ -317,7 +339,6 @@ export class ProverNode implements EpochMonitorHandler, ProverNodeApi, Traceable
       this.metrics,
       deadline,
       { parallelBlockLimit: this.options.maxParallelBlocksPerEpoch },
-      cleanUp,
     );
   }
 

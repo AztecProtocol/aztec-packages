@@ -1,0 +1,11 @@
+[package]
+name = "test_contract"
+authors = [""]
+compiler_version = ">=0.25.0"
+type = "contract"
+
+[dependencies]
+aztec = { path = "../../../../aztec-nr/aztec" }
+address_note = { path = "../../../../aztec-nr/address-note" }
+value_note = { path = "../../../../aztec-nr/value-note" }
+token_portal_content_hash_lib = { path = "../../libs/token_portal_content_hash_lib" }

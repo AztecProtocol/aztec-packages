@@ -102,9 +102,6 @@ describe('e2e_fees dapp_subscription', () => {
 
     const { transactionFee } = await subscribe(new PrivateFeePaymentMethod(bananaFPC.address, aliceWallet));
 
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
-
     await expectMapping(
       t.getGasBalanceFn,
       [sequencerAddress, bananaFPC.address],
@@ -187,12 +184,12 @@ describe('e2e_fees dapp_subscription', () => {
     // This authwit is made because the subscription recipient is Bob, so we are approving the contract to send funds
     // to him, on our behalf, as part of the subscription process.
     const action = bananaCoin.methods.transfer_in_private(aliceAddress, bobAddress, t.SUBSCRIPTION_AMOUNT, nonce);
-    await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
+    const witness = await aliceWallet.createAuthWit({ caller: subscriptionContract.address, action });
 
     return subscriptionContract
       .withWallet(aliceWallet)
       .methods.subscribe(aliceAddress, nonce, (await pxe.getBlockNumber()) + blockDelta, txCount)
-      .send({ fee: { paymentMethod } })
+      .send({ authWitnesses: [witness], fee: { paymentMethod } })
       .wait();
   }
 

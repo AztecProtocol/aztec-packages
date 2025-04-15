@@ -15,6 +15,8 @@ type Config = {
   viemPollingIntervalMS?: number;
 };
 
+export type { Config as EthereumClientConfig };
+
 // TODO: Use these methods to abstract the creation of viem clients.
 
 /** Returns a viem public client given the L1 config. */

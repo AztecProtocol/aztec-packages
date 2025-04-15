@@ -15,7 +15,7 @@ use protocol_types::traits::Hash;
 
 mod test;
 
-trait ProveNullifierNonInclusion {
+pub trait ProveNullifierNonInclusion {
     fn prove_nullifier_non_inclusion(header: BlockHeader, nullifier: Field);
 }
 
@@ -57,7 +57,7 @@ impl ProveNullifierNonInclusion for BlockHeader {
     }
 }
 
-trait ProveNoteNotNullified {
+pub trait ProveNoteNotNullified {
     fn prove_note_not_nullified<Note>(
         header: BlockHeader,
         retrieved_note: RetrievedNote<Note>,

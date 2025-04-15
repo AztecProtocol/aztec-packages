@@ -1,4 +1,11 @@
-import { type AccountManager, FeeJuicePaymentMethod, type PXE, type WaitOpts } from '@aztec/aztec.js';
+import {
+  type AccountManager,
+  FeeJuicePaymentMethod,
+  type PXE,
+  type WaitForProvenOpts,
+  type WaitOpts,
+  waitForProven,
+} from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
 import { deriveSigningKey } from '@aztec/stdlib/keys';
 
@@ -46,6 +53,7 @@ export async function deployFundedSchnorrAccount(
      */
     skipClassRegistration?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
+  waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager> {
   const signingKey = account.signingKey ?? deriveSigningKey(account.secret);
   const accountManager = await getSchnorrAccount(pxe, account.secret, signingKey, account.salt);
@@ -54,13 +62,17 @@ export async function deployFundedSchnorrAccount(
   // This only works when the world state is prefilled with the balance for the account in test environment.
   const paymentMethod = new FeeJuicePaymentMethod(accountManager.getAddress());
 
-  await accountManager
+  const receipt = await accountManager
     .deploy({
       skipClassRegistration: opts.skipClassRegistration,
       skipPublicDeployment: true,
       fee: { paymentMethod },
     })
     .wait(opts);
+
+  if (waitForProvenOptions !== undefined) {
+    await waitForProven(pxe, receipt, waitForProvenOptions);
+  }
 
   return accountManager;
 }
@@ -78,15 +90,21 @@ export async function deployFundedSchnorrAccounts(
      */
     skipClassRegistration?: boolean;
   } = { interval: 0.1, skipClassRegistration: false },
+  waitForProvenOptions?: WaitForProvenOpts,
 ): Promise<AccountManager[]> {
   const accountManagers: AccountManager[] = [];
   // Serial due to https://github.com/AztecProtocol/aztec-packages/issues/12045
   for (let i = 0; i < accounts.length; i++) {
     accountManagers.push(
-      await deployFundedSchnorrAccount(pxe, accounts[i], {
-        ...opts,
-        skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
-      }),
+      await deployFundedSchnorrAccount(
+        pxe,
+        accounts[i],
+        {
+          ...opts,
+          skipClassRegistration: i !== 0 || opts.skipClassRegistration, // Register the contract class at most once.
+        },
+        waitForProvenOptions,
+      ),
     );
   }
   return accountManagers;

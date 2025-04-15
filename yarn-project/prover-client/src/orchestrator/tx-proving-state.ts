@@ -42,7 +42,7 @@ export class TxProvingState {
   }
 
   public getTubeInputs() {
-    return new TubeInputs(this.processedTx.clientIvcProof);
+    return new TubeInputs(!!this.processedTx.data.forPublic, this.processedTx.clientIvcProof);
   }
 
   public getAvmInputs(): AvmCircuitInputs {

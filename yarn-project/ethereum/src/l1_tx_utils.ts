@@ -38,7 +38,7 @@ import { formatViemError } from './utils.js';
 const WEI_CONST = 1_000_000_000n;
 
 // @note using this large gas limit to avoid the issue of `gas limit too low` when estimating gas in reth
-const LARGE_GAS_LIMIT = 10_000_000n;
+const LARGE_GAS_LIMIT = 12_000_000n;
 
 // setting a minimum bump percentage to 10% due to geth's implementation
 // https://github.com/ethereum/go-ethereum/blob/e3d61e6db028c412f74bc4d4c7e117a9e29d0de0/core/txpool/legacypool/list.go#L298
@@ -108,7 +108,7 @@ export const l1TxUtilsConfigMappings: ConfigMappingsType<L1TxUtilsConfig> = {
   maxGwei: {
     description: 'Maximum gas price in gwei',
     env: 'L1_GAS_PRICE_MAX',
-    ...bigintConfigHelper(100n),
+    ...bigintConfigHelper(500n),
   },
   maxBlobGwei: {
     description: 'Maximum blob fee per gas in gwei',
@@ -209,7 +209,6 @@ export class L1TxUtils {
       ...defaultL1TxUtilsConfig,
       ...(config || {}),
     };
-    this.logger?.debug('Initializing L1 TX utils with config', { config: this.config });
   }
 
   public interrupt() {

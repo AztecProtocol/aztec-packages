@@ -6,7 +6,7 @@
 
 #include "barretenberg/crypto/poseidon2/poseidon2.hpp"
 #include "barretenberg/crypto/poseidon2/poseidon2_params.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/field.hpp"
 #include "barretenberg/vm2/simulation/events/address_derivation_event.hpp"
@@ -43,7 +43,7 @@ TEST(AvmSimulationAddressDerivationTest, Positive)
     EXPECT_CALL(poseidon2, hash(salted_init_hash_inputs)).WillOnce(Return(salted_init_hash));
 
     std::vector<FF> partial_address_inputs = { GENERATOR_INDEX__PARTIAL_ADDRESS,
-                                               instance.contract_class_id,
+                                               instance.original_class_id,
                                                salted_init_hash };
     FF partial_address = poseidon2::hash(partial_address_inputs);
     EXPECT_CALL(poseidon2, hash(partial_address_inputs)).WillOnce(Return(partial_address));

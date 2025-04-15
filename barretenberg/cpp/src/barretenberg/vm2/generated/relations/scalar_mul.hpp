@@ -61,19 +61,19 @@ template <typename FF_> class scalar_mulImpl {
             tmp *= scaling_factor;
             std::get<4>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // START_AFTER_LATCH
             using Accumulator = typename std::tuple_element_t<5, ContainerOverSubrelations>;
             auto tmp = new_term.scalar_mul_sel_shift * (new_term.scalar_mul_start_shift - scalar_mul_LATCH_CONDITION);
             tmp *= scaling_factor;
             std::get<5>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SELECTOR_ON_START
             using Accumulator = typename std::tuple_element_t<6, ContainerOverSubrelations>;
             auto tmp = new_term.scalar_mul_start * (FF(1) - new_term.scalar_mul_sel);
             tmp *= scaling_factor;
             std::get<6>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // SELECTOR_CONSISTENCY
             using Accumulator = typename std::tuple_element_t<7, ContainerOverSubrelations>;
             auto tmp = (new_term.scalar_mul_sel_shift - new_term.scalar_mul_sel) * (FF(1) - scalar_mul_LATCH_CONDITION);
             tmp *= scaling_factor;
@@ -97,26 +97,26 @@ template <typename FF_> class scalar_mulImpl {
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INPUT_CONSISTENCY_X
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = new_term.scalar_mul_not_end * (new_term.scalar_mul_point_x - new_term.scalar_mul_point_x_shift);
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INPUT_CONSISTENCY_Y
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = new_term.scalar_mul_not_end * (new_term.scalar_mul_point_y - new_term.scalar_mul_point_y_shift);
             tmp *= scaling_factor;
             std::get<12>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INPUT_CONSISTENCY_INF
             using Accumulator = typename std::tuple_element_t<13, ContainerOverSubrelations>;
             auto tmp =
                 new_term.scalar_mul_not_end * (new_term.scalar_mul_point_inf - new_term.scalar_mul_point_inf_shift);
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INPUT_CONSISTENCY_SCALAR
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = new_term.scalar_mul_not_end * (new_term.scalar_mul_scalar - new_term.scalar_mul_scalar_shift);
             tmp *= scaling_factor;

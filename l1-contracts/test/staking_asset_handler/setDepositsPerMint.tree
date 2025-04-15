@@ -1,0 +1,11 @@
+SetDepositsPerMintTest
+├── when caller of setDepositsPerMint is not owner
+│   └── it reverts
+├── when caller of setDepositsPerMint is owner
+│   ├── when deposits per mint is 0
+│   │   └── it reverts
+│   └── when deposits per mint is not 0
+│       ├── it sets the deposits per mint
+│       └── it emits a {DepositsPerMintUpdated} event
+└── when owner adds validators
+    └── it can add up to the deposits per mint without minting

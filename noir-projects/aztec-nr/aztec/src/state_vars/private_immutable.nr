@@ -3,7 +3,7 @@ use dep::protocol_types::{
     traits::Packable,
 };
 
-use crate::context::{PrivateContext, UnconstrainedContext};
+use crate::context::{PrivateContext, UtilityContext};
 use crate::note::{
     lifecycle::create_note,
     note_emission::NoteEmission,
@@ -82,7 +82,10 @@ impl<Note> PrivateImmutable<Note, &mut PrivateContext> {
     // docs:end:get_note
 }
 
-impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
+impl<Note> PrivateImmutable<Note, UtilityContext>
+where
+    Note: NoteType + NoteHash + Eq,
+{
     // docs:start:is_initialized
     pub unconstrained fn is_initialized(self) -> bool {
         let nullifier = self.compute_initialization_nullifier();
@@ -94,7 +97,7 @@ impl<Note> PrivateImmutable<Note, UnconstrainedContext> {
     // docs:start:view_note
     pub unconstrained fn view_note<let N: u32>(self) -> Note
     where
-        Note: NoteType + NoteHash + Packable<N>,
+        Note: Packable<N>,
     {
         let mut options = NoteViewerOptions::new();
         view_notes(self.storage_slot, options.set_limit(1)).get(0)

@@ -1,7 +1,7 @@
+import { NullifierCollisionError } from '../../state_manager/nullifiers.js';
 import type { AvmContext } from '../avm_context.js';
 import { TypeTag, Uint1 } from '../avm_memory_types.js';
 import { InstructionExecutionError, StaticCallAlterationError } from '../errors.js';
-import { NullifierCollisionError } from '../journal/nullifiers.js';
 import { Opcode, OperandType } from '../serialization/instruction_serialization.js';
 import { Addressing } from './addressing_mode.js';
 import { Instruction } from './instruction.js';
@@ -181,11 +181,7 @@ export class L1ToL2MessageExists extends Instruction {
 
     const msgHash = memory.get(msgHashOffset).toFr();
     const msgLeafIndex = memory.get(msgLeafIndexOffset).toFr();
-    const exists = await context.persistableState.checkL1ToL2MessageExists(
-      context.environment.address,
-      msgHash,
-      msgLeafIndex,
-    );
+    const exists = await context.persistableState.checkL1ToL2MessageExists(msgHash, msgLeafIndex);
     memory.set(existsOffset, exists ? new Uint1(1) : new Uint1(0));
   }
 }

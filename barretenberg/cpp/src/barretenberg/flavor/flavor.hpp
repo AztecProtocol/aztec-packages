@@ -87,17 +87,6 @@
 
 namespace bb {
 
-/**
- * @brief Base class template containing circuit-specifying data.
- *
- */
-class PrecomputedEntitiesBase {
-  public:
-    bool operator==(const PrecomputedEntitiesBase& other) const = default;
-    uint64_t circuit_size;
-    uint64_t log_circuit_size;
-    uint64_t num_public_inputs;
-};
 // Specifies the regions of the execution trace containing non-trivial wire values
 struct ActiveRegionData {
     void add_range(const size_t start, const size_t end)
@@ -164,18 +153,23 @@ template <typename FF, typename CommitmentKey_> class ProvingKey_ {
 /**
  * @brief Base verification key class.
  *
+ * @tparam FF_, the type that we will represent our VK metadata (circuit_size, log_circuit_size, num_public_inputs,
+ * pub_inputs_offset). It will either be uint64_t or a stdlib field type.
  * @tparam PrecomputedEntities An instance of PrecomputedEntities_ with affine_element data type and handle type.
  * @tparam VerifierCommitmentKey The PCS verification key
  */
-template <typename PrecomputedCommitments, typename VerifierCommitmentKey>
+template <typename FF_, typename PrecomputedCommitments, typename VerifierCommitmentKey>
 class VerificationKey_ : public PrecomputedCommitments {
   public:
     using FF = typename VerifierCommitmentKey::Curve::ScalarField;
     using Commitment = typename VerifierCommitmentKey::Commitment;
     std::shared_ptr<VerifierCommitmentKey> pcs_verification_key;
+    FF_ circuit_size;
+    FF_ log_circuit_size;
+    FF_ num_public_inputs;
+    FF_ pub_inputs_offset = 0;
     bool contains_pairing_point_accumulator = false;
     PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {};
-    uint64_t pub_inputs_offset = 0;
 
     bool operator==(const VerificationKey_&) const = default;
     VerificationKey_() = default;
@@ -344,9 +338,7 @@ class UltraKeccakZKFlavor;
 class MegaFlavor;
 class MegaZKFlavor;
 class TranslatorFlavor;
-namespace avm {
-class AvmFlavor;
-}
+
 template <typename BuilderType> class UltraRecursiveFlavor_;
 template <typename BuilderType> class UltraRollupRecursiveFlavor_;
 template <typename BuilderType> class MegaRecursiveFlavor_;
@@ -354,6 +346,12 @@ template <typename BuilderType> class MegaZKRecursiveFlavor_;
 template <typename BuilderType> class TranslatorRecursiveFlavor_;
 template <typename BuilderType> class ECCVMRecursiveFlavor_;
 template <typename BuilderType> class AvmRecursiveFlavor_;
+namespace avm2 {
+
+template <typename BuilderType> class AvmRecursiveFlavor_;
+
+}
+
 } // namespace bb
 
 // Forward declare plonk flavors
@@ -376,10 +374,13 @@ template <typename T>
 concept IsPlonkFlavor = IsAnyOf<T, plonk::flavor::Standard, plonk::flavor::Ultra>;
 
 template <typename T>
-concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
+concept IsUltraHonkFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor>;
+template <typename T>
+concept IsUltraFlavor = IsUltraHonkFlavor<T> || IsAnyOf<T, MegaFlavor, MegaZKFlavor>;
 
 template <typename T>
-concept IsUltraFlavor = IsAnyOf<T, UltraFlavor, UltraKeccakFlavor,UltraKeccakZKFlavor, UltraZKFlavor, UltraRollupFlavor, MegaFlavor, MegaZKFlavor>;
+concept IsUltraPlonkOrHonk = IsAnyOf<T, plonk::flavor::Ultra> || IsUltraFlavor<T>;
+
 
 template <typename T>
 concept IsMegaFlavor = IsAnyOf<T, MegaFlavor, MegaZKFlavor,
@@ -409,7 +410,10 @@ concept IsRecursiveFlavor = IsAnyOf<T, UltraRecursiveFlavor_<UltraCircuitBuilder
                                         TranslatorRecursiveFlavor_<MegaCircuitBuilder>,
                                         TranslatorRecursiveFlavor_<CircuitSimulatorBN254>,
                                         ECCVMRecursiveFlavor_<UltraCircuitBuilder>,
-                                        AvmRecursiveFlavor_<UltraCircuitBuilder>>;
+                                        AvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                        AvmRecursiveFlavor_<MegaCircuitBuilder>,
+                                        avm2::AvmRecursiveFlavor_<UltraCircuitBuilder>,
+                                        avm2::AvmRecursiveFlavor_<MegaCircuitBuilder>>;
 
 // These concepts are relevant for Sumcheck, where the logic is different for BN254 and Grumpkin Flavors
 template <typename T> concept IsGrumpkinFlavor = IsAnyOf<T, ECCVMFlavor, ECCVMRecursiveFlavor_<UltraCircuitBuilder>>;

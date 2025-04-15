@@ -11,7 +11,7 @@ use crate::{
 
 mod test;
 
-trait ProveNoteInclusion {
+pub trait ProveNoteInclusion {
     fn prove_note_inclusion<Note>(
         header: BlockHeader,
         retrieved_note: RetrievedNote<Note>,

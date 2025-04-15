@@ -116,7 +116,7 @@ template <typename FF_> class range_checkImpl {
             tmp *= scaling_factor;
             std::get<8>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // IS_LTE_MUTUALLY_EXCLUSIVE
             using Accumulator = typename std::tuple_element_t<9, ContainerOverSubrelations>;
             auto tmp =
                 ((new_term.range_check_is_lte_u16 + new_term.range_check_is_lte_u32 + new_term.range_check_is_lte_u48 +
@@ -126,7 +126,7 @@ template <typename FF_> class range_checkImpl {
             tmp *= scaling_factor;
             std::get<9>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // CHECK_RECOMPOSITION
             using Accumulator = typename std::tuple_element_t<10, ContainerOverSubrelations>;
             auto tmp = new_term.range_check_sel * (range_check_RESULT - new_term.range_check_value);
             tmp *= scaling_factor;

@@ -6,8 +6,14 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/metrics/ | OpenTelemetry Metrics} for naming conventions.
  */
 
+export const BLOB_SINK_STORE_REQUESTS = 'aztec.blob_sink.store_request_count';
+export const BLOB_SINK_RETRIEVE_REQUESTS = 'aztec.blob_sink.store_request_count';
 export const BLOB_SINK_OBJECTS_IN_BLOB_STORE = 'aztec.blob_sink.objects_in_blob_store';
 export const BLOB_SINK_BLOB_SIZE = 'aztec.blob_sink.blob_size';
+
+export const BLOB_SINK_ARCHIVE_BLOB_REQUEST_COUNT = 'aztec.blob_sink.archive.block_request_count';
+export const BLOB_SINK_ARCHIVE_BLOCK_REQUEST_COUNT = 'aztec.blob_sink.archive.blob_request_count';
+export const BLOB_SINK_ARCHIVE_BLOB_COUNT = 'aztec.blob_sink.archive.blob_count';
 
 /** How long it takes to simulate a circuit */
 export const CIRCUIT_SIMULATION_DURATION = 'aztec.circuit.simulation.duration';
@@ -70,6 +76,12 @@ export const L1_PUBLISHER_BLOB_INCLUSION_BLOCKS = 'aztec.l1_publisher.blob_inclu
 export const L1_PUBLISHER_BLOB_TX_SUCCESS = 'aztec.l1_publisher.blob_tx_success';
 export const L1_PUBLISHER_BLOB_TX_FAILURE = 'aztec.l1_publisher.blob_tx_failure';
 export const L1_PUBLISHER_BALANCE = 'aztec.l1_publisher.balance';
+export const L1_PUBLISHER_TX_TOTAL_FEE = 'aztec.l1_publisher.tx_total_fee';
+
+export const L1_BLOCK_HEIGHT = 'aztec.l1.block_height';
+export const L1_BALANCE_ETH = 'aztec.l1.balance';
+export const L1_GAS_PRICE_WEI = 'aztec.l1.gas_price';
+export const L1_BLOB_BASE_FEE_WEI = 'aztec.l1.blob_base_fee';
 
 export const PEER_MANAGER_GOODBYES_SENT = 'aztec.peer_manager.goodbyes_sent';
 export const PEER_MANAGER_GOODBYES_RECEIVED = 'aztec.peer_manager.goodbyes_received';
@@ -92,11 +104,15 @@ export const PUBLIC_PROCESSOR_TOTAL_GAS_HISTOGRAM = 'aztec.public_processor.tota
 export const PUBLIC_PROCESSOR_GAS_RATE = 'aztec.public_processor.gas_rate';
 export const PUBLIC_PROCESSOR_TREE_INSERTION = 'aztec.public_processor.tree_insertion';
 
+export const PUBLIC_EXECUTOR_PREFIX = 'aztec.public_executor.';
 export const PUBLIC_EXECUTOR_SIMULATION_COUNT = 'aztec.public_executor.simulation_count';
 export const PUBLIC_EXECUTOR_SIMULATION_DURATION = 'aztec.public_executor.simulation_duration';
 export const PUBLIC_EXECUTOR_SIMULATION_MANA_PER_SECOND = 'aztec.public_executor.simulation_mana_per_second';
-export const PUBLIC_EXECUTION_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
-export const PUBLIC_EXECUTION_PRIVATE_EFFECTS_INSERTION = 'aztec.public_executor.private_effects_insertion';
+export const PUBLIC_EXECUTOR_SIMULATION_MANA_USED = 'aztec.public_executor.simulation_mana_used';
+export const PUBLIC_EXECUTOR_SIMULATION_TOTAL_INSTRUCTIONS = 'aztec.public_executor.simulation_total_instructions';
+export const PUBLIC_EXECUTOR_TX_HASHING = 'aztec.public_executor.tx_hashing';
+export const PUBLIC_EXECUTOR_PRIVATE_EFFECTS_INSERTION = 'aztec.public_executor.private_effects_insertion';
+export const PUBLIC_EXECUTOR_SIMULATION_BYTECODE_SIZE = 'aztec.public_executor.simulation_bytecode_size';
 
 export const PROVING_ORCHESTRATOR_BASE_ROLLUP_INPUTS_DURATION =
   'aztec.proving_orchestrator.base_rollup.inputs_duration';

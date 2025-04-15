@@ -7,6 +7,7 @@ import {
 } from '@aztec/constants';
 import { type L1ContractAddresses, L1ContractsNames } from '@aztec/ethereum/l1-contract-addresses';
 import { Buffer32 } from '@aztec/foundation/buffer';
+import { randomInt } from '@aztec/foundation/crypto';
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
@@ -18,7 +19,7 @@ import omit from 'lodash.omit';
 
 import type { ContractArtifact } from '../abi/abi.js';
 import { AztecAddress } from '../aztec-address/index.js';
-import { type InBlock, randomInBlock } from '../block/in_block.js';
+import type { InBlock } from '../block/in_block.js';
 import { L2Block } from '../block/l2_block.js';
 import type { L2Tips } from '../block/l2_block_source.js';
 import type { PublishedL2Block } from '../block/published_l2_block.js';
@@ -42,12 +43,14 @@ import { MerkleTreeId } from '../trees/merkle_tree_id.js';
 import { NullifierMembershipWitness } from '../trees/nullifier_membership_witness.js';
 import { PublicDataWitness } from '../trees/public_data_witness.js';
 import { BlockHeader } from '../tx/block_header.js';
+import type { IndexedTxEffect } from '../tx/indexed_tx_effect.js';
 import { PublicSimulationOutput } from '../tx/public_simulation_output.js';
 import { Tx } from '../tx/tx.js';
 import { TxEffect } from '../tx/tx_effect.js';
 import { TxHash } from '../tx/tx_hash.js';
 import { TxReceipt } from '../tx/tx_receipt.js';
 import type { TxValidationResult } from '../tx/validator/tx_validator.js';
+import type { ValidatorsStats } from '../validators/types.js';
 import { type AztecNode, AztecNodeApiSchema } from './aztec-node.js';
 import type { SequencerConfig } from './configs.js';
 import type { GetContractClassLogsResponse, GetPublicLogsResponse } from './get_logs_response.js';
@@ -91,20 +94,7 @@ describe('AztecNodeApiSchema', () => {
 
   it('findLeavesIndexes', async () => {
     const response = await context.client.findLeavesIndexes(1, MerkleTreeId.ARCHIVE, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([1n, undefined]);
-  });
-
-  it('findBlockNumbersForIndexes', async () => {
-    const response = await context.client.findBlockNumbersForIndexes(1, MerkleTreeId.ARCHIVE, [5n, 58n]);
-    expect(response).toEqual([3n, 9n]);
-  });
-
-  it('findNullifiersIndexesWithBlock', async () => {
-    const response = await context.client.findNullifiersIndexesWithBlock(1, [Fr.random(), Fr.random()]);
-    expect(response).toEqual([
-      { data: 1n, l2BlockNumber: expect.any(Number), l2BlockHash: expect.any(String) },
-      undefined,
-    ]);
+    expect(response).toEqual([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
   });
 
   it('getNullifierSiblingPath', async () => {
@@ -152,8 +142,8 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(NullifierMembershipWitness);
   });
 
-  it('getPublicDataTreeWitness', async () => {
-    const response = await context.client.getPublicDataTreeWitness(1, Fr.random());
+  it('getPublicDataWitness', async () => {
+    const response = await context.client.getPublicDataWitness(1, Fr.random());
     expect(response).toBeInstanceOf(PublicDataWitness);
   });
 
@@ -302,6 +292,11 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toBeInstanceOf(BlockHeader);
   });
 
+  it('getValidatorsStats', async () => {
+    const response = await context.client.getValidatorsStats();
+    expect(response).toBeDefined();
+  });
+
   it('simulatePublicCalls', async () => {
     const response = await context.client.simulatePublicCalls(await Tx.random());
     expect(response).toBeInstanceOf(PublicSimulationOutput);
@@ -317,16 +312,12 @@ describe('AztecNodeApiSchema', () => {
     expect(response).toEqual({ result: 'invalid', reason: ['Invalid'] });
   });
 
-  it('setConfig', async () => {
-    await context.client.setConfig({ coinbase: EthAddress.random() });
-  });
-
   it('getContractClass', async () => {
     const contractClass = await getContractClassFromArtifact(artifact);
     const response = await context.client.getContractClass(Fr.random());
     expect(response).toEqual({
       ...omit(contractClass, 'publicBytecodeCommitment'),
-      unconstrainedFunctions: [],
+      utilityFunctions: [],
       privateFunctions: [],
     });
   });
@@ -345,18 +336,9 @@ describe('AztecNodeApiSchema', () => {
     });
   });
 
-  it('flushTxs', async () => {
-    await context.client.flushTxs();
-  });
-
   it('getEncodedEnr', async () => {
     const response = await context.client.getEncodedEnr();
     expect(response).toBe('enr:-');
-  });
-
-  it('addContractClass', async () => {
-    const contractClass = await getContractClassFromArtifact(artifact);
-    await context.client.addContractClass({ ...contractClass, unconstrainedFunctions: [], privateFunctions: [] });
   });
 
   it('getWorldStateSyncStatus', async () => {
@@ -385,33 +367,16 @@ class MockAztecNode implements AztecNode {
       finalized: { number: 1, hash: `0x01` },
     });
   }
+
   findLeavesIndexes(
     blockNumber: number | 'latest',
     treeId: MerkleTreeId,
     leafValues: Fr[],
-  ): Promise<(bigint | undefined)[]> {
+  ): Promise<(InBlock<bigint> | undefined)[]> {
     expect(leafValues).toHaveLength(2);
     expect(leafValues[0]).toBeInstanceOf(Fr);
     expect(leafValues[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([1n, undefined]);
-  }
-
-  findBlockNumbersForIndexes(
-    _blockNumber: number | 'latest',
-    _treeId: MerkleTreeId,
-    leafIndices: bigint[],
-  ): Promise<(bigint | undefined)[]> {
-    expect(leafIndices).toEqual([5n, 58n]);
-    return Promise.resolve([3n, 9n]);
-  }
-  findNullifiersIndexesWithBlock(
-    blockNumber: number | 'latest',
-    nullifiers: Fr[],
-  ): Promise<(InBlock<bigint> | undefined)[]> {
-    expect(nullifiers).toHaveLength(2);
-    expect(nullifiers[0]).toBeInstanceOf(Fr);
-    expect(nullifiers[1]).toBeInstanceOf(Fr);
-    return Promise.resolve([randomInBlock(1n), undefined]);
+    return Promise.resolve([{ data: 1n, l2BlockNumber: 1, l2BlockHash: '0x01' }, undefined]);
   }
   getNullifierSiblingPath(
     blockNumber: number | 'latest',
@@ -473,7 +438,7 @@ class MockAztecNode implements AztecNode {
     expect(nullifier).toBeInstanceOf(Fr);
     return Promise.resolve(NullifierMembershipWitness.random());
   }
-  getPublicDataTreeWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
+  getPublicDataWitness(blockNumber: number | 'latest', leafSlot: Fr): Promise<PublicDataWitness | undefined> {
     expect(leafSlot).toBeInstanceOf(Fr);
     return Promise.resolve(PublicDataWitness.random());
   }
@@ -499,7 +464,7 @@ class MockAztecNode implements AztecNode {
     return {
       nodeVersion: '1.0',
       l1ChainId: 1,
-      protocolVersion: 1,
+      rollupVersion: 1,
       enr: 'enr',
       l1ContractAddresses: Object.fromEntries(
         L1ContractsNames.map(name => [name, EthAddress.random()]),
@@ -561,10 +526,10 @@ class MockAztecNode implements AztecNode {
     expect(filter.contractAddress).toBeInstanceOf(AztecAddress);
     return Promise.resolve({ logs: [await ExtendedContractClassLog.random()], maxLogsHit: true });
   }
-  getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
+  async getLogsByTags(tags: Fr[]): Promise<TxScopedL2Log[][]> {
     expect(tags).toHaveLength(1);
     expect(tags[0]).toBeInstanceOf(Fr);
-    return Promise.resolve([[TxScopedL2Log.random()]]);
+    return [[await TxScopedL2Log.random()]];
   }
   sendTx(tx: Tx): Promise<void> {
     expect(tx).toBeInstanceOf(Tx);
@@ -574,9 +539,9 @@ class MockAztecNode implements AztecNode {
     expect(txHash).toBeInstanceOf(TxHash);
     return Promise.resolve(TxReceipt.empty());
   }
-  async getTxEffect(txHash: TxHash): Promise<InBlock<TxEffect> | undefined> {
+  async getTxEffect(txHash: TxHash): Promise<IndexedTxEffect | undefined> {
     expect(txHash).toBeInstanceOf(TxHash);
-    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random() };
+    return { l2BlockNumber: 1, l2BlockHash: '0x12', data: await TxEffect.random(), txIndexInBlock: randomInt(10) };
   }
   async getPendingTxs(): Promise<Tx[]> {
     return [await Tx.random()];
@@ -600,6 +565,14 @@ class MockAztecNode implements AztecNode {
   getBlockHeader(_blockNumber?: number | 'latest' | undefined): Promise<BlockHeader> {
     return Promise.resolve(BlockHeader.empty());
   }
+  getValidatorsStats(): Promise<ValidatorsStats> {
+    return Promise.resolve({
+      stats: {},
+      lastProcessedSlot: 20n,
+      initialSlot: 1n,
+      slotWindow: 10,
+    } satisfies ValidatorsStats);
+  }
   simulatePublicCalls(tx: Tx, _enforceFeePayment = false): Promise<PublicSimulationOutput> {
     expect(tx).toBeInstanceOf(Tx);
     return Promise.resolve(PublicSimulationOutput.random());
@@ -615,7 +588,7 @@ class MockAztecNode implements AztecNode {
   async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
     expect(id).toBeInstanceOf(Fr);
     const contractClass = await getContractClassFromArtifact(this.artifact);
-    return { ...contractClass, unconstrainedFunctions: [], privateFunctions: [] };
+    return { ...contractClass, utilityFunctions: [], privateFunctions: [] };
   }
   async getContract(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined> {
     expect(address).toBeInstanceOf(AztecAddress);
@@ -636,8 +609,5 @@ class MockAztecNode implements AztecNode {
   }
   getEncodedEnr(): Promise<string | undefined> {
     return Promise.resolve('enr:-');
-  }
-  addContractClass(_contractClass: ContractClassPublic): Promise<void> {
-    return Promise.resolve();
   }
 }

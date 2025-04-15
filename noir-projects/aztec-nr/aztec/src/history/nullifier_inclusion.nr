@@ -13,7 +13,7 @@ use protocol_types::traits::Hash;
 
 mod test;
 
-trait ProveNullifierInclusion {
+pub trait ProveNullifierInclusion {
     fn prove_nullifier_inclusion(header: BlockHeader, nullifier: Field);
 }
 
@@ -44,7 +44,7 @@ impl ProveNullifierInclusion for BlockHeader {
     }
 }
 
-trait ProveNoteIsNullified {
+pub trait ProveNoteIsNullified {
     fn prove_note_is_nullified<Note>(
         header: BlockHeader,
         retrieved_note: RetrievedNote<Note>,

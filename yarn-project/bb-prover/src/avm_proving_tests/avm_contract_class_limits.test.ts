@@ -15,7 +15,7 @@ describe('AVM WitGen & Circuit – check circuit - contract class limits', () =>
   let avmTestContractAddress: AztecAddress;
 
   beforeEach(async () => {
-    tester = await AvmProvingTester.create(/*checkCircuitOnly=*/ true);
+    tester = await AvmProvingTester.new(/*checkCircuitOnly=*/ true);
     // create enough unique contract classes to hit the limit
     instances = [];
     for (let i = 0; i <= MAX_PUBLIC_CALLS_TO_UNIQUE_CONTRACT_CLASS_IDS; i++) {

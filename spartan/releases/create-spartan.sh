@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # URL of the aztec-sequencer.sh script
 DEFAULT_URL="https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/spartan/releases/testnet/aztec-sequencer.sh"

@@ -14,6 +14,7 @@ import {
   getContractInstanceFromDeployParams,
 } from '@aztec/aztec.js';
 import type { StatefulTestContract } from '@aztec/noir-contracts.js/StatefulTest';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
 
 import { type ISnapshotManager, createSnapshotManager, deployAccounts } from '../fixtures/snapshot_manager.js';
 
@@ -27,6 +28,7 @@ export class DeployTest {
   public pxe!: PXE;
   public wallet!: AccountWallet;
   public aztecNode!: AztecNode;
+  public aztecNodeAdmin!: AztecNodeAdmin;
 
   constructor(testName: string) {
     this.logger = createLogger(`e2e:e2e_deploy_contract:${testName}`);
@@ -37,6 +39,7 @@ export class DeployTest {
     await this.applyInitialAccountSnapshot();
     const context = await this.snapshotManager.setup();
     ({ pxe: this.pxe, aztecNode: this.aztecNode } = context);
+    this.aztecNodeAdmin = context.aztecNode;
     return this;
   }
 

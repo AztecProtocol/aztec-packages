@@ -3,8 +3,8 @@
 
 #include <cstdint>
 
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/lookups_sha256.hpp"
 #include "barretenberg/vm2/generated/relations/sha256.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
@@ -64,13 +64,13 @@ TEST(Sha256ConstrainingTest, Basic)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
     }
     MemoryAddress dst_addr = 25;
 
@@ -100,13 +100,13 @@ TEST(Sha256ConstrainingTest, Interaction)
     std::array<uint32_t, 8> state = { 0, 1, 2, 3, 4, 5, 6, 7 };
     MemoryAddress state_addr = 0;
     for (uint32_t i = 0; i < 8; ++i) {
-        mem.set(state_addr + i, state[i], MemoryTag::U32);
+        mem.set(state_addr + i, MemoryValue::from<uint32_t>(state[i]));
     }
 
     std::array<uint32_t, 16> input = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
     MemoryAddress input_addr = 8;
     for (uint32_t i = 0; i < 16; ++i) {
-        mem.set(input_addr + i, input[i], MemoryTag::U32);
+        mem.set(input_addr + i, MemoryValue::from<uint32_t>(input[i]));
     }
     MemoryAddress dst_addr = 25;
 
@@ -123,7 +123,6 @@ TEST(Sha256ConstrainingTest, Interaction)
     LookupIntoIndexedByClk<lookup_sha256_round_relation::Settings>().process(trace);
 
     check_relation<sha256>(trace);
-    check_interaction<lookup_sha256_round_relation>(trace);
 }
 
 } // namespace

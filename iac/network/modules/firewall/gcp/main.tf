@@ -87,7 +87,7 @@ resource "google_compute_firewall" "inbound_p2p_tcp_rule" {
 
   allow {
     protocol = "tcp"
-    ports    = var.p2p_tcp_ports
+    ports    = var.p2p_ports
   }
 
   # Allow inbound traffic from any IP (0.0.0.0/0)
@@ -102,7 +102,7 @@ resource "google_compute_firewall" "inbound_p2p_udp_rule" {
 
   allow {
     protocol = "udp"
-    ports    = var.p2p_udp_ports
+    ports    = var.p2p_ports
   }
 
   # Allow inbound traffic from any IP (0.0.0.0/0)
@@ -117,7 +117,7 @@ resource "google_compute_firewall" "outbound_p2p_tcp_rule" {
 
   allow {
     protocol = "tcp"
-    ports    = var.p2p_tcp_ports
+    ports    = var.p2p_ports
   }
 
   # Allow inbound traffic from any IP (0.0.0.0/0)
@@ -134,7 +134,7 @@ resource "google_compute_firewall" "outbound_p2p_udp_rule" {
 
   allow {
     protocol = "udp"
-    ports    = var.p2p_udp_ports
+    ports    = var.p2p_ports
   }
 
   # Allow inbound traffic from any IP (0.0.0.0/0)

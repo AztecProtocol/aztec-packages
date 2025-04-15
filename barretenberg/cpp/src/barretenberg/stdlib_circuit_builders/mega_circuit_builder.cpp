@@ -161,10 +161,10 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx;
-    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-    equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
+    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
+    equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
 }
 
 /**

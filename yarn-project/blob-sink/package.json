@@ -2,6 +2,9 @@
   "name": "@aztec/blob-sink",
   "version": "0.1.0",
   "type": "module",
+  "bin": {
+    "blob-sink-client": "./dest/client/bin/index.js"
+  },
   "exports": {
     "./server": "./dest/server/index.js",
     "./client": "./dest/client/index.js",
@@ -68,7 +71,6 @@
   "devDependencies": {
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/memdown": "^3.0.0",
     "@types/node": "^18.7.23",
     "@types/source-map-support": "^0.5.10",
     "@types/supertest": "^6.0.2",

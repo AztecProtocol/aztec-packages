@@ -5,16 +5,12 @@ aztec:
   realProofs: true
   l1DeploymentMnemonic: ""
   numberOfDefaultAccounts: 0
-  validatorKeyIndexStart: 0
-  proverKeyIndexStart: 48
-  botKeyIndexStart: 49
 
 images:
   aztec:
     pullPolicy: Always
 
 network:
-  setupL2Contracts: false
   public: true
 
 ethereum:

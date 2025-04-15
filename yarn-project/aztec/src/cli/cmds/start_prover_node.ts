@@ -1,4 +1,6 @@
 import { getInitialTestAccounts } from '@aztec/accounts/testing';
+import { Fr } from '@aztec/aztec.js';
+import { getSponsoredFPCAddress } from '@aztec/cli/cli-utils';
 import { NULL_KEY } from '@aztec/ethereum';
 import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
@@ -10,7 +12,6 @@ import {
   getProverNodeConfigFromEnv,
   proverNodeConfigMappings,
 } from '@aztec/prover-node';
-import { createAztecNodeClient } from '@aztec/stdlib/interfaces/client';
 import { P2PApiSchema, ProverNodeApiSchema, type ProvingJobBroker } from '@aztec/stdlib/interfaces/server';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 import { getGenesisValues } from '@aztec/world-state/testing';
@@ -18,7 +19,7 @@ import { getGenesisValues } from '@aztec/world-state/testing';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { getL1Config } from '../get_l1_config.js';
-import { extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions, preloadCrsDataForVerifying } from '../util.js';
 import { getVersions } from '../versioning.js';
 import { startProverBroker } from './start_prover_broker.js';
 
@@ -53,29 +54,33 @@ export async function startProverNode(
     proverConfig.publisherPrivateKey = `0x${Buffer.from(privKey!).toString('hex')}`;
   }
 
-  // TODO(palla/prover-node) L1 contract addresses should not silently default to zero,
-  // they should be undefined if not set and fail loudly.
-  // Load l1 contract addresses from aztec node if not set.
-  const isRollupAddressSet =
-    proverConfig.l1Contracts?.rollupAddress && !proverConfig.l1Contracts.rollupAddress.isZero();
-  const nodeUrl = proverConfig.nodeUrl ?? proverConfig.proverCoordinationNodeUrl;
-  if (nodeUrl && !isRollupAddressSet) {
-    userLog(`Loading L1 contract addresses from aztec node at ${nodeUrl}`);
-    proverConfig.l1Contracts = await createAztecNodeClient(nodeUrl).getL1ContractAddresses();
+  if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
+    throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
   }
 
-  // If we create an archiver here, validate the L1 config
-  if (options.archiver) {
-    if (!proverConfig.l1Contracts.registryAddress || proverConfig.l1Contracts.registryAddress.isZero()) {
-      throw new Error('L1 registry address is required to start a Prover Node with --archiver option');
-    }
-    const { addresses, config } = await getL1Config(
-      proverConfig.l1Contracts.registryAddress,
-      proverConfig.l1RpcUrls,
-      proverConfig.l1ChainId,
+  const { addresses, config } = await getL1Config(
+    proverConfig.l1Contracts.registryAddress,
+    proverConfig.l1RpcUrls,
+    proverConfig.l1ChainId,
+    proverConfig.rollupVersion,
+  );
+  proverConfig.l1Contracts = addresses;
+  proverConfig = { ...proverConfig, ...config };
+
+  const testAccounts = proverConfig.testAccounts ? (await getInitialTestAccounts()).map(a => a.address) : [];
+  const sponsoredFPCAccounts = proverConfig.sponsoredFPC ? [await getSponsoredFPCAddress()] : [];
+  const initialFundedAccounts = testAccounts.concat(sponsoredFPCAccounts);
+
+  userLog(`Initial funded accounts: ${initialFundedAccounts.map(a => a.toString()).join(', ')}`);
+  const { genesisArchiveRoot, genesisBlockHash, prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+
+  userLog(`Genesis block hash: ${genesisBlockHash.toString()}`);
+  userLog(`Genesis archive root: ${genesisArchiveRoot.toString()}`);
+
+  if (!Fr.fromHexString(config.genesisArchiveTreeRoot).equals(genesisArchiveRoot)) {
+    throw new Error(
+      `The computed genesis archive tree root ${genesisArchiveRoot} does not match the expected genesis archive tree root ${config.genesisArchiveTreeRoot} for the rollup deployed at ${addresses.rollupAddress}`,
     );
-    proverConfig.l1Contracts = addresses;
-    proverConfig = { ...proverConfig, ...config };
   }
 
   const telemetry = initTelemetryClient(extractRelevantOptions(options, telemetryClientConfigMappings, 'tel'));
@@ -99,8 +104,7 @@ export async function startProverNode(
     );
   }
 
-  const initialFundedAccounts = proverConfig.testAccounts ? await getInitialTestAccounts() : [];
-  const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts.map(a => a.address));
+  await preloadCrsDataForVerifying(proverConfig, userLog);
 
   const proverNode = await createProverNode(proverConfig, { telemetry, broker }, { prefilledPublicData });
   services.proverNode = [proverNode, ProverNodeApiSchema];

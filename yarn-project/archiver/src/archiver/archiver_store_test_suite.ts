@@ -1,7 +1,6 @@
 import {
   INITIAL_L2_BLOCK_NUM,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
-  MAX_NULLIFIERS_PER_TX,
   PRIVATE_LOG_SIZE_IN_FIELDS,
   PUBLIC_LOG_DATA_SIZE_IN_FIELDS,
 } from '@aztec/constants';
@@ -9,6 +8,7 @@ import { times, timesParallel } from '@aztec/foundation/collection';
 import { randomInt } from '@aztec/foundation/crypto';
 import { Signature } from '@aztec/foundation/eth-signature';
 import { Fr } from '@aztec/foundation/fields';
+import { sleep } from '@aztec/foundation/sleep';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { L2Block, wrapInBlock } from '@aztec/stdlib/block';
 import {
@@ -22,7 +22,7 @@ import { InboxLeaf } from '@aztec/stdlib/messaging';
 import {
   makeContractClassPublic,
   makeExecutablePrivateFunctionWithMembershipProof,
-  makeUnconstrainedFunctionWithMembershipProof,
+  makeUtilityFunctionWithMembershipProof,
 } from '@aztec/stdlib/testing';
 import '@aztec/stdlib/testing/jest';
 import { TxEffect, TxHash } from '@aztec/stdlib/tx';
@@ -223,14 +223,20 @@ export function describeArchiverDataStore(
       });
 
       it.each([
-        () => wrapInBlock(blocks[0].block.body.txEffects[0], blocks[0].block),
-        () => wrapInBlock(blocks[9].block.body.txEffects[3], blocks[9].block),
-        () => wrapInBlock(blocks[3].block.body.txEffects[1], blocks[3].block),
-        () => wrapInBlock(blocks[5].block.body.txEffects[2], blocks[5].block),
-        () => wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block),
+        () => ({ data: blocks[0].block.body.txEffects[0], block: blocks[0].block, txIndexInBlock: 0 }),
+        () => ({ data: blocks[9].block.body.txEffects[3], block: blocks[9].block, txIndexInBlock: 3 }),
+        () => ({ data: blocks[3].block.body.txEffects[1], block: blocks[3].block, txIndexInBlock: 1 }),
+        () => ({ data: blocks[5].block.body.txEffects[2], block: blocks[5].block, txIndexInBlock: 2 }),
+        () => ({ data: blocks[1].block.body.txEffects[0], block: blocks[1].block, txIndexInBlock: 0 }),
       ])('retrieves a previously stored transaction', async getExpectedTx => {
-        const expectedTx = await getExpectedTx();
-        const actualTx = await store.getTxEffect(expectedTx.data.txHash);
+        const { data, block, txIndexInBlock } = getExpectedTx();
+        const expectedTx = {
+          data,
+          l2BlockNumber: block.number,
+          l2BlockHash: (await block.hash()).toString(),
+          txIndexInBlock,
+        };
+        const actualTx = await store.getTxEffect(data.txHash);
         expect(actualTx).toEqual(expectedTx);
       });
 
@@ -254,6 +260,20 @@ export function describeArchiverDataStore(
 
       it('returns undefined if tx is not found', async () => {
         await expect(store.getTxEffect(TxHash.random())).resolves.toBeUndefined();
+      });
+
+      it('does not fail if the block is unwound while requesting a tx', async () => {
+        const expectedTx = await wrapInBlock(blocks[1].block.body.txEffects[0], blocks[1].block);
+        let done = false;
+        void (async () => {
+          while (!done) {
+            void store.getTxEffect(expectedTx.data.txHash);
+            await sleep(1);
+          }
+        })();
+        await store.unwindBlocks(blocks.length, blocks.length);
+        done = true;
+        expect(await store.getTxEffect(expectedTx.data.txHash)).toEqual(undefined);
       });
     });
 
@@ -419,19 +439,19 @@ export function describeArchiverDataStore(
         expect(stored?.privateFunctions).toEqual(fns);
       });
 
-      it('adds new unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('adds new utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
 
-      it('does not duplicate unconstrained functions', async () => {
-        const fns = times(3, makeUnconstrainedFunctionWithMembershipProof);
+      it('does not duplicate utility functions', async () => {
+        const fns = times(3, makeUtilityFunctionWithMembershipProof);
         await store.addFunctions(contractClass.id, [], fns.slice(0, 1));
         await store.addFunctions(contractClass.id, [], fns);
         const stored = await store.getContractClass(contractClass.id);
-        expect(stored?.unconstrainedFunctions).toEqual(fns);
+        expect(stored?.utilityFunctions).toEqual(fns);
       });
     });
 
@@ -504,14 +524,14 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
           ],
           [
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
@@ -528,12 +548,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: 0,
-              logData: makePublicLog(tags[0]).toBuffer(),
+              log: makePublicLog(tags[0]),
               isFromPublic: true,
             }),
           ],
@@ -558,12 +578,12 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[0]).toBuffer(),
+              log: makePrivateLog(tags[0]),
               isFromPublic: false,
             }),
             expect.objectContaining({
               blockNumber: newBlockNumber,
-              logData: newLog.toBuffer(),
+              log: newLog,
               isFromPublic: false,
             }),
           ],
@@ -582,7 +602,7 @@ export function describeArchiverDataStore(
           [
             expect.objectContaining({
               blockNumber: 1,
-              logData: makePrivateLog(tags[1]).toBuffer(),
+              log: makePrivateLog(tags[1]),
               isFromPublic: false,
             }),
           ],
@@ -774,59 +794,6 @@ export function describeArchiverDataStore(
             }
           }
         }
-      });
-    });
-
-    describe('findNullifiersIndexesWithBlock', () => {
-      let blocks: L2Block[];
-      const numBlocks = 10;
-      const nullifiersPerBlock = new Map<number, Fr[]>();
-
-      beforeEach(async () => {
-        blocks = await timesParallel(numBlocks, (index: number) => L2Block.random(index + 1, 1));
-
-        blocks.forEach((block, blockIndex) => {
-          nullifiersPerBlock.set(
-            blockIndex,
-            block.body.txEffects.flatMap(txEffect => txEffect.nullifiers),
-          );
-        });
-      });
-
-      it('returns wrapped nullifiers with blocks if they exist', async () => {
-        await store.addNullifiers(blocks);
-        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!, Fr.random()];
-        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(10, nullifiersToRetrieve);
-
-        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
-        const [undefinedNullifier] = blockScopedNullifiers.slice(-1);
-        const realNullifiers = blockScopedNullifiers.slice(0, -1);
-        realNullifiers.forEach((blockScopedNullifier, index) => {
-          expect(blockScopedNullifier).not.toBeUndefined();
-          const { data, l2BlockNumber } = blockScopedNullifier!;
-          expect(data).toEqual(expect.any(BigInt));
-          expect(l2BlockNumber).toEqual(index < MAX_NULLIFIERS_PER_TX ? 1 : 6);
-        });
-        expect(undefinedNullifier).toBeUndefined();
-      });
-
-      it('returns wrapped nullifiers filtering by blockNumber', async () => {
-        await store.addNullifiers(blocks);
-        const nullifiersToRetrieve = [...nullifiersPerBlock.get(0)!, ...nullifiersPerBlock.get(5)!];
-        const blockScopedNullifiers = await store.findNullifiersIndexesWithBlock(5, nullifiersToRetrieve);
-
-        expect(blockScopedNullifiers).toHaveLength(nullifiersToRetrieve.length);
-        const undefinedNullifiers = blockScopedNullifiers.slice(-MAX_NULLIFIERS_PER_TX);
-        const realNullifiers = blockScopedNullifiers.slice(0, -MAX_NULLIFIERS_PER_TX);
-        realNullifiers.forEach(blockScopedNullifier => {
-          expect(blockScopedNullifier).not.toBeUndefined();
-          const { data, l2BlockNumber } = blockScopedNullifier!;
-          expect(data).toEqual(expect.any(BigInt));
-          expect(l2BlockNumber).toEqual(1);
-        });
-        undefinedNullifiers.forEach(undefinedNullifier => {
-          expect(undefinedNullifier).toBeUndefined();
-        });
       });
     });
   });

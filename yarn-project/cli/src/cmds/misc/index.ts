@@ -78,6 +78,14 @@ export function injectCommands(program: Command, log: LogFn) {
     });
 
   program
+    .command('get-canonical-sponsored-fpc-address')
+    .description('Gets the canonical SponsoredFPC address for this any testnet running on the same version as this CLI')
+    .action(async () => {
+      const { getCanonicalSponsoredFPCAddress } = await import('./get_canonical_sponsored_fpc_address.js');
+      await getCanonicalSponsoredFPCAddress(log);
+    });
+
+  program
     .command('update')
     .description('Updates Nodejs and Noir dependencies')
     .argument('[projectPath]', 'Path to the project directory', process.cwd())

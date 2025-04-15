@@ -40,9 +40,6 @@ describe('e2e_fees Fee Juice payments', () => {
 
     // Alice pays for Bob's account contract deployment.
     await bobAccount.deploy({ deployWallet: aliceWallet }).wait();
-
-    // We let Alice see Bob's notes because the expect uses Alice's wallet to interact with the contracts to "get" state.
-    aliceWallet.setScopes([aliceAddress, bobAddress]);
   });
 
   afterAll(async () => {

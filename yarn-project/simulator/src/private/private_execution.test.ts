@@ -3,7 +3,6 @@ import {
   L1_TO_L2_MSG_TREE_HEIGHT,
   NOTE_HASH_TREE_HEIGHT,
   PUBLIC_DATA_TREE_HEIGHT,
-  PUBLIC_DISPATCH_SELECTOR,
 } from '@aztec/constants';
 import { asyncMap } from '@aztec/foundation/async-map';
 import { times } from '@aztec/foundation/collection';
@@ -47,18 +46,15 @@ import {
 } from '@aztec/stdlib/hash';
 import { KeyValidationRequest, getNonEmptyItems } from '@aztec/stdlib/kernel';
 import { computeAppNullifierSecretKey, deriveKeys } from '@aztec/stdlib/keys';
-import { IndexedTaggingSecret, TxScopedL2Log } from '@aztec/stdlib/logs';
+import { IndexedTaggingSecret } from '@aztec/stdlib/logs';
 import type { L1ToL2Message } from '@aztec/stdlib/messaging';
 import { Note } from '@aztec/stdlib/note';
 import { makeHeader } from '@aztec/stdlib/testing';
 import { AppendOnlyTreeSnapshot } from '@aztec/stdlib/trees';
 import {
   BlockHeader,
-  CallContext,
-  CountedPublicExecutionRequest,
   HashedValues,
   PartialStateReference,
-  PublicExecutionRequest,
   StateReference,
   TxContext,
   TxExecutionRequest,
@@ -68,9 +64,9 @@ import { jest } from '@jest/globals';
 import { Matcher, type MatcherCreator, type MockProxy, mock } from 'jest-mock-extended';
 import { toFunctionSelector } from 'viem';
 
-import { MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
 import { buildL1ToL2Message } from '../test/utils.js';
 import type { ExecutionDataProvider } from './execution_data_provider.js';
+import { MessageLoadOracleInputs } from './message_load_oracle_inputs.js';
 import { WASMSimulator } from './providers/acvm_wasm.js';
 import { AcirSimulator } from './simulator.js';
 
@@ -147,7 +143,7 @@ describe('Private Execution test suite', () => {
     const selector = await FunctionSelector.fromNameAndParameters(functionName, functionArtifact.parameters);
     await mockContractInstance(artifact, contractAddress);
 
-    const hashedArguments = await HashedValues.fromValues(encodeArguments(functionArtifact, args));
+    const hashedArguments = await HashedValues.fromArgs(encodeArguments(functionArtifact, args));
     const txRequest = TxExecutionRequest.from({
       origin: contractAddress,
       firstCallArgsHash: hashedArguments.hash,
@@ -302,9 +298,7 @@ describe('Private Execution test suite', () => {
       return Promise.resolve(artifact);
     });
 
-    executionDataProvider.syncTaggedLogs.mockImplementation((_, __, ___) =>
-      Promise.resolve(new Map<string, TxScopedL2Log[]>()),
-    );
+    executionDataProvider.syncTaggedLogs.mockImplementation((_, __) => Promise.resolve());
     executionDataProvider.loadCapsule.mockImplementation((_, __) => Promise.resolve(null));
 
     executionDataProvider.getPublicStorageAt.mockImplementation(
@@ -433,8 +427,7 @@ describe('Private Execution test suite', () => {
         buildNote(60n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
         buildNote(80n, ownerCompleteAddress.address, storageSlot, valueNoteTypeId),
       ]);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
@@ -485,8 +478,7 @@ describe('Private Execution test suite', () => {
       const storageSlot = await deriveStorageSlotInMap(new Fr(1n), owner);
 
       const notes = await Promise.all([buildNote(balance, ownerCompleteAddress.address, storageSlot, valueNoteTypeId)]);
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue(notes);
 
       const consumedNotes = await asyncMap(notes, async ({ note, nonce }) => {
@@ -853,20 +845,9 @@ describe('Private Execution test suite', () => {
         args,
       });
 
-      const request = new CountedPublicExecutionRequest(
-        PublicExecutionRequest.from({
-          args: [childSelector.toField(), new Fr(42n)],
-          callContext: CallContext.from({
-            msgSender: parentAddress,
-            contractAddress: childAddress,
-            functionSelector: FunctionSelector.fromField(new Fr(PUBLIC_DISPATCH_SELECTOR)),
-            isStaticCall: false,
-          }),
-        }),
-        2, // sideEffectCounter
-      );
+      const childCalldata = await HashedValues.fromCalldata([childSelector.toField(), new Fr(42n)]);
 
-      expect(result.entrypoint.enqueuedPublicFunctionCalls).toEqual([request]);
+      expect(result.publicFunctionCalldata).toEqual([childCalldata]);
     });
     it('should be ok for parent to enqueue calls with <= max total args', async () => {
       // This function recurses and calls itself, so we need to mock retrieval of its own contract instance (parent)
@@ -915,17 +896,13 @@ describe('Private Execution test suite', () => {
 
   describe('setting teardown function', () => {
     it('should be able to set a teardown function', async () => {
-      // All public functions get wrapped in a public_dispatch function
-      const publicDispatch = getFunctionArtifactByName(TestContractArtifact, 'public_dispatch');
-      const { entrypoint: result } = await runSimulator({
+      const { entrypoint: result, publicFunctionCalldata } = await runSimulator({
         artifact: TestContractArtifact,
         functionName: 'test_setting_teardown',
       });
-      expect(result.publicTeardownFunctionCall.isEmpty()).toBeFalsy();
-      expect(result.publicTeardownFunctionCall.callContext.functionSelector).toEqual(
-        await FunctionSelector.fromNameAndParameters(publicDispatch.name, publicDispatch.parameters),
-      );
-      expect(result.publicTeardownFunctionCall.args[0]).toEqual(
+      expect(result.publicInputs.publicTeardownCallRequest.isEmpty()).toBe(false);
+      expect(result.publicInputs.publicTeardownCallRequest.calldataHash).toEqual(publicFunctionCalldata[0].hash);
+      expect(publicFunctionCalldata[0].values[0]).toEqual(
         (await FunctionSelector.fromNameAndParameters('dummy_public_call', [])).toField(),
       );
     });
@@ -962,8 +939,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in one call', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1015,8 +991,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('should be able to insert, read, and nullify pending note hashes in nested calls', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1087,8 +1062,7 @@ describe('Private Execution test suite', () => {
     });
 
     it('cant read a commitment that is inserted later in same call', async () => {
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       const amountToTransfer = 100n;
@@ -1126,8 +1100,7 @@ describe('Private Execution test suite', () => {
   describe('Get notes', () => {
     it('fails if returning no notes', async () => {
       const args = [2n, true];
-      executionDataProvider.syncTaggedLogs.mockResolvedValue(new Map());
-      executionDataProvider.processTaggedLogs.mockResolvedValue();
+      executionDataProvider.syncTaggedLogs.mockResolvedValue();
       executionDataProvider.getNotes.mockResolvedValue([]);
 
       await expect(() =>

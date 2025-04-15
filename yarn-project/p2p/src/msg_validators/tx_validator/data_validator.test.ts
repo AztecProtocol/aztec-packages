@@ -1,13 +1,19 @@
-import { MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
+import { MAX_CONTRACT_CLASS_LOGS_PER_TX, MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS } from '@aztec/constants';
 import { timesParallel } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
-import { FunctionSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
-import { computeVarArgsHash } from '@aztec/stdlib/hash';
 import { ScopedLogHash } from '@aztec/stdlib/kernel';
 import { ContractClassLog } from '@aztec/stdlib/logs';
 import { mockTx } from '@aztec/stdlib/testing';
-import type { Tx } from '@aztec/stdlib/tx';
+import {
+  TX_ERROR_CALLDATA_COUNT_MISMATCH,
+  TX_ERROR_CALLDATA_COUNT_TOO_LARGE,
+  TX_ERROR_CONTRACT_CLASS_LOGS,
+  TX_ERROR_CONTRACT_CLASS_LOG_COUNT,
+  TX_ERROR_CONTRACT_CLASS_LOG_LENGTH,
+  TX_ERROR_INCORRECT_CALLDATA,
+  type Tx,
+} from '@aztec/stdlib/tx';
 
 import { DataTxValidator } from './data_validator.js';
 
@@ -46,34 +52,6 @@ const mockTxsWithCCLog = (numTxs: number) =>
     return tx;
   });
 
-// After modifying a mocked TX's enqueued calls, update its argsHash to match.
-const fixPublicCallRequests = async (
-  tx: Tx,
-  {
-    numberOfNonRevertiblePublicCallRequests = 0,
-    numberOfRevertiblePublicCallRequests = 1,
-    hasPublicTeardownCallRequest = false,
-  },
-) => {
-  let indexOfExecutionRequest = 0;
-  for (let i = 0; i < numberOfNonRevertiblePublicCallRequests; i++) {
-    tx.data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[i].argsHash = await computeVarArgsHash(
-      tx.enqueuedPublicFunctionCalls[indexOfExecutionRequest].args,
-    );
-    indexOfExecutionRequest++;
-  }
-  for (let i = 0; i < numberOfRevertiblePublicCallRequests; i++) {
-    tx.data.forPublic!.revertibleAccumulatedData.publicCallRequests[i].argsHash = await computeVarArgsHash(
-      tx.enqueuedPublicFunctionCalls[indexOfExecutionRequest].args,
-    );
-  }
-  if (hasPublicTeardownCallRequest) {
-    tx.data.forPublic!.publicTeardownCallRequest.argsHash = await computeVarArgsHash(
-      tx.publicTeardownFunctionCall.args,
-    );
-  }
-};
-
 describe('TxDataValidator', () => {
   let validator: DataTxValidator;
 
@@ -98,112 +76,88 @@ describe('TxDataValidator', () => {
     await expect(validator.validateTx(txWithLog)).resolves.toEqual({ result: 'valid' });
   });
 
-  it('accept txs with exactly max args', async () => {
+  it('accept txs with exactly max calldata', async () => {
     const goodTx0Settings = {
-      numberOfNonRevertiblePublicCallRequests: 0,
+      numberOfNonRevertiblePublicCallRequests: 1,
       numberOfRevertiblePublicCallRequests: 1,
       hasPublicTeardownCallRequest: false,
+      publicCalldataSize: MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 2,
     };
     const goodTx0 = await mockTx(1, goodTx0Settings);
-    goodTx0.enqueuedPublicFunctionCalls[0].args = Array.from(
-      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS },
-      () => new Fr(1),
-    );
-    await fixPublicCallRequests(goodTx0, goodTx0Settings);
 
     await expectValid([goodTx0]);
   });
 
-  it('rejects txs with too many args', async () => {
-    const badTx0Settings = {
-      numberOfNonRevertiblePublicCallRequests: 1,
-      numberOfRevertiblePublicCallRequests: 1,
-      hasPublicTeardownCallRequest: true,
-    };
-    const badTx0 = await mockTx(2, badTx0Settings);
-    badTx0.enqueuedPublicFunctionCalls[0].args = Array.from(
-      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / 2 },
-      () => new Fr(1),
-    );
-    badTx0.enqueuedPublicFunctionCalls[1].args = Array.from(
-      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS / 2 },
-      () => new Fr(1),
-    );
-    badTx0.publicTeardownFunctionCall.args = [new Fr(1)];
-    await fixPublicCallRequests(badTx0, badTx0Settings);
+  it('rejects txs with too much calldata', async () => {
+    const badTxSettings = [
+      {
+        numberOfNonRevertiblePublicCallRequests: 1,
+        numberOfRevertiblePublicCallRequests: 1,
+        hasPublicTeardownCallRequest: true,
+        publicCalldataSize: MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS / 2,
+      },
+      {
+        numberOfNonRevertiblePublicCallRequests: 0,
+        numberOfRevertiblePublicCallRequests: 1,
+        hasPublicTeardownCallRequest: false,
+        publicCalldataSize: MAX_FR_CALLDATA_TO_ALL_ENQUEUED_CALLS + 1,
+      },
+    ];
 
-    const badTx1Settings = {
-      numberOfNonRevertiblePublicCallRequests: 0,
-      numberOfRevertiblePublicCallRequests: 1,
-      hasPublicTeardownCallRequest: false,
-    };
-    const badTx1 = await mockTx(3, badTx1Settings);
-    badTx1.enqueuedPublicFunctionCalls[0].args = Array.from(
-      { length: MAX_FR_ARGS_TO_ALL_ENQUEUED_CALLS + 1 },
-      () => new Fr(1),
-    );
-    await fixPublicCallRequests(badTx1, badTx1Settings);
-
-    await expectInvalid(badTx0, 'Too many args in total to enqueued public calls');
-    await expectInvalid(badTx1, 'Too many args in total to enqueued public calls');
+    for (let i = 0; i < badTxSettings.length; i++) {
+      const badTx = await mockTx(2, badTxSettings[i]);
+      await expectInvalid(badTx, TX_ERROR_CALLDATA_COUNT_TOO_LARGE);
+    }
   });
 
-  it('rejects txs with mismatch non revertible execution requests', async () => {
+  it('rejects txs with mismatch calldata for non revertible public calls', async () => {
     const goodTxs = await mockTxs(3);
     const badTxs = await mockTxs(2);
-    badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[0].argsHash = Fr.random();
-    badTxs[1].data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[1].contractAddress =
-      await AztecAddress.random();
+    badTxs[0].data.forPublic!.nonRevertibleAccumulatedData.publicCallRequests[0].calldataHash = Fr.random();
+    badTxs[1].publicFunctionCalldata[0].values[0] = Fr.random();
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Incorrect execution request for public call');
-    await expectInvalid(badTxs[1], 'Incorrect execution request for public call');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CALLDATA);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CALLDATA);
   });
 
-  it('rejects txs with mismatch revertible execution requests', async () => {
-    const goodTxs = await mockTxs(3);
-    const badTxs = await mockTxs(4);
-    badTxs[0].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].msgSender = await AztecAddress.random();
-    badTxs[1].data.forPublic!.revertibleAccumulatedData.publicCallRequests[1].contractAddress =
-      await AztecAddress.random();
-    badTxs[2].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].functionSelector =
-      FunctionSelector.random();
-    badTxs[3].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].isStaticCall =
-      !badTxs[3].enqueuedPublicFunctionCalls[0].callContext.isStaticCall;
-
-    await expectValid(goodTxs);
-
-    await expectInvalid(badTxs[0], 'Incorrect execution request for public call');
-    await expectInvalid(badTxs[1], 'Incorrect execution request for public call');
-    await expectInvalid(badTxs[2], 'Incorrect execution request for public call');
-    await expectInvalid(badTxs[3], 'Incorrect execution request for public call');
-  });
-
-  it('rejects txs with mismatch teardown execution requests', async () => {
+  it('rejects txs with mismatch calldata for revertible public calls', async () => {
     const goodTxs = await mockTxs(3);
     const badTxs = await mockTxs(2);
-    badTxs[0].data.forPublic!.publicTeardownCallRequest.contractAddress = await AztecAddress.random();
-    badTxs[1].data.forPublic!.publicTeardownCallRequest.msgSender = await AztecAddress.random();
+    badTxs[0].data.forPublic!.revertibleAccumulatedData.publicCallRequests[0].calldataHash = Fr.random();
+    badTxs[1].publicFunctionCalldata.at(-2)!.values[0] = Fr.random();
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Incorrect teardown execution request');
-    await expectInvalid(badTxs[1], 'Incorrect teardown execution request');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CALLDATA);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CALLDATA);
   });
 
-  it('rejects txs with mismatch number of execution requests', async () => {
+  it('rejects txs with mismatch calldata for teardown call', async () => {
     const goodTxs = await mockTxs(3);
     const badTxs = await mockTxs(2);
-    // Missing an enqueuedPublicFunctionCall.
-    const execRequest = badTxs[0].enqueuedPublicFunctionCalls.pop()!;
-    // Having an extra enqueuedPublicFunctionCall.
-    badTxs[1].enqueuedPublicFunctionCalls.push(execRequest);
+    badTxs[0].data.forPublic!.publicTeardownCallRequest.calldataHash = Fr.random();
+    badTxs[1].publicFunctionCalldata.at(-1)!.values[0] = Fr.random();
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Wrong number of execution requests for public calls');
-    await expectInvalid(badTxs[1], 'Wrong number of execution requests for public calls');
+    await expectInvalid(badTxs[0], TX_ERROR_INCORRECT_CALLDATA);
+    await expectInvalid(badTxs[1], TX_ERROR_INCORRECT_CALLDATA);
+  });
+
+  it('rejects txs with mismatch number of calldata', async () => {
+    const goodTxs = await mockTxs(3);
+    const badTxs = await mockTxs(2);
+    // Missing a calldata.
+    const calldata = badTxs[0].publicFunctionCalldata.pop()!;
+    // Having an extra calldata.
+    badTxs[1].publicFunctionCalldata.push(calldata);
+
+    await expectValid(goodTxs);
+
+    await expectInvalid(badTxs[0], TX_ERROR_CALLDATA_COUNT_MISMATCH);
+    await expectInvalid(badTxs[1], TX_ERROR_CALLDATA_COUNT_MISMATCH);
   });
 
   it('rejects txs with mismatch number of contract class logs', async () => {
@@ -223,8 +177,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Mismatched number of contract class logs');
-    await expectInvalid(badTxs[1], 'Mismatched number of contract class logs');
+    await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_COUNT);
+    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOG_COUNT);
   });
 
   // Can uncomment below if MAX_CONTRACT_CLASS_LOGS_PER_TX > 1:
@@ -255,8 +209,8 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Mismatched contract class logs');
-    await expectInvalid(badTxs[1], 'Mismatched contract class logs');
+    await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOGS);
+    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOGS);
   });
 
   it('rejects txs with mismatched contract class logs length', async () => {
@@ -271,7 +225,7 @@ describe('TxDataValidator', () => {
 
     await expectValid(goodTxs);
 
-    await expectInvalid(badTxs[0], 'Mismatched contract class logs length');
-    await expectInvalid(badTxs[1], 'Mismatched contract class logs length');
+    await expectInvalid(badTxs[0], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
+    await expectInvalid(badTxs[1], TX_ERROR_CONTRACT_CLASS_LOG_LENGTH);
   });
 });

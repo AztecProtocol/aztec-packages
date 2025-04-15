@@ -4,8 +4,22 @@ import type { SequencerMetrics } from './metrics.js';
 import { SequencerState } from './utils.js';
 
 export class SequencerTimetable {
-  /** How late into the slot can we be to start working */
-  public readonly initialTime = 3;
+  /**
+   * How late into the slot can we be to start working. Computed as the total time needed for assembling and publishing a block,
+   * assuming an execution time equal to `minExecutionTime`, subtracted from the slot duration. This means that, if the proposer
+   * starts building at this time, and all times hold, it will have at least `minExecutionTime` to execute txs for the block.
+   */
+  public readonly initializeDeadline: number;
+
+  /**
+   * How long it takes to get a published block into L1. L1 builders typically accept txs up to 4 seconds into their slot,
+   * but we'll timeout sooner to give it more time to propagate (remember we also have blobs!). Still, when working in anvil,
+   * we can just post in the very last second of the L1 slot and still expect the tx to be accepted.
+   */
+  public readonly l1PublishingTime;
+
+  /** What's the minimum time we want to leave available for execution and reexecution (used to derive init deadline) */
+  public readonly minExecutionTime = 1;
 
   /** How long it takes to get ready to start building */
   public readonly blockPrepareTime = 1;
@@ -16,13 +30,6 @@ export class SequencerTimetable {
   /** How much time we spend validating and processing a block after building it, and assembling the proposal to send to attestors */
   public readonly blockValidationTime = 1;
 
-  /**
-   * How long it takes to get a published block into L1. L1 builders typically accept txs up to 4 seconds into their slot,
-   * but we'll timeout sooner to give it more time to propagate (remember we also have blobs!). Still, when working in anvil,
-   * we can just post in the very last second of the L1 slot and still expect the tx to be accepted.
-   */
-  public readonly l1PublishingTime;
-
   constructor(
     private readonly ethereumSlotDuration: number,
     private readonly aztecSlotDuration: number,
@@ -32,6 +39,20 @@ export class SequencerTimetable {
     private readonly log = createLogger('sequencer:timetable'),
   ) {
     this.l1PublishingTime = this.ethereumSlotDuration - this.maxL1TxInclusionTimeIntoSlot;
+
+    const allWorkToDo =
+      this.blockPrepareTime +
+      this.minExecutionTime * 2 +
+      this.attestationPropagationTime * 2 +
+      this.blockValidationTime +
+      this.l1PublishingTime;
+    const initializeDeadline = this.aztecSlotDuration - allWorkToDo;
+    if (initializeDeadline <= 0) {
+      throw new Error(
+        `Block proposal initialize deadline cannot be negative (got ${initializeDeadline} from total time needed ${allWorkToDo} and a slot duration of ${this.aztecSlotDuration}).`,
+      );
+    }
+    this.initializeDeadline = initializeDeadline;
   }
 
   private get afterBlockBuildingTimeNeededWithoutReexec() {
@@ -57,7 +78,7 @@ export class SequencerTimetable {
     return this.attestationPropagationTime + this.l1PublishingTime;
   }
 
-  public getValidatorReexecTimeEnd(secondsIntoSlot: number): number {
+  public getValidatorReexecTimeEnd(secondsIntoSlot?: number): number {
     // We need to leave for `afterBlockReexecTimeNeeded` seconds available.
     const validationTimeEnd = this.aztecSlotDuration - this.afterBlockReexecTimeNeeded;
     this.log.debug(`Validator re-execution time deadline is ${validationTimeEnd}`, {
@@ -75,9 +96,9 @@ export class SequencerTimetable {
       case SequencerState.PROPOSER_CHECK:
         return; // We don't really care about times for this states
       case SequencerState.INITIALIZING_PROPOSAL:
-        return this.initialTime;
+        return this.initializeDeadline;
       case SequencerState.CREATING_BLOCK:
-        return this.initialTime + this.blockPrepareTime;
+        return this.initializeDeadline + this.blockPrepareTime;
       case SequencerState.COLLECTING_ATTESTATIONS:
         return this.aztecSlotDuration - this.l1PublishingTime - 2 * this.attestationPropagationTime;
       case SequencerState.PUBLISHING_BLOCK:

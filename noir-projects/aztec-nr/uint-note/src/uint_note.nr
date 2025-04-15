@@ -1,8 +1,8 @@
 use dep::aztec::{
     context::{PrivateContext, PublicContext},
-    encrypted_logs::log_assembly_strategies::default_aes128,
     keys::getters::{get_nsk_app, get_public_keys},
     macros::notes::custom_note,
+    messages::logs::note,
     note::note_interface::{NoteHash, NoteType},
     oracle::random::random,
     protocol_types::{
@@ -143,17 +143,8 @@ impl UintNote {
             public_log_tag: commitment,
         };
 
-        // TODO: we're abusing the note encoding scheme by computing the log for a fake note type with such a note type
-        // id that the recipient will realize that these are the private fields of a partial note. Ideally we'd not rely
-        // on this crude mechanism and we'd instead compute it as a proper event log. However, given the current state
-        // of the log library it's far easier to do it this way.
-        let encrypted_log = default_aes128::note::compute_log(
-            *context,
-            private_log_content,
-            storage_slot,
-            recipient,
-            sender,
-        );
+        let encrypted_log =
+            note::compute_partial_note_log(private_log_content, storage_slot, recipient, sender);
         context.emit_private_log(encrypted_log);
 
         PartialUintNote { commitment }
@@ -193,9 +184,7 @@ struct PrivateUintPartialNotePrivateLogContent {
 
 impl NoteType for PrivateUintPartialNotePrivateLogContent {
     fn get_id() -> Field {
-        // We abuse the fact that note type ids are 7 bits long to use the 8th bit indicate the log corresponds to a
-        // partial note. Ideally we'd use proper events with selectors, but those are not handled well at the moment.
-        UintNote::get_id() + 128
+        UintNote::get_id()
     }
 }
 
@@ -217,6 +206,13 @@ impl PartialUintNote {
 impl PartialUintNote {
     /// Completes the partial note, creating a new note that can be used like any other UintNote.
     pub fn complete(self, value: u128, context: &mut PublicContext) {
+        // A note with a value of zero is valid, but we cannot currently complete a partial note with such a value
+        // because this will result in the completion log having its last field set to 0. Public logs currently do not
+        // track their length, and so trailing zeros are simply trimmed. This results in the completion log missing its
+        // last field (the value), and note discovery failing.
+        // TODO(#11636): remove this
+        assert(value != 0, "Cannot complete a PartialUintNote with a value of 0");
+
         // We need to do two things:
         //  - emit a public log containing the public fields (the value). The contract will later find it by searching
         //  for the expected tag (which is simply the partial note commitment).

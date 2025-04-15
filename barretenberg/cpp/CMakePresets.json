@@ -44,8 +44,8 @@
       "description": "Build with Clang installed via Homebrew",
       "inherits": "default",
       "environment": {
-        "CC": "$env{BREW_PREFIX}/opt/llvm/bin/clang",
-        "CXX": "$env{BREW_PREFIX}/opt/llvm/bin/clang++"
+        "CC": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang",
+        "CXX": "$env{BREW_PREFIX}/opt/llvm@18/bin/clang++"
       }
     },
     {
@@ -80,6 +80,16 @@
       }
     },
     {
+      "name": "clang18",
+      "displayName": "Build with Clang-18",
+      "description": "Build with globally installed Clang-18",
+      "inherits": "default",
+      "environment": {
+        "CC": "clang-18",
+        "CXX": "clang++-18"
+      }
+    },
+    {
       "name": "clang16",
       "displayName": "Build with Clang-16",
       "description": "Build with globally installed Clang-16",
@@ -90,6 +100,17 @@
       }
     },
     {
+      "name": "clang16-no-exceptions",
+      "displayName": "Build with Clang-16",
+      "description": "Build with globally installed Clang-16",
+      "inherits": "default",
+      "environment": {
+        "CC": "clang-16",
+        "CXX": "clang++-16",
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
+      }
+    },
+    {
       "name": "clang16-pic",
       "displayName": "Release build with Position Independent Code",
       "description": "Build with globally installed Clang-16 using Position Independent Code",
@@ -97,6 +118,15 @@
       "binaryDir": "build-pic",
       "cacheVariables": {
         "ENABLE_PIC": "ON"
+      }
+    },
+    {
+      "name": "clang16-pic-assert",
+      "displayName": "Release build with Position Independent Code and asserts",
+      "description": "Build with globally installed Clang-16 using Position Independent Code and asserts",
+      "inherits": "clang16-pic",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -165,16 +195,6 @@
       }
     },
     {
-      "name": "wasm-tracy",
-      "displayName": "WASM build with tracy",
-      "description": "WASM build with tracy",
-      "inherits": "clang16",
-      "binaryDir": "build-wasm-tracy",
-      "cacheVariables": {
-        "ENABLE_TRACY": "ON"
-      }
-    },
-    {
       "name": "clang16-dbg-fast",
       "displayName": "Optimized debug build with Clang-16",
       "description": "Build with globally installed Clang-16 in optimized debug mode",
@@ -195,6 +215,16 @@
       "binaryDir": "build-debug-fast-circuit-check-traces",
       "cacheVariables": {
         "CHECK_CIRCUIT_STACKTRACES": "ON"
+      }
+    },
+    {
+      "name": "clang18-assert",
+      "binaryDir": "build",
+      "displayName": "Build with Clang-18 using RelWithAssert",
+      "description": "Build with globally installed Clang-18 in release with ASSERTs mode",
+      "inherits": "clang18",
+      "environment": {
+        "CMAKE_BUILD_TYPE": "RelWithAssert"
       }
     },
     {
@@ -269,12 +299,8 @@
       "inherits": "clang16",
       "binaryDir": "build-fuzzing",
       "cacheVariables": {
-        "FUZZING": "ON"
-      },
-      "environment": {
-        "CFLAGS": "-fsanitize-coverage=indirect-calls,trace-pc-guard",
-        "CXXFLAGS": "-fsanitize-coverage=indirect-calls,trace-pc-guard",
-        "LDFLAGS": "-fsanitize-coverage=indirect-calls,trace-pc-guard"
+        "FUZZING": "ON",
+        "DISABLE_AZTEC_VM": "ON"
       }
     },
     {
@@ -284,14 +310,11 @@
       "inherits": "clang16-dbg",
       "binaryDir": "build-fuzzing-asan",
       "cacheVariables": {
+        "SHOW_INFORMATION": "ON",
         "FUZZING": "ON",
+        "DISABLE_AZTEC_VM": "ON",
         "ENABLE_ASAN": "ON",
         "DISABLE_ASM": "ON"
-      },
-      "environment": {
-        "CFLAGS": "-fsanitize-coverage=func",
-        "CXXFLAGS": "-fsanitize-coverage=func",
-        "LDFLAGS": "-fsanitize-coverage=func"
       }
     },
     {
@@ -416,7 +439,8 @@
         "CMAKE_C_COMPILER_WORKS": "ON",
         "CMAKE_CXX_COMPILER_WORKS": "ON",
         "MULTITHREADING": "OFF",
-        "DISABLE_AZTEC_VM": "ON"
+        "DISABLE_AZTEC_VM": "ON",
+        "CMAKE_CXX_FLAGS": "-DBB_NO_EXCEPTIONS"
       }
     },
     {
@@ -504,6 +528,11 @@
       "configurePreset": "homebrew"
     },
     {
+      "name": "clang18",
+      "inherits": "default",
+      "configurePreset": "clang18"
+    },
+    {
       "name": "clang16",
       "inherits": "default",
       "configurePreset": "clang16"
@@ -554,6 +583,11 @@
       "configurePreset": "clang16-pic"
     },
     {
+      "name": "clang16-pic-assert",
+      "inherits": "default",
+      "configurePreset": "clang16-pic-assert"
+    },
+    {
       "name": "default-pic",
       "inherits": "default",
       "configurePreset": "default-pic"
@@ -572,6 +606,11 @@
       "name": "clang16-dbg-fast-circuit-check-traces",
       "inherits": "clang16-dbg-fast",
       "configurePreset": "clang16-dbg-fast-circuit-check-traces"
+    },
+    {
+      "name": "clang18-assert",
+      "inherits": "default",
+      "configurePreset": "clang18-assert"
     },
     {
       "name": "clang16-assert",
@@ -661,21 +700,21 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "bb_cli_bench"]
     },
     {
       "name": "wasm-threads-assert",
       "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "bb_cli_bench"]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz", "bb_cli_bench"]
     },
     {
       "name": "xray",

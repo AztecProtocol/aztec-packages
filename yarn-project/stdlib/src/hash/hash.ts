@@ -80,8 +80,9 @@ export function computePublicDataTreeLeafSlot(contractAddress: AztecAddress, sto
 
 /**
  * Computes the hash of a list of arguments.
+ * Used for input arguments or return values for private functions, or for authwit creation.
  * @param args - Arguments to hash.
- * @returns Pedersen hash of the arguments.
+ * @returns Hash of the arguments.
  */
 export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
   if (args.length === 0) {
@@ -89,6 +90,19 @@ export function computeVarArgsHash(args: Fr[]): Promise<Fr> {
   }
 
   return poseidon2HashWithSeparator(args, GeneratorIndex.FUNCTION_ARGS);
+}
+
+/**
+ * Computes the hash of a public function's calldata.
+ * @param calldata - Calldata to hash.
+ * @returns Hash of the calldata.
+ */
+export function computeCalldataHash(calldata: Fr[]): Promise<Fr> {
+  if (calldata.length === 0) {
+    return Promise.resolve(Fr.ZERO);
+  }
+
+  return poseidon2HashWithSeparator(calldata, GeneratorIndex.PUBLIC_CALLDATA);
 }
 
 /**

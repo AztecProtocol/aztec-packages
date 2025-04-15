@@ -15,18 +15,7 @@ import type { ORACLE_NAMES } from './oracle/index.js';
 /**
  * The callback interface for the ACIR.
  */
-export type ACIRCallback = Record<
-  ORACLE_NAMES,
-  (
-    ...args: ForeignCallInput[]
-  ) =>
-    | void
-    | Promise<void>
-    | ForeignCallOutput
-    | ForeignCallOutput[]
-    | Promise<ForeignCallOutput>
-    | Promise<ForeignCallOutput[]>
->;
+export type ACIRCallback = Record<ORACLE_NAMES, (...args: ForeignCallInput[]) => Promise<ForeignCallOutput[]>>;
 
 /**
  * The result of executing an ACIR.
@@ -43,6 +32,11 @@ export interface ACIRExecutionResult {
 
 /**
  * The function call that executes an ACIR.
+ * @param acir - The ACIR circuit bytecode to execute.
+ * @param initialWitness - The initial witness map defining all of the inputs to `circuit`.
+ * @param callback - A callback to process any foreign calls from the circuit.
+ * @returns The solved witness calculated by executing the circuit on the provided inputs, as well as the return
+ * witness indices as specified by the circuit.
  */
 export async function acvm(
   acir: Buffer,
@@ -54,7 +48,7 @@ export async function acvm(
   const solvedAndReturnWitness = await executeCircuitWithReturnWitness(
     acir,
     initialWitness,
-    async (name: string, args: ForeignCallInput[]) => {
+    (name: string, args: ForeignCallInput[]) => {
       try {
         logger.debug(`Oracle callback ${name}`);
         const oracleFunction = callback[name as ORACLE_NAMES];
@@ -62,17 +56,7 @@ export async function acvm(
           throw new Error(`Oracle callback ${name} not found`);
         }
 
-        const result = await oracleFunction.call(callback, ...args);
-
-        if (typeof result === 'undefined') {
-          return [];
-        } else if (result instanceof Array && !result.every(item => typeof item === 'string')) {
-          // We are dealing with a nested array which means that we do not need it wrap it in another array as to have
-          // the nested array structure it is already "wrapped".
-          return result;
-        } else {
-          return [result] as ForeignCallOutput[];
-        }
+        return oracleFunction.call(callback, ...args);
       } catch (err) {
         let typedError: Error;
         if (err instanceof Error) {

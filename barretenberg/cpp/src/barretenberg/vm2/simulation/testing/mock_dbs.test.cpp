@@ -6,7 +6,10 @@ namespace bb::avm2::simulation {
 MockContractDB::MockContractDB() = default;
 MockContractDB::~MockContractDB() = default;
 
-MockMerkleDB::MockMerkleDB() = default;
-MockMerkleDB::~MockMerkleDB() = default;
+MockLowLevelMerkleDB::MockLowLevelMerkleDB() = default;
+MockLowLevelMerkleDB::~MockLowLevelMerkleDB() = default;
+
+MockHighLevelMerkleDB::MockHighLevelMerkleDB() = default;
+MockHighLevelMerkleDB::~MockHighLevelMerkleDB() = default;
 
 } // namespace bb::avm2::simulation

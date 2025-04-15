@@ -44,28 +44,6 @@ spec:
         {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
         {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
 
-        # Generate the validator addresses; used in the deploy-l1-contracts step
-        - name: generate-validator-addresses
-          image: {{ .Values.images.foundry.image }}
-          imagePullPolicy: {{ .Values.images.foundry.pullPolicy }}
-          command:
-            - /bin/sh
-            - -c
-            - |
-              source /scripts/get-validator-addresses.sh
-          volumeMounts:
-            - name: scripts
-              mountPath: /scripts
-            - name: config
-              mountPath: /shared/config
-          env:
-            - name: KEY_INDEX_START
-              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
-            - name: MNEMONIC
-              value: {{ .Values.aztec.l1DeploymentMnemonic }}
-            - name: NUMBER_OF_VALIDATORS
-              value: {{ .Values.validator.replicas | quote }}
-
         - name: deploy-l1-contracts
           {{- include "aztec-network.image" . | nindent 10 }}
           command:
@@ -73,9 +51,8 @@ spec:
             - -c
             - |
               source /shared/config/service-addresses
-              source /shared/config/validator-addresses
+              source /scripts/get-validator-addresses.sh
               {{- include "aztec-network.waitForEthereum" . | nindent 14 }}
-
 
               /scripts/deploy-l1-contracts.sh "{{ .Values.aztec.l1Salt }}" "{{ .Values.ethereum.chainId }}" "$VALIDATOR_ADDRESSES"
           volumeMounts:
@@ -86,10 +63,19 @@ spec:
             - name: scripts
               mountPath: /scripts
           env:
+            # Key generation
+            - name: KEY_INDEX_START
+              value: {{ .Values.aztec.validatorKeyIndexStart | quote }}
+            - name: NUMBER_OF_VALIDATORS
+              value: {{ .Values.validator.replicas | quote }}
+
+            # Deployment
             - name: ACCELERATED_TEST_DEPLOYMENTS
               value: "{{ .Values.ethereum.acceleratedTestDeployments }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             - name: REGISTRY_CONTRACT_ADDRESS
               value: "{{ .Values.bootNode.contracts.registryAddress }}"
             - name: TELEMETRY
@@ -231,6 +217,8 @@ spec:
               value: "{{ .Values.telemetry.excludeMetrics }}"
             - name: TEST_ACCOUNTS
               value: "{{ .Values.aztec.testAccounts }}"
+            - name: SPONSORED_FPC
+              value: "{{ .Values.aztec.sponsoredFPC }}"
             {{- if .Values.blobSink.enabled }}
             - name: BLOB_SINK_URL
               value: {{ include "aztec-network.blobSinkUrl" . }}

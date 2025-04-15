@@ -20,7 +20,9 @@ export const dataConfigMappings: ConfigMappingsType<DataStoreConfig> = {
   },
   l1Contracts: {
     description: 'The deployed L1 contract addresses',
-    nested: l1ContractAddressesMapping,
+    nested: {
+      rollupAddress: l1ContractAddressesMapping.rollupAddress,
+    },
   },
 };
 

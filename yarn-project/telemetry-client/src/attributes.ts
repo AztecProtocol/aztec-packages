@@ -14,6 +14,10 @@
  * @see {@link https://opentelemetry.io/docs/specs/semconv/general/attribute-naming/}
  */
 
+/** The host of an HTTP request */
+export const HTTP_REQUEST_HOST = 'http.header.request.host';
+export const HTTP_RESPONSE_STATUS_CODE = 'http.response.status_code';
+
 /** The Aztec network identifier */
 export const NETWORK_NAME = 'aztec.network_name';
 
@@ -24,19 +28,9 @@ export const NETWORK_NAME = 'aztec.network_name';
 export const PROTOCOL_CIRCUIT_NAME = 'aztec.circuit.protocol_circuit_name';
 
 /**
- * The type of protocol circuit being run: server or client
- */
-export const PROTOCOL_CIRCUIT_TYPE = 'aztec.circuit.protocol_circuit_type';
-
-/**
  * For an app circuit, the contract:function being run (e.g. Token:transfer)
  */
 export const APP_CIRCUIT_NAME = 'aztec.circuit.app_circuit_name';
-
-/**
- * The type of app circuit being run: server or client
- */
-export const APP_CIRCUIT_TYPE = 'aztec.circuit.app_circuit_type';
 
 /** The block archive */
 export const BLOCK_ARCHIVE = 'aztec.block.archive';
@@ -96,6 +90,7 @@ export const SIMULATOR_PHASE = 'aztec.simulator.phase';
 export const TARGET_ADDRESS = 'aztec.address.target';
 export const SENDER_ADDRESS = 'aztec.address.sender';
 export const MANA_USED = 'aztec.mana.used';
+export const TOTAL_INSTRUCTIONS = 'aztec.total_instructions';
 
 /** Whether a sync process is the initial run, which is usually slower than iterative ones. */
 export const INITIAL_SYNC = 'aztec.initial_sync';

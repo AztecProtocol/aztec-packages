@@ -1,5 +1,6 @@
 #pragma once
 #include "barretenberg/common/log.hpp"
+#include "barretenberg/common/try_catch_shim.hpp"
 #include <cstdint>
 #include <fcntl.h>
 #include <fstream>
@@ -30,7 +31,7 @@ inline std::vector<uint8_t> read_file(const std::string& filename, size_t bytes 
 
     std::ifstream file(filename, std::ios::binary);
     if (!file) {
-        throw std::runtime_error("Unable to open file: " + filename);
+        THROW std::runtime_error("Unable to open file: " + filename);
     }
 
     // Unseekable, pipe or process substitution. We'll iterate over the stream and reallocate.
@@ -57,7 +58,7 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
         // Writing to a pipe or file descriptor
         int fd = open(filename.c_str(), O_WRONLY);
         if (fd == -1) {
-            throw std::runtime_error("Failed to open file descriptor: " + filename);
+            THROW std::runtime_error("Failed to open file descriptor: " + filename);
         }
 
         size_t total_written = 0;
@@ -66,7 +67,7 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
             ssize_t written = write(fd, data.data() + total_written, data_size - total_written);
             if (written == -1) {
                 close(fd);
-                throw std::runtime_error("Failed to write to file descriptor: " + filename);
+                THROW std::runtime_error("Failed to write to file descriptor: " + filename);
             }
             total_written += static_cast<size_t>(written);
         }
@@ -74,7 +75,7 @@ inline void write_file(const std::string& filename, std::vector<uint8_t> const& 
     } else {
         std::ofstream file(filename, std::ios::binary);
         if (!file) {
-            throw std::runtime_error("Failed to open data file for writing: " + filename);
+            THROW std::runtime_error("Failed to open data file for writing: " + filename);
         }
         file.write((char*)data.data(), (std::streamsize)data.size());
         file.close();

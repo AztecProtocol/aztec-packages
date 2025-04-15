@@ -123,6 +123,12 @@ export async function processL2BlockProposedLogs(
       };
 
       retrievedBlocks.push({ ...block, l1 });
+      logger.trace(`Retrieved L2 block ${l2BlockNumber} from L1 tx ${log.transactionHash}`, {
+        l1BlockNumber: log.blockNumber,
+        l2BlockNumber,
+        archive: archive.toString(),
+        signatures: block.signatures.map(signature => signature.toString()),
+      });
     } else {
       logger.warn(`Ignoring L2 block ${l2BlockNumber} due to archive root mismatch`, {
         actual: archive,
@@ -203,7 +209,7 @@ async function getBlockFromRollupTx(
   publicClient: ViemPublicClient,
   blobSinkClient: BlobSinkClientInterface,
   txHash: `0x${string}`,
-  blobHashes: Buffer[], // WORKTODO(md): buffer32?
+  blobHashes: Buffer[], // TODO(md): buffer32?
   l2BlockNum: bigint,
   rollupAddress: Hex,
   logger: Logger,
@@ -364,7 +370,6 @@ export async function retrieveL2ProofsFromRollup(
 export type SubmitBlockProof = {
   archiveRoot: Fr;
   proverId: Fr;
-  aggregationObject: Buffer;
   proof: Proof;
 };
 
@@ -387,7 +392,6 @@ export async function getProofFromSubmitProofTx(
 
   let proverId: Fr;
   let archiveRoot: Fr;
-  let aggregationObject: Buffer;
   let proof: Proof;
 
   if (functionName === 'submitEpochRootProof') {
@@ -397,12 +401,10 @@ export async function getProofFromSubmitProofTx(
         end: bigint;
         args: EpochProofPublicInputArgs;
         fees: readonly Hex[];
-        aggregationObject: Hex;
         proof: Hex;
       },
     ];
 
-    aggregationObject = Buffer.from(hexToBytes(decodedArgs.aggregationObject));
     proverId = Fr.fromHexString(decodedArgs.args.proverId);
     archiveRoot = Fr.fromHexString(decodedArgs.args.endArchive);
     proof = Proof.fromBuffer(Buffer.from(hexToBytes(decodedArgs.proof)));
@@ -416,7 +418,6 @@ export async function getProofFromSubmitProofTx(
 
   return {
     proverId,
-    aggregationObject,
     archiveRoot,
     proof,
   };

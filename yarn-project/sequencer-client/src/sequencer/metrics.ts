@@ -78,7 +78,17 @@ export class SequencerMetrics {
       valueType: ValueType.INT,
     });
 
+    // Init gauges and counters
     this.setCurrentBlock(0, 0);
+    this.blockCounter.add(0, {
+      [Attributes.STATUS]: 'cancelled',
+    });
+    this.blockCounter.add(0, {
+      [Attributes.STATUS]: 'failed',
+    });
+    this.blockCounter.add(0, {
+      [Attributes.STATUS]: 'built',
+    });
   }
 
   startCollectingAttestationsTimer(): () => void {

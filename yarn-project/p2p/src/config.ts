@@ -6,8 +6,11 @@ import {
   numberConfigHelper,
   pickConfigMappings,
 } from '@aztec/foundation/config';
+import { Fr } from '@aztec/foundation/fields';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type AllowedElement, type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
 
 import { type P2PReqRespConfig, p2pReqRespConfigMappings } from './services/reqresp/config.js';
 
@@ -64,6 +67,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    * An optional peer id private key. If blank, will generate a random key.
    */
   peerIdPrivateKey?: string;
+
+  /**
+   * An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the data directory.
+   */
+  peerIdPrivateKeyPath?: string;
 
   /**
    * A list of bootstrap peers to connect to.
@@ -157,13 +165,28 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
    */
   peerPenaltyValues: number[];
 
-  /** Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged. */
+  /**
+   *  Limit of transactions to archive in the tx pool. Once the archived tx limit is reached, the oldest archived txs will be purged.
+   */
   archivedTxLimit: number;
 
   /**
    * A list of trusted peers.
    */
   trustedPeers: string[];
+
+  /**
+   * The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
+   */
+  p2pStoreMapSizeKb?: number;
+
+  /** Which calls are allowed in the public setup phase of a tx. */
+  txPublicSetupAllowList: AllowedElement[];
+
+  /**
+   * The maximum cumulative tx size (in bytes) of pending txs before evicting lower priority txs.
+   */
+  maxTxPoolSize: number;
 }
 
 export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
@@ -210,10 +233,16 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     env: 'PEER_ID_PRIVATE_KEY',
     description: 'An optional peer id private key. If blank, will generate a random key.',
   },
+  peerIdPrivateKeyPath: {
+    env: 'PEER_ID_PRIVATE_KEY_PATH',
+    description:
+      'An optional path to store generated peer id private keys. If blank, will default to storing any generated keys in the root of the data directory.',
+  },
   bootstrapNodes: {
     env: 'BOOTSTRAP_NODES',
     parseEnv: (val: string) => val.split(','),
     description: 'A list of bootstrap peer ENRs to connect to. Separated by commas.',
+    defaultValue: [],
   },
   bootstrapNodeEnrVersionCheck: {
     env: 'P2P_BOOTSTRAP_NODE_ENR_VERSION_CHECK',
@@ -331,6 +360,23 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
     description: 'A list of trusted peers ENRs. Separated by commas.',
     defaultValue: [],
   },
+  p2pStoreMapSizeKb: {
+    env: 'P2P_STORE_MAP_SIZE_KB',
+    parseEnv: (val: string | undefined) => (val ? +val : undefined),
+    description: 'The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.',
+  },
+  txPublicSetupAllowList: {
+    env: 'TX_PUBLIC_SETUP_ALLOWLIST',
+    parseEnv: (val: string) => parseAllowList(val),
+    description: 'The list of functions calls allowed to run in setup',
+    printDefault: () =>
+      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
+  },
+  maxTxPoolSize: {
+    env: 'P2P_MAX_TX_POOL_SIZE',
+    description: 'The maximum cumulative tx size of pending txs (in bytes) before evicting lower priority txs.',
+    ...numberConfigHelper(100_000_000), // 100MB
+  },
   ...p2pReqRespConfigMappings,
   ...chainConfigMappings,
 };
@@ -352,7 +398,7 @@ export function getP2PDefaultConfig(): P2PConfig {
  */
 export type BootnodeConfig = Pick<
   P2PConfig,
-  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'bootstrapNodes' | 'listenAddress'
+  'p2pIp' | 'p2pPort' | 'peerIdPrivateKey' | 'peerIdPrivateKeyPath' | 'bootstrapNodes' | 'listenAddress'
 > &
   Required<Pick<P2PConfig, 'p2pIp' | 'p2pPort'>> &
   Pick<DataStoreConfig, 'dataDirectory' | 'dataStoreMapSizeKB'> &
@@ -361,7 +407,9 @@ export type BootnodeConfig = Pick<
 const bootnodeConfigKeys: (keyof BootnodeConfig)[] = [
   'p2pIp',
   'p2pPort',
+  'listenAddress',
   'peerIdPrivateKey',
+  'peerIdPrivateKeyPath',
   'dataDirectory',
   'dataStoreMapSizeKB',
   'bootstrapNodes',
@@ -372,3 +420,53 @@ export const bootnodeConfigMappings = pickConfigMappings(
   { ...p2pConfigMappings, ...dataConfigMappings, ...chainConfigMappings },
   bootnodeConfigKeys,
 );
+
+/**
+ * Parses a string to a list of allowed elements.
+ * Each encoded is expected to be of one of the following formats
+ * `I:${address}`
+ * `I:${address}:${selector}`
+ * `C:${classId}`
+ * `C:${classId}:${selector}`
+ *
+ * @param value The string to parse
+ * @returns A list of allowed elements
+ */
+export function parseAllowList(value: string): AllowedElement[] {
+  const entries: AllowedElement[] = [];
+
+  if (!value) {
+    return entries;
+  }
+
+  for (const val of value.split(',')) {
+    const [typeString, identifierString, selectorString] = val.split(':');
+    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
+
+    if (typeString === 'I') {
+      if (selector) {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          address: AztecAddress.fromString(identifierString),
+        });
+      }
+    } else if (typeString === 'C') {
+      if (selector) {
+        entries.push({
+          classId: Fr.fromHexString(identifierString),
+          selector,
+        });
+      } else {
+        entries.push({
+          classId: Fr.fromHexString(identifierString),
+        });
+      }
+    }
+  }
+
+  return entries;
+}

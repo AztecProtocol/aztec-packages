@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # If the given command succeeds, only stdout is output.
 # If the given command fails, both stdout and stderr are output.
 # As stdout is output as normal, the caller can redirect to /dev/null if they want to silence that also.
@@ -21,7 +21,7 @@ trap "rm $stdout $stderr" EXIT
 
 bash -c "$1" >$stdout 2>$stderr &
 pid=$!
-trap 'kill -SIGTERM $pid' SIGTERM
+trap 'kill -SIGTERM $pid &>/dev/null || true' SIGTERM
 # We wait twice, as the first awakening might be due to this script receiving SIGTERM.
 # In that case wait will return with 143, and the trap handler is immediately called.
 # We then wait on the pid again, to get the actual status code.
@@ -29,7 +29,8 @@ wait $pid
 wait $pid
 status=$?
 
-if [ "$status" -ne 0 ]; then
+# 0 or SIGTERM considered a success.
+if [ "$status" -ne 0 ] && [ "$status" -ne 143 ]; then
   {
     echo -e "${red}command failed${reset}: $* (exit: $status)"
     echo -e "${blue}--- stdout ---${reset}"

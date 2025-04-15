@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 set -eu
 
 SCRIPT_DIR="$(dirname $(realpath -s "${BASH_SOURCE[0]}"))"

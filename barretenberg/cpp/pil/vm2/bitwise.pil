@@ -92,14 +92,14 @@ last * (acc_ic - ic_byte) = 0;
 (acc_ic - ic_byte - 256 * acc_ic') * (1 - last) = 0;
 
 #[INTEGRAL_TAG_LENGTH]
-start {tag, ctr}
+start { tag, ctr }
 in
-precomputed.sel_integral_tag {precomputed.clk, precomputed.integral_tag_length};
+precomputed.sel_integral_tag { precomputed.clk, precomputed.integral_tag_length };
 
 #[BYTE_OPERATIONS]
-sel {op_id, ia_byte, ib_byte, ic_byte}
+sel { op_id, ia_byte, ib_byte, ic_byte }
 in
-precomputed.sel_bitwise {precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output};
+precomputed.sel_bitwise { precomputed.bitwise_op_id, precomputed.bitwise_input_a, precomputed.bitwise_input_b, precomputed.bitwise_output };
 
 // TODOs: See two following paragraphs
 

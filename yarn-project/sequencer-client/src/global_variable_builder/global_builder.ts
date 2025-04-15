@@ -1,19 +1,19 @@
 import {
   type L1ContractsConfig,
   type L1ReaderConfig,
+  RollupContract,
   type ViemPublicClient,
   createEthereumChain,
 } from '@aztec/ethereum';
 import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
-import { RollupAbi } from '@aztec/l1-artifacts';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { GasFees } from '@aztec/stdlib/gas';
 import type { GlobalVariableBuilder as GlobalVariableBuilderInterface } from '@aztec/stdlib/tx';
 import { GlobalVariables } from '@aztec/stdlib/tx';
 
-import { type GetContractReturnType, createPublicClient, fallback, getAddress, getContract, http } from 'viem';
+import { createPublicClient, fallback, http } from 'viem';
 
 /**
  * Simple global variables builder.
@@ -21,7 +21,7 @@ import { type GetContractReturnType, createPublicClient, fallback, getAddress, g
 export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
   private log = createLogger('sequencer:global_variable_builder');
 
-  private rollupContract: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
+  private rollupContract: RollupContract;
   private publicClient: ViemPublicClient;
   private ethereumSlotDuration: number;
 
@@ -38,11 +38,7 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
       pollingInterval: config.viemPollingIntervalMS,
     });
 
-    this.rollupContract = getContract({
-      address: getAddress(l1Contracts.rollupAddress.toString()),
-      abi: RollupAbi,
-      client: this.publicClient,
-    });
+    this.rollupContract = new RollupContract(this.publicClient, l1Contracts.rollupAddress);
   }
 
   /**
@@ -54,12 +50,12 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     // we need to fetch the last block written, and estimate the earliest timestamp for the next block.
     // The timestamp of that last block will act as a lower bound for the next block.
 
-    const lastBlock = await this.rollupContract.read.getBlock([await this.rollupContract.read.getPendingBlockNumber()]);
-    const earliestTimestamp = await this.rollupContract.read.getTimestampForSlot([lastBlock.slotNumber + 1n]);
+    const lastBlock = await this.rollupContract.getBlock(await this.rollupContract.getBlockNumber());
+    const earliestTimestamp = await this.rollupContract.getTimestampForSlot(lastBlock.slotNumber + 1n);
     const nextEthTimestamp = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
     const timestamp = earliestTimestamp > nextEthTimestamp ? earliestTimestamp : nextEthTimestamp;
 
-    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
+    return new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
   }
 
   /**
@@ -76,21 +72,21 @@ export class GlobalVariableBuilder implements GlobalVariableBuilderInterface {
     feeRecipient: AztecAddress,
     slotNumber?: bigint,
   ): Promise<GlobalVariables> {
-    const version = new Fr(await this.rollupContract.read.getVersion());
+    const version = new Fr(await this.rollupContract.getVersion());
     const chainId = new Fr(this.publicClient.chain.id);
 
     if (slotNumber === undefined) {
       const ts = BigInt((await this.publicClient.getBlock()).timestamp + BigInt(this.ethereumSlotDuration));
-      slotNumber = await this.rollupContract.read.getSlotAt([ts]);
+      slotNumber = await this.rollupContract.getSlotAt(ts);
     }
 
-    const timestamp = await this.rollupContract.read.getTimestampForSlot([slotNumber]);
+    const timestamp = await this.rollupContract.getTimestampForSlot(slotNumber);
 
     const slotFr = new Fr(slotNumber);
     const timestampFr = new Fr(timestamp);
 
     // We can skip much of the logic in getCurrentBaseFees since it we already check that we are not within a slot elsewhere.
-    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.read.getManaBaseFeeAt([timestamp, true])));
+    const gasFees = new GasFees(Fr.ZERO, new Fr(await this.rollupContract.getManaBaseFeeAt(timestamp, true)));
 
     const globalVariables = new GlobalVariables(
       chainId,

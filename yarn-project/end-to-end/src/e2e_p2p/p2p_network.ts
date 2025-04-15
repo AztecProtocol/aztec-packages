@@ -29,7 +29,7 @@ import {
   createSnapshotManager,
   deployAccounts,
 } from '../fixtures/snapshot_manager.js';
-import { getPrivateKeyFromIndex } from '../fixtures/utils.js';
+import { getPrivateKeyFromIndex, getSponsoredFPCAddress } from '../fixtures/utils.js';
 import { getEndToEndTestTelemetryClient } from '../fixtures/with_telemetry_utils.js';
 
 // Use a fixed bootstrap node private key so that we can re-use the same snapshot and the nodes can find each other
@@ -44,7 +44,8 @@ export const SHORTENED_BLOCK_TIME_CONFIG = {
 
 export class P2PNetworkTest {
   private snapshotManager: ISnapshotManager;
-  private baseAccount;
+  public baseAccountPrivateKey: `0x${string}`;
+  public baseAccount;
 
   public logger: Logger;
   public monitor!: ChainMonitor;
@@ -54,6 +55,8 @@ export class P2PNetworkTest {
   public attesterPublicKeys: string[] = [];
   public proposerPrivateKeys: `0x${string}`[] = [];
   public peerIdPrivateKeys: string[] = [];
+  public validators: { attester: `0x${string}`; proposer: `0x${string}`; withdrawer: `0x${string}`; amount: bigint }[] =
+    [];
 
   public deployedAccounts: InitialAccountData[] = [];
   public prefilledPublicData: PublicDataTreeLeaf[] = [];
@@ -79,7 +82,8 @@ export class P2PNetworkTest {
     this.logger = createLogger(`e2e:e2e_p2p:${testName}`);
 
     // Set up the base account and node private keys for the initial network deployment
-    this.baseAccount = privateKeyToAccount(`0x${getPrivateKeyFromIndex(0)!.toString('hex')}`);
+    this.baseAccountPrivateKey = `0x${getPrivateKeyFromIndex(0)!.toString('hex')}`;
+    this.baseAccount = privateKeyToAccount(this.baseAccountPrivateKey);
     this.proposerPrivateKeys = generatePrivateKeys(PROPOSER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPrivateKeys = generatePrivateKeys(ATTESTER_PRIVATE_KEYS_START_INDEX, numberOfNodes);
     this.attesterPublicKeys = this.attesterPrivateKeys.map(privateKey => privateKeyToAccount(privateKey).address);
@@ -96,9 +100,10 @@ export class P2PNetworkTest {
           initialValidatorConfig.aztecProofSubmissionWindow ?? l1ContractsConfig.aztecProofSubmissionWindow,
         salt: 420,
         metricsPort: metricsPort,
-        numberOfInitialFundedAccounts: 1,
+        numberOfInitialFundedAccounts: 2,
       },
       {
+        ...initialValidatorConfig,
         aztecEpochDuration: initialValidatorConfig.aztecEpochDuration ?? l1ContractsConfig.aztecEpochDuration,
         ethereumSlotDuration: initialValidatorConfig.ethereumSlotDuration ?? l1ContractsConfig.ethereumSlotDuration,
         aztecSlotDuration: initialValidatorConfig.aztecSlotDuration ?? l1ContractsConfig.aztecSlotDuration,
@@ -168,7 +173,7 @@ export class P2PNetworkTest {
     dateProvider.setTime(Number(timestamp.timestamp) * 1000);
   }
 
-  async applyBaseSnapshots() {
+  async addBootstrapNode() {
     await this.snapshotManager.snapshot('add-bootstrap-node', async ({ aztecNodeConfig }) => {
       const telemetry = getEndToEndTestTelemetryClient(this.metricsPort);
       this.bootstrapNode = await createBootstrapNodeFromPrivateKey(
@@ -180,6 +185,36 @@ export class P2PNetworkTest {
       // Overwrite enr with updated info
       this.bootstrapNodeEnr = this.bootstrapNode.getENR().encodeTxt();
     });
+  }
+
+  getValidators() {
+    const validators = [];
+    const proposerEOAs = [];
+
+    for (let i = 0; i < this.numberOfNodes; i++) {
+      const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
+      const proposerEOA = privateKeyToAccount(this.proposerPrivateKeys[i]!);
+      proposerEOAs.push(proposerEOA.address);
+      const forwarder = getExpectedAddress(
+        ForwarderAbi,
+        ForwarderBytecode,
+        [proposerEOA.address],
+        proposerEOA.address,
+      ).address;
+      validators.push({
+        attester: attester.address,
+        proposer: forwarder,
+        withdrawer: attester.address,
+        amount: l1ContractsConfig.minimumStake,
+      } as const);
+
+      this.logger.info(`Adding attester ${attester.address} proposer ${forwarder} as validator`);
+    }
+    return { validators, proposerEOAs };
+  }
+
+  async applyBaseSnapshots() {
+    await this.addBootstrapNode();
 
     await this.snapshotManager.snapshot(
       'add-validators',
@@ -212,29 +247,10 @@ export class P2PNetworkTest {
           ].map(txHash => deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: txHash })),
         );
 
-        const validators = [];
-
-        for (let i = 0; i < this.numberOfNodes; i++) {
-          const attester = privateKeyToAccount(this.attesterPrivateKeys[i]!);
-          const proposerEOA = privateKeyToAccount(this.proposerPrivateKeys[i]!);
-          const forwarder = getExpectedAddress(
-            ForwarderAbi,
-            ForwarderBytecode,
-            [proposerEOA.address],
-            proposerEOA.address,
-          ).address;
-          validators.push({
-            attester: attester.address,
-            proposer: forwarder,
-            withdrawer: attester.address,
-            amount: l1ContractsConfig.minimumStake,
-          } as const);
-
-          this.logger.verbose(`Adding (attester, proposer) pair: (${attester.address}, ${forwarder}) as validator`);
-        }
-
+        const { validators } = this.getValidators();
+        this.validators = validators;
         await deployL1ContractsValues.publicClient.waitForTransactionReceipt({
-          hash: await rollup.write.cheat__InitialiseValidatorSet([validators]),
+          hash: await rollup.write.cheat__InitialiseValidatorSet([this.validators]),
         });
 
         const slotsInEpoch = await rollup.read.getEpochDuration();
@@ -319,9 +335,11 @@ export class P2PNetworkTest {
   async setup() {
     this.ctx = await this.snapshotManager.setup();
 
-    this.prefilledPublicData = (
-      await getGenesisValues(this.ctx.initialFundedAccounts.map(a => a.address))
-    ).prefilledPublicData;
+    const sponsoredFPCAddress = await getSponsoredFPCAddress();
+    const initialFundedAccounts = [...this.ctx.initialFundedAccounts.map(a => a.address), sponsoredFPCAddress];
+
+    const { prefilledPublicData } = await getGenesisValues(initialFundedAccounts);
+    this.prefilledPublicData = prefilledPublicData;
 
     this.startSyncMockSystemTimeInterval();
 
