@@ -26,7 +26,10 @@ TEST(AluTraceGenTest, TraceGeneration)
 
     builder.process(
         {
-            { .operation = AluOperation::ADD, .a_addr = 0, .b_addr = 1, .dst_addr = 2, .a = 1, .b = 2, .res = 3 },
+            { .operation = AluOperation::ADD,
+              .a = MemoryValue::from<uint32_t>(1),
+              .b = MemoryValue::from<uint32_t>(2),
+              .c = MemoryValue::from<uint32_t>(3) },
         },
         trace);
 
@@ -35,9 +38,6 @@ TEST(AluTraceGenTest, TraceGeneration)
                     // Only one row.
                     AllOf(ROW_FIELD_EQ(R, alu_op, static_cast<uint8_t>(AluOperation::ADD)),
                           ROW_FIELD_EQ(R, alu_sel_op_add, 1),
-                          ROW_FIELD_EQ(R, alu_ia_addr, 0),
-                          ROW_FIELD_EQ(R, alu_ib_addr, 1),
-                          ROW_FIELD_EQ(R, alu_dst_addr, 2),
                           ROW_FIELD_EQ(R, alu_ia, 1),
                           ROW_FIELD_EQ(R, alu_ib, 2),
                           ROW_FIELD_EQ(R, alu_ic, 3))));

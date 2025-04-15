@@ -29,7 +29,14 @@ describe('VersionManager', () => {
 
     openSpy = jest.fn(() => Promise.resolve({}));
     upgradeSpy = jest.fn(() => Promise.resolve());
-    versionManager = new DatabaseVersionManager(currentVersion, rollupAddress, tempDir, openSpy, upgradeSpy, fs);
+    versionManager = new DatabaseVersionManager({
+      schemaVersion: currentVersion,
+      rollupAddress,
+      dataDirectory: tempDir,
+      onOpen: openSpy,
+      onUpgrade: upgradeSpy,
+      fileSystem: fs,
+    });
   });
 
   describe('open', () => {
@@ -68,7 +75,14 @@ describe('VersionManager', () => {
 
       it('when there is no way to upgrade', async () => {
         fs.readFile.mockResolvedValueOnce(new DatabaseVersion(currentVersion - 1, rollupAddress).toBuffer());
-        versionManager = new DatabaseVersionManager(currentVersion, rollupAddress, tempDir, openSpy, undefined, fs);
+        versionManager = new DatabaseVersionManager({
+          schemaVersion: currentVersion,
+          rollupAddress,
+          dataDirectory: tempDir,
+          onOpen: openSpy,
+          onUpgrade: undefined,
+          fileSystem: fs,
+        });
         const [_, wasReset] = await versionManager.open();
         expect(wasReset).toEqual(true);
       });

@@ -17,6 +17,12 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/constants@link:../yarn-project/constants::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/constants@link:../yarn-project/constants::locator=%40aztec%2Fplayground%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fplayground%40workspace%3A.":
   version: 0.0.0-use.local
   resolution: "@aztec/foundation@link:../yarn-project/foundation::locator=%40aztec%2Fplayground%40workspace%3A."
@@ -29,20 +35,30 @@ __metadata:
   languageName: node
   linkType: soft
 
+"@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fplayground%40workspace%3A.":
+  version: 0.0.0-use.local
+  resolution: "@aztec/noir-contracts.js@link:../yarn-project/noir-contracts.js::locator=%40aztec%2Fplayground%40workspace%3A."
+  languageName: node
+  linkType: soft
+
 "@aztec/playground@workspace:.":
   version: 0.0.0-use.local
   resolution: "@aztec/playground@workspace:."
   dependencies:
     "@aztec/accounts": "link:../yarn-project/accounts"
     "@aztec/aztec.js": "link:../yarn-project/aztec.js"
+    "@aztec/constants": "link:../yarn-project/constants"
     "@aztec/foundation": "link:../yarn-project/foundation"
     "@aztec/kv-store": "link:../yarn-project/kv-store"
+    "@aztec/noir-contracts.js": "link:../yarn-project/noir-contracts.js"
     "@aztec/pxe": "link:../yarn-project/pxe"
     "@aztec/stdlib": "link:../yarn-project/stdlib"
     "@emotion/react": "npm:^11.14.0"
     "@emotion/styled": "npm:^11.14.0"
     "@eslint/js": "npm:^9.18.0"
+    "@fontsource/inter": "npm:^5.2.5"
     "@fontsource/roboto": "npm:^5.1.1"
+    "@fontsource/space-grotesk": "npm:^5.2.6"
     "@mui/icons-material": "npm:^6.3.1"
     "@mui/material": "npm:^6.3.1"
     "@mui/styles": "npm:^6.3.1"
@@ -587,10 +603,24 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@fontsource/inter@npm:^5.2.5":
+  version: 5.2.5
+  resolution: "@fontsource/inter@npm:5.2.5"
+  checksum: 10c0/071e12a6a9c8cf6e95da43ba532e80eb8e35c1ffd2384c9c6555d7f222e306e22968f7c4fff5065b9f81503db622cf3de8a688fbc1cb0c04aa3803c797f6f6a0
+  languageName: node
+  linkType: hard
+
 "@fontsource/roboto@npm:^5.1.1":
   version: 5.1.1
   resolution: "@fontsource/roboto@npm:5.1.1"
   checksum: 10c0/913b254f3c64f6ede01c832051819e15d3bc3e6c9f0c778e92f63805d7a66179183ba036aaee994af22b4d3c21340a246c136a6bc6c569fd0e718e5e10e02789
+  languageName: node
+  linkType: hard
+
+"@fontsource/space-grotesk@npm:^5.2.6":
+  version: 5.2.6
+  resolution: "@fontsource/space-grotesk@npm:5.2.6"
+  checksum: 10c0/4ce284cac461031721c104844dbbeb8df75e3a1d3fd0573fcefc442f3aa8f5dd4362595cd067f09a2a47b7fd9a6f94f6882647da67139fd8e690cff9e603d39f
   languageName: node
   linkType: hard
 

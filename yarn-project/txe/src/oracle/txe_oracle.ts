@@ -23,6 +23,7 @@ import {
   ContractDataProvider,
   NoteDataProvider,
   PXEOracleInterface,
+  PrivateEventDataProvider,
   SyncDataProvider,
   TaggingDataProvider,
   enrichPublicSimulationError,
@@ -52,6 +53,7 @@ import {
 } from '@aztec/simulator/server';
 import {
   type ContractArtifact,
+  EventSelector,
   type FunctionAbi,
   FunctionSelector,
   type NoteSelector,
@@ -110,7 +112,6 @@ import { ForkCheckpoint, NativeWorldStateService } from '@aztec/world-state/nati
 import { TXENode } from '../node/txe_node.js';
 import { TXEAccountDataProvider } from '../util/txe_account_data_provider.js';
 import { TXEPublicContractDataSource } from '../util/txe_public_contract_data_source.js';
-import { TXEPublicTreesDB } from '../util/txe_public_dbs.js';
 
 export class TXE implements TypedOracle {
   private blockNumber = 1;
@@ -132,7 +133,7 @@ export class TXE implements TypedOracle {
 
   private committedBlocks = new Set<number>();
 
-  private VERSION = 1;
+  private ROLLUP_VERSION = 1;
   private CHAIN_ID = 1;
 
   private node: TXENode;
@@ -152,6 +153,7 @@ export class TXE implements TypedOracle {
     private syncDataProvider: SyncDataProvider,
     private taggingDataProvider: TaggingDataProvider,
     private addressDataProvider: AddressDataProvider,
+    private privateEventDataProvider: PrivateEventDataProvider,
     private accountDataProvider: TXEAccountDataProvider,
     private executionCache: HashedValuesCache,
     private contractAddress: AztecAddress,
@@ -160,20 +162,20 @@ export class TXE implements TypedOracle {
   ) {
     this.noteCache = new ExecutionNoteCache(this.getTxRequestHash());
 
-    this.node = new TXENode(this.blockNumber, this.VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
+    this.node = new TXENode(this.blockNumber, this.ROLLUP_VERSION, this.CHAIN_ID, nativeWorldStateService, baseFork);
     // Default msg_sender (for entrypoints) is now Fr.max_value rather than 0 addr (see #7190 & #7404)
     this.msgSender = AztecAddress.fromField(Fr.MAX_FIELD_VALUE);
 
     this.pxeOracleInterface = new PXEOracleInterface(
       this.node,
       this.keyStore,
-      this.simulationProvider,
       this.contractDataProvider,
       this.noteDataProvider,
       this.capsuleDataProvider,
       this.syncDataProvider,
       this.taggingDataProvider,
       this.addressDataProvider,
+      this.privateEventDataProvider,
       this.logger,
     );
   }
@@ -184,6 +186,7 @@ export class TXE implements TypedOracle {
     const baseFork = await nativeWorldStateService.fork();
 
     const addressDataProvider = new AddressDataProvider(store);
+    const privateEventDataProvider = new PrivateEventDataProvider(store);
     const contractDataProvider = new ContractDataProvider(store);
     const noteDataProvider = await NoteDataProvider.create(store);
     const syncDataProvider = new SyncDataProvider(store);
@@ -208,6 +211,7 @@ export class TXE implements TypedOracle {
       syncDataProvider,
       taggingDataProvider,
       addressDataProvider,
+      privateEventDataProvider,
       accountDataProvider,
       executionCache,
       await AztecAddress.random(),
@@ -671,7 +675,7 @@ export class TXE implements TypedOracle {
           MerkleTreeId.PUBLIC_DATA_TREE,
           lowLeafResult.index,
         )) as PublicDataTreeLeafPreimage;
-        value = preimage.value;
+        value = preimage.leaf.value;
       }
       this.logger.debug(`Oracle storage read: slot=${storageSlot.toString()} value=${value}`);
       values.push(value);
@@ -726,6 +730,8 @@ export class TXE implements TypedOracle {
     }
 
     txEffect.publicDataWrites = this.publicDataWrites;
+    txEffect.privateLogs = this.privateLogs;
+    txEffect.publicLogs = this.publicLogs;
 
     const body = new Body([txEffect]);
 
@@ -765,9 +771,9 @@ export class TXE implements TypedOracle {
       }
     }
 
-    await this.node.setTxEffect(blockNumber, new TxHash(new Fr(blockNumber)), txEffect);
-    this.node.addPrivateLogsByTags(this.blockNumber, this.privateLogs);
-    this.node.addPublicLogsByTags(this.blockNumber, this.publicLogs);
+    // At this point we always have a single tx in the block so we set the tx index to 0.
+    const txIndexInBlock = 0;
+    await this.node.processTxEffect(blockNumber, txIndexInBlock, new TxHash(new Fr(blockNumber)), txEffect);
 
     const stateReference = await fork.getStateReference();
     const archiveInfo = await fork.getTreeInfo(MerkleTreeId.ARCHIVE);
@@ -938,9 +944,13 @@ export class TXE implements TypedOracle {
     // See note at revert below.
     const checkpoint = await ForkCheckpoint.new(db);
     try {
-      const treesDB = new TXEPublicTreesDB(db, this);
       const contractsDB = new PublicContractsDB(new TXEPublicContractDataSource(this));
-      const simulator = new PublicTxSimulator(treesDB, contractsDB, globalVariables, /*doMerkleOperations=*/ true);
+      const simulator = new PublicTxSimulator(
+        this.baseFork,
+        contractsDB,
+        globalVariables,
+        /*doMerkleOperations=*/ false,
+      );
 
       const { usedTxRequestHashForNonces } = this.noteCache.finish();
       const firstNullifier = usedTxRequestHashForNonces
@@ -1076,20 +1086,8 @@ export class TXE implements TypedOracle {
     return await this.pxeOracleInterface.getIndexedTaggingSecretAsSender(this.contractAddress, sender, recipient);
   }
 
-  async syncNotes() {
-    const taggedLogsByRecipient = await this.pxeOracleInterface.syncTaggedLogs(
-      this.contractAddress,
-      await this.getBlockNumber(),
-      undefined,
-    );
-
-    for (const [recipient, taggedLogs] of taggedLogsByRecipient.entries()) {
-      await this.pxeOracleInterface.processTaggedLogs(
-        this.contractAddress,
-        taggedLogs,
-        AztecAddress.fromString(recipient),
-      );
-    }
+  async syncNotes(pendingTaggedLogArrayBaseSlot: Fr) {
+    await this.pxeOracleInterface.syncTaggedLogs(this.contractAddress, pendingTaggedLogArrayBaseSlot);
 
     await this.pxeOracleInterface.removeNullifiedNotes(this.contractAddress);
 
@@ -1103,7 +1101,7 @@ export class TXE implements TypedOracle {
     content: Fr[],
     noteHash: Fr,
     nullifier: Fr,
-    txHash: Fr,
+    txHash: TxHash,
     recipient: AztecAddress,
   ): Promise<void> {
     await this.pxeOracleInterface.deliverNote(
@@ -1212,7 +1210,7 @@ export class TXE implements TypedOracle {
       lowLeafResult.index,
     )) as PublicDataTreeLeafPreimage;
 
-    return preimage.value;
+    return preimage.leaf.value;
   }
 
   storeCapsule(contractAddress: AztecAddress, slot: Fr, capsule: Fr[]): Promise<void> {
@@ -1254,5 +1252,25 @@ export class TXE implements TypedOracle {
 
   getSharedSecret(address: AztecAddress, ephPk: Point): Promise<Point> {
     return this.pxeOracleInterface.getSharedSecret(address, ephPk);
+  }
+
+  storePrivateEventLog(
+    contractAddress: AztecAddress,
+    recipient: AztecAddress,
+    eventSelector: EventSelector,
+    logContent: Fr[],
+    txHash: TxHash,
+    logIndexInTx: number,
+    txIndexInBlock: number,
+  ): Promise<void> {
+    return this.pxeOracleInterface.storePrivateEventLog(
+      contractAddress,
+      recipient,
+      eventSelector,
+      logContent,
+      txHash,
+      logIndexInTx,
+      txIndexInBlock,
+    );
   }
 }

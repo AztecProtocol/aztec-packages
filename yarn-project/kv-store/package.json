@@ -14,8 +14,6 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
     "test": "yarn test:node && yarn test:browser && true"
@@ -32,6 +30,7 @@
     "idb": "^8.0.0",
     "lmdb": "^3.2.0",
     "msgpackr": "^1.11.2",
+    "ohash": "^2.0.11",
     "ordered-binary": "^1.5.3"
   },
   "devDependencies": {

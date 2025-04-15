@@ -1,6 +1,6 @@
 #include "translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include <array>
 #include <cstddef>
 #include <gtest/gtest.h>
@@ -107,7 +107,7 @@ TEST(TranslatorCircuitBuilder, SeveralOperationCorrectness)
     // Compute the batched evaluation of polynomials (multiplying by inverse to go from lower to higher)
     const auto& eccvm_ops = op_queue->get_eccvm_ops();
     for (const auto& ecc_op : eccvm_ops) {
-        op_accumulator = op_accumulator * x_inv + ecc_op.get_opcode_value();
+        op_accumulator = op_accumulator * x_inv + ecc_op.op_code.value();
         const auto [x_u256, y_u256] = ecc_op.get_base_point_standard_form();
         p_x_accumulator = p_x_accumulator * x_inv + x_u256;
         p_y_accumulator = p_y_accumulator * x_inv + y_u256;

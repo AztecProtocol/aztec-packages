@@ -243,6 +243,6 @@ export async function preloadCrsDataForServerSideProving(
 ): Promise<void> {
   if (realProofs) {
     const { Crs, GrumpkinCrs } = await import('@aztec/bb.js');
-    await Promise.all([Crs.new(2 ** 25 - 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
+    await Promise.all([Crs.new(2 ** 25 + 1, undefined, log), GrumpkinCrs.new(2 ** 18 + 1, undefined, log)]);
   }
 }

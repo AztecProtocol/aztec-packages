@@ -6,14 +6,12 @@
 #include <tuple>
 #include <utility>
 
+#include "barretenberg/api/get_bytecode.hpp"
 #include "barretenberg/common/container.hpp"
+#include "barretenberg/common/map.hpp"
 #include "barretenberg/dsl/acir_format/recursion_constraint.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
-#ifndef __wasm__
-#include "barretenberg/api/get_bytecode.hpp"
-#endif
-#include "barretenberg/common/map.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 
 namespace acir_format {
@@ -32,7 +30,7 @@ using namespace bb;
 template <typename T>
 T deserialize_any_format(std::vector<uint8_t> const& buf,
                          std::function<T(msgpack::object const&)> decode_msgpack,
-                         std::function<T(std::vector<uint8_t>)> decode_binpack)
+                         std::function<T(std::vector<uint8_t>)> decode_bincode)
 {
     // We can't rely on exceptions to try to deserialize binpack, falling back to
     // msgpack if it fails, because exceptions are (or were) not supported in Wasm
@@ -67,12 +65,12 @@ T deserialize_any_format(std::vector<uint8_t> const& buf,
                 }
             }
         }
-        // `buf[0] == 0` would indicate bincode starting with a format byte,
+        // `buf[0] == 1` would indicate bincode starting with a format byte,
         // but if it's a coincidence and it fails to parse then we can't recover
         // from it, so let's just acknowledge that for now we don't want to
         // exercise this code path and treat the whole data as bincode.
     }
-    return decode_binpack(buf);
+    return decode_bincode(buf);
 }
 
 /**
@@ -1000,7 +998,6 @@ WitnessVectorStack witness_buf_to_witness_stack(std::vector<uint8_t> const& buf)
     return witness_vector_stack;
 }
 
-#ifndef __wasm__
 AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
                                         std::string const& witness_path,
                                         uint32_t honk_recursion)
@@ -1024,6 +1021,5 @@ AcirProgramStack get_acir_program_stack(std::string const& bytecode_path,
 
     return { std::move(constraint_systems), std::move(witness_stack) };
 }
-#endif
 
 } // namespace acir_format

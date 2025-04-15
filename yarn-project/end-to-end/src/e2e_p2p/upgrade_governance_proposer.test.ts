@@ -47,6 +47,9 @@ describe('e2e_p2p_governance_proposer', () => {
       metricsPort: shouldCollectMetrics(),
       initialConfig: {
         ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
+        governanceProposerQuorum: 6,
+        governanceProposerRoundSize: 10,
       },
     });
 
@@ -76,6 +79,8 @@ describe('e2e_p2p_governance_proposer', () => {
       client: t.ctx.deployL1ContractsValues.publicClient,
     });
 
+    const roundSize = await governanceProposer.read.M();
+
     const governance = getContract({
       address: getAddress(t.ctx.deployL1ContractsValues.l1ContractAddresses.governanceAddress.toString()),
       abi: GovernanceAbi,
@@ -94,7 +99,9 @@ describe('e2e_p2p_governance_proposer', () => {
       });
     };
 
-    const nextRoundTimestamp = await rollup.getTimestampForSlot(((await rollup.getSlotNumber()) / 10n) * 10n + 10n);
+    const nextRoundTimestamp = await rollup.getTimestampForSlot(
+      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
+    );
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp));
 
     const { address: newPayloadAddress } = await deployL1Contract(
@@ -162,7 +169,9 @@ describe('e2e_p2p_governance_proposer', () => {
 
     expect(govData.leaderVotes).toBeGreaterThan(govBefore.leaderVotes);
 
-    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(((await rollup.getSlotNumber()) / 10n) * 10n + 10n);
+    const nextRoundTimestamp2 = await rollup.getTimestampForSlot(
+      ((await rollup.getSlotNumber()) / roundSize) * roundSize + roundSize,
+    );
     t.logger.info(`Warpping to ${nextRoundTimestamp2}`);
     await t.ctx.cheatCodes.eth.warp(Number(nextRoundTimestamp2));
 

@@ -26,6 +26,6 @@ PrivateFunctionBroadcastedEvent {
     Fr<0x1a0ca5eecb1430479902264f04e557160a4666fb42bb8b283c6397e3d17ac937>,
     Fr<0x2a6595890719fef7967c209488728aa5342438ba52058a3c770202f55acf6854>,
   ],
-  "unconstrainedFunctionsArtifactTreeRoot": Fr<0x0602a113eb715538d26370d53819aa5d1f653c7f0509a2aa9c5abdc03872a87d>,
+  "utilityFunctionsTreeRoot": Fr<0x0602a113eb715538d26370d53819aa5d1f653c7f0509a2aa9c5abdc03872a87d>,
 }
 `;

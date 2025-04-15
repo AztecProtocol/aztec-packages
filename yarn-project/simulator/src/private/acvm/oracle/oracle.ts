@@ -1,8 +1,9 @@
 import { Fr, Point } from '@aztec/foundation/fields';
-import { FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
+import { EventSelector, FunctionSelector, NoteSelector } from '@aztec/stdlib/abi';
 import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import { ContractClassLog, LogWithTxData } from '@aztec/stdlib/logs';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import type { ACVMField } from '../acvm_types.js';
 import { fromBoundedVec, fromUintArray, fromUintBoundedVec } from '../deserialize.js';
@@ -371,8 +372,8 @@ export class Oracle {
     return [];
   }
 
-  async syncNotes(): Promise<ACVMField[]> {
-    await this.typedOracle.syncNotes();
+  async syncNotes([pendingTaggedLogArrayBaseSlot]: ACVMField[]): Promise<ACVMField[]> {
+    await this.typedOracle.syncNotes(Fr.fromString(pendingTaggedLogArrayBaseSlot));
     return [];
   }
 
@@ -397,7 +398,7 @@ export class Oracle {
       fromBoundedVec(content, contentLength),
       Fr.fromString(noteHash),
       Fr.fromString(nullifier),
-      Fr.fromString(txHash),
+      TxHash.fromString(txHash),
       AztecAddress.fromString(recipient),
     );
 
@@ -489,5 +490,27 @@ export class Oracle {
       Point.fromFields([ephPKField0, ephPKField1, ephPKField2].map(Fr.fromString)),
     );
     return secret.toFields().map(toACVMField);
+  }
+
+  async storePrivateEventLog(
+    [contractAddress]: ACVMField[],
+    [recipient]: ACVMField[],
+    [eventSelector]: ACVMField[],
+    msgContentBVecStorage: ACVMField[],
+    [msgContentLength]: ACVMField[],
+    [txHash]: ACVMField[],
+    [logIndexInTx]: ACVMField[],
+    [txIndexInBlock]: ACVMField[],
+  ) {
+    await this.typedOracle.storePrivateEventLog(
+      AztecAddress.fromField(Fr.fromString(contractAddress)),
+      AztecAddress.fromField(Fr.fromString(recipient)),
+      EventSelector.fromField(Fr.fromString(eventSelector)),
+      fromBoundedVec(msgContentBVecStorage, msgContentLength),
+      new TxHash(Fr.fromString(txHash)),
+      Fr.fromString(logIndexInTx).toNumber(),
+      Fr.fromString(txIndexInBlock).toNumber(),
+    );
+    return [];
   }
 }

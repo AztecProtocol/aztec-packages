@@ -413,10 +413,6 @@ resource "aws_ecs_task_definition" "aztec-node" {
           value = "false"
         },
         {
-          name  = "PROVER_AGENT_CONCURRENCY",
-          value = "0"
-        },
-        {
           name  = "PROVER_REAL_PROOFS"
           value = tostring(var.PROVING_ENABLED)
         },

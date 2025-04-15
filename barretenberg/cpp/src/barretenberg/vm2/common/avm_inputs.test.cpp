@@ -7,6 +7,7 @@
 
 #include "barretenberg/api/file_io.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 
 namespace bb::avm2 {
 namespace {
@@ -21,6 +22,24 @@ TEST(AvmInputsTest, Deserialization)
     // that we have here. If someone changes the structure of the inputs in TS, this test would
     // force them to update the C++ structs as well (and therefore any usage of these structs).
     AvmProvingInputs::from(data);
+}
+
+TEST(AvmInputsTest, FormatTransformations)
+{
+    using ::testing::AllOf;
+    using ::testing::ElementsAre;
+    using ::testing::SizeIs;
+
+    PublicInputs pi = testing::get_minimal_trace_with_pi().second;
+    auto as_cols = pi.to_columns();
+    auto flattened = PublicInputs::columns_to_flat(as_cols);
+    auto unflattened = PublicInputs::flat_to_columns(flattened);
+
+    ASSERT_THAT(as_cols, SizeIs(1));
+    EXPECT_THAT(as_cols[0], ElementsAre(0));
+    EXPECT_THAT(flattened, ElementsAre(0));
+
+    EXPECT_EQ(as_cols, unflattened);
 }
 
 } // namespace
