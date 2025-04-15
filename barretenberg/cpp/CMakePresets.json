@@ -700,21 +700,21 @@
       "configurePreset": "wasm-threads-dbg",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "bb_cli_bench"]
     },
     {
       "name": "wasm-threads-assert",
       "configurePreset": "wasm-threads-assert",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm"]
+      "targets": ["barretenberg.wasm", "bb_cli_bench"]
     },
     {
       "name": "wasm-threads",
       "configurePreset": "wasm-threads",
       "inheritConfigureEnvironment": true,
       "jobs": 0,
-      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz"]
+      "targets": ["barretenberg.wasm", "barretenberg.wasm.gz", "bb_cli_bench"]
     },
     {
       "name": "xray",
