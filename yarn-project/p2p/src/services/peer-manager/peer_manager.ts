@@ -264,7 +264,6 @@ export class PeerManager {
   public getPeers(includePending = false): PeerInfo[] {
     const connected = this.libP2PNode
       .getPeers()
-      .filter(peer => !this.isPrivatePeer(peer))
       .map(peer => ({ id: peer.toString(), score: this.getPeerScore(peer.toString()), status: 'connected' as const }));
 
     if (!includePending) {
@@ -284,7 +283,6 @@ export class PeerManager {
     const cachedPeers = Array.from(this.cachedPeers.values())
       .filter(peer => !dialQueue.some(dialPeer => dialPeer.id && peer.peerId.toString() === dialPeer.id.toString()))
       .filter(peer => !connected.some(connPeer => connPeer.id.toString() === peer.peerId.toString()))
-      .filter(peer => !this.isPrivatePeer(peer.peerId))
       .map(peer => ({
         status: 'cached' as const,
         id: peer.peerId.toString(),
@@ -310,8 +308,9 @@ export class PeerManager {
     const peersToConnect = this.config.maxPeerCount - healthyConnections.length - this.trustedPeers.size;
 
     const logLevel = this.heartbeatCounter % this.displayPeerCountsPeerHeartbeat === 0 ? 'info' : 'debug';
-    this.logger[logLevel](`Connected to ${healthyConnections.length} peers`, {
-      connections: healthyConnections.length,
+    this.logger[logLevel](`Connected to ${healthyConnections.length + this.trustedPeers.size} peers`, {
+      discoveredConnections: healthyConnections.length,
+      protectedConnections: this.trustedPeers.size,
       maxPeerCount: this.config.maxPeerCount,
       cachedPeers: this.cachedPeers.size,
       ...this.peerScoring.getStats(),

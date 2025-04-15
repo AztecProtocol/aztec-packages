@@ -34,6 +34,7 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
 
   private bootstrapNodePeerIds: PeerId[] = [];
   public bootstrapNodeEnrs: ENR[] = [];
+  private trustedPeerEnrs: ENR[] = [];
 
   private startTime = 0;
 
@@ -51,8 +52,10 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
     configOverrides: Partial<IDiscv5CreateOptions> = {},
   ) {
     super();
-    const { p2pIp, p2pPort, bootstrapNodes } = config;
+    const { p2pIp, p2pPort, bootstrapNodes, trustedPeers, privatePeers } = config;
     this.bootstrapNodeEnrs = bootstrapNodes.map(x => ENR.decodeTxt(x));
+    const privatePeerEnrs = new Set(privatePeers);
+    this.trustedPeerEnrs = trustedPeers.filter(x => !privatePeerEnrs.has(x)).map(x => ENR.decodeTxt(x));
     // create ENR from PeerId
     this.enr = SignableENR.createFromPeerId(peerId);
     // Add aztec identification to ENR
@@ -157,6 +160,18 @@ export class DiscV5Service extends EventEmitter implements PeerDiscoveryService 
         } catch (e) {
           this.logger.error(`Error adding bootratrap node ${enr.encodeTxt()}`, e);
         }
+      }
+    }
+
+    // Add trusted peer ENRs if provided
+    if (this.trustedPeerEnrs?.length) {
+      this.logger.info(
+        `Adding ${this.trustedPeerEnrs.length} trusted peer ENRs: ${this.trustedPeerEnrs
+          .map(enr => enr.encodeTxt())
+          .join(', ')}`,
+      );
+      for (const enr of this.trustedPeerEnrs) {
+        this.discv5.addEnr(enr);
       }
     }
   }
