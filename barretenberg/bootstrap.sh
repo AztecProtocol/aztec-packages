@@ -44,10 +44,11 @@ case "$cmd" in
     ;;
   bootstrap_e2e_hack)
     echo "WARNING: This assumes you have only built barretenberg and the rest of the repository is unchanged from master."
+    echo "WARNING: This is only sound if you have not changed VK generation! (or noir-projects VKs will be incorrect)."
     echo "WARNING: It builds up until yarn-project and allows end-to-end tests (not boxes/playground/release image etc)."
     merge_base=$(git merge-base HEAD origin/master)
     for project in noir avm-transpiler noir-projects l1-contracts yarn-project ; do
-      AZTEC_CACHE_COMMIT=$merge_base $project/bootstrap.sh
+      AZTEC_CACHE_COMMIT=$merge_base ../$project/bootstrap.sh
     done
     ;;
   *)
