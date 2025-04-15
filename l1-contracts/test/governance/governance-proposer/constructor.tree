@@ -1,0 +1,7 @@
+ConstructorTest
+├── when N is less than or equal half of M
+│   └── it revert
+├── when N larger than M
+│   └── it revert
+└── when N is greather than half of M
+    └── it deploys

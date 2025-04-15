@@ -1,10 +1,10 @@
-import { type AccountWallet, AztecAddress, BatchCall, Fr } from '@aztec/aztec.js';
-import { pedersenHash } from '@aztec/foundation/crypto';
-import { NFTContract } from '@aztec/noir-contracts.js';
+import { type AccountWallet, AztecAddress, Fr } from '@aztec/aztec.js';
+import { NFTContract } from '@aztec/noir-contracts.js/NFT';
 
 import { jest } from '@jest/globals';
 
 import { setup } from './fixtures/utils.js';
+import { capturePrivateExecutionStepsIfEnvSet } from './shared/capture_private_execution_steps.js';
 
 const TIMEOUT = 120_000;
 
@@ -24,7 +24,6 @@ describe('NFT', () => {
 
   // Arbitrary token id
   const TOKEN_ID = Fr.random().toBigInt();
-  const TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX = 3;
 
   beforeAll(async () => {
     let wallets: AccountWallet[];
@@ -51,7 +50,9 @@ describe('NFT', () => {
   it('minter mints to a user', async () => {
     const nftContractAsMinter = await NFTContract.at(nftContractAddress, minterWallet);
 
-    await nftContractAsMinter.methods.mint(user1Wallet.getAddress(), TOKEN_ID).send().wait();
+    const nftMintInteraction = nftContractAsMinter.methods.mint(user1Wallet.getAddress(), TOKEN_ID);
+    await capturePrivateExecutionStepsIfEnvSet('nft-mint', nftMintInteraction);
+    await nftMintInteraction.send().wait();
 
     const ownerAfterMint = await nftContractAsMinter.methods.owner_of(TOKEN_ID).simulate();
     expect(ownerAfterMint).toEqual(user1Wallet.getAddress());
@@ -60,63 +61,44 @@ describe('NFT', () => {
   it('transfers to private', async () => {
     const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
 
-    // In a simple "shield" flow the sender and recipient are the same. In the "uniswap swap to private" flow
-    // it would be the uniswap contract.
-    const recipient = user1Wallet.getAddress();
-    const sender = recipient;
-    const transientStorageSlotRandomness = Fr.random();
-    const transferPreparerStorageSlotCommitment = pedersenHash(
-      [user1Wallet.getAddress(), transientStorageSlotRandomness],
-      TRANSIENT_STORAGE_SLOT_PEDERSEN_INDEX,
-    );
+    // In a simple "shield" flow the sender and recipient are the same. In the "AMM swap to private" flow
+    // the sender would be the AMM contract.
+    const recipient = user2Wallet.getAddress();
 
-    const { debugInfo } = await new BatchCall(user1Wallet, [
-      nftContractAsUser1.methods
-        .prepare_transfer_to_private(sender, recipient, transientStorageSlotRandomness)
-        .request(),
-      nftContractAsUser1.methods
-        .finalize_transfer_to_private(TOKEN_ID, transferPreparerStorageSlotCommitment)
-        .request(),
-    ])
-      .send()
-      .wait({ debug: true });
+    await nftContractAsUser1.methods.transfer_to_private(recipient, TOKEN_ID).send().wait();
 
     const publicOwnerAfter = await nftContractAsUser1.methods.owner_of(TOKEN_ID).simulate();
     expect(publicOwnerAfter).toEqual(AztecAddress.ZERO);
-
-    // We should get 4 data writes setting values to 0 - 3 for note hiding point and 1 for public owner (we transfer
-    // to private so public owner is set to 0). Ideally we would have here only 1 data write as the 4 values change
-    // from zero to non-zero to zero in the tx and hence no write could be committed. This makes public writes
-    // squashing too expensive for transient storage. This however probably does not matter as I assume we will want
-    // to implement a real transient storage anyway. (Informed Leila about the potential optimization.)
-    const publicDataWritesValues = debugInfo!.publicDataWrites!.map(write => write.newValue.toBigInt());
-    expect(publicDataWritesValues).toEqual([0n, 0n, 0n, 0n]);
   });
 
   it('transfers in private', async () => {
-    const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
+    const nftContractAsUser2 = await NFTContract.at(nftContractAddress, user2Wallet);
 
-    await nftContractAsUser1.methods
-      .transfer_in_private(user1Wallet.getAddress(), user2Wallet.getAddress(), TOKEN_ID, 0)
-      .send()
-      .wait();
+    const nftTransferInteraction = nftContractAsUser2.methods.transfer_in_private(
+      user2Wallet.getAddress(),
+      user1Wallet.getAddress(),
+      TOKEN_ID,
+      0,
+    );
+    await capturePrivateExecutionStepsIfEnvSet('nft-transfer-in-private', nftTransferInteraction);
+    await nftTransferInteraction.send().wait();
 
     const user1Nfts = await getPrivateNfts(user1Wallet.getAddress());
-    expect(user1Nfts).toEqual([]);
+    expect(user1Nfts).toEqual([TOKEN_ID]);
 
     const user2Nfts = await getPrivateNfts(user2Wallet.getAddress());
-    expect(user2Nfts).toEqual([TOKEN_ID]);
+    expect(user2Nfts).toEqual([]);
   });
 
   it('transfers to public', async () => {
-    const nftContractAsUser2 = await NFTContract.at(nftContractAddress, user2Wallet);
+    const nftContractAsUser1 = await NFTContract.at(nftContractAddress, user1Wallet);
 
-    await nftContractAsUser2.methods
-      .transfer_to_public(user2Wallet.getAddress(), user2Wallet.getAddress(), TOKEN_ID, 0)
+    await nftContractAsUser1.methods
+      .transfer_to_public(user1Wallet.getAddress(), user2Wallet.getAddress(), TOKEN_ID, 0)
       .send()
       .wait();
 
-    const publicOwnerAfter = await nftContractAsUser2.methods.owner_of(TOKEN_ID).simulate();
+    const publicOwnerAfter = await nftContractAsUser1.methods.owner_of(TOKEN_ID).simulate();
     expect(publicOwnerAfter).toEqual(user2Wallet.getAddress());
   });
 

@@ -1,32 +1,34 @@
-#!/bin/sh
-set -e
+#!/usr/bin/env bash
+set -eu
 
-alias aztec='node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js'
+# if the registry address is already set and the bootstrap nodes are set, then we don't need to wait for the services
+if [ -n "$REGISTRY_CONTRACT_ADDRESS" ] && [ -n "$BOOTSTRAP_NODES" ]; then
+  cat <<EOF >/shared/contracts/contracts.env
+export BOOTSTRAP_NODES=$BOOTSTRAP_NODES
+export REGISTRY_CONTRACT_ADDRESS=$REGISTRY_CONTRACT_ADDRESS
+EOF
+  cat /shared/contracts/contracts.env
+  exit 0
+fi
+
 
 # Pass the bootnode url as an argument
 # Ask the bootnode for l1 contract addresses
-output=$(aztec get-node-info -u $1)
+output=$(node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js get-node-info --node-url $1)
 
 echo "$output"
 
-boot_node_enr=$(echo "$output" | grep -oP 'Node ENR: \Kenr:[a-zA-Z0-9\-\_\.]+')
-rollup_address=$(echo "$output" | grep -oP 'Rollup Address: \K0x[a-fA-F0-9]{40}')
+boot_node_enr=""
+if [ "$P2P_ENABLED" = "true" ]; then
+  # Only look for boot node ENR if P2P is enabled
+  boot_node_enr=$(echo "$output" | grep -oP 'Node ENR: \Kenr:[a-zA-Z0-9\-\_\.]+')
+fi
 registry_address=$(echo "$output" | grep -oP 'Registry Address: \K0x[a-fA-F0-9]{40}')
-inbox_address=$(echo "$output" | grep -oP 'L1 -> L2 Inbox Address: \K0x[a-fA-F0-9]{40}')
-outbox_address=$(echo "$output" | grep -oP 'L2 -> L1 Outbox Address: \K0x[a-fA-F0-9]{40}')
-fee_juice_address=$(echo "$output" | grep -oP 'Fee Juice Address: \K0x[a-fA-F0-9]{40}')
-fee_juice_portal_address=$(echo "$output" | grep -oP 'Fee Juice Portal Address: \K0x[a-fA-F0-9]{40}')
-
 
 # Write the addresses to a file in the shared volume
-cat <<EOF > /shared/contracts.env
+cat <<EOF >/shared/contracts/contracts.env
 export BOOTSTRAP_NODES=$boot_node_enr
-export ROLLUP_CONTRACT_ADDRESS=$rollup_address
 export REGISTRY_CONTRACT_ADDRESS=$registry_address
-export INBOX_CONTRACT_ADDRESS=$inbox_address
-export OUTBOX_CONTRACT_ADDRESS=$outbox_address
-export FEE_JUICE_CONTRACT_ADDRESS=$fee_juice_address
-export FEE_JUICE_PORTAL_CONTRACT_ADDRESS=$fee_juice_portal_address
 EOF
 
-cat /shared/contracts.env
+cat /shared/contracts/contracts.env

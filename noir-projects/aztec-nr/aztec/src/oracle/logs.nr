@@ -1,85 +1,49 @@
-use dep::protocol_types::address::AztecAddress;
+use crate::messages::encoding::MAX_MESSAGE_CONTENT_LEN;
+use protocol_types::{abis::event_selector::EventSelector, address::AztecAddress};
 
-/// Informs the simulator that an encrypted note log has been emitted, helping it keep track of side-effects and easing
-/// debugging.
-pub fn emit_encrypted_note_log<let M: u32>(note_hash_counter: u32, encrypted_note: [u8; M], counter: u32) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
-    unsafe {
-        emit_encrypted_note_log_oracle_wrapper(note_hash_counter, encrypted_note, counter)
-    }
-}
-
-/// Informs the simulator that an encrypted event log has been emitted, helping it keep track of side-effects and easing
-/// debugging.
-pub fn emit_encrypted_event_log<let M: u32>(contract_address: AztecAddress, randomness: Field, encrypted_event: [u8; M], counter: u32) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
-    unsafe {
-        emit_encrypted_event_log_oracle_wrapper(contract_address, randomness, encrypted_event, counter)
-    }
-}
-
-/// Informs the simulator that an unencrypted log has been emitted, helping it keep track of side-effects and easing
-/// debugging.
-pub fn emit_unencrypted_log_private<T>(contract_address: AztecAddress, message: T, counter: u32) {
-    // This oracle call returns nothing: we only call it for its side effects. It is therefore always safe to call.
-    unsafe {
-        emit_unencrypted_log_private_oracle_wrapper(contract_address, message, counter)
-    }
-}
-
-unconstrained fn emit_encrypted_note_log_oracle_wrapper<let M: u32>(note_hash_counter: u32, encrypted_note: [u8; M], counter: u32) {
-    emit_encrypted_note_log_oracle(note_hash_counter, encrypted_note, counter)
-}
-
-unconstrained fn emit_encrypted_event_log_oracle_wrapper<let M: u32>(
+/// The below only exists to broadcast the raw log, so we can provide it to the base rollup later to be constrained.
+pub unconstrained fn notify_created_contract_class_log<let N: u32>(
     contract_address: AztecAddress,
-    randomness: Field,
-    encrypted_event: [u8; M],
-    counter: u32
+    message: [Field; N],
+    counter: u32,
 ) {
-    emit_encrypted_event_log_oracle(contract_address, randomness, encrypted_event, counter)
+    notify_created_contract_class_log_private_oracle(contract_address, message, counter)
 }
 
-unconstrained fn emit_unencrypted_log_private_oracle_wrapper<T>(contract_address: AztecAddress, message: T, counter: u32) {
-    let _ = emit_unencrypted_log_private_oracle(contract_address, message, counter);
-}
-
-/// Temporary substitute for `emit_unencrypted_log_private` that is used for handling contract class registration. This
-/// variant returns the log hash, which would be too large to compute inside a circuit.
-unconstrained pub fn emit_contract_class_unencrypted_log_private<let N: u32>(
+#[oracle(notifyCreatedContractClassLog)]
+unconstrained fn notify_created_contract_class_log_private_oracle<let N: u32>(
     contract_address: AztecAddress,
     message: [Field; N],
-    counter: u32
-) -> Field {
-    emit_contract_class_unencrypted_log_private_oracle(contract_address, message, counter)
+    counter: u32,
+) {}
+
+pub unconstrained fn store_private_event_log(
+    contract_address: AztecAddress,
+    recipient: AztecAddress,
+    event_selector: EventSelector,
+    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+    tx_hash: Field,
+    log_index_in_tx: Field,
+    tx_index_in_block: Field,
+) {
+    store_private_event_log_oracle(
+        contract_address,
+        recipient,
+        event_selector,
+        msg_content,
+        tx_hash,
+        log_index_in_tx,
+        tx_index_in_block,
+    )
 }
 
-// = 480 + 32 * N bytes
-#[oracle(emitEncryptedNoteLog)]
-unconstrained fn emit_encrypted_note_log_oracle<let M: u32>(
-    _note_hash_counter: u32,
-    _encrypted_note: [u8; M],
-    _counter: u32
-) {}
-
-#[oracle(emitEncryptedEventLog)]
-unconstrained fn emit_encrypted_event_log_oracle<let M: u32>(
-    _contract_address: AztecAddress,
-    _randomness: Field,
-    _encrypted_event: [u8; M],
-    _counter: u32
-) {}
-
-#[oracle(emitUnencryptedLog)]
-unconstrained fn emit_unencrypted_log_private_oracle<T>(
-    _contract_address: AztecAddress,
-    _message: T,
-    _counter: u32
-) -> Field {}
-
-#[oracle(emitContractClassUnencryptedLog)]
-unconstrained fn emit_contract_class_unencrypted_log_private_oracle<let N: u32>(
+#[oracle(storePrivateEventLog)]
+unconstrained fn store_private_event_log_oracle(
     contract_address: AztecAddress,
-    message: [Field; N],
-    counter: u32
-) -> Field {}
+    recipient: AztecAddress,
+    event_selector: EventSelector,
+    msg_content: BoundedVec<Field, MAX_MESSAGE_CONTENT_LEN>,
+    tx_hash: Field,
+    log_index_in_tx: Field,
+    tx_index_in_block: Field,
+) {}

@@ -1,15 +1,18 @@
 use crate::{
-    address::AztecAddress, abis::function_data::FunctionData,
-    constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH}, hash::poseidon2_hash_with_separator,
-    traits::{Hash, Serialize, Deserialize, Empty}, transaction::tx_context::TxContext,
-    utils::reader::Reader
+    abis::function_data::FunctionData,
+    address::AztecAddress,
+    constants::{GENERATOR_INDEX__TX_REQUEST, TX_REQUEST_LENGTH},
+    hash::poseidon2_hash_with_separator,
+    traits::{Deserialize, Empty, Hash, Serialize, ToField},
+    transaction::tx_context::TxContext,
+    utils::reader::Reader,
 };
 
 pub struct TxRequest {
-    origin: AztecAddress,
-    args_hash: Field,
-    tx_context: TxContext,
-    function_data: FunctionData,
+    pub origin: AztecAddress,
+    pub args_hash: Field,
+    pub tx_context: TxContext,
+    pub function_data: FunctionData,
 }
 
 impl Empty for TxRequest {
@@ -18,7 +21,7 @@ impl Empty for TxRequest {
             origin: AztecAddress::empty(),
             args_hash: 0,
             tx_context: TxContext::empty(),
-            function_data: FunctionData::empty()
+            function_data: FunctionData::empty(),
         }
     }
 }
@@ -50,7 +53,7 @@ impl Serialize<TX_REQUEST_LENGTH> for TxRequest {
 
         assert_eq(fields.len(), TX_REQUEST_LENGTH);
 
-        fields.storage
+        fields.storage()
     }
 }
 
@@ -62,7 +65,7 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
             origin: reader.read_struct(AztecAddress::deserialize),
             args_hash: reader.read(),
             tx_context: reader.read_struct(TxContext::deserialize),
-            function_data: reader.read_struct(FunctionData::deserialize)
+            function_data: reader.read_struct(FunctionData::deserialize),
         };
 
         reader.finish();
@@ -73,10 +76,12 @@ impl Deserialize<TX_REQUEST_LENGTH> for TxRequest {
 mod tests {
     use crate::{
         abis::{
-        function_selector::FunctionSelector, function_data::FunctionData, gas_settings::GasSettings,
-        gas::Gas, gas_fees::GasFees
-    },
-        address::AztecAddress, transaction::{tx_request::TxRequest, tx_context::TxContext}
+            function_data::FunctionData, function_selector::FunctionSelector, gas::Gas,
+            gas_fees::GasFees, gas_settings::GasSettings,
+        },
+        address::AztecAddress,
+        traits::{Deserialize, Empty, FromField, Hash, Serialize},
+        transaction::{tx_context::TxContext, tx_request::TxRequest},
     };
 
     #[test]
@@ -89,15 +94,24 @@ mod tests {
 
     #[test]
     fn compute_hash() {
-        let gas_settings = GasSettings::new(Gas::new(2, 2), Gas::new(1, 1), GasFees::new(3, 3), 10);
+        let gas_settings = GasSettings::new(
+            Gas::new(2, 2),
+            Gas::new(1, 1),
+            GasFees::new(4, 4),
+            GasFees::new(3, 3),
+        );
         let tx_request = TxRequest {
             origin: AztecAddress::from_field(1),
             args_hash: 3,
             tx_context: TxContext { chain_id: 0, version: 0, gas_settings },
-            function_data: FunctionData { selector: FunctionSelector::from_u32(2), is_private: true }
+            function_data: FunctionData {
+                selector: FunctionSelector::from_u32(2),
+                is_private: true,
+            },
         };
         // Value from tx_request.test.ts "compute hash" test
-        let test_data_tx_request_hash = 0x289d3f85f463f3449e2204433b860574d351e9fbd97a01a722239fdd9ce3ce9b;
+        let test_data_tx_request_hash =
+            0x2d265ee0e3b9d206873a66527485afa3c6ebbfbaf451811666c9558a9f6e3d46;
         assert(tx_request.hash() == test_data_tx_request_hash);
     }
 }

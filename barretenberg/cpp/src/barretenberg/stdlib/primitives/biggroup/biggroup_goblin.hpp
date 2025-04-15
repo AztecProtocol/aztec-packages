@@ -10,6 +10,7 @@
 #include "barretenberg/ecc/curves/bn254/g1.hpp"
 #include "barretenberg/ecc/curves/secp256k1/secp256k1.hpp"
 #include "barretenberg/ecc/curves/secp256r1/secp256r1.hpp"
+#include "barretenberg/transcript/origin_tag.hpp"
 
 namespace bb::stdlib::element_goblin {
 
@@ -28,11 +29,15 @@ namespace bb::stdlib::element_goblin {
  * @tparam Fr
  * @tparam NativeGroup
  */
-template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_element {
+template <class Builder_, class Fq, class Fr, class NativeGroup> class goblin_element {
   public:
+    using Builder = Builder_;
     using BaseField = Fq;
     using bool_ct = stdlib::bool_t<Builder>;
     using biggroup_tag = goblin_element; // Facilitates a constexpr check IsBigGroup
+
+    // Number of bb::fr field elements used to represent a goblin element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = Fq::PUBLIC_INPUTS_SIZE * 2;
 
     goblin_element() = default;
     goblin_element(const typename NativeGroup::affine_element& input)
@@ -51,12 +56,22 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     goblin_element& operator=(goblin_element&& other) noexcept = default;
     ~goblin_element() = default;
 
+    void assert_equal(const goblin_element& other) const
+    {
+        if (this->get_value() != other.get_value()) {
+            info("WARNING: goblin_element::assert_equal value check failed!");
+        }
+        x.assert_equal(other.x);
+        y.assert_equal(other.y);
+    }
+
     static goblin_element from_witness(Builder* ctx, const typename NativeGroup::affine_element& input)
     {
         goblin_element out;
+        // ECCVM requires points at infinity to be represented by 0-value x/y coords
         if (input.is_point_at_infinity()) {
-            Fq x = Fq::from_witness(ctx, NativeGroup::affine_one.x);
-            Fq y = Fq::from_witness(ctx, NativeGroup::affine_one.y);
+            Fq x = Fq::from_witness(ctx, bb::fq(0));
+            Fq y = Fq::from_witness(ctx, bb::fq(0));
             out.x = x;
             out.y = y;
         } else {
@@ -67,6 +82,15 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         }
         out.set_point_at_infinity(witness_t<Builder>(ctx, input.is_point_at_infinity()));
         return out;
+    }
+
+    /**
+     * @brief Creates fixed witnesses from a constant element.
+     **/
+    void convert_constant_to_fixed_witness(Builder* builder)
+    {
+        this->x.convert_constant_to_fixed_witness(builder);
+        this->y.convert_constant_to_fixed_witness(builder);
     }
 
     void validate_on_curve() const
@@ -83,6 +107,16 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return goblin_element(x_fq, y_fq);
     }
 
+    static goblin_element point_at_infinity(Builder* ctx)
+    {
+        Fr zero = Fr::from_witness_index(ctx, ctx->zero_idx);
+        Fq x_fq(zero, zero);
+        Fq y_fq(zero, zero);
+        goblin_element result(x_fq, y_fq);
+        result.set_point_at_infinity(true);
+        return result;
+    }
+
     goblin_element checked_unconditional_add(const goblin_element& other) const
     {
         return goblin_element::operator+(*this, other);
@@ -96,12 +130,64 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
     {
         return batch_mul({ *this, other }, { Fr(1), Fr(1) });
     }
+
     goblin_element operator-(const goblin_element& other) const
     {
-        std::vector<goblin_element> points{ *this, other };
-        return batch_mul({ *this, other }, { Fr(1), -Fr(1) });
+        auto builder = get_context(other);
+        // Check that the internal accumulator is zero
+        ASSERT(builder->op_queue->get_accumulator().is_point_at_infinity());
+
+        // Compute the result natively, and validate that result + other == *this
+        typename NativeGroup::affine_element result_value = typename NativeGroup::affine_element(
+            typename NativeGroup::element(get_value()) - typename NativeGroup::element(other.get_value()));
+
+        ecc_op_tuple op_tuple;
+        op_tuple = builder->queue_ecc_add_accum(other.get_value());
+        {
+            auto x_lo = Fr::from_witness_index(builder, op_tuple.x_lo);
+            auto x_hi = Fr::from_witness_index(builder, op_tuple.x_hi);
+            auto y_lo = Fr::from_witness_index(builder, op_tuple.y_lo);
+            auto y_hi = Fr::from_witness_index(builder, op_tuple.y_hi);
+            x_lo.assert_equal(other.x.limbs[0]);
+            x_hi.assert_equal(other.x.limbs[1]);
+            y_lo.assert_equal(other.y.limbs[0]);
+            y_hi.assert_equal(other.y.limbs[1]);
+        }
+
+        ecc_op_tuple op_tuple2 = builder->queue_ecc_add_accum(result_value);
+        auto x_lo = Fr::from_witness_index(builder, op_tuple2.x_lo);
+        auto x_hi = Fr::from_witness_index(builder, op_tuple2.x_hi);
+        auto y_lo = Fr::from_witness_index(builder, op_tuple2.y_lo);
+        auto y_hi = Fr::from_witness_index(builder, op_tuple2.y_hi);
+
+        Fq result_x(x_lo, x_hi);
+        Fq result_y(y_lo, y_hi);
+        goblin_element result(result_x, result_y);
+
+        // if the output is at infinity, this is represented by x/y coordinates being zero
+        // because they are all 136-bit, we can do a cheap zerocheck by first summing the limbs
+        auto op2_is_infinity = (x_lo.add_two(x_hi, y_lo) + y_hi).is_zero();
+        result.set_point_at_infinity(op2_is_infinity);
+        {
+            ecc_op_tuple op_tuple3 = builder->queue_ecc_eq();
+            auto x_lo = Fr::from_witness_index(builder, op_tuple3.x_lo);
+            auto x_hi = Fr::from_witness_index(builder, op_tuple3.x_hi);
+            auto y_lo = Fr::from_witness_index(builder, op_tuple3.y_lo);
+            auto y_hi = Fr::from_witness_index(builder, op_tuple3.y_hi);
+
+            x_lo.assert_equal(x.limbs[0]);
+            x_hi.assert_equal(x.limbs[1]);
+            y_lo.assert_equal(y.limbs[0]);
+            y_hi.assert_equal(y.limbs[1]);
+        }
+
+        // Set the tag of the result to the union of the tags of inputs
+        result.set_origin_tag(OriginTag(get_origin_tag(), other.get_origin_tag()));
+        return result;
     }
-    goblin_element operator-() const { return batch_mul({ *this }, { -Fr(1) }); }
+
+    goblin_element operator-() const { return point_at_infinity(get_context()) - *this; }
+
     goblin_element operator+=(const goblin_element& other)
     {
         *this = *this + other;
@@ -141,7 +227,7 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
 
     goblin_element dbl() const { return batch_mul({ *this }, { 2 }); }
 
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/707) max_num_bits is unused; could implement and
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1291) max_num_bits is unused; could implement and
     // use this to optimize other operations. interface compatible with biggroup.hpp, the final parameter
     // handle_edge_cases is not needed as this is always done in the eccvm
     static goblin_element batch_mul(const std::vector<goblin_element>& points,
@@ -210,12 +296,63 @@ template <class Builder, class Fq, class Fr, class NativeGroup> class goblin_ele
         return result;
     }
 
+    OriginTag get_origin_tag() const
+    {
+        return OriginTag(x.get_origin_tag(), y.get_origin_tag(), _is_infinity.get_origin_tag());
+    }
+
+    void set_origin_tag(const OriginTag& tag)
+    {
+        x.set_origin_tag(tag);
+        y.set_origin_tag(tag);
+        _is_infinity.set_origin_tag(tag);
+    }
+
+    /**
+     * @brief Set the witness indices representing the goblin element to public
+     * @details Even though the coordinates of a goblin element are goblin field elements which may be represented using
+     * two native field elements, we store them in the public inputs as if they were bigfield elements, each of which is
+     * represented by four native field elements. This uniformity is imposed for simplicity but could be reconsidered if
+     * desired.
+     *
+     * @return uint32_t The index into the public inputs array at which the representation of the goblin element starts
+     */
+    uint32_t set_public() const
+    {
+        const uint32_t start_idx = x.set_public();
+        y.set_public();
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct a goblin element from its representation as limbs stored in the public inputs
+     * @details For consistency with biggroup, a goblin element is represented in the public inputs using eight field
+     * elements (even though it could be represented using only four).
+     *
+     * @param limbs
+     * @return goblin_element
+     */
+    static goblin_element reconstruct_from_public(const std::span<const Fr, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        const size_t FRS_PER_FQ = Fq::PUBLIC_INPUTS_SIZE;
+        std::span<const Fr, FRS_PER_FQ> x_limbs{ limbs.data(), FRS_PER_FQ };
+        std::span<const Fr, FRS_PER_FQ> y_limbs{ limbs.data() + FRS_PER_FQ, FRS_PER_FQ };
+
+        return { Fq::reconstruct_from_public(x_limbs), Fq::reconstruct_from_public(y_limbs) };
+    }
+
     Fq x;
     Fq y;
 
   private:
     bool_ct _is_infinity;
 };
+
+using BiggroupGoblin = goblin_element<bb::MegaCircuitBuilder,
+                                      bb::stdlib::goblin_field<MegaCircuitBuilder>,
+                                      stdlib::field_t<MegaCircuitBuilder>,
+                                      bb::g1>;
 
 template <typename C, typename Fq, typename Fr, typename G>
 inline std::ostream& operator<<(std::ostream& os, goblin_element<C, Fq, Fr, G> const& v)

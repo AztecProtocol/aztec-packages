@@ -1,17 +1,20 @@
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
+import type { ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { type ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
-import { type Wallet } from '../wallet/index.js';
-import { getDeployerContract } from './protocol_contracts.js';
+import type { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
+import { getDeployerContract } from '../contract/protocol_contracts.js';
+import type { Wallet } from '../wallet/index.js';
 
 /**
  * Sets up a call to the canonical deployer contract to publicly deploy a contract instance.
  * @param wallet - The wallet to use for the deployment.
  * @param instance - The instance to deploy.
  */
-export function deployInstance(wallet: Wallet, instance: ContractInstanceWithAddress): ContractFunctionInteraction {
-  const deployerContract = getDeployerContract(wallet);
-  const { salt, contractClassId, publicKeysHash, deployer } = instance;
+export async function deployInstance(
+  wallet: Wallet,
+  instance: ContractInstanceWithAddress,
+): Promise<ContractFunctionInteraction> {
+  const deployerContract = await getDeployerContract(wallet);
+  const { salt, currentContractClassId: contractClassId, publicKeys, deployer } = instance;
   const isUniversalDeploy = deployer.isZero();
   if (!isUniversalDeploy && !wallet.getAddress().equals(deployer)) {
     throw new Error(
@@ -22,7 +25,7 @@ export function deployInstance(wallet: Wallet, instance: ContractInstanceWithAdd
     salt,
     contractClassId,
     instance.initializationHash,
-    publicKeysHash,
+    publicKeys,
     isUniversalDeploy,
   );
 }

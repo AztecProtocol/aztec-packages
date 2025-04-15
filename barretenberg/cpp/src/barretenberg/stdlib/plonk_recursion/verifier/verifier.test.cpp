@@ -57,7 +57,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         std::conditional_t<is_ultra_to_ultra, recursive_settings, ultra_to_standard_recursive_settings>;
 
     struct circuit_outputs {
-        recursion::aggregation_state<outer_curve> aggregation_state;
+        recursion::aggregation_state<OuterBuilder> aggregation_state;
         std::shared_ptr<verification_key_pt> verification_key;
     };
 
@@ -268,7 +268,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         plonk::transcript::Manifest recursive_manifest =
             InnerComposer::create_manifest(prover_a.key->num_public_inputs);
 
-        stdlib::recursion::aggregation_state<outer_curve> output =
+        stdlib::recursion::aggregation_state<OuterBuilder> output =
             stdlib::recursion::verify_proof<outer_curve, RecursiveSettings>(
                 &outer_circuit, verification_key, recursive_manifest, recursive_proof);
 
@@ -285,9 +285,9 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
      * @return boolean result
      */
 
-    static bool check_recursive_proof_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
+    static bool check_pairing_point_accum_public_inputs(OuterBuilder& builder, const bb::pairing::miller_lines* lines)
     {
-        if (builder.contains_recursive_proof) {
+        if (builder.contains_pairing_point_accumulator) {
             const auto& inputs = builder.public_inputs;
             const auto recover_fq_from_public_inputs =
                 [&inputs, &builder](const size_t idx0, const size_t idx1, const size_t idx2, const size_t idx3) {
@@ -302,22 +302,22 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
                     return outer_scalar_field(limb);
                 };
 
-            const auto x0 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[0],
-                                                          builder.recursive_proof_public_input_indices[1],
-                                                          builder.recursive_proof_public_input_indices[2],
-                                                          builder.recursive_proof_public_input_indices[3]);
-            const auto y0 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[4],
-                                                          builder.recursive_proof_public_input_indices[5],
-                                                          builder.recursive_proof_public_input_indices[6],
-                                                          builder.recursive_proof_public_input_indices[7]);
-            const auto x1 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[8],
-                                                          builder.recursive_proof_public_input_indices[9],
-                                                          builder.recursive_proof_public_input_indices[10],
-                                                          builder.recursive_proof_public_input_indices[11]);
-            const auto y1 = recover_fq_from_public_inputs(builder.recursive_proof_public_input_indices[12],
-                                                          builder.recursive_proof_public_input_indices[13],
-                                                          builder.recursive_proof_public_input_indices[14],
-                                                          builder.recursive_proof_public_input_indices[15]);
+            const auto x0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[0],
+                                                          builder.pairing_point_accumulator_public_input_indices[1],
+                                                          builder.pairing_point_accumulator_public_input_indices[2],
+                                                          builder.pairing_point_accumulator_public_input_indices[3]);
+            const auto y0 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[4],
+                                                          builder.pairing_point_accumulator_public_input_indices[5],
+                                                          builder.pairing_point_accumulator_public_input_indices[6],
+                                                          builder.pairing_point_accumulator_public_input_indices[7]);
+            const auto x1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[8],
+                                                          builder.pairing_point_accumulator_public_input_indices[9],
+                                                          builder.pairing_point_accumulator_public_input_indices[10],
+                                                          builder.pairing_point_accumulator_public_input_indices[11]);
+            const auto y1 = recover_fq_from_public_inputs(builder.pairing_point_accumulator_public_input_indices[12],
+                                                          builder.pairing_point_accumulator_public_input_indices[13],
+                                                          builder.pairing_point_accumulator_public_input_indices[14],
+                                                          builder.pairing_point_accumulator_public_input_indices[15]);
             g1::affine_element P_affine[2]{
                 { x0, y0 },
                 { x1, y1 },
@@ -345,20 +345,14 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
     static void check_recursive_verification_circuit(OuterBuilder& outer_circuit, bool expected_result)
     {
         info("number of gates in recursive verification circuit = ", outer_circuit.get_estimated_num_finalized_gates());
-        OuterComposer outer_composer;
-        auto prover = outer_composer.create_prover(outer_circuit);
-        auto verifier = outer_composer.create_verifier(outer_circuit);
-        auto proof = prover.construct_proof();
-        auto result = verifier.verify_proof(proof);
-        // bool result = CircuitChecker::check(outer_circuit);
+        const bool result = CircuitChecker::check(outer_circuit);
         EXPECT_EQ(result, expected_result);
-        static_cast<void>(expected_result);
         auto g2_lines = srs::get_bn254_crs_factory()->get_verifier_crs()->get_precomputed_g2_lines();
-        EXPECT_EQ(check_recursive_proof_public_inputs(outer_circuit, g2_lines), true);
+        EXPECT_EQ(check_pairing_point_accum_public_inputs(outer_circuit, g2_lines), true);
     }
 
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     static void test_inner_circuit()
     {
@@ -392,7 +386,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
         EXPECT_EQ(outer_circuit.failed(), false);
 
         check_pairing(circuit_output);
@@ -410,7 +404,7 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
 
         auto circuit_output = create_outer_circuit(inner_circuit, outer_circuit);
 
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
         EXPECT_EQ(outer_circuit.failed(), false);
 
         check_pairing(circuit_output);
@@ -446,14 +440,14 @@ template <typename OuterComposer> class stdlib_verifier : public testing::Test {
         ASSERT(a2.get_msb() <= 68);
         ASSERT(a3.get_msb() <= 68);
 
-        circuit_output_a.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output_a.aggregation_state.assign_object_to_proof_outputs_for_plonk();
 
         auto circuit_output_b = create_outer_circuit(inner_circuit_b, mid_circuit_b);
 
-        circuit_output_b.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output_b.aggregation_state.assign_object_to_proof_outputs_for_plonk();
 
         auto circuit_output = create_double_outer_circuit(mid_circuit_a, mid_circuit_b, outer_circuit);
-        circuit_output.aggregation_state.assign_object_to_proof_outputs();
+        circuit_output.aggregation_state.assign_object_to_proof_outputs_for_plonk();
 
         check_pairing(circuit_output);
         check_recursive_verification_circuit(outer_circuit, true);

@@ -1,15 +1,17 @@
 use crate::{
-    address::AztecAddress, constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
-    traits::{Empty, Serialize, Deserialize}, utils::{arrays::array_concat, reader::Reader},
     abis::{
-    side_effect::Scoped,
-    validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator
-}
+        side_effect::Scoped,
+        validation_requests::key_validation_request_and_generator::KeyValidationRequestAndGenerator,
+    },
+    address::AztecAddress,
+    constants::SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH,
+    traits::{Deserialize, Empty, Serialize, ToField},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct ScopedKeyValidationRequestAndGenerator {
-    request: KeyValidationRequestAndGenerator,
-    contract_address: AztecAddress,
+    pub request: KeyValidationRequestAndGenerator,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<KeyValidationRequestAndGenerator> for ScopedKeyValidationRequestAndGenerator {
@@ -29,7 +31,10 @@ impl Eq for ScopedKeyValidationRequestAndGenerator {
 
 impl Empty for ScopedKeyValidationRequestAndGenerator {
     fn empty() -> Self {
-        ScopedKeyValidationRequestAndGenerator { request: KeyValidationRequestAndGenerator::empty(), contract_address: AztecAddress::zero() }
+        ScopedKeyValidationRequestAndGenerator {
+            request: KeyValidationRequestAndGenerator::empty(),
+            contract_address: AztecAddress::zero(),
+        }
     }
 }
 
@@ -44,7 +49,7 @@ impl Deserialize<SCOPED_KEY_VALIDATION_REQUEST_AND_GENERATOR_LENGTH> for ScopedK
         let mut reader = Reader::new(fields);
         let res = Self {
             request: reader.read_struct(KeyValidationRequestAndGenerator::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize)
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res

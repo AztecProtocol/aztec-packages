@@ -12,9 +12,9 @@ contract RecursiveUltraTest is TestBaseUltra {
         super.setUp();
 
         verifier = IVerifier(address(new RecursiveUltraVerifier()));
-        fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Recursive);
+        fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Recursive);
 
-        PUBLIC_INPUT_COUNT = 16;
+        PUBLIC_INPUT_COUNT = 0;
 
         // Add default inputs to the fuzzer (we will override these in fuzz test)
         uint256[] memory defaultInputs = new uint256[](3);

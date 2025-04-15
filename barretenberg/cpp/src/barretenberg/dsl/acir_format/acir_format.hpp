@@ -2,7 +2,7 @@
 #include "aes128_constraint.hpp"
 
 #ifndef DISABLE_AZTEC_VM
-#include "avm_recursion_constraint.hpp"
+#include "avm2_recursion_constraint.hpp"
 #endif
 
 #include "barretenberg/client_ivc/client_ivc.hpp"
@@ -19,11 +19,9 @@
 #include "keccak_constraint.hpp"
 #include "logic_constraint.hpp"
 #include "multi_scalar_mul.hpp"
-#include "pedersen.hpp"
 #include "poseidon2_constraint.hpp"
 #include "range_constraint.hpp"
 #include "recursion_constraint.hpp"
-#include "schnorr_verify.hpp"
 #include "sha256_constraint.hpp"
 #include <cstdint>
 #include <utility>
@@ -42,15 +40,11 @@ struct AcirFormatOriginalOpcodeIndices {
     std::vector<size_t> range_constraints;
     std::vector<size_t> aes128_constraints;
     std::vector<size_t> sha256_compression;
-    std::vector<size_t> schnorr_constraints;
     std::vector<size_t> ecdsa_k1_constraints;
     std::vector<size_t> ecdsa_r1_constraints;
     std::vector<size_t> blake2s_constraints;
     std::vector<size_t> blake3_constraints;
-    std::vector<size_t> keccak_constraints;
     std::vector<size_t> keccak_permutations;
-    std::vector<size_t> pedersen_constraints;
-    std::vector<size_t> pedersen_hash_constraints;
     std::vector<size_t> poseidon2_constraints;
     std::vector<size_t> multi_scalar_mul_constraints;
     std::vector<size_t> ec_add_constraints;
@@ -79,7 +73,6 @@ struct AcirFormat {
     // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
     // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in order
     // to be able to verify SNARKs on Ethereum.
-    bool recursive;
 
     uint32_t num_acir_opcodes;
 
@@ -90,15 +83,11 @@ struct AcirFormat {
     std::vector<RangeConstraint> range_constraints;
     std::vector<AES128Constraint> aes128_constraints;
     std::vector<Sha256Compression> sha256_compression;
-    std::vector<SchnorrConstraint> schnorr_constraints;
     std::vector<EcdsaSecp256k1Constraint> ecdsa_k1_constraints;
     std::vector<EcdsaSecp256r1Constraint> ecdsa_r1_constraints;
     std::vector<Blake2sConstraint> blake2s_constraints;
     std::vector<Blake3Constraint> blake3_constraints;
-    std::vector<KeccakConstraint> keccak_constraints;
     std::vector<Keccakf1600> keccak_permutations;
-    std::vector<PedersenConstraint> pedersen_constraints;
-    std::vector<PedersenHashConstraint> pedersen_hash_constraints;
     std::vector<Poseidon2Constraint> poseidon2_constraints;
     std::vector<MultiScalarMul> multi_scalar_mul_constraints;
     std::vector<EcAdd> ec_add_constraints;
@@ -142,15 +131,11 @@ struct AcirFormat {
                    range_constraints,
                    aes128_constraints,
                    sha256_compression,
-                   schnorr_constraints,
                    ecdsa_k1_constraints,
                    ecdsa_r1_constraints,
                    blake2s_constraints,
                    blake3_constraints,
-                   keccak_constraints,
                    keccak_permutations,
-                   pedersen_constraints,
-                   pedersen_hash_constraints,
                    poseidon2_constraints,
                    multi_scalar_mul_constraints,
                    ec_add_constraints,
@@ -175,7 +160,7 @@ using WitnessVectorStack = std::vector<std::pair<uint32_t, WitnessVector>>;
 
 struct AcirProgram {
     AcirFormat constraints;
-    WitnessVector witness;
+    WitnessVector witness = {};
 };
 
 /**
@@ -188,9 +173,9 @@ struct AcirProgramStack {
     std::vector<AcirFormat> constraint_systems;
     WitnessVectorStack witness_stack;
 
-    AcirProgramStack(const std::vector<AcirFormat>& constraint_systems_in, const WitnessVectorStack& witness_stack_in)
-        : constraint_systems(constraint_systems_in)
-        , witness_stack(witness_stack_in)
+    AcirProgramStack(std::vector<AcirFormat> constraint_systems_in, WitnessVectorStack witness_stack_in)
+        : constraint_systems(std::move(constraint_systems_in))
+        , witness_stack(std::move(witness_stack_in))
     {}
 
     size_t size() const { return witness_stack.size(); }
@@ -208,28 +193,47 @@ struct AcirProgramStack {
     void pop_back() { witness_stack.pop_back(); }
 };
 
+struct ProgramMetadata {
+
+    // An IVC instance; needed to construct a circuit from IVC recursion constraints
+    std::shared_ptr<ClientIVC> ivc = nullptr;
+
+    bool recursive = false; // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
+                            // The proof produced when this flag is true should be friendly for recursive verification
+                            // inside of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen
+                            // for hashing in its transcript, while we still want a prove that uses Keccak for its
+                            // transcript in order to be able to verify SNARKs on Ethereum.
+    uint32_t honk_recursion = 0; // honk_recursion means we will honk to recursively verify this
+                                 // circuit. This distinction is needed to not add the default
+                                 // aggregation object when we're not using the honk RV.
+                                 // 0 means we are not proving with honk
+                                 // 1 means we are using the UltraHonk flavor
+                                 // 2 means we are using the UltraRollupHonk flavor
+    bool collect_gates_per_opcode = false;
+    size_t size_hint = 0;
+};
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
+template <typename Builder = bb::UltraCircuitBuilder>
+Builder create_circuit(AcirProgram& program, const ProgramMetadata& metadata = ProgramMetadata{});
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1161) Refactor this function
 template <typename Builder = bb::UltraCircuitBuilder>
 Builder create_circuit(AcirFormat& constraint_system,
+                       // Specifies whether a prover that produces SNARK recursion friendly proofs should be used.
+                       // The proof produced when this flag is true should be friendly for recursive verification inside
+                       // of another SNARK. For example, a recursive friendly proof may use Blake3Pedersen for
+                       // hashing in its transcript, while we still want a prove that uses Keccak for its transcript in
+                       // order to be able to verify SNARKs on Ethereum.
+                       bool recursive,
                        const size_t size_hint = 0,
                        const WitnessVector& witness = {},
-                       bool honk_recursion = false,
+                       uint32_t honk_recursion = 0,
                        std::shared_ptr<bb::ECCOpQueue> op_queue = std::make_shared<bb::ECCOpQueue>(),
                        bool collect_gates_per_opcode = false);
 
-MegaCircuitBuilder create_kernel_circuit(AcirFormat& constraint_system,
-                                         ClientIVC& ivc,
-                                         const WitnessVector& witness = {},
-                                         const size_t size_hint = 0);
-
 template <typename Builder>
-void build_constraints(
-    Builder& builder,
-    AcirFormat& constraint_system,
-    bool has_valid_witness_assignments,
-    bool honk_recursion = false,
-    bool collect_gates_per_opcode = false); // honk_recursion means we will honk to recursively verify this
-                                            // circuit. This distinction is needed to not add the default
-                                            // aggregation object when we're not using the honk RV.
+void build_constraints(Builder& builder, AcirProgram& program, const ProgramMetadata& metadata);
 
 /**
  * @brief Utility class for tracking the gate count of acir constraints
@@ -273,12 +277,22 @@ void process_plonk_recursion_constraints(Builder& builder,
 void process_honk_recursion_constraints(Builder& builder,
                                         AcirFormat& constraint_system,
                                         bool has_valid_witness_assignments,
-                                        GateCounter<Builder>& gate_counter);
+                                        GateCounter<Builder>& gate_counter,
+                                        uint32_t honk_recursion);
+
+void process_ivc_recursion_constraints(MegaCircuitBuilder& builder,
+                                       AcirFormat& constraints,
+                                       ClientIVC* ivc,
+                                       bool has_valid_witness_assignments,
+                                       GateCounter<MegaCircuitBuilder>& gate_counter);
 
 #ifndef DISABLE_AZTEC_VM
-void process_avm_recursion_constraints(Builder& builder,
-                                       AcirFormat& constraint_system,
-                                       GateCounter<Builder>& gate_counter);
+stdlib::recursion::aggregation_state<Builder> process_avm_recursion_constraints(
+    Builder& builder,
+    AcirFormat& constraint_system,
+    bool has_valid_witness_assignments,
+    GateCounter<Builder>& gate_counter,
+    stdlib::recursion::aggregation_state<Builder> current_aggregation_object);
 #endif
 
 } // namespace acir_format

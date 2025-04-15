@@ -4,10 +4,17 @@ import { spawn } from "child_process";
 import { ethers } from "ethers";
 import solc from "solc";
 
+// Size excluding number of public inputs
 const NUMBER_OF_FIELDS_IN_PLONK_PROOF = 93;
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1093): This is the size of the proof up to Sumcheck, without public inputs, as the Honk contract does not currently have a PCS.
-// This needs to be changed once Shplemini is implemented in the smart contract.
-const NUMBER_OF_FIELDS_IN_HONK_PROOF = 303;
+const NUMBER_OF_FIELDS_IN_HONK_PROOF = 456;
+const NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF = 507;
+
+const WRONG_PROOF_LENGTH = "0xed74ac0a";
+const WRONG_PUBLIC_INPUTS_LENGTH = "0xfa066593";
+const SUMCHECK_FAILED = "0x9fc3a218";
+const SHPLEMINI_FAILED = "0xa5d82e8a";
+const CONSISTENCY_FAILED = "0xa2a2ac83";
+const GEMINI_CHALLENGE_IN_SUBGROUP = "0x835eb8f7";
 
 // We use the solcjs compiler version in this test, although it is slower than foundry, to run the test end to end
 // it simplifies of parallelising the test suite
@@ -49,6 +56,10 @@ const [test, verifier] = await Promise.all([
   fsPromises.readFile(verifierPath, encoding),
 ]);
 
+// If testing honk is set, then we compile the honk test suite
+const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
+const hasZK = getEnvVarCanBeUndefined("HAS_ZK");
+
 export const compilationInput = {
   language: "Solidity",
   sources: {
@@ -63,7 +74,11 @@ export const compilationInput = {
     // we require the optimizer
     optimizer: {
       enabled: true,
-      runs: 200,
+      runs: 1,
+    },
+    metadata: {
+      appendCBOR: false,
+      bytecodeHash: "none",
     },
     outputSelection: {
       "*": {
@@ -73,10 +88,10 @@ export const compilationInput = {
   },
 };
 
-// If testing honk is set, then we compile the honk test suite
-const testingHonk = getEnvVarCanBeUndefined("TESTING_HONK");
 const NUMBER_OF_FIELDS_IN_PROOF = testingHonk
-  ? NUMBER_OF_FIELDS_IN_HONK_PROOF
+  ? hasZK
+    ? NUMBER_OF_FIELDS_IN_HONK_ZK_PROOF
+    : NUMBER_OF_FIELDS_IN_HONK_PROOF
   : NUMBER_OF_FIELDS_IN_PLONK_PROOF;
 if (!testingHonk) {
   const keyPath = getEnvVar("KEY_PATH");
@@ -95,6 +110,16 @@ if (!testingHonk) {
 }
 
 var output = JSON.parse(solc.compile(JSON.stringify(compilationInput)));
+
+output.errors.forEach((e) => {
+  // Stop execution if the contract exceeded the allowed bytecode size
+  if (e.errorCode == "5574") throw new Error(JSON.stringify(e));
+  // Throw if there are compilation errors
+  if (e.severity == "error") {
+    throw new Error(JSON.stringify(output.errors, null, 2));
+  }
+});
+
 const contract = output.contracts["Test.sol"]["Test"];
 const bytecode = contract.evm.bytecode.object;
 const abi = contract.abi;
@@ -149,15 +174,8 @@ const readPublicInputs = (proofAsFields) => {
   const publicInputs = [];
   // Compute the number of public inputs, not accounted  for in the constant NUMBER_OF_FIELDS_IN_PROOF
   const numPublicInputs = proofAsFields.length - NUMBER_OF_FIELDS_IN_PROOF;
-  let publicInputsOffset = 0;
-
-  // Honk proofs contain 3 pieces of metadata before the public inputs, while plonk does not
-  if (testingHonk) {
-    publicInputsOffset = 3;
-  }
-
   for (let i = 0; i < numPublicInputs; i++) {
-    publicInputs.push(proofAsFields[publicInputsOffset + i]);
+    publicInputs.push(proofAsFields[i]);
   }
   return [numPublicInputs, publicInputs];
 };
@@ -198,29 +216,41 @@ const killAnvil = () => {
   console.log(testName, " complete");
 };
 
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1316): Clean this code up. We are trying to use this logic for three different flows: bb plonk, bb honk, and bbjs honk, and all three have different setups.
 try {
-  const proofAsFieldsPath = getEnvVar("PROOF_AS_FIELDS");
-  const proofAsFields = readFileSync(proofAsFieldsPath);
-  const [numPublicInputs, publicInputs] = readPublicInputs(
-    JSON.parse(proofAsFields.toString())
-  );
-
   const proofPath = getEnvVar("PROOF");
+
+  let proofStr = "";
+
   const proof = readFileSync(proofPath);
+  proofStr = proof.toString("hex");
 
-  // Cut the number of public inputs out of the proof string
-  let proofStr = proof.toString("hex");
-  if (testingHonk) {
-    // Cut off the serialised buffer size at start
-    proofStr = proofStr.substring(8);
-    // Get the part before and after the public inputs
-    const proofStart = proofStr.slice(0, 64 * 3);
-    const proofEnd = proofStr.substring(64 * 3 + 64 * numPublicInputs);
-    proofStr = proofStart + proofEnd;
-  } else {
-    proofStr = proofStr.substring(64 * numPublicInputs);
+  let publicInputsAsFieldsPath = getEnvVarCanBeUndefined(
+    "PUBLIC_INPUTS_AS_FIELDS"
+  ); // PUBLIC_INPUTS_AS_FIELDS is not defined for bb plonk, but is for bb honk and bbjs honk.
+  var publicInputs;
+  let proofAsFieldsPath = getEnvVarCanBeUndefined("PROOF_AS_FIELDS"); // PROOF_AS_FIELDS is not defined for bbjs, but is for bb plonk and bb honk.
+  let numExtraPublicInputs = 0;
+  let extraPublicInputs = [];
+  if (proofAsFieldsPath) {
+    const proofAsFields = readFileSync(proofAsFieldsPath);
+    // We need to extract the public inputs from the proof. This might be empty, or just the pairing point object, or be the entire public inputs...
+    [numExtraPublicInputs, extraPublicInputs] = readPublicInputs(
+      JSON.parse(proofAsFields.toString())
+    );
   }
+  // We need to do this because plonk doesn't define this path
+  if (publicInputsAsFieldsPath) {
+    const innerPublicInputs = JSON.parse(
+      readFileSync(publicInputsAsFieldsPath).toString()
+    ); // assumes JSON array of PI hex strings
 
+    publicInputs = innerPublicInputs.concat(extraPublicInputs);
+  } else {
+    // for plonk, the extraPublicInputs are all of the public inputs
+    publicInputs = extraPublicInputs;
+  }
+  proofStr = proofStr.substring(64 * numExtraPublicInputs);
   proofStr = "0x" + proofStr;
 
   const key =
@@ -234,8 +264,28 @@ try {
   const result = await contract.test(proofStr, publicInputs);
   if (!result) throw new Error("Test failed");
 } catch (e) {
-  console.error(testName, " failed");
-  console.log(e);
+  console.error(testName, "failed");
+  if (testingHonk) {
+    var errorType = e.data;
+    switch (errorType) {
+      case WRONG_PROOF_LENGTH:
+        throw new Error(
+          "Proof length wrong. Possibile culprits: the NUMBER_OF_FIELDS_IN_* constants; number of public inputs; proof surgery; zk/non-zk discrepancy."
+        );
+      case WRONG_PUBLIC_INPUTS_LENGTH:
+        throw new Error("Number of inputs in the proof is wrong");
+      case SUMCHECK_FAILED:
+        throw new Error("Sumcheck round failed");
+      case SHPLEMINI_FAILED:
+        throw new Error("PCS round failed");
+      case CONSISTENCY_FAILED:
+        throw new Error("ZK contract: Subgroup IPA consistency check error");
+      case GEMINI_CHALLENGE_IN_SUBGROUP:
+        throw new Error("ZK contract: Gemini challenge error");
+      default:
+        throw e;
+    }
+  }
   throw e;
 } finally {
   // Kill anvil at the end of running

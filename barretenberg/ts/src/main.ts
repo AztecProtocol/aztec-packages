@@ -1,12 +1,15 @@
 #!/usr/bin/env node
-import { Crs, Barretenberg, RawBuffer } from './index.js';
-import { GrumpkinCrs } from './crs/node/index.js';
+import 'source-map-support/register.js';
+import { Crs, GrumpkinCrs, Barretenberg, RawBuffer } from './index.js';
 import createDebug from 'debug';
 import { readFileSync, writeFileSync } from 'fs';
 import { gunzipSync } from 'zlib';
+import { ungzip } from 'pako';
 import { Command } from 'commander';
+import { decode } from '@msgpack/msgpack';
 import { Timer, writeBenchmark } from './benchmark/index.js';
 import path from 'path';
+import { UltraHonkBackendOptions } from './barretenberg/backend.js';
 createDebug.log = console.error.bind(console);
 const debug = createDebug('bb.js');
 
@@ -19,60 +22,84 @@ const debug = createDebug('bb.js');
 const MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM = 2 ** 19;
 const threads = +process.env.HARDWARE_CONCURRENCY! || undefined;
 
-function getBytecode(bytecodePath: string) {
+function getBytecode(bytecodePath: string): Uint8Array {
   const extension = bytecodePath.substring(bytecodePath.lastIndexOf('.') + 1);
 
   if (extension == 'json') {
     const encodedCircuit = JSON.parse(readFileSync(bytecodePath, 'utf8'));
     const decompressed = gunzipSync(Buffer.from(encodedCircuit.bytecode, 'base64'));
-    return decompressed;
+    return Uint8Array.from(decompressed);
   }
 
   const encodedCircuit = readFileSync(bytecodePath);
   const decompressed = gunzipSync(encodedCircuit);
-  return decompressed;
+  return Uint8Array.from(decompressed);
+}
+
+function base64ToUint8Array(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function readStack(bytecodePath: string, numToDrop = 0) {
+  const encodedPackedZippedBytecodeArray = readFileSync(bytecodePath, 'utf-8');
+  const packedZippedBytecodeArray = base64ToUint8Array(encodedPackedZippedBytecodeArray);
+  const zipped = decode(
+    packedZippedBytecodeArray.subarray(0, packedZippedBytecodeArray.length - numToDrop),
+  ) as Uint8Array[];
+  const bytecodeArray = zipped.map((arr: Uint8Array) => ungzip(arr));
+  return bytecodeArray;
 }
 
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): split this into separate Plonk and Honk functions as their gate count differs
-async function getGatesUltra(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
-  const { total } = await computeCircuitSize(bytecodePath, honkRecursion, api);
+async function getGatesUltra(bytecodePath: string, recursive: boolean, honkRecursion: boolean, api: Barretenberg) {
+  const { total } = await computeCircuitSize(bytecodePath, recursive, honkRecursion, api);
   return total;
 }
 
-function getWitness(witnessPath: string) {
+function getWitness(witnessPath: string): Uint8Array {
   const data = readFileSync(witnessPath);
   const decompressed = gunzipSync(data);
-  return decompressed;
+  return Uint8Array.from(decompressed);
 }
 
-async function computeCircuitSize(bytecodePath: string, honkRecursion: boolean, api: Barretenberg) {
-  debug(`computing circuit size...`);
+async function computeCircuitSize(bytecodePath: string, recursive: boolean, honkRecursion: boolean, api: Barretenberg) {
+  debug(`Computing circuit size for ${bytecodePath}`);
   const bytecode = getBytecode(bytecodePath);
-  const [total, subgroup] = await api.acirGetCircuitSizes(bytecode, honkRecursion);
+  const [total, subgroup] = await api.acirGetCircuitSizes(bytecode, recursive, honkRecursion);
   return { total, subgroup };
 }
 
-async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSizeOverride = -1, honkRecursion = false) {
+async function initUltraPlonk(
+  bytecodePath: string,
+  recursive: boolean,
+  crsPath: string,
+  subgroupSizeOverride = -1,
+  honkRecursion = false,
+) {
   const api = await Barretenberg.new({ threads });
 
-  const circuitSize = await getGatesUltra(bytecodePath, honkRecursion, api);
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1248): Get rid of this call to avoid building the circuit twice.
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraPlonk function
+  const circuitSize = await getGatesUltra(bytecodePath, recursive, honkRecursion, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const subgroupSize = Math.max(subgroupSizeOverride, Math.pow(2, Math.ceil(Math.log2(circuitSize))));
 
   if (subgroupSize > MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM) {
     throw new Error(`Circuit size of ${subgroupSize} exceeds max supported of ${MAX_ULTRAPLONK_CIRCUIT_SIZE_IN_WASM}`);
   }
-  debug(`circuit size: ${circuitSize}`);
-  debug(`subgroup size: ${subgroupSize}`);
-  debug('loading crs...');
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
-  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
-  // Needed here for initUltraPlonk because MegaHonk currently uses this function.
+  debug(`Loading CRS for UltraPlonk with circuit-size=${circuitSize} subgroup-size=${subgroupSize}`);
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(subgroupSize + Math.floor((subgroupSize * 6) / 10) + 1, crsPath);
+  const crs = await Crs.new(subgroupSize + 1, crsPath);
 
-  // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
-  await api.commonInitSlabAllocator(subgroupSize);
+  // // Important to init slab allocator as first thing, to ensure maximum memory efficiency for Plonk.
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1129): Do slab allocator initialization?
+  // await api.commonInitSlabAllocator(subgroupSize);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -84,17 +111,15 @@ async function initUltraPlonk(bytecodePath: string, crsPath: string, subgroupSiz
 async function initUltraHonk(bytecodePath: string, crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
-  const circuitSize = await getGatesUltra(bytecodePath, /*honkRecursion=*/ true, api);
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1248): Get rid of this call to avoid building the circuit twice.
+  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1126): use specific UltraHonk function
+  // recursive here is useless for UH, as it does not affect anything
+  const circuitSize = await getGatesUltra(bytecodePath, /*recursive=*/ false, /*honkRecursion=*/ true, api);
   // TODO(https://github.com/AztecProtocol/barretenberg/issues/811): remove subgroupSizeOverride hack for goblin
   const dyadicCircuitSize = Math.pow(2, Math.ceil(Math.log2(circuitSize)));
 
-  debug(`circuit size: ${circuitSize}`);
-  debug(`dyadic circuit size size: ${dyadicCircuitSize}`);
-  debug('loading crs...');
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
-  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
-  // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(dyadicCircuitSize + Math.floor((dyadicCircuitSize * 6) / 10) + 1, crsPath);
+  debug(`Loading CRS for UltraHonk with circuit-size=${circuitSize} dyadic-circuit-size=${dyadicCircuitSize}`);
+  const crs = await Crs.new(dyadicCircuitSize + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -102,15 +127,12 @@ async function initUltraHonk(bytecodePath: string, crsPath: string) {
   return { api, circuitSize, dyadicCircuitSize };
 }
 
-async function initClientIVC(bytecodePath: string, crsPath: string) {
+async function initClientIVC(crsPath: string) {
   const api = await Barretenberg.new({ threads });
 
-  debug('loading BN254 and Grumpkin crs...');
-  // TODO(https://github.com/AztecProtocol/barretenberg/issues/1097): tighter bound needed
-  // currently using 1.6x points in CRS because of structured polys, see notes for how to minimize
-  // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(2 ** 19 + 1, crsPath);
-  const grumpkinCrs = await GrumpkinCrs.new(2 ** 14 + 1, crsPath);
+  debug('Loading CRS for ClientIVC');
+  const crs = await Crs.new(2 ** 21 + 1, crsPath);
+  const grumpkinCrs = await GrumpkinCrs.new(2 ** 16 + 1, crsPath);
 
   // Load CRS into wasm global CRS state.
   // TODO: Make RawBuffer be default behavior, and have a specific Vector type for when wanting length prefixed.
@@ -119,11 +141,11 @@ async function initClientIVC(bytecodePath: string, crsPath: string) {
   return { api };
 }
 
-async function initLite() {
+async function initLite(crsPath: string) {
   const api = await Barretenberg.new({ threads: 1 });
 
   // Plus 1 needed! (Move +1 into Crs?)
-  const crs = await Crs.new(1);
+  const crs = await Crs.new(1, crsPath);
 
   // Load CRS into wasm global CRS state.
   await api.srsInitSrs(new RawBuffer(crs.getG1Data()), crs.numPoints, new RawBuffer(crs.getG2Data()));
@@ -132,29 +154,29 @@ async function initLite() {
   return { api, acirComposer };
 }
 
-export async function proveAndVerify(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerify(bytecodePath: string, recursive: boolean, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
   const acir_test = path.basename(process.cwd());
 
-  const { api, acirComposer, circuitSize, subgroupSize } = await initUltraPlonk(bytecodePath, crsPath);
+  const { api, acirComposer, circuitSize, subgroupSize } = await initUltraPlonk(bytecodePath, recursive, crsPath);
   try {
-    debug(`creating proof...`);
+    debug(`Creating proof bytecode=${bytecodePath} witness=${witnessPath} recursive=${recursive}`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
 
     const pkTimer = new Timer();
-    await api.acirInitProvingKey(acirComposer, bytecode);
+    await api.acirInitProvingKey(acirComposer, bytecode, recursive);
     writeBenchmark('pk_construction_time', pkTimer.ms(), { acir_test, threads });
     writeBenchmark('gate_count', circuitSize, { acir_test, threads });
     writeBenchmark('subgroup_size', subgroupSize, { acir_test, threads });
 
     const proofTimer = new Timer();
-    const proof = await api.acirCreateProof(acirComposer, bytecode, witness);
+    const proof = await api.acirCreateProof(acirComposer, bytecode, recursive, witness);
     writeBenchmark('proof_construction_time', proofTimer.ms(), { acir_test, threads });
 
-    debug(`verifying...`);
+    debug(`Proof complete. Verifying.`);
     const verified = await api.acirVerifyProof(acirComposer, proof);
-    debug(`verified: ${verified}`);
+    debug(`Verification ${verified ? 'successful' : 'failed'}`);
     return verified;
   } finally {
     await api.destroy();
@@ -162,7 +184,11 @@ export async function proveAndVerify(bytecodePath: string, witnessPath: string, 
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyUltraHonk(
+  bytecodePath: string,
+  witnessPath: string,
+  crsPath: string,
+) {
   /* eslint-disable camelcase */
   const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
@@ -177,9 +203,13 @@ export async function proveAndVerifyUltraHonk(bytecodePath: string, witnessPath:
   /* eslint-enable camelcase */
 }
 
-export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyMegaHonk(
+  bytecodePath: string,
+  witnessPath: string,
+  crsPath: string,
+) {
   /* eslint-disable camelcase */
-  const { api } = await initUltraPlonk(bytecodePath, crsPath);
+  const { api } = await initUltraPlonk(bytecodePath, false, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
@@ -192,15 +222,15 @@ export async function proveAndVerifyMegaHonk(bytecodePath: string, witnessPath: 
   /* eslint-enable camelcase */
 }
 
-export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: string, crsPath: string) {
+export async function proveAndVerifyAztecClient(bytecodePath: string, witnessPath: string, crsPath: string) {
   /* eslint-disable camelcase */
-  const { api } = await initClientIVC(bytecodePath, crsPath);
+  const { api } = await initClientIVC(crsPath);
   try {
-    const bytecode = getBytecode(bytecodePath);
-    const witness = getWitness(witnessPath);
+    const bytecode = readStack(bytecodePath);
+    const witness = readStack(witnessPath);
 
-    const verified = await api.acirFoldAndVerifyProgramStack(bytecode, witness);
-    debug(`verified: ${verified}`);
+    const verified = await api.acirProveAndVerifyAztecClient(bytecode, witness);
+    debug(`Verification ${verified ? 'successful' : 'failed'}`);
     return verified;
   } finally {
     await api.destroy();
@@ -208,147 +238,171 @@ export async function foldAndVerifyProgram(bytecodePath: string, witnessPath: st
   /* eslint-enable camelcase */
 }
 
-export async function prove(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await initUltraPlonk(bytecodePath, crsPath);
+export async function prove(
+  bytecodePath: string,
+  recursive: boolean,
+  witnessPath: string,
+  crsPath: string,
+  outputPath: string,
+) {
+  const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
   try {
-    debug(`creating proof...`);
+    debug(`Creating proof bytecode=${bytecodePath} witness=${witnessPath} recursive=${recursive}`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const proof = await api.acirCreateProof(acirComposer, bytecode, witness);
-    debug(`done.`);
+    const proof = await api.acirCreateProof(acirComposer, bytecode, recursive, witness);
 
     if (outputPath === '-') {
       process.stdout.write(proof);
-      debug(`proof written to stdout`);
+      debug(`Proof written to stdout`);
     } else {
       writeFileSync(outputPath, proof);
-      debug(`proof written to: ${outputPath}`);
+      debug(`Proof written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
   }
 }
 
-export async function gateCountUltra(bytecodePath: string, honkRecursion: boolean) {
+export async function gateCountUltra(bytecodePath: string, recursive: boolean, honkRecursion: boolean) {
   const api = await Barretenberg.new({ threads: 1 });
   try {
-    const numberOfGates = await getGatesUltra(bytecodePath, honkRecursion, api);
-    debug(`number of gates: : ${numberOfGates}`);
+    const numberOfGates = await getGatesUltra(bytecodePath, recursive, honkRecursion, api);
+    debug(`Number of gates: ${numberOfGates}`);
     // Create an 8-byte buffer and write the number into it.
     // Writing number directly to stdout will result in a variable sized
     // input depending on the size.
     const buffer = Buffer.alloc(8);
     buffer.writeBigInt64LE(BigInt(numberOfGates));
 
-    process.stdout.write(buffer);
+    process.stdout.write(Uint8Array.from(buffer));
   } finally {
     await api.destroy();
   }
 }
 
-export async function verify(proofPath: string, vkPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function verify(proofPath: string, vkPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
   try {
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
-    const verified = await api.acirVerifyProof(acirComposer, readFileSync(proofPath));
-    debug(`verified: ${verified}`);
+    const verified = await api.acirVerifyProof(acirComposer, Uint8Array.from(readFileSync(proofPath)));
+    debug(`Verification ${verified ? 'successful' : 'failed'}`);
     return verified;
   } finally {
     await api.destroy();
   }
 }
 
-export async function contract(outputPath: string, vkPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function contract(outputPath: string, vkPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
   try {
+    debug(`Creating verifier contract vk=${vkPath}`);
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const contract = await api.acirGetSolidityVerifier(acirComposer);
 
     if (outputPath === '-') {
       process.stdout.write(contract);
-      debug(`contract written to stdout`);
+      debug(`Solidity verifier contract written to stdout`);
     } else {
       writeFileSync(outputPath, contract);
-      debug(`contract written to: ${outputPath}`);
+      debug(`Solidity verifier contract written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
   }
 }
 
-export async function writeVk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await initUltraPlonk(bytecodePath, crsPath);
+export async function contractUltraHonk(bytecodePath: string, vkPath: string, crsPath: string, outputPath: string) {
+  const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
-    debug('initing proving key...');
+    debug(`Creating UltraHonk verifier contract bytecode=${bytecodePath} vk=${vkPath}`);
     const bytecode = getBytecode(bytecodePath);
-    await api.acirInitProvingKey(acirComposer, bytecode);
+    const vk = new RawBuffer(readFileSync(vkPath));
+    const contract = await api.acirHonkSolidityVerifier(bytecode, vk);
 
-    debug('initing verification key...');
+    if (outputPath === '-') {
+      process.stdout.write(contract);
+      debug(`Solidity verifier contract written to stdout`);
+    } else {
+      writeFileSync(outputPath, contract);
+      debug(`Solidity verifier contract written to ${outputPath}`);
+    }
+  } finally {
+    await api.destroy();
+  }
+}
+
+export async function writeVk(bytecodePath: string, recursive: boolean, crsPath: string, outputPath: string) {
+  const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
+  try {
+    debug(`Initializing proving key bytecode=${bytecodePath} recursive=${recursive}`);
+    const bytecode = getBytecode(bytecodePath);
+    await api.acirInitProvingKey(acirComposer, bytecode, recursive);
+
+    debug(`Initializing verification key`);
     const vk = await api.acirGetVerificationKey(acirComposer);
 
     if (outputPath === '-') {
       process.stdout.write(vk);
-      debug(`vk written to stdout`);
+      debug(`Verification key written to stdout`);
     } else {
       writeFileSync(outputPath, vk);
-      debug(`vk written to: ${outputPath}`);
+      debug(`Verification key written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
   }
 }
 
-export async function writePk(bytecodePath: string, crsPath: string, outputPath: string) {
-  const { api, acirComposer } = await initUltraPlonk(bytecodePath, crsPath);
+export async function writePk(bytecodePath: string, recursive: boolean, crsPath: string, outputPath: string) {
+  const { api, acirComposer } = await initUltraPlonk(bytecodePath, recursive, crsPath);
   try {
-    debug('initing proving key...');
+    debug(`Initializing proving key bytecode=${bytecodePath} recursive=${recursive}`);
     const bytecode = getBytecode(bytecodePath);
-    const pk = await api.acirGetProvingKey(acirComposer, bytecode);
+    const pk = await api.acirGetProvingKey(acirComposer, bytecode, recursive);
 
     if (outputPath === '-') {
       process.stdout.write(pk);
-      debug(`pk written to stdout`);
+      debug(`Proving key written to stdout`);
     } else {
       writeFileSync(outputPath, pk);
-      debug(`pk written to: ${outputPath}`);
+      debug(`Proving key written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
   }
 }
 
-export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function proofAsFields(proofPath: string, vkPath: string, outputPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
 
   try {
-    debug('serializing proof byte array into field elements');
+    debug(`Serializing proof byte array into field elements proof=${proofPath} vk=${vkPath}`);
     const numPublicInputs = readFileSync(vkPath).readUint32BE(8);
     const proofAsFields = await api.acirSerializeProofIntoFields(
       acirComposer,
-      readFileSync(proofPath),
+      Uint8Array.from(readFileSync(proofPath)),
       numPublicInputs,
     );
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 
     if (outputPath === '-') {
       process.stdout.write(jsonProofAsFields);
-      debug(`proofAsFields written to stdout`);
+      debug(`Proof as fields written to stdout`);
     } else {
       writeFileSync(outputPath, jsonProofAsFields);
-      debug(`proofAsFields written to: ${outputPath}`);
+      debug(`Proof as fields written to ${outputPath}`);
     }
-
-    debug('done.');
   } finally {
     await api.destroy();
   }
 }
 
-export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
-  const { api, acirComposer } = await initLite();
+export async function vkAsFields(vkPath: string, vkeyOutputPath: string, crsPath: string) {
+  const { api, acirComposer } = await initLite(crsPath);
 
   try {
-    debug('serializing vk byte array into field elements');
+    debug(`Serializing vk byte array into field elements vk=${vkPath}`);
     await api.acirLoadVerificationKey(acirComposer, new RawBuffer(readFileSync(vkPath)));
     const [vkAsFields, vkHash] = await api.acirSerializeVerificationKeyIntoFields(acirComposer);
     const output = [vkHash, ...vkAsFields].map(f => f.toString());
@@ -356,107 +410,131 @@ export async function vkAsFields(vkPath: string, vkeyOutputPath: string) {
 
     if (vkeyOutputPath === '-') {
       process.stdout.write(jsonVKAsFields);
-      debug(`vkAsFields written to stdout`);
+      debug(`Verification key as fields written to stdout`);
     } else {
       writeFileSync(vkeyOutputPath, jsonVKAsFields);
-      debug(`vkAsFields written to: ${vkeyOutputPath}`);
+      debug(`Verification key as fields written to ${vkeyOutputPath}`);
     }
-
-    debug('done.');
   } finally {
     await api.destroy();
   }
 }
 
-export async function proveUltraHonk(bytecodePath: string, witnessPath: string, crsPath: string, outputPath: string) {
+export async function proveUltraHonk(
+  bytecodePath: string,
+  witnessPath: string,
+  crsPath: string,
+  outputPath: string,
+  options?: UltraHonkBackendOptions,
+) {
   const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
-    debug(`creating proof...`);
+    debug(`Creating UltraHonk proof bytecode=${bytecodePath}`);
     const bytecode = getBytecode(bytecodePath);
     const witness = getWitness(witnessPath);
-    const proof = await api.acirProveUltraHonk(bytecode, witness);
-    debug(`done.`);
+
+    const acirProveUltraHonk = options?.keccak
+      ? api.acirProveUltraKeccakHonk.bind(api)
+      : api.acirProveUltraHonk.bind(api);
+    const proof = await acirProveUltraHonk(bytecode, witness);
 
     if (outputPath === '-') {
       process.stdout.write(proof);
-      debug(`proof written to stdout`);
+      debug(`Proof written to stdout`);
     } else {
       writeFileSync(outputPath, proof);
-      debug(`proof written to: ${outputPath}`);
+      debug(`Proof written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
   }
 }
 
-export async function writeVkUltraHonk(bytecodePath: string, crsPath: string, outputPath: string) {
+export async function writeVkUltraHonk(
+  bytecodePath: string,
+  crsPath: string,
+  outputPath: string,
+  options?: UltraHonkBackendOptions,
+) {
   const { api } = await initUltraHonk(bytecodePath, crsPath);
   try {
     const bytecode = getBytecode(bytecodePath);
-    debug('initing verification key...');
-    const vk = await api.acirWriteVkUltraHonk(bytecode);
+    debug(`Initializing UltraHonk verification key bytecode=${bytecodePath}`);
+
+    const acirWriteVkUltraHonk = options?.keccak
+      ? api.acirWriteVkUltraKeccakHonk.bind(api)
+      : api.acirWriteVkUltraHonk.bind(api);
+    const vk = await acirWriteVkUltraHonk(bytecode);
 
     if (outputPath === '-') {
       process.stdout.write(vk);
-      debug(`vk written to stdout`);
+      debug(`Verification key written to stdout`);
     } else {
       writeFileSync(outputPath, vk);
-      debug(`vk written to: ${outputPath}`);
+      debug(`Verification key written to ${outputPath}`);
     }
   } finally {
     await api.destroy();
   }
 }
 
-export async function verifyUltraHonk(proofPath: string, vkPath: string) {
-  const { api } = await initLite();
+export async function verifyUltraHonk(
+  proofPath: string,
+  vkPath: string,
+  crsPath: string,
+  options?: UltraHonkBackendOptions,
+) {
+  const { api } = await initLite(crsPath);
   try {
-    const verified = await api.acirVerifyUltraHonk(readFileSync(proofPath), new RawBuffer(readFileSync(vkPath)));
-    debug(`verified: ${verified}`);
+    const acirVerifyUltraHonk = options?.keccak
+      ? api.acirVerifyUltraKeccakHonk.bind(api)
+      : api.acirVerifyUltraHonk.bind(api);
+    const verified = await acirVerifyUltraHonk(
+      Uint8Array.from(readFileSync(proofPath)),
+      new RawBuffer(readFileSync(vkPath)),
+    );
+
+    debug(`Verification ${verified ? 'successful' : 'failed'}`);
     return verified;
   } finally {
     await api.destroy();
   }
 }
 
-export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: string) {
-  const { api } = await initLite();
+export async function proofAsFieldsUltraHonk(proofPath: string, outputPath: string, crsPath: string) {
+  const { api } = await initLite(crsPath);
   try {
-    debug('outputting proof as vector of fields');
-    const proofAsFields = await api.acirProofAsFieldsUltraHonk(readFileSync(proofPath));
+    debug(`Outputting UltraHonk proof as vector of fields proof=${proofPath}`);
+    const proofAsFields = await api.acirProofAsFieldsUltraHonk(Uint8Array.from(readFileSync(proofPath)));
     const jsonProofAsFields = JSON.stringify(proofAsFields.map(f => f.toString()));
 
     if (outputPath === '-') {
       process.stdout.write(jsonProofAsFields);
-      debug(`proofAsFieldsUltraHonk written to stdout`);
+      debug(`Proof as fields written to stdout`);
     } else {
       writeFileSync(outputPath, jsonProofAsFields);
-      debug(`proofAsFieldsUltraHonk written to: ${outputPath}`);
+      debug(`Proof as fields written to ${outputPath}`);
     }
-
-    debug('done.');
   } finally {
     await api.destroy();
   }
 }
 
-export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string) {
-  const { api } = await initLite();
+export async function vkAsFieldsUltraHonk(vkPath: string, vkeyOutputPath: string, crsPath: string) {
+  const { api } = await initLite(crsPath);
 
   try {
-    debug('serializing vk byte array into field elements');
+    debug(`Serializing vk byte array into field elements vk=${vkPath}`);
     const vkAsFields = await api.acirVkAsFieldsUltraHonk(new RawBuffer(readFileSync(vkPath)));
     const jsonVKAsFields = JSON.stringify(vkAsFields.map(f => f.toString()));
 
     if (vkeyOutputPath === '-') {
       process.stdout.write(jsonVKAsFields);
-      debug(`vkAsFieldsUltraHonk written to stdout`);
+      debug(`Verification key as fields written to stdout`);
     } else {
       writeFileSync(vkeyOutputPath, jsonVKAsFields);
-      debug(`vkAsFieldsUltraHonk written to: ${vkeyOutputPath}`);
+      debug(`Verification key as fields written to ${vkeyOutputPath}`);
     }
-
-    debug('done.');
   } finally {
     await api.destroy();
   }
@@ -471,16 +549,18 @@ function handleGlobalOptions() {
   if (program.opts().verbose) {
     createDebug.enable('bb.js*');
   }
+  return { crsPath: program.opts().crsPath };
 }
 
 program
   .command('prove_and_verify')
   .description('Generate a proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Whether to use a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
-    handleGlobalOptions();
-    const result = await proveAndVerify(bytecodePath, witnessPath, crsPath);
+  .action(async ({ bytecodePath, recursive, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    const result = await proveAndVerify(bytecodePath, recursive, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -489,8 +569,8 @@ program
   .description('Generate an UltraHonk proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerifyUltraHonk(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
@@ -500,20 +580,20 @@ program
   .description('Generate a MegaHonk proof and verify it. Process exits with success or failure code.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
-    handleGlobalOptions();
+  .action(async ({ bytecodePath, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
     const result = await proveAndVerifyMegaHonk(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
 program
-  .command('fold_and_verify_program')
-  .description('Accumulate a set of circuits using ClientIvc then verify. Process exits with success or failure code.')
-  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
-  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
-  .action(async ({ bytecodePath, witnessPath, crsPath }) => {
-    handleGlobalOptions();
-    const result = await foldAndVerifyProgram(bytecodePath, witnessPath, crsPath);
+  .command('client_ivc_prove_and_verify')
+  .description('Generate a ClientIVC proof.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/acir.msgpack.b64')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witnesses.msgpack.b64')
+  .action(async ({ bytecodePath, witnessPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    const result = await proveAndVerifyAztecClient(bytecodePath, witnessPath, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -521,21 +601,23 @@ program
   .command('prove')
   .description('Generate a proof and write it to a file.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
-  .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
-    handleGlobalOptions();
-    await prove(bytecodePath, witnessPath, crsPath, outputPath);
+  .action(async ({ bytecodePath, recursive, witnessPath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    await prove(bytecodePath, recursive, witnessPath, crsPath, outputPath);
   });
 
 program
   .command('gates')
   .description('Print Ultra Builder gate count to standard output.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-hr, --honk-recursion', 'Specify whether to use UltraHonk recursion', false)
-  .action(async ({ bytecodePath: bytecodePath, honkRecursion: honkRecursion }) => {
+  .action(async ({ bytecodePath, recursive, honkRecursion: honkRecursion }) => {
     handleGlobalOptions();
-    await gateCountUltra(bytecodePath, honkRecursion);
+    await gateCountUltra(bytecodePath, recursive, honkRecursion);
   });
 
 program
@@ -544,8 +626,8 @@ program
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ proofPath, vk }) => {
-    handleGlobalOptions();
-    const result = await verify(proofPath, vk);
+    const { crsPath } = handleGlobalOptions();
+    const result = await verify(proofPath, vk, crsPath);
     process.exit(result ? 0 : 1);
   });
 
@@ -556,28 +638,41 @@ program
   .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
   .requiredOption('-k, --vk-path <path>', 'Path to a verification key. avoids recomputation.')
   .action(async ({ outputPath, vkPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    await contract(outputPath, vkPath, crsPath);
+  });
+
+program
+  .command('contract_ultra_honk')
+  .description('Output solidity verification key contract.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-o, --output-path <path>', 'Specify the path to write the contract', './target/contract.sol')
+  .requiredOption('-k, --vk-path <path>', 'Path to a verification key.')
+  .action(async ({ bytecodePath, outputPath, vkPath, crsPath }) => {
     handleGlobalOptions();
-    await contract(outputPath, vkPath);
+    await contractUltraHonk(bytecodePath, vkPath, crsPath, outputPath);
   });
 
 program
   .command('write_vk')
   .description('Output verification key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .option('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, outputPath, crsPath }) => {
-    handleGlobalOptions();
-    await writeVk(bytecodePath, crsPath, outputPath);
+  .action(async ({ bytecodePath, recursive, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    await writeVk(bytecodePath, recursive, crsPath, outputPath);
   });
 
 program
   .command('write_pk')
   .description('Output proving key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-r, --recursive', 'Create a SNARK friendly proof', false)
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
-  .action(async ({ bytecodePath, outputPath, crsPath }) => {
-    handleGlobalOptions();
-    await writePk(bytecodePath, crsPath, outputPath);
+  .action(async ({ bytecodePath, recursive, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    await writePk(bytecodePath, recursive, crsPath, outputPath);
   });
 
 program
@@ -587,8 +682,8 @@ program
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
   .action(async ({ proofPath, vkPath, outputPath }) => {
-    handleGlobalOptions();
-    await proofAsFields(proofPath, vkPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await proofAsFields(proofPath, vkPath, outputPath, crsPath);
   });
 
 program
@@ -597,8 +692,8 @@ program
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields and key hash')
   .action(async ({ vkPath, outputPath }) => {
-    handleGlobalOptions();
-    await vkAsFields(vkPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await vkAsFields(vkPath, outputPath, crsPath);
   });
 
 program
@@ -607,9 +702,20 @@ program
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
   .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
+  .action(async ({ bytecodePath, witnessPath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath);
+  });
+
+program
+  .command('prove_ultra_keccak_honk')
+  .description('Generate a proof and write it to a file.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .option('-w, --witness-path <path>', 'Specify the witness path', './target/witness.gz')
+  .option('-o, --output-path <path>', 'Specify the proof output path', './proofs/proof')
   .action(async ({ bytecodePath, witnessPath, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath);
+    await proveUltraHonk(bytecodePath, witnessPath, crsPath, outputPath, { keccak: true });
   });
 
 program
@@ -617,9 +723,19 @@ program
   .description('Output verification key.')
   .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
   .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
+  .action(async ({ bytecodePath, outputPath }) => {
+    const { crsPath } = handleGlobalOptions();
+    await writeVkUltraHonk(bytecodePath, crsPath, outputPath);
+  });
+
+program
+  .command('write_vk_ultra_keccak_honk')
+  .description('Output verification key.')
+  .option('-b, --bytecode-path <path>', 'Specify the bytecode path', './target/program.json')
+  .requiredOption('-o, --output-path <path>', 'Specify the path to write the key')
   .action(async ({ bytecodePath, outputPath, crsPath }) => {
     handleGlobalOptions();
-    await writeVkUltraHonk(bytecodePath, crsPath, outputPath);
+    await writeVkUltraHonk(bytecodePath, crsPath, outputPath, { keccak: true });
   });
 
 program
@@ -628,8 +744,19 @@ program
   .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
   .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
   .action(async ({ proofPath, vk }) => {
-    handleGlobalOptions();
-    const result = await verifyUltraHonk(proofPath, vk);
+    const { crsPath } = handleGlobalOptions();
+    const result = await verifyUltraHonk(proofPath, vk, crsPath);
+    process.exit(result ? 0 : 1);
+  });
+
+program
+  .command('verify_ultra_keccak_honk')
+  .description('Verify a proof. Process exists with success or failure code.')
+  .requiredOption('-p, --proof-path <path>', 'Specify the path to the proof')
+  .requiredOption('-k, --vk <path>', 'path to a verification key. avoids recomputation.')
+  .action(async ({ proofPath, vk }) => {
+    const { crsPath } = handleGlobalOptions();
+    const result = await verifyUltraHonk(proofPath, vk, crsPath, { keccak: true });
     process.exit(result ? 0 : 1);
   });
 
@@ -639,8 +766,8 @@ program
   .requiredOption('-p, --proof-path <path>', 'Specify the proof path')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the proof fields')
   .action(async ({ proofPath, outputPath }) => {
-    handleGlobalOptions();
-    await proofAsFieldsUltraHonk(proofPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await proofAsFieldsUltraHonk(proofPath, outputPath, crsPath);
   });
 
 program
@@ -649,8 +776,8 @@ program
   .requiredOption('-k, --vk-path <path>', 'Path to verification key.')
   .requiredOption('-o, --output-path <path>', 'Specify the JSON path to write the verification key fields.')
   .action(async ({ vkPath, outputPath }) => {
-    handleGlobalOptions();
-    await vkAsFieldsUltraHonk(vkPath, outputPath);
+    const { crsPath } = handleGlobalOptions();
+    await vkAsFieldsUltraHonk(vkPath, outputPath, crsPath);
   });
 
 program.name('bb.js').parse(process.argv);

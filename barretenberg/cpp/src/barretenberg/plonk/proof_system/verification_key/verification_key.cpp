@@ -90,8 +90,8 @@ verification_key::verification_key(verification_key_data&& data,
     , reference_string(crs)
     , commitments(std::move(data.commitments))
     , polynomial_manifest(static_cast<CircuitType>(data.circuit_type))
-    , contains_recursive_proof(data.contains_recursive_proof)
-    , recursive_proof_public_input_indices(std::move(data.recursive_proof_public_input_indices))
+    , contains_pairing_point_accumulator(data.contains_pairing_point_accumulator)
+    , pairing_point_accumulator_public_input_indices(std::move(data.pairing_point_accumulator_public_input_indices))
     , is_recursive_circuit(data.is_recursive_circuit)
 {}
 
@@ -104,8 +104,8 @@ verification_key::verification_key(const verification_key& other)
     , reference_string(other.reference_string)
     , commitments(other.commitments)
     , polynomial_manifest(other.polynomial_manifest)
-    , contains_recursive_proof(other.contains_recursive_proof)
-    , recursive_proof_public_input_indices(other.recursive_proof_public_input_indices)
+    , contains_pairing_point_accumulator(other.contains_pairing_point_accumulator)
+    , pairing_point_accumulator_public_input_indices(other.pairing_point_accumulator_public_input_indices)
 {}
 
 verification_key::verification_key(verification_key&& other) noexcept
@@ -117,8 +117,8 @@ verification_key::verification_key(verification_key&& other) noexcept
     , reference_string(other.reference_string)
     , commitments(other.commitments)
     , polynomial_manifest(other.polynomial_manifest)
-    , contains_recursive_proof(other.contains_recursive_proof)
-    , recursive_proof_public_input_indices(other.recursive_proof_public_input_indices)
+    , contains_pairing_point_accumulator(other.contains_pairing_point_accumulator)
+    , pairing_point_accumulator_public_input_indices(other.pairing_point_accumulator_public_input_indices)
 {}
 
 verification_key& verification_key::operator=(verification_key&& other) noexcept
@@ -131,8 +131,8 @@ verification_key& verification_key::operator=(verification_key&& other) noexcept
     commitments = std::move(other.commitments);
     polynomial_manifest = std::move(other.polynomial_manifest);
     domain = std::move(other.domain);
-    contains_recursive_proof = (other.contains_recursive_proof);
-    recursive_proof_public_input_indices = std::move(other.recursive_proof_public_input_indices);
+    contains_pairing_point_accumulator = (other.contains_pairing_point_accumulator);
+    pairing_point_accumulator_public_input_indices = std::move(other.pairing_point_accumulator_public_input_indices);
     return *this;
 }
 
@@ -146,8 +146,8 @@ crypto::Sha256Hash verification_key::sha256_hash()
         vk_data.emplace_back(commitment_entry.second.x);
         vk_data.emplace_back(commitment_entry.second.y);
     }
-    vk_data.emplace_back(contains_recursive_proof);
-    for (auto& index : recursive_proof_public_input_indices) {
+    vk_data.emplace_back(contains_pairing_point_accumulator);
+    for (auto& index : pairing_point_accumulator_public_input_indices) {
         vk_data.emplace_back(index);
     }
     return crypto::sha256(to_buffer(vk_data));

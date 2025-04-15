@@ -1,4 +1,3 @@
-
 # Aztec Network Documentation
 
 Documentation for the Aztec Network, built with docusaurus
@@ -36,6 +35,7 @@ Aztec docs pull some code from the rest of the repository. This allows for great
 For that reason, there's a preprocessing step. You can run that step ad-hoc with `yarn preprocess` or `yarn preprocess:dev` if you want it to stay running and watching for changes.
 
 This step does the following:
+
 - Pulls the code from the source files using the `#include` macros explained below.
 - Autogenerates documentation using the scripts in the `src` file.
 - Puts the final documentation in a `processed-docs` folder.
@@ -79,31 +79,32 @@ This is done via macros which are processed in the `process` step described abov
 ### `#include_code`
 
 You can embed code snippets into a `.md`/`.mdx` file from code which lives elsewhere in the repo.
+
 - In your markdown file:
-    - `#include_code identifier path/from/repo/root/to/file.ts language`
-    - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
-    - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
+  - `#include_code identifier path/from/repo/root/to/file.ts language`
+  - E.g. `#include_code hello path/from/repo/root/to/file.ts typescript`
+  - See [here](docusaurus.config.js) for supported languages and the exact name to use for that language.
 - In the corresponding code delineate the code snippet with comments:
-    - ```typescript
-      some code
-      some code
-      // docs:start:hello
-      more code
-      more code
-      // this-will-error <-- you can use docusaurus highlighting comments.
-      this code will be highlighted red
-      more code
-      // highlight-next-line
-      this line will be highlighted
-      more code
-      // highlight-start
-      this line will be highlighted
-      this line will be highlighted
-      // highlight-end
-      more code
-      // docs:end:hello
-      more code
-      ```
+  - ```typescript
+    some code
+    some code
+    // docs:start:hello
+    more code
+    more code
+    // this-will-error <-- you can use docusaurus highlighting comments.
+    this code will be highlighted red
+    more code
+    // highlight-next-line
+    this line will be highlighted
+    more code
+    // highlight-start
+    this line will be highlighted
+    this line will be highlighted
+    // highlight-end
+    more code
+    // docs:end:hello
+    more code
+    ```
 - You can even include chunks of the same piece of code (with different highlighting preferences) into different parts of the docs:
   - ```typescript
       some code
@@ -127,7 +128,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
       // docs:end:hello
       some code
       some code
-      ```
+    ```
   - Somewhere in your markdown, you can then write:
     - `#include_code hello path/from/repo/root/to/file.ts typescript`
   - And somewhere else, you can write:
@@ -140,7 +141,7 @@ You can embed code snippets into a `.md`/`.mdx` file from code which lives elsew
 
 ### `#include_aztec_version`
 
-This macros will be replaced inline with the current aztec packages tag, which is `aztec-packages-v0.7.10` at the time of these writing. This value is sourced from `.release-please-manifest.json` on the project root.
+This macros will be replaced inline with the current aztec packages tag, which is `v0.77.0` at the time of these writing. This value is sourced from `.release-please-manifest.json` on the project root.
 
 Alternatively, you can also use the `AztecPackagesVersion()` js function, which you need to import explicitly:
 
@@ -148,6 +149,30 @@ Alternatively, you can also use the `AztecPackagesVersion()` js function, which 
 import { AztecPackagesVersion } from "@site/src/components/Version";
 <>{AztecPackagesVersion()}</>
 ```
+
+## Versioning
+
+Aztec Docs are versioned. Every version known is literally a copy of the website, and is in `versioned_docs` (sidebars are in `versioned_sidebars`). Seems silly but it's not: it allows you to hot-fix previous versions.
+
+The way docs builds work is the following:
+
+- [This Github Action](../.github/workflows/docs-deploy.yml) runs on merge to master, builds the dependencies needed to build the docs, then deploys on the main docs website
+- [This Github Action](../.github/workflows/docs-preview.yml) runs on pull requests if they have any docs change, and quite similarly builds the dependencies and the docs, then gives you a nice preview so you can check that everything is alright
+- [This Github Action](../.github/workflows/release-please.yml) is Release-Please, a framework made to organize different commits into releases. When it merges to master, it runs. When it runs, it builds the dependencies and cuts a new version of the docs, with the same tag that is being released
+
+The `#include_aztec_version` and `#include_code` macros look for the version tag in an environment variable `COMMIT_TAG`, so you can build the docs specifying a version with the following command (e.g. for v0.84.0). Remove the versions listed in `versions.json` before running:
+
+```bash
+COMMIT_TAG=v0.84.0 yarn build
+```
+
+### How do I change the versions that show in the website
+
+When docusaurus builds, it looks for the `versions.json` file, and builds the versions in there, together with the version in `docs`.
+
+## Releases
+
+A new docs site is published on every merge to the master branch, if there are any changes in the docs folder. You can also manually trigger a new deployment by running the `docs-deploy` workflow in the [Github Actions tab](https://github.com/AztecProtocol/aztec-packages/actions/workflows/docs-deploy.yml). This can be triggered from a branch and does not have to wait for a PR to be merged, although merging a PR is recommended.
 
 ## Contributing
 

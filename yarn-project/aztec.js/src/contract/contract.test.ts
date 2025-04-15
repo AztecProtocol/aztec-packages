@@ -1,20 +1,19 @@
+import type { L1ContractAddresses } from '@aztec/ethereum/l1-contract-addresses';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
 import {
-  type Tx,
-  type TxExecutionRequest,
-  type TxHash,
-  type TxProvingResult,
-  type TxReceipt,
-  type TxSimulationResult,
-} from '@aztec/circuit-types';
-import { AztecAddress, CompleteAddress, EthAddress } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
-import { type AbiDecoded, type ContractArtifact, FunctionType } from '@aztec/foundation/abi';
-import { type ContractInstanceWithAddress } from '@aztec/types/contracts';
-import { type NodeInfo } from '@aztec/types/interfaces';
+  CompleteAddress,
+  type ContractInstanceWithAddress,
+  type NodeInfo,
+  getContractClassFromArtifact,
+} from '@aztec/stdlib/contract';
+import { GasFees } from '@aztec/stdlib/gas';
+import type { Tx, TxExecutionRequest, TxHash, TxProvingResult, TxReceipt, TxSimulationResult } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type Wallet } from '../account/wallet.js';
+import type { Wallet } from '../wallet/wallet.js';
 import { Contract } from './contract.js';
 
 describe('Contract Class', () => {
@@ -29,27 +28,19 @@ describe('Contract Class', () => {
   const mockTxHash = { type: 'TxHash' } as any as TxHash;
   const mockTxReceipt = { type: 'TxReceipt' } as any as TxReceipt;
   const mockTxSimulationResult = { type: 'TxSimulationResult' } as any as TxSimulationResult;
-  const mockUnconstrainedResultValue = 1;
+  const mockUtilityResultValue = 1;
   const l1Addresses: L1ContractAddresses = {
     rollupAddress: EthAddress.random(),
     registryAddress: EthAddress.random(),
     inboxAddress: EthAddress.random(),
     outboxAddress: EthAddress.random(),
     feeJuiceAddress: EthAddress.random(),
+    stakingAssetAddress: EthAddress.random(),
     feeJuicePortalAddress: EthAddress.random(),
-  };
-  const mockNodeInfo: NodeInfo = {
-    nodeVersion: 'vx.x.x',
-    l1ChainId: 1,
-    protocolVersion: 2,
-    l1ContractAddresses: l1Addresses,
-    enr: undefined,
-    protocolContractAddresses: {
-      classRegisterer: AztecAddress.random(),
-      feeJuice: AztecAddress.random(),
-      instanceDeployer: AztecAddress.random(),
-      multiCallEntrypoint: AztecAddress.random(),
-    },
+    governanceAddress: EthAddress.random(),
+    coinIssuerAddress: EthAddress.random(),
+    rewardDistributorAddress: EthAddress.random(),
+    governanceProposerAddress: EthAddress.random(),
   };
 
   const defaultArtifact: ContractArtifact = {
@@ -79,16 +70,27 @@ describe('Contract Class', () => {
           },
         ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfa),
+        verificationKey: 'fake-verification-key',
       },
       {
-        name: 'baz',
+        name: 'public_dispatch',
         isInitializer: false,
         isStatic: false,
         functionType: FunctionType.PUBLIC,
         isInternal: false,
-        parameters: [],
+        parameters: [
+          {
+            name: 'selector',
+            type: {
+              kind: 'field',
+            },
+            visibility: 'public',
+          },
+        ],
         returnTypes: [],
+        errorTypes: {},
         bytecode: Buffer.alloc(8, 0xfb),
         debugSymbols: '',
       },
@@ -96,7 +98,7 @@ describe('Contract Class', () => {
         name: 'qux',
         isInitializer: false,
         isStatic: false,
-        functionType: FunctionType.UNCONSTRAINED,
+        functionType: FunctionType.UTILITY,
         isInternal: false,
         parameters: [
           {
@@ -116,8 +118,10 @@ describe('Contract Class', () => {
         ],
         bytecode: Buffer.alloc(8, 0xfc),
         debugSymbols: '',
+        errorTypes: {},
       },
     ],
+    nonDispatchPublicFunctions: [],
     outputs: {
       structs: {},
       globals: {},
@@ -127,21 +131,44 @@ describe('Contract Class', () => {
     notes: {},
   };
 
-  beforeEach(() => {
-    contractAddress = AztecAddress.random();
-    account = CompleteAddress.random();
-    contractInstance = { address: contractAddress } as ContractInstanceWithAddress;
+  beforeEach(async () => {
+    contractAddress = await AztecAddress.random();
+    account = await CompleteAddress.random();
+    const contractClass = await getContractClassFromArtifact(defaultArtifact);
+    contractInstance = {
+      address: contractAddress,
+      currentContractClassId: contractClass.id,
+      originalContractClassId: contractClass.id,
+    } as ContractInstanceWithAddress;
+
+    const mockNodeInfo: NodeInfo = {
+      nodeVersion: 'vx.x.x',
+      l1ChainId: 1,
+      rollupVersion: 2,
+      l1ContractAddresses: l1Addresses,
+      enr: undefined,
+      protocolContractAddresses: {
+        classRegisterer: await AztecAddress.random(),
+        feeJuice: await AztecAddress.random(),
+        instanceDeployer: await AztecAddress.random(),
+        multiCallEntrypoint: await AztecAddress.random(),
+      },
+    };
 
     wallet = mock<Wallet>();
     wallet.simulateTx.mockResolvedValue(mockTxSimulationResult);
     wallet.createTxExecutionRequest.mockResolvedValue(mockTxRequest);
-    wallet.getContractInstance.mockResolvedValue(contractInstance);
+    wallet.getContractMetadata.mockResolvedValue({
+      contractInstance,
+      isContractInitialized: true,
+      isContractPubliclyDeployed: true,
+    });
     wallet.sendTx.mockResolvedValue(mockTxHash);
-    wallet.simulateUnconstrained.mockResolvedValue(mockUnconstrainedResultValue as any as AbiDecoded);
+    wallet.simulateUtility.mockResolvedValue(mockUtilityResultValue as any as AbiDecoded);
     wallet.getTxReceipt.mockResolvedValue(mockTxReceipt);
     wallet.getNodeInfo.mockResolvedValue(mockNodeInfo);
     wallet.proveTx.mockResolvedValue(mockTxProvingResult);
-    wallet.getRegisteredAccounts.mockResolvedValue([account]);
+    wallet.getCurrentBaseFees.mockResolvedValue(new GasFees(100, 100));
   });
 
   it('should create and send a contract method tx', async () => {
@@ -159,17 +186,17 @@ describe('Contract Class', () => {
     expect(wallet.sendTx).toHaveBeenCalledWith(mockTx);
   });
 
-  it('should call view on an unconstrained function', async () => {
+  it('should call view on a utility function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     const result = await fooContract.methods.qux(123n).simulate({
       from: account.address,
     });
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledTimes(1);
-    expect(wallet.simulateUnconstrained).toHaveBeenCalledWith('qux', [123n], contractAddress, account.address);
-    expect(result).toBe(mockUnconstrainedResultValue);
+    expect(wallet.simulateUtility).toHaveBeenCalledTimes(1);
+    expect(wallet.simulateUtility).toHaveBeenCalledWith('qux', [123n], contractAddress, [], account.address);
+    expect(result).toBe(mockUtilityResultValue);
   });
 
-  it('should not call create on an unconstrained function', async () => {
+  it('should not call create on a utility  function', async () => {
     const fooContract = await Contract.at(contractAddress, defaultArtifact, wallet);
     await expect(fooContract.methods.qux().create()).rejects.toThrow();
   });

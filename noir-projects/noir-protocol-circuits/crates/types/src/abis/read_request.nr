@@ -1,12 +1,14 @@
 use crate::{
-    abis::side_effect::{Ordered, Scoped}, traits::{Empty, Serialize, Deserialize},
-    address::AztecAddress, constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
-    utils::{arrays::array_concat, reader::Reader}
+    abis::side_effect::{Ordered, Scoped},
+    address::AztecAddress,
+    constants::{READ_REQUEST_LENGTH, SCOPED_READ_REQUEST_LEN},
+    traits::{Deserialize, Empty, Serialize, ToField},
+    utils::{arrays::array_concat, reader::Reader},
 };
 
 pub struct ReadRequest {
-    value: Field,
-    counter: u32,
+    pub value: Field,
+    pub counter: u32,
 }
 
 impl Ordered for ReadRequest {
@@ -46,8 +48,8 @@ impl ReadRequest {
 }
 
 pub struct ScopedReadRequest {
-    read_request: ReadRequest,
-    contract_address: AztecAddress,
+    pub read_request: ReadRequest,
+    pub contract_address: AztecAddress,
 }
 
 impl Scoped<ReadRequest> for ScopedReadRequest {
@@ -68,7 +70,10 @@ impl Eq for ScopedReadRequest {
 
 impl Empty for ScopedReadRequest {
     fn empty() -> Self {
-        ScopedReadRequest { read_request: ReadRequest::empty(), contract_address: AztecAddress::empty() }
+        ScopedReadRequest {
+            read_request: ReadRequest::empty(),
+            contract_address: AztecAddress::empty(),
+        }
     }
 }
 
@@ -76,7 +81,7 @@ impl Serialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
     fn serialize(self) -> [Field; SCOPED_READ_REQUEST_LEN] {
         array_concat(
             self.read_request.serialize(),
-            [self.contract_address.to_field()]
+            [self.contract_address.to_field()],
         )
     }
 }
@@ -86,7 +91,7 @@ impl Deserialize<SCOPED_READ_REQUEST_LEN> for ScopedReadRequest {
         let mut reader = Reader::new(values);
         let res = Self {
             read_request: reader.read_struct(ReadRequest::deserialize),
-            contract_address: reader.read_struct(AztecAddress::deserialize)
+            contract_address: reader.read_struct(AztecAddress::deserialize),
         };
         reader.finish();
         res

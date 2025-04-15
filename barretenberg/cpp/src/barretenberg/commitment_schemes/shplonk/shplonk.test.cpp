@@ -1,6 +1,5 @@
 #include "shplonk.hpp"
 #include "../commitment_key.test.hpp"
-#include "../gemini/gemini.hpp"
 #include "barretenberg/commitment_schemes/claim.hpp"
 #include <algorithm>
 #include <gtest/internal/gtest-internal.h>
@@ -23,7 +22,8 @@ TYPED_TEST(ShplonkTest, ShplonkSimple)
 
     using OpeningClaim = OpeningClaim<TypeParam>;
 
-    const size_t n = 16;
+    const size_t log_n = 4;
+    const size_t n = 1UL << log_n;
 
     auto prover_transcript = NativeTranscript::prover_init_empty();
 

@@ -54,9 +54,8 @@ Prover get_prover(void (*test_circuit_function)(typename Prover::Flavor::Circuit
         Composer composer;
         return composer.create_prover(builder);
     } else {
-#ifdef TRACY_MEMORY
-        ZoneScopedN("creating prover");
-#endif
+        PROFILE_THIS_NAME("creating prover");
+
         return Prover(builder);
     }
 };
@@ -77,7 +76,7 @@ void construct_proof_with_specified_num_iterations(
     void (*test_circuit_function)(typename Prover::Flavor::CircuitBuilder&, size_t),
     size_t num_iterations)
 {
-    srs::init_crs_factory("../srs_db/ignition");
+    srs::init_crs_factory(bb::srs::get_ignition_crs_path());
 
     for (auto _ : state) {
         // Construct circuit and prover; don't include this part in measurement

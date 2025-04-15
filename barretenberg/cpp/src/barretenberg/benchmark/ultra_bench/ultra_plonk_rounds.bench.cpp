@@ -49,7 +49,7 @@ BB_PROFILE static void test_round_inner(State& state, plonk::UltraProver& prover
 }
 BB_PROFILE static void test_round(State& state, size_t index) noexcept
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     for (auto _ : state) {
         state.PauseTiming();
         // TODO: https://github.com/AztecProtocol/barretenberg/issues/761 benchmark both sparse and dense circuits

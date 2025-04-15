@@ -2,10 +2,11 @@
 #include "barretenberg/stdlib/primitives/field/field.hpp"
 #include "barretenberg/stdlib/primitives/witness/witness.hpp"
 
-template <typename Builder> class Add2Circuit {
+class Add2Circuit {
   public:
-    typedef bb::stdlib::public_witness_t<Builder> public_witness_ct;
-    typedef bb::stdlib::field_t<Builder> field_ct;
+    using Builder = bb::UltraCircuitBuilder;
+    using public_witness_ct = bb::stdlib::public_witness_t<Builder>;
+    using field_ct = bb::stdlib::field_t<Builder>;
 
     // Three public inputs
     static Builder generate(uint256_t inputs[])

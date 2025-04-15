@@ -239,8 +239,8 @@ template <typename Curve> struct verification_key {
     static std::shared_ptr<verification_key> from_field_elements(
         Builder* ctx,
         const std::vector<field_t<Builder>>& fields,
-        bool inner_proof_contains_recursive_proof = false,
-        AggregationObjectPubInputIndices recursive_proof_public_input_indices = {})
+        bool inner_proof_contains_pairing_point_accumulator = false,
+        PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices = {})
     {
         std::vector<fr> fields_raw;
         std::shared_ptr<verification_key> key = std::make_shared<verification_key>();
@@ -252,11 +252,11 @@ template <typename Curve> struct verification_key {
         key->n = fields[3];
         key->num_public_inputs = fields[4];
 
-        // NOTE: For now `contains_recursive_proof` and `recursive_proof_public_input_indices` need to be circuit
-        // constants!
-        key->contains_recursive_proof = inner_proof_contains_recursive_proof;
-        for (size_t i = 0; i < AGGREGATION_OBJECT_SIZE; ++i) {
-            key->recursive_proof_public_input_indices[i] = recursive_proof_public_input_indices[i];
+        // NOTE: For now `contains_pairing_point_accumulator` and `pairing_point_accumulator_public_input_indices` need
+        // to be circuit constants!
+        key->contains_pairing_point_accumulator = inner_proof_contains_pairing_point_accumulator;
+        for (size_t i = 0; i < PAIRING_POINT_ACCUMULATOR_SIZE; ++i) {
+            key->pairing_point_accumulator_public_input_indices[i] = pairing_point_accumulator_public_input_indices[i];
         }
 
         size_t count = 22;
@@ -297,8 +297,8 @@ template <typename Curve> struct verification_key {
         key->n = witness_t<Builder>(ctx, bb::fr(input_key->circuit_size));
         key->num_public_inputs = witness_t<Builder>(ctx, input_key->num_public_inputs);
         key->domain = evaluation_domain<Builder>::from_witness(ctx, input_key->domain);
-        key->contains_recursive_proof = input_key->contains_recursive_proof;
-        key->recursive_proof_public_input_indices = input_key->recursive_proof_public_input_indices;
+        key->contains_pairing_point_accumulator = input_key->contains_pairing_point_accumulator;
+        key->pairing_point_accumulator_public_input_indices = input_key->pairing_point_accumulator_public_input_indices;
         for (const auto& [tag, value] : input_key->commitments) {
             // We do not perform on_curve() circuit checks when constructing the Curve::Group element.
             // The assumption is that the circuit creator is honest and that the verification key hash (or some other
@@ -320,8 +320,8 @@ template <typename Curve> struct verification_key {
         key->context = ctx;
         key->n = field_t<Builder>(ctx, input_key->circuit_size);
         key->num_public_inputs = field_t<Builder>(ctx, input_key->num_public_inputs);
-        key->contains_recursive_proof = input_key->contains_recursive_proof;
-        key->recursive_proof_public_input_indices = input_key->recursive_proof_public_input_indices;
+        key->contains_pairing_point_accumulator = input_key->contains_pairing_point_accumulator;
+        key->pairing_point_accumulator_public_input_indices = input_key->pairing_point_accumulator_public_input_indices;
 
         key->domain = evaluation_domain<Builder>::from_constants(ctx, input_key->domain);
 
@@ -445,8 +445,8 @@ template <typename Curve> struct verification_key {
 
     plonk::PolynomialManifest polynomial_manifest;
     // Used to check in the circuit if a proof contains any aggregated state.
-    bool contains_recursive_proof = false;
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    bool contains_pairing_point_accumulator = false;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
     size_t program_width = 4;
     Builder* context;
 };

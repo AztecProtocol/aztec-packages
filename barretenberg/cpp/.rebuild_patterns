@@ -2,3 +2,5 @@
 ^barretenberg/cpp/.*CMakeLists\.txt$
 ^barretenberg/cpp/.*Dockerfile.*$
 ^barretenberg/cpp/scripts/
+^barretenberg/cpp/bootstrap.sh
+^barretenberg/cpp/CMakePresets.json

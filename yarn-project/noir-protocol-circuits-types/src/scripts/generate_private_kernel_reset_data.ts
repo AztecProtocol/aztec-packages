@@ -1,22 +1,23 @@
 import {
-  MAX_ENCRYPTED_LOGS_PER_TX,
   MAX_KEY_VALIDATION_REQUESTS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NOTE_HASH_READ_REQUESTS_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_NULLIFIER_READ_REQUESTS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
   PRIVATE_KERNEL_RESET_INDEX,
-  type PrivateKernelResetDimensionsConfig,
   VK_TREE_HEIGHT,
-  privateKernelResetDimensionNames,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
 import { createConsoleLogger } from '@aztec/foundation/log';
+import { type PrivateKernelResetDimensionsConfig, privateKernelResetDimensionNames } from '@aztec/stdlib/kernel';
 
-import fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
-const log = createConsoleLogger('aztec:autogenerate');
+const log = createConsoleLogger('autogenerate');
 
 const outputFilename = './src/private_kernel_reset_data.ts';
+const outputTypesFilename = './src/private_kernel_reset_types.ts';
+const outputVksFilename = './src/private_kernel_reset_vks.ts';
 
 // Must match the values in noir-projects/noir-protocol-circuits/crates/private-kernel-reset/src/main.nr
 const maxDimensions = [
@@ -28,15 +29,42 @@ const maxDimensions = [
   MAX_NULLIFIERS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MAX_ENCRYPTED_LOGS_PER_TX,
+  MAX_PRIVATE_LOGS_PER_TX,
 ];
 
-function generateImports() {
+function generateTypeFileImports() {
   return `
-    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig, type VerificationKeyData } from '@aztec/circuits.js';
-    import { type NoirCompiledCircuit } from '@aztec/types/noir';
-    import { keyJsonToVKData } from './utils/vk_json.js';
+    import { PrivateKernelResetDimensions, type PrivateKernelResetDimensionsConfig } from '@aztec/stdlib/kernel';
   `;
+}
+
+function generateVkFileImports() {
+  return `
+    import type { VerificationKeyData } from '@aztec/stdlib/vks';
+    import { keyJsonToVKData } from './utils/vk_json.js';
+
+    import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
+  `;
+}
+
+function generateDataFileImports() {
+  return `
+    import type { NoirCompiledCircuit } from '@aztec/stdlib/noir';
+
+    import type { PrivateResetArtifact } from './private_kernel_reset_types.js';
+  `;
+}
+
+function generateArtifactFileNames(importTags: string[], maxDimensionsTag: string) {
+  const names = importTags.map(
+    tag =>
+      `${getArtifactName(tag)}: '${
+        tag === `_${maxDimensionsTag}` ? 'private_kernel_reset' : `private_kernel_reset${tag}`
+      }'`,
+  );
+  return `export const PrivateKernelResetArtifactFileNames = {
+    ${names.join(',')}
+  }`;
 }
 
 function generateArtifactImports(importTags: string[]) {
@@ -170,20 +198,24 @@ const main = async () => {
     /* eslint-disable camelcase */
     // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:reset-data\`
 
-    ${generateImports()}
+    ${generateDataFileImports()}
     ${generateArtifactImports(importTags)}
     ${generateSimulatedArtifactImports(importTags)}
-    ${generateVksImports(importTags)}
-
-    ${generateArtifactNames(resetVariantTags)}
 
     ${generateArtifacts(resetVariantTags, importTags)}
 
     ${generateSimulatedArtifacts(resetVariantTags, importTags)}
+  `;
 
-    ${generateVks(resetVariantTags, importTags)}
+  const typeFileContent = `
+    /* eslint-disable camelcase */
+    // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:reset-data\`
 
-    ${generateVkIndexes(resetVariantTags)}
+    ${generateTypeFileImports()}
+
+    ${generateArtifactNames(resetVariantTags)}
+
+    ${generateArtifactFileNames(resetVariantTags, maxDimensionsTag)}
 
     export const privateKernelResetDimensionsConfig: PrivateKernelResetDimensionsConfig = ${JSON.stringify(config)};
 
@@ -192,7 +224,22 @@ const main = async () => {
     )}]);
   `;
 
+  const vkFileContent = `
+    /* eslint-disable camelcase */
+    // GENERATED FILE - DO NOT EDIT. RUN \`yarn generate\` or \`yarn generate:reset-data\`
+
+    ${generateVkFileImports()}
+
+    ${generateVksImports(importTags)}
+
+    ${generateVks(resetVariantTags, importTags)}
+
+    ${generateVkIndexes(resetVariantTags)}
+  `;
+
   await fs.writeFile(outputFilename, content);
+  await fs.writeFile(outputTypesFilename, typeFileContent);
+  await fs.writeFile(outputVksFilename, vkFileContent);
 };
 
 try {

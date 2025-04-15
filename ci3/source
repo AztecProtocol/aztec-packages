@@ -1,0 +1,21 @@
+# Usage: source $(git rev-parse --show-toplevel)/ci3/source
+# This is a basis for shell scripts that use the ci3 framework.
+# This can be sourced multiple by scripts calling scripts, so it makes sense to only do certain sets through first pass.
+
+# Enter our script directory, allowing usage of scripts from any directory.
+[ -z "${NO_CD:-}" ] && cd "$(dirname $0)"
+
+# We export so we can use from exported functions.
+export root=${root:-$(git rev-parse --show-toplevel)}
+export ci3="$root/ci3"
+[[ "$PATH" != *"$ci3:" ]] && export PATH=$ci3:$PATH
+
+[ -z "${CI:-}" ] && export CI=0
+[ "$CI" == "true" ] && export CI=1
+
+# We are fine using foundry nightly.
+export FOUNDRY_DISABLE_NIGHTLY_WARNING=1
+
+source $ci3/source_options
+source $ci3/source_stdlib
+source $ci3/source_color

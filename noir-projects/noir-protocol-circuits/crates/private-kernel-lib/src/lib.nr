@@ -3,7 +3,6 @@ mod private_kernel_init;
 mod private_kernel_inner;
 mod private_kernel_tail;
 mod private_kernel_tail_to_public;
-mod private_kernel_empty;
 mod private_kernel_reset;
 mod tests;
 
@@ -12,4 +11,3 @@ pub use private_kernel_inner::PrivateKernelInnerCircuitPrivateInputs;
 pub use private_kernel_reset::PrivateKernelResetCircuitPrivateInputs;
 pub use private_kernel_tail::PrivateKernelTailCircuitPrivateInputs;
 pub use private_kernel_tail_to_public::PrivateKernelTailToPublicCircuitPrivateInputs;
-pub use private_kernel_empty::PrivateKernelEmptyPrivateInputs;

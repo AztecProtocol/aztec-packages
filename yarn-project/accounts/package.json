@@ -5,11 +5,16 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
+    "./dapp": "./dest/dapp/index.js",
     "./defaults": "./dest/defaults/index.js",
     "./ecdsa": "./dest/ecdsa/index.js",
+    "./ecdsa/lazy": "./dest/ecdsa/lazy.js",
     "./schnorr": "./dest/schnorr/index.js",
+    "./schnorr/lazy": "./dest/schnorr/lazy.js",
     "./single_key": "./dest/single_key/index.js",
+    "./single_key/lazy": "./dest/single_key/lazy.js",
     "./testing": "./dest/testing/index.js",
+    "./testing/lazy": "./dest/testing/lazy.js",
     "./utils": "./dest/utils/index.js"
   },
   "typedocOptions": {
@@ -32,7 +37,7 @@
     "clean": "rm -rf ./dest .tsbuildinfo ./artifacts",
     "formatting": "run -T prettier --check ./src && run -T eslint ./src",
     "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --passWithNoTests --maxWorkers=${JEST_MAX_WORKERS:-8}"
   },
   "inherits": [
     "../package.common.json",
@@ -64,22 +69,19 @@
       ".ts"
     ],
     "reporters": [
-      [
-        "default",
-        {
-          "summaryThreshold": 9999
-        }
-      ]
+      "default"
+    ],
+    "testTimeout": 120000,
+    "setupFiles": [
+      "../../foundation/src/jest/setup.mjs"
     ]
   },
   "dependencies": {
     "@aztec/aztec.js": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
     "@aztec/entrypoints": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
-    "@aztec/types": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "tslib": "^2.4.0"
   },
   "devDependencies": {

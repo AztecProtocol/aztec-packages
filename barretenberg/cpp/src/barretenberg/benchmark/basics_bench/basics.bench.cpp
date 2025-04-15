@@ -24,6 +24,7 @@
 #include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/thread.hpp"
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
 #include "barretenberg/srs/global_crs.hpp"
 #include <benchmark/benchmark.h>
@@ -432,7 +433,7 @@ void uint_extended_multiplication(State& state)
  */
 static void DoPippengerSetup(const benchmark::State&)
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
 }
 
 /**
@@ -466,6 +467,19 @@ void pippenger(State& state)
         benchmark::DoNotOptimize(ck->commit(pol));
     }
 }
+
+void bn254fr_random(State& state)
+{
+    numeric::RNG& engine = numeric::get_randomness();
+    for (auto _ : state) {
+        state.PauseTiming();
+        size_t num_cycles = 1UL << static_cast<size_t>(state.range(0));
+        state.ResumeTiming();
+        for (size_t i = 0; i < num_cycles; i++) {
+            benchmark::DoNotOptimize(fr::random_element(&engine));
+        }
+    }
+}
 } // namespace
 
 BENCHMARK(parallel_for_field_element_addition)->Unit(kMicrosecond)->DenseRange(0, MAX_REPETITION_LOG);
@@ -485,4 +499,5 @@ BENCHMARK(sequential_copy)->Unit(kMicrosecond)->DenseRange(20, 25);
 BENCHMARK(uint_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
 BENCHMARK(uint_extended_multiplication)->Unit(kMicrosecond)->DenseRange(12, 27);
 BENCHMARK(pippenger)->Unit(kMicrosecond)->DenseRange(16, 20)->Setup(DoPippengerSetup)->Iterations(5);
+BENCHMARK(bn254fr_random)->Unit(kMicrosecond)->DenseRange(10, 20);
 BENCHMARK_MAIN();

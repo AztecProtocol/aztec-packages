@@ -28,3 +28,39 @@ export function compact<T extends object>(obj: T): { [P in keyof T]+?: Exclude<T
   }
   return result;
 }
+
+/** Returns a new object by picking the given keys. */
+export function pick<T extends object, U extends keyof T>(object: T, ...props: U[]): Pick<T, U>;
+export function pick<T extends object>(object: T, ...props: string[]): Partial<T>;
+export function pick<T extends object>(object: T, ...props: string[]): Partial<T> {
+  const obj: any = {};
+  for (const prop of props) {
+    obj[prop] = (object as any)[prop];
+  }
+  return obj;
+}
+
+/** Returns a new object by omitting the given keys. */
+export function omit<T extends object, K extends keyof T>(object: T, ...props: K[]): Omit<T, K>;
+export function omit<T extends object>(object: T, ...props: string[]): Partial<T>;
+export function omit<T extends object>(object: T, ...props: string[]): Partial<T> {
+  const obj: any = { ...object };
+  for (const prop of props) {
+    delete obj[prop];
+  }
+  return obj;
+}
+
+/** Equivalent to Object.entries but preserves types. */
+export function getEntries<T extends Record<PropertyKey, unknown>>(obj: T): { [K in keyof T]: [K, T[K]] }[keyof T][] {
+  // See https://stackoverflow.com/a/76176570
+  return Object.entries(obj) as { [K in keyof T]: [K, T[K]] }[keyof T][];
+}
+
+/** Equivalent to Object.fromEntries but preserves types. */
+export function fromEntries<const T extends ReadonlyArray<readonly [PropertyKey, unknown]>>(
+  entries: T,
+): { [K in T[number] as K[0]]: K[1] } {
+  // See https://stackoverflow.com/a/76176570
+  return Object.fromEntries(entries) as { [K in T[number] as K[0]]: K[1] };
+}

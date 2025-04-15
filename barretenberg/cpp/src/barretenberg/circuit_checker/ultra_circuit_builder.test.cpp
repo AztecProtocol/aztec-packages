@@ -611,22 +611,20 @@ TEST(UltraCircuitConstructor, NonNativeFieldMultiplication)
 
     const auto split_into_limbs = [&](const uint512_t& input) {
         constexpr size_t NUM_BITS = 68;
-        std::array<fr, 5> limbs;
+        std::array<fr, 4> limbs;
         limbs[0] = input.slice(0, NUM_BITS).lo;
         limbs[1] = input.slice(NUM_BITS * 1, NUM_BITS * 2).lo;
         limbs[2] = input.slice(NUM_BITS * 2, NUM_BITS * 3).lo;
         limbs[3] = input.slice(NUM_BITS * 3, NUM_BITS * 4).lo;
-        limbs[4] = fr(input.lo);
         return limbs;
     };
 
-    const auto get_limb_witness_indices = [&](const std::array<fr, 5>& limbs) {
-        std::array<uint32_t, 5> limb_indices;
+    const auto get_limb_witness_indices = [&](const std::array<fr, 4>& limbs) {
+        std::array<uint32_t, 4> limb_indices;
         limb_indices[0] = circuit_constructor.add_variable(limbs[0]);
         limb_indices[1] = circuit_constructor.add_variable(limbs[1]);
         limb_indices[2] = circuit_constructor.add_variable(limbs[2]);
         limb_indices[3] = circuit_constructor.add_variable(limbs[3]);
-        limb_indices[4] = circuit_constructor.add_variable(limbs[4]);
         return limb_indices;
     };
     const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (68 * 4);
@@ -671,22 +669,20 @@ TEST(UltraCircuitConstructor, NonNativeFieldMultiplicationSortCheck)
 
     const auto split_into_limbs = [&](const uint512_t& input) {
         constexpr size_t NUM_BITS = 68;
-        std::array<fr, 5> limbs;
+        std::array<fr, 4> limbs;
         limbs[0] = input.slice(0, NUM_BITS).lo;
         limbs[1] = input.slice(NUM_BITS * 1, NUM_BITS * 2).lo;
         limbs[2] = input.slice(NUM_BITS * 2, NUM_BITS * 3).lo;
         limbs[3] = input.slice(NUM_BITS * 3, NUM_BITS * 4).lo;
-        limbs[4] = fr(input.lo);
         return limbs;
     };
 
-    const auto get_limb_witness_indices = [&](const std::array<fr, 5>& limbs) {
-        std::array<uint32_t, 5> limb_indices;
+    const auto get_limb_witness_indices = [&](const std::array<fr, 4>& limbs) {
+        std::array<uint32_t, 4> limb_indices;
         limb_indices[0] = circuit_constructor.add_variable(limbs[0]);
         limb_indices[1] = circuit_constructor.add_variable(limbs[1]);
         limb_indices[2] = circuit_constructor.add_variable(limbs[2]);
         limb_indices[3] = circuit_constructor.add_variable(limbs[3]);
-        limb_indices[4] = circuit_constructor.add_variable(limbs[4]);
         return limb_indices;
     };
     const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (68 * 4);

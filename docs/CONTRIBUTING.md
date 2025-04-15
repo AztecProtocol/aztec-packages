@@ -10,7 +10,7 @@ This site is built using docusaurus. If you have questions
 
 This repo is not for asking general questions, so don't open issues with questions. 
 
-If you have a question about Aztec, consult the live documentation site at [https://docs.aztec.network](https://docs.aztec.network), or join the [Discord server](https://discord.gg/ctGpCgkBFt) and ask the community.
+If you have a question about Aztec, consult the live documentation site at [https://docs.aztec.network](https://docs.aztec.network), or join the [Discord server](https://discord.com/invite/aztec) and ask the community.
 
 If you have a question about contributing to the docs, post in the [Discussions](https://github.com/AztecProtocol/docs/discussions) tab.
 

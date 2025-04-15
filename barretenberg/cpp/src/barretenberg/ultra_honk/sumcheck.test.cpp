@@ -9,6 +9,7 @@
 #include "barretenberg/relations/ultra_arithmetic_relation.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp"
 #include "barretenberg/transcript/transcript.hpp"
+#include "barretenberg/ultra_honk/witness_computation.hpp"
 
 #include <gtest/gtest.h>
 
@@ -19,7 +20,7 @@ using FF = typename Flavor::FF;
 
 class SumcheckTestsRealCircuit : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 /**
@@ -148,19 +149,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     // Create a prover (it will compute proving key and witness)
     auto decider_pk = std::make_shared<DeciderProvingKey_<Flavor>>(builder);
 
-    // Generate eta, beta and gamma
-    decider_pk->relation_parameters.eta = FF::random_element();
-    decider_pk->relation_parameters.eta = FF::random_element();
-    decider_pk->relation_parameters.eta_two = FF::random_element();
-    decider_pk->relation_parameters.eta_three = FF::random_element();
-    decider_pk->relation_parameters.beta = FF::random_element();
-    decider_pk->relation_parameters.gamma = FF::random_element();
-
-    decider_pk->proving_key.add_ram_rom_memory_records_to_wire_4(decider_pk->relation_parameters.eta,
-                                                                 decider_pk->relation_parameters.eta_two,
-                                                                 decider_pk->relation_parameters.eta_three);
-    decider_pk->proving_key.compute_logderivative_inverses(decider_pk->relation_parameters);
-    decider_pk->proving_key.compute_grand_product_polynomials(decider_pk->relation_parameters);
+    WitnessComputation<Flavor>::complete_proving_key_for_test(decider_pk);
 
     auto prover_transcript = Transcript::prover_init_empty();
     auto circuit_size = decider_pk->proving_key.circuit_size;
@@ -200,7 +189,7 @@ TEST_F(SumcheckTestsRealCircuit, Ultra)
     auto verifier_output =
         sumcheck_verifier.verify(decider_pk->relation_parameters, verifier_alphas, verifier_gate_challenges);
 
-    auto verified = verifier_output.verified.value();
+    auto verified = verifier_output.verified;
 
     ASSERT_TRUE(verified);
 }

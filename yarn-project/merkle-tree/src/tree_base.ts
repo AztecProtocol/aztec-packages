@@ -1,12 +1,11 @@
-import { SiblingPath } from '@aztec/circuit-types';
 import { toBigIntLE, toBufferLE } from '@aztec/foundation/bigint-buffer';
-import { type DebugLogger, createDebugLogger } from '@aztec/foundation/log';
+import { type Logger, createLogger } from '@aztec/foundation/log';
 import { type Bufferable, type FromBuffer, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap, type AztecSingleton } from '@aztec/kv-store';
-import { type Hasher } from '@aztec/types/interfaces';
+import { type Hasher, SiblingPath } from '@aztec/foundation/trees';
+import type { AztecKVStore, AztecMap, AztecSingleton } from '@aztec/kv-store';
 
 import { HasherWithStats } from './hasher_with_stats.js';
-import { type MerkleTree } from './interfaces/merkle_tree.js';
+import type { MerkleTree } from './interfaces/merkle_tree.js';
 
 const MAX_DEPTH = 254;
 
@@ -51,7 +50,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
   private root!: Buffer;
   private zeroHashes: Buffer[] = [];
   private cache: { [key: string]: Buffer } = {};
-  protected log: DebugLogger;
+  protected log: Logger;
   protected hasher: HasherWithStats;
 
   private nodes: AztecMap<string, Buffer>;
@@ -84,7 +83,7 @@ export abstract class TreeBase<T extends Bufferable> implements MerkleTree<T> {
     this.root = root ? root : current;
     this.maxIndex = 2n ** BigInt(depth) - 1n;
 
-    this.log = createDebugLogger(`aztec:merkle-tree:${name.toLowerCase()}`);
+    this.log = createLogger(`merkle-tree:${name.toLowerCase()}`);
   }
 
   /**

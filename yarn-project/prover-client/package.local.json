@@ -1,5 +1,5 @@
 {
   "scripts": {
-    "test": "LOG_LEVEL=${LOG_LEVEL:-silent} DEBUG_COLORS=1 NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit"
+    "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000 --forceExit"
   }
 }

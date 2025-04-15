@@ -1,17 +1,22 @@
-import { type L1ToL2Message } from '@aztec/aztec.js';
-import { type AztecAddress, Fr } from '@aztec/circuits.js';
-import { type L1ContractAddresses } from '@aztec/ethereum';
+import {
+  type L1ContractAddresses,
+  RollupContract,
+  type ViemPublicClient,
+  type ViemWalletClient,
+} from '@aztec/ethereum';
+import { Fr } from '@aztec/foundation/fields';
 import { InboxAbi } from '@aztec/l1-artifacts';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 import { expect } from '@jest/globals';
-import { type Hex, type PublicClient, type WalletClient, decodeEventLog, getContract } from 'viem';
+import { decodeEventLog, getContract } from 'viem';
 
 export async function sendL1ToL2Message(
-  message: L1ToL2Message | { recipient: AztecAddress; content: Fr; secretHash: Fr },
+  message: { recipient: AztecAddress; content: Fr; secretHash: Fr },
   ctx: {
-    walletClient: WalletClient;
-    publicClient: PublicClient;
-    l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress'>;
+    walletClient: ViemWalletClient;
+    publicClient: ViemPublicClient;
+    l1ContractAddresses: Pick<L1ContractAddresses, 'inboxAddress' | 'rollupAddress'>;
   },
 ) {
   const inbox = getContract({
@@ -20,18 +25,19 @@ export async function sendL1ToL2Message(
     client: ctx.walletClient,
   });
 
-  const recipient = 'recipient' in message.recipient ? message.recipient.recipient : message.recipient;
-  const version = 'version' in message.recipient ? message.recipient.version : 1;
+  const { recipient, content, secretHash } = message;
+
+  const version = await new RollupContract(
+    ctx.publicClient,
+    ctx.l1ContractAddresses.rollupAddress.toString(),
+  ).getVersion();
 
   // We inject the message to Inbox
-  const txHash = await inbox.write.sendL2Message(
-    [
-      { actor: recipient.toString() as Hex, version: BigInt(version) },
-      message.content.toString() as Hex,
-      message.secretHash.toString() as Hex,
-    ] as const,
-    {} as any,
-  );
+  const txHash = await inbox.write.sendL2Message([
+    { actor: recipient.toString(), version: BigInt(version) },
+    content.toString(),
+    secretHash.toString(),
+  ]);
 
   // We check that the message was correctly injected by checking the emitted event
   const txReceipt = await ctx.publicClient.waitForTransactionReceipt({ hash: txHash });
@@ -40,19 +46,14 @@ export async function sendL1ToL2Message(
   expect(txReceipt.logs.length).toBe(1);
 
   // We decode the event and get leaf out of it
-  const txLog = txReceipt.logs[0];
+  const messageSentLog = txReceipt.logs[0];
   const topics = decodeEventLog({
     abi: InboxAbi,
-    data: txLog.data,
-    topics: txLog.topics,
+    data: messageSentLog.data,
+    topics: messageSentLog.topics,
   });
   const receivedMsgHash = topics.args.hash;
+  const receivedGlobalLeafIndex = topics.args.index;
 
-  // We check that the leaf inserted into the subtree matches the expected message hash
-  if ('hash' in message) {
-    const msgHash = message.hash();
-    expect(receivedMsgHash).toBe(msgHash.toString());
-  }
-
-  return Fr.fromString(receivedMsgHash);
+  return [Fr.fromHexString(receivedMsgHash), new Fr(receivedGlobalLeafIndex)];
 }

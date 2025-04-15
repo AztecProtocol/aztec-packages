@@ -15,7 +15,28 @@ using namespace smt_solver;
 enum class TermType { FFTerm, FFITerm, BVTerm, ITerm };
 std::ostream& operator<<(std::ostream& os, TermType type);
 
-enum class OpType : int32_t { ADD, SUB, MUL, DIV, NEG, XOR, AND, OR, GT, GE, LT, LE, MOD, RSH, LSH, ROTR, ROTL };
+enum class OpType : int32_t {
+    ADD,
+    SUB,
+    MUL,
+    DIV,
+    NEG,
+    XOR,
+    AND,
+    OR,
+    GT,
+    GE,
+    LT,
+    LE,
+    MOD,
+    RSH,
+    LSH,
+    ROTR,
+    ROTL,
+    NOT,
+    EXTRACT,
+    BITVEC_PAD
+};
 
 /**
  * @brief precomputed map that contains allowed
@@ -73,7 +94,11 @@ const std::unordered_map<TermType, std::unordered_map<OpType, cvc5::Kind>> typed
           { OpType::ROTL, cvc5::Kind::BITVECTOR_ROTATE_LEFT },
           { OpType::ROTR, cvc5::Kind::BITVECTOR_ROTATE_RIGHT },
           { OpType::MOD, cvc5::Kind::BITVECTOR_UREM },
-          { OpType::DIV, cvc5::Kind::BITVECTOR_UDIV } } }
+          { OpType::DIV, cvc5::Kind::BITVECTOR_UDIV },
+          { OpType::NOT, cvc5::Kind::BITVECTOR_NOT },
+          { OpType::EXTRACT, cvc5::Kind::BITVECTOR_EXTRACT },
+          { OpType::BITVEC_PAD, cvc5::Kind::BITVECTOR_ZERO_EXTEND },
+      } }
 };
 
 /**
@@ -160,6 +185,10 @@ class STerm {
     void operator&=(const STerm& other);
     STerm operator|(const STerm& other) const;
     void operator|=(const STerm& other);
+    void operator<(const STerm& other) const;
+    void operator>(const STerm& other) const;
+    STerm operator%(const STerm& other) const;
+    STerm operator~() const;
     STerm operator<<(const uint32_t& n) const;
     void operator<<=(const uint32_t& n);
     STerm operator>>(const uint32_t& n) const;
@@ -167,6 +196,17 @@ class STerm {
 
     STerm rotr(const uint32_t& n) const;
     STerm rotl(const uint32_t& n) const;
+
+    /**
+     * @brief Returns last `to_size` bits of variable
+     * @param to_size number of bits to be extracted
+     */
+    STerm truncate(const uint32_t& to_size);
+    /**
+     * @brief Returns ith bit of variable
+     * @param bit_index index of bit to be extracted
+     */
+    STerm extract_bit(const uint32_t& bit_index);
 
     void in(const cvc5::Term& table) const;
 

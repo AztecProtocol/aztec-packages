@@ -1,0 +1,7 @@
+[package]
+name = "marked_public_unconstrained"
+type = "contract"
+authors = [""]
+
+[dependencies]
+aztec = { path = "../../../aztec" }

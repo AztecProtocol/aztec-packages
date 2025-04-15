@@ -42,7 +42,7 @@ TEST(SumcheckRound, SumcheckTupleOfTuplesOfUnivariates)
                            univariate_2.template extend_to<MAX_LENGTH>() * challenge[0] +
                            univariate_3.template extend_to<MAX_LENGTH>() * challenge[1];
 
-    // Compare final batched univarites
+    // Compare final batched univariates
     EXPECT_EQ(result, result_expected);
 
     // Reinitialize univariate accumulators to zero

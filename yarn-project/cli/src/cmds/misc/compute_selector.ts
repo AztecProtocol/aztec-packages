@@ -1,7 +1,7 @@
-import { FunctionSelector } from '@aztec/foundation/abi';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
+import { FunctionSelector } from '@aztec/stdlib/abi';
 
-export function computeSelector(functionSignature: string, log: LogFn) {
-  const selector = FunctionSelector.fromSignature(functionSignature);
+export async function computeSelector(functionSignature: string, log: LogFn) {
+  const selector = await FunctionSelector.fromSignature(functionSignature);
   log(`${selector}`);
 }

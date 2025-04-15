@@ -1,9 +1,12 @@
 use dep::types::{abis::side_effect::Ordered, traits::Empty, utils::arrays::array_length};
 
-unconstrained pub fn find_first_revertible_item_index<T, let N: u32>(
+pub unconstrained fn find_first_revertible_item_index<T, let N: u32>(
     min_revertible_side_effect_counter: u32,
-    items: [T; N]
-) -> u32 where T: Ordered + Empty + Eq {
+    items: [T; N],
+) -> u32
+where
+    T: Ordered + Empty + Eq,
+{
     let mut index = N;
     for i in 0..N {
         let item = items[i];
@@ -22,7 +25,7 @@ mod tests {
     use dep::types::tests::fixture_builder::FixtureBuilder;
 
     struct TestBuilder {
-        private_call: FixtureBuilder
+        private_call: FixtureBuilder,
     }
 
     impl TestBuilder {
@@ -33,10 +36,11 @@ mod tests {
 
         pub fn execute_to_equal(self, expected: u32) {
             let private_call = self.private_call.to_private_circuit_public_inputs();
+            // Safety: this is a test
             let index = unsafe {
                 find_first_revertible_item_index(
                     private_call.min_revertible_side_effect_counter,
-                    private_call.private_call_requests
+                    private_call.private_call_requests,
                 )
             };
             assert_eq(index, expected);

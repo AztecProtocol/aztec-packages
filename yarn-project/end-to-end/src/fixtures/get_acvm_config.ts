@@ -1,7 +1,8 @@
-import { type DebugLogger } from '@aztec/aztec.js';
+import type { Logger } from '@aztec/aztec.js';
+import { parseBooleanEnv } from '@aztec/foundation/config';
 import { randomBytes } from '@aztec/foundation/crypto';
 
-import * as fs from 'fs/promises';
+import { promises as fs } from 'fs';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
 
@@ -14,7 +15,7 @@ const {
 } = process.env;
 
 // Determines if we have access to the acvm binary and a tmp folder for temp files
-export async function getACVMConfig(logger: DebugLogger): Promise<
+export async function getACVMConfig(logger: Logger): Promise<
   | {
       acvmWorkingDirectory: string;
       acvmBinaryPath: string;
@@ -23,7 +24,7 @@ export async function getACVMConfig(logger: DebugLogger): Promise<
   | undefined
 > {
   try {
-    if (['1', 'true'].includes(ACVM_FORCE_WASM)) {
+    if (parseBooleanEnv(ACVM_FORCE_WASM)) {
       return undefined;
     }
     const acvmBinaryPath = ACVM_BINARY_PATH ? ACVM_BINARY_PATH : `../../noir/${NOIR_RELEASE_DIR}/acvm`;
@@ -37,8 +38,12 @@ export async function getACVMConfig(logger: DebugLogger): Promise<
 
     const cleanup = async () => {
       if (directoryToCleanup) {
-        // logger(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
-        await fs.rm(directoryToCleanup, { recursive: true, force: true });
+        try {
+          logger.info(`Cleaning up ACVM temp directory ${directoryToCleanup}`);
+          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+        } catch (err) {
+          logger.warn(`Failed to delete ACVM temp directory at ${directoryToCleanup}: ${err}`);
+        }
       }
     };
 

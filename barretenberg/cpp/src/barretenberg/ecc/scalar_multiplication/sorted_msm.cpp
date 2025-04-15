@@ -54,7 +54,7 @@ MsmSorter<Curve>::AdditionSequences MsmSorter<Curve>::construct_addition_sequenc
     // Create the array containing the indices of the scalars and points sorted by scalar value
     const size_t num_points = points.size();
     std::iota(index.begin(), index.end(), 0);
-#ifdef NO_TBB
+#ifdef NO_PAR_ALGOS
     std::sort(index.begin(), index.end(), [&](size_t idx_1, size_t idx_2) { return scalars[idx_1] < scalars[idx_2]; });
 #else
     std::sort(std::execution::par_unseq, index.begin(), index.end(), [&](size_t idx_1, size_t idx_2) {

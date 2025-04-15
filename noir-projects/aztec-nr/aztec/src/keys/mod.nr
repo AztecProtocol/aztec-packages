@@ -1,6 +1,4 @@
-mod constants;
-mod getters;
-mod point_to_symmetric_key;
-mod public_keys;
-
-pub use crate::keys::public_keys::{PublicKeys, PUBLIC_KEYS_LENGTH};
+pub mod constants;
+pub mod ephemeral;
+pub mod getters;
+pub mod ecdh_shared_secret;

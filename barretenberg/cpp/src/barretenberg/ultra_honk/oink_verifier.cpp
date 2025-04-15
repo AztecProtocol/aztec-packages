@@ -1,5 +1,11 @@
 #include "barretenberg/ultra_honk/oink_verifier.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
+#include "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp"
+#include "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp"
 
 namespace bb {
 
@@ -31,21 +37,13 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::verify()
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_preamble_round()
 {
     // TODO(Adrian): Change the initialization of the transcript to take the VK hash?
-    const auto circuit_size = transcript->template receive_from_prover<uint32_t>(domain_separator + "circuit_size");
-    const auto public_input_size =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "public_input_size");
-    const auto pub_inputs_offset =
-        transcript->template receive_from_prover<uint32_t>(domain_separator + "pub_inputs_offset");
+    const uint64_t circuit_size = verification_key->verification_key->circuit_size;
+    const uint64_t public_input_size = verification_key->verification_key->num_public_inputs;
+    const uint64_t pub_inputs_offset = verification_key->verification_key->pub_inputs_offset;
 
-    if (circuit_size != verification_key->verification_key->circuit_size) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: proof circuit size does not match verification key!");
-    }
-    if (public_input_size != verification_key->verification_key->num_public_inputs) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: public inputs size does not match verification key!");
-    }
-    if (pub_inputs_offset != verification_key->verification_key->pub_inputs_offset) {
-        throw_or_abort("OinkVerifier::execute_preamble_round: public inputs offset does not match verification key!");
-    }
+    transcript->add_to_hash_buffer(domain_separator + "circuit_size", circuit_size);
+    transcript->add_to_hash_buffer(domain_separator + "public_input_size", public_input_size);
+    transcript->add_to_hash_buffer(domain_separator + "pub_inputs_offset", pub_inputs_offset);
 
     for (size_t i = 0; i < public_input_size; ++i) {
         auto public_input_i =
@@ -67,7 +65,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_wire_commitme
     witness_comms.w_o = transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.w_o);
 
     // If Goblin, get commitments to ECC op wire polynomials and DataBus columns
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         // Receive ECC op wire commitments
         for (auto [commitment, label] : zip_view(witness_comms.get_ecc_op_wires(), comm_labels.get_ecc_op_wires())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
@@ -103,7 +101,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_sorted_list_a
 }
 
 /**
- * @brief Get log derivative inverse polynomial and its commitment, if GoblinFlavor
+ * @brief Get log derivative inverse polynomial and its commitment, if MegaFlavor
  *
  */
 template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivative_inverse_round()
@@ -117,7 +115,7 @@ template <IsUltraFlavor Flavor> void OinkVerifier<Flavor>::execute_log_derivativ
         transcript->template receive_from_prover<Commitment>(domain_separator + comm_labels.lookup_inverses);
 
     // If Goblin (i.e. using DataBus) receive commitments to log-deriv inverses polynomials
-    if constexpr (IsGoblinFlavor<Flavor>) {
+    if constexpr (IsMegaFlavor<Flavor>) {
         for (auto [commitment, label] :
              zip_view(witness_comms.get_databus_inverses(), comm_labels.get_databus_inverses())) {
             commitment = transcript->template receive_from_prover<Commitment>(domain_separator + label);
@@ -156,7 +154,11 @@ template <IsUltraFlavor Flavor> typename Flavor::RelationSeparator OinkVerifier<
 }
 
 template class OinkVerifier<UltraFlavor>;
+template class OinkVerifier<UltraZKFlavor>;
 template class OinkVerifier<UltraKeccakFlavor>;
+template class OinkVerifier<UltraKeccakZKFlavor>;
+template class OinkVerifier<UltraRollupFlavor>;
 template class OinkVerifier<MegaFlavor>;
+template class OinkVerifier<MegaZKFlavor>;
 
 } // namespace bb

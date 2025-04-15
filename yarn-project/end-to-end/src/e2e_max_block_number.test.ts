@@ -1,5 +1,6 @@
 import { Fr, type PXE, type Wallet } from '@aztec/aztec.js';
-import { TestContract } from '@aztec/noir-contracts.js';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+import { TX_ERROR_INVALID_BLOCK_NUMBER } from '@aztec/stdlib/tx';
 
 import { setup } from './fixtures/utils.js';
 
@@ -29,8 +30,8 @@ describe('e2e_max_block_number', () => {
 
       it('sets the max block number', async () => {
         const tx = await contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).prove();
-        expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-        expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
       });
 
       it('does not invalidate the transaction', async () => {
@@ -43,8 +44,8 @@ describe('e2e_max_block_number', () => {
 
       it('sets the max block number', async () => {
         const tx = await contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).prove();
-        expect(tx.data.forPublic!.validationRequests.forRollup.maxBlockNumber.isSome).toEqual(true);
-        expect(tx.data.forPublic!.validationRequests.forRollup.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
       });
 
       it('does not invalidate the transaction', async () => {
@@ -65,14 +66,14 @@ describe('e2e_max_block_number', () => {
 
       it('sets the max block number', async () => {
         const tx = await contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).prove();
-        expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
-        expect(tx.data.forRollup!.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
       });
 
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow('dropped');
+        ).rejects.toThrow(TX_ERROR_INVALID_BLOCK_NUMBER);
       });
     });
 
@@ -81,14 +82,14 @@ describe('e2e_max_block_number', () => {
 
       it('sets the max block number', async () => {
         const tx = await contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).prove();
-        expect(tx.data.forPublic!.validationRequests.forRollup.maxBlockNumber.isSome).toEqual(true);
-        expect(tx.data.forPublic!.validationRequests.forRollup.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.isSome).toEqual(true);
+        expect(tx.data.rollupValidationRequests.maxBlockNumber.value).toEqual(new Fr(maxBlockNumber));
       });
 
       it('invalidates the transaction', async () => {
         await expect(
           contract.methods.set_tx_max_block_number(maxBlockNumber, enqueuePublicCall).send().wait(),
-        ).rejects.toThrow('dropped');
+        ).rejects.toThrow(TX_ERROR_INVALID_BLOCK_NUMBER);
       });
     });
   });

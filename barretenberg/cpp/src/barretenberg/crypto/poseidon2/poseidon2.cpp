@@ -7,7 +7,7 @@ namespace bb::crypto {
 template <typename Params>
 typename Poseidon2<Params>::FF Poseidon2<Params>::hash(const std::vector<typename Poseidon2<Params>::FF>& input)
 {
-    return Sponge::hash_fixed_length(input);
+    return Sponge::hash_internal(input);
 }
 
 /**

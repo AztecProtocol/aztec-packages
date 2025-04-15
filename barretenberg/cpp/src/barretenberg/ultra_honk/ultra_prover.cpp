@@ -4,6 +4,14 @@
 #include "barretenberg/ultra_honk/oink_prover.hpp"
 namespace bb {
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(const std::shared_ptr<DeciderPK>& proving_key,
+                                   const std::shared_ptr<CommitmentKey>& commitment_key)
+    : proving_key(std::move(proving_key))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(commitment_key)
+{}
+
 /**
  * @brief Create UltraProver_ from a decider proving key.
  *
@@ -33,9 +41,22 @@ UltraProver_<Flavor>::UltraProver_(Builder& circuit)
     , commitment_key(proving_key->proving_key.commitment_key)
 {}
 
+template <IsUltraFlavor Flavor>
+UltraProver_<Flavor>::UltraProver_(Builder&& circuit)
+    : proving_key(std::make_shared<DeciderProvingKey>(circuit))
+    , transcript(std::make_shared<Transcript>())
+    , commitment_key(proving_key->proving_key.commitment_key)
+{}
+
 template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::export_proof()
 {
     proof = transcript->proof_data;
+    // Add the IPA proof
+    if constexpr (HasIPAAccumulator<Flavor>) {
+        // The extra calculation is for the IPA proof length.
+        ASSERT(proving_key->proving_key.ipa_proof.size() == IPA_PROOF_LENGTH);
+        proof.insert(proof.end(), proving_key->proving_key.ipa_proof.begin(), proving_key->proving_key.ipa_proof.end());
+    }
     return proof;
 }
 template <IsUltraFlavor Flavor> void UltraProver_<Flavor>::generate_gate_challenges()
@@ -51,15 +72,21 @@ template <IsUltraFlavor Flavor> HonkProof UltraProver_<Flavor>::construct_proof(
 {
     OinkProver<Flavor> oink_prover(proving_key, transcript);
     oink_prover.prove();
+    vinfo("created oink proof");
 
     generate_gate_challenges();
 
     DeciderProver_<Flavor> decider_prover(proving_key, transcript);
-    return decider_prover.construct_proof();
+    decider_prover.construct_proof();
+    return export_proof();
 }
 
 template class UltraProver_<UltraFlavor>;
+template class UltraProver_<UltraZKFlavor>;
 template class UltraProver_<UltraKeccakFlavor>;
+template class UltraProver_<UltraKeccakZKFlavor>;
+template class UltraProver_<UltraRollupFlavor>;
 template class UltraProver_<MegaFlavor>;
+template class UltraProver_<MegaZKFlavor>;
 
 } // namespace bb

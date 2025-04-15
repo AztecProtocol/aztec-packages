@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src"]

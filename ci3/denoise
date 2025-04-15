@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+NO_CD=1 source ${root:-$(git rev-parse --show-toplevel)}/ci3/source
+source $ci3/source_redis
+
+# Ensure a command is passed
+if [ "$#" != 1 ]; then
+  echo "Usage: $0 <command>"
+  exit 1
+fi
+
+cmd=$1
+
+if [[ "${DENOISE:-0}" -eq 0 ]] || [[ "${BUILD_SYSTEM_DEBUG:-0}" -eq 1 ]]; then
+  set -e
+  bash -c "$cmd"
+  exit 0
+fi
+
+dots_per_line=${LINE_WIDTH:-64}
+dot_count=0
+status="in-progress"
+time="in-progress"
+
+# We don't want to lose color just because we're wrapping.
+export FORCE_COLOR=${FORCE_COLOR:-1}
+
+# If stdout is connected to a terminal, print singular dots for each line.
+[ -t 1 ] && realtime=1 || realtime=0
+
+key=$(uuid)
+url=http://ci.aztec-labs.com/$key
+outfile=/tmp/$key
+trap 'rm -f $outfile' EXIT
+touch $outfile
+
+function publish_log {
+  if [ "$CI_REDIS_AVAILABLE" -eq 0 ]; then
+    return
+  fi
+
+  {
+    echo "Parent Log: ${PARENT_LOG_URL:-none}"
+    echo "Command: $cmd"
+    echo "Date: $(date)"
+    echo "Status: $status"
+    echo "Took: ${time}"
+    echo
+
+    cat $outfile
+  } | redis_setexz $key $CI_REDIS_EXPIRE
+}
+
+function live_publish_log {
+  while [ -f $outfile ]; do
+    if [ $(( $(date +%s) - $(stat -c %Y "$outfile") )) -le 5 ]; then
+      publish_log
+    fi
+    sleep 5
+  done
+}
+
+if [ "$CI_REDIS_AVAILABLE" -eq 1 ]; then
+  live_publish_log &
+  publish_pid=$!
+  log_info="(${yellow}${url}${reset})"
+fi
+
+# Execute the command and process the output, allow for errors.
+set +e
+echo -e "Executing: $cmd ${log_info:-}"
+echo -n "   0 "
+PARENT_LOG_URL=$url bash -c "$cmd" 2>&1 | redact | while IFS= read -r line; do
+  ((dot_count++))
+  [ $realtime -eq 1 ] && printf "."
+  if [[ "$dots_per_line" -gt 0 && $((dot_count % dots_per_line)) -eq 0 ]]; then
+    [ $realtime -eq 0 ] && printf '%.s.' $(seq 1 "$dots_per_line")
+    printf "\n%4s " "$dot_count"
+  fi
+  printf "%s\n" "$line" >> $outfile
+done;
+# Get the exit status of the command
+status=${PIPESTATUS[0]}
+
+time="${SECONDS}s"
+[ -n "$publish_pid" ] && kill $publish_pid &>/dev/null || true
+publish_log
+
+# Handle non-zero exit status
+if [ "$status" -ne 0 ]; then
+  if [ -t 1 ]; then
+    echo -e "\nCommand exited with status $status. Dumping output:"
+    cat $outfile
+  fi
+  echo -e ". ${red}failed${reset} ($time) ${log_info:-}"
+else
+  echo -e ". ${green}done${reset} ($time)"
+fi
+
+exit $status

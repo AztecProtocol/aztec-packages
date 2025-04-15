@@ -1,7 +1,5 @@
 import { resolve, dirname } from "path";
 import { fileURLToPath } from "url";
-import ResolveTypeScriptPlugin from "resolve-typescript-plugin";
-import CopyWebpackPlugin from "copy-webpack-plugin";
 import HtmlWebpackPlugin from "html-webpack-plugin";
 import webpack from "webpack";
 
@@ -21,15 +19,22 @@ export default {
   },
   output: {
     path: resolve(dirname(fileURLToPath(import.meta.url)), "./dest"),
+    publicPath: "/",
     filename: "[name].js",
-    chunkFilename: "[name].chunk.js", // This naming pattern is used for chunks produced from code-splitting.
+    library: {
+      type: 'module',
+    },
+    chunkFormat: 'module',
+  },
+  experiments: {
+    outputModule: true,
   },
   plugins: [
     new HtmlWebpackPlugin({ inject: false, template: "./src/index.html" }),
     new webpack.DefinePlugin({ "process.env.NODE_DEBUG": false }),
   ],
   resolve: {
-    plugins: [new ResolveTypeScriptPlugin()],
+    extensions: ['.tsx', '.ts', '.js'],
   },
   devServer: {
     hot: false,

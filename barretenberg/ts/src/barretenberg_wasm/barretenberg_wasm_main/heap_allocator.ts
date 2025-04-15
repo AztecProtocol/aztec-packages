@@ -15,17 +15,21 @@ export class HeapAllocator {
 
   constructor(private wasm: BarretenbergWasmMain) {}
 
-  copyToMemory(buffers: Uint8Array[]) {
-    return buffers.map(buf => {
-      if (buf.length <= this.inScratchRemaining) {
-        const ptr = (this.inScratchRemaining -= buf.length);
-        this.wasm.writeMemory(ptr, buf);
-        return ptr;
+  getInputs(buffers: (Uint8Array | number)[]) {
+    return buffers.map(bufOrNum => {
+      if (typeof bufOrNum === 'object') {
+        if (bufOrNum.length <= this.inScratchRemaining) {
+          const ptr = (this.inScratchRemaining -= bufOrNum.length);
+          this.wasm.writeMemory(ptr, bufOrNum);
+          return ptr;
+        } else {
+          const ptr = this.wasm.call('bbmalloc', bufOrNum.length);
+          this.wasm.writeMemory(ptr, bufOrNum);
+          this.allocs.push(ptr);
+          return ptr;
+        }
       } else {
-        const ptr = this.wasm.call('bbmalloc', buf.length);
-        this.wasm.writeMemory(ptr, buf);
-        this.allocs.push(ptr);
-        return ptr;
+        return bufOrNum;
       }
     });
   }

@@ -17,8 +17,8 @@ class ClientIVCIntegrationTests : public ::testing::Test {
   protected:
     static void SetUpTestSuite()
     {
-        srs::init_crs_factory("../srs_db/ignition");
-        srs::init_grumpkin_crs_factory("../srs_db/grumpkin");
+        srs::init_crs_factory(bb::srs::get_ignition_crs_path());
+        srs::init_grumpkin_crs_factory(bb::srs::get_grumpkin_crs_path());
     }
 
     using Flavor = ClientIVC::Flavor;
@@ -36,8 +36,7 @@ class ClientIVCIntegrationTests : public ::testing::Test {
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -60,8 +59,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCaseSimple)
  */
 TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 
@@ -88,15 +86,18 @@ TEST_F(ClientIVCIntegrationTests, ConsecutiveKernels)
  */
 TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     size_t NUM_CIRCUITS = 6;
 
+    // Precompute the verification keys for each circuit in the IVC
+    std::vector<std::shared_ptr<VerificationKey>> precomputed_vks;
+    {
+        MockCircuitProducer circuit_producer;
+        precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_settings);
+    }
+
     MockCircuitProducer circuit_producer;
-
-    auto precomputed_vks = circuit_producer.precompute_verification_keys(NUM_CIRCUITS, ivc.trace_structure);
-
     // Construct and accumulate a series of mocked private function execution circuits
     for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
         Builder circuit = circuit_producer.create_next_circuit(ivc);
@@ -118,8 +119,7 @@ TEST_F(ClientIVCIntegrationTests, BenchmarkCasePrecomputedVKs)
  */
 TEST_F(ClientIVCIntegrationTests, DatabusFailure)
 {
-    ClientIVC ivc;
-    ivc.trace_structure = TraceStructure::CLIENT_IVC_BENCH;
+    ClientIVC ivc{ { CLIENT_IVC_BENCH_STRUCTURE } };
 
     MockCircuitProducer circuit_producer;
 

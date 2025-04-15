@@ -1,21 +1,27 @@
-import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver';
-import { sequencerClientConfigMappings } from '@aztec/aztec-node';
-import { botConfigMappings } from '@aztec/bot';
+import { type ArchiverConfig, archiverConfigMappings } from '@aztec/archiver/config';
+import { faucetConfigMapping } from '@aztec/aztec-faucet/config';
+import { sequencerClientConfigMappings } from '@aztec/aztec-node/config';
+import { blobSinkConfigMappings } from '@aztec/blob-sink/server';
+import { botConfigMappings } from '@aztec/bot/config';
 import {
   type ConfigMapping,
   type EnvVar,
   booleanConfigHelper,
-  filterConfigMappings,
   isBooleanConfigValue,
+  omitConfigMappings,
 } from '@aztec/foundation/config';
-import { bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p';
-import { proofVerifierConfigMappings } from '@aztec/proof-verifier';
-import { proverClientConfigMappings } from '@aztec/prover-client';
-import { proverNodeConfigMappings } from '@aztec/prover-node';
-import { allPxeConfigMappings } from '@aztec/pxe';
-import { telemetryClientConfigMappings } from '@aztec/telemetry-client/start';
+import { type P2PConfig, bootnodeConfigMappings, p2pConfigMappings } from '@aztec/p2p/config';
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from '@aztec/prover-client/broker';
+import { proverNodeConfigMappings } from '@aztec/prover-node/config';
+import { allPxeConfigMappings } from '@aztec/pxe/config';
+import { telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { defaultMnemonic } from '../sandbox.js';
+import { DefaultMnemonic } from '../mnemonic.js';
 
 // Define an interface for options
 export interface AztecStartOption {
@@ -47,10 +53,30 @@ export const getOptions = (namespace: string, configMappings: Record<string, Con
 };
 
 // These are options used by multiple modules so should be inputted once
-export const universalOptions = ['l1RpcUrl', 'l1ChainId', 'l1Contracts', 'p2pEnabled', 'dataDirectory'];
+export const universalOptions = [
+  'l1RpcUrls',
+  'l1ConsensusHostUrls',
+  'l1ConsensusHostApiKeys',
+  'l1ConsensusHostApiKeyHeaders',
+  'l1ChainId',
+  'l1Contracts',
+  'p2pEnabled',
+  'dataDirectory',
+  'dataStoreMapSizeKb',
+];
+
+export const NETWORK_FLAG = 'network';
 
 // Define categories and options
 export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
+  NETWORK: [
+    {
+      flag: `--${NETWORK_FLAG} <value>`,
+      description: 'Network to run Aztec on',
+      defaultValue: undefined,
+      envVar: 'NETWORK',
+    },
+  ],
   SANDBOX: [
     {
       flag: '--sandbox',
@@ -59,24 +85,25 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--sandbox.testAccounts',
-      description: 'Deploy test accounts on sandbox start',
-      envVar: 'TEST_ACCOUNTS',
-      ...booleanConfigHelper(true),
-    },
-    {
-      flag: '--sandbox.enableGas',
-      description: 'Enable gas on sandbox start',
-      envVar: 'ENABLE_GAS',
+      flag: '--sandbox.noPXE [value]',
+      description: 'Do not expose PXE service on sandbox start',
+      envVar: 'NO_PXE',
       ...booleanConfigHelper(),
     },
   ],
   API: [
     {
       flag: '--port <value>',
-      description: 'Port to run the Aztec Services on on',
+      description: 'Port to run the Aztec Services on',
       defaultValue: 8080,
       envVar: 'AZTEC_PORT',
+      parseVal: val => parseInt(val, 10),
+    },
+    {
+      flag: '--admin-port <value>',
+      description: 'Port to run admin APIs of Aztec Services on on',
+      defaultValue: 8880,
+      envVar: 'AZTEC_ADMIN_PORT',
       parseVal: val => parseInt(val, 10),
     },
     {
@@ -88,10 +115,11 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
   ],
   ETHEREUM: [
     {
-      flag: '--l1-rpc-url <value>',
-      description: 'URL of the Ethereum RPC node that services will connect to',
-      defaultValue: 'http://localhost:8545',
-      envVar: 'ETHEREUM_HOST',
+      flag: '--l1-rpc-urls <value>',
+      description: 'List of URLs of the Ethereum RPC nodes that services will connect to (comma separated)',
+      defaultValue: ['http://localhost:8545'],
+      envVar: 'ETHEREUM_HOSTS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
     },
     {
       flag: '--l1-chain-id <value>',
@@ -103,8 +131,46 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     {
       flag: '--l1-mnemonic <value>',
       description: 'Mnemonic for L1 accounts. Will be used if no publisher private keys are provided',
-      defaultValue: defaultMnemonic,
+      defaultValue: DefaultMnemonic,
       envVar: 'MNEMONIC',
+    },
+    {
+      flag: '--l1-consensus-host-urls <value>',
+      description: 'List of URLs of the Ethereum consensus nodes that services will connect to (comma separated)',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_URLS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim().replace(/\/$/, '')),
+    },
+    {
+      flag: '--l1-consensus-host-api-keys <value>',
+      description: 'List of API keys for the corresponding Ethereum consensus nodes',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_API_KEYS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
+    },
+    {
+      flag: '--l1-consensus-host-api-key-headers <value>',
+      description:
+        'List of API key headers for the corresponding Ethereum consensus nodes. If not set, the api key for the corresponding node will be appended to the URL as ?key=<api-key>',
+      defaultValue: [],
+      envVar: 'L1_CONSENSUS_HOST_API_KEY_HEADERS',
+      parseVal: (val: string) => val.split(',').map(url => url.trim()),
+    },
+  ],
+  STORAGE: [
+    {
+      flag: '--data-directory <value>',
+      description: 'Where to store data for services. If not set, will store temporarily',
+      defaultValue: undefined,
+      envVar: 'DATA_DIRECTORY',
+    },
+    {
+      flag: '--data-store-map-size-kb <value>',
+      description:
+        'The maximum possible size of the data store DB in KB. Can be overridden by component-specific options.',
+      defaultValue: undefined,
+      envVar: 'DATA_STORE_MAP_SIZE_KB',
+      parseVal: (val: string) => parseInt(val, 10),
     },
   ],
   'L1 CONTRACT ADDRESSES': [
@@ -139,6 +205,12 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'FEE_JUICE_CONTRACT_ADDRESS',
     },
     {
+      flag: '--staking-asset-address <value>',
+      description: 'The deployed L1 Staking Asset contract address',
+      defaultValue: undefined,
+      envVar: 'STAKING_ASSET_CONTRACT_ADDRESS',
+    },
+    {
       flag: '--fee-juice-portal-address <value>',
       description: 'The deployed L1 Fee Juice portal contract address',
       defaultValue: undefined,
@@ -154,12 +226,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: undefined,
     },
     {
-      flag: '--data-directory <value>',
-      description: 'Where to store data. If not set, will store temporarily',
-      defaultValue: undefined,
-      envVar: 'DATA_DIRECTORY',
-    },
-    {
       flag: '--node.archiverUrl <value>',
       description: 'URL for an archiver service',
       defaultValue: undefined,
@@ -169,10 +235,10 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       flag: '--node.deployAztecContracts',
       description: 'Deploys L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS',
-      ...booleanConfigHelper(),
+      defaultValue: undefined,
     },
     {
-      flag: '--node.deployAztecContractsSalt',
+      flag: '--node.deployAztecContractsSalt <value>',
       description:
         'Numeric salt for deploying L1 Aztec contracts before starting the node. Needs mnemonic or private key to be set. Implies --node.deployAztecContracts.',
       envVar: 'DEPLOY_AZTEC_CONTRACTS_SALT',
@@ -180,7 +246,7 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       parseVal: (val: string) => (val ? parseInt(val) : undefined),
     },
     {
-      flag: '--node.assumeProvenThroughBlockNumber',
+      flag: '--node.assumeProvenThroughBlockNumber <value>',
       description:
         'Cheats the rollup contract into assuming every block until this one is proven. Useful for speeding up bootstraps.',
       envVar: 'ASSUME_PROVEN_THROUGH_BLOCK_NUMBER',
@@ -194,23 +260,29 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       envVar: 'L1_PRIVATE_KEY',
     },
     {
-      flag: '--node.l2QueueSize <value>',
-      description: 'Size of queue of L2 blocks to store in world state',
-      defaultValue: 1000,
-      envVar: 'L2_QUEUE_SIZE',
-      parseVal: val => parseInt(val, 10),
-    },
-    {
       flag: '--node.worldStateBlockCheckIntervalMS <value>',
       description: 'Frequency in which to check for blocks in ms',
       defaultValue: 100,
       envVar: 'WS_BLOCK_CHECK_INTERVAL_MS',
       parseVal: val => parseInt(val, 10),
     },
+    {
+      flag: '--node.syncMode <value>',
+      description:
+        'Set sync mode to `full` to always sync via L1, `snapshot` to download a snapshot if there is no local data, `force-snapshot` to download even if there is local data.',
+      defaultValue: 'snapshot',
+      envVar: 'SYNC_MODE',
+    },
+    {
+      flag: '--node.snapshotsUrl <value>',
+      description: 'Base URL for downloading snapshots for snapshot sync.',
+      defaultValue: undefined,
+      envVar: 'SYNC_SNAPSHOTS_URL',
+    },
   ],
   'P2P SUBSYSTEM': [
     {
-      flag: '--p2p-enabled',
+      flag: '--p2p-enabled [value]',
       description: 'Enable P2P subsystem',
       envVar: 'P2P_ENABLED',
       ...booleanConfigHelper(),
@@ -224,12 +296,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       description: 'Starts Aztec PXE with options',
       defaultValue: undefined,
       envVar: undefined,
-    },
-    {
-      flag: '--pxe.dataDirectory <value>',
-      description: 'Where to store PXE data. If not set, will store in memory',
-      defaultValue: undefined,
-      envVar: 'PXE_DATA_DIRECTORY',
     },
     ...getOptions('pxe', allPxeConfigMappings),
   ],
@@ -252,14 +318,14 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('sequencer', sequencerClientConfigMappings),
   ],
-  'PROVER AGENT': [
+  'BLOB SINK': [
     {
-      flag: '--prover',
-      description: 'Starts Aztec Prover Agent with options',
+      flag: '--blob-sink',
+      description: 'Starts Aztec Blob Sink with options',
       defaultValue: undefined,
       envVar: undefined,
     },
-    ...getOptions('prover', proverClientConfigMappings),
+    ...getOptions('blobSink', blobSinkConfigMappings),
   ],
   'PROVER NODE': [
     {
@@ -276,9 +342,36 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions(
       'proverNode',
-      // filter out archiver options from prover node options as they're passed separately in --archiver
-      filterConfigMappings(proverNodeConfigMappings, Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
+      omitConfigMappings(proverNodeConfigMappings, [
+        // filter out options passed separately
+        ...(Object.keys(archiverConfigMappings) as (keyof ArchiverConfig)[]),
+        ...(Object.keys(proverBrokerConfigMappings) as (keyof ProverBrokerConfig)[]),
+        ...(Object.keys(proverAgentConfigMappings) as (keyof ProverAgentConfig)[]),
+        ...(Object.keys(p2pConfigMappings) as (keyof P2PConfig)[]),
+      ]),
     ),
+  ],
+  'PROVER BROKER': [
+    {
+      flag: '--prover-broker',
+      description: 'Starts Aztec proving job broker',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions(
+      'proverBroker',
+      // filter out archiver options from prover node options as they're passed separately in --archiver
+      proverBrokerConfigMappings,
+    ),
+  ],
+  'PROVER AGENT': [
+    {
+      flag: '--prover-agent',
+      description: 'Starts Aztec Prover Agent with options',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    ...getOptions('proverAgent', proverAgentConfigMappings),
   ],
   'P2P BOOTSTRAP': [
     {
@@ -287,7 +380,16 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
-    ...getOptions('p2pBootstrap', bootnodeConfigMappings),
+    ...getOptions(
+      'p2pBootstrap',
+      omitConfigMappings(bootnodeConfigMappings, [
+        'p2pIp',
+        'p2pPort',
+        'peerIdPrivateKey',
+        'bootstrapNodes',
+        'listenAddress',
+      ]),
+    ),
   ],
   BOT: [
     {
@@ -298,15 +400,6 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
     },
     ...getOptions('bot', botConfigMappings),
   ],
-  'PROOF VERIFIER': [
-    {
-      flag: '--proof-verifier',
-      description: 'Starts Aztec Proof Verifier with options',
-      defaultValue: undefined,
-      envVar: undefined,
-    },
-    ...getOptions('proofVerifier', proofVerifierConfigMappings),
-  ],
   TXE: [
     {
       flag: '--txe',
@@ -314,5 +407,27 @@ export const aztecStartOptions: { [key: string]: AztecStartOption[] } = {
       defaultValue: undefined,
       envVar: undefined,
     },
+  ],
+  FAUCET: [
+    {
+      flag: '--faucet',
+      description: 'Starts the Aztec faucet',
+      defaultValue: undefined,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServer',
+      description: 'Starts a simple HTTP server to access the faucet',
+      defaultValue: true,
+      envVar: undefined,
+    },
+    {
+      flag: '--faucet.apiServerPort <value>',
+      description: 'The port on which to start the api server on',
+      defaultValue: 8080,
+      envVar: undefined,
+      parseVal: val => parseInt(val, 10),
+    },
+    ...getOptions('faucet', faucetConfigMapping),
   ],
 };

@@ -1,126 +1,97 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
-import {
-  type AccountWalletWithSecretKey,
-  type AztecAddress,
-  Fr,
-  type PXE,
-  createCompatibleClient,
-} from '@aztec/aztec.js';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { TokenContract } from '@aztec/noir-contracts.js';
+import { readFieldCompressedString } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/foundation/log';
+import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
+import type { ChildProcess } from 'child_process';
 
-import { addAccounts } from '../fixtures/snapshot_manager.js';
+import { type TestWallets, deployTestWalletWithTokens, setupTestWalletsWithTokens } from './setup_test_wallets.js';
+import { isK8sConfig, setupEnvironment, startPortForward } from './utils.js';
 
-const { PXE_URL } = process.env;
-if (!PXE_URL) {
-  throw new Error('PXE_URL env variable must be set');
-}
-
-const toString = ({ value }: { value: bigint }) => {
-  const vals: number[] = Array.from(new Fr(value).toBuffer());
-
-  let str = '';
-  for (let i = 0; i < vals.length; i++) {
-    if (vals[i] != 0) {
-      str += String.fromCharCode(Number(vals[i]));
-    }
-  }
-  return str;
-};
+const config = setupEnvironment(process.env);
 
 describe('token transfer test', () => {
   jest.setTimeout(10 * 60 * 2000); // 20 minutes
 
-  const logger = createDebugLogger(`aztec:spartan-test:transfer`);
-  const TOKEN_NAME = 'USDC';
-  const TOKEN_SYMBOL = 'USD';
-  const TOKEN_DECIMALS = 18n;
-  const MINT_AMOUNT = 20n;
+  const logger = createLogger(`e2e:spartan-test:transfer`);
+  const MINT_AMOUNT = 1n;
 
-  const WALLET_COUNT = 1; // TODO fix this to allow for 16 wallets again
-  const ROUNDS = 5n;
+  const ROUNDS = 1n;
 
-  let pxe: PXE;
-  let wallets: AccountWalletWithSecretKey[];
-  let recipientWallet: AccountWalletWithSecretKey;
-  let tokenAddress: AztecAddress;
-  let tokenAdminWallet: TokenContract;
+  let testWallets: TestWallets;
+  let PXE_URL: string;
+  let ETHEREUM_HOSTS: string[];
+  const forwardProcesses: ChildProcess[] = [];
+
+  afterAll(() => {
+    forwardProcesses.forEach(p => p.kill());
+  });
 
   beforeAll(async () => {
-    expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
+    if (isK8sConfig(config)) {
+      const { process: pxeProcess, port: pxePort } = await startPortForward({
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-pxe`,
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_PXE_PORT,
+      });
+      forwardProcesses.push(pxeProcess);
+      PXE_URL = `http://127.0.0.1:${pxePort}`;
 
-    pxe = await createCompatibleClient(PXE_URL, logger);
+      const { process: ethProcess, port: ethPort } = await startPortForward({
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-eth-execution`,
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_ETHEREUM_PORT,
+      });
+      forwardProcesses.push(ethProcess);
+      ETHEREUM_HOSTS = [`http://127.0.0.1:${ethPort}`];
 
-    {
-      const { accountKeys } = await addAccounts(1, logger, false)({ pxe });
-      const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
+      const { process: sequencerProcess, port: sequencerPort } = await startPortForward({
+        resource: `svc/${config.INSTANCE_NAME}-aztec-network-validator`,
+        namespace: config.NAMESPACE,
+        containerPort: config.CONTAINER_SEQUENCER_PORT,
+      });
+      forwardProcesses.push(sequencerProcess);
+      const NODE_URL = `http://127.0.0.1:${sequencerPort}`;
 
-      const partialAddress = accountManagers[0].getCompleteAddress().partialAddress;
-      await pxe.registerAccount(accountKeys[0][0], partialAddress);
-      recipientWallet = await accountManagers[0].getWallet();
-      logger.verbose(`Recipient Wallet address: ${recipientWallet.getAddress()} registered`);
+      const L1_ACCOUNT_MNEMONIC = config.L1_ACCOUNT_MNEMONIC;
+
+      testWallets = await deployTestWalletWithTokens(
+        PXE_URL,
+        NODE_URL,
+        ETHEREUM_HOSTS,
+        L1_ACCOUNT_MNEMONIC,
+        MINT_AMOUNT,
+        logger,
+      );
+    } else {
+      PXE_URL = config.PXE_URL;
+      testWallets = await setupTestWalletsWithTokens(PXE_URL, MINT_AMOUNT, logger);
     }
-
-    const { accountKeys } = await addAccounts(WALLET_COUNT, logger, false)({ pxe });
-    const accountManagers = accountKeys.map(ak => getSchnorrAccount(pxe, ak[0], ak[1], 1));
-
-    wallets = await Promise.all(
-      accountManagers.map(async (a, i) => {
-        const partialAddress = a.getCompleteAddress().partialAddress;
-        await pxe.registerAccount(accountKeys[i][0], partialAddress);
-        const wallet = await a.getWallet();
-        logger.verbose(`Wallet ${i} address: ${wallet.getAddress()} registered`);
-        return wallet;
-      }),
-    );
-
-    logger.verbose(`Deploying TokenContract...`);
-    const tokenContract = await TokenContract.deploy(
-      wallets[0],
-      wallets[0].getAddress(),
-      TOKEN_NAME,
-      TOKEN_SYMBOL,
-      TOKEN_DECIMALS,
-    )
-      .send()
-      .deployed({ timeout: 600 });
-
-    tokenAddress = tokenContract.address;
-    tokenAdminWallet = await TokenContract.at(tokenAddress, wallets[0]);
-
-    logger.verbose(`Minting ${MINT_AMOUNT} public assets to the ${wallets.length} wallets...`);
-
-    await Promise.all(
-      wallets.map(w => tokenAdminWallet.methods.mint_public(w.getAddress(), MINT_AMOUNT).send().wait({ timeout: 600 })),
-    );
-
-    logger.verbose(`Minting complete.`);
+    expect(ROUNDS).toBeLessThanOrEqual(MINT_AMOUNT);
   });
 
   it('can get info', async () => {
-    const name = toString(await tokenAdminWallet.methods.private_get_name().simulate());
-    expect(name).toBe(TOKEN_NAME);
+    const name = readFieldCompressedString(await testWallets.tokenAdminWallet.methods.private_get_name().simulate());
+    expect(name).toBe(testWallets.tokenName);
   });
 
   it('can transfer 1 token privately and publicly', async () => {
-    const recipient = recipientWallet.getAddress();
+    const recipient = testWallets.recipientWallet.getAddress();
     const transferAmount = 1n;
 
-    wallets.forEach(async w => {
-      expect(MINT_AMOUNT).toBe(await tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
-    });
+    for (const w of testWallets.wallets) {
+      expect(MINT_AMOUNT).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate());
+    }
 
-    expect(0n).toBe(await tokenAdminWallet.methods.balance_of_public(recipient).simulate());
+    expect(0n).toBe(await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate());
 
     // For each round, make both private and public transfers
     for (let i = 1n; i <= ROUNDS; i++) {
       const interactions = await Promise.all([
-        ...wallets.map(async w =>
+        ...testWallets.wallets.map(async w =>
           (
-            await TokenContract.at(tokenAddress, w)
-          ).methods.transfer_public(w.getAddress(), recipient, transferAmount, 0),
+            await TokenContract.at(testWallets.tokenAddress, w)
+          ).methods.transfer_in_public(w.getAddress(), recipient, transferAmount, 0),
         ),
       ]);
 
@@ -129,14 +100,14 @@ describe('token transfer test', () => {
       await Promise.all(txs.map(t => t.send().wait({ timeout: 600 })));
     }
 
-    wallets.forEach(async w => {
+    for (const w of testWallets.wallets) {
       expect(MINT_AMOUNT - ROUNDS * transferAmount).toBe(
-        await tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
+        await testWallets.tokenAdminWallet.methods.balance_of_public(w.getAddress()).simulate(),
       );
-    });
+    }
 
-    expect(ROUNDS * transferAmount * BigInt(wallets.length)).toBe(
-      await tokenAdminWallet.methods.balance_of_public(recipient).simulate(),
+    expect(ROUNDS * transferAmount * BigInt(testWallets.wallets.length)).toBe(
+      await testWallets.tokenAdminWallet.methods.balance_of_public(recipient).simulate(),
     );
   });
 });

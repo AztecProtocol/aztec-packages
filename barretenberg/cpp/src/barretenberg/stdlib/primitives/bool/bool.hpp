@@ -63,6 +63,8 @@ template <typename Builder> class bool_t {
 
     bool_t normalize() const;
 
+    uint32_t get_normalized_witness_index() const { return normalize().witness_index; }
+
     Builder* get_context() const { return context; }
 
     void set_origin_tag(const OriginTag& new_tag) const { tag = new_tag; }

@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "test": "yarn test:node && yarn test:browser && true"
+  }
+}

@@ -4,32 +4,24 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Performs recursive verification of the Client IVC proof.
- *
- * @todo (https://github.com/AztecProtocol/barretenberg/issues/934):  Add logic for accumulating the pairing points
- * produced by the verifiers (and potentially IPA accumulators for ECCVM verifier)
  */
-void ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
+ClientIVCRecursiveVerifier::Output ClientIVCRecursiveVerifier::verify(const ClientIVC::Proof& proof)
 {
-    // Construct stdlib accumulator, vkey and proof
-    auto stdlib_verifier_accum =
-        std::make_shared<RecursiveDeciderVerificationKey>(builder.get(), verifier_input.fold_input.accumulator);
-    auto stdlib_decider_vk =
-        std::make_shared<RecursiveVerificationKey>(builder.get(), verifier_input.fold_input.decider_vks[0]);
-    auto stdlib_proof = bb::convert_proof_to_witness(builder.get(), proof.folding_proof);
+    // Construct stdlib Mega verification key
+    auto stdlib_mega_vk = std::make_shared<RecursiveVerificationKey>(builder.get(), ivc_verification_key.mega);
 
-    // Perform recursive folding verification
-    FoldingVerifier folding_verifier{ builder.get(), stdlib_verifier_accum, { stdlib_decider_vk } };
-    auto recursive_verifier_accumulator = folding_verifier.verify_folding_proof(stdlib_proof);
-    auto native_verifier_acc =
-        std::make_shared<FoldVerifierInput::DeciderVK>(recursive_verifier_accumulator->get_value());
+    // Dummy aggregation object until we do proper aggregation
+    auto agg_obj = aggregation_state<Builder>::construct_default(*builder);
 
     // Perform recursive decider verification
-    DeciderVerifier decider{ builder.get(), native_verifier_acc };
-    decider.verify_proof(proof.decider_proof);
+    MegaVerifier verifier{ builder.get(), stdlib_mega_vk };
+    verifier.verify_proof(proof.mega_proof, agg_obj);
 
     // Perform Goblin recursive verification
-    GoblinVerifier goblin_verifier{ builder.get(), verifier_input.goblin_input };
-    goblin_verifier.verify(proof.goblin_proof);
+    GoblinVerificationKey goblin_verification_key{};
+    GoblinVerifier goblin_verifier{ builder.get(), goblin_verification_key };
+    GoblinRecursiveVerifierOutput output = goblin_verifier.verify(proof.goblin_proof);
+    return output;
 }
 
 } // namespace bb::stdlib::recursion::honk

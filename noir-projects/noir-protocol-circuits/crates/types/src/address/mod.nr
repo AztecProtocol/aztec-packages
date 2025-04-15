@@ -1,8 +1,8 @@
-mod aztec_address;
-mod eth_address;
-mod partial_address;
-mod public_keys_hash;
-mod salted_initialization_hash;
+pub mod aztec_address;
+pub mod eth_address;
+pub mod partial_address;
+pub mod public_keys_hash;
+pub mod salted_initialization_hash;
 
 pub use aztec_address::AztecAddress;
 pub use eth_address::EthAddress;

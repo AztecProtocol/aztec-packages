@@ -33,8 +33,8 @@ template <typename B> inline void read(B& any, proving_key_data& key)
         key.polynomial_store.put(label, std::move(value));
     }
 
-    read(any, key.contains_recursive_proof);
-    read(any, key.recursive_proof_public_input_indices);
+    read(any, key.contains_pairing_point_accumulator);
+    read(any, key.pairing_point_accumulator_public_input_indices);
     read(any, key.memory_read_records);
     read(any, key.memory_write_records);
 }
@@ -59,8 +59,8 @@ template <typename B> inline void write(B& buf, proving_key const& key)
         write(buf, value);
     }
 
-    write(buf, key.contains_recursive_proof);
-    write(buf, key.recursive_proof_public_input_indices);
+    write(buf, key.contains_pairing_point_accumulator);
+    write(buf, key.pairing_point_accumulator_public_input_indices);
     write(buf, key.memory_read_records);
     write(buf, key.memory_write_records);
 }
@@ -100,8 +100,8 @@ template <typename B> inline void read_from_file(B& is, std::string const& path,
 
         key.polynomial_store.put(name, std::move(value));
     }
-    read(is, key.contains_recursive_proof);
-    read(is, key.recursive_proof_public_input_indices);
+    read(is, key.contains_pairing_point_accumulator);
+    read(is, key.pairing_point_accumulator_public_input_indices);
     read(is, key.memory_read_records);
     read(is, key.memory_write_records);
 }
@@ -132,8 +132,8 @@ template <typename B> inline void write_to_file(B& os, std::string const& path, 
             throw_or_abort(format("Failed to write: ", filename));
         }
     }
-    write(os, key.contains_recursive_proof);
-    write(os, key.recursive_proof_public_input_indices);
+    write(os, key.contains_pairing_point_accumulator);
+    write(os, key.pairing_point_accumulator_public_input_indices);
     write(os, key.memory_read_records);
     write(os, key.memory_write_records);
 }

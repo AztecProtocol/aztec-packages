@@ -31,7 +31,7 @@ std::vector<uint32_t> add_variables(UltraCircuitBuilder& builder, std::vector<fr
 
 template <typename T> class ultra_plonk_composer : public ::testing::Test {
   public:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 
     void prove_and_verify(UltraCircuitBuilder& builder, bool expected_result)
     {
@@ -593,22 +593,20 @@ TYPED_TEST(ultra_plonk_composer, non_native_field_multiplication)
 
     const auto split_into_limbs = [&](const uint512_t& input) {
         constexpr size_t NUM_BITS = 68;
-        std::array<fr, 5> limbs;
+        std::array<fr, 4> limbs;
         limbs[0] = input.slice(0, NUM_BITS).lo;
         limbs[1] = input.slice(NUM_BITS * 1, NUM_BITS * 2).lo;
         limbs[2] = input.slice(NUM_BITS * 2, NUM_BITS * 3).lo;
         limbs[3] = input.slice(NUM_BITS * 3, NUM_BITS * 4).lo;
-        limbs[4] = fr(input.lo);
         return limbs;
     };
 
-    const auto get_limb_witness_indices = [&](const std::array<fr, 5>& limbs) {
-        std::array<uint32_t, 5> limb_indices;
+    const auto get_limb_witness_indices = [&](const std::array<fr, 4>& limbs) {
+        std::array<uint32_t, 4> limb_indices;
         limb_indices[0] = builder.add_variable(limbs[0]);
         limb_indices[1] = builder.add_variable(limbs[1]);
         limb_indices[2] = builder.add_variable(limbs[2]);
         limb_indices[3] = builder.add_variable(limbs[3]);
-        limb_indices[4] = builder.add_variable(limbs[4]);
         return limb_indices;
     };
     const uint512_t BINARY_BASIS_MODULUS = uint512_t(1) << (68 * 4);
@@ -772,7 +770,7 @@ TYPED_TEST(ultra_plonk_composer, range_checks_on_duplicates)
 // before range constraints are applied to it.
 TEST(ultra_plonk_composer, range_constraint_small_variable)
 {
-    bb::srs::init_crs_factory("../srs_db/ignition");
+    bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     auto builder = UltraCircuitBuilder();
 
     uint16_t mask = (1 << 8) - 1;

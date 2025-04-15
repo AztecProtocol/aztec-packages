@@ -43,28 +43,79 @@ pub fn full_field_greater_than(lhs: Field, rhs: Field) -> bool {
     rhs.lt(lhs)
 }
 
+pub fn min(f1: Field, f2: Field) -> Field {
+    if f1.lt(f2) {
+        f1
+    } else {
+        f2
+    }
+}
+
+global C1: u32 = 28;
+global C3: Field = 40770029410420498293352137776570907027550720424234931066070132305055;
+global C5: Field = 19103219067921713944291392827692070036145651957329286315305642004821462161904;
+
+pub(crate) fn pow(x: Field, y: Field) -> Field {
+    let mut r = 1 as Field;
+    let b: [u1; 254] = y.to_le_bits();
+
+    for i in 0..254 {
+        r *= r;
+        r *= (b[254 - 1 - i] as Field) * x + (1 - b[254 - 1 - i] as Field);
+    }
+
+    r
+}
+
+// Tonelli-Shanks algorithm for computing the square root of a Field element.
+// Requires C1 = max{c: 2^c divides (p-1)}, where p is the order of Field
+// as well as C3 = (C2 - 1)/2, where C2 = (p-1)/(2^c1),
+// and C5 = ZETA^C2, where ZETA is a non-square element of Field.
+// These are pre-computed above as globals.
+pub(crate) fn sqrt(x: Field) -> Field {
+    let mut z = pow(x, C3);
+    let mut t = z * z * x;
+    z *= x;
+    let mut b = t;
+    let mut c = C5;
+
+    for i in 0..(C1 - 1) {
+        for _j in 1..(C1 - i - 1) {
+            b *= b;
+        }
+
+        z *= if b == 1 { 1 } else { c };
+
+        c *= c;
+
+        t *= if b == 1 { 1 } else { c };
+
+        b = t;
+    }
+
+    z
+}
+
 #[test]
 unconstrained fn bytes_field_test() {
     // Tests correctness of field_from_bytes_32_trunc against existing methods
     // Bytes representing 0x543e0a6642ffeb8039296861765a53407bba62bd1c97ca43374de950bbe0a7
     let inputs = [
-        84, 62, 10, 102, 66, 255, 235, 128, 57, 41, 104, 97, 118, 90, 83, 64, 123, 186, 98, 189, 28, 151, 202, 67, 55, 77, 233, 80, 187, 224, 167
+        84, 62, 10, 102, 66, 255, 235, 128, 57, 41, 104, 97, 118, 90, 83, 64, 123, 186, 98, 189, 28,
+        151, 202, 67, 55, 77, 233, 80, 187, 224, 167,
     ];
     let field = field_from_bytes(inputs, true);
     let return_bytes: [u8; 31] = field.to_be_bytes();
-    for i in 0..31 {
-        assert_eq(inputs[i], return_bytes[i]);
-    }
+    assert_eq(inputs, return_bytes);
     // 32 bytes - we remove the final byte, and check it matches the field
     let inputs2 = [
-        84, 62, 10, 102, 66, 255, 235, 128, 57, 41, 104, 97, 118, 90, 83, 64, 123, 186, 98, 189, 28, 151, 202, 67, 55, 77, 233, 80, 187, 224, 167, 158
+        84, 62, 10, 102, 66, 255, 235, 128, 57, 41, 104, 97, 118, 90, 83, 64, 123, 186, 98, 189, 28,
+        151, 202, 67, 55, 77, 233, 80, 187, 224, 167, 158,
     ];
     let field2 = field_from_bytes_32_trunc(inputs2);
     let return_bytes2: [u8; 31] = field.to_be_bytes();
 
-    for i in 0..31 {
-        assert_eq(return_bytes2[i], return_bytes[i]);
-    }
+    assert_eq(return_bytes2, return_bytes);
     assert_eq(field2, field);
 }
 

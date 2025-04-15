@@ -1,41 +1,25 @@
-import { type Gas } from '@aztec/circuits.js';
-import { type Fr } from '@aztec/foundation/fields';
-
-import { type AvmContractCallResult } from '../avm/avm_contract_call_result.js';
-import { type AvmExecutionEnvironment } from '../avm/avm_execution_environment.js';
-import { type TracedContractInstance } from './side_effect_trace.js';
+import type { Fr } from '@aztec/foundation/fields';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PublicCallRequest } from '@aztec/stdlib/kernel';
+import type { PublicLog } from '@aztec/stdlib/logs';
 
 export interface PublicSideEffectTraceInterface {
   fork(): PublicSideEffectTraceInterface;
+  merge(nestedTrace: PublicSideEffectTraceInterface, reverted?: boolean): void;
   getCounter(): number;
   // all "trace*" functions can throw SideEffectLimitReachedError
-  tracePublicStorageRead(storageAddress: Fr, slot: Fr, value: Fr, exists: boolean, cached: boolean): void;
-  tracePublicStorageWrite(storageAddress: Fr, slot: Fr, value: Fr): void;
-  traceNoteHashCheck(storageAddress: Fr, noteHash: Fr, leafIndex: Fr, exists: boolean): void;
-  traceNewNoteHash(storageAddress: Fr, noteHash: Fr): void;
-  traceNullifierCheck(storageAddress: Fr, nullifier: Fr, leafIndex: Fr, exists: boolean, isPending: boolean): void;
-  traceNewNullifier(storageAddress: Fr, nullifier: Fr): void;
-  traceL1ToL2MessageCheck(contractAddress: Fr, msgHash: Fr, msgLeafIndex: Fr, exists: boolean): void;
-  traceNewL2ToL1Message(contractAddress: Fr, recipient: Fr, content: Fr): void;
-  traceUnencryptedLog(contractAddress: Fr, log: Fr[]): void;
-  // TODO(dbanks12): odd that getContractInstance is a one-off in that it accepts an entire object instead of components
-  traceGetContractInstance(instance: TracedContractInstance): void;
-  traceNestedCall(
-    /** The trace of the nested call. */
-    nestedCallTrace: PublicSideEffectTraceInterface,
-    /** The execution environment of the nested call. */
-    nestedEnvironment: AvmExecutionEnvironment,
-    /** How much gas was available for this public execution. */
-    // TODO(dbanks12): consider moving to AvmExecutionEnvironment
-    startGasLeft: Gas,
-    /** How much gas was left after this public execution. */
-    // TODO(dbanks12): consider moving to AvmContractCallResults
-    endGasLeft: Gas,
-    /** Bytecode used for this execution. */
-    bytecode: Buffer,
-    /** The call's results */
-    avmCallResults: AvmContractCallResult,
-    /** Function name */
-    functionName: string,
-  ): void;
+  tracePublicStorageWrite(
+    contractAddress: AztecAddress,
+    slot: Fr, // This is the storage slot not the computed leaf slot
+    value: Fr,
+    protocolWrite: boolean,
+  ): Promise<void>;
+  traceNewNoteHash(uniqueNoteHash: Fr): void;
+  getNoteHashCount(): number;
+  traceNewNullifier(siloedNullifier: Fr): void;
+  traceNewL2ToL1Message(contractAddress: AztecAddress, recipient: Fr, content: Fr): void;
+  tracePublicLog(contractAddress: AztecAddress, log: Fr[]): void;
+  traceGetContractClass(contractClassId: Fr, exists: boolean): void;
+  traceEnqueuedCall(publicCallRequest: PublicCallRequest): void;
+  getPublicLogs(): PublicLog[];
 }

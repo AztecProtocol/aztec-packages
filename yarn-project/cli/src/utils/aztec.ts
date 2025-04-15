@@ -1,35 +1,27 @@
-import { type ContractArtifact, type FunctionArtifact, loadContractArtifact } from '@aztec/aztec.js/abi';
-import { type L1ContractArtifactsForDeployment } from '@aztec/aztec.js/ethereum';
-import { type PXE } from '@aztec/circuit-types';
-import { type DeployL1Contracts } from '@aztec/ethereum';
-import { FunctionType } from '@aztec/foundation/abi';
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
-import { type NoirPackageConfig } from '@aztec/foundation/noir';
-import { RollupAbi } from '@aztec/l1-artifacts';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { EthAddress, type PXE } from '@aztec/aztec.js';
+import {
+  type ContractArtifact,
+  type FunctionAbi,
+  FunctionType,
+  getAllFunctionAbis,
+  loadContractArtifact,
+} from '@aztec/aztec.js/abi';
+import {
+  type DeployL1ContractsReturnType,
+  type L1ContractsConfig,
+  RegistryContract,
+  RollupContract,
+} from '@aztec/ethereum';
+import type { Fr } from '@aztec/foundation/fields';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { NoirPackageConfig } from '@aztec/foundation/noir';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
 
 import TOML from '@iarna/toml';
 import { readFile } from 'fs/promises';
 import { gtr, ltr, satisfies, valid } from 'semver';
-import {
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type WalletClient,
-  getAddress,
-  getContract,
-  publicActions,
-} from 'viem';
 
 import { encodeArgs } from './encoding.js';
-
-/**
- * Helper type to dynamically import contracts.
- */
-interface ArtifactsType {
-  [key: string]: ContractArtifact;
-}
 
 /**
  * Helper to get an ABI function or throw error if it doesn't exist.
@@ -37,8 +29,8 @@ interface ArtifactsType {
  * @param fnName - Function name to be found.
  * @returns The function's ABI.
  */
-export function getFunctionArtifact(artifact: ContractArtifact, fnName: string): FunctionArtifact {
-  const fn = artifact.functions.find(({ name }) => name === fnName);
+export function getFunctionAbi(artifact: ContractArtifact, fnName: string): FunctionAbi {
+  const fn = getAllFunctionAbis(artifact).find(({ name }) => name === fnName);
   if (!fn) {
     throw Error(`Function ${fnName} not found in contract ABI.`);
   }
@@ -47,102 +39,117 @@ export function getFunctionArtifact(artifact: ContractArtifact, fnName: string):
 
 /**
  * Function to execute the 'deployRollupContracts' command.
- * @param rpcUrl - The RPC URL of the ethereum node.
+ * @param rpcUrls - The RPC URL of the ethereum node.
  * @param chainId - The chain ID of the L1 host.
  * @param privateKey - The private key to be used in contract deployment.
  * @param mnemonic - The mnemonic to be used in contract deployment.
  */
 export async function deployAztecContracts(
-  rpcUrl: string,
+  rpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
+  mnemonicIndex: number,
   salt: number | undefined,
   initialValidators: EthAddress[],
-  debugLogger: DebugLogger,
-): Promise<DeployL1Contracts> {
-  const {
-    InboxAbi,
-    InboxBytecode,
-    OutboxAbi,
-    OutboxBytecode,
-    RegistryAbi,
-    RegistryBytecode,
-    RollupAbi,
-    RollupBytecode,
-    FeeJuicePortalAbi,
-    FeeJuicePortalBytecode,
-    TestERC20Abi,
-    TestERC20Bytecode,
-  } = await import('@aztec/l1-artifacts');
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
+  feeJuicePortalInitialBalance: bigint,
+  acceleratedTestDeployments: boolean,
+  config: L1ContractsConfig,
+  debugLogger: Logger,
+): Promise<DeployL1ContractsReturnType> {
   const { createEthereumChain, deployL1Contracts } = await import('@aztec/ethereum');
   const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
 
   const account = !privateKey
-    ? mnemonicToAccount(mnemonic!)
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
     : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
-  const chain = createEthereumChain(rpcUrl, chainId);
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: TestERC20Abi,
-      contractBytecode: TestERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
-  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types');
+  const chain = createEthereumChain(rpcUrls, chainId);
 
-  return await deployL1Contracts(chain.rpcUrl, account, chain.chainInfo, debugLogger, l1Artifacts, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
-    vkTreeRoot: getVKTreeRoot(),
-    protocolContractTreeRoot,
-    salt,
-    initialValidators,
-  });
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
+
+  return await deployL1Contracts(
+    chain.rpcUrls,
+    account,
+    chain.chainInfo,
+    debugLogger,
+    {
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
+      salt,
+      initialValidators,
+      acceleratedTestDeployments,
+      feeJuicePortalInitialBalance,
+      ...config,
+    },
+    config,
+  );
 }
 
-/** Sets the assumed proven block number on the rollup contract on L1 */
-export async function setAssumeProvenThrough(
-  blockNumber: number,
-  rollupAddress: EthAddress,
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-) {
-  const rollup = getContract({
-    address: getAddress(rollupAddress.toString()),
-    abi: RollupAbi,
-    client: walletClient,
-  });
-  const hash = await rollup.write.setAssumeProvenThroughBlockNumber([BigInt(blockNumber)]);
-  await walletClient.extend(publicActions).waitForTransactionReceipt({ hash });
+export async function deployNewRollupContracts(
+  registryAddress: EthAddress,
+  rpcUrls: string[],
+  chainId: number,
+  privateKey: string | undefined,
+  mnemonic: string,
+  mnemonicIndex: number,
+  salt: number | undefined,
+  initialValidators: EthAddress[],
+  genesisArchiveRoot: Fr,
+  genesisBlockHash: Fr,
+  feeJuicePortalInitialBalance: bigint,
+  config: L1ContractsConfig,
+  logger: Logger,
+): Promise<{ rollup: RollupContract; slashFactoryAddress: EthAddress }> {
+  const { createEthereumChain, deployRollupForUpgrade, createL1Clients } = await import('@aztec/ethereum');
+  const { mnemonicToAccount, privateKeyToAccount } = await import('viem/accounts');
+  const { getVKTreeRoot } = await import('@aztec/noir-protocol-circuits-types/vk-tree');
+
+  const account = !privateKey
+    ? mnemonicToAccount(mnemonic!, { addressIndex: mnemonicIndex })
+    : privateKeyToAccount(`${privateKey.startsWith('0x') ? '' : '0x'}${privateKey}` as `0x${string}`);
+  const chain = createEthereumChain(rpcUrls, chainId);
+  const clients = createL1Clients(rpcUrls, account, chain.chainInfo, mnemonicIndex);
+
+  if (!initialValidators || initialValidators.length === 0) {
+    const registry = new RegistryContract(clients.publicClient, registryAddress);
+    const rollup = new RollupContract(clients.publicClient, await registry.getCanonicalAddress());
+    initialValidators = (await rollup.getAttesters()).map(str => EthAddress.fromString(str));
+    logger.info('Initializing new rollup with old attesters', { initialValidators });
+  }
+
+  const { rollup, slashFactoryAddress } = await deployRollupForUpgrade(
+    clients,
+    {
+      salt,
+      vkTreeRoot: getVKTreeRoot(),
+      protocolContractTreeRoot,
+      genesisArchiveRoot,
+      genesisBlockHash,
+      initialValidators,
+      feeJuicePortalInitialBalance,
+      ...config,
+    },
+    registryAddress,
+    logger,
+    config,
+  );
+
+  return { rollup, slashFactoryAddress };
 }
 
 /**
  * Gets all contracts available in \@aztec/noir-contracts.js.
- * @returns The contract ABIs.
+ * @returns The contract names.
  */
-export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
+export async function getExampleContractNames(): Promise<string[]> {
   // eslint-disable-next-line @typescript-eslint/ban-ts-comment
   // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
-  const imports = await import('@aztec/noir-contracts.js');
-  return Object.fromEntries(Object.entries(imports).filter(([key]) => key.endsWith('Artifact'))) as any;
+  const { ContractNames } = await import('@aztec/noir-contracts.js');
+  return ContractNames;
 }
 
 /**
@@ -152,11 +159,17 @@ export async function getExampleContractArtifacts(): Promise<ArtifactsType> {
  */
 export async function getContractArtifact(fileDir: string, log: LogFn) {
   // first check if it's a noir-contracts example
-  const artifacts = await getExampleContractArtifacts();
-  for (const key of [fileDir, fileDir + 'Artifact', fileDir + 'ContractArtifact']) {
-    if (artifacts[key]) {
-      return artifacts[key] as ContractArtifact;
+  const allNames = await getExampleContractNames();
+  const contractName = fileDir.replace(/Contract(Artifact)?$/, '');
+  if (allNames.includes(contractName)) {
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore - Importing noir-contracts.js even in devDeps results in a circular dependency error. Need to ignore because this line doesn't cause an error in a dev environment
+    const imported = await import(`@aztec/noir-contracts.js/${contractName}`);
+    const artifact = imported[`${contractName}ContractArtifact`] as ContractArtifact;
+    if (!artifact) {
+      throw Error(`Could not import ${contractName}ContractArtifact from @aztec/noir-contracts.js/${contractName}`);
     }
+    return artifact;
   }
 
   let contents: string;
@@ -184,7 +197,7 @@ export async function getContractArtifact(fileDir: string, log: LogFn) {
  */
 export async function prepTx(contractFile: string, functionName: string, _functionArgs: string[], log: LogFn) {
   const contractArtifact = await getContractArtifact(contractFile, log);
-  const functionArtifact = getFunctionArtifact(contractArtifact, functionName);
+  const functionArtifact = getFunctionAbi(contractArtifact, functionName);
   const functionArgs = encodeArgs(_functionArgs, functionArtifact.parameters);
   const isPrivate = functionArtifact.functionType === FunctionType.PRIVATE;
 

@@ -1,12 +1,14 @@
+use dep::aztec::{context::{gas::GasOpts, PrivateContext, PublicContext}, hash::hash_args_array};
 use dep::aztec::protocol_types::{
-    abis::function_selector::FunctionSelector, address::AztecAddress,
+    abis::function_selector::FunctionSelector,
+    address::AztecAddress,
     constants::{
-    GENERATOR_INDEX__AUTHWIT_INNER, GENERATOR_INDEX__AUTHWIT_OUTER, GENERATOR_INDEX__AUTHWIT_NULLIFIER,
-    CANONICAL_AUTH_REGISTRY_ADDRESS
-},
-    hash::poseidon2_hash_with_separator
+        CANONICAL_AUTH_REGISTRY_ADDRESS, GENERATOR_INDEX__AUTHWIT_INNER,
+        GENERATOR_INDEX__AUTHWIT_NULLIFIER, GENERATOR_INDEX__AUTHWIT_OUTER,
+    },
+    hash::poseidon2_hash_with_separator,
+    traits::ToField,
 };
-use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::hash_args_array};
 
 /**
  * Authenticaion witness helper library
@@ -189,19 +191,23 @@ use dep::aztec::{context::{PrivateContext, PublicContext, gas::GasOpts}, hash::h
  *      chain to avoid a case where the same message could be used across multiple chains.
  */
 
-global IS_VALID_SELECTOR = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
+pub global IS_VALID_SELECTOR: Field = 0x47dacd73; // 4 last bytes of poseidon2_hash_bytes("IS_VALID()")
 
 /**
- * Assert that `on_behalf_of` have authorized the current call with a valid authentication witness
+ * Assert that `on_behalf_of` has authorized the current call with a valid authentication witness
  *
- * Computing the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then making a call out to the
+ * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
- * @param on_behalf_of The address that have authorized the current call
+ * @param on_behalf_of The address that has allegedly authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit
 pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress) {
-    let inner_hash = compute_inner_authwit_hash([context.msg_sender().to_field(), context.selector().to_field(), context.args_hash]);
+    let inner_hash = compute_inner_authwit_hash([
+        context.msg_sender().to_field(),
+        context.selector().to_field(),
+        context.args_hash,
+    ]);
     assert_inner_hash_valid_authwit(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit
@@ -212,69 +218,78 @@ pub fn assert_current_call_valid_authwit(context: &mut PrivateContext, on_behalf
  * Used as an internal function for `assert_current_call_valid_authwit` and can be used as a standalone function when
  * the `inner_hash` is from a different source, e.g., say a block of text etc.
  *
- * @param on_behalf_of The address that have authorized the current call
+ * @param on_behalf_of The address that has allegedly authorized the current call
  * @param inner_hash The hash of the message to authorize
  */
-pub fn assert_inner_hash_valid_authwit(context: &mut PrivateContext, on_behalf_of: AztecAddress, inner_hash: Field) {
+pub fn assert_inner_hash_valid_authwit(
+    context: &mut PrivateContext,
+    on_behalf_of: AztecAddress,
+    inner_hash: Field,
+) {
     // We perform a static call here and not a standard one to ensure that the account contract cannot re-enter.
-    let result: Field = context.static_call_private_function(
-        on_behalf_of,
-        comptime {
-        FunctionSelector::from_signature("verify_private_authwit(Field)")
-    },
-        [inner_hash]
-    ).unpack_into();
+    let result: Field = context
+        .static_call_private_function(
+            on_behalf_of,
+            comptime { FunctionSelector::from_signature("verify_private_authwit(Field)") },
+            [inner_hash],
+        )
+        .get_preimage();
     assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
     // Compute the nullifier, similar computation to the outer hash, but without the chain_id and version.
-    // Those should already be handled in the verification, so we just need something to nullify, that allow same inner_hash for multiple actors.
+    // Those should already be handled in the verification, so we just need something to nullify, that allows the same inner_hash for multiple actors.
     let nullifier = compute_authwit_nullifier(on_behalf_of, inner_hash);
     context.push_nullifier(nullifier);
 }
 
 /**
- * Assert that `on_behalf_of` have authorized the current call in the authentication registry
+ * Assert that `on_behalf_of` has authorized the current call in the authentication registry
  *
- * Computing the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then making a call out to the
+ * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
  * Note that the authentication registry will take the `msg_sender` into account as the consumer, so this will only
  * work if the `msg_sender` is the same as the `consumer` when the `message_hash` was inserted into the registry.
  *
- * @param on_behalf_of The address that have authorized the current call
+ * @param on_behalf_of The address that has allegedly authorized the current call
  */
 // docs:start:assert_current_call_valid_authwit_public
-pub fn assert_current_call_valid_authwit_public(
+pub unconstrained fn assert_current_call_valid_authwit_public(
     context: &mut PublicContext,
-    on_behalf_of: AztecAddress
+    on_behalf_of: AztecAddress,
 ) {
-    let inner_hash = compute_inner_authwit_hash(
-        [(*context).msg_sender().to_field(), (*context).selector().to_field(), (*context).get_args_hash()]
-    );
+    let inner_hash = compute_inner_authwit_hash([
+        (*context).msg_sender().to_field(),
+        (*context).selector().to_field(),
+        (*context).get_args_hash(),
+    ]);
     assert_inner_hash_valid_authwit_public(context, on_behalf_of, inner_hash);
 }
 // docs:end:assert_current_call_valid_authwit_public
 
 /**
- * Assert that `on_behalf_of` have authorized a speicifc `inner_hash` in the authentication registry
+ * Assert that `on_behalf_of` has authorized a specific `inner_hash` in the authentication registry
  *
- * Computing the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then making a call out to the
+ * Compute the `inner_hash` using the `msg_sender`, `selector` and `args_hash` and then make a call out to the
  * `on_behalf_of` contract to verify that the `inner_hash` is valid.
  *
  * Note that the authentication registry will take the `msg_sender` into account as the consumer, so this will only
  * work if the `msg_sender` is the same as the `consumer` when the `message_hash` was inserted into the registry.
  *
- * @param on_behalf_of The address that have authorized the `inner_hash`
+ * @param on_behalf_of The address that has allegedly authorized the `inner_hash`
  */
-pub fn assert_inner_hash_valid_authwit_public(context: &mut PublicContext, on_behalf_of: AztecAddress, inner_hash: Field) {
-    let result: Field = context.call_public_function(
+pub unconstrained fn assert_inner_hash_valid_authwit_public(
+    context: &mut PublicContext,
+    on_behalf_of: AztecAddress,
+    inner_hash: Field,
+) {
+    let results: [Field] = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime {
-        FunctionSelector::from_signature("consume((Field),Field)")
-    },
+        comptime { FunctionSelector::from_signature("consume((Field),Field)") },
         [on_behalf_of.to_field(), inner_hash].as_slice(),
-        GasOpts::default()
-    ).deserialize_into();
-    assert(result == IS_VALID_SELECTOR, "Message not authorized by account");
+        GasOpts::default(),
+    );
+    assert(results.len() == 1, "Invalid response from registry");
+    assert(results[0] == IS_VALID_SELECTOR, "Message not authorized by account");
 }
 
 /**
@@ -298,10 +313,11 @@ pub fn compute_authwit_message_hash_from_call<let N: u32>(
     chain_id: Field,
     version: Field,
     selector: FunctionSelector,
-    args: [Field; N]
+    args: [Field; N],
 ) -> Field {
     let args_hash = hash_args_array(args);
-    let inner_hash = compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
+    let inner_hash =
+        compute_inner_authwit_hash([caller.to_field(), selector.to_field(), args_hash]);
     compute_authwit_message_hash(consumer, chain_id, version, inner_hash)
 }
 // docs:end:compute_authwit_message_hash_from_call
@@ -319,17 +335,17 @@ pub fn compute_inner_authwit_hash<let N: u32>(args: [Field; N]) -> Field {
 }
 
 /**
- * Computs the `authwit_nullifier` for a specific `on_behalf_of` and `inner_hash`
+ * Computes the `authwit_nullifier` for a specific `on_behalf_of` and `inner_hash`
  *
  * Using the `on_behalf_of` and the `inner_hash` to ensure that the nullifier is siloed for a specific `on_behalf_of`.
  *
- * @param on_behalf_of The address that have authorized the `inner_hash`
+ * @param on_behalf_of The address that has authorized the `inner_hash`
  * @param inner_hash The hash of the message to authorize
  */
 pub fn compute_authwit_nullifier(on_behalf_of: AztecAddress, inner_hash: Field) -> Field {
     poseidon2_hash_with_separator(
         [on_behalf_of.to_field(), inner_hash],
-        GENERATOR_INDEX__AUTHWIT_NULLIFIER
+        GENERATOR_INDEX__AUTHWIT_NULLIFIER,
     )
 }
 
@@ -341,15 +357,15 @@ pub fn compute_authwit_nullifier(on_behalf_of: AztecAddress, inner_hash: Field) 
  * @param version The version of the chain that the message is being consumed on
  * @param inner_hash The hash of the "inner" message that is being consumed
  */
-pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, version: Field, inner_hash: Field) -> Field {
+pub fn compute_authwit_message_hash(
+    consumer: AztecAddress,
+    chain_id: Field,
+    version: Field,
+    inner_hash: Field,
+) -> Field {
     poseidon2_hash_with_separator(
-        [
-        consumer.to_field(),
-        chain_id,
-        version,
-        inner_hash
-    ],
-        GENERATOR_INDEX__AUTHWIT_OUTER
+        [consumer.to_field(), chain_id, version, inner_hash],
+        GENERATOR_INDEX__AUTHWIT_OUTER,
     )
 }
 
@@ -361,15 +377,18 @@ pub fn compute_authwit_message_hash(consumer: AztecAddress, chain_id: Field, ver
  * @param message_hash The hash of the message to authorize
  * @param authorize True if the message should be authorized, false if it should be revoked
  */
-pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authorize: bool) {
-    context.call_public_function(
+pub unconstrained fn set_authorized(
+    context: &mut PublicContext,
+    message_hash: Field,
+    authorize: bool,
+) {
+    let res = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime {
-        FunctionSelector::from_signature("set_authorized(Field,bool)")
-    },
+        comptime { FunctionSelector::from_signature("set_authorized(Field,bool)") },
         [message_hash, authorize as Field].as_slice(),
-        GasOpts::default()
-    ).assert_empty();
+        GasOpts::default(),
+    );
+    assert(res.len() == 0);
 }
 
 /**
@@ -379,13 +398,12 @@ pub fn set_authorized(context: &mut PublicContext, message_hash: Field, authoriz
  *
  * @param reject True if all authwits should be rejected, false otherwise
  */
-pub fn set_reject_all(context: &mut PublicContext, reject: bool) {
-    context.call_public_function(
+pub unconstrained fn set_reject_all(context: &mut PublicContext, reject: bool) {
+    let res = context.call_public_function(
         CANONICAL_AUTH_REGISTRY_ADDRESS,
-        comptime {
-        FunctionSelector::from_signature("set_reject_all(bool)")
-    },
+        comptime { FunctionSelector::from_signature("set_reject_all(bool)") },
         [context.this_address().to_field(), reject as Field].as_slice(),
-        GasOpts::default()
-    ).assert_empty();
+        GasOpts::default(),
+    );
+    assert(res.len() == 0);
 }

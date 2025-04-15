@@ -7,7 +7,16 @@
   },
   "references": [
     {
+      "path": "../ethereum"
+    },
+    {
       "path": "../foundation"
+    },
+    {
+      "path": "../native"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src"]

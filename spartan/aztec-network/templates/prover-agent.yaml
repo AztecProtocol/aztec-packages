@@ -1,0 +1,119 @@
+{{- if .Values.proverAgent.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aztec-network.fullname" . }}-prover-agent
+  labels:
+    {{- include "aztec-network.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.proverAgent.replicas }}
+  selector:
+    matchLabels:
+      {{- include "aztec-network.selectorLabels" . | nindent 6 }}
+      app: prover-agent
+  template:
+    metadata:
+      labels:
+        {{- include "aztec-network.selectorLabels" . | nindent 8 }}
+        app: prover-agent
+    spec:
+      {{- if and .Values.proverAgent.gke.spotEnabled .Values.network.gke }}
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+            - matchExpressions:
+              - key: cloud.google.com/gke-spot
+                operator: Exists
+      tolerations:
+      - key: "cloud.google.com/gke-spot"
+        operator: "Equal"
+        value: "true"
+        effect: "NoSchedule"
+      {{- end }}
+      {{- if .Values.network.public }}
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      hostNetwork: true
+      dnsPolicy: ClusterFirstWithHostNet
+      serviceAccountName: {{ include "aztec-network.fullname" . }}-node
+      {{- end }}
+      volumes:
+        - name: config
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: {{ include "aztec-network.fullname" . }}-scripts
+            defaultMode: 0755
+      initContainers:
+        {{- include "aztec-network.combinedAllSetupContainer" . | nindent 8 }}
+        {{- include "aztec-network.otelResourceSetupContainer" . | nindent 8 }}
+        - name: wait-for-prover-node
+          {{- include "aztec-network.image" . | nindent 10 }}
+          command:
+            - /bin/bash
+            - -c
+            - |
+              source /shared/config/service-addresses
+              cat /shared/config/service-addresses
+              until curl -s -X POST ${PROVER_BROKER_HOST}/status; do
+                echo "Waiting for broker ${PROVER_BROKER_HOST} ..."
+                sleep 5
+              done
+              echo "Broker is ready!"
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+      containers:
+        - name: prover-agent
+          {{- include "aztec-network.image" . | nindent 10 }}
+          volumeMounts:
+            - name: config
+              mountPath: /shared/config
+          command:
+            - "/bin/bash"
+            - "-c"
+            - |
+              source /shared/config/service-addresses && \
+              source /shared/config/otel-resource && \
+              node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --prover-agent
+          env:
+            - name: K8S_POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_NAMESPACE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: AZTEC_PORT
+              value: "{{ .Values.proverAgent.service.nodePort }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.proverAgent.logLevel }}"
+            - name: LOG_JSON
+              value: "1"
+            - name: PROVER_REAL_PROOFS
+              value: "{{ .Values.aztec.realProofs }}"
+            - name: PROVER_AGENT_COUNT
+              value: "1"
+            - name: PROVER_AGENT_POLL_INTERVAL_MS
+              value: "{{ .Values.proverAgent.pollIntervalMs }}"
+            - name: PROVER_TEST_DELAY_TYPE
+              value: "{{ .Values.proverAgent.testDelayType }}"
+            - name: PROVER_TEST_DELAY_MS
+              value: "{{ .Values.proverAgent.testDelayMs }}"
+            - name: PROVER_TEST_DELAY_FACTOR
+              value: "{{ .Values.proverAgent.testDelayFactor }}"
+            - name: PROVER_AGENT_PROOF_TYPES
+              value: {{ join "," .Values.proverAgent.proofTypes | quote }}
+            - name: USE_GCLOUD_LOGGING
+              value: "{{ .Values.telemetry.useGcloudLogging }}"
+            - name: OTEL_EXCLUDE_METRICS
+              value: "{{ .Values.telemetry.excludeMetrics }}"
+          resources:
+            {{- toYaml .Values.proverAgent.resources | nindent 12 }}
+---
+{{- end }}

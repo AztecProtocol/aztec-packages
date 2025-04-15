@@ -6,23 +6,49 @@
  */
 import { AccountManager, type Salt } from '@aztec/aztec.js/account';
 import { type AccountWallet, getWallet } from '@aztec/aztec.js/wallet';
-import { type PXE } from '@aztec/circuit-types';
-import { type AztecAddress, type Fr } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import type { ContractArtifact } from '@aztec/stdlib/abi';
+import { loadContractArtifact } from '@aztec/stdlib/abi';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { PXE } from '@aztec/stdlib/interfaces/client';
+import type { NoirCompiledContract } from '@aztec/stdlib/noir';
 
-import { EcdsaKAccountContract } from './account_contract.js';
+import EcdsaKAccountContractJson from '../../../artifacts/EcdsaKAccount.json' assert { type: 'json' };
+import { EcdsaKBaseAccountContract } from './account_contract.js';
 
-export { EcdsaKAccountContractArtifact } from './artifact.js';
-export { EcdsaKAccountContract };
+export const EcdsaKAccountContractArtifact: ContractArtifact = loadContractArtifact(
+  EcdsaKAccountContractJson as NoirCompiledContract,
+);
 
+/**
+ * Account contract that authenticates transactions using ECDSA signatures
+ * verified against a secp256k1 public key stored in an immutable encrypted note.
+ * Eagerly loads the contract artifact
+ */
+export class EcdsaKAccountContract extends EcdsaKBaseAccountContract {
+  constructor(signingPrivateKey: Buffer) {
+    super(signingPrivateKey);
+  }
+
+  override getContractArtifact(): Promise<ContractArtifact> {
+    return Promise.resolve(EcdsaKAccountContractArtifact);
+  }
+}
 /**
  * Creates an Account that relies on an ECDSA signing key for authentication.
  * @param pxe - An PXE server instance.
  * @param secretKey - Secret key used to derive all the keystore keys.
  * @param signingPrivateKey - Secp256k1 key used for signing transactions.
  * @param salt - Deployment salt.
+ * @returns An account manager initialized with the account contract and its deployment params
  */
-export function getEcdsaKAccount(pxe: PXE, secretKey: Fr, signingPrivateKey: Buffer, salt?: Salt): AccountManager {
-  return new AccountManager(pxe, secretKey, new EcdsaKAccountContract(signingPrivateKey), salt);
+export function getEcdsaKAccount(
+  pxe: PXE,
+  secretKey: Fr,
+  signingPrivateKey: Buffer,
+  salt?: Salt,
+): Promise<AccountManager> {
+  return AccountManager.create(pxe, secretKey, new EcdsaKAccountContract(signingPrivateKey), salt);
 }
 
 /**

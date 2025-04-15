@@ -9,10 +9,6 @@ pub struct BBFiles {
 }
 
 impl BBFiles {
-    pub fn default(vm_name: &str) -> Self {
-        Self::new(vm_name, None, None)
-    }
-
     #[allow(clippy::too_many_arguments)]
     pub fn new(vm_name: &str, base_dir: Option<&str>, relations: Option<&str>) -> Self {
         let base_dir = base_dir

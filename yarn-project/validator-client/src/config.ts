@@ -1,4 +1,3 @@
-import { AZTEC_SLOT_DURATION } from '@aztec/circuits.js';
 import { NULL_KEY } from '@aztec/ethereum';
 import {
   type ConfigMappingsType,
@@ -12,16 +11,16 @@ import {
  */
 export interface ValidatorClientConfig {
   /** The private key of the validator participating in attestation duties */
-  validatorPrivateKey: string;
+  validatorPrivateKey?: string;
 
   /** Do not run the validator */
   disableValidator: boolean;
 
   /** Interval between polling for new attestations from peers */
-  attestationPoolingIntervalMs: number;
+  attestationPollingIntervalMs: number;
 
-  /** Wait for attestations timeout */
-  attestationWaitTimeoutMs: number;
+  /** Re-execute transactions before attesting */
+  validatorReexecute: boolean;
 }
 
 export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientConfig> = {
@@ -35,15 +34,15 @@ export const validatorClientConfigMappings: ConfigMappingsType<ValidatorClientCo
     description: 'Do not run the validator',
     ...booleanConfigHelper(),
   },
-  attestationPoolingIntervalMs: {
-    env: 'VALIDATOR_ATTESTATIONS_POOLING_INTERVAL_MS',
+  attestationPollingIntervalMs: {
+    env: 'VALIDATOR_ATTESTATIONS_POLLING_INTERVAL_MS',
     description: 'Interval between polling for new attestations',
-    ...numberConfigHelper(1000),
+    ...numberConfigHelper(200),
   },
-  attestationWaitTimeoutMs: {
-    env: 'VALIDATOR_ATTESTATIONS_WAIT_TIMEOUT_MS',
-    description: 'Wait for attestations timeout',
-    ...numberConfigHelper(AZTEC_SLOT_DURATION * 1000),
+  validatorReexecute: {
+    env: 'VALIDATOR_REEXECUTE',
+    description: 'Re-execute transactions before attesting',
+    ...booleanConfigHelper(true),
   },
 };
 

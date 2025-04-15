@@ -2,14 +2,16 @@ import {
   type ABIParameter,
   type ABIVariable,
   type ContractArtifact,
-  type FunctionArtifact,
+  EventSelector,
+  type FunctionAbi,
   decodeFunctionSignature,
+  getAllFunctionAbis,
   getDefaultInitializer,
   isAztecAddressStruct,
   isEthAddressStruct,
   isFunctionSelectorStruct,
   isWrappedFieldStruct,
-} from '@aztec/foundation/abi';
+} from '@aztec/stdlib/abi';
 
 /**
  * Returns the corresponding typescript type for a given Noir type.
@@ -61,7 +63,7 @@ function generateParameter(param: ABIParameter) {
  * @param param - A Noir function.
  * @returns The corresponding ts code.
  */
-function generateMethod(entry: FunctionArtifact) {
+function generateMethod(entry: FunctionAbi) {
   const args = entry.parameters.map(generateParameter).join(', ');
   return `
     /** ${entry.name}(${entry.parameters.map(p => `${p.name}: ${p.type.kind}`).join(', ')}) */
@@ -84,25 +86,25 @@ function generateDeploy(input: ContractArtifact) {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(Fr.ZERO, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
+    return new DeployMethod<${contractName}>(PublicKeys.default(), wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeysHash(publicKeysHash: Fr, wallet: Wallet, ${args}) {
-    return new DeployMethod<${contractName}>(publicKeysHash, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, ${args}) {
+    return new DeployMethod<${contractName}>(publicKeys, wallet, ${artifactName}, ${contractName}.at, Array.from(arguments).slice(2));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
   public static deployWithOpts<M extends keyof ${contractName}['methods']>(
-    opts: { publicKeysHash?: Fr; method?: M; wallet: Wallet },
+    opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
     ...args: Parameters<${contractName}['methods'][M]>
   ) {
     return new DeployMethod<${contractName}>(
-      opts.publicKeysHash ?? Fr.ZERO,
+      opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
       ${artifactName},
       ${contractName}.at,
@@ -153,10 +155,10 @@ function generateAt(name: string) {
 }
 
 /**
- * Generates a static getter for the contract's artifact.
+ * Generates static getters for the contract's artifact.
  * @param name - Name of the contract used to derive name of the artifact import.
  */
-function generateArtifactGetter(name: string) {
+function generateArtifactGetters(name: string) {
   const artifactName = `${name}ContractArtifact`;
   return `
   /**
@@ -164,6 +166,13 @@ function generateArtifactGetter(name: string) {
    */
   public static get artifact(): ContractArtifact {
     return ${artifactName};
+  }
+
+  /**
+   * Returns this contract's artifact with public bytecode.
+   */
+  public static get artifactForPublic(): ContractArtifact {
+    return loadContractArtifactForPublic(${artifactName}Json as NoirCompiledContract);
   }
   `;
 }
@@ -241,68 +250,46 @@ function generateNotesGetter(input: ContractArtifact) {
 }
 
 // events is of type AbiType
-function generateEvents(events: any[] | undefined) {
+async function generateEvents(events: any[] | undefined) {
   if (events === undefined) {
     return { events: '', eventDefs: '' };
   }
 
-  const eventsMetadata = events.map(event => {
-    const eventName = event.path.split('::').at(-1);
+  const eventsMetadata = await Promise.all(
+    events.map(async event => {
+      const eventName = event.path.split('::').at(-1);
 
-    const eventDefProps = event.fields.map((field: ABIVariable) => `${field.name}: ${abiTypeToTypescript(field.type)}`);
-    const eventDef = `
+      const eventDefProps = event.fields.map(
+        (field: ABIVariable) => `${field.name}: ${abiTypeToTypescript(field.type)}`,
+      );
+      const eventDef = `
       export type ${eventName} = {
         ${eventDefProps.join('\n')}
       }
     `;
 
-    const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
-    const eventType = `${eventName}: {decode: (payload: L1EventPayload | UnencryptedL2Log | undefined) => ${eventName} | undefined, eventSelector: EventSelector, fieldNames: string[] }`;
-    // Reusing the decodeFunctionSignature
-    const eventSignature = decodeFunctionSignature(eventName, event.fields);
-    const eventSelector = `EventSelector.fromSignature('${eventSignature}')`;
-    const eventImpl = `${eventName}: {
-        decode: this.decodeEvent(${eventSelector}, ${JSON.stringify(event, null, 4)}),
-        eventSelector: ${eventSelector},
+      const fieldNames = event.fields.map((field: any) => `"${field.name}"`);
+      const eventType = `${eventName}: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }`;
+      // Reusing the decodeFunctionSignature
+      const eventSignature = decodeFunctionSignature(eventName, event.fields);
+      const eventSelector = await EventSelector.fromSignature(eventSignature);
+      const eventImpl = `${eventName}: {
+        abiType: ${JSON.stringify(event, null, 4)},
+        eventSelector: EventSelector.fromString("${eventSelector}"),
         fieldNames: [${fieldNames}],
       }`;
 
-    return {
-      eventDef,
-      eventType,
-      eventImpl,
-    };
-  });
+      return {
+        eventDef,
+        eventType,
+        eventImpl,
+      };
+    }),
+  );
 
   return {
     eventDefs: eventsMetadata.map(({ eventDef }) => eventDef).join('\n'),
     events: `
-    // Partial application is chosen is to avoid the duplication of so much codegen.
-    private static decodeEvent<T>(
-      eventSelector: EventSelector,
-      eventType: AbiType,
-    ): (payload: L1EventPayload | UnencryptedL2Log | undefined) => T | undefined {
-      return (payload: L1EventPayload | UnencryptedL2Log | undefined): T | undefined => {
-        if (payload === undefined) {
-          return undefined;
-        }
-
-        if (payload instanceof L1EventPayload) {
-          if (!eventSelector.equals(payload.eventTypeId)) {
-            return undefined;
-          }
-          return decodeFromAbi([eventType], payload.event.items) as T;
-        } else {
-          let items = [];
-          for (let i = 0; i < payload.data.length; i += 32) {
-            items.push(new Fr(payload.data.subarray(i, i + 32)));
-          }
-
-          return decodeFromAbi([eventType], items) as T;
-        }
-      };
-    }
-
     public static get events(): { ${eventsMetadata.map(({ eventType }) => eventType).join(', ')} } {
     return {
       ${eventsMetadata.map(({ eventImpl }) => eventImpl).join(',\n')}
@@ -318,8 +305,8 @@ function generateEvents(events: any[] | undefined) {
  * @param artifactImportPath - Optional path to import the artifact (if not set, will be required in the constructor).
  * @returns The corresponding ts code.
  */
-export function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
-  const methods = input.functions
+export async function generateTypescriptContractInterface(input: ContractArtifact, artifactImportPath?: string) {
+  const methods = getAllFunctionAbis(input)
     .filter(f => !f.isInternal)
     .sort((a, b) => a.name.localeCompare(b.name))
     .map(generateMethod);
@@ -327,10 +314,10 @@ export function generateTypescriptContractInterface(input: ContractArtifact, art
   const ctor = artifactImportPath && generateConstructor(input.name);
   const at = artifactImportPath && generateAt(input.name);
   const artifactStatement = artifactImportPath && generateAbiStatement(input.name, artifactImportPath);
-  const artifactGetter = artifactImportPath && generateArtifactGetter(input.name);
+  const artifactGetter = artifactImportPath && generateArtifactGetters(input.name);
   const storageLayoutGetter = artifactImportPath && generateStorageLayoutGetter(input);
   const notesGetter = artifactImportPath && generateNotesGetter(input);
-  const { eventDefs, events } = generateEvents(input.outputs.structs?.events);
+  const { eventDefs, events } = await generateEvents(input.outputs.structs?.events);
 
   return `
 /* Autogenerated file, do not edit! */
@@ -357,14 +344,15 @@ import {
   type FieldLike,
   Fr,
   type FunctionSelectorLike,
-  L1EventPayload,
   loadContractArtifact,
+  loadContractArtifactForPublic,
   type NoirCompiledContract,
   NoteSelector,
   Point,
   type PublicKey,
-  type UnencryptedL2Log,
+  PublicKeys,
   type Wallet,
+  type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
 ${artifactStatement}

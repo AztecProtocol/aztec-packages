@@ -1,12 +1,14 @@
 use dep::types::{
-    traits::Empty, abis::{validation_requests::ScopedKeyValidationRequestAndGenerator}, scalar::Scalar,
-    hash::poseidon2_hash_with_separator
+    abis::validation_requests::ScopedKeyValidationRequestAndGenerator,
+    hash::poseidon2_hash_with_separator,
+    scalar::Scalar,
+    traits::{Empty, ToField},
 };
 use std::embedded_curve_ops::fixed_base_scalar_mul as derive_public_key;
 
 pub struct KeyValidationHint {
-  sk_m: Scalar,
-  request_index: u32,
+    sk_m: Scalar,
+    request_index: u32,
 }
 
 impl Empty for KeyValidationHint {
@@ -27,7 +29,10 @@ impl KeyValidationHint {
     }
 }
 
-fn verify_key_validation_request(scoped_request: ScopedKeyValidationRequestAndGenerator, sk_m: Scalar) {
+fn verify_key_validation_request(
+    scoped_request: ScopedKeyValidationRequestAndGenerator,
+    sk_m: Scalar,
+) {
     let contract_address = scoped_request.contract_address;
     let request_and_generator = scoped_request.request;
     let request = request_and_generator.request;
@@ -35,17 +40,27 @@ fn verify_key_validation_request(scoped_request: ScopedKeyValidationRequestAndGe
 
     // First we check that derived public key matches master public key from request.
     let pk_m = derive_public_key(sk_m);
-    assert_eq(pk_m, request.pk_m, "Failed to derive matching master public key from the secret key.");
+    assert_eq(
+        pk_m,
+        request.pk_m,
+        "Failed to derive matching master public key from the secret key.",
+    );
 
     // Then we check that siloing the master secret key with the contract address gives the app secret key.
     let sk_app = poseidon2_hash_with_separator(
         [sk_m.hi, sk_m.lo, contract_address.to_field()],
-        sk_app_generator
+        sk_app_generator,
     );
-    assert_eq(sk_app, request.sk_app, "Failed to derive matching app secret key from the secret key.");
+    assert_eq(
+        sk_app,
+        request.sk_app,
+        "Failed to derive matching app secret key from the secret key.",
+    );
 }
 
-unconstrained fn get_hint_indexes<let REQUEST_LEN: u32, let NUM_HINTS: u32>(hints: [KeyValidationHint; NUM_HINTS]) -> [u32; REQUEST_LEN] {
+unconstrained fn get_hint_indexes<let REQUEST_LEN: u32, let NUM_HINTS: u32>(
+    hints: [KeyValidationHint; NUM_HINTS],
+) -> [u32; REQUEST_LEN] {
     let mut hint_indexes = [NUM_HINTS; REQUEST_LEN];
     for i in 0..NUM_HINTS {
         let hint = hints[i];
@@ -59,7 +74,7 @@ unconstrained fn get_hint_indexes<let REQUEST_LEN: u32, let NUM_HINTS: u32>(hint
 pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS: u32>(
     key_validation_requests: [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN],
     hints: [KeyValidationHint; NUM_HINTS],
-    unverified_requests: [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN]
+    unverified_requests: [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN],
 ) {
     for i in 0..NUM_HINTS {
         let hint = hints[i];
@@ -70,10 +85,8 @@ pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS:
             verify_key_validation_request(key_validation_requests[hint.request_index], hint.sk_m);
         }
     }
-
-    let hint_indexes: [u32; REQUEST_LEN] = unsafe {
-        get_hint_indexes(hints)
-    };
+    // Safety: the indices are constrained by the checks below.
+    let hint_indexes: [u32; REQUEST_LEN] = unsafe { get_hint_indexes(hints) };
     let mut num_propagated = 0;
     for i in 0..REQUEST_LEN {
         let hint_index = hint_indexes[i];
@@ -81,16 +94,18 @@ pub fn verify_reset_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS:
             assert_eq(hints[hint_index].request_index, i, "wrong verified request index hint");
         } else {
             assert_eq(
-                unverified_requests[num_propagated], key_validation_requests[i], "mismatch propagated key validation request"
+                unverified_requests[num_propagated],
+                key_validation_requests[i],
+                "mismatch propagated key validation request",
             );
             num_propagated += 1;
         }
     }
 }
 
-unconstrained pub fn get_unverified_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS: u32>(
+pub unconstrained fn get_unverified_key_validation_requests<let REQUEST_LEN: u32, let NUM_HINTS: u32>(
     key_validation_requests: [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN],
-    hints: [KeyValidationHint; NUM_HINTS]
+    hints: [KeyValidationHint; NUM_HINTS],
 ) -> [ScopedKeyValidationRequestAndGenerator; REQUEST_LEN] {
     let mut should_propagate = [true; REQUEST_LEN];
     for i in 0..NUM_HINTS {
@@ -106,5 +121,5 @@ unconstrained pub fn get_unverified_key_validation_requests<let REQUEST_LEN: u32
             propagated.push(key_validation_requests[i]);
         }
     }
-    propagated.storage
+    propagated.storage()
 }

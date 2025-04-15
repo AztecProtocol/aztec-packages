@@ -16,6 +16,7 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
     using VerificationKey = typename Flavor::VerificationKey;
     using CircuitSimulator = typename RecursiveFlavor::CircuitBuilder;
     using SimulatingVerifier = stdlib::recursion::honk::UltraRecursiveVerifier_<RecursiveFlavor>;
+    using SimulatorAggregationObject = stdlib::recursion::aggregation_state<CircuitSimulator>;
 
     struct VerifierInput {
         HonkProof proof;
@@ -24,7 +25,7 @@ template <typename RecursiveFlavor> class SimulatorFixture : public benchmark::F
 
     void SetUp([[maybe_unused]] const ::benchmark::State& state) override
     {
-        bb::srs::init_crs_factory("../srs_db/ignition");
+        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
     }
 
     /**
@@ -100,10 +101,7 @@ BENCHMARK_TEMPLATE_F(SimulatorFixture, GoblinSimulated, bb::MegaRecursiveFlavor_
     for (auto _ : state) {
         CircuitSimulator simulator;
         SimulatingVerifier ultra_verifier{ &simulator, verifier_input.verification_key };
-        ultra_verifier.verify_proof(verifier_input.proof,
-                                    stdlib::recursion::init_default_aggregation_state<
-                                        CircuitSimulator,
-                                        bb::MegaRecursiveFlavor_<bb::CircuitSimulatorBN254>::Curve>(simulator));
+        ultra_verifier.verify_proof(verifier_input.proof, SimulatorAggregationObject::construct_default(simulator));
     }
 }
 
@@ -124,10 +122,7 @@ BENCHMARK_TEMPLATE_F(SimulatorFixture, UltraSimulated, bb::UltraRecursiveFlavor_
     for (auto _ : state) {
         CircuitSimulator simulator;
         SimulatingVerifier ultra_verifier{ &simulator, verifier_input.verification_key };
-        ultra_verifier.verify_proof(verifier_input.proof,
-                                    stdlib::recursion::init_default_aggregation_state<
-                                        CircuitSimulator,
-                                        bb::UltraRecursiveFlavor_<bb::CircuitSimulatorBN254>::Curve>(simulator));
+        ultra_verifier.verify_proof(verifier_input.proof, SimulatorAggregationObject::construct_default(simulator));
     }
 }
 

@@ -1,0 +1,5 @@
+IdentityFile ~/.ssh/build_instance_key
+StrictHostKeyChecking no
+User ubuntu
+ServerAliveInterval 60
+ServerAliveCountMax 5

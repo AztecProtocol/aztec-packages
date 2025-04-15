@@ -1,10 +1,10 @@
 import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
 import {
   type EthAddress,
   FeeJuicePaymentMethodWithClaim,
   Fr,
   type PXE,
-  SignerlessWallet,
   TxStatus,
   type WaitOpts,
   createAztecNodeClient,
@@ -12,13 +12,14 @@ import {
   fileURLToPath,
   retryUntil,
 } from '@aztec/aztec.js';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { GasSettings, deriveSigningKey } from '@aztec/circuits.js';
-import { startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
-import { type DebugLogger } from '@aztec/foundation/log';
+import { createNamespacedSafeJsonRpcServer, startHttpRpcServer } from '@aztec/foundation/json-rpc/server';
+import type { Logger } from '@aztec/foundation/log';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { FeeJuiceContract, TestContract } from '@aztec/noir-contracts.js';
-import { createPXERpcServer } from '@aztec/pxe';
+import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
+import { TestContract } from '@aztec/noir-contracts.js/Test';
+// eslint-disable-next-line no-restricted-imports
+import { PXESchema } from '@aztec/stdlib/interfaces/client';
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 import getPort from 'get-port';
 import { exec } from 'node:child_process';
@@ -35,7 +36,7 @@ const {
   PXE_URL,
   FAUCET_URL,
   AZTEC_CLI = `node ${resolve(fileURLToPath(import.meta.url), '../../../../aztec/dest/bin/index.js')}`,
-  ETHEREUM_HOST,
+  ETHEREUM_HOSTS,
   PXE_PROVER_ENABLED = '0',
   USE_EMPTY_BLOCKS = '0',
 } = process.env;
@@ -57,7 +58,7 @@ describe('End-to-end tests for devnet', () => {
   // eslint-disable-next-line
   let pxe: PXE;
   let pxeUrl: string; // needed for the CLI
-  let logger: DebugLogger;
+  let logger: Logger;
   let l1ChainId: number;
   let feeJuiceL1: EthAddress;
   let teardown: () => void | Promise<void>;
@@ -65,8 +66,8 @@ describe('End-to-end tests for devnet', () => {
   beforeAll(async () => {
     logger = getLogger();
 
-    if (!ETHEREUM_HOST) {
-      throw new Error('ETHEREUM_HOST must be set');
+    if (!ETHEREUM_HOSTS) {
+      throw new Error('ETHEREUM_HOSTS must be set');
     }
 
     if (!AZTEC_CLI) {
@@ -109,7 +110,8 @@ describe('End-to-end tests for devnet', () => {
       const localhost = await getLocalhost();
       pxeUrl = `http://${localhost}:${port}`;
       // start a server for the CLI to talk to
-      const server = startHttpRpcServer('pxe', pxe, createPXERpcServer, port);
+      const jsonRpcServer = createNamespacedSafeJsonRpcServer({ pxe: [pxe, PXESchema] });
+      const server = await startHttpRpcServer(jsonRpcServer, { port });
 
       teardown = async () => {
         const { promise, resolve, reject } = promiseWithResolvers<void>();
@@ -143,7 +145,7 @@ describe('End-to-end tests for devnet', () => {
   it('deploys an account while paying with FeeJuice', async () => {
     const privateKey = Fr.random();
     const l1Account = await cli<{ privateKey: string; address: string }>('create-l1-account');
-    const l2Account = getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
+    const l2Account = await getSchnorrAccount(pxe, privateKey, deriveSigningKey(privateKey), Fr.ZERO);
 
     await expect(getL1Balance(l1Account.address)).resolves.toEqual(0n);
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toEqual(0n);
@@ -155,17 +157,17 @@ describe('End-to-end tests for devnet', () => {
     await expect(getL1Balance(l1Account.address, feeJuiceL1)).resolves.toBeGreaterThan(0n);
 
     const amount = 1_000_000_000_000n;
-    const { claimAmount, claimSecret } = await cli<{ claimAmount: string; claimSecret: { value: string } }>(
-      'bridge-fee-juice',
-      [amount, l2Account.getAddress()],
-      {
-        'l1-rpc-url': ETHEREUM_HOST!,
-        'l1-chain-id': l1ChainId.toString(),
-        'l1-private-key': l1Account.privateKey,
-        'rpc-url': pxeUrl,
-        mint: true,
-      },
-    );
+    const { claimAmount, claimSecret, messageLeafIndex } = await cli<{
+      claimAmount: string;
+      claimSecret: { value: string };
+      messageLeafIndex: string;
+    }>('bridge-fee-juice', [amount, l2Account.getAddress()], {
+      'l1-rpc-urls': ETHEREUM_HOSTS!,
+      'l1-chain-id': l1ChainId.toString(),
+      'l1-private-key': l1Account.privateKey,
+      'rpc-url': pxeUrl,
+      mint: true,
+    });
 
     if (['1', 'true', 'yes'].includes(USE_EMPTY_BLOCKS)) {
       await advanceChainWithEmptyBlocks(pxe);
@@ -176,12 +178,11 @@ describe('End-to-end tests for devnet', () => {
     const txReceipt = await l2Account
       .deploy({
         fee: {
-          gasSettings: GasSettings.default(),
-          paymentMethod: new FeeJuicePaymentMethodWithClaim(
-            l2Account.getAddress(),
-            BigInt(claimAmount),
-            Fr.fromString(claimSecret.value),
-          ),
+          paymentMethod: new FeeJuicePaymentMethodWithClaim(await l2Account.getWallet(), {
+            claimAmount: Fr.fromHexString(claimAmount).toBigInt(),
+            claimSecret: Fr.fromHexString(claimSecret.value),
+            messageLeafIndex: BigInt(messageLeafIndex),
+          }),
         },
       })
       .wait(waitOpts);
@@ -278,7 +279,7 @@ describe('End-to-end tests for devnet', () => {
 
   async function getL1Balance(address: string, token?: EthAddress): Promise<bigint> {
     const { balance } = await cli<{ balance: string }>('get-l1-balance', [address], {
-      'l1-rpc-url': ETHEREUM_HOST!,
+      'l1-rpc-urls': ETHEREUM_HOSTS!,
       'l1-chain-id': l1ChainId.toString(),
       token,
     });
@@ -292,10 +293,12 @@ describe('End-to-end tests for devnet', () => {
   }
 
   async function advanceChainWithEmptyBlocks(pxe: PXE) {
-    const { l1ChainId, protocolVersion } = await pxe.getNodeInfo();
-    const test = await TestContract.deploy(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(l1ChainId, protocolVersion)),
-    )
+    const [deployWallet] = await getDeployedTestAccountsWallets(pxe);
+    if (!deployWallet) {
+      throw new Error('A funded wallet is required to create dummy txs.');
+    }
+
+    const test = await TestContract.deploy(deployWallet)
       .send({ universalDeploy: true, skipClassRegistration: true })
       .deployed();
 

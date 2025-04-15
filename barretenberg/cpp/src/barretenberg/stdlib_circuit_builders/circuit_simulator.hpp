@@ -2,11 +2,10 @@
 #include "barretenberg/ecc/curves/bn254/bn254.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/gate_data.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/gate_data.hpp"
 #include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
 #include "barretenberg/plonk_honk_shared/types/merkle_hash_type.hpp"
-#include "barretenberg/plonk_honk_shared/types/pedersen_commitment_type.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp"
 #include "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp"
 #include <cstdint>
@@ -43,36 +42,26 @@ class CircuitSimulatorBN254 {
     using EmbeddedCurve = std::conditional_t<std::same_as<FF, bb::g1::coordinate_field>, curve::BN254, curve::Grumpkin>;
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr std::string_view NAME_STRING = "SIMULATOR";
-    bool contains_recursive_proof = false;
+    bool contains_pairing_point_accumulator = false;
     static constexpr size_t UINT_LOG2_BASE = 2; // Would be 6 for UltraPlonk
     static constexpr size_t DEFAULT_PLOOKUP_RANGE_BITNUM = 1028;
 
-    static constexpr size_t num_gates = 0;  // WORKTODO: it was dumb to make this static.
-                                            // Should agree with what is in circuit builders
-    static constexpr uint32_t zero_idx = 0; // Ditto?
+    size_t num_gates = 0;
+    static constexpr uint32_t zero_idx = 0; // Should agree with what is in circuit builders
     std::vector<FF> public_inputs;
-
-    void add_recursive_proof(const AggregationObjectIndices& proof_element_limbs)
-    {
-
-        if (contains_recursive_proof) {
-            failure("added recursive proof when one already exists");
-        }
-        contains_recursive_proof = true;
-
-        for (uint32_t idx = 0; idx < proof_element_limbs.size(); idx++) {
-            set_public_input(proof_element_limbs[idx]);
-            recursive_proof_public_input_indices[idx] = static_cast<uint32_t>(public_inputs.size() - 1);
-        }
-    }
+    std::vector<uint32_t> used_witnesses;
 
     inline uint32_t add_variable([[maybe_unused]] const bb::fr index) const { return 1028; }
     inline bb::fr get_variable([[maybe_unused]] const uint32_t index) const { return 1028; }
 
     uint32_t put_constant_variable([[maybe_unused]] const bb::fr& variable) { return 1028; }
-    void set_public_input([[maybe_unused]] const uint32_t witness_index) {}
+    uint32_t set_public_input([[maybe_unused]] const uint32_t witness_index) { return 0; }
 
-    void set_public_input(const bb::fr value) { public_inputs.emplace_back(value); }
+    uint32_t set_public_input(const bb::fr value)
+    {
+        public_inputs.emplace_back(value);
+        return 0;
+    }
 
     void fix_witness([[maybe_unused]] const uint32_t witness_index, [[maybe_unused]] const bb::fr& witness_value){};
 
@@ -190,8 +179,27 @@ class CircuitSimulatorBN254 {
 
     [[nodiscard]] bool check_circuit() const { return !_failed; }
 
+    size_t create_ROM_array([[maybe_unused]] const size_t array_size) { return {}; }
+
+    void set_ROM_element_pair([[maybe_unused]] const size_t rom_id,
+                              [[maybe_unused]] const size_t index_value,
+                              [[maybe_unused]] const std::array<uint32_t, 2>& value_witnesses)
+    {}
+    uint32_t read_ROM_array([[maybe_unused]] const size_t rom_id, [[maybe_unused]] const uint32_t index_witness)
+    {
+        return {};
+    }
+    std::array<uint32_t, 2> read_ROM_array_pair([[maybe_unused]] const size_t rom_id,
+                                                [[maybe_unused]] const uint32_t index_witness)
+    {
+        return {};
+    }
+    void create_ecc_dbl_gate([[maybe_unused]] const ecc_dbl_gate_<FF>& in){};
+
+    std::vector<uint32_t> get_used_witnesses() { return used_witnesses; }
+    void update_used_witnesses([[maybe_unused]] uint32_t var_idx){};
     // Public input indices which contain recursive proof information
-    AggregationObjectPubInputIndices recursive_proof_public_input_indices;
+    PairingPointAccumulatorPubInputIndices pairing_point_accumulator_public_input_indices;
 };
 
 class SimulatorCircuitChecker {

@@ -1,11 +1,12 @@
 use crate::{
-    abis::function_selector::FunctionSelector, constants::FUNCTION_DATA_LENGTH,
-    traits::{Serialize, Deserialize, Empty}
+    abis::function_selector::FunctionSelector,
+    constants::FUNCTION_DATA_LENGTH,
+    traits::{Deserialize, Empty, FromField, Serialize, ToField},
 };
 
 pub struct FunctionData {
-    selector : FunctionSelector,
-    is_private : bool,
+    pub selector: FunctionSelector,
+    pub is_private: bool,
 }
 
 impl Eq for FunctionData {
@@ -19,16 +20,16 @@ impl Serialize<FUNCTION_DATA_LENGTH> for FunctionData {
     // TODO(https://github.com/AztecProtocol/aztec-packages/issues/3057): Since, function data can fit into a Field,
     // This method will simply return a bit packed Field instead of hashing
     fn serialize(self) -> [Field; FUNCTION_DATA_LENGTH] {
-        [
-            self.selector.to_field(),
-            self.is_private as Field
-        ]
+        [self.selector.to_field(), self.is_private as Field]
     }
 }
 
 impl Deserialize<FUNCTION_DATA_LENGTH> for FunctionData {
     fn deserialize(serialized: [Field; FUNCTION_DATA_LENGTH]) -> Self {
-        Self { selector: FunctionSelector::from_field(serialized[0]), is_private: serialized[1] as bool }
+        Self {
+            selector: FunctionSelector::from_field(serialized[0]),
+            is_private: serialized[1] as bool,
+        }
     }
 }
 

@@ -1,10 +1,12 @@
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
-/**Viem Signature
- *
- * A version of the Signature class that uses `0x${string}` values for r and s rather than
- * Buffer32s
+import { z } from 'zod';
+
+import { hasHexPrefix, hexToBuffer } from '../string/index.js';
+
+/**
+ * A version of the Signature class that uses `0x${string}` values for r and s rather than Buffer32s
  */
 export type ViemSignature = {
   r: `0x${string}`;
@@ -14,8 +16,6 @@ export type ViemSignature = {
 };
 
 /**
- * Signature
- *
  * Contains a signature split into it's primary components (r,s,v)
  */
 export class Signature {
@@ -45,15 +45,18 @@ export class Signature {
     return new Signature(r, s, v, isEmpty);
   }
 
+  static isValidString(sig: `0x${string}`): boolean {
+    return /^0x[0-9a-f]{129,}$/i.test(sig);
+  }
+
   /**
    * A seperate method exists for this as when signing locally with viem, as when
    * parsing from viem, we can expect the v value to be a u8, rather than our
    * default serialization of u32
    */
-  static from0xString(sig: `0x${string}`): Signature {
-    const buf = Buffer.from(sig.slice(2), 'hex');
+  static fromString(sig: `0x${string}`): Signature {
+    const buf = hexToBuffer(sig);
     const reader = BufferReader.asReader(buf);
-
     const r = reader.readObject(Buffer32);
     const s = reader.readObject(Buffer32);
     const v = parseInt(sig.slice(2 + 64 * 2), 16);
@@ -61,6 +64,15 @@ export class Signature {
     const isEmpty = r.isZero() && s.isZero();
 
     return new Signature(r, s, v, isEmpty);
+  }
+
+  static fromViemSignature(sig: ViemSignature): Signature {
+    return new Signature(
+      Buffer32.fromBuffer(hexToBuffer(sig.r)),
+      Buffer32.fromBuffer(hexToBuffer(sig.s)),
+      sig.v,
+      sig.isEmpty,
+    );
   }
 
   static random(): Signature {
@@ -91,8 +103,8 @@ export class Signature {
     return this.size;
   }
 
-  to0xString(): `0x${string}` {
-    return `0x${this.r.toString()}${this.s.toString()}${this.v.toString(16)}`;
+  toString(): `0x${string}` {
+    return `0x${this.r.buffer.toString('hex')}${this.s.buffer.toString('hex')}${this.v.toString(16)}`;
   }
 
   /**
@@ -100,10 +112,22 @@ export class Signature {
    */
   toViemSignature(): ViemSignature {
     return {
-      r: this.r.to0xString(),
-      s: this.s.to0xString(),
+      r: this.r.toString(),
+      s: this.s.toString(),
       v: this.v,
       isEmpty: this.isEmpty,
     };
+  }
+
+  toJSON() {
+    return this.toString();
+  }
+
+  static get schema() {
+    return z
+      .string()
+      .refine(hasHexPrefix, 'No hex prefix')
+      .refine(Signature.isValidString, 'Not a valid Ethereum signature')
+      .transform(Signature.fromString);
   }
 }

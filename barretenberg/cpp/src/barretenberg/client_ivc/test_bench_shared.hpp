@@ -14,9 +14,7 @@ namespace bb {
  */
 bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
 {
-    auto verifier_inst =
-        std::make_shared<DeciderVerificationKey_<MegaFlavor>>(ivc.verification_queue[0].honk_verification_key);
-    bool verified = ivc.verify(proof, { ivc.verifier_accumulator, verifier_inst });
+    bool verified = ivc.verify(proof);
 
     // This is a benchmark, not a test, so just print success or failure to the log
     if (verified) {
@@ -35,16 +33,17 @@ bool verify_ivc(ClientIVC::Proof& proof, ClientIVC& ivc)
 void perform_ivc_accumulation_rounds(size_t NUM_CIRCUITS,
                                      ClientIVC& ivc,
                                      auto& precomputed_vks,
-                                     const bool& mock_vk = false)
+                                     const bool& mock_vk = false,
+                                     const bool large_first_app = true)
 {
     ASSERT(precomputed_vks.size() == NUM_CIRCUITS); // ensure presence of a precomputed VK for each circuit
 
-    PrivateFunctionExecutionMockCircuitProducer circuit_producer;
+    PrivateFunctionExecutionMockCircuitProducer circuit_producer(large_first_app);
 
     for (size_t circuit_idx = 0; circuit_idx < NUM_CIRCUITS; ++circuit_idx) {
         MegaCircuitBuilder circuit;
         {
-            BB_OP_COUNT_TIME_NAME("construct_circuits");
+            PROFILE_THIS_NAME("construct_circuits");
             circuit = circuit_producer.create_next_circuit(ivc);
         }
 

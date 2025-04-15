@@ -6,20 +6,14 @@ It assumes you are using [Noir](https://noir-lang.org) as the frontend language.
 
 ## Installation
 
-### Dependencies
-
-TODO
-
-### Installation script
-
 BBup is an installer for whatever version of BB you may want. Install BBup with:
 
 ```bash
-curl -L bbup.dev | bash
+curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | bash
 ```
 
 > [!IMPORTANT]
-> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install) which checks if you have `npm`, installing it with `nvm` otherwise. It then installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/bbup.ts) globally.
+> *Always* check what scripts do. The above one redirects to [the install script](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/install) which installs [bbup](https://github.com/AztecProtocol/aztec-packages/blob/master/barretenberg/bbup/bbup) in your system's PATH
 
 ## Usage
 
@@ -45,7 +39,7 @@ You can install any specific version of `bb` with the `-v` flag. Example:
 bbup -v 0.56.0
 ```
 
-You can also can pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
+You can also pass [any Noir version](https://github.com/noir-lang/noir/tags) with the `-nv` flag, or specify `nightly` for the nightly version. Examples:
 
 ```bash
 bbup # installs the barretenberg version matching your current nargo version

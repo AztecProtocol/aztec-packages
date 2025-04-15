@@ -2,15 +2,22 @@
 // Note: type annotations allow type checking and IDEs autocompletion
 
 const { themes } = require("prism-react-renderer");
+// @ts-ignore
 const lightTheme = themes.github;
+// @ts-ignore
 const darkTheme = themes.dracula;
 
+// @ts-ignore
 import math from "remark-math";
+// @ts-ignore
 import katex from "rehype-katex";
 
+// @ts-ignore
 const path = require("path");
+// @ts-ignore
 const fs = require("fs");
 const macros = require("./src/katex-macros.js");
+const versions = require("./versions.json");
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
@@ -39,7 +46,7 @@ const config = {
   markdown: {
     mermaid: true,
   },
-  themes: ["@docusaurus/theme-mermaid"],
+  themes: ["@docusaurus/theme-mermaid", "docusaurus-theme-search-typesense"],
   presets: [
     [
       "@docusaurus/preset-classic",
@@ -55,7 +62,10 @@ const config = {
             );
           },
           routeBasePath: "/",
-          include: ["**/*.{md,mdx}"],
+          include: process.env.SHOW_PROTOCOL_SPECS
+            ? ["**/*.{md,mdx}"]
+            : ["**/*.{md,mdx}", "!protocol-specs/**"],
+
           remarkPlugins: [math],
           rehypePlugins: [
             [
@@ -67,6 +77,15 @@ const config = {
               },
             ],
           ],
+          versions: (() => {
+            const versionObject = {};
+            versions.map((version) => {
+              versionObject[version] = {
+                banner: "none",
+              };
+            });
+            return versionObject;
+          })(),
         },
         blog: false,
         theme: {
@@ -85,35 +104,6 @@ const config = {
     },
   ],
   plugins: [
-    async function loadVersions(context, options) {
-      // ...
-      return {
-        name: "load-versions",
-        async loadContent() {
-          try {
-            const aztecVersionPath = path.resolve(
-              __dirname,
-              "../.release-please-manifest.json"
-            );
-            const aztecVersion = JSON.parse(
-              fs.readFileSync(aztecVersionPath).toString()
-            )["."];
-            return {
-              "aztec-packages": `aztec-packages-v${aztecVersion}`,
-            };
-          } catch (err) {
-            throw new Error(
-              `Error loading versions in docusaurus build. Check load-versions in docusaurus.config.js.\n${err}`
-            );
-          }
-        },
-        async contentLoaded({ content, actions }) {
-          // await actions.createData("versions.json", JSON.stringify(content));
-          actions.setGlobalData({ versions: content });
-        },
-        /* other lifecycle API */
-      };
-    },
     [
       "@docusaurus/plugin-ideal-image",
       {
@@ -128,10 +118,10 @@ const config = {
       "docusaurus-plugin-typedoc",
       {
         id: "aztecjs/pxe",
-        entryPoints: ["../yarn-project/circuit-types/src/interfaces/pxe.ts"],
-        tsconfig: "../yarn-project/circuit-types/tsconfig.json",
+        entryPoints: ["../yarn-project/stdlib/src/interfaces/pxe.ts"],
+        tsconfig: "../yarn-project/stdlib/tsconfig.json",
         entryPointStrategy: "expand",
-        out: "reference/developer_references/aztecjs/pxe",
+        out: "developers/reference/aztecjs/pxe",
         readme: "none",
         sidebar: {
           categoryLabel: "Private Execution Environment (PXE)",
@@ -149,7 +139,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/aztec.js/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "reference/developer_references/aztecjs/aztec-js",
+        out: "developers/reference/aztecjs/aztec-js",
         readme: "none",
         sidebar: {
           categoryLabel: "Aztec.js",
@@ -170,7 +160,7 @@ const config = {
         ],
         tsconfig: "../yarn-project/accounts/tsconfig.json",
         entryPointStrategy: "resolve",
-        out: "reference/developer_references/aztecjs/accounts",
+        out: "developers/reference/aztecjs/accounts",
         readme: "none",
         sidebar: {
           categoryLabel: "Accounts",
@@ -193,26 +183,24 @@ const config = {
         },
       ],
       image: "img/docs-preview-image.png",
-      algolia: {
-        appId: "CL4NK79B0W",
-        apiKey: "21d89dadaa37a4d1b6bf4b17978dcf7f",
-        indexName: "aztec",
-        contextualSearch: true,
-        customRanking: [
-          { asc: 'importance' },
-        ],
+      typesense: {
+        typesenseCollectionName: "aztec-docs",
+        typesenseServerConfig: {
+          nodes: [
+            {
+              host: "cpk69vuom0ilr4abp.a1.typesense.net",
+              port: 443,
+              protocol: "https",
+            },
+          ],
+          apiKey: "gpH8o2YnqsOEj2jgtIMTULbtHi1kZ2X3", // public search-only api key, safe to commit
+        },
       },
       colorMode: {
         defaultMode: "light",
         disableSwitch: false,
         respectPrefersColorScheme: false,
       },
-      // docs: {
-      //   sidebar: {
-      //     hideable: true,
-      //     autoCollapseCategories: false,
-      //   },
-      // },
       navbar: {
         logo: {
           alt: "Aztec Logo",
@@ -222,38 +210,50 @@ const config = {
         },
         items: [
           {
+            type: "docsVersionDropdown",
+            position: "left",
+            dropdownActiveClassDisabled: true,
+          },
+          {
             type: "doc",
-            docId: "aztec/overview",
+            docId: "aztec/index",
             position: "left",
-            label: "Concepts",
+            label: "Learn",
+          },
+
+          {
+            type: "docSidebar",
+            sidebarId: "buildSidebar",
+            position: "left",
+            label: "Build",
           },
           {
             type: "docSidebar",
-            sidebarId: "guidesSidebar",
+            sidebarId: "nodesSidebar",
             position: "left",
-            label: "Guides",
+            label: "Run a node",
           },
           {
-            type: "docSidebar",
-            sidebarId: "tutorialsSidebar",
-            position: "left",
-            label: "Examples",
-          },
-          {
-            type: "docSidebar",
-            sidebarId: "referenceSidebar",
-            position: "left",
-            label: "References",
+            to: "/developers/getting_started",
+            label: "Install Sandbox",
+            position: "right",
           },
           {
             type: "dropdown",
             label: "Resources",
-            position: "left",
+            position: "right",
             items: [
               {
                 type: "html",
                 value: '<span class="dropdown-subtitle">GitHub</span>',
                 className: "dropdown-subtitle",
+              },
+              {
+                to: "https://github.com/AztecProtocol/aztec-starter",
+                label: "Aztec Starter repo",
+                target: "_blank",
+                rel: "noopener noreferrer",
+                className: "github-item",
               },
               {
                 to: "https://github.com/AztecProtocol/aztec-packages",
@@ -293,16 +293,20 @@ const config = {
               },
               {
                 type: "docSidebar",
-                sidebarId: "protocolSpecSidebar",
-                label: "Protocol Specification",
-                className: "no-external-icon",
-              },
-              {
-                type: "docSidebar",
                 sidebarId: "roadmapSidebar",
                 label: "Roadmap",
                 className: "no-external-icon",
               },
+              ...(process.env.SHOW_PROTOCOL_SPECS
+                ? [
+                    {
+                      type: "docSidebar",
+                      sidebarId: "protocolSpecSidebar",
+                      label: "Protocol Specification",
+                      className: "no-external-icon",
+                    },
+                  ]
+                : []),
               {
                 to: "https://noir-lang.org/docs",
                 label: "Noir docs",
@@ -343,7 +347,7 @@ const config = {
               },
               {
                 label: "Developer Getting Started Guide",
-                to: "/guides/developer_guides/getting_started",
+                to: "/developers/getting_started",
               },
               {
                 label: "Aztec.nr",
@@ -360,7 +364,7 @@ const config = {
               },
               {
                 label: "Discord",
-                href: "https://discord.gg/DgWG2DBMyB",
+                href: "https://discord.com/invite/aztec",
               },
               {
                 label: "X (Twitter)",

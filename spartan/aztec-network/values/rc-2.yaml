@@ -1,0 +1,69 @@
+telemetry:
+  enabled: true
+
+aztec:
+  realProofs: true
+  # TODO: Will need to change these as ignition will be using them
+  l1DeploymentMnemonic: ""
+
+images:
+  aztec:
+    pullPolicy: Always
+
+network:
+  public: true
+
+ethereum:
+  chainId: "11155111"
+  deployL1ContractsPrivateKey:
+  execution:
+    externalHosts:
+  beacon:
+    externalHost:
+    apiKey: ""
+    apiKeyHeader: ""
+
+validator:
+  l1FixedPriorityFeePerGas: 2
+  l1GasLimitBufferPercentage: 15
+  replicas: 48
+  l1GasPriceMax: 500
+  storageSize: "100Gi"
+  resources:
+    requests:
+      memory: "512Mi"
+  validator:
+    disabled: false
+
+bootNode:
+  storageSize: "100Gi"
+
+proverAgent:
+  replicas: 60
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "116Gi"
+      cpu: "31"
+
+bot:
+  replicas: 4
+  followChain: "NONE"
+  enabled: true
+  txIntervalSeconds: 0
+  privateTransfersPerTx: 1
+  publicTransfersPerTx: 1
+  bb:
+    hardwareConcurrency: 7
+  resources:
+    requests:
+      memory: "8Gi"
+      cpu: "7"
+      ephemeral-storage: "8Gi"
+
+jobs:
+  deployL1Verifier:
+    enable: true

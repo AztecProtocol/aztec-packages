@@ -40,6 +40,8 @@ pippenger_runtime_state<Curve>::pippenger_runtime_state(const size_t num_initial
     , bucket_empty_status(reinterpret_cast<bool*>(aligned_alloc(64, num_threads * num_buckets * sizeof(bool))))
     , round_counts(reinterpret_cast<uint64_t*>(aligned_alloc(32, MAX_NUM_ROUNDS * sizeof(uint64_t))))
 {
+    PROFILE_THIS();
+
     using Fq = typename Curve::BaseField;
     using AffineElement = typename Curve::AffineElement;
 
@@ -51,6 +53,7 @@ pippenger_runtime_state<Curve>::pippenger_runtime_state(const size_t num_initial
 
     const size_t points_per_thread = static_cast<size_t>(num_points) / num_threads;
     parallel_for(num_threads, [&](size_t i) {
+        PROFILE_THIS_NAME("memset in Pippenger runtime state creation");
         const size_t thread_offset = i * points_per_thread;
         memset(reinterpret_cast<void*>(point_pairs_1 + thread_offset + (i * 16)),
                0,
@@ -96,6 +99,8 @@ pippenger_runtime_state<Curve>::pippenger_runtime_state(pippenger_runtime_state&
     , round_counts(other.round_counts)
 
 {
+    PROFILE_THIS();
+
     other.point_schedule = nullptr;
     other.skew_table = nullptr;
     other.point_pairs_1 = nullptr;
@@ -111,6 +116,8 @@ template <typename Curve>
 pippenger_runtime_state<Curve>& pippenger_runtime_state<Curve>::operator=(
     pippenger_runtime_state<Curve>&& other) noexcept
 {
+    PROFILE_THIS();
+
     if (skew_table != nullptr) {
         aligned_free(skew_table);
     }
@@ -164,6 +171,8 @@ template <typename Curve>
 affine_product_runtime_state<Curve> pippenger_runtime_state<Curve>::get_affine_product_runtime_state(
     const size_t num_threads, const size_t thread_index)
 {
+    PROFILE_THIS();
+
     const auto points_per_thread = static_cast<size_t>(num_points / num_threads);
     const auto num_buckets =
         static_cast<size_t>(1U << scalar_multiplication::get_optimal_bucket_width(static_cast<size_t>(num_points) / 2));
@@ -181,6 +190,8 @@ affine_product_runtime_state<Curve> pippenger_runtime_state<Curve>::get_affine_p
 
 template <typename Curve> pippenger_runtime_state<Curve>::~pippenger_runtime_state() noexcept
 {
+    PROFILE_THIS();
+
     if (skew_table != nullptr) {
         aligned_free(skew_table);
     }

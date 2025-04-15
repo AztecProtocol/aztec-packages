@@ -1,14 +1,12 @@
 // Convenience struct to hold an account's address and secret that can easily be passed around.
-import { type AztecAddress, type CheatCodes, Fr } from '@aztec/aztec.js';
-import { ETHEREUM_SLOT_DURATION } from '@aztec/circuits.js';
+import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { CheatCodes } from '@aztec/aztec.js/testing';
+import type { RollupContract } from '@aztec/ethereum';
 import { pedersenHash } from '@aztec/foundation/crypto';
-import { type RollupAbi } from '@aztec/l1-artifacts';
-import { type LendingContract } from '@aztec/noir-contracts.js/Lending';
+import type { TestDateProvider } from '@aztec/foundation/timer';
+import type { LendingContract } from '@aztec/noir-contracts.js/Lending';
 
-import { type Account, type GetContractReturnType, type HttpTransport, type WalletClient } from 'viem';
-import type * as chains from 'viem/chains';
-
-import { type TokenSimulator } from './token_simulator.js';
+import type { TokenSimulator } from './token_simulator.js';
 
 /**
  * Contains utilities to compute the "key" for private holdings in the public state.
@@ -81,8 +79,9 @@ export class LendingSimulator {
     private cc: CheatCodes,
     private account: LendingAccount,
     private rate: bigint,
+    private ethereumSlotDuration: number,
     /** the rollup contract */
-    public rollup: GetContractReturnType<typeof RollupAbi, WalletClient<HttpTransport, chains.Chain, Account>>,
+    public rollup: RollupContract,
     /** the lending contract */
     public lendingContract: LendingContract,
     /** the collateral asset used in the lending contract */
@@ -93,31 +92,31 @@ export class LendingSimulator {
 
   async prepare() {
     this.accumulator = BASE;
-    const slot = await this.rollup.read.getSlotAt([
-      BigInt(await this.cc.eth.timestamp()) + BigInt(ETHEREUM_SLOT_DURATION),
-    ]);
-    this.time = Number(await this.rollup.read.getTimestampForSlot([slot]));
+    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()) + BigInt(this.ethereumSlotDuration));
+    this.time = Number(await this.rollup.getTimestampForSlot(slot));
   }
 
-  async progressSlots(diff: number) {
+  async progressSlots(diff: number, dateProvider?: TestDateProvider) {
     if (diff <= 1) {
       return;
     }
 
-    const slot = await this.rollup.read.getSlotAt([BigInt(await this.cc.eth.timestamp())]);
-    const ts = Number(await this.rollup.read.getTimestampForSlot([slot + BigInt(diff)]));
+    const slot = await this.rollup.getSlotAt(BigInt(await this.cc.eth.timestamp()));
+    const ts = Number(await this.rollup.getTimestampForSlot(slot + BigInt(diff)));
     const timeDiff = ts - this.time;
     this.time = ts;
 
     // Mine ethereum blocks such that the next block will be in a new slot
-    await this.cc.eth.warp(this.time - ETHEREUM_SLOT_DURATION);
-
-    await this.rollup.write.setAssumeProvenThroughBlockNumber([(await this.rollup.read.getPendingBlockNumber()) + 1n]);
+    await this.cc.eth.warp(this.time - this.ethereumSlotDuration);
+    if (dateProvider) {
+      dateProvider.setTime(this.time * 1000);
+    }
+    await this.cc.rollup.markAsProven(await this.rollup.getBlockNumber());
     this.accumulator = muldivDown(this.accumulator, computeMultiplier(this.rate, BigInt(timeDiff)), BASE);
   }
 
   depositPrivate(from: AztecAddress, onBehalfOf: Fr, amount: bigint) {
-    this.collateralAsset.unshield(from, this.lendingContract.address, amount);
+    this.collateralAsset.transferToPublic(from, this.lendingContract.address, amount);
     this.deposit(onBehalfOf, amount);
   }
 
@@ -166,7 +165,7 @@ export class LendingSimulator {
 
   mintStableCoinOutsideLoan(recipient: AztecAddress, amount: bigint, priv = false) {
     if (priv) {
-      this.stableCoin.mintPrivate(amount);
+      this.stableCoin.mintPrivate(recipient, amount);
     } else {
       this.stableCoin.mintPublic(recipient, amount);
     }
@@ -187,11 +186,10 @@ export class LendingSimulator {
     const asset = await this.lendingContract.methods.get_asset(0).simulate();
 
     const interestAccumulator = asset['interest_accumulator'];
-    const interestAccumulatorBigint = BigInt(interestAccumulator.lo + interestAccumulator.hi * 2n ** 64n);
-    expect(interestAccumulatorBigint).toEqual(this.accumulator);
+    expect(interestAccumulator).toEqual(this.accumulator);
     expect(asset['last_updated_ts']).toEqual(BigInt(this.time));
 
-    for (const key of [this.account.address, this.account.key()]) {
+    for (const key of [this.account.address, AztecAddress.fromField(await this.account.key())]) {
       const privatePos = await this.lendingContract.methods.get_position(key).simulate();
       expect(new Fr(privatePos['collateral'])).toEqual(this.collateral[key.toString()] ?? Fr.ZERO);
       expect(new Fr(privatePos['static_debt'])).toEqual(this.staticDebt[key.toString()] ?? Fr.ZERO);

@@ -1,32 +1,28 @@
-import type { CircuitName } from '@aztec/circuit-types/stats';
-import { type ClientProtocolArtifact, type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types';
+import type { ProtocolArtifact } from '@aztec/noir-protocol-circuits-types/types';
+import type { CircuitName } from '@aztec/stdlib/stats';
 
-export function mapProtocolArtifactNameToCircuitName(
-  artifact: ServerProtocolArtifact | ClientProtocolArtifact,
-): CircuitName {
+export function mapProtocolArtifactNameToCircuitName(artifact: ProtocolArtifact): CircuitName {
   switch (artifact) {
     case 'BaseParityArtifact':
       return 'base-parity';
     case 'RootParityArtifact':
       return 'root-parity';
-    case 'BaseRollupArtifact':
-      return 'base-rollup';
+    case 'PrivateBaseRollupArtifact':
+      return 'private-base-rollup';
+    case 'PublicBaseRollupArtifact':
+      return 'public-base-rollup';
     case 'MergeRollupArtifact':
       return 'merge-rollup';
     case 'BlockRootRollupArtifact':
       return 'block-root-rollup';
+    case 'SingleTxBlockRootRollupArtifact':
+      return 'single-tx-block-root-rollup';
     case 'EmptyBlockRootRollupArtifact':
       return 'empty-block-root-rollup';
     case 'BlockMergeRollupArtifact':
       return 'block-merge-rollup';
     case 'RootRollupArtifact':
       return 'root-rollup';
-    case 'PublicKernelInnerArtifact':
-      return 'public-kernel-inner';
-    case 'PublicKernelMergeArtifact':
-      return 'public-kernel-merge';
-    case 'PublicKernelTailArtifact':
-      return 'public-kernel-tail';
     case 'PrivateKernelInitArtifact':
       return 'private-kernel-init';
     case 'PrivateKernelInnerArtifact':
@@ -35,13 +31,32 @@ export function mapProtocolArtifactNameToCircuitName(
       return 'private-kernel-tail';
     case 'PrivateKernelTailToPublicArtifact':
       return 'private-kernel-tail-to-public';
-    case 'EmptyNestedArtifact':
-      return 'empty-nested';
-    case 'PrivateKernelEmptyArtifact':
-      return 'private-kernel-empty';
     default: {
       if (artifact.startsWith('PrivateKernelReset')) {
         return 'private-kernel-reset';
+      }
+      throw new Error(`Unknown circuit type: ${artifact}`);
+    }
+  }
+}
+
+export function isProtocolArtifactRecursive(artifact: ProtocolArtifact): boolean {
+  switch (artifact) {
+    case 'BaseParityArtifact':
+    case 'RootParityArtifact':
+    case 'PrivateBaseRollupArtifact':
+    case 'PublicBaseRollupArtifact':
+    case 'MergeRollupArtifact':
+    case 'BlockRootRollupArtifact':
+    case 'SingleTxBlockRootRollupArtifact':
+    case 'EmptyBlockRootRollupArtifact':
+    case 'BlockMergeRollupArtifact':
+    case 'RootRollupArtifact':
+      return true;
+    default: {
+      if (artifact.startsWith('PrivateKernel')) {
+        // The kernel prover, where these are used, eventually calls `createClientIvcProof`, which is recursive.
+        return true;
       }
       throw new Error(`Unknown circuit type: ${artifact}`);
     }

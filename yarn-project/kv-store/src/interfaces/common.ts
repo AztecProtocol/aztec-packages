@@ -3,6 +3,8 @@
  */
 export type Key = string | number | Array<string | number>;
 
+export type Value = NonNullable<any>;
+
 /**
  * A range of keys to iterate over.
  */
@@ -16,3 +18,5 @@ export type Range<K extends Key = Key> = {
   /** The maximum number of items to iterate over */
   limit?: number;
 };
+
+export type StoreSize = { mappingSize: number; actualSize: number; numItems: number };

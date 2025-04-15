@@ -25,15 +25,15 @@ describe('eth signature', () => {
     expect(deserialized).toEqual(serialized);
   };
 
-  it('should serialize / deserialize to buffer', () => {
+  it('should serialize and deserialize to buffer', () => {
     const serialized = signature.toBuffer();
     const deserialized = Signature.fromBuffer(serialized);
     checkEquivalence(signature, deserialized);
   });
 
-  it('should serialize / deserialize real signature to hex string', () => {
-    const serialized = signature.to0xString();
-    const deserialized = Signature.from0xString(serialized);
+  it('should serialize and deserialize real signature to hex string', () => {
+    const serialized = signature.toString();
+    const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);
   });
 
@@ -42,17 +42,24 @@ describe('eth signature', () => {
     expect(sender).toEqual(signer.address);
   });
 
-  it('should serialize / deserialize to hex string with 1-digit v', () => {
-    const signature = new Signature(Buffer32.random(), Buffer32.random(), 1, false);
-    const serialized = signature.to0xString();
-    const deserialized = Signature.from0xString(serialized);
+  it('should serialize and deserialize to hex string with v=0', () => {
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 0, false);
+    const serialized = signature.toString();
+    const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);
   });
 
-  it('should serialize / deserialize to hex string with 2-digit v', () => {
+  it('should serialize and deserialize to hex string with 1-digit v', () => {
+    const signature = new Signature(Buffer32.random(), Buffer32.random(), 1, false);
+    const serialized = signature.toString();
+    const deserialized = Signature.fromString(serialized);
+    checkEquivalence(signature, deserialized);
+  });
+
+  it('should serialize and deserialize to hex string with 2-digit v', () => {
     const signature = new Signature(Buffer32.random(), Buffer32.random(), 26, false);
-    const serialized = signature.to0xString();
-    const deserialized = Signature.from0xString(serialized);
+    const serialized = signature.toString();
+    const deserialized = Signature.fromString(serialized);
     checkEquivalence(signature, deserialized);
   });
 });

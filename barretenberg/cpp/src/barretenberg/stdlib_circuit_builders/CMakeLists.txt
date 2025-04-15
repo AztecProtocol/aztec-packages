@@ -1,1 +1,1 @@
-barretenberg_module(stdlib_circuit_builders relations execution_trace crypto_pedersen_hash srs)
+barretenberg_module(stdlib_circuit_builders relations trace_to_polynomials crypto_pedersen_hash srs)

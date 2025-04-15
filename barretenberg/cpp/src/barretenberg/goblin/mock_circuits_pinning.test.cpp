@@ -14,13 +14,13 @@ using namespace bb;
 class MegaMockCircuitsPinning : public ::testing::Test {
   protected:
     using DeciderProvingKey = DeciderProvingKey_<MegaFlavor>;
-    static void SetUpTestSuite() { srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 
 TEST_F(MegaMockCircuitsPinning, FunctionSizes)
 {
     const auto run_test = [](bool large) {
-        GoblinProver goblin;
+        Goblin goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_function_circuit(app_circuit, large);
         auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
@@ -37,7 +37,7 @@ TEST_F(MegaMockCircuitsPinning, FunctionSizes)
 TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
 {
     const auto run_test = [](bool large) {
-        GoblinProver goblin;
+        Goblin goblin;
         MegaCircuitBuilder app_circuit{ goblin.op_queue };
         GoblinMockCircuits::construct_mock_app_circuit(app_circuit, large);
         auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit);
@@ -56,24 +56,27 @@ TEST_F(MegaMockCircuitsPinning, AppCircuitSizes)
  */
 TEST_F(MegaMockCircuitsPinning, SmallTestStructuredCircuitSize)
 {
-    GoblinProver goblin;
+    Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::SMALL_TEST);
+    TraceSettings trace_settings{ SMALL_TEST_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
 }
 
 TEST_F(MegaMockCircuitsPinning, ClientIVCBenchStructuredCircuitSize)
 {
-    GoblinProver goblin;
+    Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::CLIENT_IVC_BENCH);
+    TraceSettings trace_settings{ CLIENT_IVC_BENCH_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
     EXPECT_EQ(proving_key->proving_key.log_circuit_size, 19);
 }
 
 TEST_F(MegaMockCircuitsPinning, E2EStructuredCircuitSize)
 {
-    GoblinProver goblin;
+    Goblin goblin;
     MegaCircuitBuilder app_circuit{ goblin.op_queue };
-    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, TraceStructure::E2E_FULL_TEST);
-    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 20);
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    auto proving_key = std::make_shared<DeciderProvingKey>(app_circuit, trace_settings);
+    EXPECT_EQ(proving_key->proving_key.log_circuit_size, 18);
 }

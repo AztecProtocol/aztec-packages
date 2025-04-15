@@ -7,8 +7,6 @@ import { type BarretenbergWasmThreadWorker } from '../barretenberg_wasm_thread/i
 import { BarretenbergWasmBase } from '../barretenberg_wasm_base/index.js';
 import { HeapAllocator } from './heap_allocator.js';
 
-const debug = createDebug('bb.js:wasm');
-
 /**
  * This is the "main thread" implementation of BarretenbergWasm.
  * It spawns a bunch of "child thread" implementations.
@@ -31,8 +29,8 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
   public async init(
     module: WebAssembly.Module,
     threads = Math.min(getNumCpu(), BarretenbergWasmMain.MAX_THREADS),
-    logger: (msg: string) => void = debug,
-    initial = 28,
+    logger: (msg: string) => void = createDebug('bb.js:bb_wasm'),
+    initial = 32,
     maximum = 2 ** 16,
   ) {
     this.logger = logger;
@@ -42,9 +40,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     const shared = getSharedMemoryAvailable();
 
     this.logger(
-      `initial mem: ${initial} pages, ${initialMb}MiB. ` +
-        `max mem: ${maximum} pages, ${maxMb}MiB. ` +
-        `threads: ${threads}, shared: ${shared}`,
+      `Initializing bb wasm: initial memory ${initial} pages ${initialMb}MiB; ` +
+        `max memory: ${maximum} pages, ${maxMb}MiB; ` +
+        `threads: ${threads}; shared memory: ${shared}`,
     );
 
     this.memory = new WebAssembly.Memory({ initial, maximum, shared });
@@ -58,12 +56,11 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
 
     // Create worker threads. Create 1 less than requested, as main thread counts as a thread.
     if (threads > 1) {
-      this.logger(`creating ${threads} worker threads...`);
+      this.logger(`Creating ${threads} worker threads`);
       this.workers = await Promise.all(Array.from({ length: threads - 1 }).map(createThreadWorker));
       this.remoteWasms = await Promise.all(this.workers.map(getRemoteBarretenbergWasm<BarretenbergWasmThreadWorker>));
       await Promise.all(this.remoteWasms.map(w => w.initThread(module, this.memory)));
     }
-    this.logger('init complete.');
   }
 
   /**
@@ -102,9 +99,9 @@ export class BarretenbergWasmMain extends BarretenbergWasmBase {
     /* eslint-enable camelcase */
   }
 
-  callWasmExport(funcName: string, inArgs: Uint8Array[], outLens: (number | undefined)[]) {
+  callWasmExport(funcName: string, inArgs: (Uint8Array | number)[], outLens: (number | undefined)[]) {
     const alloc = new HeapAllocator(this);
-    const inPtrs = alloc.copyToMemory(inArgs);
+    const inPtrs = alloc.getInputs(inArgs);
     const outPtrs = alloc.getOutputPtrs(outLens);
     this.call(funcName, ...inPtrs, ...outPtrs);
     const outArgs = this.getOutputArgs(outLens, outPtrs, alloc);

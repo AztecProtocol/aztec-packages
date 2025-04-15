@@ -3,7 +3,9 @@
 #include "circuit_builder_base.hpp"
 
 namespace bb {
-template <typename FF_> CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint)
+template <typename FF_>
+CircuitBuilderBase<FF_>::CircuitBuilderBase(size_t size_hint, bool has_dummy_witnesses)
+    : has_dummy_witnesses(has_dummy_witnesses)
 {
     variables.reserve(size_hint * 3);
     variable_names.reserve(size_hint * 3);
@@ -174,17 +176,20 @@ template <typename FF_> uint32_t CircuitBuilderBase<FF_>::add_public_variable(co
     return index;
 }
 
-template <typename FF_> void CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
+template <typename FF_> uint32_t CircuitBuilderBase<FF_>::set_public_input(const uint32_t witness_index)
 {
     for (const uint32_t public_input : public_inputs) {
         if (public_input == witness_index) {
             if (!failed()) {
                 failure("Attempted to set a public input that is already public!");
             }
-            return;
+            return 0;
         }
     }
+    uint32_t public_input_index = static_cast<uint32_t>(public_inputs.size());
     public_inputs.emplace_back(witness_index);
+
+    return public_input_index;
 }
 
 /**
@@ -236,33 +241,20 @@ void CircuitBuilderBase<FF_>::assert_valid_variables(const std::vector<uint32_t>
 }
 
 template <typename FF_>
-void CircuitBuilderBase<FF_>::add_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices)
+void CircuitBuilderBase<FF_>::add_pairing_point_accumulator_for_plonk(
+    const PairingPointAccumulatorIndices& pairing_point_accum_witness_indices)
 {
-    if (contains_recursive_proof) {
-        failure("added recursive proof when one already exists");
+    if (contains_pairing_point_accumulator) {
+        failure("added pairing point accumulator when one already exists");
         ASSERT(0);
     }
-    contains_recursive_proof = true;
+    contains_pairing_point_accumulator = true;
 
     size_t i = 0;
-    for (const auto& idx : proof_output_witness_indices) {
+    for (const auto& idx : pairing_point_accum_witness_indices) {
         set_public_input(idx);
-        recursive_proof_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
+        pairing_point_accumulator_public_input_indices[i] = static_cast<uint32_t>(public_inputs.size() - 1);
         ++i;
-    }
-}
-
-template <typename FF_>
-void CircuitBuilderBase<FF_>::set_recursive_proof(const AggregationObjectIndices& proof_output_witness_indices)
-{
-    if (contains_recursive_proof) {
-        failure("added recursive proof when one already exists");
-        ASSERT(0);
-    }
-    contains_recursive_proof = true;
-    for (size_t i = 0; i < proof_output_witness_indices.size(); ++i) {
-        recursive_proof_public_input_indices[i] =
-            get_public_input_index(real_variable_index[proof_output_witness_indices[i]]);
     }
 }
 
@@ -283,6 +275,10 @@ template <typename FF_> void CircuitBuilderBase<FF_>::set_err(std::string msg)
 
 template <typename FF_> void CircuitBuilderBase<FF_>::failure(std::string msg)
 {
+    if (!has_dummy_witnesses) {
+        // We have a builder failure when we have real witnesses which is a mistake.
+        info("(Experimental) WARNING: Builder failure when we have real witnesses!"); // not a catch-all error
+    }
     _failed = true;
     set_err(std::move(msg));
 }

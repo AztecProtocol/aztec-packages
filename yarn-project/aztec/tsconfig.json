@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec-faucet"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -22,22 +25,22 @@
       "path": "../bb-prover"
     },
     {
+      "path": "../blob-sink"
+    },
+    {
       "path": "../bot"
     },
     {
       "path": "../builder"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../cli"
     },
     {
       "path": "../cli-wallet"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
@@ -52,9 +55,6 @@
       "path": "../kv-store"
     },
     {
-      "path": "../l1-artifacts"
-    },
-    {
       "path": "../noir-contracts.js"
     },
     {
@@ -65,9 +65,6 @@
     },
     {
       "path": "../p2p-bootstrap"
-    },
-    {
-      "path": "../proof-verifier"
     },
     {
       "path": "../protocol-contracts"
@@ -82,13 +79,16 @@
       "path": "../pxe"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
       "path": "../txe"
     },
     {
-      "path": "../types"
+      "path": "../world-state"
     }
   ],
   "include": ["src"]

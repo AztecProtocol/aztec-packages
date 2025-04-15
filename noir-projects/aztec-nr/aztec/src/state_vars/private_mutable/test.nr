@@ -1,21 +1,26 @@
 use crate::{
-    context::PrivateContext, state_vars::private_mutable::PrivateMutable,
-    oracle::execution::get_contract_address
+    context::PrivateContext, oracle::execution::get_contract_address,
+    state_vars::private_mutable::PrivateMutable,
 };
-use crate::test::{mocks::mock_note::MockNote, helpers::{test_environment::TestEnvironment}};
+use crate::test::{helpers::test_environment::TestEnvironment, mocks::mock_note::MockNote};
 use std::test::OracleMock;
 
-global storage_slot = 17;
+global storage_slot: Field = 17;
 
 unconstrained fn setup() -> TestEnvironment {
-    TestEnvironment::new()
+    let mut env = TestEnvironment::new();
+    // Advance 1 block so we can read historic state from private
+    env.advance_block_by(1);
+    env
 }
 
-unconstrained fn in_private(env: &mut TestEnvironment) -> PrivateMutable<MockNote, &mut PrivateContext> {
+unconstrained fn in_private(
+    env: &mut TestEnvironment,
+) -> PrivateMutable<MockNote, &mut PrivateContext> {
     let state_var = PrivateMutable::new(&mut env.private(), storage_slot);
 
-    // This oracle is called for its side effects alone - it's always expected to return 0.
-    let _ = OracleMock::mock("notifyCreatedNote").returns(0);
+    // This oracle is called for its side effects alone - it does not return anything.
+    let _ = OracleMock::mock("notifyCreatedNote").returns(());
 
     state_var
 }
@@ -26,10 +31,11 @@ unconstrained fn test_initialize_or_replace_without_nullifier() {
     let state_var = in_private(&mut env);
 
     let value = 42;
-    let mut note = MockNote::new(value).contract_address(get_contract_address()).storage_slot(storage_slot).build();
+    let retrieved_note =
+        MockNote::new(value).contract_address(get_contract_address()).build_retrieved_note();
 
     let _ = OracleMock::mock("checkNullifierExists").returns(0);
-    state_var.initialize_or_replace(&mut note).discard();
+    state_var.initialize_or_replace(retrieved_note.note).discard();
 
     // Since we reported there was no nullifier, we should initialize and see the following side-effects:
     // - a new note being created

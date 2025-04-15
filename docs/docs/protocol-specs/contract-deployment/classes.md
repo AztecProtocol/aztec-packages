@@ -1,6 +1,6 @@
 # Contract classes
 
-A contract class is a collection of state variable declarations, and related unconstrained, private, and public functions. Contract classes don't have any initialized state, they just define code. A contract class cannot be called; only a contract instance can be called.
+A contract class is a collection of state variable declarations, and related utility, private, and public functions. Contract classes don't have any initialized state, they just define code. A contract class cannot be called; only a contract instance can be called.
 
 ## Rationale
 
@@ -12,7 +12,7 @@ Read the following discussions for additional context:
 - [Abstracting contract deployment](https://forum.aztec.network/t/proposal-abstracting-contract-deployment/2576)
 - [Implementing contract upgrades](https://forum.aztec.network/t/implementing-contract-upgrades/2570)
 - [Contract classes, upgrades, and default accounts](https://forum.aztec.network/t/contract-classes-upgrades-and-default-accounts/433)
-  
+
 :::
 
 ## `ContractClass`
@@ -23,15 +23,15 @@ The structure of a contract class is defined as:
 | Field | Type | Description |
 |----------|----------|----------|
 | `version` | `u8` | Version identifier. Initially one, bumped for any changes to the contract class struct. |
-| `artifact_hash` | `Field` | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to unconstrained code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. |
+| `artifact_hash` | `Field` | Hash of the contract artifact. The specification of this hash is not enforced by the protocol. Should include commitments to utility function code and compilation metadata. Intended to be used by clients to verify that an off-chain fetched artifact matches a registered class. |
 | `private_functions` | [`PrivateFunction[]`](#private-function) | List of individual private functions, constructors included. |
 | `packed_public_bytecode` | `Field[]` | [Packed bytecode representation](../public-vm/bytecode-validation-circuit.md#packed-bytecode-representation) of the AVM bytecode for all public functions in this contract. |
 
 The public function are sorted in ascending order by their function selector before being packed. This is to ensure consistent hashing later.
 
-Note that individual public functions are not first-class citizens in the protocol, so the contract entire public function bytecode is stored in the class, unlike private or unconstrained functions which are differentiated individual circuits recognized by the protocol.
+Note that individual public functions are not first-class citizens in the protocol, so the contract entire public function bytecode is stored in the class, unlike private functions which are differentiated individual circuits recognized by the protocol.
 
-As for unconstrained functions, these are not used standalone within the protocol. They are either inlined within private functions, or called from a PXE as _getters_ for a contract. Calling from a private function to an unconstrained one in a different contract is forbidden, since the caller would have no guarantee of the code run by the callee. Considering this, unconstrained functions are not part of a contract class at the protocol level.
+As for utility functions, these are not part of the protocol when it comes to contract classes, since they are never invoked in either private or public calls. However, commitments to them can (and should) be made in the `artifacts_hash`, so that third parties can validate the code they run and expose their secrets to.
 
 ### `contract_class_id`
 
@@ -121,8 +121,7 @@ artifact_crh(
 
   let private_functions_artifact_leaves: Field[] = artifact.private_functions.map(|f|
     sha256_modulo(
-      be_string_to_bits("az_artifact_private_function_leaf"),
-
+      VERSION, // 8-bits
       f.selector, // 32-bits
       f.metadata_hash, // 256-bits
       sha256(f.private_bytecode)
@@ -130,23 +129,21 @@ artifact_crh(
   );
   let private_functions_artifact_tree_root: Field = merkleize(private_functions_artifact_leaves);
 
-  let unconstrained_functions_artifact_leaves: Field[] = artifact.unconstrained_functions.map(|f|
+  let utility_functions_artifact_leaves: Field[] = artifact.utility_functions.map(|f|
     sha256_modulo(
-      be_string_to_bits("az_artifact_unconstrained_function_leaf"),
-
+      VERSION, // 8-bits
       f.selector, // 32-bits
       f.metadata_hash, // 256-bits
-      sha256(f.unconstrained_bytecode)
+      sha256(f.utility_bytecode)
     )
   );
-  let unconstrained_functions_artifact_tree_root: Field = merkleize(unconstrained_functions_artifact_leaves);
+  let utility_functions_artifact_tree_root: Field = merkleize(utility_functions_artifact_leaves);
 
   let artifact_hash: Field = sha256_modulo(
-    be_string_to_field("az_artifact"),
-
+    VERSION, // 8-bits
     private_functions_artifact_tree_root, // 256-bits
-    unconstrained_functions_artifact_tree_root, // 256-bits
-    artifact_metadata
+    utility_functions_artifact_tree_root, // 256-bits
+    artifact_metadata_hash
   );
 
   let artifact_hash: Field = artifact_hash_256_bit % FIELD_MODULUS;
@@ -155,13 +152,15 @@ artifact_crh(
 }
 ```
 
-For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly, and then wrapped around the field's maximum value. Fields are left-padded with zeros to 256 bits before being hashed. Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
+For the artifact hash merkleization and hashing is done using sha256, since it is computed and verified outside of circuits and does not need to be SNARK friendly, and then wrapped around the field's maximum value. Fields are left-padded with zeros to 256 bits before being hashed.
+
+Function leaves are sorted in ascending order before being merkleized, according to their function selectors. Note that a tree with dynamic height is built instead of having a tree with a fixed height, since the merkleization is done out of a circuit.
 
 <!-- TODO: Verify with the crypto team it is ok to wrap around the field modulus, or consider going Poseidon everywhere. -->
 
-Bytecode for private functions is a mix of ACIR and Brillig, whereas unconstrained function bytecode is Brillig exclusively, as described on the [bytecode section](../bytecode/index.md).
+Bytecode for private functions is a mix of ACIR and Brillig, whereas utility function bytecode is Brillig exclusively, as described on the [bytecode section](../bytecode/index.md).
 
-The metadata hash for each function is suggested to be computed as the sha256 of all JSON-serialized fields in the function struct of the compilation artifact, except for bytecode and debug symbols. The metadata is JSON-serialized using no spaces, and sorting ascending all keys in objects before serializing them.
+The metadata hash for each function is suggested to be computed as the sha256 (modulo) of all JSON-serialized ABI types of the function returns. Other function data is represented in the leaf hash by its bytecode and selector.
 
 <!-- HASH DEFINITION -->
 
@@ -169,29 +168,25 @@ The metadata hash for each function is suggested to be computed as the sha256 of
 function_metadata_crh(
   function // This type is out of protocol, e.g. the format output by Nargo
 ) -> Field {
-  let function_metadata = omit(function, "bytecode", "debug_symbols");
-
   let function_metadata_hash: Field = sha256_modulo(
-    be_string_to_bits("az_function_metadata"),
-
-    json_serialize(function_metadata)
+    json_serialize(function.return_types)
   );
 
   function_metadata_hash
 }
 ```
 
-The artifact metadata stores all data that is not contained within the contract functions and is not debug specific. This includes the compiler version identifier, events interface, and name. Metadata is JSON-serialized in the same fashion as the function metadata.
+<!-- TODO(#12081): After removal of aztecNrVersion from ContractArtifact, replace with Noir.lock hash or similar? -->
+
+The artifact metadata stores all data that is not contained within the contract functions, is not debug specific, and is not derivable from other properties. This leaves only the `name` and `outputs` properties. Metadata is JSON-serialized in the same fashion as the function metadata.
 
 ```rust
 artifact_metadata_crh(
   artifact // This type is out of protocol, e.g. the format output by Nargo
 ) -> Field {
-  let artifact_metadata = omit(artifact, "functions", "file_map");
+  let artifact_metadata = pick(artifact, "name", "outputs");
 
   let artifact_metadata_hash: Field = sha256_modulo(
-    be_string_to_bits("az_artifact_metadata"),
-
     json_serialize(artifact_metadata)
   );
 
@@ -240,7 +235,7 @@ fn register(
 
   emit_nullifier(contract_class_id);
 
-  emit_unencrypted_event(ContractClassRegistered::new(
+  emit_public_log(ContractClassRegistered::new(
     contract_class_id,
     version,
     artifact_hash,
@@ -262,7 +257,7 @@ The `ContractClassRegisterer` will need to exist from the genesis of the Aztec N
 
 ### Broadcast
 
-The `ContractClassRegisterer` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private functions and unconstrained in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
+The `ContractClassRegisterer` has an additional private `broadcast` functions that can be used for broadcasting on-chain the bytecode, both ACIR and Brillig, for private and utility functions in the contract. Any user can freely call this function. Given that ACIR and Brillig [do not have a circuit-friendly commitment](../bytecode/index.md), it is left up to nodes to perform this check.
 
 Broadcasted function artifacts that do not match with their corresponding `artifact_hash`, or that reference a `contract_class_id` that has not been broadcasted, can be safely discarded.
 
@@ -270,17 +265,17 @@ Broadcasted function artifacts that do not match with their corresponding `artif
 fn broadcast_private_function(
   contract_class_id: Field,
   artifact_metadata_hash: Field,
-  unconstrained_functions_artifact_tree_root: Field,
+  utility_functions_artifact_tree_root: Field,
   private_function_tree_sibling_path: Field[],
   private_function_tree_leaf_index: Field,
   artifact_function_tree_sibling_path: Field[],
   artifact_function_tree_leaf_index: Field,
   function: { selector: Field, metadata_hash: Field, vk_hash: Field, bytecode: Field[] },
 )
-  emit_unencrypted_event ClassPrivateFunctionBroadcasted(
+  emit_public_log ClassPrivateFunctionBroadcasted(
     contract_class_id,
     artifact_metadata_hash,
-    unconstrained_functions_artifact_tree_root,
+    utility_functions_artifact_tree_root,
     private_function_tree_sibling_path,
     private_function_tree_leaf_index,
     artifact_function_tree_sibling_path,
@@ -290,7 +285,7 @@ fn broadcast_private_function(
 ```
 
 ```rust
-fn broadcast_unconstrained_function(
+fn broadcast_utility_function(
   contract_class_id: Field,
   artifact_metadata_hash: Field,
   private_functions_artifact_tree_root: Field,
@@ -298,7 +293,7 @@ fn broadcast_unconstrained_function(
   artifact_function_tree_leaf_index: Field
   function: { selector: Field, metadata_hash: Field, bytecode: Field[] }[],
 )
-  emit_unencrypted_event ClassUnconstrainedFunctionBroadcasted(
+  emit_public_log ClassUtilityFunctionBroadcasted(
     contract_class_id,
     artifact_metadata_hash,
     private_functions_artifact_tree_root,
@@ -310,7 +305,7 @@ fn broadcast_unconstrained_function(
 
 <!-- TODO: What representation of bytecode can we use here? -->
 
-The broadcast functions are split between private and unconstrained to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include unconstrained functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
+The broadcast functions are split between private and utility to allow for private bytecode to be broadcasted, which is valuable for composability purposes, without having to also include utility functions, which could be costly to do due to data broadcasting costs. Additionally, note that each broadcast function must include enough information to reconstruct the `artifact_hash` from the Contract Class, so nodes can verify it against the one previously registered.
 
 A node that captures a `ClassPrivateFunctionBroadcasted` should perform the following validation steps before storing the private function information in its database:
 
@@ -326,13 +321,13 @@ assert computed_private_function_tree_root == contract_class.private_function_ro
 // Compute artifact leaf and assert it belongs to the artifact
 artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
 computed_artifact_private_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
-computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, unconstrained_functions_artifact_tree_root, artifact_metadata_hash)
+computed_artifact_hash = sha256(computed_artifact_private_function_tree_root, utility_functions_artifact_tree_root, artifact_metadata_hash)
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
 
 <!-- TODO: Requiring two sibling paths isn't nice. This is because we are splitting private function information across two trees: one for the protocol, that deals only with selectors and vk hashes, and one for the artifact, which deals with bytecode and metadata. If we are fine adding a `function_stuff_hash` to the function leaf that goes into the protocol tree, we could get rid of the second sibling path, but that introduces stuff into the private function tree that is not strictly needed and requires unnecessary hashing in the kernel. -->
 
-The check for an unconstrained function is similar:
+The check for a utility function is similar:
 
 ```
 // Load contract class from local db
@@ -340,8 +335,8 @@ contract_class = db.get_contract_class(contract_class_id)
 
 // Compute artifact leaf and assert it belongs to the artifact
 artifact_function_leaf = sha256(selector, metadata_hash, sha256(bytecode))
-computed_artifact_unconstrained_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
-computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_unconstrained_function_tree_root, artifact_metadata_hash)
+computed_artifact_utility_function_tree_root = compute_root(artifact_function_leaf, artifact_function_tree_sibling_path, artifact_function_tree_leaf_index)
+computed_artifact_hash = sha256(private_functions_artifact_tree_root, computed_artifact_utility_function_tree_root, artifact_metadata_hash)
 assert computed_artifact_hash == contract_class.artifact_hash
 ```
 
@@ -349,19 +344,21 @@ It is strongly recommended for developers registering new classes to broadcast t
 
 ### Encoding Bytecode
 
-The `register`, `broadcast_unconstrained_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in unencrypted events. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
+The `register`, `broadcast_utility_function`, and `broadcast_private_function` functions all receive and emit variable-length bytecode in contract class logs. In every function, bytecode is encoded in a fixed-length array of field elements, which sets a maximum length for each:
 
-- `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS`: 32000 field elements, used for a contract's public bytecode in the `register` function.
+- `MAX_PACKED_PUBLIC_BYTECODE_SIZE_IN_FIELDS`: 3000 field elements, used for a contract's public bytecode in the `register` function.
 - `MAX_PACKED_BYTECODE_SIZE_PER_PRIVATE_FUNCTION_IN_FIELDS`: 3000 field elements, used for the ACIR and Brillig bytecode of a broadcasted private function in `broadcast_private_function`.
-- `MAX_PACKED_BYTECODE_SIZE_PER_UNCONSTRAINED_FUNCTION_IN_FIELDS`: 3000 field elements, used for the Brillig bytecode of a broadcasted unconstrained function in `broadcast_unconstrained_function`.
+- `MAX_PACKED_BYTECODE_SIZE_PER_UTILITY_FUNCTION_IN_FIELDS`: 3000 field elements, used for the Brillig bytecode of a broadcasted utility function in `broadcast_utility_function`.
 
 To encode the bytecode into a fixed-length array of Fields, the bytecode is first split into 31-byte chunks, and each chunk interpreted big-endian as a field element. The total length in bytes is then prepended as an initial element, and then right-padded with zeroes.
+
+The log itself is prepended by the address of the contract that emitted it. This is not strictly necessary because the only contract able to broadcast contract class logs is the `ContractClassRegisterer` (this is enforced in the kernel circuits), but exists to easily check and manage logs of published blocks.
 
 ```
 chunks = chunk bytecode into 31 bytes elements, last element right-padded with zeroes
 fields = right-align each chunk into 32 bytes and cast to a field element
 padding = repeat a zero-value field MAX_SIZE - fields.count - 1 times
-encoded = [bytecode.length as field, ...fields, ...padding]
+encoded = [bytecode.length as field, contract_address, ...fields, ...padding]
 ```
 
 ## Discarded Approaches

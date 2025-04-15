@@ -3,6 +3,6 @@
   "compilerOptions": {
     "module": "CommonJS",
     "outDir": "dest/node-cjs",
-    "tsBuildInfoFile": ".tsbuildinfo.cjs"
+    "tsBuildInfoFile": "/dev/null"
   }
 }

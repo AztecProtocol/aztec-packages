@@ -22,6 +22,12 @@ template <typename Builder> rom_table<Builder>::rom_table(const std::vector<fiel
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
     // with a non-const field element.
+
+    // Initialize tags
+    _tags.resize(raw_entries.size());
+    for (size_t i = 0; i < length; ++i) {
+        _tags[i] = raw_entries[i].get_origin_tag();
+    }
 }
 
 // initialize the table once we perform a read. This ensures we always have a valid
@@ -37,8 +43,11 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
     // populate table. Table entries must be normalized and cannot be constants
     for (const auto& entry : raw_entries) {
         if (entry.is_constant()) {
-            entries.emplace_back(
-                field_pt::from_witness_index(context, context->put_constant_variable(entry.get_value())));
+            auto fixed_witness =
+                field_pt::from_witness_index(context, context->put_constant_variable(entry.get_value()));
+            fixed_witness.set_origin_tag(entry.get_origin_tag());
+            entries.emplace_back(fixed_witness);
+
         } else {
             entries.emplace_back(entry.normalize());
         }
@@ -49,6 +58,11 @@ template <typename Builder> void rom_table<Builder>::initialize_table() const
         context->set_ROM_element(rom_id, i, entries[i].get_witness_index());
     }
 
+    // Preserve tags to restore them in the future lookups
+    _tags.resize(raw_entries.size());
+    for (size_t i = 0; i < length; ++i) {
+        _tags[i] = raw_entries[i].get_origin_tag();
+    }
     initialized = true;
 }
 
@@ -56,6 +70,7 @@ template <typename Builder>
 rom_table<Builder>::rom_table(const rom_table& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , _tags(other._tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
@@ -66,6 +81,7 @@ template <typename Builder>
 rom_table<Builder>::rom_table(rom_table&& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , _tags(other._tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
@@ -76,6 +92,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(co
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    _tags = other._tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
@@ -87,6 +104,7 @@ template <typename Builder> rom_table<Builder>& rom_table<Builder>::operator=(ro
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    _tags = other._tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
@@ -112,13 +130,24 @@ template <typename Builder> field_t<Builder> rom_table<Builder>::operator[](cons
     if (context == nullptr) {
         context = index.get_context();
     }
+
     initialize_table();
-    if (uint256_t(index.get_value()) >= length) {
+    const auto native_index = uint256_t(index.get_value());
+    if (native_index >= length) {
         context->failure("rom_table: ROM array access out of bounds");
     }
 
-    uint32_t output_idx = context->read_ROM_array(rom_id, index.normalize().get_witness_index());
-    return field_pt::from_witness_index(context, output_idx);
+    uint32_t output_idx = context->read_ROM_array(rom_id, index.get_normalized_witness_index());
+    auto element = field_pt::from_witness_index(context, output_idx);
+
+    const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+
+    // If the index is legitimate, restore the tag
+    if (native_index < length) {
+
+        element.set_origin_tag(_tags[cast_index]);
+    }
+    return element;
 }
 
 template class rom_table<bb::UltraCircuitBuilder>;

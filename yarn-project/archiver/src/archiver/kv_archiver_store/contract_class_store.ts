@@ -1,59 +1,75 @@
-import { Fr, FunctionSelector, Vector } from '@aztec/circuits.js';
+import { Fr } from '@aztec/foundation/fields';
+import { toArray } from '@aztec/foundation/iterable';
 import { BufferReader, numToUInt8, serializeToBuffer } from '@aztec/foundation/serialize';
-import { type AztecKVStore, type AztecMap } from '@aztec/kv-store';
-import {
-  type ContractClassPublic,
-  type ContractClassPublicWithBlockNumber,
-  type ExecutablePrivateFunctionWithMembershipProof,
-  type UnconstrainedFunctionWithMembershipProof,
-} from '@aztec/types/contracts';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type {
+  ContractClassPublic,
+  ContractClassPublicWithBlockNumber,
+  ExecutablePrivateFunctionWithMembershipProof,
+  UtilityFunctionWithMembershipProof,
+} from '@aztec/stdlib/contract';
+import { Vector } from '@aztec/stdlib/types';
 
 /**
  * LMDB implementation of the ArchiverDataStore interface.
  */
 export class ContractClassStore {
-  #contractClasses: AztecMap<string, Buffer>;
+  #contractClasses: AztecAsyncMap<string, Buffer>;
+  #bytecodeCommitments: AztecAsyncMap<string, Buffer>;
 
-  constructor(private db: AztecKVStore) {
+  constructor(private db: AztecAsyncKVStore) {
     this.#contractClasses = db.openMap('archiver_contract_classes');
+    this.#bytecodeCommitments = db.openMap('archiver_bytecode_commitments');
   }
 
-  async addContractClass(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
+  async addContractClass(
+    contractClass: ContractClassPublic,
+    bytecodeCommitment: Fr,
+    blockNumber: number,
+  ): Promise<void> {
     await this.#contractClasses.setIfNotExists(
       contractClass.id.toString(),
       serializeContractClassPublic({ ...contractClass, l2BlockNumber: blockNumber }),
     );
+    await this.#bytecodeCommitments.setIfNotExists(contractClass.id.toString(), bytecodeCommitment.toBuffer());
   }
 
   async deleteContractClasses(contractClass: ContractClassPublic, blockNumber: number): Promise<void> {
-    const restoredContractClass = this.#contractClasses.get(contractClass.id.toString());
+    const restoredContractClass = await this.#contractClasses.getAsync(contractClass.id.toString());
     if (restoredContractClass && deserializeContractClassPublic(restoredContractClass).l2BlockNumber >= blockNumber) {
       await this.#contractClasses.delete(contractClass.id.toString());
+      await this.#bytecodeCommitments.delete(contractClass.id.toString());
     }
   }
 
-  getContractClass(id: Fr): ContractClassPublic | undefined {
-    const contractClass = this.#contractClasses.get(id.toString());
+  async getContractClass(id: Fr): Promise<ContractClassPublic | undefined> {
+    const contractClass = await this.#contractClasses.getAsync(id.toString());
     return contractClass && { ...deserializeContractClassPublic(contractClass), id };
   }
 
-  getContractClassIds(): Fr[] {
-    return Array.from(this.#contractClasses.keys()).map(key => Fr.fromString(key));
+  async getBytecodeCommitment(id: Fr): Promise<Fr | undefined> {
+    const value = await this.#bytecodeCommitments.getAsync(id.toString());
+    return value === undefined ? undefined : Fr.fromBuffer(value);
+  }
+
+  async getContractClassIds(): Promise<Fr[]> {
+    return (await toArray(this.#contractClasses.keysAsync())).map(key => Fr.fromHexString(key));
   }
 
   async addFunctions(
     contractClassId: Fr,
     newPrivateFunctions: ExecutablePrivateFunctionWithMembershipProof[],
-    newUnconstrainedFunctions: UnconstrainedFunctionWithMembershipProof[],
+    newUtilityFunctions: UtilityFunctionWithMembershipProof[],
   ): Promise<boolean> {
-    await this.db.transaction(() => {
-      const existingClassBuffer = this.#contractClasses.get(contractClassId.toString());
+    await this.db.transactionAsync(async () => {
+      const existingClassBuffer = await this.#contractClasses.getAsync(contractClassId.toString());
       if (!existingClassBuffer) {
         throw new Error(`Unknown contract class ${contractClassId} when adding private functions to store`);
       }
 
       const existingClass = deserializeContractClassPublic(existingClassBuffer);
-      const { privateFunctions: existingPrivateFns, unconstrainedFunctions: existingUnconstrainedFns } = existingClass;
+      const { privateFunctions: existingPrivateFns, utilityFunctions: existingUtilityFns } = existingClass;
 
       const updatedClass: Omit<ContractClassPublicWithBlockNumber, 'id'> = {
         ...existingClass,
@@ -61,16 +77,15 @@ export class ContractClassStore {
           ...existingPrivateFns,
           ...newPrivateFunctions.filter(newFn => !existingPrivateFns.some(f => f.selector.equals(newFn.selector))),
         ],
-        unconstrainedFunctions: [
-          ...existingUnconstrainedFns,
-          ...newUnconstrainedFunctions.filter(
-            newFn => !existingUnconstrainedFns.some(f => f.selector.equals(newFn.selector)),
-          ),
+        utilityFunctions: [
+          ...existingUtilityFns,
+          ...newUtilityFunctions.filter(newFn => !existingUtilityFns.some(f => f.selector.equals(newFn.selector))),
         ],
       };
-      void this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
+      await this.#contractClasses.set(contractClassId.toString(), serializeContractClassPublic(updatedClass));
     });
-    return Promise.resolve(true);
+
+    return true;
   }
 }
 
@@ -79,12 +94,10 @@ function serializeContractClassPublic(contractClass: Omit<ContractClassPublicWit
     contractClass.l2BlockNumber,
     numToUInt8(contractClass.version),
     contractClass.artifactHash,
-    contractClass.publicFunctions.length,
-    contractClass.publicFunctions?.map(f => serializeToBuffer(f.selector, f.bytecode.length, f.bytecode)) ?? [],
     contractClass.privateFunctions.length,
     contractClass.privateFunctions.map(serializePrivateFunction),
-    contractClass.unconstrainedFunctions.length,
-    contractClass.unconstrainedFunctions.map(serializeUnconstrainedFunction),
+    contractClass.utilityFunctions.length,
+    contractClass.utilityFunctions.map(serializeUtilityFunction),
     contractClass.packedBytecode.length,
     contractClass.packedBytecode,
     contractClass.privateFunctionsRoot,
@@ -99,7 +112,7 @@ function serializePrivateFunction(fn: ExecutablePrivateFunctionWithMembershipPro
     fn.bytecode,
     fn.functionMetadataHash,
     fn.artifactMetadataHash,
-    fn.unconstrainedFunctionsArtifactTreeRoot,
+    fn.utilityFunctionsTreeRoot,
     new Vector(fn.privateFunctionTreeSiblingPath),
     fn.privateFunctionTreeLeafIndex,
     new Vector(fn.artifactTreeSiblingPath),
@@ -107,7 +120,7 @@ function serializePrivateFunction(fn: ExecutablePrivateFunctionWithMembershipPro
   );
 }
 
-function serializeUnconstrainedFunction(fn: UnconstrainedFunctionWithMembershipProof): Buffer {
+function serializeUtilityFunction(fn: UtilityFunctionWithMembershipProof): Buffer {
   return serializeToBuffer(
     fn.selector,
     fn.bytecode.length,
@@ -126,14 +139,8 @@ function deserializeContractClassPublic(buffer: Buffer): Omit<ContractClassPubli
     l2BlockNumber: reader.readNumber(),
     version: reader.readUInt8() as 1,
     artifactHash: reader.readObject(Fr),
-    publicFunctions: reader.readVector({
-      fromBuffer: reader => ({
-        selector: reader.readObject(FunctionSelector),
-        bytecode: reader.readBuffer(),
-      }),
-    }),
     privateFunctions: reader.readVector({ fromBuffer: deserializePrivateFunction }),
-    unconstrainedFunctions: reader.readVector({ fromBuffer: deserializeUnconstrainedFunction }),
+    utilityFunctions: reader.readVector({ fromBuffer: deserializeUtilityFunction }),
     packedBytecode: reader.readBuffer(),
     privateFunctionsRoot: reader.readObject(Fr),
   };
@@ -147,7 +154,7 @@ function deserializePrivateFunction(buffer: Buffer | BufferReader): ExecutablePr
     bytecode: reader.readBuffer(),
     functionMetadataHash: reader.readObject(Fr),
     artifactMetadataHash: reader.readObject(Fr),
-    unconstrainedFunctionsArtifactTreeRoot: reader.readObject(Fr),
+    utilityFunctionsTreeRoot: reader.readObject(Fr),
     privateFunctionTreeSiblingPath: reader.readVector(Fr),
     privateFunctionTreeLeafIndex: reader.readNumber(),
     artifactTreeSiblingPath: reader.readVector(Fr),
@@ -155,7 +162,7 @@ function deserializePrivateFunction(buffer: Buffer | BufferReader): ExecutablePr
   };
 }
 
-function deserializeUnconstrainedFunction(buffer: Buffer | BufferReader): UnconstrainedFunctionWithMembershipProof {
+function deserializeUtilityFunction(buffer: Buffer | BufferReader): UtilityFunctionWithMembershipProof {
   const reader = BufferReader.asReader(buffer);
   return {
     selector: reader.readObject(FunctionSelector),

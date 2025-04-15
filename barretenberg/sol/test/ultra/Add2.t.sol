@@ -12,7 +12,7 @@ contract Add2UltraTest is TestBaseUltra {
         super.setUp();
 
         verifier = IVerifier(address(new Add2UltraVerifier()));
-        fuzzer = fuzzer.with_circuit_flavour(DifferentialFuzzer.CircuitFlavour.Add2);
+        fuzzer = fuzzer.with_circuit_type(DifferentialFuzzer.CircuitType.Add2);
 
         PUBLIC_INPUT_COUNT = 3;
 

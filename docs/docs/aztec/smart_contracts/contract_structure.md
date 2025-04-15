@@ -1,9 +1,10 @@
 ---
 title: Contract Structure
+sidebar_position: 0
 tags: [contracts]
 ---
 
-A contract is a collection of persistent state varibles and [functions](./functions/index.md) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state. If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
+A contract is a collection of persistent state variables and [functions](./functions/index.md) which may manipulate these variables. Functions and state variables within a contract's scope are said to belong to that contract. A contract can only access and modify its own state. If a contract wishes to access or modify another contract's state, it must make a call to an external function of the other contract. For anything to happen on the Aztec network, an external function of a contract needs to be called.
 
 ## Contract
 
@@ -37,4 +38,4 @@ Here's a common layout for a basic Aztec.nr Contract project:
 ```
 
 - See the vanilla Noir docs for [more info on packages](https://noir-lang.org/docs/noir/modules_packages_crates/crates_and_packages).
-- You can review the structure of a complete contract in the token contract tutorial [here](../../tutorials/codealong/contract_tutorials/token_contract.md).
+- You can review the structure of a complete contract in the NFT contract tutorial [here](../../developers/tutorials/codealong/contract_tutorials/nft_contract.md).

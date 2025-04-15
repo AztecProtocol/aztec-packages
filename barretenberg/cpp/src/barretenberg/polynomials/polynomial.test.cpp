@@ -28,6 +28,35 @@ TEST(Polynomial, Shifted)
     }
 }
 
+// Simple test/demonstration of right_shifted functionality
+TEST(Polynomial, RightShifted)
+{
+    using FF = bb::fr;
+    using Polynomial = bb::Polynomial<FF>;
+    const size_t SIZE = 10;
+    const size_t VIRTUAL_SIZE = 20;
+    const size_t START_IDX = 2;
+    const size_t SHIFT_MAGNITUDE = 5;
+    auto poly = Polynomial::random(SIZE, VIRTUAL_SIZE, START_IDX);
+
+    // Instantiate the shift via the right_shifted method
+    auto poly_shifted = poly.right_shifted(SHIFT_MAGNITUDE);
+
+    EXPECT_EQ(poly_shifted.size(), poly.size());
+    EXPECT_EQ(poly_shifted.virtual_size(), poly.virtual_size());
+
+    // The shift is indeed the shift
+    for (size_t i = 0; i < SIZE; ++i) {
+        EXPECT_EQ(poly_shifted.get(i + SHIFT_MAGNITUDE), poly.get(i));
+    }
+
+    // If I change the original polynomial, the shift is updated accordingly
+    poly.at(3) = 25;
+    for (size_t i = 0; i < SIZE; ++i) {
+        EXPECT_EQ(poly_shifted.get(i + SHIFT_MAGNITUDE), poly.get(i));
+    }
+}
+
 // Simple test/demonstration of share functionality
 TEST(Polynomial, Share)
 {

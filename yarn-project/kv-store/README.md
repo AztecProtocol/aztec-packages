@@ -1,6 +1,6 @@
 # KV Store
 
-The Aztec KV store is an implementation of a durable key-value database with a pluggable backend. THe only supported backend right now is LMDB by using the [`lmdb-js` package](https://github.com/kriszyp/lmdb-js).
+The Aztec KV store is an implementation of a durable key-value database with a pluggable backend. The only supported backend right now is LMDB by using the [`lmdb-js` package](https://github.com/kriszyp/lmdb-js).
 
 This package exports a number of primitive data structures that can be used to build domain-specific databases in each node component (e.g. a PXE database or an Archiver database). The data structures supported:
 

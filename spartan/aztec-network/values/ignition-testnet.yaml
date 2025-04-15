@@ -1,0 +1,71 @@
+telemetry:
+  enabled: true
+
+aztec:
+  realProofs: true
+  numberOfDefaultAccounts: 0
+  testAccounts: true
+  bootstrapENRs: "enr:-LO4QDwlKJN0BqMc4hYPsI-MQoR1O7qLVr4TK6DhqGsZT_pPTmg3gS-JD072rKI4vlaR0N4SdeH2gCD09oh-zMVT3JkEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMmM4ZmM0NjMtMjM3YWFkY2WCaWSCdjSCaXCEI-XzqolzZWNwMjU2azGhA0da3IZGbY1tLdqXgdQKG-SW-Z4D6dvXJBeoXn8EZsCVg3VkcIKd0A,enr:-LO4QPJR493G_BQG1UU0_h-g0TEBnZEJ-zgWYH3YctVAn3GzfM9dWVIO7_TSETXYLy-h34bF6sSoSfpP5O44qsZnp00EhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMmM4ZmM0NjMtMjM3YWFkY2WCaWSCdjSCaXCEIlle64lzZWNwMjU2azGhAwuSF_VE1cRfSc3MvtDZvvaTl2Qo_dJK-Qp7TcnhYWBtg3VkcIKd0A,enr:-LO4QKq488wXvw6vAHToGWJYkxMmKsjQCsFjPs5Pt_MrawlnZ7G-xIfwhkXR1afddf8lFj_RNVZdBfGzHHR262pXNhMEhWF6dGVjqDAwLTExMTU1MTExLTAwMDAwMDAwLTAtMmM4ZmM0NjMtMjM3YWFkY2WCaWSCdjSCaXCEI8VFSYlzZWNwMjU2azGhA2xqOyFaHAARgLAi3dORuPmFHbxgoMDWBZJnnbiatW8jg3VkcIKd0A"
+  contracts:
+    registryAddress: "0x12b3ebc176a1646b911391eab3760764f2e05fe3"
+    slashFactoryAddress: "0x0f216a792a4cc3691010e7870ae2c0f4fadd952a"
+
+network:
+  public: true
+  p2pBootstrapNodesAsFullPeers: false
+
+blobSink:
+  enabled: true
+
+bot:
+  enabled: false
+
+pxe:
+  enabled: false
+
+faucet:
+  enabled: false
+
+bootNode:
+  enabled: false
+  # unused.
+  externalHost: "http://localhost:8080"
+
+proverNode:
+  l1FixedPriorityFeePerGas: 3
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 1000
+
+validator:
+  replicas: 3
+  l1FixedPriorityFeePerGas: 3
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 1000
+  sequencer:
+    minTxsPerBlock: 0
+    maxTxsPerBlock: 0
+  validator:
+    disabled: false
+  resources:
+    requests:
+      cpu: "1"
+
+proverAgent:
+  replicas: 2
+  bb:
+    hardwareConcurrency: 31
+  gke:
+    spotEnabled: true
+  resources:
+    requests:
+      memory: "116Gi"
+      cpu: "31"
+
+ethereum:
+  chainId: "11155111"
+  l1GasPriceMax: 1000
+  l1FixedPriorityFeePerGas: 3
+
+jobs:
+  deployL1Verifier:
+    enable: false

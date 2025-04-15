@@ -1,6 +1,8 @@
 #pragma once
 #include "barretenberg/common/mem.hpp"
+#include "barretenberg/common/op_count.hpp"
 #include "barretenberg/common/zip_view.hpp"
+#include "barretenberg/constants.hpp"
 #include "barretenberg/crypto/sha256/sha256.hpp"
 #include "barretenberg/ecc/curves/grumpkin/grumpkin.hpp"
 #include "barretenberg/plonk_honk_shared/types/circuit_type.hpp"
@@ -18,11 +20,32 @@ namespace bb {
 template <typename Fr> struct PolynomialSpan {
     size_t start_index;
     std::span<Fr> span;
+    PolynomialSpan(size_t start_index, std::span<Fr> span)
+        : start_index(start_index)
+        , span(span)
+    {}
     size_t end_index() const { return start_index + size(); }
     Fr* data() { return span.data(); }
     size_t size() const { return span.size(); }
-    Fr& operator[](size_t index) { return span[index - start_index]; }
-    const Fr& operator[](size_t index) const { return span[index - start_index]; }
+    Fr& operator[](size_t index)
+    {
+        ASSERT(index >= start_index && index < end_index());
+        return span[index - start_index];
+    }
+    const Fr& operator[](size_t index) const
+    {
+        ASSERT(index >= start_index && index < end_index());
+        return span[index - start_index];
+    }
+    PolynomialSpan subspan(size_t offset, size_t length)
+    {
+        if (offset > span.size()) { // Return a null span
+            return { 0, span.subspan(span.size()) };
+        }
+        size_t new_length = std::min(length, span.size() - offset);
+        return { start_index + offset, span.subspan(offset, new_length) };
+    }
+    operator PolynomialSpan<const Fr>() const { return PolynomialSpan<const Fr>(start_index, span); }
 };
 
 /**
@@ -35,8 +58,8 @@ template <typename Fr> struct PolynomialSpan {
  * Polynomials use the majority of the memory in proving, so caution should be used in making sure
  * unnecessary copies are avoided, both for avoiding unnecessary memory usage and performance
  * due to unnecessary allocations.
- * The polynomial has a maximum degree in the underlying SharedShiftedVirtualZeroesArray, dictated by the circuit size,
- * this is just used for debugging as we represent.
+ * The polynomial has a maximum degree in the underlying SharedShiftedVirtualZeroesArray, dictated by the circuit
+ * size, this is just used for debugging as we represent.
  *
  * @tparam Fr the finite field type.
  */
@@ -48,8 +71,8 @@ template <typename Fr> class Polynomial {
     Polynomial(size_t size, size_t virtual_size, size_t start_index = 0);
     // Intended just for plonk, where size == virtual_size always
     Polynomial(size_t size)
-        : Polynomial(size, size)
-    {}
+        : Polynomial(size, size){};
+
     // Constructor that does not initialize values, use with caution to save time.
     Polynomial(size_t size, size_t virtual_size, size_t start_index, DontZeroMemory flag);
     Polynomial(size_t size, size_t virtual_size, DontZeroMemory flag)
@@ -143,13 +166,18 @@ template <typename Fr> class Polynomial {
     Polynomial shifted() const;
 
     /**
-     * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{n-1})
-     *        If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k,
-     *        we evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k.
-     *        We fold over k dimensions and then multiply the result by
-     *        (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). In this case, for any
-     *        i < 2^k, L_i is a multiple of (1 - X_k) * (1 - X_{k+1}) ... * (1 - X_{n-1}). Dividing
-     *        p by this monomial leads to a multilinear extension over variables X_0, X_1, ..X_{k-1}.
+     * @brief Returns a Polynomial equal to the right-shift-by-magnitude of self.
+     * @note Resulting Polynomial shares the memory of that used to generate it
+     */
+    Polynomial right_shifted(const size_t magnitude) const;
+
+    /**
+     * @brief evaluate multi-linear extension p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u =
+     * (u_0,…,u_{n-1}) If the polynomial is embedded into a lower dimension k<n, i.e, start_index + size <= 2^k, we
+     * evaluate it in a more efficient way. Note that a_j == 0 for any j >= 2^k. We fold over k dimensions and then
+     * multiply the result by (1 - u_k) * (1 - u_{k+1}) ... * (1 - u_{n-1}). In this case, for any i < 2^k, L_i is a
+     * multiple of (1 - X_k) * (1 - X_{k+1}) ... * (1 - X_{n-1}). Dividing p by this monomial leads to a multilinear
+     * extension over variables X_0, X_1, ..X_{k-1}.
      *
      * @details this function allocates a temporary buffer of size 2^(k-1)
      *
@@ -162,13 +190,14 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Partially evaluates in the last k variables a polynomial interpreted as a multilinear extension.
      *
-     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension p(X_0,…,X_{n-1}) =
-     * \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables X_n-m,…,X_{n-1}. The result
-     * is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) = p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
+     * @details Partially evaluates p(X) = (a_0, ..., a_{2^n-1}) considered as multilinear extension
+     * p(X_0,…,X_{n-1}) = \sum_i a_i*L_i(X_0,…,X_{n-1}) at u = (u_0,…,u_{m-1}), m < n, in the last m variables
+     * X_n-m,…,X_{n-1}. The result is a multilinear polynomial in n-m variables g(X_0,…,X_{n-m-1})) =
+     * p(X_0,…,X_{n-m-1},u_0,...u_{m-1}).
      *
      * @note Intuitively, partially evaluating in one variable collapses the hypercube in one dimension, halving the
-     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable (as
-     * is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
+     * number of coefficients needed to represent the result. To partially evaluate starting with the first variable
+     * (as is done in evaluate_mle), the vector of coefficents is halved by combining adjacent rows in a pairwise
      * fashion (similar to what is done in Sumcheck via "edges"). To evaluate starting from the last variable, we
      * instead bisect the whole vector and combine the two halves. I.e. rather than coefficents being combined with
      * their immediate neighbor, they are combined with the coefficient that lives n/2 indices away.
@@ -227,8 +256,25 @@ template <typename Fr> class Polynomial {
      */
     Polynomial& operator*=(Fr scaling_factor);
 
+    /**
+     * @brief Add random values to the coefficients of a polynomial. In practice, this is used for ensuring the
+     * commitment and evaluation of a polynomial don't leak information about the coefficients in the context of zero
+     * knowledge.
+     */
+    void mask()
+    {
+        // Ensure there is sufficient space to add masking and also that we have memory allocated up to the virtual_size
+        ASSERT(virtual_size() >= NUM_MASKED_ROWS);
+        ASSERT(virtual_size() == end_index());
+
+        for (size_t i = virtual_size() - NUM_MASKED_ROWS; i < virtual_size(); ++i) {
+            at(i) = FF::random_element();
+        }
+    }
+
     std::size_t size() const { return coefficients_.size(); }
     std::size_t virtual_size() const { return coefficients_.virtual_size(); }
+    void increase_virtual_size(const size_t size_in) { coefficients_.increase_virtual_size(size_in); };
 
     Fr* data() { return coefficients_.data(); }
     const Fr* data() const { return coefficients_.data(); }
@@ -249,15 +295,28 @@ template <typename Fr> class Polynomial {
 
     static Polynomial random(size_t size, size_t start_index = 0)
     {
+        PROFILE_THIS_NAME("generate random polynomial");
+
         return random(size - start_index, size, start_index);
     }
 
     static Polynomial random(size_t size, size_t virtual_size, size_t start_index)
     {
         Polynomial p(size, virtual_size, start_index, DontZeroMemory::FLAG);
-        std::generate_n(p.coefficients_.data(), size, []() { return Fr::random_element(); });
+        parallel_for_heuristic(
+            size,
+            [&](size_t i) { p.coefficients_.data()[i] = Fr::random_element(); },
+            thread_heuristics::ALWAYS_MULTITHREAD);
         return p;
     }
+
+    /**
+     * @brief A factory to construct a polynomial where parallel initialization is
+     *        not possible (e.g. AVM code).
+     *
+     * @return a polynomial initialized with zero on the range defined by size
+     */
+    static Polynomial create_non_parallel_zero_init(size_t size, size_t virtual_size);
 
     /**
      * @brief Expands the polynomial with new start_index and end_index
@@ -266,6 +325,13 @@ template <typename Fr> class Polynomial {
      * @return a polynomial with a larger size() but same virtual_size()
      */
     Polynomial expand(const size_t new_start_index, const size_t new_end_index) const;
+
+    /**
+     * @brief The end_index of the polynomial is decreased without any memory de-allocation.
+     *        This is a very fast way to zeroize the polynomial tail from new_end_index to the
+     *        end. It also means that the new end_index might be smaller than the backed memory.
+     */
+    void shrink_end_index(const size_t new_end_index);
 
     /**
      * @brief Copys the polynomial, but with the whole address space usable.
@@ -322,14 +388,20 @@ template <typename Fr> class Polynomial {
     /**
      * @brief Copy over values from a vector that is of a convertible type.
      *
+     * @details There is an underlying assumption that the relevant start index in the vector
+     * corresponds to the start_index of the destination polynomial and also that the number of elements we want to copy
+     * corresponds to the size of the polynomial. This is quirky behavior and we might want to improve the UX.
+     *
+     * @todo https://github.com/AztecProtocol/barretenberg/issues/1292
+     *
      * @tparam T a convertible type
      * @param vec the vector
      */
     template <typename T> void copy_vector(const std::vector<T>& vec)
     {
         ASSERT(vec.size() <= end_index());
-        for (size_t i : indices()) {
-            ASSERT(i < vec.size());
+        ASSERT(vec.size() - start_index() <= size());
+        for (size_t i = start_index(); i < vec.size(); i++) {
             at(i) = vec[i];
         }
     }
@@ -354,15 +426,10 @@ template <typename Fr> class Polynomial {
     // safety check for in place operations
     bool in_place_operation_viable(size_t domain_size) { return (size() >= domain_size); }
 
-    // When a polynomial is instantiated from a size alone, the memory allocated corresponds to
-    // input size + MAXIMUM_COEFFICIENT_SHIFT to support 'shifted' coefficients efficiently.
-    const static size_t MAXIMUM_COEFFICIENT_SHIFT = 1;
-
     // The underlying memory, with a bespoke (but minimal) shared array struct that fits our needs.
     // Namely, it supports polynomial shifts and 'virtual' zeroes past a size up until a 'virtual' size.
     SharedShiftedVirtualZeroesArray<Fr> coefficients_;
 };
-
 // NOLINTNEXTLINE(cppcoreguidelines-avoid-c-arrays)
 template <typename Fr> std::shared_ptr<Fr[]> _allocate_aligned_memory(size_t n_elements)
 {
@@ -400,7 +467,8 @@ Fr_ _evaluate_mle(std::span<const Fr_> evaluation_points,
     size_t n_l = 1 << (dim - 1);
 
     // temporary buffer of half the size of the Polynomial
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with DontZeroMemory::FLAG
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1096): Make this a Polynomial with
+    // DontZeroMemory::FLAG
     auto tmp_ptr = _allocate_aligned_memory<Fr_>(sizeof(Fr_) * n_l);
     auto tmp = tmp_ptr.get();
 

@@ -1,7 +1,4 @@
-use crate::utils::field::field_from_bytes;
-use crate::traits::{Serialize, Deserialize, FromField, ToField, Empty};
-
-global SELECTOR_SIZE: u32 = 4;
+use crate::traits::{Deserialize, Empty, FromField, Serialize, ToField};
 
 pub struct EventSelector {
     // 1st 4-bytes (big-endian leftmost) of abi-encoding of an event.
@@ -53,10 +50,8 @@ impl EventSelector {
         let bytes = signature.as_bytes();
         let hash = crate::hash::poseidon2_hash_bytes(bytes);
 
-        // We choose the last SELECTOR_SIZE bytes of the hash to avoid getting the first byte that is not full
-        let hash_bytes = hash.to_be_bytes::<SELECTOR_SIZE>();
-
-        EventSelector::from_field(field_from_bytes(hash_bytes, true))
+        // `hash` is automatically truncated to fit within 32 bits.
+        EventSelector::from_field(hash)
     }
 
     pub fn zero() -> Self {

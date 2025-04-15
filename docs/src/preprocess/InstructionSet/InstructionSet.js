@@ -514,24 +514,6 @@ const INSTRUCTION_SET_RAW = [
     "Tag updates": "`T[dstOffset] = field`",
   },
   {
-    id: "storageaddress",
-    Name: "`STORAGEADDRESS`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.storageAddress`",
-    Summary: "Get the _storage_ address of the currently executing context",
-    Details: "The storage address is used for public storage accesses.",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
     id: "sender",
     Name: "`SENDER`",
     Category: "Execution Environment",
@@ -548,24 +530,6 @@ const INSTRUCTION_SET_RAW = [
     Details: "",
     "Tag checks": "",
     "Tag updates": "`T[dstOffset] = field`",
-  },
-  {
-    id: "functionselector",
-    Name: "`FUNCTIONSELECTOR`",
-    Category: "Execution Environment",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: [
-      {
-        name: "dstOffset",
-        description:
-          "memory offset specifying where to store operation's result",
-      },
-    ],
-    Expression: "`M[dstOffset] = context.environment.functionSelector`",
-    Summary: "Get the function selector of the contract function being executed",
-    Details: "",
-    "Tag checks": "",
-    "Tag updates": "`T[dstOffset] = u32`",
   },
   {
     id: "transactionfee",
@@ -946,7 +910,7 @@ M[dstOffset] = S[M[slotOffset]]
       "Load a word from this contract's persistent public storage. Zero is loaded for unwritten slots.",
     Details: `
 // Expression is shorthand for
-leafIndex = hash(context.environment.storageAddress, M[slotOffset])
+leafIndex = hash(context.environment.address, M[slotOffset])
 exists = context.worldState.publicStorage.has(leafIndex) // exists == previously-written
 if exists:
     value = context.worldState.publicStorage.get(leafIndex: leafIndex)
@@ -989,7 +953,7 @@ S[M[slotOffset]] = M[srcOffset]
     Details: `
 // Expression is shorthand for
 context.worldState.publicStorage.set({
-    leafIndex: hash(context.environment.storageAddress, M[slotOffset]),
+    leafIndex: hash(context.environment.address, M[slotOffset]),
     leaf: M[srcOffset],
 })
 `,
@@ -1028,7 +992,7 @@ context.worldStateAccessTrace.publicStorageWrites.append(
     Expression: `
 exists = context.worldState.noteHashes.has({
     leafIndex: M[leafIndexOffset]
-    leaf: hash(context.environment.storageAddress, M[noteHashOffset]),
+    leaf: hash(context.environment.address, M[noteHashOffset]),
 })
 M[existsOffset] = exists
 `,
@@ -1060,7 +1024,7 @@ context.worldStateAccessTrace.noteHashChecks.append(
     ],
     Expression: `
 context.worldState.noteHashes.append(
-    hash(context.environment.storageAddress, M[noteHashOffset])
+    hash(context.environment.address, M[noteHashOffset])
 )
 `,
     Summary: "Emit a new note hash to be inserted into the note hash tree",
@@ -1111,7 +1075,7 @@ context.worldStateAccessTrace.nullifierChecks.append(
     TracedNullifierCheck {
         callPointer: context.environment.callPointer,
         nullifier: M[nullifierOffset],
-        storageAddress: M[addressOffset],
+        address: M[addressOffset],
         exists: exists, // defined above
         counter: ++context.worldStateAccessTrace.accessCounter,
     }
@@ -1132,7 +1096,7 @@ context.worldStateAccessTrace.nullifierChecks.append(
     ],
     Expression: `
 context.worldState.nullifiers.append(
-    hash(context.environment.storageAddress, M[nullifierOffset])
+    hash(context.environment.address, M[nullifierOffset])
 )
 `,
     Summary: "Emit a new nullifier to be inserted into the nullifier tree",
@@ -1291,7 +1255,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=false)
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
@@ -1320,7 +1284,7 @@ chargeGas(context,
           l2GasCost=M[instr.args.gasOffset],
           daGasCost=M[instr.args.gasOffset+1])
 traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=true, isDelegateCall=false)
+nestedContext = deriveContext(context, instr.args, isStaticCall=true
 execute(nestedContext)
 updateContextAfterNestedCall(context, instr.args, nestedContext)
 `,
@@ -1328,34 +1292,6 @@ updateContextAfterNestedCall(context, instr.args, nestedContext)
       "Call into another contract, disallowing World State and Accrued Substate modifications",
     Details:
       `Same as \`CALL\`, but disallows World State and Accrued Substate modifications. ` +
-      CALL_INSTRUCTION_DETAILS,
-    "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
-    "Tag updates": `
-T[successOffset] = u8
-T[retOffset:retOffset+retSize] = field
-`,
-  },
-  {
-    id: "delegatecall",
-    Name: "`DELEGATECALL`",
-    Category: "Control Flow - Contract Calls",
-    Flags: [{ name: "indirect", description: INDIRECT_FLAG_DESCRIPTION }],
-    Args: CALL_INSTRUCTION_ARGS,
-    Expression: `
-// instr.args are { gasOffset, addrOffset, argsOffset, retOffset, retSize }
-chargeGas(context,
-          l2GasCost=M[instr.args.gasOffset],
-          daGasCost=M[instr.args.gasOffset+1])
-traceNestedCall(context, instr.args.addrOffset)
-nestedContext = deriveContext(context, instr.args, isStaticCall=false, isDelegateCall=true)
-execute(nestedContext)
-updateContextAfterNestedCall(context, instr.args, nestedContext)
-`,
-    Summary:
-      "(UNIMPLEMENTED) Call into another contract, but keep the caller's `sender` and `storageAddress`",
-    Details:
-      `Same as \`CALL\`, but \`sender\` and \`storageAddress\` remains
-                    the same in the nested call as they were in the caller. ` +
       CALL_INSTRUCTION_DETAILS,
     "Tag checks": "`T[gasOffset] == T[gasOffset+1] == T[gasOffset+2] == u32`",
     "Tag updates": `

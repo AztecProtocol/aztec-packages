@@ -1,0 +1,13 @@
+FinaliseWithdrawTest
+├── when id match no pending withdrawal
+│   └── it revert
+└── when it match pending withdrawal
+    ├── given withdrawan already claimed
+    │   └── it revert
+    └── given withdrawan not claimed
+        ├── when time is before unlock
+        │   └── it revert
+        └── when time is after or at unlock
+            ├── it mark withdrawal as claimed
+            ├── it transfer funds to account
+            └── it emits {WithdrawalFinalised} event

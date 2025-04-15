@@ -1,99 +1,64 @@
-import { MockBlockSource } from '@aztec/archiver/test';
-import { mockEpochProofQuote, mockTx } from '@aztec/circuit-types';
+import { MockL2BlockSource } from '@aztec/archiver/test';
+import { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { retryUntil } from '@aztec/foundation/retry';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { type TelemetryClient } from '@aztec/telemetry-client';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
+import type { AztecAsyncKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import { L2Block, randomPublishedL2Block } from '@aztec/stdlib/block';
+import { P2PClientType } from '@aztec/stdlib/p2p';
+import { mockTx } from '@aztec/stdlib/testing';
 
 import { expect, jest } from '@jest/globals';
+import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type EpochProofQuotePool, type P2PService } from '../index.js';
-import { type AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
-import { type MemPools } from '../mem_pools/interface.js';
-import { type TxPool } from '../mem_pools/tx_pool/index.js';
+import { InMemoryAttestationPool, type P2PService } from '../index.js';
+import type { AttestationPool } from '../mem_pools/attestation_pool/attestation_pool.js';
+import type { MemPools } from '../mem_pools/interface.js';
+import type { TxPool } from '../mem_pools/tx_pool/index.js';
 import { P2PClient } from './p2p_client.js';
 
-/**
- * Mockify helper for testing purposes.
- */
-type Mockify<T> = {
-  [P in keyof T]: ReturnType<typeof jest.fn>;
-};
-
 describe('In-Memory P2P Client', () => {
-  let txPool: Mockify<TxPool>;
-  let attestationPool: Mockify<AttestationPool>;
-  let epochProofQuotePool: Mockify<EpochProofQuotePool>;
+  let txPool: MockProxy<TxPool>;
+  let attestationPool: AttestationPool;
   let mempools: MemPools;
-  let blockSource: MockBlockSource;
-  let p2pService: Mockify<P2PService>;
-  let kvStore: AztecKVStore;
+  let blockSource: MockL2BlockSource;
+  let p2pService: MockProxy<P2PService>;
+  let kvStore: AztecAsyncKVStore;
   let client: P2PClient;
-  const telemetryClient: TelemetryClient = new NoopTelemetryClient();
 
-  beforeEach(() => {
-    txPool = {
-      addTxs: jest.fn(),
-      getTxByHash: jest.fn().mockReturnValue(undefined),
-      deleteTxs: jest.fn(),
-      getAllTxs: jest.fn().mockReturnValue([]),
-      getAllTxHashes: jest.fn().mockReturnValue([]),
-      getMinedTxHashes: jest.fn().mockReturnValue([]),
-      getPendingTxHashes: jest.fn().mockReturnValue([]),
-      getTxStatus: jest.fn().mockReturnValue(undefined),
-      markAsMined: jest.fn(),
-    };
+  beforeEach(async () => {
+    txPool = mock<TxPool>();
+    txPool.getAllTxs.mockResolvedValue([]);
+    txPool.getPendingTxHashes.mockResolvedValue([]);
+    txPool.getMinedTxHashes.mockResolvedValue([]);
+    txPool.getAllTxHashes.mockResolvedValue([]);
 
-    p2pService = {
-      start: jest.fn(),
-      stop: jest.fn(),
-      propagate: jest.fn(),
-      registerBlockReceivedCallback: jest.fn(),
-      sendRequest: jest.fn(),
-      getEnr: jest.fn(),
-    };
+    p2pService = mock<P2PService>();
 
-    attestationPool = {
-      addAttestations: jest.fn(),
-      deleteAttestations: jest.fn(),
-      deleteAttestationsForSlot: jest.fn(),
-      getAttestationsForSlot: jest.fn().mockReturnValue(undefined),
-    };
+    attestationPool = new InMemoryAttestationPool();
 
-    epochProofQuotePool = {
-      addQuote: jest.fn(),
-      getQuotes: jest.fn().mockReturnValue([]),
-      deleteQuotesToEpoch: jest.fn(),
-    };
-
-    blockSource = new MockBlockSource();
+    blockSource = new MockL2BlockSource();
+    await blockSource.createBlocks(100);
 
     mempools = {
       txPool,
       attestationPool,
-      epochProofQuotePool,
     };
 
-    kvStore = openTmpStore();
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+    kvStore = await openTmpStore('test');
+    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
   });
 
-  const advanceToProvenBlock = async (getProvenBlockNumber: number, provenEpochNumber = getProvenBlockNumber) => {
+  const advanceToProvenBlock = async (getProvenBlockNumber: number) => {
     blockSource.setProvenBlockNumber(getProvenBlockNumber);
-    blockSource.setProvenEpochNumber(provenEpochNumber);
-    await retryUntil(
-      () => Promise.resolve(client.getSyncedProvenBlockNum() >= getProvenBlockNumber),
-      'synced',
-      10,
-      0.1,
-    );
+    await retryUntil(async () => (await client.getSyncedProvenBlockNum()) >= getProvenBlockNumber, 'synced', 10, 0.1);
   };
 
   afterEach(async () => {
     if (client.isReady()) {
       await client.stop();
     }
+    await kvStore.close();
   });
 
   it('can start & stop', async () => {
@@ -108,8 +73,8 @@ describe('In-Memory P2P Client', () => {
 
   it('adds txs to pool', async () => {
     await client.start();
-    const tx1 = mockTx();
-    const tx2 = mockTx();
+    const tx1 = await mockTx();
+    const tx2 = await mockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
@@ -119,35 +84,25 @@ describe('In-Memory P2P Client', () => {
 
   it('rejects txs after being stopped', async () => {
     await client.start();
-    const tx1 = mockTx();
-    const tx2 = mockTx();
+    const tx1 = await mockTx();
+    const tx2 = await mockTx();
     await client.sendTx(tx1);
     await client.sendTx(tx2);
 
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
     await client.stop();
-    const tx3 = mockTx();
+    const tx3 = await mockTx();
     await expect(client.sendTx(tx3)).rejects.toThrow();
     expect(txPool.addTxs).toHaveBeenCalledTimes(2);
   });
 
-  it('republishes previously stored txs on start', async () => {
-    const tx1 = mockTx();
-    const tx2 = mockTx();
-    txPool.getAllTxs.mockReturnValue([tx1, tx2]);
-
-    await client.start();
-    expect(p2pService.propagate).toHaveBeenCalledTimes(2);
-    expect(p2pService.propagate).toHaveBeenCalledWith(tx1);
-    expect(p2pService.propagate).toHaveBeenCalledWith(tx2);
-  });
-
   it('restores the previous block number it was at', async () => {
     await client.start();
+    const synchedBlock = await client.getSyncedLatestBlockNum();
     await client.stop();
 
-    const client2 = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
-    expect(client2.getSyncedLatestBlockNum()).toEqual(client.getSyncedLatestBlockNum());
+    const client2 = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService);
+    await expect(client2.getSyncedLatestBlockNum()).resolves.toEqual(synchedBlock);
   });
 
   it('deletes txs once block is proven', async () => {
@@ -161,7 +116,9 @@ describe('In-Memory P2P Client', () => {
   });
 
   it('deletes txs after waiting the set number of blocks', async () => {
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 10, telemetryClient);
+    client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+      keepProvenTxsInPoolFor: 10,
+    });
     blockSource.setProvenBlockNumber(0);
     await client.start();
     expect(txPool.deleteTxs).not.toHaveBeenCalled();
@@ -177,63 +134,138 @@ describe('In-Memory P2P Client', () => {
     await client.stop();
   });
 
-  it('stores and returns epoch proof quotes', async () => {
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+  describe('Chain prunes', () => {
+    it('moves the tips on a chain reorg', async () => {
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
 
-    blockSource.setProvenEpochNumber(2);
-    await client.start();
+      await advanceToProvenBlock(90);
 
-    const proofQuotes = [
-      mockEpochProofQuote(3n),
-      mockEpochProofQuote(2n),
-      mockEpochProofQuote(3n),
-      mockEpochProofQuote(4n),
-      mockEpochProofQuote(2n),
-      mockEpochProofQuote(3n),
-    ];
+      await expect(client.getL2Tips()).resolves.toEqual({
+        latest: { number: 100, hash: expect.any(String) },
+        proven: { number: 90, hash: expect.any(String) },
+        finalized: { number: 90, hash: expect.any(String) },
+      });
 
-    for (const quote of proofQuotes) {
-      client.broadcastEpochProofQuote(quote);
-    }
-    expect(epochProofQuotePool.addQuote).toBeCalledTimes(proofQuotes.length);
+      blockSource.removeBlocks(10);
 
-    for (let i = 0; i < proofQuotes.length; i++) {
-      expect(epochProofQuotePool.addQuote).toHaveBeenNthCalledWith(i + 1, proofQuotes[i]);
-    }
-    expect(epochProofQuotePool.addQuote).toBeCalledTimes(proofQuotes.length);
+      await client.sync();
 
-    await client.getEpochProofQuotes(2n);
+      await expect(client.getL2Tips()).resolves.toEqual({
+        latest: { number: 90, hash: expect.any(String) },
+        proven: { number: 90, hash: expect.any(String) },
+        finalized: { number: 90, hash: expect.any(String) },
+      });
 
-    expect(epochProofQuotePool.getQuotes).toBeCalledTimes(1);
-    expect(epochProofQuotePool.getQuotes).toBeCalledWith(2n);
+      blockSource.addBlocks([await L2Block.random(91), await L2Block.random(92)]);
+
+      await client.sync();
+
+      await expect(client.getL2Tips()).resolves.toEqual({
+        latest: { number: 92, hash: expect.any(String) },
+        proven: { number: 90, hash: expect.any(String) },
+        finalized: { number: 90, hash: expect.any(String) },
+      });
+    });
+
+    it('deletes txs created from a pruned block', async () => {
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+        keepProvenTxsInPoolFor: 10,
+      });
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
+
+      // add two txs to the pool. One build against block 90, one against block 95
+      // then prune the chain back to block 90
+      // only one tx should be deleted
+      const goodTx = await mockTx();
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
+
+      const badTx = await mockTx();
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
+
+      txPool.getAllTxs.mockResolvedValue([goodTx, badTx]);
+
+      blockSource.removeBlocks(10);
+      await client.sync();
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
+      await client.stop();
+    });
+
+    it('moves mined and valid txs back to the pending set', async () => {
+      client = new P2PClient(P2PClientType.Full, kvStore, blockSource, mempools, p2pService, {
+        keepProvenTxsInPoolFor: 10,
+      });
+      blockSource.setProvenBlockNumber(0);
+      await client.start();
+
+      // add three txs to the pool built against different blocks
+      // then prune the chain back to block 90
+      // only one tx should be deleted
+      const goodButOldTx = await mockTx();
+      goodButOldTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(89);
+
+      const goodTx = await mockTx();
+      goodTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(90);
+
+      const badTx = await mockTx();
+      badTx.data.constants.historicalHeader.globalVariables.blockNumber = new Fr(95);
+
+      txPool.getAllTxs.mockResolvedValue([goodButOldTx, goodTx, badTx]);
+      txPool.getMinedTxHashes.mockResolvedValue([
+        [await goodButOldTx.getTxHash(), 90],
+        [await goodTx.getTxHash(), 91],
+      ]);
+
+      blockSource.removeBlocks(10);
+      await client.sync();
+      expect(txPool.deleteTxs).toHaveBeenCalledWith([await badTx.getTxHash()]);
+      expect(txPool.markMinedAsPending).toHaveBeenCalledWith([await goodTx.getTxHash()]);
+      await client.stop();
+    });
   });
 
-  it('deletes expired proof quotes', async () => {
-    client = new P2PClient(kvStore, blockSource, mempools, p2pService, 0, telemetryClient);
+  describe('Attestation pool pruning', () => {
+    it('deletes attestations older than the number of slots we want to keep in the pool', async () => {
+      const advanceToProvenBlockNumber = 20;
+      const keepAttestationsInPoolFor = 12;
 
-    blockSource.setProvenEpochNumber(1);
-    blockSource.setProvenBlockNumber(1);
-    await client.start();
+      const deleteAttestationsOlderThanSpy = jest.spyOn(attestationPool, 'deleteAttestationsOlderThan');
 
-    const proofQuotes = [
-      mockEpochProofQuote(3n),
-      mockEpochProofQuote(2n),
-      mockEpochProofQuote(3n),
-      mockEpochProofQuote(4n),
-      mockEpochProofQuote(2n),
-      mockEpochProofQuote(3n),
-    ];
+      blockSource.setProvenBlockNumber(0);
+      (client as any).keepAttestationsInPoolFor = keepAttestationsInPoolFor;
+      await client.start();
+      expect(deleteAttestationsOlderThanSpy).not.toHaveBeenCalled();
 
-    for (const quote of proofQuotes) {
-      client.broadcastEpochProofQuote(quote);
-    }
+      await advanceToProvenBlock(advanceToProvenBlockNumber);
 
-    epochProofQuotePool.deleteQuotesToEpoch.mockReset();
-
-    await advanceToProvenBlock(3, 3);
-
-    expect(epochProofQuotePool.deleteQuotesToEpoch).toBeCalledWith(3n);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledTimes(1);
+      expect(deleteAttestationsOlderThanSpy).toHaveBeenCalledWith(
+        BigInt(advanceToProvenBlockNumber - keepAttestationsInPoolFor),
+      );
+    });
   });
 
-  // TODO(https://github.com/AztecProtocol/aztec-packages/issues/7971): tests for attestation pool pruning
+  describe('Block stream events', () => {
+    it('adds attestations to the pool', async () => {
+      await client.start();
+      const block = await randomPublishedL2Block(1);
+      const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
+      await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      expect(addAttestationsSpy).toHaveBeenCalledWith(
+        block.signatures.map(signature => expect.objectContaining({ signature })),
+      );
+    });
+
+    it('handles empty signatures in block stream events', async () => {
+      await client.start();
+      const block = await randomPublishedL2Block(1);
+      block.signatures[0] = Signature.empty();
+      const addAttestationsSpy = jest.spyOn(attestationPool, 'addAttestations');
+      await client.handleBlockStreamEvent({ type: 'blocks-added', blocks: [block] });
+      expect(addAttestationsSpy).toHaveBeenCalledWith(
+        block.signatures.filter(sig => !sig.isEmpty).map(signature => expect.objectContaining({ signature })),
+      );
+    });
+  });
 });

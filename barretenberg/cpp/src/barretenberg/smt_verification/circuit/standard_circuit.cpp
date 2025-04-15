@@ -24,12 +24,7 @@ StandardCircuit::StandardCircuit(
     , selectors(circuit_info.selectors[0])
     , wires_idxs(circuit_info.wires[0])
 {
-    variable_names[1] = "one";
-    variable_names_inverse.insert({ "one", 1 });
-    symbolic_vars[1] = STerm::Var("one" + this->tag, this->solver, this->type);
-    symbolic_vars[1] == 1;
-    optimized[1] = false;
-
+    this->symbolic_vars[this->variable_names_inverse["one"]] == bb::fr::one();
     // Perform all relaxations for gates or
     // add gate in its normal state to solver
     size_t i = 0;
@@ -108,32 +103,32 @@ size_t StandardCircuit::prepare_gates(size_t cursor)
     // TODO(alex): Test the effect of this relaxation after the tests are merged.
     if (univariate_flag) {
         if ((q_m == 1) && (q_1 == 0) && (q_2 == 0) && (q_3 == -1) && (q_c == 0)) {
-            (Bool(symbolic_vars[w_l]) ==
+            (Bool(this->symbolic_vars[w_l]) ==
                  Bool(STerm(0, this->solver, this->type)) | // STerm(0, this->solver, this->type)) |
-             Bool(symbolic_vars[w_l]) ==
+             Bool(this->symbolic_vars[w_l]) ==
                  Bool(STerm(1, this->solver, this->type))) // STerm(1, this->solver, this->type)))
                 .assert_term();
         } else {
             this->handle_univariate_constraint(q_m, q_1, q_2, q_3, q_c, w_l);
         }
     } else {
-        STerm eq = symbolic_vars[0];
+        STerm eq = this->symbolic_vars[this->variable_names_inverse["zero"]];
 
         // mul selector
         if (q_m != 0) {
-            eq += symbolic_vars[w_l] * symbolic_vars[w_r] * q_m;
+            eq += this->symbolic_vars[w_l] * this->symbolic_vars[w_r] * q_m;
         }
         // left selector
         if (q_1 != 0) {
-            eq += symbolic_vars[w_l] * q_1;
+            eq += this->symbolic_vars[w_l] * q_1;
         }
         // right selector
         if (q_2 != 0) {
-            eq += symbolic_vars[w_r] * q_2;
+            eq += this->symbolic_vars[w_r] * q_2;
         }
         // out selector
         if (q_3 != 0) {
-            eq += symbolic_vars[w_o] * q_3;
+            eq += this->symbolic_vars[w_o] * q_3;
         }
         // constant selector
         if (q_c != 0) {
@@ -162,7 +157,7 @@ void StandardCircuit::handle_univariate_constraint(
     bb::fr b = q_1 + q_2 + q_3;
 
     if (q_m == 0) {
-        symbolic_vars[w] == -q_c / b;
+        this->symbolic_vars[w] == -q_c / b;
         return;
     }
 
@@ -174,10 +169,10 @@ void StandardCircuit::handle_univariate_constraint(
     bb::fr x2 = (-b - d.second) / (bb::fr(2) * q_m);
 
     if (d.second == 0) {
-        symbolic_vars[w] == STerm(x1, this->solver, type);
+        this->symbolic_vars[w] == STerm(x1, this->solver, type);
     } else {
-        ((Bool(symbolic_vars[w]) == Bool(STerm(x1, this->solver, this->type))) |
-         (Bool(symbolic_vars[w]) == Bool(STerm(x2, this->solver, this->type))))
+        ((Bool(this->symbolic_vars[w]) == Bool(STerm(x1, this->solver, this->type))) |
+         (Bool(this->symbolic_vars[w]) == Bool(STerm(x2, this->solver, this->type))))
             .assert_term();
     }
 }
@@ -264,7 +259,7 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
                     (j % single_iteration_size != relative_acc_idx) || (j == relative_acc_idx) ||
                     (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - single_iteration_size][2]);
                 and_flag &=
-                    (j % single_iteration_size != relative_acc_index) || (j == relative_acc_index) ||
+                    (j % single_iteration_size != relative_acc_idx) || (j == relative_acc_idx) ||
                     (this->wires_idxs[j + cursor][0] == this->wires_idxs[j + cursor - single_iteration_size][2]);
 
                 if (!xor_flag && !and_flag) {
@@ -290,8 +285,6 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
         }
     }
 
-    // TODO(alex): Figure out if I need to create range constraint here too or it'll be
-    // created anyway in any circuit
     if (res != static_cast<size_t>(-1)) {
         CircuitProps xor_props = get_standard_logic_circuit(res, true);
         CircuitProps and_props = get_standard_logic_circuit(res, false);
@@ -311,6 +304,47 @@ size_t StandardCircuit::handle_logic_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm right = this->symbolic_vars[right_idx];
         STerm out = this->symbolic_vars[out_idx];
+
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the create_logic_constraint gate by gate using BitVectors/Integers
+        size_t num_bits = res;
+        size_t processed_gates = 0;
+        for (size_t i = num_bits - 1; i < num_bits; i -= 2) {
+            // 8 here is the number of gates we have to skip to get proper indices
+            processed_gates += 8;
+            uint32_t left_quad_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            uint32_t left_lo_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][1]];
+            uint32_t left_hi_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            processed_gates += 1;
+            uint32_t right_quad_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            uint32_t right_lo_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][1]];
+            uint32_t right_hi_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            processed_gates += 1;
+            uint32_t out_quad_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            uint32_t out_lo_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][1]];
+            uint32_t out_hi_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            processed_gates += 1;
+            uint32_t old_left_acc_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            processed_gates += 1;
+            uint32_t old_right_acc_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            processed_gates += 1;
+            uint32_t old_out_acc_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            processed_gates += 1;
+
+            this->symbolic_vars[old_left_acc_idx] == (left >> static_cast<uint32_t>(i - 1));
+            this->symbolic_vars[left_quad_idx] == (this->symbolic_vars[old_left_acc_idx] & 3);
+            this->symbolic_vars[left_lo_idx] == (this->symbolic_vars[left_quad_idx] & 1);
+            this->symbolic_vars[left_hi_idx] == (this->symbolic_vars[left_quad_idx] >> 1);
+            this->symbolic_vars[old_right_acc_idx] == (right >> static_cast<uint32_t>(i - 1));
+            this->symbolic_vars[right_quad_idx] == (this->symbolic_vars[old_right_acc_idx] & 3);
+            this->symbolic_vars[right_lo_idx] == (this->symbolic_vars[right_quad_idx] & 1);
+            this->symbolic_vars[right_hi_idx] == (this->symbolic_vars[right_quad_idx] >> 1);
+            this->symbolic_vars[old_out_acc_idx] == (out >> static_cast<uint32_t>(i - 1));
+            this->symbolic_vars[out_quad_idx] == (this->symbolic_vars[old_out_acc_idx] & 3);
+            this->symbolic_vars[out_lo_idx] == (this->symbolic_vars[out_quad_idx] & 1);
+            this->symbolic_vars[out_hi_idx] == (this->symbolic_vars[out_quad_idx] >> 1);
+        }
 
         if (logic_flag) {
             (left ^ right) == out;
@@ -427,19 +461,44 @@ size_t StandardCircuit::handle_range_constraint(size_t cursor)
         // we need this because even right shifts do not create
         // any additional gates and therefore are undetectible
 
-        // TODO(alex): I think I should simulate the whole subcircuit at that point
-        // Otherwise optimized out variables are not correct in the final witness
-        // And I can't fix them by hand each time
-        size_t num_accs = range_props.gate_idxs.size() - 1;
-        for (size_t j = 1; j < num_accs + 1 && (this->type == TermType::BVTerm); j++) {
-            size_t acc_gate = range_props.gate_idxs[j];
-            uint32_t acc_gate_idx = range_props.idxs[j];
+        // Simulate the range constraint circuit using the bitwise operations
+        size_t num_bits = res;
+        size_t num_quads = num_bits >> 1;
+        num_quads += num_bits & 1;
+        uint32_t processed_gates = 0;
 
-            uint32_t acc_idx = this->real_variable_index[this->wires_idxs[cursor + acc_gate][acc_gate_idx]];
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the decompose_into_base4_accumulators gate by gate using BitVectors/Integers
+        for (size_t i = num_quads - 1; i < num_quads; i--) {
+            uint32_t lo_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            processed_gates += 1;
+            uint32_t quad_idx = 0;
+            uint32_t old_accumulator_idx = 0;
+            uint32_t hi_idx = 0;
 
-            this->symbolic_vars[acc_idx] == (left >> static_cast<uint32_t>(2 * j));
-            // I think the following is worse. The name of the variable is lost after that
-            // this->symbolic_vars[acc_idx] = (left >> static_cast<uint32_t>(2 * j));
+            if (i == num_quads - 1 && ((num_bits & 1) == 1)) {
+                quad_idx = lo_idx;
+            } else {
+                hi_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+                processed_gates += 1;
+                quad_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+                processed_gates += 1;
+            }
+
+            if (i == num_quads - 1) {
+                old_accumulator_idx = quad_idx;
+            } else {
+                old_accumulator_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+                processed_gates += 1;
+            }
+
+            this->symbolic_vars[old_accumulator_idx] == (left >> static_cast<uint32_t>(2 * i));
+            this->symbolic_vars[quad_idx] == (this->symbolic_vars[old_accumulator_idx] & 3);
+            this->symbolic_vars[lo_idx] == (this->symbolic_vars[quad_idx] & 1);
+            if (i != (num_quads - 1) || ((num_bits)&1) != 1) {
+                this->symbolic_vars[hi_idx] == (this->symbolic_vars[quad_idx] >> 1);
+            }
         }
 
         left <= (bb::fr(2).pow(res) - 1);
@@ -550,8 +609,37 @@ size_t StandardCircuit::handle_shr_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        STerm shled = left >> nr.second;
-        out == shled;
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the uint's operator>> gate by gate using BitVectors/Integers
+        uint32_t shift = nr.second;
+        if ((shift & 1) == 1) {
+            size_t processed_gates = 0;
+            uint32_t c_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            uint32_t delta_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[delta_idx] == (this->symbolic_vars[c_idx] & 3);
+            STerm delta = this->symbolic_vars[delta_idx];
+            processed_gates += 1;
+            uint32_t r0_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+
+            // this->symbolic_vars[r0_idx] == (-2 * delta * delta + 9 * delta - 7);
+            this->post_process.insert({ r0_idx, { delta_idx, delta_idx, -2, 9, 0, -7 } });
+
+            processed_gates += 1;
+            uint32_t r1_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[r1_idx] == (delta >> 1) * 6;
+            processed_gates += 1;
+            uint32_t r2_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[r2_idx] == (left >> shift) * 6;
+            processed_gates += 1;
+            uint32_t temp_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+
+            // this->symbolic_vars[temp_idx] == -6 * out;
+            this->post_process.insert({ temp_idx, { out_idx, out_idx, 0, -6, 0, 0 } });
+        }
+
+        STerm shred = left >> nr.second;
+        out == shred;
 
         // You have to mark these arguments so they won't be optimized out
         optimized[left_idx] = false;
@@ -657,7 +745,37 @@ size_t StandardCircuit::handle_shl_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        STerm shled = (left << nr.second) & (bb::fr(2).pow(nr.first) - 1);
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the uint's operator<< gate by gate using BitVectors/Integers
+        uint32_t num_bits = nr.first;
+        uint32_t shift = nr.second;
+        if ((shift & 1) == 1) {
+            size_t processed_gates = 0;
+            uint32_t c_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            uint32_t delta_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[delta_idx] == (this->symbolic_vars[c_idx] & 3);
+            STerm delta = this->symbolic_vars[delta_idx];
+            processed_gates += 1;
+            uint32_t r0_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+
+            // this->symbolic_vars[r0_idx] == (-2 * delta * delta + 9 * delta - 7);
+            this->post_process.insert({ r0_idx, { delta_idx, delta_idx, -2, 9, 0, -7 } });
+
+            processed_gates += 1;
+            uint32_t r1_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[r1_idx] == (delta >> 1) * 6;
+            processed_gates += 1;
+            uint32_t r2_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[r2_idx] == (left >> (num_bits - shift)) * 6;
+            processed_gates += 1;
+            uint32_t temp_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+
+            // this->symbolic_vraiables[temp_idx] == -6 * r2
+            this->post_process.insert({ temp_idx, { r2_idx, r2_idx, 0, -1, 0, 0 } });
+        }
+
+        STerm shled = (left << shift) & (bb::fr(2).pow(num_bits) - 1);
         out == shled;
 
         // You have to mark these arguments so they won't be optimized out
@@ -765,7 +883,37 @@ size_t StandardCircuit::handle_ror_constraint(size_t cursor)
         STerm left = this->symbolic_vars[left_idx];
         STerm out = this->symbolic_vars[out_idx];
 
-        STerm rored = ((left >> nr.second) | (left << (nr.first - nr.second))) & (bb::fr(2).pow(nr.first) - 1);
+        // Initializing the parts of the witness that were optimized
+        // during the symbolic constraints initialization
+        // i.e. simulating the uint's rotate_right gate by gate using BitVectors/Integers
+        uint32_t num_bits = nr.first;
+        uint32_t rotation = nr.second;
+        if ((rotation & 1) == 1) {
+            size_t processed_gates = 0;
+            uint32_t c_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][0]];
+            uint32_t delta_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[delta_idx] == (this->symbolic_vars[c_idx] & 3);
+            STerm delta = this->symbolic_vars[delta_idx];
+            processed_gates += 1;
+            uint32_t r0_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+
+            // this->symbolic_vars[r0_idx] == (-2 * delta * delta + 9 * delta - 7);
+            this->post_process.insert({ r0_idx, { delta_idx, delta_idx, -2, 9, 0, -7 } });
+
+            processed_gates += 1;
+            uint32_t r1_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[r1_idx] == (delta >> 1) * 6;
+            processed_gates += 1;
+            uint32_t r2_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+            this->symbolic_vars[r2_idx] == (left >> rotation) * 6;
+            processed_gates += 1;
+            uint32_t temp_idx = this->real_variable_index[this->wires_idxs[cursor + processed_gates][2]];
+
+            // this->symbolic_vraiables[temp_idx] == -6 * r2
+            this->post_process.insert({ temp_idx, { r2_idx, r2_idx, 0, -1, 0, 0 } });
+        }
+
+        STerm rored = ((left >> rotation) | (left << (num_bits - rotation))) & (bb::fr(2).pow(num_bits) - 1);
         out == rored;
 
         // You have to mark these arguments so they won't be optimized out

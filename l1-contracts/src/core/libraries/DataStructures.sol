@@ -2,8 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Epoch} from "@aztec/core/libraries/TimeMath.sol";
-
 /**
  * @title Data Structures Library
  * @author Aztec Labs
@@ -41,12 +39,14 @@ library DataStructures {
    * @param recipient - The recipient of the message
    * @param content - The content of the message (application specific) padded to bytes32 or hashed if larger.
    * @param secretHash - The secret hash of the message (make it possible to hide when a specific message is consumed on L2).
+   * @param index - Global leaf index on the L1 to L2 messages tree.
    */
   struct L1ToL2Msg {
     L1Actor sender;
     L2Actor recipient;
     bytes32 content;
     bytes32 secretHash;
+    uint256 index;
   }
   // docs:end:l1_to_l2_msg
 
@@ -64,30 +64,4 @@ library DataStructures {
     bytes32 content;
   }
   // docs:end:l2_to_l1_msg
-
-  /**
-   * @notice Struct for storing flags for block header validation
-   * @param ignoreDA - True will ignore DA check, otherwise checks
-   * @param ignoreSignature - True will ignore the signatures, otherwise checks
-   */
-  struct ExecutionFlags {
-    bool ignoreDA;
-    bool ignoreSignatures;
-  }
-
-  /**
-   * @notice Struct containing the Epoch Proof Claim
-   * @param epochToProve - the epoch that the bond provider is claiming to prove
-   * @param basisPointFee the fee that the bond provider will receive as a percentage of the block rewards
-   * @param bondAmount - the size of the bond
-   * @param bondProvider - the address that put up the bond
-   * @param proposerClaimant - the address of the proposer that submitted the claim
-   */
-  struct EpochProofClaim {
-    Epoch epochToProve;
-    uint256 basisPointFee;
-    uint256 bondAmount;
-    address bondProvider;
-    address proposerClaimant;
-  }
 }

@@ -1,23 +1,24 @@
 #pragma once
-#include "barretenberg/execution_trace/execution_trace.hpp"
-#include "barretenberg/plonk_honk_shared/arithmetization/mega_arithmetization.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
+#include <utility>
+
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
+#include "barretenberg/plonk_honk_shared/execution_trace/mega_execution_trace.hpp"
+#include "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp"
 #include "databus.hpp"
 #include "ultra_circuit_builder.hpp"
 
 namespace bb {
 
-template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaArith<FF>> {
+template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<MegaExecutionTraceBlocks> {
   private:
     DataBus databus; // Container for public calldata/returndata
 
   public:
-    using Arithmetization = MegaArith<FF>;
+    using ExecutionTrace = MegaExecutionTraceBlocks;
 
-    static constexpr std::string_view NAME_STRING = "MegaArithmetization";
     static constexpr CircuitType CIRCUIT_TYPE = CircuitType::ULTRA;
     static constexpr size_t DEFAULT_NON_NATIVE_FIELD_LIMB_BITS =
-        UltraCircuitBuilder_<MegaArith<FF>>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
+        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::DEFAULT_NON_NATIVE_FIELD_LIMB_BITS;
 
     // Stores record of ecc operations and performs corresponding native operations internally
     std::shared_ptr<ECCOpQueue> op_queue;
@@ -45,12 +46,17 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
   public:
     MegaCircuitBuilder_(const size_t size_hint = 0,
                         std::shared_ptr<ECCOpQueue> op_queue_in = std::make_shared<ECCOpQueue>())
-        : UltraCircuitBuilder_<MegaArith<FF>>(size_hint)
-        , op_queue(op_queue_in)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(size_hint)
+        , op_queue(std::move(op_queue_in))
     {
+        PROFILE_THIS();
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        op_queue->initialize_new_subtable();
+
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
+
     MegaCircuitBuilder_(std::shared_ptr<ECCOpQueue> op_queue_in)
         : MegaCircuitBuilder_(0, op_queue_in)
     {}
@@ -73,9 +79,12 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
                         auto& witness_values,
                         const std::vector<uint32_t>& public_inputs,
                         size_t varnum)
-        : UltraCircuitBuilder_<MegaArith<FF>>(/*size_hint=*/0, witness_values, public_inputs, varnum)
-        , op_queue(op_queue_in)
+        : UltraCircuitBuilder_<MegaExecutionTraceBlocks>(/*size_hint=*/0, witness_values, public_inputs, varnum)
+        , op_queue(std::move(op_queue_in))
     {
+        // Instantiate the subtable to be populated with goblin ecc ops from this circuit
+        op_queue->initialize_new_subtable();
+
         // Set indices to constants corresponding to Goblin ECC op codes
         set_goblin_ecc_op_code_constant_variables();
     };
@@ -88,25 +97,21 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      */
     uint32_t get_ecc_op_idx(const EccOpCode& op_code)
     {
-        switch (op_code) {
-        case NULL_OP: {
-            return null_op_idx;
-        }
-        case ADD_ACCUM: {
+        if (op_code.add) {
             return add_accum_op_idx;
         }
-        case MUL_ACCUM: {
+        if (op_code.mul) {
             return mul_accum_op_idx;
         }
-        case EQUALITY: {
+        if (op_code.eq && op_code.reset) {
             return equality_op_idx;
         }
-        default: {
-            ASSERT(false);
-            break;
+        if (!op_code.add && !op_code.mul && !op_code.eq && !op_code.reset) {
+            return null_op_idx;
         }
-        }
-        return null_op_idx;
+
+        throw_or_abort("Invalid op code");
+        return 0;
     }
 
     void finalize_circuit(const bool ensure_nonzero);
@@ -127,7 +132,7 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      */
     size_t get_estimated_num_finalized_gates() const override
     {
-        auto num_ultra_gates = UltraCircuitBuilder_<MegaArith<FF>>::get_estimated_num_finalized_gates();
+        auto num_ultra_gates = UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_estimated_num_finalized_gates();
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
         return num_ultra_gates + num_goblin_ecc_op_gates;
     }
@@ -152,14 +157,14 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
      * @brief Print the number and composition of gates in the circuit
      *
      */
-    virtual void print_num_estimated_finalized_gates() const override
+    void print_num_estimated_finalized_gates() const override
     {
         size_t count = 0;
         size_t rangecount = 0;
         size_t romcount = 0;
         size_t ramcount = 0;
         size_t nnfcount = 0;
-        UltraCircuitBuilder_<MegaArith<FF>>::get_num_estimated_gates_split_into_components(
+        UltraCircuitBuilder_<MegaExecutionTraceBlocks>::get_num_estimated_gates_split_into_components(
             count, rangecount, romcount, ramcount, nnfcount);
         auto num_goblin_ecc_op_gates = this->blocks.ecc_op.size();
 
@@ -231,9 +236,9 @@ template <typename FF> class MegaCircuitBuilder_ : public UltraCircuitBuilder_<M
         databus[static_cast<size_t>(bus_idx)].append(witness_idx);
     }
 
-    const BusVector& get_calldata() { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
-    const BusVector& get_secondary_calldata() { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
-    const BusVector& get_return_data() { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
+    const BusVector& get_calldata() const { return databus[static_cast<size_t>(BusId::CALLDATA)]; }
+    const BusVector& get_secondary_calldata() const { return databus[static_cast<size_t>(BusId::SECONDARY_CALLDATA)]; }
+    const BusVector& get_return_data() const { return databus[static_cast<size_t>(BusId::RETURNDATA)]; }
 };
 using MegaCircuitBuilder = MegaCircuitBuilder_<bb::fr>;
 } // namespace bb

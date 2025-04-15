@@ -1,15 +1,15 @@
-import { createCompatibleClient } from '@aztec/aztec.js';
-import { FeeJuicePortalManager, prettyPrintJSON } from '@aztec/cli/utils';
+import { L1FeeJuicePortalManager, type PXE } from '@aztec/aztec.js';
+import { prettyPrintJSON } from '@aztec/cli/utils';
 import { createEthereumChain, createL1Clients } from '@aztec/ethereum';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
 import { Fr } from '@aztec/foundation/fields';
-import { type DebugLogger, type LogFn } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 export async function bridgeL1FeeJuice(
   amount: bigint,
   recipient: AztecAddress,
-  rpcUrl: string,
-  l1RpcUrl: string,
+  pxe: PXE,
+  l1RpcUrls: string[],
   chainId: number,
   privateKey: string | undefined,
   mnemonic: string,
@@ -18,27 +18,29 @@ export async function bridgeL1FeeJuice(
   wait: boolean,
   interval = 60_000,
   log: LogFn,
-  debugLogger: DebugLogger,
+  debugLogger: Logger,
 ) {
   // Prepare L1 client
-  const chain = createEthereumChain(l1RpcUrl, chainId);
-  const { publicClient, walletClient } = createL1Clients(chain.rpcUrl, privateKey ?? mnemonic, chain.chainInfo);
-
-  // Prepare L2 client
-  const client = await createCompatibleClient(rpcUrl, debugLogger);
+  const chain = createEthereumChain(l1RpcUrls, chainId);
+  const { publicClient, walletClient } = createL1Clients(chain.rpcUrls, privateKey ?? mnemonic, chain.chainInfo);
 
   const {
     protocolContractAddresses: { feeJuice: feeJuiceAddress },
-  } = await client.getPXEInfo();
+  } = await pxe.getPXEInfo();
 
   // Setup portal manager
-  const portal = await FeeJuicePortalManager.new(client, publicClient, walletClient, debugLogger);
-  const { claimAmount, claimSecret, messageHash } = await portal.bridgeTokensPublic(recipient, amount, mint);
+  const portal = await L1FeeJuicePortalManager.new(pxe, publicClient, walletClient, debugLogger);
+  const { claimAmount, claimSecret, messageHash, messageLeafIndex } = await portal.bridgeTokensPublic(
+    recipient,
+    amount,
+    mint,
+  );
 
   if (json) {
     const out = {
       claimAmount,
       claimSecret,
+      messageLeafIndex,
     };
     log(prettyPrintJSON(out));
   } else {
@@ -47,7 +49,9 @@ export async function bridgeL1FeeJuice(
     } else {
       log(`Bridged ${claimAmount} fee juice to L2 portal`);
     }
-    log(`claimAmount=${claimAmount},claimSecret=${claimSecret},messageHash=${messageHash}\n`);
+    log(
+      `claimAmount=${claimAmount},claimSecret=${claimSecret},messageHash=${messageHash},messageLeafIndex=${messageLeafIndex}\n`,
+    );
     log(`Note: You need to wait for two L2 blocks before pulling them from the L2 side`);
     if (wait) {
       log(
@@ -60,14 +64,12 @@ export async function bridgeL1FeeJuice(
 
   if (wait) {
     const delayedCheck = (delay: number) => {
-      return new Promise(resolve => {
-        setTimeout(async () => {
-          const witness = await client.getL1ToL2MembershipWitness(
-            feeJuiceAddress,
-            Fr.fromString(messageHash),
-            claimSecret,
-          );
-          resolve(witness);
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          void pxe
+            .getL1ToL2MembershipWitness(feeJuiceAddress, Fr.fromHexString(messageHash), claimSecret)
+            .then(witness => resolve(witness))
+            .catch(err => reject(err));
         }, delay);
       });
     };
@@ -82,5 +84,5 @@ export async function bridgeL1FeeJuice(
     }
   }
 
-  return claimSecret;
+  return [claimSecret, messageLeafIndex] as const;
 }

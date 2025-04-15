@@ -1,0 +1,5 @@
+PowerNowTest
+├── given no checkpoints
+│   └── it return 0
+└── given checkpoints
+    └── it return power at last checkpoint

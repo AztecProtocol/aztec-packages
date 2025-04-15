@@ -1,95 +1,112 @@
 import { SchnorrAccountContractArtifact } from '@aztec/accounts/schnorr';
-import { createAccounts, getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import {
+  type InitialAccountData,
+  deployFundedSchnorrAccounts,
+  generateSchnorrAccounts,
+  getDeployedTestAccounts,
+  getDeployedTestAccountsWallets,
+} from '@aztec/accounts/testing';
+import { type Archiver, createArchiver } from '@aztec/archiver';
 import { type AztecNodeConfig, AztecNodeService, getConfigEnvVars } from '@aztec/aztec-node';
 import {
   type AccountWalletWithSecretKey,
-  AnvilTestWatcher,
   type AztecAddress,
   type AztecNode,
   BatchCall,
-  CheatCodes,
   type ContractMethod,
-  type DebugLogger,
-  type DeployL1Contracts,
-  EncryptedNoteL2BlockL2Logs,
-  EthCheatCodes,
-  type L1ContractArtifactsForDeployment,
-  LogType,
-  NoFeePaymentMethod,
+  type Logger,
   type PXE,
-  type SentTx,
   SignerlessWallet,
   type Wallet,
   createAztecNodeClient,
-  createDebugLogger,
+  createLogger,
   createPXEClient,
-  deployL1Contracts,
   makeFetch,
   waitForPXE,
 } from '@aztec/aztec.js';
 import { deployInstance, registerContractClass } from '@aztec/aztec.js/deployment';
-import { DefaultMultiCallEntrypoint } from '@aztec/aztec.js/entrypoint';
-import { type BBNativePrivateKernelProver } from '@aztec/bb-prover';
-import { type EthAddress, GasSettings, getContractClassFromArtifact } from '@aztec/circuits.js';
-import { NULL_KEY, isAnvilTestChain } from '@aztec/ethereum';
-import { makeBackoff, retry, retryUntil } from '@aztec/foundation/retry';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee/testing';
+import { AnvilTestWatcher, CheatCodes } from '@aztec/aztec.js/testing';
+import { createBlobSinkClient } from '@aztec/blob-sink/client';
+import { type BlobSinkServer, createBlobSinkServer } from '@aztec/blob-sink/server';
+import { GENESIS_ARCHIVE_ROOT, GENESIS_BLOCK_HASH, SPONSORED_FPC_SALT } from '@aztec/constants';
+import { DefaultMultiCallEntrypoint } from '@aztec/entrypoints/multicall';
 import {
-  FeeJuicePortalAbi,
-  FeeJuicePortalBytecode,
-  InboxAbi,
-  InboxBytecode,
-  OutboxAbi,
-  OutboxBytecode,
-  RegistryAbi,
-  RegistryBytecode,
-  RollupAbi,
-  RollupBytecode,
-  TestERC20Abi,
-  TestERC20Bytecode,
-} from '@aztec/l1-artifacts';
-import { FeeJuiceContract } from '@aztec/noir-contracts.js/FeeJuice';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types';
-import { ProtocolContractAddress, protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { PXEService, type PXEServiceConfig, createPXEService, getPXEServiceConfig } from '@aztec/pxe';
-import { type SequencerClient } from '@aztec/sequencer-client';
-import { createAndStartTelemetryClient, getConfigEnvVars as getTelemetryConfig } from '@aztec/telemetry-client/start';
+  type DeployL1ContractsArgs,
+  type DeployL1ContractsReturnType,
+  ForwarderContract,
+  NULL_KEY,
+  createL1Clients,
+  deployL1Contracts,
+  getL1ContractsConfigEnvVars,
+  isAnvilTestChain,
+  l1Artifacts,
+} from '@aztec/ethereum';
+import { DelayedTxUtils, EthCheatCodesWithState, startAnvil } from '@aztec/ethereum/test';
+import { randomBytes } from '@aztec/foundation/crypto';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr } from '@aztec/foundation/fields';
+import { retryUntil } from '@aztec/foundation/retry';
+import { TestDateProvider } from '@aztec/foundation/timer';
+import { SponsoredFPCContract } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { type ProverNode, type ProverNodeConfig, createProverNode } from '@aztec/prover-node';
+import {
+  type PXEService,
+  type PXEServiceConfig,
+  createPXEServiceWithSimulationProvider,
+  getPXEServiceConfig,
+} from '@aztec/pxe/server';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import type { TestSequencerClient } from '@aztec/sequencer-client/test';
+import { WASMSimulator } from '@aztec/simulator/client';
+import { SimulationProviderRecorderWrapper } from '@aztec/simulator/testing';
+import { getContractClassFromArtifact, getContractInstanceFromDeployParams } from '@aztec/stdlib/contract';
+import type { AztecNodeAdmin } from '@aztec/stdlib/interfaces/client';
+import type { PublicDataTreeLeaf } from '@aztec/stdlib/trees';
+import {
+  type TelemetryClient,
+  type TelemetryClientConfig,
+  getConfigEnvVars as getTelemetryConfig,
+  initTelemetryClient,
+} from '@aztec/telemetry-client';
+import { BenchmarkTelemetryClient } from '@aztec/telemetry-client/bench';
+import { getGenesisValues } from '@aztec/world-state/testing';
 
-import { type Anvil, createAnvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
+import fs from 'fs/promises';
 import getPort from 'get-port';
+import { tmpdir } from 'os';
 import * as path from 'path';
-import {
-  type Account,
-  type Chain,
-  type HDAccount,
-  type HttpTransport,
-  type PrivateKeyAccount,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
+import { type Chain, type HDAccount, type Hex, type PrivateKeyAccount, getContract } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
-import { MNEMONIC } from './fixtures.js';
+import { MNEMONIC, TEST_PEER_CHECK_INTERVAL_MS } from './fixtures.js';
 import { getACVMConfig } from './get_acvm_config.js';
 import { getBBConfig } from './get_bb_config.js';
 import { isMetricsLoggingRequested, setupMetricsLogger } from './logging.js';
 
 export { deployAndInitializeTokenAndBridgeContracts } from '../shared/cross_chain_test_harness.js';
+export { startAnvil };
 
 const { PXE_URL = '' } = process.env;
+const getAztecUrl = () => PXE_URL;
 
-const telemetryPromise = createAndStartTelemetryClient(getTelemetryConfig());
+let telemetry: TelemetryClient | undefined = undefined;
+function getTelemetryClient(partialConfig: Partial<TelemetryClientConfig> & { benchmark?: boolean } = {}) {
+  if (!telemetry) {
+    const config = { ...getTelemetryConfig(), ...partialConfig };
+    telemetry = config.benchmark ? new BenchmarkTelemetryClient() : initTelemetryClient(config);
+  }
+  return telemetry;
+}
 if (typeof afterAll === 'function') {
   afterAll(async () => {
-    const client = await telemetryPromise;
-    await client.stop();
+    await telemetry?.stop();
   });
 }
-
-const getAztecUrl = () => {
-  return PXE_URL;
-};
 
 export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
   const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
@@ -98,52 +115,21 @@ export const getPrivateKeyFromIndex = (index: number): Buffer | null => {
 };
 
 export const setupL1Contracts = async (
-  l1RpcUrl: string,
+  l1RpcUrls: string[],
   account: HDAccount | PrivateKeyAccount,
-  logger: DebugLogger,
-  args: {
-    salt?: number;
-    initialValidators?: EthAddress[];
-    assumeProvenThrough?: number;
-  } = {
-    assumeProvenThrough: Number.MAX_SAFE_INTEGER,
-  },
+  logger: Logger,
+  args: Partial<DeployL1ContractsArgs> = {},
   chain: Chain = foundry,
 ) => {
-  const l1Artifacts: L1ContractArtifactsForDeployment = {
-    registry: {
-      contractAbi: RegistryAbi,
-      contractBytecode: RegistryBytecode,
-    },
-    inbox: {
-      contractAbi: InboxAbi,
-      contractBytecode: InboxBytecode,
-    },
-    outbox: {
-      contractAbi: OutboxAbi,
-      contractBytecode: OutboxBytecode,
-    },
-    rollup: {
-      contractAbi: RollupAbi,
-      contractBytecode: RollupBytecode,
-    },
-    feeJuice: {
-      contractAbi: TestERC20Abi,
-      contractBytecode: TestERC20Bytecode,
-    },
-    feeJuicePortal: {
-      contractAbi: FeeJuicePortalAbi,
-      contractBytecode: FeeJuicePortalBytecode,
-    },
-  };
-
-  const l1Data = await deployL1Contracts(l1RpcUrl, account, chain, logger, l1Artifacts, {
-    l2FeeJuiceAddress: ProtocolContractAddress.FeeJuice,
+  const l1Data = await deployL1Contracts(l1RpcUrls, account, chain, logger, {
     vkTreeRoot: getVKTreeRoot(),
     protocolContractTreeRoot,
+    genesisArchiveRoot: args.genesisArchiveRoot ?? new Fr(GENESIS_ARCHIVE_ROOT),
+    genesisBlockHash: args.genesisBlockHash ?? new Fr(GENESIS_BLOCK_HASH),
     salt: args.salt,
     initialValidators: args.initialValidators,
-    assumeProvenThrough: args.assumeProvenThrough,
+    ...getL1ContractsConfigEnvVars(),
+    ...args,
   });
 
   return l1Data;
@@ -153,18 +139,15 @@ export const setupL1Contracts = async (
  * Sets up Private eXecution Environment (PXE).
  * @param aztecNode - An instance of Aztec Node.
  * @param opts - Partial configuration for the PXE service.
- * @param firstPrivKey - The private key of the first account to be created.
  * @param logger - The logger to be used.
  * @param useLogSuffix - Whether to add a randomly generated suffix to the PXE debug logs.
- * @param proofCreator - An optional proof creator to use
- * @returns Private eXecution Environment (PXE), accounts, wallets and logger.
+ * @returns Private eXecution Environment (PXE), logger and teardown function.
  */
 export async function setupPXEService(
   aztecNode: AztecNode,
   opts: Partial<PXEServiceConfig> = {},
   logger = getLogger(),
   useLogSuffix = false,
-  proofCreator?: BBNativePrivateKernelProver,
 ): Promise<{
   /**
    * The PXE instance.
@@ -173,17 +156,39 @@ export async function setupPXEService(
   /**
    * Logger instance named as the current test.
    */
-  logger: DebugLogger;
+  logger: Logger;
   /**
    * Teardown function
    */
   teardown: () => Promise<void>;
 }> {
   const pxeServiceConfig = { ...getPXEServiceConfig(), ...opts };
-  const pxe = await createPXEService(aztecNode, pxeServiceConfig, useLogSuffix, proofCreator);
+  // For tests we only want proving enabled if specifically requested
+  pxeServiceConfig.proverEnabled = !!opts.proverEnabled;
+
+  // If no data directory provided, create a temp directory and clean up afterwards
+  const configuredDataDirectory = pxeServiceConfig.dataDirectory;
+  if (!configuredDataDirectory) {
+    pxeServiceConfig.dataDirectory = path.join(tmpdir(), randomBytes(8).toString('hex'));
+  }
+
+  const simulationProvider = new WASMSimulator();
+  const simulationProviderWithRecorder = new SimulationProviderRecorderWrapper(simulationProvider);
+  const pxe = await createPXEServiceWithSimulationProvider(
+    aztecNode,
+    simulationProviderWithRecorder,
+    pxeServiceConfig,
+    useLogSuffix,
+  );
 
   const teardown = async () => {
-    await pxe.stop();
+    if (!configuredDataDirectory) {
+      try {
+        await fs.rm(pxeServiceConfig.dataDirectory!, { recursive: true, force: true, maxRetries: 3 });
+      } catch (err) {
+        logger.warn(`Failed to delete tmp PXE data directory ${pxeServiceConfig.dataDirectory}: ${err}`);
+      }
+    }
   };
 
   return {
@@ -203,66 +208,58 @@ export async function setupPXEService(
  * @returns Private eXecution Environment (PXE) client, viem wallets, contract addresses etc.
  */
 async function setupWithRemoteEnvironment(
-  account: Account,
+  account: HDAccount | PrivateKeyAccount,
   config: AztecNodeConfig,
-  logger: DebugLogger,
+  logger: Logger,
   numberOfAccounts: number,
-) {
+): Promise<EndToEndContext> {
   // we are setting up against a remote environment, l1 contracts are already deployed
   const aztecNodeUrl = getAztecUrl();
   logger.verbose(`Creating Aztec Node client to remote host ${aztecNodeUrl}`);
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
   logger.verbose(`Creating PXE client to remote host ${PXE_URL}`);
-  const pxeClient = createPXEClient(PXE_URL, makeFetch([1, 2, 3], true));
+  const pxeClient = createPXEClient(PXE_URL, {}, makeFetch([1, 2, 3], true));
   await waitForPXE(pxeClient, logger);
   logger.verbose('JSON RPC client connected to PXE');
   logger.verbose(`Retrieving contract addresses from ${PXE_URL}`);
   const l1Contracts = (await pxeClient.getNodeInfo()).l1ContractAddresses;
 
-  const walletClient = createWalletClient<HttpTransport, Chain, HDAccount>({
-    account,
-    chain: foundry,
-    transport: http(config.l1RpcUrl),
-  });
-  const publicClient = createPublicClient({
-    chain: foundry,
-    transport: http(config.l1RpcUrl),
-  });
-  const deployL1ContractsValues: DeployL1Contracts = {
+  const { walletClient, publicClient } = createL1Clients(config.l1RpcUrls, account, foundry);
+
+  const deployL1ContractsValues: DeployL1ContractsReturnType = {
     l1ContractAddresses: l1Contracts,
     walletClient,
     publicClient,
   };
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxeClient!);
+  const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxeClient!);
   const teardown = () => Promise.resolve();
 
-  const { l1ChainId: chainId, protocolVersion } = await pxeClient.getNodeInfo();
-  await setupCanonicalFeeJuice(
-    new SignerlessWallet(pxeClient, new DefaultMultiCallEntrypoint(chainId, protocolVersion)),
-  );
-
   logger.verbose('Constructing available wallets from already registered accounts...');
+  const initialFundedAccounts = await getDeployedTestAccounts(pxeClient);
   const wallets = await getDeployedTestAccountsWallets(pxeClient);
 
   if (wallets.length < numberOfAccounts) {
-    const numNewAccounts = numberOfAccounts - wallets.length;
-    logger.verbose(`Deploying ${numNewAccounts} accounts...`);
-    wallets.push(...(await createAccounts(pxeClient, numNewAccounts)));
+    throw new Error(`Required ${numberOfAccounts} accounts. Found ${wallets.length}.`);
+    // Deploy new accounts if there's a test that requires more funded accounts in the remote environment.
   }
 
   return {
     aztecNode,
+    aztecNodeAdmin: undefined,
     sequencer: undefined,
-    prover: undefined,
+    proverNode: undefined,
     pxe: pxeClient,
     deployL1ContractsValues,
-    accounts: await pxeClient!.getRegisteredAccounts(),
     config,
+    initialFundedAccounts,
     wallet: wallets[0],
-    wallets,
+    wallets: wallets.slice(0, numberOfAccounts),
     logger,
     cheatCodes,
     watcher: undefined,
+    dateProvider: undefined,
+    blobSink: undefined,
+    telemetryClient: undefined,
     teardown,
   };
 }
@@ -271,48 +268,70 @@ async function setupWithRemoteEnvironment(
 export type SetupOptions = {
   /** State load */
   stateLoad?: string;
+  /** Whether to enable metrics collection, if undefined, metrics collection is disabled */
+  metricsPort?: number | undefined;
   /** Previously deployed contracts on L1 */
-  deployL1ContractsValues?: DeployL1Contracts;
+  deployL1ContractsValues?: DeployL1ContractsReturnType;
   /** Whether to skip deployment of protocol contracts (auth registry, etc) */
   skipProtocolContracts?: boolean;
+  /** Initial fee juice for default accounts */
+  initialAccountFeeJuice?: Fr;
+  /** Number of initial accounts funded with fee juice */
+  numberOfInitialFundedAccounts?: number;
+  /** Data of the initial funded accounts */
+  initialFundedAccounts?: InitialAccountData[];
   /** Salt to use in L1 contract deployment */
   salt?: number;
   /** An initial set of validators */
   initialValidators?: EthAddress[];
-  /** Anvil block time (interval) */
-  l1BlockTime?: number;
   /** Anvil Start time */
   l1StartTime?: number;
   /** The anvil time where we should at the earliest be seeing L2 blocks */
   l2StartTime?: number;
-  /** How far we should assume proven */
-  assumeProvenThrough?: number;
   /** Whether to start a prover node */
   startProverNode?: boolean;
+  /** Whether to fund the rewardDistributor */
+  fundRewardDistributor?: boolean;
+  /** Manual config for the telemetry client */
+  telemetryConfig?: Partial<TelemetryClientConfig> & { benchmark?: boolean };
+  /** Public data that will be inserted in the tree in genesis */
+  genesisPublicData?: PublicDataTreeLeaf[];
 } & Partial<AztecNodeConfig>;
 
 /** Context for an end-to-end test as returned by the `setup` function */
 export type EndToEndContext = {
   /** The Aztec Node service or client a connected to it. */
   aztecNode: AztecNode;
+  /** Client to the Aztec Node admin interface (undefined if connected to remote environment) */
+  aztecNodeAdmin?: AztecNodeAdmin;
+  /** The prover node service (only set if startProverNode is true) */
+  proverNode: ProverNode | undefined;
   /** A client to the sequencer service (undefined if connected to remote environment) */
   sequencer: SequencerClient | undefined;
   /** The Private eXecution Environment (PXE). */
   pxe: PXE;
   /** Return values from deployL1Contracts function. */
-  deployL1ContractsValues: DeployL1Contracts;
+  deployL1ContractsValues: DeployL1ContractsReturnType;
   /** The Aztec Node configuration. */
   config: AztecNodeConfig;
+  /** The data for the initial funded accounts. */
+  initialFundedAccounts: InitialAccountData[];
   /** The first wallet to be used. */
   wallet: AccountWalletWithSecretKey;
   /** The wallets to be used. */
   wallets: AccountWalletWithSecretKey[];
   /** Logger instance named as the current test. */
-  logger: DebugLogger;
+  logger: Logger;
   /** The cheat codes. */
   cheatCodes: CheatCodes;
-  /** The anvil test watcher (undefined if connected to remove environment) */
+  /** The anvil test watcher (undefined if connected to remote environment) */
   watcher: AnvilTestWatcher | undefined;
+  /** Allows tweaking current system time, used by the epoch cache only (undefined if connected to remote environment) */
+  dateProvider: TestDateProvider | undefined;
+  /** The blob sink (undefined if connected to remote environment) */
+  blobSink: BlobSinkServer | undefined;
+  /** Telemetry client */
+  telemetryClient: TelemetryClient | undefined;
   /** Function to stop the started services. */
   teardown: () => Promise<void>;
 };
@@ -325,202 +344,281 @@ export type EndToEndContext = {
  */
 export async function setup(
   numberOfAccounts = 1,
-  opts: SetupOptions = {},
+  opts: SetupOptions = {
+    customForwarderContractAddress: EthAddress.ZERO,
+  },
   pxeOpts: Partial<PXEServiceConfig> = {},
   chain: Chain = foundry,
 ): Promise<EndToEndContext> {
-  const config = { ...getConfigEnvVars(), ...opts };
-  const logger = getLogger();
-
   let anvil: Anvil | undefined;
+  try {
+    const config = { ...getConfigEnvVars(), ...opts };
+    config.peerCheckIntervalMS = TEST_PEER_CHECK_INTERVAL_MS;
+    // For tests we only want proving enabled if specifically requested
+    config.realProofs = !!opts.realProofs;
+    // Only enforce the time table if requested
+    config.enforceTimeTable = !!opts.enforceTimeTable;
 
-  if (!config.l1RpcUrl) {
-    if (!isAnvilTestChain(chain.id)) {
-      throw new Error(`No ETHEREUM_HOST set but non anvil chain requested`);
+    const logger = getLogger();
+
+    // Create a temp directory for any services that need it and cleanup later
+    const directoryToCleanup = path.join(tmpdir(), randomBytes(8).toString('hex'));
+    await fs.mkdir(directoryToCleanup, { recursive: true });
+    if (!config.dataDirectory) {
+      config.dataDirectory = directoryToCleanup;
     }
+
+    if (!config.l1RpcUrls?.length) {
+      if (!isAnvilTestChain(chain.id)) {
+        throw new Error(`No ETHEREUM_HOSTS set but non anvil chain requested`);
+      }
+      if (PXE_URL) {
+        throw new Error(
+          `PXE_URL provided but no ETHEREUM_HOSTS set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+        );
+      }
+
+      const res = await startAnvil({ l1BlockTime: opts.ethereumSlotDuration });
+      anvil = res.anvil;
+      config.l1RpcUrls = [res.rpcUrl];
+    }
+
+    // Enable logging metrics to a local file named after the test suite
+    if (isMetricsLoggingRequested()) {
+      const filename = path.join('log', getJobName() + '.jsonl');
+      logger.info(`Logging metrics to ${filename}`);
+      setupMetricsLogger(filename);
+    }
+
+    const ethCheatCodes = new EthCheatCodesWithState(config.l1RpcUrls);
+
+    if (opts.stateLoad) {
+      await ethCheatCodes.loadChainState(opts.stateLoad);
+    }
+
+    if (opts.l1StartTime) {
+      await ethCheatCodes.warp(opts.l1StartTime);
+    }
+
+    let publisherPrivKey = undefined;
+    let publisherHdAccount = undefined;
+
+    if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
+      publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
+    } else if (!MNEMONIC) {
+      throw new Error(`Mnemonic not provided and no publisher private key`);
+    } else {
+      publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
+      const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
+      publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
+      config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
+    }
+
+    // Made as separate values such that keys can change, but for test they will be the same.
+    config.validatorPrivateKey = config.publisherPrivateKey;
+
     if (PXE_URL) {
-      throw new Error(
-        `PXE_URL provided but no ETHEREUM_HOST set. Refusing to run, please set both variables so tests can deploy L1 contracts to the same Anvil instance`,
+      // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
+      return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
+    }
+
+    const initialFundedAccounts =
+      opts.initialFundedAccounts ??
+      (await generateSchnorrAccounts(opts.numberOfInitialFundedAccounts ?? numberOfAccounts));
+    const { genesisBlockHash, genesisArchiveRoot, prefilledPublicData, fundingNeeded } = await getGenesisValues(
+      initialFundedAccounts.map(a => a.address),
+      opts.initialAccountFeeJuice,
+      opts.genesisPublicData,
+    );
+
+    const deployL1ContractsValues =
+      opts.deployL1ContractsValues ??
+      (await setupL1Contracts(
+        config.l1RpcUrls,
+        publisherHdAccount!,
+        logger,
+        { ...opts, genesisArchiveRoot, genesisBlockHash, feeJuicePortalInitialBalance: fundingNeeded },
+        chain,
+      ));
+
+    config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
+
+    if (opts.fundRewardDistributor) {
+      // Mints block rewards for 10000 blocks to the rewardDistributor contract
+
+      const rewardDistributor = getContract({
+        address: deployL1ContractsValues.l1ContractAddresses.rewardDistributorAddress.toString(),
+        abi: l1Artifacts.rewardDistributor.contractAbi,
+        client: deployL1ContractsValues.publicClient,
+      });
+
+      const blockReward = await rewardDistributor.read.BLOCK_REWARD();
+      const mintAmount = 10_000n * (blockReward as bigint);
+
+      const feeJuice = getContract({
+        address: deployL1ContractsValues.l1ContractAddresses.feeJuiceAddress.toString(),
+        abi: l1Artifacts.feeAsset.contractAbi,
+        client: deployL1ContractsValues.walletClient,
+      });
+
+      const rewardDistributorMintTxHash = await feeJuice.write.mint([rewardDistributor.address, mintAmount], {} as any);
+      await deployL1ContractsValues.publicClient.waitForTransactionReceipt({ hash: rewardDistributorMintTxHash });
+      logger.info(`Funding rewardDistributor in ${rewardDistributorMintTxHash}`);
+    }
+
+    if (opts.l2StartTime) {
+      // This should only be used in synching test or when you need to have a stable
+      // timestamp for the first l2 block.
+      await ethCheatCodes.warp(opts.l2StartTime);
+    }
+
+    const dateProvider = new TestDateProvider();
+
+    const watcher = new AnvilTestWatcher(
+      new EthCheatCodesWithState(config.l1RpcUrls),
+      deployL1ContractsValues.l1ContractAddresses.rollupAddress,
+      deployL1ContractsValues.publicClient,
+      dateProvider,
+    );
+
+    await watcher.start();
+
+    const telemetry = getTelemetryClient(opts.telemetryConfig);
+
+    // Blob sink service - blobs get posted here and served from here
+    const blobSinkPort = await getPort();
+    const blobSink = await createBlobSinkServer(
+      {
+        l1ChainId: config.l1ChainId,
+        l1RpcUrls: config.l1RpcUrls,
+        l1Contracts: config.l1Contracts,
+        port: blobSinkPort,
+        dataDirectory: config.dataDirectory,
+        dataStoreMapSizeKB: config.dataStoreMapSizeKB,
+      },
+      telemetry,
+    );
+    await blobSink.start();
+    config.blobSinkUrl = `http://localhost:${blobSinkPort}`;
+
+    logger.verbose('Creating and synching an aztec node...');
+
+    const acvmConfig = await getACVMConfig(logger);
+    if (acvmConfig) {
+      config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
+      config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
+    }
+
+    const bbConfig = await getBBConfig(logger);
+    if (bbConfig) {
+      config.bbBinaryPath = bbConfig.bbBinaryPath;
+      config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
+    }
+    config.l1PublishRetryIntervalMS = 100;
+
+    const blobSinkClient = createBlobSinkClient(config);
+    const aztecNode = await AztecNodeService.createAndSync(
+      config,
+      { dateProvider, blobSinkClient, telemetry },
+      { prefilledPublicData },
+    );
+    const sequencer = aztecNode.getSequencer();
+
+    if (sequencer) {
+      const publisher = (sequencer as TestSequencerClient).sequencer.publisher;
+      publisher.l1TxUtils = DelayedTxUtils.fromL1TxUtils(publisher.l1TxUtils, config.ethereumSlotDuration);
+    }
+
+    let proverNode: ProverNode | undefined = undefined;
+    if (opts.startProverNode) {
+      logger.verbose('Creating and syncing a simulated prover node...');
+      const proverNodePrivateKey = getPrivateKeyFromIndex(2);
+      const proverNodePrivateKeyHex: Hex = `0x${proverNodePrivateKey!.toString('hex')}`;
+      proverNode = await createAndSyncProverNode(
+        proverNodePrivateKeyHex,
+        config,
+        aztecNode,
+        path.join(directoryToCleanup, randomBytes(8).toString('hex')),
       );
     }
 
-    const res = await startAnvil(opts.l1BlockTime);
-    anvil = res.anvil;
-    config.l1RpcUrl = res.rpcUrl;
-  }
+    logger.verbose('Creating a pxe...');
+    const { pxe, teardown: pxeTeardown } = await setupPXEService(aztecNode!, pxeOpts, logger);
 
-  // Enable logging metrics to a local file named after the test suite
-  if (isMetricsLoggingRequested()) {
-    const filename = path.join('log', getJobName() + '.jsonl');
-    logger.info(`Logging metrics to ${filename}`);
-    setupMetricsLogger(filename);
-  }
+    const accountManagers = await deployFundedSchnorrAccounts(pxe, initialFundedAccounts.slice(0, numberOfAccounts));
+    const wallets = await Promise.all(accountManagers.map(account => account.getWallet()));
+    if (initialFundedAccounts.length < numberOfAccounts) {
+      // TODO: Create (numberOfAccounts - initialFundedAccounts.length) wallets without funds.
+      throw new Error(
+        `Unable to deploy ${numberOfAccounts} accounts. Only ${initialFundedAccounts.length} accounts were funded.`,
+      );
+    }
 
-  const ethCheatCodes = new EthCheatCodes(config.l1RpcUrl);
+    const cheatCodes = await CheatCodes.create(config.l1RpcUrls, pxe!);
 
-  if (opts.stateLoad) {
-    await ethCheatCodes.loadChainState(opts.stateLoad);
-  }
+    const teardown = async () => {
+      await pxeTeardown();
 
-  if (opts.l1StartTime) {
-    await ethCheatCodes.warp(opts.l1StartTime);
-  }
+      if (aztecNode instanceof AztecNodeService) {
+        await aztecNode?.stop();
+      }
 
-  let publisherPrivKey = undefined;
-  let publisherHdAccount = undefined;
+      if (proverNode) {
+        await proverNode.stop();
+      }
 
-  if (config.publisherPrivateKey && config.publisherPrivateKey != NULL_KEY) {
-    publisherHdAccount = privateKeyToAccount(config.publisherPrivateKey);
-  } else if (!MNEMONIC) {
-    throw new Error(`Mnemonic not provided and no publisher private key`);
-  } else {
-    publisherHdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
-    const publisherPrivKeyRaw = publisherHdAccount.getHdKey().privateKey;
-    publisherPrivKey = publisherPrivKeyRaw === null ? null : Buffer.from(publisherPrivKeyRaw);
-    config.publisherPrivateKey = `0x${publisherPrivKey!.toString('hex')}`;
-  }
+      if (acvmConfig?.cleanup) {
+        // remove the temp directory created for the acvm
+        logger.verbose(`Cleaning up ACVM state`);
+        await acvmConfig.cleanup();
+      }
 
-  // Made as separate values such that keys can change, but for test they will be the same.
-  config.validatorPrivateKey = config.publisherPrivateKey;
+      if (bbConfig?.cleanup) {
+        // remove the temp directory created for the acvm
+        logger.verbose(`Cleaning up BB state`);
+        await bbConfig.cleanup();
+      }
 
-  if (PXE_URL) {
-    // we are setting up against a remote environment, l1 contracts are assumed to already be deployed
-    return await setupWithRemoteEnvironment(publisherHdAccount!, config, logger, numberOfAccounts);
-  }
+      await anvil?.stop().catch(err => getLogger().error(err));
+      await watcher.stop();
+      await blobSink?.stop();
 
-  const deployL1ContractsValues =
-    opts.deployL1ContractsValues ??
-    (await setupL1Contracts(
-      config.l1RpcUrl,
-      publisherHdAccount!,
+      if (directoryToCleanup) {
+        try {
+          logger.verbose(`Cleaning up data directory at ${directoryToCleanup}`);
+          await fs.rm(directoryToCleanup, { recursive: true, force: true, maxRetries: 3 });
+        } catch (err) {
+          logger.warn(`Failed to delete data directory at ${directoryToCleanup}: ${err}`);
+        }
+      }
+    };
+
+    return {
+      aztecNode,
+      aztecNodeAdmin: aztecNode,
+      blobSink,
+      cheatCodes,
+      config,
+      dateProvider,
+      deployL1ContractsValues,
+      initialFundedAccounts,
       logger,
-      { salt: opts.salt, initialValidators: opts.initialValidators, assumeProvenThrough: opts.assumeProvenThrough },
-      chain,
-    ));
-
-  config.l1Contracts = deployL1ContractsValues.l1ContractAddresses;
-
-  if (opts.l2StartTime) {
-    // This should only be used in synching test or when you need to have a stable
-    // timestamp for the first l2 block.
-    await ethCheatCodes.warp(opts.l2StartTime);
-  }
-
-  const watcher = new AnvilTestWatcher(
-    new EthCheatCodes(config.l1RpcUrl),
-    deployL1ContractsValues.l1ContractAddresses.rollupAddress,
-    deployL1ContractsValues.publicClient,
-  );
-
-  await watcher.start();
-
-  logger.verbose('Creating and synching an aztec node...');
-
-  const acvmConfig = await getACVMConfig(logger);
-  if (acvmConfig) {
-    config.acvmWorkingDirectory = acvmConfig.acvmWorkingDirectory;
-    config.acvmBinaryPath = acvmConfig.acvmBinaryPath;
-  }
-
-  const bbConfig = await getBBConfig(logger);
-  if (bbConfig) {
-    config.bbBinaryPath = bbConfig.bbBinaryPath;
-    config.bbWorkingDirectory = bbConfig.bbWorkingDirectory;
-  }
-  config.l1PublishRetryIntervalMS = 100;
-
-  const telemetry = await telemetryPromise;
-  const aztecNode = await AztecNodeService.createAndSync(config, telemetry);
-  const sequencer = aztecNode.getSequencer();
-
-  logger.verbose('Creating a pxe...');
-
-  const { pxe } = await setupPXEService(aztecNode!, pxeOpts, logger);
-
-  if (!config.skipProtocolContracts) {
-    logger.verbose('Setting up Fee Juice...');
-    await setupCanonicalFeeJuice(
-      new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(config.l1ChainId, config.version)),
-    );
-  }
-
-  const wallets = numberOfAccounts > 0 ? await createAccounts(pxe, numberOfAccounts) : [];
-  const cheatCodes = await CheatCodes.create(config.l1RpcUrl, pxe!);
-
-  const teardown = async () => {
-    if (aztecNode instanceof AztecNodeService) {
-      await aztecNode?.stop();
-    }
-    if (pxe instanceof PXEService) {
-      await pxe?.stop();
-    }
-
-    if (acvmConfig?.cleanup) {
-      // remove the temp directory created for the acvm
-      logger.verbose(`Cleaning up ACVM state`);
-      await acvmConfig.cleanup();
-    }
-
+      proverNode,
+      pxe,
+      sequencer,
+      teardown,
+      telemetryClient: telemetry,
+      wallet: wallets[0],
+      wallets,
+      watcher,
+    };
+  } catch (err) {
+    // TODO: Just hoisted anvil for now to ensure cleanup. Prob need to hoist the rest.
     await anvil?.stop();
-    await watcher.stop();
-  };
-
-  return {
-    aztecNode,
-    pxe,
-    deployL1ContractsValues,
-    config,
-    wallet: wallets[0],
-    wallets,
-    logger,
-    cheatCodes,
-    sequencer,
-    watcher,
-    teardown,
-  };
-}
-
-/** Returns an L1 wallet client for anvil using a well-known private key based on the index. */
-export function getL1WalletClient(rpcUrl: string, index: number) {
-  const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: index });
-  return createWalletClient({
-    account: hdAccount,
-    chain: foundry,
-    transport: http(rpcUrl),
-  });
-}
-
-/**
- * Ensures there's a running Anvil instance and returns the RPC URL.
- * @returns
- */
-export async function startAnvil(l1BlockTime?: number): Promise<{ anvil: Anvil; rpcUrl: string }> {
-  let rpcUrl: string | undefined = undefined;
-
-  // Start anvil.
-  // We go via a wrapper script to ensure if the parent dies, anvil dies.
-  const anvil = await retry(
-    async () => {
-      const ethereumHostPort = await getPort();
-      rpcUrl = `http://127.0.0.1:${ethereumHostPort}`;
-      const anvil = createAnvil({
-        anvilBinary: './scripts/anvil_kill_wrapper.sh',
-        port: ethereumHostPort,
-        blockTime: l1BlockTime,
-      });
-      await anvil.start();
-      return anvil;
-    },
-    'Start anvil',
-    makeBackoff([5, 5, 5]),
-  );
-
-  if (!rpcUrl) {
-    throw new Error('Failed to start anvil');
+    throw err;
   }
-
-  return { anvil, rpcUrl };
 }
+
 /**
  * Registers the contract class used for test accounts and publicly deploys the instances requested.
  * Use this when you need to make a public call to an account contract, such as for requesting a public authwit.
@@ -537,18 +635,23 @@ export async function ensureAccountsPubliclyDeployed(sender: Wallet, accountsToD
       const address = account.getAddress();
       return {
         address,
-        deployed: await sender.isContractPubliclyDeployed(address),
+        deployed: (await sender.getContractMetadata(address)).isContractPubliclyDeployed,
       };
     }),
   );
-  const instances = await Promise.all(
-    accountsAndAddresses.filter(({ deployed }) => !deployed).map(({ address }) => sender.getContractInstance(address)),
-  );
-  const contractClass = getContractClassFromArtifact(SchnorrAccountContractArtifact);
-  if (!(await sender.isContractClassPubliclyRegistered(contractClass.id))) {
+  const instances = (
+    await Promise.all(
+      accountsAndAddresses
+        .filter(({ deployed }) => !deployed)
+        .map(({ address }) => sender.getContractMetadata(address)),
+    )
+  ).map(contractMetadata => contractMetadata.contractInstance);
+  const contractClass = await getContractClassFromArtifact(SchnorrAccountContractArtifact);
+  if (!(await sender.getContractClassMetadata(contractClass.id, true)).isContractClassPubliclyRegistered) {
     await (await registerContractClass(sender, SchnorrAccountContractArtifact)).send().wait();
   }
-  const batch = new BatchCall(sender, [...instances.map(instance => deployInstance(sender, instance!).request())]);
+  const requests = await Promise.all(instances.map(async instance => await deployInstance(sender, instance!)));
+  const batch = new BatchCall(sender, requests);
   await batch.send().wait();
 }
 // docs:end:public_deploy_accounts
@@ -580,62 +683,10 @@ export function getLogger() {
   const describeBlockName = expect.getState().currentTestName?.split(' ')[0].replaceAll('/', ':');
   if (!describeBlockName) {
     const name = expect.getState().testPath?.split('/').pop()?.split('.')[0] ?? 'unknown';
-    return createDebugLogger('aztec:' + name);
+    return createLogger('e2e:' + name);
   }
-  return createDebugLogger('aztec:' + describeBlockName);
+  return createLogger('e2e:' + describeBlockName);
 }
-
-/**
- * Checks the number of encrypted logs in the last block is as expected.
- * @param aztecNode - The instance of aztec node for retrieving the logs.
- * @param numEncryptedLogs - The number of expected logs.
- */
-export const expectsNumOfNoteEncryptedLogsInTheLastBlockToBe = async (
-  aztecNode: AztecNode | undefined,
-  numEncryptedLogs: number,
-) => {
-  if (!aztecNode) {
-    // An api for retrieving encrypted logs does not exist on the PXE Service so we have to use the node
-    // This means we can't perform this check if there is no node
-    return;
-  }
-  const l2BlockNum = await aztecNode.getBlockNumber();
-  const encryptedLogs = await aztecNode.getLogs(l2BlockNum, 1, LogType.NOTEENCRYPTED);
-  const unrolledLogs = EncryptedNoteL2BlockL2Logs.unrollLogs(encryptedLogs);
-  expect(unrolledLogs.length).toBe(numEncryptedLogs);
-};
-
-/**
- * Checks that the last block contains the given expected unencrypted log messages.
- * @param tx - An instance of SentTx for which to retrieve the logs.
- * @param logMessages - The set of expected log messages.
- */
-export const expectUnencryptedLogsInTxToBe = async (tx: SentTx, logMessages: string[]) => {
-  const unencryptedLogs = (await tx.getUnencryptedLogs()).logs;
-  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
-
-  expect(asciiLogs).toStrictEqual(logMessages);
-};
-
-/**
- * Checks that the last block contains the given expected unencrypted log messages.
- * @param pxe - An instance of PXE for retrieving the logs.
- * @param logMessages - The set of expected log messages.
- */
-export const expectUnencryptedLogsFromLastBlockToBe = async (pxe: PXE, logMessages: string[]) => {
-  // docs:start:get_logs
-  // Get the unencrypted logs from the last block
-  const fromBlock = await pxe.getBlockNumber();
-  const logFilter = {
-    fromBlock,
-    toBlock: fromBlock + 1,
-  };
-  const unencryptedLogs = (await pxe.getUnencryptedLogs(logFilter)).logs;
-  // docs:end:get_logs
-  const asciiLogs = unencryptedLogs.map(extendedLog => extendedLog.log.data.toString('ascii'));
-
-  expect(asciiLogs).toStrictEqual(logMessages);
-};
 
 export type BalancesFn = ReturnType<typeof getBalancesFn>;
 export function getBalancesFn(
@@ -681,23 +732,37 @@ export async function expectMappingDelta<K, V extends number | bigint>(
 }
 
 /**
- * Deploy the protocol contracts to a running instance.
+ * Computes the address of the "canonical" SponosoredFPCContract. This is not a protocol contract
+ * but by conventions its address is computed with a salt of 0.
+ * @returns The address of the sponsored FPC contract
  */
-export async function setupCanonicalFeeJuice(pxe: PXE) {
-  // "deploy" the Fee Juice as it contains public functions
-  const feeJuicePortalAddress = (await pxe.getNodeInfo()).l1ContractAddresses.feeJuicePortalAddress;
-  const wallet = new SignerlessWallet(pxe);
-  const feeJuice = await FeeJuiceContract.at(ProtocolContractAddress.FeeJuice, wallet);
+export async function getSponsoredFPCAddress() {
+  const sponsoredFPCInstance = await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
+  return sponsoredFPCInstance.address;
+}
 
-  try {
-    await feeJuice.methods
-      .initialize(feeJuicePortalAddress)
-      .send({ fee: { paymentMethod: new NoFeePaymentMethod(), gasSettings: GasSettings.teardownless() } })
-      .wait();
-    getLogger().info(`Fee Juice successfully setup. Portal address: ${feeJuicePortalAddress}`);
-  } catch (error) {
-    getLogger().info(`Fee Juice might have already been setup.`);
-  }
+/**
+ * Deploy a sponsored FPC contract to a running instance.
+ */
+export async function setupSponsoredFPC(pxe: PXE) {
+  const { l1ChainId: chainId, rollupVersion } = await pxe.getNodeInfo();
+  const deployer = new SignerlessWallet(pxe, new DefaultMultiCallEntrypoint(chainId, rollupVersion));
+
+  // Make the contract pay for the deployment fee itself
+  const paymentMethod = new SponsoredFeePaymentMethod(await getSponsoredFPCAddress());
+
+  const deployed = await SponsoredFPCContract.deploy(deployer)
+    .send({
+      contractAddressSalt: new Fr(SPONSORED_FPC_SALT),
+      universalDeploy: true,
+      fee: { paymentMethod },
+    })
+    .deployed();
+
+  getLogger().info(`SponsoredFPC: ${deployed.address}`);
+  return deployed;
 }
 
 export async function waitForProvenChain(node: AztecNode, targetBlock?: number, timeoutSec = 60, intervalSec = 1) {
@@ -709,4 +774,83 @@ export async function waitForProvenChain(node: AztecNode, targetBlock?: number, 
     timeoutSec,
     intervalSec,
   );
+}
+
+export async function createAndSyncProverNode(
+  proverNodePrivateKey: `0x${string}`,
+  aztecNodeConfig: AztecNodeConfig,
+  aztecNode: AztecNode,
+  dataDirectory: string,
+  prefilledPublicData: PublicDataTreeLeaf[] = [],
+) {
+  // Disable stopping the aztec node as the prover coordination test will kill it otherwise
+  // This is only required when stopping the prover node for testing
+  const aztecNodeWithoutStop = {
+    getTxByHash: aztecNode.getTxByHash.bind(aztecNode),
+    getTxsByHash: aztecNode.getTxsByHash.bind(aztecNode),
+    stop: () => Promise.resolve(),
+  };
+
+  const blobSinkClient = createBlobSinkClient(aztecNodeConfig);
+  // Creating temp store and archiver for simulated prover node
+  const archiverConfig = { ...aztecNodeConfig, dataDirectory };
+  const archiver = await createArchiver(archiverConfig, blobSinkClient, {
+    blockUntilSync: true,
+  });
+
+  // Prover node config is for simulated proofs
+  const proverConfig: ProverNodeConfig = {
+    ...aztecNodeConfig,
+    proverCoordinationNodeUrl: undefined,
+    dataDirectory: undefined,
+    realProofs: false,
+    proverAgentCount: 2,
+    publisherPrivateKey: proverNodePrivateKey,
+    proverNodeMaxPendingJobs: 10,
+    proverNodeMaxParallelBlocksPerEpoch: 32,
+    proverNodePollingIntervalMs: 200,
+    txGatheringTimeoutMs: 60000,
+    txGatheringIntervalMs: 1000,
+    txGatheringMaxParallelRequests: 100,
+  };
+
+  const l1TxUtils = createDelayedL1TxUtils(aztecNodeConfig, proverNodePrivateKey, 'prover-node');
+
+  const proverNode = await createProverNode(
+    proverConfig,
+    {
+      aztecNodeTxProvider: aztecNodeWithoutStop,
+      archiver: archiver as Archiver,
+      l1TxUtils,
+    },
+    { prefilledPublicData },
+  );
+  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.walletClient.account.address });
+  proverNode.start();
+  return proverNode;
+}
+
+function createDelayedL1TxUtils(aztecNodeConfig: AztecNodeConfig, privateKey: `0x${string}`, logName: string) {
+  const { publicClient, walletClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
+
+  const log = createLogger(logName);
+  const l1TxUtils = new DelayedTxUtils(publicClient, walletClient, log, aztecNodeConfig);
+  l1TxUtils.enableDelayer(aztecNodeConfig.ethereumSlotDuration);
+  return l1TxUtils;
+}
+
+export async function createForwarderContract(
+  aztecNodeConfig: AztecNodeConfig,
+  privateKey: `0x${string}`,
+  rollupAddress: Hex,
+) {
+  const { walletClient, publicClient } = createL1Clients(aztecNodeConfig.l1RpcUrls, privateKey, foundry);
+  const forwarderContract = await ForwarderContract.create(
+    walletClient.account.address,
+    walletClient,
+    publicClient,
+    createLogger('forwarder'),
+    rollupAddress,
+  );
+  return forwarderContract;
 }

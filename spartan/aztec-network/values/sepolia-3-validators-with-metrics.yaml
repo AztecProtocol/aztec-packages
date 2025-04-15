@@ -1,0 +1,30 @@
+telemetry:
+  enabled: true
+
+aztec:
+  realProofs: false
+  numberOfDefaultAccounts: 0
+
+network:
+  public: false
+
+ethereum:
+  l1DeploymentMnemonic:
+  chainId: "11155111"
+  execution:
+    externalHosts:
+  beacon:
+    externalHost:
+    apiKey:
+    apiKeyHeader:
+
+validator:
+  l1FixedPriorityFeePerGas: 2
+  l1GasLimitBufferPercentage: 15
+  l1GasPriceMax: 500
+  replicas: 3
+  validator:
+    disabled: false
+
+bot:
+  txIntervalSeconds: 20

@@ -1,7 +1,11 @@
-import { type L2Block, type MerkleTreeId } from '@aztec/circuit-types';
-import { type MerkleTreeReadOperations, type MerkleTreeWriteOperations } from '@aztec/circuit-types/interfaces';
-import { type Fr, MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/circuits.js';
-import { type IndexedTreeSnapshot, type TreeSnapshot } from '@aztec/merkle-tree';
+import { MAX_NULLIFIERS_PER_TX, MAX_TOTAL_PUBLIC_DATA_UPDATE_REQUESTS_PER_TX } from '@aztec/constants';
+import type { Fr } from '@aztec/foundation/fields';
+import type { IndexedTreeSnapshot, TreeSnapshot } from '@aztec/merkle-tree';
+import type { L2Block } from '@aztec/stdlib/block';
+import type { ForkMerkleTreeOperations, MerkleTreeReadOperations } from '@aztec/stdlib/interfaces/server';
+import type { MerkleTreeId } from '@aztec/stdlib/trees';
+
+import type { WorldStateStatusFull, WorldStateStatusSummary } from '../native/message.js';
 
 /**
  *
@@ -30,18 +34,13 @@ export type TreeSnapshots = {
   [MerkleTreeId.ARCHIVE]: TreeSnapshot<Fr>;
 };
 
-/** Return type for handleL2BlockAndMessages */
-export type HandleL2BlockAndMessagesResult = {
-  /** Whether the block processed was emitted by our sequencer */ isBlockOurs: boolean;
-};
-
-export interface MerkleTreeAdminDatabase {
+export interface MerkleTreeAdminDatabase extends ForkMerkleTreeOperations {
   /**
    * Handles a single L2 block (i.e. Inserts the new note hashes into the merkle tree).
    * @param block - The L2 block to handle.
    * @param l1ToL2Messages - The L1 to L2 messages for the block.
    */
-  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<HandleL2BlockAndMessagesResult>;
+  handleL2BlockAndMessages(block: L2Block, l1ToL2Messages: Fr[]): Promise<WorldStateStatusFull>;
 
   /**
    * Gets a handle that allows reading the latest committed state
@@ -49,21 +48,31 @@ export interface MerkleTreeAdminDatabase {
   getCommitted(): MerkleTreeReadOperations;
 
   /**
-   * Gets a handle that allows reading the state as it was at the given block number
-   * @param blockNumber - The block number to get the snapshot for
+   * Removes all historical snapshots up to but not including the given block number
+   * @param toBlockNumber The block number of the new oldest historical block
+   * @returns The new WorldStateStatus
    */
-  getSnapshot(blockNumber: number): MerkleTreeReadOperations;
+  removeHistoricalBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
 
   /**
-   * Forks the database at its current state.
-   * @param blockNumber - The block number to fork at. If not provided, the current block number is used.
+   * Removes all pending blocks down to but not including the given block number
+   * @param toBlockNumber The block number of the new tip of the pending chain,
+   * @returns The new WorldStateStatus
    */
-  fork(blockNumber?: number): Promise<MerkleTreeWriteOperations>;
+  unwindBlocks(toBlockNumber: bigint): Promise<WorldStateStatusFull>;
 
   /**
-   * Forks the database at the given block number.
+   * Advances the finalised block number to be the number provided
+   * @param toBlockNumber The block number that is now the tip of the finalised chain
+   * @returns The new WorldStateStatus
    */
-  fork(blockNumber: number): Promise<MerkleTreeWriteOperations>;
+  setFinalised(toBlockNumber: bigint): Promise<WorldStateStatusSummary>;
+
+  /**
+   * Gets the current status summary of the database.
+   * @returns The current WorldStateStatus.
+   */
+  getStatusSummary(): Promise<WorldStateStatusSummary>;
 
   /** Stops the database */
   close(): Promise<void>;

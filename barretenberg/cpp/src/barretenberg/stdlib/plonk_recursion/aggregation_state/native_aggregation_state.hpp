@@ -17,7 +17,7 @@ struct native_aggregation_state {
     typename bb::g1::affine_element P0 = bb::g1::affine_one;
     typename bb::g1::affine_element P1 = bb::g1::affine_one;
     std::vector<bb::fr> public_inputs;
-    AggregationObjectIndices proof_witness_indices;
+    PairingPointAccumulatorIndices proof_witness_indices;
     bool has_data = false;
 
     // For serialization, update with new fields

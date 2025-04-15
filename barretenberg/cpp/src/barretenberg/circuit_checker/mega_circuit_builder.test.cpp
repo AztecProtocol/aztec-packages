@@ -103,10 +103,11 @@ TEST(MegaCircuitBuilder, GoblinSimple)
     // Check number of ecc op "gates"/rows = 3 ops * 2 rows per op = 6
     EXPECT_EQ(builder.blocks.ecc_op.size(), 6);
 
-    // Check that the expected op codes have been correctly recorded in the 1st op wire
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[0], EccOpCode::ADD_ACCUM);
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[2], EccOpCode::MUL_ACCUM);
-    EXPECT_EQ(builder.blocks.ecc_op.w_l()[4], EccOpCode::EQUALITY);
+    // Check that the expected op codes have been correctly recorded in the 1st op wires pointed by circuit indices
+    auto opcode_wire_indexes = builder.blocks.ecc_op.w_l();
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[0]), (EccOpCode{ .add = true }).value());
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[2]), (EccOpCode{ .mul = true }).value());
+    EXPECT_EQ(builder.get_variable(opcode_wire_indexes[4]), (EccOpCode{ .eq = true, .reset = true }).value());
 
     // Check that we can reconstruct the coordinates of P1 from the op_wires
     auto P1_x_lo = uint256_t(builder.variables[builder.blocks.ecc_op.w_r()[0]]);
@@ -149,7 +150,7 @@ TEST(MegaCircuitBuilder, GoblinEccOpQueueUltraOps)
     builder.queue_ecc_eq();
 
     // Check that the ultra ops recorded in the EccOpQueue match the ops recorded in the wires
-    auto ultra_ops = builder.op_queue->get_aggregate_transcript();
+    auto ultra_ops = builder.op_queue->construct_current_ultra_ops_subtable_columns();
     for (size_t i = 1; i < 4; ++i) {
         for (size_t j = 0; j < builder.blocks.ecc_op.size(); ++j) {
             auto op_wire_val = builder.variables[builder.blocks.ecc_op.wires[i][j]];

@@ -14,4 +14,12 @@ contract MerkleLibHelper {
   ) external pure {
     MerkleLib.verifyMembership(_path, _leaf, _index, _expectedRoot);
   }
+
+  function computeMinMaxPathLength(uint256 _numTxs) external pure returns (uint256, uint256) {
+    return MerkleLib.computeMinMaxPathLength(_numTxs);
+  }
+
+  function computeUnbalancedRoot(bytes32[] memory _leaves) external pure returns (bytes32) {
+    return MerkleLib.computeUnbalancedRoot(_leaves);
+  }
 }

@@ -36,7 +36,7 @@ field_t<Builder>::field_t(Builder* parent_context, const bb::fr& value)
     : context(parent_context)
 {
     additive_constant = value;
-    multiplicative_constant = bb::fr::zero();
+    multiplicative_constant = bb::fr::one();
     witness_index = IS_CONSTANT;
 }
 
@@ -77,7 +77,15 @@ template <typename Builder> field_t<Builder>::operator bool_t<Builder>() const
     bool mul_constant_check = (multiplicative_constant == bb::fr::one());
     bool inverted_check = (additive_constant == bb::fr::one()) && (multiplicative_constant == bb::fr::neg_one());
     if ((!add_constant_check || !mul_constant_check) && !inverted_check) {
-        normalize();
+        auto normalized_element = normalize();
+        bb::fr witness = context->get_variable(normalized_element.get_witness_index());
+        ASSERT((witness == bb::fr::zero()) || (witness == bb::fr::one()));
+        bool_t<Builder> result(context);
+        result.witness_bool = (witness == bb::fr::one());
+        result.witness_inverted = false;
+        result.witness_index = normalized_element.get_witness_index();
+        context->create_bool_gate(normalized_element.get_witness_index());
+        return result;
     }
 
     bb::fr witness = context->get_variable(witness_index);
@@ -97,7 +105,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator+(const f
     field_t<Builder> result(ctx);
     ASSERT(ctx || (witness_index == IS_CONSTANT && other.witness_index == IS_CONSTANT));
 
-    if (witness_index == other.witness_index) {
+    if (witness_index == other.witness_index && witness_index != IS_CONSTANT) {
         result.additive_constant = additive_constant + other.additive_constant;
         result.multiplicative_constant = multiplicative_constant + other.multiplicative_constant;
         result.witness_index = witness_index;
@@ -141,7 +149,9 @@ template <typename Builder> field_t<Builder> field_t<Builder>::operator-(const f
 {
     field_t<Builder> rhs(other);
     rhs.additive_constant.self_neg();
-    rhs.multiplicative_constant.self_neg();
+    if (rhs.witness_index != IS_CONSTANT) {
+        rhs.multiplicative_constant.self_neg();
+    }
     return operator+(rhs);
 }
 
@@ -368,6 +378,7 @@ template <typename Builder> field_t<Builder> field_t<Builder>::pow(const field_t
     }
 
     bool exponent_constant = exponent.is_constant();
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/446): optimize by allowing smaller exponent
     std::vector<bool_t<Builder>> exponent_bits(32);
     for (size_t i = 0; i < exponent_bits.size(); ++i) {
         uint256_t value_bit = exponent_value & 1;
@@ -509,6 +520,18 @@ template <typename Builder> field_t<Builder> field_t<Builder>::add_two(const fie
     return result;
 }
 
+/**
+ * @brief Return an new element, where the in-circuit witness contains the actual represented value (multiplicative
+ * constant is 1 and additive_constant is 0)
+ *
+ * @details If the element is a constant or it is already normalized, just return the element itself
+ *
+ *@todo We need to add a mechanism into the circuit builders for caching normalized variants for fields and bigfields.
+ *It should make the circuits smaller. https://github.com/AztecProtocol/barretenberg/issues/1052
+ *
+ * @tparam Builder
+ * @return field_t<Builder>
+ */
 template <typename Builder> field_t<Builder> field_t<Builder>::normalize() const
 {
     if (witness_index == IS_CONSTANT ||
@@ -604,6 +627,12 @@ template <typename Builder> void field_t<Builder>::assert_is_not_zero(std::strin
 
     field_t<Builder> inverse(witness_t<Builder>(context, inverse_value));
 
+    // inverse is added in the circuit for checking that field element is not zero
+    // and it won't be used anymore, so it's needed to add this element in used witnesses
+    if constexpr (IsUltraBuilder<Builder>) {
+        context->update_used_witnesses(inverse.witness_index);
+    }
+
     // Aim of new gate: `this` has an inverse (hence is not zero).
     // I.e.:
     //     (this.v * this.mul + this.add) * inverse.v == 1;
@@ -692,6 +721,7 @@ template <typename Builder> bb::fr field_t<Builder>::get_value() const
         ASSERT(context != nullptr);
         return (multiplicative_constant * context->get_variable(witness_index)) + additive_constant;
     } else {
+        ASSERT(this->multiplicative_constant == bb::fr::one());
         // A constant field_t's value is tracked wholly by its additive_constant member.
         return additive_constant;
     }
@@ -712,11 +742,15 @@ template <typename Builder> bool_t<Builder> field_t<Builder>::operator==(const f
     bool is_equal = (fa == fb);
     bb::fr fc = is_equal ? bb::fr::one() : fd.invert();
     bool_t result(ctx, is_equal);
-    auto result_witness = witness_t(ctx, is_equal);
-    result.witness_index = result_witness.witness_index;
+    result.witness_index = ctx->add_variable(is_equal);
     result.witness_bool = is_equal;
 
     field_t x(witness_t(ctx, fc));
+    // element x is auxiliary variable to create constraints
+    // for operator == and it won't be used anymore
+    if constexpr (IsUltraBuilder<Builder>) {
+        ctx->update_used_witnesses(x.witness_index);
+    }
     const field_t& a = *this;
     const field_t& b = other;
     const field_t diff = a - b;
@@ -923,6 +957,7 @@ void field_t<Builder>::evaluate_linear_identity(const field_t& a, const field_t&
 
     if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
         d.witness_index == IS_CONSTANT) {
+        ASSERT(a.get_value() + b.get_value() + c.get_value() + d.get_value() == 0);
         return;
     }
 
@@ -958,6 +993,7 @@ void field_t<Builder>::evaluate_polynomial_identity(const field_t& a,
 
     if (a.witness_index == IS_CONSTANT && b.witness_index == IS_CONSTANT && c.witness_index == IS_CONSTANT &&
         d.witness_index == IS_CONSTANT) {
+        ASSERT((a.get_value() * b.get_value() + c.get_value() + d.get_value()).is_zero());
         return;
     }
 
@@ -1187,7 +1223,6 @@ std::vector<bool_t<Builder>> field_t<Builder>::decompose_into_bits(
         // y_lo = (2**128 + p_lo) - sum_lo
         field_t<Builder> y_lo = (-sum) + (p_lo + shift);
         y_lo += shifted_high_limb;
-        y_lo.normalize();
 
         if constexpr (IsSimulator<Builder>) {
             fr sum_lo = shift + p_lo - y_lo.get_value();

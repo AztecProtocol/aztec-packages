@@ -1,5 +1,21 @@
-import { BackendOptions, Barretenberg } from './index.js';
+import { BackendOptions, Barretenberg, CircuitOptions } from './index.js';
 import { RawBuffer } from '../types/raw_buffer.js';
+import { decompressSync as gunzip } from 'fflate';
+import {
+  deflattenFields,
+  flattenFieldsAsArray,
+  ProofData,
+  reconstructHonkProof,
+  reconstructUltraPlonkProof,
+  splitHonkProof,
+  AGGREGATION_OBJECT_LENGTH,
+} from '../proof/index.js';
+
+export class AztecClientBackendError extends Error {
+  constructor(message: string) {
+    super(message);
+  }
+}
 
 export class UltraPlonkBackend {
   // These type assertions are used so that we don't
@@ -11,28 +27,57 @@ export class UltraPlonkBackend {
   // eslint-disable-next-line  @typescript-eslint/no-explicit-any
   protected acirComposer: any;
 
-  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
+  protected acirUncompressedBytecode: Uint8Array;
+
+  constructor(
+    acirBytecode: string,
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {
+    this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
+  }
 
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.options);
+      const api = await Barretenberg.new(this.backendOptions);
 
       const honkRecursion = false;
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const [_total, subgroupSize] = await api.acirGetCircuitSizes(this.acirUncompressedBytecode, honkRecursion);
+      const [_total, subgroupSize] = await api.acirGetCircuitSizes(
+        this.acirUncompressedBytecode,
+        this.circuitOptions.recursive,
+        honkRecursion,
+      );
 
       await api.initSRSForCircuitSize(subgroupSize);
       this.acirComposer = await api.acirNewAcirComposer(subgroupSize);
-      await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
+      await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode, this.circuitOptions.recursive);
       this.api = api;
     }
   }
 
   /** @description Generates a proof */
-  async generateProof(uncompressedWitness: Uint8Array): Promise<Uint8Array> {
+  async generateProof(compressedWitness: Uint8Array): Promise<ProofData> {
     await this.instantiate();
-    return this.api.acirCreateProof(this.acirComposer, this.acirUncompressedBytecode, uncompressedWitness);
+    const proofWithPublicInputs = await this.api.acirCreateProof(
+      this.acirComposer,
+      this.acirUncompressedBytecode,
+      this.circuitOptions.recursive,
+      gunzip(compressedWitness),
+    );
+
+    // This is the number of bytes in a UltraPlonk proof
+    // minus the public inputs.
+    const numBytesInProofWithoutPublicInputs = 2144;
+
+    const splitIndex = proofWithPublicInputs.length - numBytesInProofWithoutPublicInputs;
+
+    const publicInputsConcatenated = proofWithPublicInputs.slice(0, splitIndex);
+    const proof = proofWithPublicInputs.slice(splitIndex);
+    const publicInputs = deflattenFields(publicInputsConcatenated);
+
+    return { proof, publicInputs };
   }
 
   /**
@@ -41,8 +86,8 @@ export class UltraPlonkBackend {
    * Instead of passing the proof and verification key as a byte array, we pass them
    * as fields which makes it cheaper to verify in a circuit.
    *
-   * The proof that is passed here will have been created using a circuit
-   * that has the #[recursive] attribute on its `main` method.
+   * The proof that is passed here will have been created by passing the `recursive`
+   * parameter to a backend.
    *
    * The number of public inputs denotes how many public inputs are in the inner proof.
    *
@@ -52,7 +97,7 @@ export class UltraPlonkBackend {
    * ```
    */
   async generateRecursiveProofArtifacts(
-    proof: Uint8Array,
+    proofData: ProofData,
     numOfPublicInputs = 0,
   ): Promise<{
     proofAsFields: string[];
@@ -60,6 +105,8 @@ export class UltraPlonkBackend {
     vkHash: string;
   }> {
     await this.instantiate();
+
+    const proof = reconstructUltraPlonkProof(proofData);
     const proofAsFields = (
       await this.api.acirSerializeProofIntoFields(this.acirComposer, proof, numOfPublicInputs)
     ).slice(numOfPublicInputs);
@@ -79,16 +126,25 @@ export class UltraPlonkBackend {
   }
 
   /** @description Verifies a proof */
-  async verifyProof(proof: Uint8Array): Promise<boolean> {
+  async verifyProof(proofData: ProofData): Promise<boolean> {
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);
+    const proof = reconstructUltraPlonkProof(proofData);
     return await this.api.acirVerifyProof(this.acirComposer, proof);
   }
 
+  /** @description Returns the verification key */
   async getVerificationKey(): Promise<Uint8Array> {
     await this.instantiate();
     await this.api.acirInitVerificationKey(this.acirComposer);
     return await this.api.acirGetVerificationKey(this.acirComposer);
+  }
+
+  /** @description Returns a solidity verifier */
+  async getSolidityVerifier(): Promise<string> {
+    await this.instantiate();
+    await this.api.acirInitVerificationKey(this.acirComposer);
+    return await this.api.acirGetSolidityVerifier(this.acirComposer);
   }
 
   async destroy(): Promise<void> {
@@ -99,6 +155,17 @@ export class UltraPlonkBackend {
   }
 }
 
+/**
+ * Options for the UltraHonkBackend.
+ */
+export type UltraHonkBackendOptions = {
+  /**Selecting this option will use the keccak hash function instead of poseidon
+   * when generating challenges in the proof.
+   * Use this when you want to verify the created proof on an EVM chain.
+   */
+  keccak: boolean;
+};
+
 export class UltraHonkBackend {
   // These type assertions are used so that we don't
   // have to initialize `api` in the constructor.
@@ -106,15 +173,21 @@ export class UltraHonkBackend {
   // constructors cannot be asynchronous which is why we do this.
 
   protected api!: Barretenberg;
+  protected acirUncompressedBytecode: Uint8Array;
 
-  constructor(protected acirUncompressedBytecode: Uint8Array, protected options: BackendOptions = { threads: 1 }) {}
-
+  constructor(
+    acirBytecode: string,
+    protected backendOptions: BackendOptions = { threads: 1 },
+    protected circuitOptions: CircuitOptions = { recursive: false },
+  ) {
+    this.acirUncompressedBytecode = acirToUint8Array(acirBytecode);
+  }
   /** @ignore */
   async instantiate(): Promise<void> {
     if (!this.api) {
-      const api = await Barretenberg.new(this.options);
+      const api = await Barretenberg.new(this.backendOptions);
       const honkRecursion = true;
-      await api.acirInitSRS(this.acirUncompressedBytecode, honkRecursion);
+      await api.acirInitSRS(this.acirUncompressedBytecode, this.circuitOptions.recursive, honkRecursion);
 
       // We don't init a proving key here in the Honk API
       // await api.acirInitProvingKey(this.acirComposer, this.acirUncompressedBytecode);
@@ -122,21 +195,61 @@ export class UltraHonkBackend {
     }
   }
 
-  async generateProof(uncompressedWitness: Uint8Array): Promise<Uint8Array> {
+  async generateProof(compressedWitness: Uint8Array, options?: UltraHonkBackendOptions): Promise<ProofData> {
     await this.instantiate();
-    return this.api.acirProveUltraHonk(this.acirUncompressedBytecode, uncompressedWitness);
+
+    const proveUltraHonk = options?.keccak
+      ? this.api.acirProveUltraKeccakHonk.bind(this.api)
+      : this.api.acirProveUltraHonk.bind(this.api);
+
+    const proofWithPublicInputs = await proveUltraHonk(this.acirUncompressedBytecode, gunzip(compressedWitness));
+
+    // Write VK to get the number of public inputs
+    const writeVKUltraHonk = options?.keccak
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
+
+    const vk = await writeVKUltraHonk(this.acirUncompressedBytecode);
+    const vkAsFields = await this.api.acirVkAsFieldsUltraHonk(new RawBuffer(vk));
+
+    // Item at index 1 in VK is the number of public inputs
+    const publicInputsSizeIndex = 1; // index into VK for numPublicInputs
+    const numPublicInputs = Number(vkAsFields[publicInputsSizeIndex].toString()) - AGGREGATION_OBJECT_LENGTH;
+
+    const { proof, publicInputs: publicInputsBytes } = splitHonkProof(proofWithPublicInputs, numPublicInputs);
+    const publicInputs = deflattenFields(publicInputsBytes);
+
+    return { proof, publicInputs };
   }
 
-  async verifyProof(proof: Uint8Array): Promise<boolean> {
+  async verifyProof(proofData: ProofData, options?: UltraHonkBackendOptions): Promise<boolean> {
     await this.instantiate();
-    const vkBuf = await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
 
-    return await this.api.acirVerifyUltraHonk(proof, new RawBuffer(vkBuf));
+    const proof = reconstructHonkProof(flattenFieldsAsArray(proofData.publicInputs), proofData.proof);
+
+    const writeVkUltraHonk = options?.keccak
+      ? this.api.acirWriteVkUltraKeccakHonk.bind(this.api)
+      : this.api.acirWriteVkUltraHonk.bind(this.api);
+    const verifyUltraHonk = options?.keccak
+      ? this.api.acirVerifyUltraKeccakHonk.bind(this.api)
+      : this.api.acirVerifyUltraHonk.bind(this.api);
+
+    const vkBuf = await writeVkUltraHonk(this.acirUncompressedBytecode);
+    return await verifyUltraHonk(proof, new RawBuffer(vkBuf));
   }
 
-  async getVerificationKey(): Promise<Uint8Array> {
+  async getVerificationKey(options?: UltraHonkBackendOptions): Promise<Uint8Array> {
     await this.instantiate();
-    return await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+    return options?.keccak
+      ? await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode)
+      : await this.api.acirWriteVkUltraHonk(this.acirUncompressedBytecode);
+  }
+
+  /** @description Returns a solidity verifier */
+  async getSolidityVerifier(vk?: Uint8Array): Promise<string> {
+    await this.instantiate();
+    const vkBuf = vk ?? (await this.api.acirWriteVkUltraKeccakHonk(this.acirUncompressedBytecode));
+    return await this.api.acirHonkSolidityVerifier(this.acirUncompressedBytecode, new RawBuffer(vkBuf));
   }
 
   // TODO(https://github.com/noir-lang/noir/issues/5661): Update this to handle Honk recursive aggregation in the browser once it is ready in the backend itself
@@ -176,5 +289,79 @@ export class UltraHonkBackend {
       return;
     }
     await this.api.destroy();
+  }
+}
+
+export class AztecClientBackend {
+  // These type assertions are used so that we don't
+  // have to initialize `api` in the constructor.
+  // These are initialized asynchronously in the `init` function,
+  // constructors cannot be asynchronous which is why we do this.
+
+  protected api!: Barretenberg;
+
+  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+
+  /** @ignore */
+  async instantiate(): Promise<void> {
+    if (!this.api) {
+      const api = await Barretenberg.new(this.options);
+      await api.initSRSClientIVC();
+      this.api = api;
+    }
+  }
+
+  async prove(witnessMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
+    await this.instantiate();
+    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack);
+    const [proof, vk] = proofAndVk;
+    if (!(await this.verify(proof, vk))) {
+      throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
+    }
+    return proofAndVk;
+  }
+
+  async verify(proof: Uint8Array, vk: Uint8Array): Promise<boolean> {
+    await this.instantiate();
+    return this.api.acirVerifyAztecClient(proof, vk);
+  }
+
+  async proveAndVerify(witnessMsgpack: Uint8Array[]): Promise<boolean> {
+    await this.instantiate();
+    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack);
+  }
+
+  async gates(): Promise<number[]> {
+    // call function on API
+    await this.instantiate();
+    return this.api.acirGatesAztecClient(this.acirMsgpack);
+  }
+
+  async destroy(): Promise<void> {
+    if (!this.api) {
+      return;
+    }
+    await this.api.destroy();
+  }
+}
+
+// Converts bytecode from a base64 string to a Uint8Array
+function acirToUint8Array(base64EncodedBytecode: string): Uint8Array {
+  const compressedByteCode = base64Decode(base64EncodedBytecode);
+  return gunzip(compressedByteCode);
+}
+
+// Since this is a simple function, we can use feature detection to
+// see if we are in the nodeJs environment or the browser environment.
+function base64Decode(input: string): Uint8Array {
+  if (typeof Buffer !== 'undefined') {
+    // Node.js environment
+    const b = Buffer.from(input, 'base64');
+    return new Uint8Array(b.buffer, b.byteOffset, b.byteLength);
+  } else if (typeof atob === 'function') {
+    // Browser environment
+    return Uint8Array.from(atob(input), c => c.charCodeAt(0));
+  } else {
+    throw new Error('No implementation found for base64 decoding.');
   }
 }

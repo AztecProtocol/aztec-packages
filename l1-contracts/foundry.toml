@@ -1,12 +1,22 @@
 [profile.default]
 src = 'src'
+test = 'test'
+script = 'script'
 out = 'out'
 libs = ['lib']
 solc = "0.8.27"
+evm_version = 'cancun'
+optimizer = true
+
+match_path = "test/**/*.t.sol"
+# Helper to get all the contract names in the src/governance and src/core directories
+# find ./src/governance ./src/core ./src/periphery/Forwarder -type f -name "*.sol" -exec grep -h "^contract [A-Za-z]" {} \; | sed -E 's/contract ([A-Za-z0-9_]+).*/"\1"/' | tr "\n" ", "
+gas_reports = ["Governance","Registry","RewardDistributor","GovernanceProposer","CoinIssuer","Rollup","Inbox","Outbox","FeeJuicePortal","RollupCore","SlashingProposer","Slasher","Forwarder"]
 
 remappings = [
   "@oz/=lib/openzeppelin-contracts/contracts/",
-  "@aztec/=src"
+  "@aztec/=src",
+  "@test/=test"
 ]
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
@@ -14,8 +24,11 @@ remappings = [
 fs_permissions = [
   {access = "read", path = "./test/fixtures/mixed_block_1.json"},
   {access = "read", path = "./test/fixtures/mixed_block_2.json"},
+  {access = "read", path = "./test/fixtures/single_tx_block_1.json"},
+  {access = "read", path = "./test/fixtures/single_tx_block_2.json"},
   {access = "read", path = "./test/fixtures/empty_block_1.json"},
   {access = "read", path = "./test/fixtures/empty_block_2.json"},
+  {access = "read", path = "./test/fixtures/fee_data_points.json"},
 ]
 
 [fmt]

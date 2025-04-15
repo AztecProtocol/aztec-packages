@@ -18,7 +18,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool
         add_mega_gates_to_ensure_all_polys_are_non_zero();
     }
     // All of the gates involved in finalization are part of the Ultra arithmetization
-    UltraCircuitBuilder_<MegaArith<FF>>::finalize_circuit(ensure_nonzero);
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::finalize_circuit(ensure_nonzero);
 }
 
 /**
@@ -29,33 +29,30 @@ template <typename FF> void MegaCircuitBuilder_<FF>::finalize_circuit(const bool
  * @param in Structure containing variables and witness selectors
  */
 // TODO(https://github.com/AztecProtocol/barretenberg/issues/1066): This function adds valid (but arbitrary) gates to
-// ensure that the circuit which includes them will not result in any zero-polynomials. It also ensures that the first
-// coefficient of the wire polynomials is zero, which is required for them to be shiftable.
+// ensure that the circuit which includes them will not result in any zero-polynomials. This method is designed to be
+// used in conjunction with the corresponding method on the Ultra builder. It handles databus and ecc-op related
+// polynomials.
 template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_all_polys_are_non_zero()
 {
-    // All that remains is to handle databus related and poseidon2 related polynomials. In what follows we populate the
-    // calldata with some mock data then constuct a single calldata read gate
-
-    // Define a single dummy value to add to all databus columns. Note: This value must be equal across all columns in
-    // order for inter-circuit databus commitment checks to pass in IVC settings. These dummy gates can be deleted with
-    // all of the others when (https://github.com/AztecProtocol/barretenberg/issues/1066) is resolved.
-    FF databus_dummy_value = 25;
+    // Add a single default value to all databus columns. Note: This value must be equal across all columns in order for
+    // inter-circuit databus commitment checks to pass in IVC settings.
+    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1138): Consider default value.
 
     // Create an arbitrary calldata read gate
-    add_public_calldata(this->add_variable(databus_dummy_value));         // add one entry in calldata
+    add_public_calldata(this->add_variable(BusVector::DEFAULT_VALUE));    // add one entry in calldata
     auto raw_read_idx = static_cast<uint32_t>(get_calldata().size()) - 1; // read data that was just added
     auto read_idx = this->add_variable(raw_read_idx);
     read_calldata(read_idx);
 
     // Create an arbitrary secondary_calldata read gate
-    add_public_secondary_calldata(this->add_variable(databus_dummy_value));    // add one entry in secondary_calldata
-    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1; // read data that was just added
+    add_public_secondary_calldata(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in secondary_calldata
+    raw_read_idx = static_cast<uint32_t>(get_secondary_calldata().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
     read_secondary_calldata(read_idx);
 
     // Create an arbitrary return data read gate
-    add_public_return_data(this->add_variable(databus_dummy_value));    // add one entry in return data
-    raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1; // read data that was just added
+    add_public_return_data(this->add_variable(BusVector::DEFAULT_VALUE)); // add one entry in return data
+    raw_read_idx = static_cast<uint32_t>(get_return_data().size()) - 1;   // read data that was just added
     read_idx = this->add_variable(raw_read_idx);
     read_return_data(read_idx);
 
@@ -77,7 +74,7 @@ template <typename FF> void MegaCircuitBuilder_<FF>::add_mega_gates_to_ensure_al
 template <typename FF> void MegaCircuitBuilder_<FF>::add_ultra_and_mega_gates_to_ensure_all_polys_are_non_zero()
 {
     // Most polynomials are handled via the conventional Ultra method
-    UltraCircuitBuilder_<MegaArith<FF>>::add_gates_to_ensure_all_polys_are_non_zero();
+    UltraCircuitBuilder_<MegaExecutionTraceBlocks>::add_gates_to_ensure_all_polys_are_non_zero();
     add_mega_gates_to_ensure_all_polys_are_non_zero();
 }
 
@@ -164,10 +161,10 @@ template <typename FF> ecc_op_tuple MegaCircuitBuilder_<FF>::populate_ecc_op_wir
 
 template <typename FF> void MegaCircuitBuilder_<FF>::set_goblin_ecc_op_code_constant_variables()
 {
-    null_op_idx = this->zero_idx;
-    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode::ADD_ACCUM));
-    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode::MUL_ACCUM));
-    equality_op_idx = this->put_constant_variable(FF(EccOpCode::EQUALITY));
+    null_op_idx = this->zero_idx; // constant 0 is is associated with the zero index
+    add_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .add = true }.value()));
+    mul_accum_op_idx = this->put_constant_variable(FF(EccOpCode{ .mul = true }.value()));
+    equality_op_idx = this->put_constant_variable(FF(EccOpCode{ .eq = true, .reset = true }.value()));
 }
 
 /**

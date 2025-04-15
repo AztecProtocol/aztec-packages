@@ -1,28 +1,40 @@
 use dep::protocol_types::{
-    constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX, hash::poseidon2_hash_with_separator,
-    address::AztecAddress, header::Header, utils::field::full_field_less_than
+    address::AztecAddress, block_header::BlockHeader, constants::GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
+    hash::poseidon2_hash_with_separator, utils::field::full_field_less_than,
 };
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
 
-use crate::{oracle::get_public_data_witness::get_public_data_witness};
+use crate::oracle::get_public_data_witness::get_public_data_witness;
+use protocol_types::traits::{Hash, ToField};
 
-trait PublicStorageHistoricalRead {
-    fn public_storage_historical_read(header: Header, storage_slot: Field, contract_address: AztecAddress) -> Field;
+mod test;
+
+pub trait PublicStorageHistoricalRead {
+    fn public_storage_historical_read(
+        header: BlockHeader,
+        storage_slot: Field,
+        contract_address: AztecAddress,
+    ) -> Field;
 }
 
-impl PublicStorageHistoricalRead for Header {
-    fn public_storage_historical_read(self, storage_slot: Field, contract_address: AztecAddress) -> Field {
+impl PublicStorageHistoricalRead for BlockHeader {
+    fn public_storage_historical_read(
+        self,
+        storage_slot: Field,
+        contract_address: AztecAddress,
+    ) -> Field {
         // 1) Compute the leaf index by siloing the storage slot with the contract address
         let public_data_tree_index = poseidon2_hash_with_separator(
             [contract_address.to_field(), storage_slot],
-            GENERATOR_INDEX__PUBLIC_LEAF_INDEX
+            GENERATOR_INDEX__PUBLIC_LEAF_INDEX,
         );
 
         // 2) Get the membership witness for the tree index.
+        // Safety: The witness is only used as a "magical value" that makes the proof below pass. Hence it's safe.
         let witness = unsafe {
             get_public_data_witness(
                 self.global_variables.block_number as u32,
-                public_data_tree_index
+                public_data_tree_index,
             )
         };
 
@@ -30,9 +42,10 @@ impl PublicStorageHistoricalRead for Header {
         // We first prove that the witness is indeed valid for the public data tree, i.e. that the preimage is of a
         // value present in the tree. Note that `hash` returns not just the hash of the value but also the metadata
         // (slot, next index and next slot).
-        assert(
-            self.state.partial.public_data_tree.root
-            == root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path), "Proving public value inclusion failed"
+        assert_eq(
+            self.state.partial.public_data_tree.root,
+            root_from_sibling_path(witness.leaf_preimage.hash(), witness.index, witness.path),
+            "Proving public value inclusion failed",
         );
 
         // 4) Now that we know the preimage is valid, we determine the value that's represented by this tree entry. Here
@@ -50,7 +63,11 @@ impl PublicStorageHistoricalRead for Header {
         let value = if is_in_range {
             0
         } else {
-            assert_eq(preimage.slot, public_data_tree_index, "Public data tree index doesn't match witness");
+            assert_eq(
+                preimage.slot,
+                public_data_tree_index,
+                "Public data tree index doesn't match witness",
+            );
             preimage.value
         };
 

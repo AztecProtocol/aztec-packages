@@ -1,0 +1,21 @@
+InitiateWithdrawTest
+├── when attester is not registered
+│   └── it revert
+└── when attester is registered
+    ├── when caller is not the withdrawer
+    │   └── it revert
+    └── when caller is the withdrawer
+        ├── given attester is not validating or living
+        │   └── it revert
+        ├── given attester is validating
+        │   ├── given attester is not in the active set
+        │   │   └── it revert
+        │   └── given attester is in the active set
+        │       ├── it removes the attester from the active set
+        │       ├── it creates an exit struct
+        │       ├── it updates the operator status to exiting
+        │       └── it emits a {WithdrawInitiated} event
+        └── given attester is living
+            ├── it creates an exit struct
+            ├── it updates the operator status to exiting
+            └── it emits a {WithdrawInitiated} event

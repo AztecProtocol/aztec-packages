@@ -1,62 +1,102 @@
-use dep::protocol_types::{
-    abis::{function_selector::FunctionSelector, private_circuit_public_inputs::PrivateCircuitPublicInputs},
-    address::AztecAddress, traits::Deserialize
-};
+use dep::protocol_types::{abis::function_selector::FunctionSelector, address::AztecAddress};
 
-use crate::context::inputs::PrivateContextInputs;
-use crate::context::{packed_returns::PackedReturns, call_interfaces::CallInterface};
-
-use crate::context::{PrivateContext, PublicContext, UnconstrainedContext};
-use crate::test::helpers::{cheatcodes, utils::{apply_side_effects_private, Deployer}};
+use crate::context::{call_interfaces::CallInterface, PrivateContext, PublicContext, UtilityContext};
 use crate::hash::hash_args;
+use crate::test::helpers::{cheatcodes, utils::Deployer};
 
-use crate::note::{note_header::NoteHeader, note_interface::{NoteInterface, NullifiableNote}};
-use crate::oracle::{execution::{get_block_number, get_contract_address}, notes::notify_created_note};
+use crate::note::note_interface::{NoteHash, NoteType};
+use crate::oracle::{
+    execution::{get_block_number, get_contract_address},
+    notes::notify_created_note,
+};
 use protocol_types::constants::PUBLIC_DISPATCH_SELECTOR;
+use protocol_types::traits::{FromField, Packable, ToField};
 
 pub struct TestEnvironment {}
 
 impl TestEnvironment {
-    unconstrained fn new() -> Self {
+    pub unconstrained fn new() -> Self {
         cheatcodes::reset();
         Self {}
     }
 
-    unconstrained fn block_number(_self: Self) -> u32 {
+    /// Returns the block number of the block currently being built. Since sequencer is executing the public part
+    /// of transactions when building blocks, this block number is also returned by public_context.block_number().
+    pub unconstrained fn pending_block_number(_self: Self) -> u32 {
         get_block_number()
     }
 
-    unconstrained fn contract_address(_self: Self) -> AztecAddress {
+    /// This does what the above does but should be considered deprecated as the naming is subpar.
+    pub unconstrained fn block_number(self: Self) -> u32 {
+        self.pending_block_number()
+    }
+
+    /// Returns the block number of the last committed block - this is the block number that gets used in production
+    /// to execute the private part of transactions when your PXE managed to successfully sync to the tip of the chain.
+    pub unconstrained fn committed_block_number(self: Self) -> u32 {
+        self.pending_block_number() - 1
+    }
+
+    /// With TXe tests, every test is run in a mock "contract". This facilitates the ability to write to and read from storage,
+    /// emit and retrieve nullifiers (because they are hashed with a contract address), and formulate notes in a canonical way.
+    /// The contract_address also represents the "msg_sender" when we call a contract with a private or public context; and when
+    /// we call utility functions, we must set this contract address to the contract being called.
+    /// The contract address can be manipulated to do the above at any particular address, and not simply the one provided at
+    /// the instantiation of the test.
+    /// Returns the currently set contract address.
+    pub unconstrained fn contract_address(_self: Self) -> AztecAddress {
         get_contract_address()
     }
 
-    unconstrained fn impersonate(_self: Self, address: AztecAddress) {
+    /// Modifies the currently set contract address. As per above, it sets the "msg_sender" address on our subsequent calls.
+    /// This is useful when we have multiple "accounts" that need to interact with an arbitrary contract. This also allows
+    /// us to change the "contract" we emit side effects from, and is required when we want to run a utility function
+    /// on another contract.
+    pub unconstrained fn impersonate(_self: Self, address: AztecAddress) {
         cheatcodes::set_contract_address(address)
     }
 
-    unconstrained fn advance_block_to(&mut self, block_number: u32) {
-        let difference = block_number - get_block_number();
+    /// Advances the internal TXe state to specified block number.
+    /// Note that this block number describes the block being built. i.e. If you advance the block to 5 from 1,
+    /// the pending block number will be 5, and your last committed block number will be 4.
+    pub unconstrained fn advance_block_to(&mut self, block_number: u32) {
+        let pending_block_number = self.pending_block_number();
+        assert(pending_block_number <= block_number, "Cannot advance block to a previous block.");
+
+        let difference = block_number - pending_block_number;
         self.advance_block_by(difference);
     }
 
-    unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
+    /// Advances the internal TXe state by the amount of blocks specified. The TXe produces a valid block for every
+    /// block advanced, and we are able to fetch historical data from warped over blocks.
+    pub unconstrained fn advance_block_by(_self: &mut Self, blocks: u32) {
         cheatcodes::advance_blocks_by(blocks);
     }
 
-    unconstrained fn public(_self: Self) -> PublicContext {
+    /// Instantiates a public context. The block number returned from public_context.block_number() will be the
+    /// block number of the block currently being built (same as the one returned by self.pending_block_number()).
+    pub unconstrained fn public(_self: Self) -> PublicContext {
         PublicContext::new(|| 0)
     }
 
-    unconstrained fn private(&mut self) -> PrivateContext {
-        self.private_at(get_block_number())
+    pub unconstrained fn public_with_args_hash(_self: Self, args: [Field]) -> PublicContext {
+        let mut context = PublicContext::new(|| panic(f"Provide args hash manually"));
+        context.args_hash = Option::some(hash_args(args));
+        context
     }
 
-    // unconstrained is a key word, so we mis-spell purposefully here, like we do with contrakt
-    unconstrained fn unkonstrained(_self: Self) -> UnconstrainedContext {
-        UnconstrainedContext::new()
+    /// Instantiates a private context at the latest committed block number - this is the block number that gets used
+    /// in production to build transactions when your PXE managed to successfully sync to the tip of the chain.
+    pub unconstrained fn private(&mut self) -> PrivateContext {
+        self.private_at(self.committed_block_number())
     }
 
-    unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
+    pub unconstrained fn utility(_self: Self) -> UtilityContext {
+        UtilityContext::new()
+    }
+
+    /// Instantiates a private context at a specific historical block number.
+    pub unconstrained fn private_at(&mut self, historical_block_number: u32) -> PrivateContext {
         if historical_block_number >= get_block_number() {
             self.advance_block_to(historical_block_number + 1);
         }
@@ -66,12 +106,12 @@ impl TestEnvironment {
         PrivateContext::new(inputs, 0)
     }
 
-    unconstrained fn create_account(_self: Self) -> AztecAddress {
-        let test_account = cheatcodes::create_account();
+    pub unconstrained fn create_account(_self: Self, secret: Field) -> AztecAddress {
+        let test_account = cheatcodes::create_account(secret);
         test_account.address
     }
 
-    unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
+    pub unconstrained fn create_account_contract(&mut self, secret: Field) -> AztecAddress {
         let test_account = cheatcodes::add_account(secret);
         let address = test_account.address;
         cheatcodes::advance_blocks_by(1);
@@ -85,131 +125,87 @@ impl TestEnvironment {
         address
     }
 
-    unconstrained fn deploy<let N: u32, let M: u32>(_self: Self, path: str<N>, name: str<M>) -> Deployer<N, M> {
-        Deployer { path, name, public_keys_hash: 0 }
-    }
-
-    unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
-        Deployer { path: "", name, public_keys_hash: 0 }
-    }
-
-    unconstrained fn call_private<C, let M: u32, T, Env, let N: u32>(
+    pub unconstrained fn deploy<let N: u32, let M: u32>(
         _self: Self,
-        call_interface: C
-    ) -> T where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env>, T: Deserialize<N> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = get_contract_address();
-        let target_address = call_interface.get_contract_address();
-
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
-        inputs.call_context.function_selector = call_interface.get_selector();
-        inputs.call_context.is_static_call = call_interface.get_is_static();
-        let public_inputs = original_fn(inputs);
-        apply_side_effects_private(target_address, public_inputs);
-
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
-        PackedReturns::new(public_inputs.returns_hash).unpack_into()
+        path: str<N>,
+        name: str<M>,
+    ) -> Deployer<N, M> {
+        Deployer { path, name, secret: 0 }
     }
 
-    unconstrained fn call_private_void<C, let M: u32, Env>(
+    pub unconstrained fn deploy_self<let M: u32>(_self: Self, name: str<M>) -> Deployer<0, M> {
+        Deployer { path: "", name, secret: 0 }
+    }
+
+    // Deploying with public keys assumes secret != 0
+    pub unconstrained fn deploy_with_public_keys<let N: u32, let M: u32>(
         _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, PrivateContextInputs, PrivateCircuitPublicInputs, Env> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = get_contract_address();
-        let target_address = call_interface.get_contract_address();
-
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        let mut inputs = cheatcodes::get_private_context_inputs(get_block_number() - 1);
-        inputs.call_context.function_selector = call_interface.get_selector();
-        inputs.call_context.is_static_call = call_interface.get_is_static();
-        let public_inputs = original_fn(inputs);
-        apply_side_effects_private(target_address, public_inputs);
-
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
-        PackedReturns::new(public_inputs.returns_hash).assert_empty();
+        path: str<N>,
+        name: str<M>,
+        secret: Field,
+    ) -> Deployer<N, M> {
+        Deployer { path, name, secret }
     }
 
-    unconstrained fn call_public<C, let M: u32, T, Env>(_self: Self, call_interface: C) -> T where C: CallInterface<M, (), T, Env> {
-        let original_fn = call_interface.get_original();
-        let original_msg_sender = cheatcodes::get_msg_sender();
-        let original_contract_address = get_contract_address();
-        let original_fn_selector = cheatcodes::get_function_selector();
-        let target_address = call_interface.get_contract_address();
-        let calldata = call_interface.get_args();
+    pub unconstrained fn deploy_self_with_public_keys<let M: u32>(
+        _self: Self,
+        name: str<M>,
+        secret: Field,
+    ) -> Deployer<0, M> {
+        Deployer { path: "", name, secret }
+    }
 
+    pub unconstrained fn assert_public_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    where
+        C: CallInterface<M>,
+    {
         // Public functions are routed through the dispatch function.
         let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
-        let calldata = &[call_interface.get_selector().to_field()].append(calldata);
-        cheatcodes::set_fn_selector(fn_selector);
-        cheatcodes::set_contract_address(target_address);
-        cheatcodes::set_msg_sender(original_contract_address);
-        cheatcodes::set_is_static_call(call_interface.get_is_static());
-        cheatcodes::set_calldata(calldata);
-
-        let result = original_fn(());
-
-        cheatcodes::set_fn_selector(original_fn_selector);
-        cheatcodes::set_contract_address(original_contract_address);
-        cheatcodes::set_msg_sender(original_msg_sender);
-        cheatcodes::set_calldata(calldata);
-        cheatcodes::set_is_static_call(call_interface.get_is_static());
-        result
+        let calldata =
+            &[call_interface.get_selector().to_field()].append(call_interface.get_args());
+        cheatcodes::assert_public_call_fails(
+            call_interface.get_contract_address(),
+            fn_selector,
+            calldata,
+        );
     }
 
-    unconstrained fn assert_public_call_fails<C, let M: u32, T, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, (), T, Env> {
-        // Public functions are routed through the dispatch function.
-        let fn_selector = FunctionSelector::from_field(PUBLIC_DISPATCH_SELECTOR);
-        let calldata = &[call_interface.get_selector().to_field()].append(call_interface.get_args());
-        cheatcodes::assert_public_call_fails(call_interface.get_contract_address(), fn_selector, calldata);
-    }
-
-    unconstrained fn assert_private_call_fails<C, let M: u32, T, Env>(
-        _self: Self,
-        call_interface: C
-    ) where C: CallInterface<M, PrivateContextInputs, T, Env> {
+    pub unconstrained fn assert_private_call_fails<C, let M: u32>(_self: Self, call_interface: C)
+    where
+        C: CallInterface<M>,
+    {
         cheatcodes::assert_private_call_fails(
             call_interface.get_contract_address(),
             call_interface.get_selector(),
             hash_args(call_interface.get_args()),
             cheatcodes::get_side_effects_counter() as Field,
             call_interface.get_is_static(),
-            false
         );
     }
 
     /// Manually adds a note to TXE. This needs to be called if you want to work with a note in your test with the note
-    /// not having an encrypted log emitted. TXE alternative to `PXE.addNote(...)`.
-    unconstrained pub fn add_note<Note, let N: u32>(
+    /// not having an encrypted log emitted.
+    pub unconstrained fn add_note<Note, let N: u32>(
         _self: Self,
-        note: &mut Note,
+        note: Note,
         storage_slot: Field,
-        contract_address: AztecAddress
-    ) where Note: NoteInterface<N> + NullifiableNote {
+        contract_address: AztecAddress,
+    )
+    where
+        Note: NoteType + NoteHash + Packable<N>,
+    {
         let original_contract_address = get_contract_address();
         cheatcodes::set_contract_address(contract_address);
         let note_hash_counter = cheatcodes::get_side_effects_counter();
 
-        let header = NoteHeader { contract_address, storage_slot, nonce: 0, note_hash_counter };
-        note.set_header(header);
-        let note_hash = note.compute_note_hash();
-        let serialized_note = Note::serialize_content(*note);
+        let note_hash = note.compute_note_hash(storage_slot);
+        let packed_note = Note::pack(note);
         notify_created_note(
             storage_slot,
-            Note::get_note_type_id(),
-            serialized_note,
+            Note::get_id(),
+            packed_note,
             note_hash,
-            note_hash_counter
+            note_hash_counter,
         );
         cheatcodes::set_contract_address(original_contract_address);
     }

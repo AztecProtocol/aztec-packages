@@ -3,9 +3,16 @@ set -eux
 
 mkdir -p ./proofs
 
-VFLAG=${VERBOSE:+-v}
+CRS_PATH=${CRS_PATH:-$HOME/.bb-crs}
+BIN=$(realpath ${BIN:-../cpp/build/bin/bb})
 
-$BIN client_ivc_prove_output_all $VFLAG -c $CRS_PATH -b ./target/program.json
-$BIN prove_tube -k vk -p proof -c $CRS_PATH $VFLAG
-$BIN verify_tube -k vk -p proof -c $CRS_PATH $VFLAG
+[ -n "${1:-}" ] && cd ./acir_tests/$1
 
+outdir=$(mktemp -d)
+trap "rm -rf $outdir" EXIT
+
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1252): deprecate in favor of normal proving flow
+$BIN OLD_API write_arbitrary_valid_client_ivc_proof_and_vk_to_file -c $CRS_PATH ${VERBOSE:+-v} -o $outdir
+$BIN prove_tube -c $CRS_PATH ${VERBOSE:+-v} -k $outdir/vk -o $outdir
+# TODO(https://github.com/AztecProtocol/barretenberg/issues/1322): Just call verify.
+$BIN verify_tube -c $CRS_PATH ${VERBOSE:+-v} -o $outdir

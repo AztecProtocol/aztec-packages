@@ -19,13 +19,14 @@ void ProtogalaxyVerifier_<DeciderVerificationKeys>::run_oink_verifier_on_each_in
     const std::vector<FF>& proof)
 {
     transcript = std::make_shared<Transcript>(proof);
+    transcript->enable_manifest();
     size_t index = 0;
     auto key = keys_to_fold[0];
     auto domain_separator = std::to_string(index);
     if (!key->is_accumulator) {
         run_oink_verifier_on_one_incomplete_key(key, domain_separator);
         key->target_sum = 0;
-        key->gate_challenges = std::vector<FF>(static_cast<size_t>(CONST_PG_LOG_N), 0);
+        key->gate_challenges = std::vector<FF>(CONST_PG_LOG_N, 0);
     }
     index++;
 
@@ -107,6 +108,11 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
     next_accumulator->verification_key = std::make_shared<VerificationKey>(*accumulator->verification_key);
     next_accumulator->is_accumulator = true;
 
+    // Set the accumulator circuit size data based on the max of the keys being accumulated
+    const size_t accumulator_log_circuit_size = keys_to_fold.get_max_log_circuit_size();
+    next_accumulator->verification_key->log_circuit_size = accumulator_log_circuit_size;
+    next_accumulator->verification_key->circuit_size = 1 << accumulator_log_circuit_size;
+
     // Compute next folding parameters
     const auto [vanishing_polynomial_at_challenge, lagranges] =
         compute_vanishing_polynomial_and_lagrange_evaluations<FF, NUM_KEYS>(combiner_challenge);
@@ -133,6 +139,15 @@ std::shared_ptr<typename DeciderVerificationKeys::DeciderVK> ProtogalaxyVerifier
          zip_view(next_accumulator->relation_parameters.get_to_fold(), keys_to_fold.get_relation_parameters())) {
         combination = linear_combination(to_combine, lagranges);
     }
+
+    // generate recursive folding challenges to ensure manifest matches with recursive verifier
+    // (in recursive verifier we use random challenges to convert Flavor::NUM_FOLDED_ENTITIES muls
+    //  into one large multiscalar multiplication)
+    std::array<std::string, Flavor::NUM_FOLDED_ENTITIES> args;
+    for (size_t idx = 0; idx < Flavor::NUM_FOLDED_ENTITIES; ++idx) {
+        args[idx] = "accumulator_combination_challenges" + std::to_string(idx);
+    }
+    transcript->template get_challenges<FF>(args);
 
     return next_accumulator;
 }

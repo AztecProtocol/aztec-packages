@@ -1,15 +1,11 @@
-use crate::circuit_builder::CircuitBuilder;
-use crate::composer_builder::ComposerBuilder;
 use crate::file_writer::BBFiles;
 use crate::flavor_builder::FlavorBuilder;
 use crate::lookup_builder::{
     get_counts_from_lookups, get_inverses_from_lookups, Lookup, LookupBuilder,
 };
 use crate::permutation_builder::{get_inverses_from_permutations, Permutation, PermutationBuilder};
-use crate::prover_builder::ProverBuilder;
 use crate::relation_builder::{get_shifted_polys, RelationBuilder};
 use crate::utils::{flatten, sanitize_name, snake_case, sort_cols};
-use crate::verifier_builder::VerifierBuilder;
 
 use dialoguer::Confirm;
 use itertools::Itertools;
@@ -24,8 +20,6 @@ struct ColumnGroups {
     witness: Vec<String>,
     /// witness or commit columns in pil, with out the inverse columns
     witnesses_without_inverses: Vec<String>,
-    /// fixed + witness columns without lookup inverses
-    all_cols_without_inverses: Vec<String>,
     /// fixed + witness columns with lookup inverses
     all_cols: Vec<String>,
     /// Columns that will not be shifted
@@ -36,17 +30,20 @@ struct ColumnGroups {
     shifted: Vec<String>,
     /// fixed + witness + shifted
     all_cols_with_shifts: Vec<String>,
-    /// Inverses from lookups and permuations
+    /// Inverses from lookups and permutations
     inverses: Vec<String>,
-    /// Public inputs (in source order)
-    public_inputs: Vec<(usize, String)>,
 }
 
 /// Analyzed to cpp
 ///
 /// Converts an analyzed pil AST into a set of cpp files that can be used to generate a proof
-pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, delete_dir: bool) {
-    let mut bb_files = BBFiles::default(&snake_case(&vm_name));
+pub fn analyzed_to_cpp<F: FieldElement>(
+    analyzed: &Analyzed<F>,
+    generated_dir: Option<&str>,
+    vm_name: &str,
+    delete_dir: bool,
+) {
+    let mut bb_files = BBFiles::new(&snake_case(&vm_name), generated_dir, None);
 
     // Remove the generated directory if it exists.
     // Pass `-y` as parameter if you want to skip the confirmation prompt.
@@ -65,8 +62,8 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
     let relations = bb_files.create_relations(vm_name, analyzed);
 
     // ----------------------- Handle Lookup / Permutation Relation Identities -----------------------
-    let permutations = bb_files.create_permutation_files(analyzed);
-    let lookups = bb_files.create_lookup_files(analyzed);
+    let permutations = bb_files.create_permutation_files(analyzed, vm_name);
+    let lookups = bb_files.create_lookup_files(analyzed, vm_name);
     let lookup_and_permutations_names = sort_cols(&flatten(&[
         permutations.iter().map(|p| p.name.clone()).collect_vec(),
         lookups.iter().map(|l| l.name.clone()).collect_vec(),
@@ -78,27 +75,39 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
         witness,
         witnesses_without_inverses,
         all_cols,
-        all_cols_without_inverses,
         unshifted: _unshifted,
         to_be_shifted,
         shifted,
         all_cols_with_shifts,
         inverses,
-        public_inputs,
     } = get_all_col_names(analyzed, &permutations, &lookups);
 
-    // ----------------------- Create the full row files -----------------------
-    bb_files.create_full_row_hpp(vm_name, &all_cols);
-    bb_files.create_full_row_cpp(vm_name, &all_cols);
-
-    // ----------------------- Create the circuit builder files -----------------------
-    bb_files.create_circuit_builder_hpp(vm_name);
-    bb_files.create_circuit_builder_cpp(vm_name, &all_cols_without_inverses);
+    let lookup_and_perm_file_names = lookups
+        .iter()
+        .map(|l| l.file_name.clone())
+        .chain(permutations.iter().map(|p| p.file_name.clone()))
+        .unique()
+        .sorted()
+        .collect_vec();
 
     // ----------------------- Create the flavor files -----------------------
-    bb_files.create_flavor_hpp(
+    bb_files.create_flavor_variables_hpp(
         vm_name,
         &relations,
+        &inverses,
+        &lookup_and_permutations_names,
+        &lookup_and_perm_file_names,
+        &fixed,
+        &witness,
+        &witnesses_without_inverses,
+        &all_cols,
+        &to_be_shifted,
+        &shifted,
+        &all_cols_with_shifts,
+    );
+
+    bb_files.create_columns_hpp(
+        vm_name,
         &lookup_and_permutations_names,
         &inverses,
         &fixed,
@@ -109,33 +118,6 @@ pub fn analyzed_to_cpp<F: FieldElement>(analyzed: &Analyzed<F>, vm_name: &str, d
         &shifted,
         &all_cols_with_shifts,
     );
-
-    bb_files.create_flavor_cpp(
-        vm_name,
-        &relations,
-        &inverses,
-        &fixed,
-        &witness,
-        &witnesses_without_inverses,
-        &all_cols,
-        &to_be_shifted,
-        &shifted,
-        &all_cols_with_shifts,
-    );
-
-    bb_files.create_flavor_settings_hpp(vm_name);
-
-    // ----------------------- Create the composer files -----------------------
-    bb_files.create_composer_cpp(vm_name);
-    bb_files.create_composer_hpp(vm_name);
-
-    // ----------------------- Create the Verifier files -----------------------
-    bb_files.create_verifier_cpp(vm_name, &public_inputs);
-    bb_files.create_verifier_hpp(vm_name);
-
-    // ----------------------- Create the Prover files -----------------------
-    bb_files.create_prover_cpp(vm_name);
-    bb_files.create_prover_hpp(vm_name);
 
     println!("Done with generation.");
 }
@@ -200,8 +182,6 @@ fn get_all_col_names<F: FieldElement>(
     ]);
 
     // Group columns by properties
-    let all_cols_without_inverses =
-        flatten(&[constant.clone(), witnesses_without_inverses.clone()]);
     let all_cols = flatten(&[constant.clone(), witnesses_with_inverses.clone()]);
     let unshifted = flatten(&[constant.clone(), witnesses_with_inverses.clone()])
         .into_iter()
@@ -216,7 +196,6 @@ fn get_all_col_names<F: FieldElement>(
     ColumnGroups {
         fixed: constant,
         witness: witnesses_with_inverses,
-        all_cols_without_inverses: all_cols_without_inverses,
         witnesses_without_inverses: witnesses_without_inverses,
         all_cols: all_cols,
         unshifted: unshifted,
@@ -224,6 +203,5 @@ fn get_all_col_names<F: FieldElement>(
         shifted: shifted,
         all_cols_with_shifts: all_cols_with_shifts,
         inverses: inverses,
-        public_inputs: public.iter().cloned().enumerate().collect_vec(),
     }
 }

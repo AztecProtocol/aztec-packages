@@ -1,7 +1,9 @@
 #pragma once
 
 #include "barretenberg/commitment_schemes/commitment_key.hpp"
+#include "barretenberg/plonk_honk_shared/types/aggregation_object_type.hpp"
 #include "barretenberg/polynomials/polynomial.hpp"
+#include "barretenberg/stdlib/primitives/curves/grumpkin.hpp"
 
 namespace bb {
 /**
@@ -31,6 +33,9 @@ template <typename Curve> class ProverOpeningClaim {
   public:
     Polynomial polynomial;           // p
     OpeningPair<Curve> opening_pair; // (challenge r, evaluation v = p(r))
+    // Gemini Folds have to be opened at `challenge` and -`challenge`. Instead of copying a polynomial into 2 claims, we
+    // raise the flag that turns on relevant claim processing logic in Shplonk.
+    bool gemini_fold = false;
 };
 
 /**
@@ -46,11 +51,73 @@ template <typename Curve> class OpeningClaim {
     using Fr = typename Curve::ScalarField;
 
   public:
+    using Builder =
+        std::conditional_t<std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>, UltraCircuitBuilder, void>;
     // (challenge r, evaluation v = p(r))
     OpeningPair<Curve> opening_pair;
     // commitment to univariate polynomial p(X)
     Commitment commitment;
 
+    // Size of public inputs representation of an opening claim over Grumpkin
+    static constexpr size_t PUBLIC_INPUTS_SIZE = IPA_CLAIM_SIZE;
+
+    /**
+     * @brief Set the witness indices for the opening claim to public
+     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     *
+     */
+    uint32_t set_public()
+        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+    {
+        uint32_t start_idx = opening_pair.challenge.set_public();
+        opening_pair.evaluation.set_public();
+        commitment.set_public();
+
+        Builder* ctx = commitment.get_context();
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1325): Eventually the builder/PK/VK will store
+        // public input key which should be set here and ipa_claim_public_input_indices should go away.
+        uint32_t pub_idx = start_idx;
+        for (uint32_t& idx : ctx->ipa_claim_public_input_indices) {
+            idx = pub_idx++;
+        }
+        ctx->contains_ipa_claim = true;
+
+        return start_idx;
+    }
+
+    /**
+     * @brief Reconstruct an opening claim from limbs stored on the public inputs.
+     * @note Implemented only for an opening claim over Grumpkin for use with IPA.
+     *
+     */
+    static OpeningClaim<Curve> reconstruct_from_public(
+        const std::span<const stdlib::field_t<Builder>, PUBLIC_INPUTS_SIZE>& limbs)
+        requires(std::is_same_v<Curve, stdlib::grumpkin<UltraCircuitBuilder>>)
+    {
+        ASSERT(2 * Fr::PUBLIC_INPUTS_SIZE + Commitment::PUBLIC_INPUTS_SIZE == PUBLIC_INPUTS_SIZE);
+
+        const size_t FIELD_SIZE = Fr::PUBLIC_INPUTS_SIZE;
+        const size_t COMMITMENT_SIZE = Commitment::PUBLIC_INPUTS_SIZE;
+        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> challenge_limbs{ limbs.data(), FIELD_SIZE };
+        std::span<const stdlib::field_t<Builder>, FIELD_SIZE> evaluation_limbs{ limbs.data() + FIELD_SIZE, FIELD_SIZE };
+        std::span<const stdlib::field_t<Builder>, COMMITMENT_SIZE> commitment_limbs{ limbs.data() + 2 * FIELD_SIZE,
+                                                                                     COMMITMENT_SIZE };
+        auto challenge = Fr::reconstruct_from_public(challenge_limbs);
+        auto evaluation = Fr::reconstruct_from_public(evaluation_limbs);
+        auto commitment = Commitment::reconstruct_from_public(commitment_limbs);
+
+        return OpeningClaim<Curve>{ { challenge, evaluation }, commitment };
+    }
+
+    auto get_native_opening_claim() const
+        requires(Curve::is_stdlib_type)
+    {
+        return OpeningClaim<typename Curve::NativeCurve>{
+            { static_cast<typename Curve::NativeCurve::ScalarField>(opening_pair.challenge.get_value()),
+              static_cast<typename Curve::NativeCurve::ScalarField>(opening_pair.evaluation.get_value()) },
+            commitment.get_value()
+        };
+    }
     /**
      * @brief inefficiently check that the claim is correct by recomputing the commitment
      * and evaluating the polynomial in r.

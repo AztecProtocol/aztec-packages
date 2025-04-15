@@ -1,25 +1,21 @@
-import { type BBConfig } from '@aztec/bb-prover';
-import { type ProverConfig, proverConfigMappings } from '@aztec/circuit-types';
+import type { ACVMConfig, BBConfig } from '@aztec/bb-prover';
 import { type ConfigMappingsType, booleanConfigHelper, getConfigFromMappings } from '@aztec/foundation/config';
+import { type ProverConfig, proverConfigMappings } from '@aztec/stdlib/interfaces/server';
 
-/**
- * The prover configuration.
- */
-export type ProverClientConfig = ProverConfig &
-  BBConfig & {
-    /** The URL to the Aztec prover node to take proving jobs from */
-    proverJobSourceUrl?: string;
-    /** The working directory to use for simulation/proving */
-    acvmWorkingDirectory: string;
-    /** The path to the ACVM binary */
-    acvmBinaryPath: string;
-  };
+import {
+  type ProverAgentConfig,
+  type ProverBrokerConfig,
+  proverAgentConfigMappings,
+  proverBrokerConfigMappings,
+} from './proving_broker/config.js';
 
-export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> = {
-  proverJobSourceUrl: {
-    env: 'PROVER_JOB_SOURCE_URL',
-    description: 'The URL to the Aztec prover node to take proving jobs from',
-  },
+/** The prover configuration as defined by the user. */
+export type ProverClientUserConfig = ProverConfig & ProverAgentConfig & ProverBrokerConfig & BBConfig & ACVMConfig;
+
+/** The prover configuration with all missing fields resolved. */
+export type ProverClientConfig = ProverClientUserConfig & Required<Pick<ProverClientUserConfig, 'proverId'>>;
+
+export const bbConfigMappings: ConfigMappingsType<BBConfig & ACVMConfig> = {
   acvmWorkingDirectory: {
     env: 'ACVM_WORKING_DIRECTORY',
     description: 'The working directory to use for simulation/proving',
@@ -30,7 +26,7 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
   },
   bbWorkingDirectory: {
     env: 'BB_WORKING_DIRECTORY',
-    description: 'The working directory to for proving',
+    description: 'The working directory to use for proving',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
@@ -41,7 +37,13 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
     description: 'Whether to skip cleanup of bb temporary files',
     ...booleanConfigHelper(false),
   },
+};
+
+export const proverClientConfigMappings: ConfigMappingsType<ProverClientUserConfig> = {
+  ...bbConfigMappings,
   ...proverConfigMappings,
+  ...proverAgentConfigMappings,
+  ...proverBrokerConfigMappings,
 };
 
 /**
@@ -49,6 +51,6 @@ export const proverClientConfigMappings: ConfigMappingsType<ProverClientConfig> 
  * Note: If an environment variable is not set, the default value is used.
  * @returns The prover configuration.
  */
-export function getProverEnvVars(): ProverClientConfig {
-  return getConfigFromMappings<ProverClientConfig>(proverClientConfigMappings);
+export function getProverEnvVars(): ProverClientUserConfig {
+  return getConfigFromMappings<ProverClientUserConfig>(proverClientConfigMappings);
 }

@@ -22,12 +22,12 @@ To make objects serializable as a map-like format, define the `msgpack` method i
 
 ```cpp
 void msgpack(auto ar) {
-    ar(NVP(circuit_type, circuit_size, num_public_inputs, commitments, contains_recursive_proof,
-recursive_proof_public_input_indices));
+    ar(NVP(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
+pairing_point_accumulator_public_input_indices));
 }
 or
-MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_recursive_proof,
-recursive_proof_public_input_indices);
+MSGPACK_FIELDS(circuit_type, circuit_size, num_public_inputs, commitments, contains_pairing_point_accumulator,
+pairing_point_accumulator_public_input_indices);
 ```
 
 This approach assumes 1. all members are default constructible 2. you give it all members 3. all members are writable
@@ -89,6 +89,21 @@ e.g. unpacking
 
 ```
     msgpack::unpack((const char*)encoded_data, encoded_data_size).get().convert(*value);
+```
+
+Note that `msgpack::unpack` returns a `msgpack::object_handle` which controls the lifetime
+of the `msgpack::object` returned by `msgpack::object_handle::get`, so if you need access
+to the object itself, do break up the above to keep a reference to the handle, for example:
+
+```
+    msgpack::object_handle oh = msgpack::unpack((const char*)encoded_data, encoded_data_size);
+    msgpack::object o = oh.get();
+    try {
+        o.convert(*value);
+    } catch (const msgpack::type_error&) {
+        std::cerr << "failed to unpack: " << o << std::endl;
+        throw;
+    }
 ```
 */
 #include "msgpack_impl/concepts.hpp"

@@ -88,6 +88,41 @@ class MockCircuits {
     }
 
     /**
+     * @brief Add some simple RAM (aux) gates for testing memory read/write functionality
+     * @brief Each iteration adds 18 gates (including finalization)
+     *
+     * @param builder
+     */
+    template <typename Builder> static void add_RAM_gates(Builder& builder)
+    {
+        std::array<uint32_t, 3> ram_values{ builder.add_variable(5),
+                                            builder.add_variable(10),
+                                            builder.add_variable(20) };
+
+        size_t ram_id = builder.create_RAM_array(3);
+
+        for (size_t i = 0; i < 3; ++i) {
+            builder.init_RAM_element(ram_id, i, ram_values[i]);
+        }
+
+        auto val_idx_1 = builder.read_RAM_array(ram_id, builder.add_variable(1));
+        auto val_idx_2 = builder.read_RAM_array(ram_id, builder.add_variable(2));
+        auto val_idx_3 = builder.read_RAM_array(ram_id, builder.add_variable(0));
+
+        builder.create_big_add_gate({
+            val_idx_1,
+            val_idx_2,
+            val_idx_3,
+            builder.zero_idx,
+            1,
+            1,
+            1,
+            0,
+            -35,
+        });
+    }
+
+    /**
      * @brief Populate a builder with a specified number of arithmetic gates; includes a PI
      *
      * @param builder

@@ -1,7 +1,7 @@
 import { wrap } from 'comlink';
 
 export function getSharedMemoryAvailable() {
-  const globalScope = typeof window !== 'undefined' ? window : self;
+  const globalScope = typeof window !== 'undefined' ? window : globalThis;
   return typeof SharedArrayBuffer !== 'undefined' && globalScope.crossOriginIsolated;
 }
 

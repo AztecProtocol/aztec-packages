@@ -27,6 +27,12 @@ twin_rom_table<Builder>::twin_rom_table(const std::vector<std::array<field_pt, 2
     // if this is the case we might not have a valid pointer to a Builder
     // We get around this, by initializing the table when `operator[]` is called
     // with a non-const field element.
+
+    // Ensure that the origin tags of all entries are preserved so we can assign them on lookups
+    tags.resize(length);
+    for (size_t i = 0; i < length; ++i) {
+        tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
+    }
 }
 
 // initialize the table once we perform a read. This ensures we always have a valid
@@ -61,6 +67,12 @@ template <typename Builder> void twin_rom_table<Builder>::initialize_table() con
         context->set_ROM_element_pair(
             rom_id, i, std::array<uint32_t, 2>{ entries[i][0].get_witness_index(), entries[i][1].get_witness_index() });
     }
+
+    // Ensure that the origin tags of all entries are preserved so we can assign them on lookups
+    tags.resize(length);
+    for (size_t i = 0; i < length; ++i) {
+        tags[i] = { raw_entries[i][0].get_origin_tag(), raw_entries[i][1].get_origin_tag() };
+    }
     initialized = true;
 }
 
@@ -68,6 +80,7 @@ template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(const twin_rom_table& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , tags(other.tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
@@ -78,6 +91,7 @@ template <typename Builder>
 twin_rom_table<Builder>::twin_rom_table(twin_rom_table&& other)
     : raw_entries(other.raw_entries)
     , entries(other.entries)
+    , tags(other.tags)
     , length(other.length)
     , rom_id(other.rom_id)
     , initialized(other.initialized)
@@ -88,6 +102,7 @@ template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::op
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    tags = other.tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
@@ -99,6 +114,7 @@ template <typename Builder> twin_rom_table<Builder>& twin_rom_table<Builder>::op
 {
     raw_entries = other.raw_entries;
     entries = other.entries;
+    tags = other.tags;
     length = other.length;
     rom_id = other.rom_id;
     initialized = other.initialized;
@@ -126,16 +142,26 @@ std::array<field_t<Builder>, 2> twin_rom_table<Builder>::operator[](const field_
     if (context == nullptr) {
         context = index.get_context();
     }
+
     initialize_table();
     if (uint256_t(index.get_value()) >= length) {
         context->failure("twin_rom_table: ROM array access out of bounds");
     }
 
     auto output_indices = context->read_ROM_array_pair(rom_id, index.normalize().get_witness_index());
-    return field_pair_pt{
+    auto pair = field_pair_pt{
         field_pt::from_witness_index(context, output_indices[0]),
         field_pt::from_witness_index(context, output_indices[1]),
     };
+
+    const auto native_index = uint256_t(index.get_value());
+    const size_t cast_index = static_cast<size_t>(static_cast<uint64_t>(native_index));
+    // In case of a legitimate lookup, restore the tags of the original entries to the output
+    if (native_index < length) {
+        pair[0].set_origin_tag(tags[cast_index][0]);
+        pair[1].set_origin_tag(tags[cast_index][1]);
+    }
+    return pair;
 }
 
 template class twin_rom_table<bb::UltraCircuitBuilder>;

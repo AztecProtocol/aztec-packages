@@ -1,4 +1,4 @@
-import { createDebugLogger } from '../../log/logger.js';
+import { createLogger } from '../../log/pino-logger.js';
 
 /**
  * A number generator which is used as a source of randomness in the system. If the SEED env variable is set, the
@@ -15,7 +15,7 @@ export class RandomnessSingleton {
 
   private constructor(
     private readonly seed?: number,
-    private readonly log = createDebugLogger('aztec:randomness_singleton'),
+    private readonly log = createLogger('foundation:randomness_singleton'),
   ) {
     if (seed !== undefined) {
       this.log.debug(`Using pseudo-randomness with seed: ${seed}`);

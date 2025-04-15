@@ -1,12 +1,13 @@
 global NOTE_HASH_LEAF_PREIMAGE_LENGTH: u32 = 1;
 
 use crate::{
-    abis::{read_request::ScopedReadRequest, side_effect::Readable}, hash::compute_siloed_note_hash,
-    merkle_tree::leaf_preimage::LeafPreimage, traits::Empty
+    abis::{read_request::ScopedReadRequest, side_effect::Readable},
+    merkle_tree::leaf_preimage::LeafPreimage,
+    traits::Empty,
 };
 
 pub struct NoteHashLeafPreimage {
-    value : Field,
+    pub value: Field,
 }
 
 impl Empty for NoteHashLeafPreimage {
@@ -27,8 +28,11 @@ impl LeafPreimage for NoteHashLeafPreimage {
 
 impl Readable<ScopedReadRequest> for NoteHashLeafPreimage {
     fn assert_match_read_request(self, read_request: ScopedReadRequest) {
-        let siloed_value = compute_siloed_note_hash(read_request.contract_address, read_request.value());
-        assert_eq(self.value, siloed_value, "Value of the note hash leaf does not match read request");
+        assert_eq(
+            self.value,
+            read_request.value(),
+            "Value of the note hash leaf does not match read request",
+        );
     }
 }
 

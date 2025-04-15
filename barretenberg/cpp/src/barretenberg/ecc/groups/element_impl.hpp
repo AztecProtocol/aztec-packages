@@ -69,9 +69,6 @@ template <class Fq, class Fr, class T> constexpr element<Fq, Fr, T>::operator af
     Fq zz_inv = z_inv.sqr();
     Fq zzz_inv = zz_inv * z_inv;
     affine_element<Fq, Fr, T> result(x * zz_inv, y * zzz_inv);
-    if (is_point_at_infinity()) {
-        result.self_set_infinity();
-    }
     return result;
 }
 
@@ -792,7 +789,7 @@ template <class Fq, class Fr, class T>
 std::vector<affine_element<Fq, Fr, T>> element<Fq, Fr, T>::batch_mul_with_endomorphism(
     const std::span<const affine_element<Fq, Fr, T>>& points, const Fr& scalar) noexcept
 {
-    BB_OP_COUNT_TIME();
+    PROFILE_THIS();
     typedef affine_element<Fq, Fr, T> affine_element;
     const size_t num_points = points.size();
 

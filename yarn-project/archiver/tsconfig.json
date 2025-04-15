@@ -7,10 +7,13 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
+      "path": "../blob-lib"
     },
     {
-      "path": "../circuits.js"
+      "path": "../blob-sink"
+    },
+    {
+      "path": "../constants"
     },
     {
       "path": "../ethereum"
@@ -25,16 +28,16 @@
       "path": "../l1-artifacts"
     },
     {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
       "path": "../protocol-contracts"
     },
     {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
-    },
-    {
-      "path": "../types"
-    },
-    {
-      "path": "../noir-contracts.js"
     }
   ],
   "include": ["src"]

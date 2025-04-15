@@ -376,3 +376,144 @@ TEST(standard_circuit, check_double_xor_bug)
     Solver s(circuit_info.modulus, default_solver_config, 16, 64);
     StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
 }
+
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
+TEST(standard_circuit, optimized_range_witness)
+{
+    uint32_t rbit = engine.get_random_uint8() & 1;
+    uint32_t num_bits = 32 + rbit;
+    info(num_bits);
+
+    StandardCircuitBuilder builder;
+    field_t a = witness_t(&builder, engine.get_random_uint256() % (uint256_t(1) << num_bits));
+    builder.create_range_constraint(a.get_witness_index(), num_bits);
+    builder.set_variable_name(a.get_witness_index(), "a");
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+    Solver s(circuit_info.modulus, default_solver_config, 16, 64);
+    StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
+
+    circuit["a"] == a.get_value();
+
+    bool res = smt_timer(&s);
+    ASSERT_TRUE(res);
+    auto model_witness = default_model_single({ "a" }, circuit, "optimized_range_check.out");
+
+    ASSERT_EQ(model_witness.size(), builder.get_num_variables());
+    for (size_t i = 0; i < model_witness.size(); i++) {
+        ASSERT_EQ(model_witness[i], builder.variables[i]);
+    }
+}
+
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
+TEST(standard_circuit, optimized_logic_witness)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_t(&builder, engine.get_random_uint32());
+    builder.set_variable_name(a.get_witness_index(), "a");
+    uint_ct b = witness_t(&builder, engine.get_random_uint32());
+    builder.set_variable_name(b.get_witness_index(), "b");
+    uint_ct c = a ^ b;
+    uint_ct d = a & b;
+    builder.set_variable_name(c.get_witness_index(), "c");
+    builder.set_variable_name(d.get_witness_index(), "d");
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+    Solver s(circuit_info.modulus, default_solver_config, 16, 64);
+    StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
+
+    circuit["a"] == a.get_value();
+    circuit["b"] == b.get_value();
+
+    bool res = smt_timer(&s);
+    ASSERT_TRUE(res);
+    auto model_witness = default_model_single({ "a", "b", "c", "d" }, circuit, "optimized_xor_check.out");
+
+    ASSERT_EQ(model_witness.size(), builder.get_num_variables());
+    for (size_t i = 0; i < model_witness.size(); i++) {
+        ASSERT_EQ(model_witness[i], builder.variables[i]);
+    }
+}
+
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
+TEST(standard_circuit, optimized_shr_witness)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_t(&builder, engine.get_random_uint32());
+    builder.set_variable_name(a.get_witness_index(), "a");
+    uint_ct b = a >> 0;
+    for (uint32_t i = 1; i < 32; i++) {
+        b = a >> i;
+    }
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+    Solver s(circuit_info.modulus, default_solver_config, 16, 64);
+    StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
+
+    circuit["a"] == a.get_value();
+    bool res = smt_timer(&s);
+    ASSERT_TRUE(res);
+    auto model_witness = default_model_single({ "a" }, circuit, "optimized_xor_check.out");
+
+    ASSERT_EQ(model_witness.size(), builder.get_num_variables());
+    for (size_t i = 0; i < model_witness.size(); i++) {
+        EXPECT_EQ(model_witness[i], builder.variables[i]);
+    }
+}
+
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
+TEST(standard_circuit, optimized_shl_witness)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_t(&builder, engine.get_random_uint32());
+    builder.set_variable_name(a.get_witness_index(), "a");
+    uint_ct b = a << 0;
+    for (uint32_t i = 1; i < 32; i++) {
+        b = a << i;
+    }
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+    Solver s(circuit_info.modulus, default_solver_config, 16, 64);
+    StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
+
+    circuit[a.get_witness_index()] == a.get_value();
+    bool res = smt_timer(&s);
+    ASSERT_TRUE(res);
+    auto model_witness = default_model_single({ "a" }, circuit, "optimized_xor_check.out");
+
+    ASSERT_EQ(model_witness.size(), builder.get_num_variables());
+    for (size_t i = 0; i < model_witness.size(); i++) {
+        EXPECT_EQ(model_witness[i], builder.variables[i]);
+    }
+}
+
+// Check that witness provided by the solver is the same as builder's witness
+// Check that all the optimized out values are initialized and computed properly during post proccessing
+TEST(standard_circuit, optimized_ror_witness)
+{
+    StandardCircuitBuilder builder;
+    uint_ct a = witness_t(&builder, engine.get_random_uint32());
+    builder.set_variable_name(a.get_witness_index(), "a");
+    uint_ct b = a.ror(0);
+    for (uint32_t i = 1; i < 32; i++) {
+        b = a.ror(i);
+    }
+
+    CircuitSchema circuit_info = unpack_from_buffer(builder.export_circuit());
+    Solver s(circuit_info.modulus, default_solver_config, 16, 64);
+    StandardCircuit circuit(circuit_info, &s, TermType::BVTerm);
+
+    circuit[a.get_witness_index()] == a.get_value();
+    bool res = smt_timer(&s);
+    ASSERT_TRUE(res);
+    auto model_witness = default_model_single({ "a" }, circuit, "optimized_xor_check.out");
+
+    ASSERT_EQ(model_witness.size(), builder.get_num_variables());
+    for (size_t i = 0; i < model_witness.size(); i++) {
+        EXPECT_EQ(model_witness[i], builder.variables[i]);
+    }
+}

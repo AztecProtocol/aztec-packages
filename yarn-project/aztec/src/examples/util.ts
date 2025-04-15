@@ -1,7 +1,9 @@
 import { EthAddress } from '@aztec/aztec.js';
+import type { ViemPublicClient, ViemWalletClient } from '@aztec/ethereum';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 
 import type { Abi, Narrow } from 'abitype';
-import { type Account, type Chain, type Hex, type HttpTransport, type PublicClient, type WalletClient } from 'viem';
+import type { Hex } from 'viem';
 
 /**
  * Helper function to deploy ETH contracts.
@@ -13,8 +15,8 @@ import { type Account, type Chain, type Hex, type HttpTransport, type PublicClie
  * @returns The ETH address the contract was deployed to.
  */
 export async function deployL1Contract(
-  walletClient: WalletClient<HttpTransport, Chain, Account>,
-  publicClient: PublicClient<HttpTransport, Chain>,
+  walletClient: ViemWalletClient,
+  publicClient: ViemPublicClient,
   abi: Narrow<Abi | readonly unknown[]>,
   bytecode: Hex,
   args: readonly unknown[] = [],
@@ -28,7 +30,7 @@ export async function deployL1Contract(
   const receipt = await publicClient.waitForTransactionReceipt({ hash });
   const contractAddress = receipt.contractAddress;
   if (!contractAddress) {
-    throw new Error(`No contract address found in receipt: ${JSON.stringify(receipt)}`);
+    throw new Error(`No contract address found in receipt: ${jsonStringify(receipt)}`);
   }
 
   return EthAddress.fromString(receipt.contractAddress!);

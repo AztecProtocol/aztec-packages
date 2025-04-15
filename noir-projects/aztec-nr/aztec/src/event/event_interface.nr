@@ -1,8 +1,8 @@
 use dep::protocol_types::abis::event_selector::EventSelector;
+use dep::protocol_types::traits::Serialize;
 
-pub trait EventInterface<let N: u32> {
-    fn private_to_be_bytes(self, randomness: Field) -> [u8; N * 32 + 64];
-    fn to_be_bytes(self) -> [u8; N * 32 + 32];
+// TODO(#11571): Make events implement Packable instead of Serialize.
+pub trait EventInterface<let N: u32>: Serialize<N> {
     fn get_event_type_id() -> EventSelector;
-    fn emit<Env>(self, _emit: fn[Env](Self) -> ());
+    fn emit<Env>(self, emit: fn[Env](Self) -> ());
 }

@@ -1,85 +1,59 @@
+import { timesParallel } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { retryUntil } from '@aztec/foundation/retry';
+import { sleep } from '@aztec/foundation/sleep';
+import type { PublicProcessorFactory } from '@aztec/simulator/server';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { EmptyL1RollupConstants } from '@aztec/stdlib/epoch-helpers';
 import {
-  type EpochProofClaim,
-  EpochProofQuote,
-  EpochProofQuotePayload,
   type EpochProverManager,
-  type L1ToL2MessageSource,
-  type L2Block,
-  type L2BlockSource,
+  type EpochProvingJobState,
   type MerkleTreeWriteOperations,
   type ProverCoordination,
   WorldStateRunningState,
   type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
-import { EthAddress } from '@aztec/circuits.js';
-import { times } from '@aztec/foundation/collection';
-import { Signature } from '@aztec/foundation/eth-signature';
-import { sleep } from '@aztec/foundation/sleep';
-import { type L1Publisher } from '@aztec/sequencer-client';
-import { type PublicProcessorFactory, type SimulationProvider } from '@aztec/simulator';
-import { NoopTelemetryClient } from '@aztec/telemetry-client/noop';
-import { type ContractDataSource } from '@aztec/types/contracts';
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import type { Tx } from '@aztec/stdlib/tx';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
-import { type BondManager } from './bond/bond-manager.js';
-import { type EpochProvingJob } from './job/epoch-proving-job.js';
-import { ClaimsMonitor } from './monitors/claims-monitor.js';
+import type { EpochProvingJob } from './job/epoch-proving-job.js';
 import { EpochMonitor } from './monitors/epoch-monitor.js';
+import type { ProverNodePublisher } from './prover-node-publisher.js';
 import { ProverNode, type ProverNodeOptions } from './prover-node.js';
-import { type QuoteProvider } from './quote-provider/index.js';
-import { type QuoteSigner } from './quote-signer.js';
 
 describe('prover-node', () => {
   // Prover node dependencies
   let prover: MockProxy<EpochProverManager>;
-  let publisher: MockProxy<L1Publisher>;
+  let publisher: MockProxy<ProverNodePublisher>;
   let l2BlockSource: MockProxy<L2BlockSource>;
   let l1ToL2MessageSource: MockProxy<L1ToL2MessageSource>;
   let contractDataSource: MockProxy<ContractDataSource>;
   let worldState: MockProxy<WorldStateSynchronizer>;
-  let coordination: MockProxy<ProverCoordination>;
-  let simulator: MockProxy<SimulationProvider>;
-  let quoteProvider: MockProxy<QuoteProvider>;
-  let quoteSigner: MockProxy<QuoteSigner>;
-  let bondManager: MockProxy<BondManager>;
-  let telemetryClient: NoopTelemetryClient;
+  let coordination: ProverCoordination;
+  let mockCoordination: MockProxy<ProverCoordination>;
+  let epochMonitor: MockProxy<EpochMonitor>;
   let config: ProverNodeOptions;
+
+  // L1 genesis time
+  let l1GenesisTime: number;
 
   // Subject under test
   let proverNode: TestProverNode;
 
-  // Quote returned by the provider by default and its completed quote
-  let partialQuote: Pick<EpochProofQuotePayload, 'basisPointFee' | 'bondAmount' | 'validUntilSlot'>;
-
-  // Sample claim
-  let claim: MockProxy<EpochProofClaim>;
-
   // Blocks returned by the archiver
-  let blocks: MockProxy<L2Block>[];
+  let blocks: L2Block[];
 
   // Address of the publisher
   let address: EthAddress;
 
   // List of all jobs ever created by the test prover node and their dependencies
-  let jobs: {
-    job: MockProxy<EpochProvingJob>;
-    cleanUp: (job: EpochProvingJob) => Promise<void>;
-    db: MerkleTreeWriteOperations;
-    epochNumber: bigint;
-  }[];
+  let jobs: { job: MockProxy<EpochProvingJob>; epochNumber: bigint }[];
 
-  const toQuotePayload = (
-    epoch: bigint,
-    partialQuote: Pick<EpochProofQuotePayload, 'basisPointFee' | 'bondAmount' | 'validUntilSlot'>,
-  ) => EpochProofQuotePayload.from({ ...partialQuote, prover: address, epochToProve: epoch });
-
-  const toExpectedQuote = (
-    epoch: bigint,
-    quote: Pick<EpochProofQuotePayload, 'basisPointFee' | 'bondAmount' | 'validUntilSlot'> = partialQuote,
-  ) => expect.objectContaining({ payload: toQuotePayload(epoch, quote) });
-
-  const createProverNode = (claimsMonitor: ClaimsMonitor, epochMonitor: EpochMonitor) =>
+  const createProverNode = () =>
     new TestProverNode(
       prover,
       publisher,
@@ -88,53 +62,73 @@ describe('prover-node', () => {
       contractDataSource,
       worldState,
       coordination,
-      simulator,
-      quoteProvider,
-      quoteSigner,
-      claimsMonitor,
       epochMonitor,
-      bondManager,
-      telemetryClient,
       config,
     );
 
-  beforeEach(() => {
+  beforeEach(async () => {
     prover = mock<EpochProverManager>();
-    publisher = mock<L1Publisher>();
+    publisher = mock<ProverNodePublisher>();
     l2BlockSource = mock<L2BlockSource>();
     l1ToL2MessageSource = mock<L1ToL2MessageSource>();
     contractDataSource = mock<ContractDataSource>();
     worldState = mock<WorldStateSynchronizer>();
-    coordination = mock<ProverCoordination>();
-    simulator = mock<SimulationProvider>();
-    quoteProvider = mock<QuoteProvider>();
-    quoteSigner = mock<QuoteSigner>();
-    bondManager = mock<BondManager>();
+    mockCoordination = mock<ProverCoordination>();
+    epochMonitor = mock<EpochMonitor>();
+    coordination = mockCoordination;
 
-    telemetryClient = new NoopTelemetryClient();
-    config = { maxPendingJobs: 3, pollingIntervalMs: 10 };
+    config = {
+      maxPendingJobs: 3,
+      pollingIntervalMs: 10,
+      maxParallelBlocksPerEpoch: 32,
+      txGatheringMaxParallelRequests: 10,
+      txGatheringIntervalMs: 100,
+      txGatheringTimeoutMs: 1000,
+    };
 
     // World state returns a new mock db every time it is asked to fork
-    worldState.syncImmediateAndFork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
-    worldState.status.mockResolvedValue({ syncedToL2Block: 1, state: WorldStateRunningState.RUNNING });
+    worldState.fork.mockImplementation(() => Promise.resolve(mock<MerkleTreeWriteOperations>()));
+    worldState.status.mockResolvedValue({
+      state: WorldStateRunningState.RUNNING,
+      syncSummary: {
+        latestBlockNumber: 1,
+        latestBlockHash: '',
+        finalisedBlockNumber: 0,
+        oldestHistoricBlockNumber: 0,
+        treesAreSynched: true,
+      },
+    });
 
     // Publisher returns its sender address
     address = EthAddress.random();
     publisher.getSenderAddress.mockReturnValue(address);
 
-    // Quote provider returns a mock
-    partialQuote = { basisPointFee: 100, bondAmount: 0n, validUntilSlot: 30n };
-    quoteProvider.getQuote.mockResolvedValue(partialQuote);
-
-    // Signer returns an empty signature
-    quoteSigner.sign.mockImplementation(payload => Promise.resolve(new EpochProofQuote(payload, Signature.empty())));
+    // We create 3 fake blocks with 1 tx effect each
+    blocks = await timesParallel(3, async i => await L2Block.random(i + 20, 1));
 
     // Archiver returns a bunch of fake blocks
-    blocks = times(3, i => mock<L2Block>({ number: i + 20 }));
-    l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getBlocks.mockImplementation((from, limit) => {
+      const startBlockIndex = blocks.findIndex(b => b.number === from);
+      if (startBlockIndex > -1) {
+        return Promise.resolve(blocks.slice(startBlockIndex, startBlockIndex + limit));
+      } else {
+        return Promise.resolve([]);
+      }
+    });
 
-    // A sample claim
-    claim = { epochToProve: 10n, bondProvider: address } as EpochProofClaim;
+    l1GenesisTime = Math.floor(Date.now() / 1000) - 3600;
+    l2BlockSource.getL1Constants.mockResolvedValue({ ...EmptyL1RollupConstants, l1GenesisTime: BigInt(l1GenesisTime) });
+    l2BlockSource.getBlocksForEpoch.mockResolvedValue(blocks);
+    l2BlockSource.getL2Tips.mockResolvedValue({
+      latest: { number: blocks.at(-1)!.number, hash: (await blocks.at(-1)!.hash()).toString() },
+      proven: { number: 0, hash: undefined },
+      finalized: { number: 0, hash: undefined },
+    });
+
+    // Coordination plays along and returns a tx whenever requested
+    mockCoordination.getTxsByHash.mockImplementation(hashes =>
+      Promise.resolve(hashes.map(hash => mock<Tx>({ getTxHash: () => Promise.resolve(hash) }))),
+    );
 
     jobs = [];
   });
@@ -143,162 +137,90 @@ describe('prover-node', () => {
     await proverNode.stop();
   });
 
-  describe('with mocked monitors', () => {
-    let claimsMonitor: MockProxy<ClaimsMonitor>;
-    let epochMonitor: MockProxy<EpochMonitor>;
-
-    beforeEach(() => {
-      claimsMonitor = mock<ClaimsMonitor>();
-      epochMonitor = mock<EpochMonitor>();
-
-      proverNode = createProverNode(claimsMonitor, epochMonitor);
-    });
-
-    it('sends a quote on a finished epoch', async () => {
-      await proverNode.handleEpochCompleted(10n);
-
-      expect(quoteProvider.getQuote).toHaveBeenCalledWith(10, blocks);
-      expect(quoteSigner.sign).toHaveBeenCalledWith(expect.objectContaining(partialQuote));
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
-
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(10n));
-    });
-
-    it('does not send a quote on a finished epoch if the provider does not return one', async () => {
-      quoteProvider.getQuote.mockResolvedValue(undefined);
-      await proverNode.handleEpochCompleted(10n);
-
-      expect(quoteSigner.sign).not.toHaveBeenCalled();
-      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
-    });
-
-    it('starts proving on a new claim', async () => {
-      await proverNode.handleClaim(claim);
-
-      expect(jobs[0].epochNumber).toEqual(10n);
-    });
-
-    it('fails to start proving if world state is synced past the first block in the epoch', async () => {
-      // This test will probably be no longer necessary once we have the proper world state
-      worldState.status.mockResolvedValue({ syncedToL2Block: 21, state: WorldStateRunningState.RUNNING });
-      await proverNode.handleClaim(claim);
-
-      expect(jobs.length).toEqual(0);
-    });
-
-    it('does not prove the same epoch twice', async () => {
-      await proverNode.handleClaim(claim);
-      await proverNode.handleClaim(claim);
-
-      expect(jobs.length).toEqual(1);
-    });
-
-    it('sends a quote on the initial sync if there is no claim', async () => {
-      await proverNode.handleInitialEpochSync(10n);
-
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
-    });
-
-    it('sends a quote on the initial sync if there is a claim for an older epoch', async () => {
-      const claim = { epochToProve: 9n, bondProvider: EthAddress.random() } as EpochProofClaim;
-      publisher.getProofClaim.mockResolvedValue(claim);
-      await proverNode.handleInitialEpochSync(10n);
-
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not send a quote on the initial sync if there is already a claim', async () => {
-      const claim = { epochToProve: 10n, bondProvider: EthAddress.random() } as EpochProofClaim;
-      publisher.getProofClaim.mockResolvedValue(claim);
-      await proverNode.handleInitialEpochSync(10n);
-
-      expect(coordination.addEpochProofQuote).not.toHaveBeenCalled();
-    });
-
-    it('starts proving if there is a claim sent by us', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
-      l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(9);
-      await proverNode.handleInitialEpochSync(10n);
-
-      expect(jobs[0].epochNumber).toEqual(10n);
-    });
-
-    it('does not start proving if there is a claim sent by us but proof has already landed', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
-      l2BlockSource.getProvenL2EpochNumber.mockResolvedValue(10);
-      await proverNode.handleInitialEpochSync(10n);
-
-      expect(jobs.length).toEqual(0);
-    });
+  beforeEach(() => {
+    proverNode = createProverNode();
   });
 
-  describe('with actual monitors', () => {
-    let claimsMonitor: ClaimsMonitor;
-    let epochMonitor: EpochMonitor;
+  it('starts a proof on a finished epoch', async () => {
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(jobs[0].epochNumber).toEqual(10n);
+    expect(jobs[0].job.getDeadline()).toEqual(new Date((l1GenesisTime + 10 + 2) * 1000));
+    expect(proverNode.totalJobCount).toEqual(1);
+  });
 
-    // Answers l2BlockSource.isEpochComplete, queried from the epoch monitor
-    let lastEpochComplete: bigint = 0n;
+  it('does not start a proof if there are no blocks in the epoch', async () => {
+    l2BlockSource.getBlocksForEpoch.mockResolvedValue([]);
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(proverNode.totalJobCount).toEqual(0);
+  });
 
-    beforeEach(() => {
-      claimsMonitor = new ClaimsMonitor(publisher, config);
-      epochMonitor = new EpochMonitor(l2BlockSource, config);
+  it('does not start a proof if there is a tx missing from coordinator', async () => {
+    mockCoordination.getTxsByHash.mockResolvedValue([]);
+    await proverNode.handleEpochReadyToProve(10n);
+    expect(proverNode.totalJobCount).toEqual(0);
+  });
 
-      l2BlockSource.isEpochComplete.mockImplementation(epochNumber =>
-        Promise.resolve(epochNumber <= lastEpochComplete),
-      );
+  it('does not prove the same epoch twice', async () => {
+    const firstJob = promiseWithResolvers<void>();
+    proverNode.nextJobRun = () => firstJob.promise;
+    proverNode.nextJobState = 'processing';
+    await proverNode.handleEpochReadyToProve(10n);
+    await proverNode.handleEpochReadyToProve(10n);
 
-      proverNode = createProverNode(claimsMonitor, epochMonitor);
-    });
+    firstJob.resolve();
+    expect(proverNode.totalJobCount).toEqual(1);
+  });
 
-    it('sends a quote on initial sync', async () => {
-      l2BlockSource.getL2EpochNumber.mockResolvedValue(10n);
+  it('restarts a proof on a reorg', async () => {
+    proverNode.nextJobState = 'reorg';
+    await proverNode.handleEpochReadyToProve(10n);
+    await retryUntil(() => proverNode.totalJobCount === 2, 'job retried', 5);
+    expect(proverNode.totalJobCount).toEqual(2);
+  });
 
-      await proverNode.start();
-      await sleep(100);
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(1);
-    });
-
-    it('sends another quote when a new epoch is completed', async () => {
-      lastEpochComplete = 10n;
-      l2BlockSource.getL2EpochNumber.mockResolvedValue(11n);
-
-      await proverNode.start();
-      await sleep(100);
-
-      lastEpochComplete = 11n;
-      await sleep(100);
-
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledTimes(2);
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(10n));
-      expect(coordination.addEpochProofQuote).toHaveBeenCalledWith(toExpectedQuote(11n));
-    });
-
-    it('starts proving when a claim is seen', async () => {
-      publisher.getProofClaim.mockResolvedValue(claim);
-
-      await proverNode.start();
-      await sleep(100);
-
-      expect(jobs[0].epochNumber).toEqual(10n);
-    });
+  it('does not restart a proof on an error', async () => {
+    proverNode.nextJobState = 'failed';
+    await proverNode.handleEpochReadyToProve(10n);
+    await sleep(1000);
+    expect(proverNode.totalJobCount).toEqual(1);
   });
 
   class TestProverNode extends ProverNode {
+    public totalJobCount = 0;
+    public nextJobState: EpochProvingJobState = 'completed';
+    public nextJobRun: () => Promise<void> = () => Promise.resolve();
+
     protected override doCreateEpochProvingJob(
       epochNumber: bigint,
+      deadline: Date | undefined,
       _blocks: L2Block[],
-      db: MerkleTreeWriteOperations,
+      _txs: Tx[],
       _publicProcessorFactory: PublicProcessorFactory,
-      cleanUp: (job: EpochProvingJob) => Promise<void>,
     ): EpochProvingJob {
-      const job = mock<EpochProvingJob>({ getState: () => 'processing', run: () => Promise.resolve() });
+      const state = this.nextJobState;
+      this.nextJobState = 'completed';
+      const run = this.nextJobRun;
+      this.nextJobRun = () => Promise.resolve();
+      const job = mock<EpochProvingJob>({
+        run,
+        getState: () => state,
+        getEpochNumber: () => epochNumber,
+        getDeadline: () => deadline,
+      });
       job.getId.mockReturnValue(jobs.length.toString());
-      jobs.push({ epochNumber, job, cleanUp, db });
+      jobs.push({ epochNumber, job });
+      this.totalJobCount++;
       return job;
     }
 
     public override triggerMonitors() {
       return super.triggerMonitors();
+    }
+
+    public override getJobs(): Promise<{ uuid: string; status: EpochProvingJobState; epochNumber: number }[]> {
+      return Promise.resolve(
+        jobs.map(j => ({ uuid: j.job.getId(), status: j.job.getState(), epochNumber: Number(j.epochNumber) })),
+      );
     }
   }
 });

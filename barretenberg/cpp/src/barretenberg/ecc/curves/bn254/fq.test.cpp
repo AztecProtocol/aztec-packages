@@ -1,4 +1,6 @@
 #include "fq.hpp"
+#include "barretenberg/numeric/random/engine.hpp"
+#include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/serialize/test_helper.hpp"
 #include <gtest/gtest.h>
 
@@ -526,4 +528,17 @@ TEST(fq, NegAndSelfNeg0CmpRegression)
     a_neg = 0;
     a_neg.self_neg();
     EXPECT_EQ((a == a_neg), true);
+}
+
+// This test shows that ((lo|hi)% modulus) in uint512_t is equivalent to (lo + 2^256 * hi) in field elements so we
+// don't have to use the slow API (uint512_t' modulo operation)
+TEST(fq, EquivalentRandomness)
+{
+    auto& engine = numeric::get_debug_randomness();
+    uint512_t random_uint512 = engine.get_random_uint512();
+    auto random_lo = fq(random_uint512.lo);
+    auto random_hi = fq(random_uint512.hi);
+    uint512_t q(fq::modulus);
+    constexpr auto pow_2_256 = fq(uint256_t(1) << 128).sqr();
+    EXPECT_EQ(random_lo + pow_2_256 * random_hi, fq((random_uint512 % q).lo));
 }

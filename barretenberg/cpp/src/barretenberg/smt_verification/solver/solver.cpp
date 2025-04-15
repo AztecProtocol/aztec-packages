@@ -172,6 +172,9 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
         child_parenthesis = false;
         break;
     case cvc5::Kind::LT:
+    case cvc5::Kind::BITVECTOR_UDIV:
+        op = " / ";
+        break;
     case cvc5::Kind::BITVECTOR_ULT:
         op = " < ";
         break;
@@ -186,6 +189,9 @@ std::string Solver::stringify_term(const cvc5::Term& term, bool parenthesis)
     case cvc5::Kind::GEQ:
     case cvc5::Kind::BITVECTOR_UGE:
         op = " >= ";
+        break;
+    case cvc5::Kind::BITVECTOR_UREM:
+        op = " % ";
         break;
     case cvc5::Kind::XOR:
     case cvc5::Kind::BITVECTOR_XOR:

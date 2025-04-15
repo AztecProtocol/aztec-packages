@@ -7,10 +7,7 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../foundation"
@@ -22,10 +19,19 @@
       "path": "../merkle-tree"
     },
     {
+      "path": "../native"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
       "path": "../telemetry-client"
     },
     {
-      "path": "../types"
+      "path": "../archiver"
     }
   ],
   "include": ["src"]

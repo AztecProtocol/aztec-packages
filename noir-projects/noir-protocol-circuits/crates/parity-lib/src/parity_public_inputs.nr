@@ -1,9 +1,9 @@
-use dep::types::{traits::{Empty, Serialize, Deserialize}};
+use dep::types::traits::{Deserialize, Empty, Serialize};
 
 pub struct ParityPublicInputs {
-    sha_root: Field,
-    converted_root: Field,
-    vk_tree_root: Field,
+    pub sha_root: Field,
+    pub converted_root: Field,
+    pub vk_tree_root: Field,
 }
 
 impl Empty for ParityPublicInputs {
@@ -24,6 +24,10 @@ impl Serialize<3> for ParityPublicInputs {
 
 impl Deserialize<3> for ParityPublicInputs {
     fn deserialize(fields: [Field; 3]) -> Self {
-        ParityPublicInputs { sha_root: fields[0], converted_root: fields[1], vk_tree_root: fields[2] }
+        ParityPublicInputs {
+            sha_root: fields[0],
+            converted_root: fields[1],
+            vk_tree_root: fields[2],
+        }
     }
 }

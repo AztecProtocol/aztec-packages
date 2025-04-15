@@ -3,30 +3,51 @@ import { type ConfigMappingsType, getConfigFromMappings } from '@aztec/foundatio
 export interface TelemetryClientConfig {
   metricsCollectorUrl?: URL;
   tracesCollectorUrl?: URL;
-  serviceName: string;
-  networkName: string;
+  logsCollectorUrl?: URL;
+  otelCollectIntervalMs: number;
+  otelExportTimeoutMs: number;
+  otelExcludeMetrics?: string[];
 }
 
 export const telemetryClientConfigMappings: ConfigMappingsType<TelemetryClientConfig> = {
   metricsCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_METRICS_ENDPOINT',
     description: 'The URL of the telemetry collector for metrics',
-    parseEnv: (val: string) => new URL(val),
+    parseEnv: (val: string) => val && new URL(val),
   },
   tracesCollectorUrl: {
     env: 'OTEL_EXPORTER_OTLP_TRACES_ENDPOINT',
     description: 'The URL of the telemetry collector for traces',
-    parseEnv: (val: string) => new URL(val),
+    parseEnv: (val: string) => val && new URL(val),
   },
-  serviceName: {
-    env: 'OTEL_SERVICE_NAME',
-    description: 'The URL of the telemetry collector',
-    defaultValue: 'aztec',
+  logsCollectorUrl: {
+    env: 'OTEL_EXPORTER_OTLP_LOGS_ENDPOINT',
+    description: 'The URL of the telemetry collector for logs',
+    parseEnv: (val: string) => val && new URL(val),
   },
-  networkName: {
-    env: 'NETWORK_NAME',
-    description: 'The network ID of the telemetry service',
-    defaultValue: 'local',
+  otelCollectIntervalMs: {
+    env: 'OTEL_COLLECT_INTERVAL_MS',
+    description: 'The interval at which to collect metrics',
+    defaultValue: 60000, // Default extracted from otel client
+    parseEnv: (val: string) => parseInt(val),
+  },
+  otelExportTimeoutMs: {
+    env: 'OTEL_EXPORT_TIMEOUT_MS',
+    description: 'The timeout for exporting metrics',
+    defaultValue: 30000, // Default extracted from otel client
+    parseEnv: (val: string) => parseInt(val),
+  },
+  otelExcludeMetrics: {
+    env: 'OTEL_EXCLUDE_METRICS',
+    description: 'A list of metric prefixes to exclude from export',
+    parseEnv: (val: string) =>
+      val
+        ? val
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0)
+        : [],
+    defaultValue: [],
   },
 };
 

@@ -13,13 +13,10 @@
       "path": "../aztec.js"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
-    },
-    {
       "path": "../cli"
+    },
+    {
+      "path": "../entrypoints"
     },
     {
       "path": "../ethereum"
@@ -32,6 +29,12 @@
     },
     {
       "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../pxe"
+    },
+    {
+      "path": "../stdlib"
     }
   ],
   "include": ["src"]

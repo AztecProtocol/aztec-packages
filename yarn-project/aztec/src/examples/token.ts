@@ -1,20 +1,13 @@
-import { getSingleKeyAccount } from '@aztec/accounts/single_key';
-import { type AccountWallet, Fr, Note, computeSecretHash, createPXEClient } from '@aztec/aztec.js';
-import { ExtendedNote } from '@aztec/circuit-types';
-import { createDebugLogger } from '@aztec/foundation/log';
+import { getDeployedTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient } from '@aztec/aztec.js';
+import { createLogger } from '@aztec/foundation/log';
 import { TokenContract } from '@aztec/noir-contracts.js/Token';
 
-const logger = createDebugLogger('aztec:http-rpc-client');
-
-export const alicePrivateKey = Fr.random();
-export const bobPrivateKey = Fr.random();
+const logger = createLogger('example:token');
 
 const url = 'http://localhost:8080';
 
 const pxe = createPXEClient(url);
-
-let aliceWallet: AccountWallet;
-let bobWallet: AccountWallet;
 
 const ALICE_MINT_BALANCE = 333n;
 const TRANSFER_AMOUNT = 33n;
@@ -25,12 +18,11 @@ const TRANSFER_AMOUNT = 33n;
 async function main() {
   logger.info('Running token contract test on HTTP interface.');
 
-  aliceWallet = await getSingleKeyAccount(pxe, alicePrivateKey).waitSetup();
-  bobWallet = await getSingleKeyAccount(pxe, bobPrivateKey).waitSetup();
+  const [aliceWallet, bobWallet] = await getDeployedTestAccountsWallets(pxe);
   const alice = aliceWallet.getCompleteAddress();
   const bob = bobWallet.getCompleteAddress();
 
-  logger.info(`Created Alice and Bob accounts: ${alice.address.toString()}, ${bob.address.toString()}`);
+  logger.info(`Fetched Alice and Bob accounts: ${alice.address.toString()}, ${bob.address.toString()}`);
 
   logger.info('Deploying Token...');
   const token = await TokenContract.deploy(aliceWallet, alice, 'TokenName', 'TokenSymbol', 18).send().deployed();
@@ -42,27 +34,10 @@ async function main() {
 
   // Mint tokens to Alice
   logger.info(`Minting ${ALICE_MINT_BALANCE} more coins to Alice...`);
+  const from = aliceWallet.getAddress(); // we are setting from to Alice here because we need a sender to calculate the tag
+  await tokenAlice.methods.mint_to_private(from, aliceWallet.getAddress(), ALICE_MINT_BALANCE).send().wait();
 
-  // Create a secret and a corresponding hash that will be used to mint funds privately
-  const aliceSecret = Fr.random();
-  const aliceSecretHash = computeSecretHash(aliceSecret);
-  const receipt = await tokenAlice.methods.mint_private(ALICE_MINT_BALANCE, aliceSecretHash).send().wait();
-
-  const note = new Note([new Fr(ALICE_MINT_BALANCE), aliceSecretHash]);
-  const extendedNote = new ExtendedNote(
-    note,
-    alice.address,
-    token.address,
-    TokenContract.storage.pending_shields.slot,
-    TokenContract.notes.TransparentNote.id,
-    receipt.txHash,
-  );
-  await pxe.addNote(extendedNote);
-
-  // Make the tokens spendable by redeeming them using the secret (converts the "pending shield note" created above
-  // to a "token note")
-  await tokenAlice.methods.redeem_shield(alice, ALICE_MINT_BALANCE, aliceSecret).send().wait();
-  logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted and redeemed by Alice`);
+  logger.info(`${ALICE_MINT_BALANCE} tokens were successfully minted by Alice and transferred to private`);
 
   const balanceAfterMint = await tokenAlice.methods.balance_of_private(alice).simulate();
   logger.info(`Tokens successfully minted. New Alice's balance: ${balanceAfterMint}`);

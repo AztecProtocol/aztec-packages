@@ -21,11 +21,22 @@ template <typename Flavor> class ECCVMRecursiveVerifier_ {
                                      const std::shared_ptr<NativeVerificationKey>& native_verifier_key);
 
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/991): switch recursive verifiers to StdlibProof
-    void verify_proof(const HonkProof& proof);
+    std::pair<OpeningClaim<Curve>, std::shared_ptr<Transcript>> verify_proof(const ECCVMProof& proof);
+    void compute_translation_opening_claims(const std::vector<Commitment>& translation_commitments);
 
     std::shared_ptr<VerificationKey> key;
 
     Builder* builder;
     std::shared_ptr<Transcript> transcript;
+    std::shared_ptr<Transcript> ipa_transcript;
+    // Final ShplonkVerifier consumes an array consisting of Translation Opening Claims and a
+    // `multivariate_to_univariate_opening_claim`
+    static constexpr size_t NUM_OPENING_CLAIMS = ECCVMFlavor::NUM_TRANSLATION_OPENING_CLAIMS + 1;
+    std::array<OpeningClaim<Curve>, NUM_OPENING_CLAIMS> opening_claims;
+    FF translation_masking_term_eval;
+
+    // Translation evaluation and batching challenges. They are propagated to the TranslatorVerifier
+    FF evaluation_challenge_x;
+    FF batching_challenge_v;
 };
 } // namespace bb

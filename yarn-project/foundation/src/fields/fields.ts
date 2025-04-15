@@ -4,6 +4,7 @@ import { inspect } from 'util';
 
 import { toBigIntBE, toBufferBE } from '../bigint-buffer/index.js';
 import { randomBytes } from '../crypto/random/index.js';
+import { hexSchemaFor } from '../schemas/utils.js';
 import { BufferReader } from '../serialize/buffer_reader.js';
 import { TypeRegistry } from '../serialize/type_registry.js';
 
@@ -47,7 +48,7 @@ abstract class BaseField {
   }
 
   protected constructor(value: number | bigint | boolean | BaseField | Buffer) {
-    if (value instanceof Buffer) {
+    if (Buffer.isBuffer(value)) {
       if (value.length > BaseField.SIZE_IN_BYTES) {
         throw new Error(`Value length ${value.length} exceeds ${BaseField.SIZE_IN_BYTES}`);
       }
@@ -98,11 +99,24 @@ abstract class BaseField {
     return Boolean(this.toBigInt());
   }
 
+  /**
+   * Converts this field to a number.
+   * Throws if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
   toNumber(): number {
     const value = this.toBigInt();
     if (value > Number.MAX_SAFE_INTEGER) {
       throw new Error(`Value ${value.toString(16)} greater than than max safe integer`);
     }
+    return Number(value);
+  }
+
+  /**
+   * Converts this field to a number.
+   * May cause loss of precision if the underlying value is greater than MAX_SAFE_INTEGER.
+   */
+  toNumberUnsafe(): number {
+    const value = this.toBigInt();
     return Number(value);
   }
 
@@ -152,7 +166,7 @@ export function fromBuffer<T extends BaseField>(buffer: Buffer | BufferReader, f
 }
 
 /**
- * Constructs a field from a Buffer, but reduces it first.
+ * Constructs a field from a Buffer, but reduces it first, modulo the field modulus.
  * This requires a conversion to a bigint first so the initial underlying representation will be a bigint.
  */
 function fromBufferReduce<T extends BaseField>(buffer: Buffer, f: DerivedField<T>) {
@@ -182,9 +196,7 @@ function fromHexString<T extends BaseField>(buf: string, f: DerivedField<T>) {
   return new f(buffer);
 }
 
-/**
- * Branding to ensure fields are not interchangeable types.
- */
+/** Branding to ensure fields are not interchangeable types. */
 export interface Fr {
   /** Brand. */
   _branding: 'Fr';
@@ -234,11 +246,30 @@ export class Fr extends BaseField {
   }
 
   /**
+   * Creates a Fr instance from a string.
+   * @param buf - the string to create a Fr from.
+   * @returns the Fr instance
+   * @remarks if the string only consists of numbers, we assume we are parsing a bigint,
+   * otherwise we require the hex string to be prepended with "0x", to ensure there is no misunderstanding
+   * as to what is being parsed.
+   */
+  static fromString(buf: string) {
+    if (buf.match(/^\d+$/) !== null) {
+      return new Fr(toBufferBE(BigInt(buf), 32));
+    }
+    if (buf.match(/^0x/i) !== null) {
+      return fromHexString(buf, Fr);
+    }
+
+    throw new Error(`Tried to create a Fr from an invalid string: ${buf}`);
+  }
+
+  /**
    * Creates a Fr instance from a hex string.
    * @param buf - a hex encoded string.
    * @returns the Fr instance
    */
-  static fromString(buf: string) {
+  static fromHexString(buf: string) {
     return fromHexString(buf, Fr);
   }
 
@@ -287,26 +318,24 @@ export class Fr extends BaseField {
    * Computes a square root of the field element.
    * @returns A square root of the field element (null if it does not exist).
    */
-  sqrt(): Fr | null {
-    const wasm = BarretenbergSync.getSingleton().getWasm();
-    wasm.writeMemory(0, this.toBuffer());
-    wasm.call('bn254_fr_sqrt', 0, Fr.SIZE_IN_BYTES);
-    const isSqrtBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES, Fr.SIZE_IN_BYTES + 1));
-    const isSqrt = isSqrtBuf[0] === 1;
+  async sqrt(): Promise<Fr | null> {
+    const api = await BarretenbergSync.initSingleton(process.env.BB_WASM_PATH);
+    const wasm = api.getWasm();
+    const [buf] = wasm.callWasmExport('bn254_fr_sqrt', [this.toBuffer()], [Fr.SIZE_IN_BYTES + 1]);
+    const isSqrt = buf[0] === 1;
     if (!isSqrt) {
       // Field element is not a quadratic residue mod p so it has no square root.
       return null;
     }
-
-    const rootBuf = Buffer.from(wasm.getMemorySlice(Fr.SIZE_IN_BYTES + 1, Fr.SIZE_IN_BYTES * 2 + 1));
-    return Fr.fromBuffer(rootBuf);
+    return new Fr(Buffer.from(buf.slice(1)));
   }
 
   toJSON() {
-    return {
-      type: 'Fr',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  static get schema() {
+    return hexSchemaFor(Fr);
   }
 }
 
@@ -369,11 +398,30 @@ export class Fq extends BaseField {
   }
 
   /**
+   * Creates a Fq instance from a string.
+   * @param buf - the string to create a Fq from.
+   * @returns the Fq instance
+   * @remarks if the string only consists of numbers, we assume we are parsing a bigint,
+   * otherwise we require the hex string to be prepended with "0x", to ensure there is no misunderstanding
+   * as to what is being parsed.
+   */
+  static fromString(buf: string) {
+    if (buf.match(/^\d+$/) !== null) {
+      return new Fq(toBufferBE(BigInt(buf), 32));
+    }
+    if (buf.match(/^0x/i) !== null) {
+      return fromHexString(buf, Fq);
+    }
+
+    throw new Error(`Tried to create a Fq from an invalid string: ${buf}`);
+  }
+
+  /**
    * Creates a Fq instance from a hex string.
    * @param buf - a hex encoded string.
    * @returns the Fq instance
    */
-  static fromString(buf: string) {
+  static fromHexString(buf: string) {
     return fromHexString(buf, Fq);
   }
 
@@ -381,11 +429,23 @@ export class Fq extends BaseField {
     return new Fq((high.toBigInt() << Fq.HIGH_SHIFT) + low.toBigInt());
   }
 
+  add(rhs: Fq) {
+    return new Fq((this.toBigInt() + rhs.toBigInt()) % Fq.MODULUS);
+  }
+
   toJSON() {
-    return {
-      type: 'Fq',
-      value: this.toString(),
-    };
+    return this.toString();
+  }
+
+  toFields() {
+    // The following has to match the order of the limbs in EmbeddedCurveScalar struct in noir::std. This is because
+    // this function is used when returning Scalar from the getAddressSecret oracle and in Noir the values get deserialized
+    // using the intrinsic serialization of Noir (which follows the order of the fields/members in the struct).
+    return [this.lo, this.hi];
+  }
+
+  static get schema() {
+    return hexSchemaFor(Fq);
   }
 }
 

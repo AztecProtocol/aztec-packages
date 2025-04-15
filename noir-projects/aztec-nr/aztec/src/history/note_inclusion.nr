@@ -1,22 +1,34 @@
+use dep::protocol_types::block_header::BlockHeader;
 use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
-use dep::protocol_types::header::Header;
 
 use crate::{
-    note::{utils::compute_note_hash_for_nullify, note_interface::{NoteInterface, NullifiableNote}},
-    oracle::get_membership_witness::get_note_hash_membership_witness
+    note::{
+        note_interface::NoteHash, retrieved_note::RetrievedNote,
+        utils::compute_note_hash_for_nullify,
+    },
+    oracle::get_membership_witness::get_note_hash_membership_witness,
 };
 
-trait ProveNoteInclusion {
-    fn prove_note_inclusion<Note, let N: u32>(header: Header, note: Note) where Note: NoteInterface<N> + NullifiableNote;
+mod test;
+
+pub trait ProveNoteInclusion {
+    fn prove_note_inclusion<Note>(
+        header: BlockHeader,
+        retrieved_note: RetrievedNote<Note>,
+        storage_slot: Field,
+    )
+    where
+        Note: NoteHash;
 }
 
-impl ProveNoteInclusion for Header {
-    fn prove_note_inclusion<Note, let N: u32>(
-        self,
-        note: Note
-    ) where Note: NoteInterface<N> + NullifiableNote {
-        let note_hash = compute_note_hash_for_nullify(note);
+impl ProveNoteInclusion for BlockHeader {
+    fn prove_note_inclusion<Note>(self, retrieved_note: RetrievedNote<Note>, storage_slot: Field)
+    where
+        Note: NoteHash,
+    {
+        let note_hash = compute_note_hash_for_nullify(retrieved_note, storage_slot);
 
+        // Safety: The witness is only used as a "magical value" that makes the merkle proof below pass. Hence it's safe.
         let witness = unsafe {
             get_note_hash_membership_witness(self.global_variables.block_number as u32, note_hash)
         };
@@ -25,7 +37,9 @@ impl ProveNoteInclusion for Header {
         // we don't even care _where_ in the tree it is stored. This is because entries in the note hash tree are
         // unique.
         assert_eq(
-            self.state.partial.note_hash_tree.root, root_from_sibling_path(note_hash, witness.index, witness.path), "Proving note inclusion failed"
+            self.state.partial.note_hash_tree.root,
+            root_from_sibling_path(note_hash, witness.index, witness.path),
+            "Proving note inclusion failed",
         );
     }
 }

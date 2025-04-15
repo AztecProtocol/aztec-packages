@@ -16,13 +16,13 @@ When requesting a new feature, include as many details as you can, especially ar
 
 ## Submitting a pull request
 
+If your contribution addresses a real issue and is well-structured, it is welcome. If in doubt, discuss with the team in an issue first your planned changes. Due to past abuses (e.g., metric-farming and AI-generated submissions), we reserve the right to block users who repeatedly submit low-effort or trivial content without meaningful improvements, as well as disruptive actions like excessively trying to get the attention of the team, on GitHub or elsewhere. Low-effort submissions will generally be redone regardless to dissuade metric farming.
+
 If you would like to contribute code or documentation you may do so by forking the repository and submitting a pull request.
 
-Any non-trivial code contribution must be first discussed with the maintainers in an issue (see [Opening an issue](#opening-an-issue)). Only very minor changes are accepted without prior discussion.
+For non-trivial changes, start an issue first and discuss it with maintainers (see [Opening an issue](#opening-an-issue)).
 
-When opening the pull request you will be presented with a template and a series of instructions. Read through it carefully and follow all the steps. Expect a review and feedback from the maintainers afterward.
-
-If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue)!
+If you're looking for a good place to start, look for issues labeled ["good first issue"](https://github.com/AztecProtocol/aztec-packages/labels/good%20first%20issue). Please first communicate that you wish to take it on.
 
 ## Pull request checklist:
 

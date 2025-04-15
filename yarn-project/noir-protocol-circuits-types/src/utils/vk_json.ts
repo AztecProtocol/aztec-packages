@@ -1,26 +1,18 @@
-import {
-  Fr,
-  VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  VerificationKeyAsFields,
-  VerificationKeyData,
-} from '@aztec/circuits.js';
-import { assertLength } from '@aztec/foundation/serialize';
+import { Fr } from '@aztec/foundation/fields';
+import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
 interface VkJson {
   keyAsBytes: string;
   keyAsFields: string[];
+  vkHash: string;
 }
 
 export function keyJsonToVKData(json: VkJson): VerificationKeyData {
-  const { keyAsBytes, keyAsFields } = json;
+  const { keyAsBytes, keyAsFields, vkHash } = json;
   return new VerificationKeyData(
     new VerificationKeyAsFields(
-      assertLength(
-        keyAsFields.map((str: string) => new Fr(Buffer.from(str.slice(2), 'hex'))),
-        VERIFICATION_KEY_LENGTH_IN_FIELDS,
-      ),
-      // TODO(#7410) what should be the vk hash here?
-      new Fr(Buffer.from(keyAsFields[0].slice(2), 'hex')),
+      keyAsFields.map((str: string) => Fr.fromHexString(str)),
+      Fr.fromHexString(vkHash),
     ),
     Buffer.from(keyAsBytes, 'hex'),
   );

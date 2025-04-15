@@ -1,0 +1,31 @@
+# Source this first in all bootstrap scripts.
+# Usage: source $(git rev-parse --show-toplevel)/ci3/source_bootstrap
+source $(git rev-parse --show-toplevel)/ci3/source
+source $ci3/source_refname
+source $ci3/source_redis
+
+# Filters any test cmd that marked to skip in the .test_patterns.yml file.
+# Then filter through cache to remove previously successfully run tests.
+function filter_test_cmds {
+  grep -Ev -f <(yq e '.tests[] | select(.skip == true) | .regex' $root/.test_patterns.yml) | filter_cached_test_cmd
+}
+
+case "${1:-}" in
+  "ci")
+    # Forces yarn immutability, jest snapshot immutability, etc.
+    export CI=1
+    # Being in CI implies use of cache, and enables denoising.
+    export DENOISE=${DENOISE:-1}
+    ;;
+  "full")
+    export NO_CACHE=${NO_CACHE:-1}
+    ;;
+  release)
+    if ! semver check $REF_NAME; then
+      echo_stderr -e "${yellow}Not deploying $REF_NAME because it is not a release tag.${reset}"
+      exit 0
+    fi
+    # Until releases are 100% stable, print a debug log.
+    set -x
+    ;;
+esac

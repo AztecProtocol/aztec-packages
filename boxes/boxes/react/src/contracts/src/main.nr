@@ -3,10 +3,9 @@ use dep::aztec::macros::aztec;
 #[aztec]
 contract BoxReact {
     use dep::aztec::{
-        keys::public_keys::{IvpkM, OvpkM},
-        prelude::{AztecAddress, PrivateMutable, Map, NoteInterface, NoteHeader, Point},
-        encrypted_logs::encrypted_note_emission::encode_and_encrypt_note,
-        macros::{storage::storage, functions::{private, public, initializer}}
+        messages::logs::note::encode_and_encrypt_note,
+        macros::{functions::{initializer, private, utility}, storage::storage},
+        prelude::{AztecAddress, Map, PrivateMutable},
     };
     use dep::value_note::value_note::ValueNote;
 
@@ -17,32 +16,31 @@ contract BoxReact {
 
     #[private]
     #[initializer]
-    fn constructor(
-        number: Field,
-        owner: AztecAddress,
-        owner_npk_m_hash: Field,
-        owner_ovpk_m: OvpkM,
-        owner_ivpk_m: IvpkM
-    ) {
+    fn constructor(number: Field, owner: AztecAddress) {
         let numbers = storage.numbers;
-        let mut new_number = ValueNote::new(number, owner_npk_m_hash);
-        numbers.at(owner).initialize(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+        let new_number = ValueNote::new(number, owner);
+
+        numbers.at(owner).initialize(new_number).emit(encode_and_encrypt_note(
+            &mut context,
+            owner,
+            context.msg_sender(),
+        ));
     }
 
     #[private]
-    fn setNumber(
-        number: Field,
-        owner: AztecAddress,
-        owner_npk_m_hash: Field,
-        owner_ovpk_m: OvpkM,
-        owner_ivpk_m: IvpkM
-    ) {
+    fn setNumber(number: Field, owner: AztecAddress) {
         let numbers = storage.numbers;
-        let mut new_number = ValueNote::new(number, owner_npk_m_hash);
-        numbers.at(owner).replace(&mut new_number).emit(encode_and_encrypt_note(&mut context, owner_ovpk_m, owner_ivpk_m, owner));
+        let new_number = ValueNote::new(number, owner);
+
+        numbers.at(owner).replace(new_number).emit(encode_and_encrypt_note(
+            &mut context,
+            owner,
+            context.msg_sender(),
+        ));
     }
 
-    unconstrained fn getNumber(owner: AztecAddress) -> pub ValueNote {
+    #[utility]
+    unconstrained fn getNumber(owner: AztecAddress) -> ValueNote {
         let numbers = storage.numbers;
         numbers.at(owner).view_note()
     }

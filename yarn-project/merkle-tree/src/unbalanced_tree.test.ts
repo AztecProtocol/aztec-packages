@@ -1,8 +1,8 @@
 import { sha256Trunc } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { type FromBuffer } from '@aztec/foundation/serialize';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { type Hasher } from '@aztec/types/interfaces';
+import type { FromBuffer } from '@aztec/foundation/serialize';
+import type { Hasher } from '@aztec/foundation/trees';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { SHA256Trunc } from './sha_256.js';
 import { StandardTree } from './standard_tree/standard_tree.js';

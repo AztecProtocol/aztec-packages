@@ -1,0 +1,7 @@
+ProposeTest
+├── when caller is not governanceProposer
+│   └── it revert
+└── when caller is governanceProposer
+    ├── it creates a new proposal with current config
+    ├── it emits a {ProposalCreated} event
+    └── it returns true

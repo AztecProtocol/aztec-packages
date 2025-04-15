@@ -54,10 +54,16 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     using NativeFlavor = UltraFlavor;
     using NativeVerificationKey = NativeFlavor::VerificationKey;
 
+    // indicates when evaluating sumcheck, edges can be left as degree-1 monomials
+    static constexpr bool USE_SHORT_MONOMIALS = UltraFlavor::USE_SHORT_MONOMIALS;
+
     // Note(luke): Eventually this may not be needed at all
     using VerifierCommitmentKey = bb::VerifierCommitmentKey<NativeFlavor::Curve>;
     // Indicates that this flavor runs with non-ZK Sumcheck.
     static constexpr bool HasZK = false;
+    // To achieve fixed proof size and that the recursive verifier circuit is constant, we are using padding in Sumcheck
+    // and Shplemini
+    static constexpr bool USE_PADDING = UltraFlavor::USE_PADDING;
     static constexpr size_t NUM_WIRES = UltraFlavor::NUM_WIRES;
     // The number of multivariate polynomials on which a sumcheck prover sumcheck operates (including shifts). We often
     // need containers of this size to hold related data, so we choose a name more agnostic than `NUM_POLYNOMIALS`.
@@ -68,6 +74,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
     static constexpr size_t NUM_PRECOMPUTED_ENTITIES = UltraFlavor::NUM_PRECOMPUTED_ENTITIES;
     // The total number of witness entities not including shifts.
     static constexpr size_t NUM_WITNESS_ENTITIES = UltraFlavor::NUM_WITNESS_ENTITIES;
+
+    static constexpr RepeatedCommitmentsData REPEATED_COMMITMENTS = UltraFlavor::REPEATED_COMMITMENTS;
 
     // define the tuple of Relations that comprise the Sumcheck relation
     using Relations = UltraFlavor::Relations_<FF>;
@@ -101,15 +109,8 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
      * circuits.
      */
     class VerificationKey
-        : public VerificationKey_<UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+        : public VerificationKey_<FF, UltraFlavor::PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
-        VerificationKey(const size_t circuit_size, const size_t num_public_inputs)
-        {
-            // TODO(https://github.com/AztecProtocol/barretenberg/issues/983): Think about if these should be witnesses
-            this->circuit_size = circuit_size;
-            this->log_circuit_size = numeric::get_msb(circuit_size);
-            this->num_public_inputs = num_public_inputs;
-        };
         /**
          * @brief Construct a new Verification Key with stdlib types from a provided native verification key
          *
@@ -119,12 +120,16 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
         VerificationKey(CircuitBuilder* builder, const std::shared_ptr<NativeVerificationKey>& native_key)
         {
             this->pcs_verification_key = native_key->pcs_verification_key;
-            this->circuit_size = native_key->circuit_size;
-            this->log_circuit_size = numeric::get_msb(this->circuit_size);
-            this->num_public_inputs = native_key->num_public_inputs;
-            this->pub_inputs_offset = native_key->pub_inputs_offset;
-            this->contains_recursive_proof = native_key->contains_recursive_proof;
-            this->recursive_proof_public_input_indices = native_key->recursive_proof_public_input_indices;
+            this->circuit_size = FF::from_witness(builder, native_key->circuit_size);
+            // TODO(https://github.com/AztecProtocol/barretenberg/issues/1283): Use stdlib get_msb.
+            this->log_circuit_size = FF::from_witness(builder, numeric::get_msb(native_key->circuit_size));
+            this->num_public_inputs =
+                stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->num_public_inputs);
+            this->pub_inputs_offset =
+                stdlib::witness_t<CircuitBuilder>::create_constant_witness(builder, native_key->pub_inputs_offset);
+            this->contains_pairing_point_accumulator = native_key->contains_pairing_point_accumulator;
+            this->pairing_point_accumulator_public_input_indices =
+                native_key->pairing_point_accumulator_public_input_indices;
 
             // Generate stdlib commitments (biggroup) from the native counterparts
             for (auto [commitment, native_commitment] : zip_view(this->get_all(), native_key->get_all())) {
@@ -144,13 +149,13 @@ template <typename BuilderType> class UltraRecursiveFlavor_ {
 
             size_t num_frs_read = 0;
 
-            this->circuit_size = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->num_public_inputs = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->pub_inputs_offset = uint64_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
-            this->contains_recursive_proof =
+            this->circuit_size = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->num_public_inputs = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->pub_inputs_offset = deserialize_from_frs<FF>(builder, elements, num_frs_read);
+            this->contains_pairing_point_accumulator =
                 bool(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
 
-            for (uint32_t& idx : this->recursive_proof_public_input_indices) {
+            for (uint32_t& idx : this->pairing_point_accumulator_public_input_indices) {
                 idx = uint32_t(deserialize_from_frs<FF>(builder, elements, num_frs_read).get_value());
             }
 

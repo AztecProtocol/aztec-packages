@@ -1,20 +1,20 @@
-import { SiblingPath } from '@aztec/circuit-types';
 import { randomBigInt } from '@aztec/foundation/crypto';
 import { Fr } from '@aztec/foundation/fields';
-import { createDebugLogger } from '@aztec/foundation/log';
-import { type AztecKVStore } from '@aztec/kv-store';
-import { openTmpStore } from '@aztec/kv-store/utils';
-import { type Hasher } from '@aztec/types/interfaces';
+import { createLogger } from '@aztec/foundation/log';
+import { SiblingPath } from '@aztec/foundation/trees';
+import type { Hasher } from '@aztec/foundation/trees';
+import type { AztecKVStore } from '@aztec/kv-store';
+import { openTmpStore } from '@aztec/kv-store/lmdb';
 
 import { INITIAL_LEAF, newTree } from '../index.js';
-import { type UpdateOnlyTree } from '../interfaces/update_only_tree.js';
+import type { UpdateOnlyTree } from '../interfaces/update_only_tree.js';
 import { loadTree } from '../load_tree.js';
 import { Pedersen } from '../pedersen.js';
 import { standardBasedTreeTestSuite } from '../test/standard_based_test_suite.js';
 import { treeTestSuite } from '../test/test_suite.js';
 import { SparseTree } from './sparse_tree.js';
 
-const log = createDebugLogger('aztec:sparse_tree_test');
+const log = createLogger('merkle-tree:test:sparse_tree');
 
 const createDb = async (
   db: AztecKVStore,

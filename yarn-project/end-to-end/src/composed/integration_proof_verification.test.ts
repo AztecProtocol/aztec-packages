@@ -1,25 +1,15 @@
-import { deployL1Contract, fileURLToPath } from '@aztec/aztec.js';
+import { fileURLToPath } from '@aztec/aztec.js';
 import { BBCircuitVerifier } from '@aztec/bb-prover';
-import { Proof, RootRollupPublicInputs } from '@aztec/circuits.js';
-import { compileContract, createL1Clients } from '@aztec/ethereum';
-import { type Logger } from '@aztec/foundation/log';
-import { IVerifierAbi } from '@aztec/l1-artifacts';
+import { type ViemPublicClient, type ViemWalletClient, createL1Clients, deployL1Contract } from '@aztec/ethereum';
+import type { Logger } from '@aztec/foundation/log';
+import { HonkVerifierAbi, HonkVerifierBytecode, IVerifierAbi } from '@aztec/l1-artifacts';
+import { Proof } from '@aztec/stdlib/proofs';
+import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
 
-import { type Anvil } from '@viem/anvil';
+import type { Anvil } from '@viem/anvil';
 import { readFile } from 'fs/promises';
 import { join } from 'path';
-// @ts-expect-error solc-js doesn't publish its types https://github.com/ethereum/solc-js/issues/689
-import solc from 'solc';
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  getContract,
-} from 'viem';
+import { type GetContractReturnType, type Hex, getContract } from 'viem';
 import { mnemonicToAccount } from 'viem/accounts';
 
 import { MNEMONIC } from '../fixtures/fixtures.js';
@@ -35,8 +25,8 @@ describe('proof_verification', () => {
   let proof: Proof;
   let publicInputs: RootRollupPublicInputs;
   let anvil: Anvil | undefined;
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
-  let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: ViemWalletClient;
+  let publicClient: ViemPublicClient;
   let logger: Logger;
   let circuitVerifier: BBCircuitVerifier;
   let bbTeardown: () => Promise<void>;
@@ -45,9 +35,11 @@ describe('proof_verification', () => {
 
   beforeAll(async () => {
     logger = getLogger();
-    let rpcUrl = process.env.ETHEREUM_HOST;
+    let rpcUrlList = process.env.ETHEREUM_HOSTS?.split(',');
+    let rpcUrl = rpcUrlList?.[0];
     if (!rpcUrl) {
       ({ anvil, rpcUrl } = await startAnvil());
+      rpcUrlList = [rpcUrl];
     }
     logger.info('Anvil started');
 
@@ -60,10 +52,16 @@ describe('proof_verification', () => {
     acvmTeardown = acvm!.cleanup;
     logger.info('BB and ACVM initialized');
 
-    ({ publicClient, walletClient } = createL1Clients(rpcUrl, mnemonicToAccount(MNEMONIC)));
-    const content = await circuitVerifier.generateSolidityContract('RootRollupArtifact', 'UltraHonkVerifier.sol');
-    const { bytecode, abi } = compileContract('UltraHonkVerifier.sol', 'HonkVerifier', content, solc);
-    const { address: verifierAddress } = await deployL1Contract(walletClient, publicClient, abi, bytecode);
+    ({ publicClient, walletClient } = createL1Clients(rpcUrlList!, mnemonicToAccount(MNEMONIC)));
+
+    const { address: verifierAddress } = await deployL1Contract(
+      walletClient,
+      publicClient,
+      HonkVerifierAbi,
+      HonkVerifierBytecode,
+    );
+    logger.info(`Deployed honk verifier at ${verifierAddress}`);
+
     verifierContract = getContract({ address: verifierAddress.toString(), client: publicClient, abi: IVerifierAbi });
     logger.info('Deployed verifier');
   });
@@ -87,8 +85,7 @@ describe('proof_verification', () => {
   describe('public inputs', () => {
     it('output and proof public inputs are equal', () => {
       const proofPublicInputs = proof.extractPublicInputs().map(x => x.toString());
-      const aggregationObject = proof.extractAggregationObject();
-      const outputPublicInputs = [...publicInputs.toFields(), ...aggregationObject].map(x => x.toString());
+      const outputPublicInputs = [...publicInputs.toFields()].map(x => x.toString());
 
       expect(proofPublicInputs).toEqual(outputPublicInputs);
     });

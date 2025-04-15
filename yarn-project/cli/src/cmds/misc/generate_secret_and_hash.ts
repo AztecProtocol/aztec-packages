@@ -1,6 +1,6 @@
 import { computeSecretHash } from '@aztec/aztec.js';
 import { Fr } from '@aztec/foundation/fields';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 
 export function generateSecretAndHash(log: LogFn) {
   const secret = Fr.random();

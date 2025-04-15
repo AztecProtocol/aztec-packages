@@ -1,0 +1,20 @@
+DepositTest
+├── when amount lt minimum stake
+│   └── it reverts
+└── when amount gt minimum stake
+    ├── given caller has insufficient allowance
+    │   └── it reverts
+    └── given caller has sufficient allowance
+        ├── given caller has insufficient funds
+        │   └── it reverts
+        └── given caller has sufficient funds
+            ├── given attester is already registered
+            │   └── it reverts
+            └── given attester is not registered
+                ├── given attester is already active
+                │   └── it reverts
+                └── given attester is not active
+                    ├── it transfer funds from the caller
+                    ├── it adds attester to the set
+                    ├── it updates the operator info
+                    └── it emits a {Deposit} event

@@ -17,8 +17,8 @@ using namespace smt_terms;
 TEST(ITerm, addition)
 {
     StandardCircuitBuilder builder;
-    uint64_t a = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
-    uint64_t b = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
+    uint64_t a = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
+    uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t c = a + b;
 
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config);
@@ -41,8 +41,8 @@ TEST(ITerm, addition)
 TEST(ITerm, subtraction)
 {
     StandardCircuitBuilder builder;
-    uint64_t c = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
-    uint64_t b = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
+    uint64_t c = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
+    uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t a = c + b;
 
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config);
@@ -65,8 +65,8 @@ TEST(ITerm, subtraction)
 TEST(ITerm, mul)
 {
     StandardCircuitBuilder builder;
-    uint64_t a = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
-    uint64_t b = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
+    uint64_t a = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
+    uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
     uint64_t c = a * b;
 
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config);
@@ -89,8 +89,8 @@ TEST(ITerm, mul)
 TEST(ITerm, div)
 {
     StandardCircuitBuilder builder;
-    uint64_t a = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31);
-    uint64_t b = static_cast<uint32_t>(fr::random_element()) % (static_cast<uint32_t>(1) << 31) + 1;
+    uint64_t a = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31);
+    uint64_t b = engine.get_random_uint32() % (static_cast<uint32_t>(1) << 31) + 1;
     uint64_t c = a / b;
 
     Solver s("30644e72e131a029b85045b68181585d2833e84879b9709143e1f593f0000001", default_solver_config);

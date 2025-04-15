@@ -1,34 +1,75 @@
-import { type AztecNodeService } from '@aztec/aztec-node';
+import type { Archiver } from '@aztec/archiver';
+import type { AztecNodeService } from '@aztec/aztec-node';
 import { sleep } from '@aztec/aztec.js';
+import type { SequencerClient } from '@aztec/sequencer-client';
+import { BlockAttestation, ConsensusPayload } from '@aztec/stdlib/p2p';
 
+import { jest } from '@jest/globals';
 import fs from 'fs';
+import os from 'os';
+import path from 'path';
 
+import { shouldCollectMetrics } from '../fixtures/fixtures.js';
 import { type NodeContext, createNodes } from '../fixtures/setup_p2p_test.js';
-import { P2PNetworkTest, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
+import { AlertChecker, type AlertConfig } from '../quality_of_service/alert_checker.js';
+import { P2PNetworkTest, SHORTENED_BLOCK_TIME_CONFIG, WAIT_FOR_TX_TIMEOUT } from './p2p_network.js';
 import { createPXEServiceAndSubmitTransactions } from './shared.js';
+
+const CHECK_ALERTS = process.env.CHECK_ALERTS === 'true';
 
 // Don't set this to a higher value than 9 because each node will use a different L1 publisher account and anvil seeds
 const NUM_NODES = 4;
 const NUM_TXS_PER_NODE = 2;
 const BOOT_NODE_UDP_PORT = 40600;
 
-const DATA_DIR = './data/gossip';
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gossip-'));
+
+jest.setTimeout(1000 * 60 * 10);
+
+const qosAlerts: AlertConfig[] = [
+  {
+    alert: 'SequencerTimeToCollectAttestations',
+    expr: 'aztec_sequencer_time_to_collect_attestations > 3500',
+    labels: { severity: 'error' },
+    for: '10m',
+    annotations: {},
+  },
+];
 
 describe('e2e_p2p_network', () => {
   let t: P2PNetworkTest;
   let nodes: AztecNodeService[];
 
   beforeEach(async () => {
-    t = await P2PNetworkTest.create('e2e_p2p_network', NUM_NODES, BOOT_NODE_UDP_PORT);
+    t = await P2PNetworkTest.create({
+      testName: 'e2e_p2p_network',
+      numberOfNodes: NUM_NODES,
+      basePort: BOOT_NODE_UDP_PORT,
+      metricsPort: shouldCollectMetrics(),
+      initialConfig: {
+        ...SHORTENED_BLOCK_TIME_CONFIG,
+        listenAddress: '127.0.0.1',
+      },
+    });
+
+    await t.setupAccount();
     await t.applyBaseSnapshots();
     await t.setup();
+    await t.removeInitialNode();
   });
 
   afterEach(async () => {
     await t.stopNodes(nodes);
     await t.teardown();
     for (let i = 0; i < NUM_NODES; i++) {
-      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true });
+      fs.rmSync(`${DATA_DIR}-${i}`, { recursive: true, force: true, maxRetries: 3 });
+    }
+  });
+
+  afterAll(async () => {
+    if (CHECK_ALERTS) {
+      const checker = new AlertChecker(t.logger);
+      await checker.runAlertCheck(qosAlerts);
     }
   });
 
@@ -37,6 +78,9 @@ describe('e2e_p2p_network', () => {
     if (!t.bootstrapNodeEnr) {
       throw new Error('Bootstrap node ENR is not available');
     }
+
+    t.ctx.aztecNodeConfig.validatorReexecute = true;
+
     // create our network of nodes and submit txs into each of them
     // the number of txs per node and the number of txs per rollup
     // should be set so that the only way for rollups to be built
@@ -45,11 +89,14 @@ describe('e2e_p2p_network', () => {
     t.logger.info('Creating nodes');
     nodes = await createNodes(
       t.ctx.aztecNodeConfig,
-      t.peerIdPrivateKeys,
+      t.ctx.dateProvider,
       t.bootstrapNodeEnr,
       NUM_NODES,
       BOOT_NODE_UDP_PORT,
+      t.prefilledPublicData,
       DATA_DIR,
+      // To collect metrics - run in aztec-packages `docker compose --profile metrics up` and set COLLECT_METRICS=true
+      shouldCollectMetrics(),
     );
 
     // wait a bit for peers to discover each other
@@ -57,7 +104,7 @@ describe('e2e_p2p_network', () => {
 
     t.logger.info('Submitting transactions');
     for (const node of nodes) {
-      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE);
+      const context = await createPXEServiceAndSubmitTransactions(t.logger, node, NUM_TXS_PER_NODE, t.fundedAccount);
       contexts.push(context);
     }
 
@@ -72,5 +119,23 @@ describe('e2e_p2p_network', () => {
       ),
     );
     t.logger.info('All transactions mined');
+
+    // Gather signers from attestations downloaded from L1
+    const blockNumber = await contexts[0].txs[0].getReceipt().then(r => r.blockNumber!);
+    const dataStore = ((nodes[0] as AztecNodeService).getBlockSource() as Archiver).dataStore;
+    const [block] = await dataStore.getBlocks(blockNumber, blockNumber);
+    const payload = ConsensusPayload.fromBlock(block.block);
+    const attestations = block.signatures.filter(s => !s.isEmpty).map(sig => new BlockAttestation(payload, sig));
+    const signers = await Promise.all(attestations.map(att => att.getSender().then(s => s.toString())));
+    t.logger.info(`Attestation signers`, { signers });
+
+    // Check that the signers found are part of the proposer nodes to ensure the archiver fetched them right
+    const validatorAddresses = nodes.map(node =>
+      ((node as AztecNodeService).getSequencer() as SequencerClient).validatorAddress?.toString(),
+    );
+    t.logger.info(`Validator addresses`, { addresses: validatorAddresses });
+    for (const signer of signers) {
+      expect(validatorAddresses).toContain(signer);
+    }
   });
 });

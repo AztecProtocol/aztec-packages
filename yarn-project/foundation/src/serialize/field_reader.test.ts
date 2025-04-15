@@ -28,6 +28,30 @@ describe('field reader', () => {
     });
   });
 
+  describe('cursor', () => {
+    it('should return the current cursor position', () => {
+      expect(reader.cursor).toBe(0);
+      reader.readField();
+      expect(reader.cursor).toBe(1);
+    });
+
+    it('should not progress when peeking', () => {
+      reader.peekField();
+      expect(reader.cursor).toBe(0);
+    });
+  });
+
+  describe('skip', () => {
+    it('should skip n fields', () => {
+      reader.skip(2);
+      expect(reader.readField()).toEqual(new Fr(23));
+    });
+
+    it('should throw if skipping more fields than in the reader', () => {
+      expect(() => reader.skip(FIELDS.length + 1)).toThrow('Not enough fields to be consumed.');
+    });
+  });
+
   describe('readFq', () => {
     it('should get Fq from buffer', () => {
       expect(reader.readFq()).toEqual(Fq.fromHighLow(new Fr(0), new Fr(1)));

@@ -17,7 +17,7 @@ using Composer = plonk::UltraComposer;
 
 class BigIntTests : public ::testing::Test {
   protected:
-    static void SetUpTestSuite() { bb::srs::init_crs_factory("../srs_db/ignition"); }
+    static void SetUpTestSuite() { bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path()); }
 };
 using fr = field<Bn254FrParams>;
 
@@ -172,22 +172,17 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     auto contraints5 = generate_big_int_op_constraint(BigIntOperationType::Div, fr(8), fr(2), witness);
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
-        .recursive = false,
         .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -213,7 +208,7 @@ TEST_F(BigIntTests, TestBigIntConstraintMultiple)
     mock_opcode_indices(constraint_system);
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -248,22 +243,17 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
 
     AcirFormat constraint_system{
         .varnum = 5,
-        .recursive = false,
         .num_acir_opcodes = 3,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -286,7 +276,7 @@ TEST_F(BigIntTests, TestBigIntConstraintSimple)
     WitnessVector witness{
         0, 3, 6, 3, 0,
     };
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
     auto proof = prover.construct_proof();
@@ -308,22 +298,17 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
-        .recursive = false,
         .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -352,7 +337,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -373,22 +358,17 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
 
     AcirFormat constraint_system{
         .varnum = static_cast<uint32_t>(witness.size() + 1),
-        .recursive = false,
         .num_acir_opcodes = 5,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -417,7 +397,7 @@ TEST_F(BigIntTests, TestBigIntConstraintReuse2)
     constraint_system.varnum = static_cast<uint32_t>(witness.size() + 1);
     mock_opcode_indices(constraint_system);
 
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
 
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
@@ -459,22 +439,17 @@ TEST_F(BigIntTests, TestBigIntDIV)
 
     AcirFormat constraint_system{
         .varnum = 5,
-        .recursive = false,
         .num_acir_opcodes = 4,
         .public_inputs = {},
         .logic_constraints = {},
         .range_constraints = {},
         .aes128_constraints = {},
         .sha256_compression = {},
-        .schnorr_constraints = {},
         .ecdsa_k1_constraints = {},
         .ecdsa_r1_constraints = {},
         .blake2s_constraints = {},
         .blake3_constraints = {},
-        .keccak_constraints = {},
         .keccak_permutations = {},
-        .pedersen_constraints = {},
-        .pedersen_hash_constraints = {},
         .poseidon2_constraints = {},
         .multi_scalar_mul_constraints = {},
         .ec_add_constraints = {},
@@ -497,13 +472,13 @@ TEST_F(BigIntTests, TestBigIntDIV)
     WitnessVector witness{
         0, 6, 3, 2, 0,
     };
-    auto builder = create_circuit(constraint_system, /*size_hint*/ 0, witness);
+    auto builder = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, witness);
     auto composer = Composer();
     auto prover = composer.create_ultra_with_keccak_prover(builder);
     auto proof = prover.construct_proof();
     EXPECT_TRUE(CircuitChecker::check(builder));
 
-    auto builder2 = create_circuit(constraint_system, /*size_hint*/ 0, WitnessVector{});
+    auto builder2 = create_circuit(constraint_system, /*recursive*/ false, /*size_hint*/ 0, WitnessVector{});
     EXPECT_TRUE(CircuitChecker::check(builder));
     auto verifier2 = composer.create_ultra_with_keccak_verifier(builder);
     EXPECT_EQ(verifier2.verify_proof(proof), true);

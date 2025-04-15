@@ -1,0 +1,31 @@
+GetProposalStateTest
+├── when proposal is out of bounds
+│   └── it revert
+└── when valid proposal id
+    ├── given state is stable
+    │   ├── given state is Executed
+    │   │   └── it return Executed
+    │   └── given state is Dropped
+    │       └── it return Dropped
+    └── given state is unstable
+        ├── given governanceProposer have changed
+        │   └── it return Dropped
+        └── given governanceProposer is unchanged
+            ├── when voting delay have not passed
+            │   └── it return Pending
+            └── when voting delay have passed
+                ├── when voting duration have not passed
+                │   └── it return Active
+                └── when voting duration have passed
+                    ├── given vote tabulation is Rejected
+                    │   └── it return Rejected
+                    ├── given vote tabulation is Invalid
+                    │   └── it return Rejected
+                    └── given vote tabulation is Accepted
+                        ├── given execution delay have not passed
+                        │   └── it return Queued
+                        └── given execution delay have passed
+                            ├── given grace period have not passed
+                            │   └── it return Executable
+                            └── given grace period have passed
+                                └── it return Expired
