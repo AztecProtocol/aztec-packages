@@ -183,10 +183,11 @@ template <typename FF_> class CircuitBuilderBase {
     virtual uint32_t add_public_variable(const FF& in);
 
     /**
-     * Make a witness variable public.
+     * @brief Make a witness variable public.
      *
      * @param witness_index The index of the witness.
-     * */
+     * @return uint32_t The index of the witness in the public inputs vector.
+     */
     virtual uint32_t set_public_input(uint32_t witness_index);
     virtual void assert_equal(uint32_t a_idx, uint32_t b_idx, std::string const& msg = "assert_equal");
 
