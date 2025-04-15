@@ -17,7 +17,6 @@ class API {
         uint32_t honk_recursion{ 0 };         // flag that differentiates between different recursion modes; deprecated?
         bool ipa_accumulation{ false };       // indicate whether the command is doing IPA proof aggregation
         std::string scheme;                   // the proving system or IVC scheme
-        std::string input_type;               // is the input bytecode a single circuit or a stack of circuits?
         std::string oracle_hash_type;         // which hash function does the prover use as a random oracle?
         std::string output_format;            // output bytes, fields, both, or a msgpack buffer of fields
         std::string verifier_type; // is a verification key for use a single circuit verifier (e.g. a SNARK or folding
@@ -37,7 +36,6 @@ class API {
                << "  honk_recursion: " << flags.honk_recursion << "\n"
                << "  ipa_accumulation: " << flags.ipa_accumulation << "\n"
                << "  scheme: " << flags.scheme << "\n"
-               << "  input_type: " << flags.input_type << "\n"
                << "  oracle_hash_type: " << flags.oracle_hash_type << "\n"
                << "  output_format: " << flags.output_format << "\n"
                << "  verifier_type: " << flags.verifier_type << "\n"

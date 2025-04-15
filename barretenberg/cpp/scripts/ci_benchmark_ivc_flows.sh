@@ -84,7 +84,7 @@ function client_ivc_flow {
   mkdir -p "$output"
   export MEMUSAGE_OUT="$output/peak-memory-$runtime-mb.txt"
 
-  run_bb_cli_bench "$runtime" "$output" "prove -o $output -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc --input_type runtime_stack"
+  run_bb_cli_bench "$runtime" "$output" "prove -o $output -b $flow_folder/acir.msgpack -w $flow_folder/witnesses.msgpack --scheme client_ivc"
 
   if [ -f "$output/op-counts.json" ]; then
     scripts/google-bench/summarize-op-counts "$output/op-counts.json"

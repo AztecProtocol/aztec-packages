@@ -203,17 +203,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
         return subcommand->add_flag("--write_vk", flags.write_vk, "Write the provided circuit's verification key");
     };
 
-    const auto add_input_type_option = [&](CLI::App* subcommand) {
-        auto* input_type_option =
-            subcommand
-                ->add_option("--input_type",
-                             flags.input_type,
-                             "Is the input a single circuit, a compile-time stack or a run-time stack?")
-                ->check(CLI::IsMember({ "single_circuit", "compiletime_stack", "runtime_stack" }).name("is_member"))
-                ->default_val("single_circuit");
-        return input_type_option;
-    };
-
     const auto add_ipa_accumulation_flag = [&](CLI::App* subcommand) {
         return subcommand->add_flag(
             "--ipa_accumulation", flags.ipa_accumulation, "Accumulate/Aggregate IPA (Inner Product Argument) claims");
@@ -340,7 +329,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_oracle_hash_option(prove);
     add_output_format_option(prove);
     add_write_vk_flag(prove);
-    add_input_type_option(prove);
     add_zk_option(prove);
     add_init_kzg_accumulator_option(prove);
     add_ipa_accumulation_flag(prove);
@@ -366,7 +354,6 @@ int parse_and_run_cli_command(int argc, char* argv[])
     add_verbose_flag(write_vk);
     add_debug_flag(write_vk);
     add_output_format_option(write_vk);
-    add_input_type_option(write_vk);
     add_crs_path_option(write_vk);
     add_init_kzg_accumulator_option(write_vk);
     add_oracle_hash_option(write_vk);
