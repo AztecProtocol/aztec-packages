@@ -37,7 +37,7 @@ function build {
 
     # Compile contracts
     # Step 1: Build everything in src.
-    forge build $(find src test -name '*.sol')
+    forge build $(find src test -name '*.sol') --optimizer-runs 1 # Currently lowering to make small enough to deploy.
 
     # Step 1.5: Output storage information for the rollup contract.
     forge inspect --json src/core/Rollup.sol:Rollup storage > ./out/Rollup.sol/storage.json
@@ -105,6 +105,7 @@ function inspect {
         done < <(grep -E "^[[:space:]]*(contract|library|interface)[[:space:]]+[a-zA-Z0-9_]+" "$file")
     done
 }
+
 
 function gas_report {
   check=${1:-"no"}
