@@ -4,6 +4,7 @@ import type { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { RunningPromise, makeLoggingErrorHandler } from '@aztec/foundation/running-promise';
+import { sleep } from '@aztec/foundation/sleep';
 import { count } from '@aztec/foundation/string';
 import { elapsed } from '@aztec/foundation/timer';
 import { InboxAbi } from '@aztec/l1-artifacts';
@@ -187,6 +188,7 @@ export class Archiver extends EventEmitter implements ArchiveSource, Traceable {
     if (blockUntilSynced) {
       while (!(await this.syncSafe(true))) {
         this.log.info(`Retrying initial archiver sync in ${this.config.pollingIntervalMs}ms`);
+        await sleep(this.config.pollingIntervalMs);
       }
     }
 

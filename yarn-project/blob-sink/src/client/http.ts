@@ -45,6 +45,8 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
     const archiveUrl = this.archiveClient?.getBaseUrl();
     this.log.info(`Testing configured blob sources`, { blobSinkUrl, l1ConsensusHostUrls, archiveUrl });
 
+    let successfulSourceCount = 0;
+
     if (blobSinkUrl) {
       try {
         const res = await this.fetch(`${this.config.blobSinkUrl}/status`, {
@@ -52,6 +54,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
         });
         if (res.ok) {
           this.log.info(`Blob sink is reachable`, { blobSinkUrl });
+          successfulSourceCount++;
         } else {
           this.log.error(`Failure reaching blob sink: ${res.statusText} (${res.status})`, { blobSinkUrl });
         }
@@ -74,6 +77,7 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
           const res = await this.fetch(url, options);
           if (res.ok) {
             this.log.info(`L1 consensus host is reachable`, { l1ConsensusHostUrl });
+            successfulSourceCount++;
           } else {
             this.log.error(`Failure reaching L1 consensus host: ${res.statusText} (${res.status})`, {
               l1ConsensusHostUrl,
@@ -91,11 +95,16 @@ export class HttpBlobSinkClient implements BlobSinkClientInterface {
       try {
         const latest = await this.archiveClient.getLatestBlock();
         this.log.info(`Archive client is reachable and synced to L1 block ${latest.number}`, { latest, archiveUrl });
+        successfulSourceCount++;
       } catch (err) {
         this.log.error(`Error reaching archive client`, err, { archiveUrl });
       }
     } else {
       this.log.warn('No archive client configured');
+    }
+
+    if (successfulSourceCount === 0) {
+      throw new Error('No blob sources are reachable');
     }
   }
 
