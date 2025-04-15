@@ -53,8 +53,10 @@ describe('Rollup IVC Integration', () => {
   beforeAll(async () => {
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
 
+    const baseFolder = process.env.BB_WORKING_DIRECTORY ? process.env.BB_WORKING_DIRECTORY : os.tmpdir();
+    await fs.mkdir(baseFolder, { recursive: true });
     // Create a client IVC proof
-    const clientIVCWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-client-ivc-'));
+    const clientIVCWorkingDirectory = await fs.mkdtemp(path.join(baseFolder, 'bb-rollup-ivc-integration-client-ivc-'));
 
     const [bytecodes, witnessStack, tailPublicInputs] = await generate3FunctionTestingIVCStack();
     clientIVCPublicInputs = tailPublicInputs;
@@ -71,7 +73,7 @@ describe('Rollup IVC Integration', () => {
     tubeProof = await proveTube(bbBinaryPath, clientIVCWorkingDirectory, logger);
 
     // Create an AVM proof
-    const avmWorkingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-avm-'));
+    const avmWorkingDirectory = await fs.mkdtemp(path.join(baseFolder, 'bb-rollup-ivc-integration-avm-'));
 
     const simTester = await PublicTxSimulationTester.create();
     const avmTestContractInstance = await simTester.registerAndDeployContract(
@@ -90,7 +92,9 @@ describe('Rollup IVC Integration', () => {
   });
 
   beforeEach(async () => {
-    workingDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'bb-rollup-ivc-integration-'));
+    const baseFolder = process.env.BB_WORKING_DIRECTORY ? process.env.BB_WORKING_DIRECTORY : os.tmpdir();
+    await fs.mkdir(baseFolder, { recursive: true });
+    workingDirectory = await fs.mkdtemp(path.join(baseFolder, 'bb-rollup-ivc-integration-'));
   });
 
   it('Should be able to generate a proof of a 3 transaction rollup', async () => {

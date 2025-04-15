@@ -23,6 +23,7 @@ describe('Client IVC Integration', () => {
   beforeEach(async () => {
     // Create a temp working dir
     const baseFolder = process.env.BB_WORKING_DIRECTORY ? process.env.BB_WORKING_DIRECTORY : os.tmpdir();
+    await fs.mkdir(baseFolder, { recursive: true });
     bbWorkingDirectory = await fs.mkdtemp(path.join(baseFolder, 'bb-client-ivc-integration-'));
     bbBinaryPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../../barretenberg/cpp/build/bin', 'bb');
   });
