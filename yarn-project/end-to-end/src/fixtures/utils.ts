@@ -825,7 +825,7 @@ export async function createAndSyncProverNode(
     },
     { prefilledPublicData },
   );
-  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.walletClient.account.address });
+  getLogger().info(`Created and synced prover node`, { publisherAddress: l1TxUtils.walletClient!.account.address });
   proverNode.start();
   return proverNode;
 }
