@@ -32,7 +32,7 @@ export type BBSuccess = {
   /** Full path of the public key. */
   pkPath?: string;
   /** Base directory for the VKs (raw, fields). */
-  vkPath?: string;
+  vkDirectoryPath?: string;
   /** Full path of the proof. */
   proofPath?: string;
   /** Full path of the contract. */
@@ -162,7 +162,7 @@ export async function executeBbClientIvcProof(
         durationMs,
         proofPath: `${outputPath}`,
         pkPath: undefined,
-        vkPath: `${outputPath}`,
+        vkDirectoryPath: `${outputPath}`,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -266,7 +266,7 @@ export async function generateProof(
         durationMs: duration,
         proofPath: `${outputPath}`,
         pkPath: undefined,
-        vkPath: `${outputPath}`,
+        vkDirectoryPath: `${outputPath}`,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -334,7 +334,7 @@ export async function generateTubeProof(
         durationMs,
         proofPath: outputPath,
         pkPath: undefined,
-        vkPath: outputPath,
+        vkDirectoryPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -413,7 +413,7 @@ export async function generateAvmProofV2(
         durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: join(outputPath, VK_FILENAME),
+        vkDirectoryPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb
@@ -502,7 +502,7 @@ export async function generateAvmProof(
         durationMs: duration,
         proofPath: join(outputPath, PROOF_FILENAME),
         pkPath: undefined,
-        vkPath: outputPath,
+        vkDirectoryPath: outputPath,
       };
     }
     // Not a great error message here but it is difficult to decipher what comes from bb

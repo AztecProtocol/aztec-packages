@@ -1,7 +1,7 @@
 import { makeBlockBlobPublicInputs, makeSpongeBlob } from '@aztec/blob-lib/testing';
 import {
   ARCHIVE_HEIGHT,
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   AZTEC_MAX_EPOCH_DURATION,
   BLOBS_PER_BLOCK,
   CONTRACT_CLASS_LOG_SIZE_IN_FIELDS,
@@ -1158,7 +1158,7 @@ function makePublicTubeData(seed = 1) {
 function makeAvmProofData(seed = 1) {
   return new AvmProofData(
     makeAvmCircuitPublicInputs(seed),
-    makeRecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>(AVM_PROOF_LENGTH_IN_FIELDS, seed + 0x100),
+    makeRecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED, seed + 0x100),
     makeVkWitnessData(seed + 0x200),
   );
 }

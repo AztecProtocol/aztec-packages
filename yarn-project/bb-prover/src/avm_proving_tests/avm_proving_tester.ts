@@ -70,11 +70,11 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     }
     // Then we test VK extraction and serialization.
     const succeededRes = proofRes as BBSuccess;
-    const vkData = await extractAvmVkData(succeededRes.vkPath!);
+    const vkData = await extractAvmVkData(succeededRes.vkDirectoryPath!);
     VerificationKeyData.fromBuffer(vkData.toBuffer());
 
     // Then we verify.
-    const rawVkPath = path.join(succeededRes.vkPath!, 'vk');
+    const rawVkPath = path.join(succeededRes.vkDirectoryPath!, 'vk');
     return await verifyAvmProof(BB_PATH, succeededRes.proofPath!, rawVkPath, this.logger);
   }
 
@@ -142,7 +142,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
       this.bbWorkingDirectory,
       proofRes.proofPath!,
       publicInputs,
-      proofRes.vkPath!,
+      proofRes.vkDirectoryPath!,
       this.logger,
     );
   }
