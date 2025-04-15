@@ -37,11 +37,7 @@ export async function proveThenVerifyAztecClient(
   );
   try {
     // These are optional - easier not to pass them.
-    const emptyVks = witnessStack.map(_ => Buffer.from([]));
-    const [proof, vk] = await backend.prove(
-      witnessStack.map((arr: Uint8Array) => ungzip(arr)),
-      emptyVks,
-    );
+    const [proof, vk] = await backend.prove(witnessStack.map((arr: Uint8Array) => ungzip(arr)));
     const verified = await backend.verify(proof, vk);
     return verified;
   } finally {

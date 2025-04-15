@@ -334,7 +334,12 @@ export class AztecClientBackend {
     }
   }
 
-  async prove(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[]): Promise<[Uint8Array, Uint8Array]> {
+  async prove(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
+    if (vksMsgpack.length === 0) {
+      vksMsgpack = witnessMsgpack.map(() => Uint8Array.from([]));
+    } else if (vksMsgpack.length !== witnessMsgpack.length) {
+      throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
+    }
     await this.instantiate();
     const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack, vksMsgpack);
     const [proof, vk] = proofAndVk;
@@ -349,7 +354,12 @@ export class AztecClientBackend {
     return this.api.acirVerifyAztecClient(proof, vk);
   }
 
-  async proveAndVerify(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[]): Promise<boolean> {
+  async proveAndVerify(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[] = []): Promise<boolean> {
+    if (vksMsgpack.length === 0) {
+      vksMsgpack = witnessMsgpack.map(() => Uint8Array.from([]));
+    } else if (vksMsgpack.length !== witnessMsgpack.length) {
+      throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
+    }
     await this.instantiate();
     return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack, vksMsgpack);
   }

@@ -477,7 +477,7 @@ To do a single benchmark you can do e.g.
 `IVC_BENCH=amm-add-liquidity ./bootstrap.sh bench_ivc origin/master~3`
 
 If one doesn't provide the commit, it generates these IVC inputs on the fly (depends on yarn-project having been bootstrapped).
-To use these inputs manually, just abort after input download and run ClientIVC proving with --input runtime_stack on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
+To use these inputs manually, just abort after input download and run ClientIVC proving on those inputs (stored in `yarn-project/end-to-end/example-app-ivc-inputs-out`).
 
 #### Using Tracy to Profile Memory/CPU/Gate Counts
 
