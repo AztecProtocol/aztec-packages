@@ -49,7 +49,7 @@ case "$cmd" in
     merge_base=$(git merge-base HEAD origin/master)
     for project in noir barretenberg avm-transpiler noir-projects l1-contracts yarn-project ; do
       if [ $project == barretenberg ]; then
-        ./$project/bootstrap.sh # i.e. this script
+        ../$project/bootstrap.sh # i.e. this script
       else
         AZTEC_CACHE_COMMIT=$merge_base ../$project/bootstrap.sh
       fi
