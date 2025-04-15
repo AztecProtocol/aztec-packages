@@ -231,7 +231,6 @@ library AddressSnapshotLib {
     return lengthAtEpoch(_self, currentEpoch);
   }
 
-  // TODO(md): TEST!
   /**
    * @notice Gets the size of the set at a specific epoch
    * @param _self The storage reference to the set
@@ -264,7 +263,6 @@ library AddressSnapshotLib {
     return vals;
   }
 
-  // TODO(md): TEST!
   /**
    * @notice Gets all addresses in the set at a specific epoch
    * @param _self The storage reference to the set

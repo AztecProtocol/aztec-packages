@@ -34,6 +34,10 @@ contract AddressSnapshotLengthTest is AddressSnapshotsBase {
     timeCheater.cheat__setEpochNow(2);
     // Length increases to 2
     assertEq(validatorSet.length(), 2);
+
+    // Length at epoch maintains historical values
+    assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(1)), 0);
+    assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(2)), 2);
   }
 
   function test_WhenRemovingValidators() public {
@@ -52,5 +56,10 @@ contract AddressSnapshotLengthTest is AddressSnapshotsBase {
 
     timeCheater.cheat__setEpochNow(3);
     assertEq(validatorSet.length(), 0);
+
+    // Length at epoch maintains historical values
+    assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(1)), 0);
+    assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(2)), 2);
+    assertEq(validatorSet.lengthAtEpoch(Epoch.wrap(3)), 0);
   }
 }

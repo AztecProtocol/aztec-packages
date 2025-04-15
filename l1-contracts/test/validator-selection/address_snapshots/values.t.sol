@@ -7,7 +7,7 @@ import {
   SnapshottedAddressSet
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
-
+import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
 contract AddressSnapshotValuesTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
@@ -54,6 +54,10 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     assertEq(vals[0], address(1));
     assertEq(vals[1], address(2));
     assertEq(vals[2], address(3));
+
+    // Values at epoch maintains historical values
+    address[] memory valsAtEpoch = validatorSet.valuesAtEpoch(Epoch.wrap(1));
+    assertEq(valsAtEpoch.length, 0);
   }
 
   function test_WhenValidatorsAreRemoved() public {
@@ -72,5 +76,20 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     assertEq(vals.length, 2);
     assertEq(vals[0], address(1));
     assertEq(vals[1], address(3));
+
+    // Values at epoch maintains historical values
+    address[] memory valsAtEpoch = validatorSet.valuesAtEpoch(Epoch.wrap(1));
+    assertEq(valsAtEpoch.length, 0);
+
+    valsAtEpoch = validatorSet.valuesAtEpoch(Epoch.wrap(2));
+    assertEq(valsAtEpoch.length, 3);
+    assertEq(valsAtEpoch[0], address(1));
+    assertEq(valsAtEpoch[1], address(2));
+    assertEq(valsAtEpoch[2], address(3));
+
+    valsAtEpoch = validatorSet.valuesAtEpoch(Epoch.wrap(3));
+    assertEq(valsAtEpoch.length, 2);
+    assertEq(valsAtEpoch[0], address(1));
+    assertEq(valsAtEpoch[1], address(3));
   }
 }
