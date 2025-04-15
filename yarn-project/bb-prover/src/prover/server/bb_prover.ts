@@ -1,5 +1,5 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
   NESTED_RECURSIVE_PROOF_LENGTH,
   NESTED_RECURSIVE_ROLLUP_HONK_PROOF_LENGTH,
   PAIRING_POINTS_SIZE,
@@ -77,7 +77,7 @@ import {
   PROOF_FILENAME,
   PUBLIC_INPUTS_FILENAME,
   VK_FILENAME,
-  generateAvmProof,
+  generateAvmProofV2,
   generateProof,
   generateTubeProof,
   verifyAvmProof,
@@ -185,7 +185,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   }))
   public async getAvmProof(
     inputs: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const proofAndVk = await this.createAvmProof(inputs);
     await this.verifyAvmProof(proofAndVk.proof.binaryProof, proofAndVk.verificationKey);
     return proofAndVk;
@@ -502,7 +502,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async generateAvmProofWithBB(input: AvmCircuitInputs, workingDirectory: string): Promise<BBSuccess> {
     logger.info(`Proving avm-circuit for TX ${input.hints.tx.hash}...`);
 
-    const provingResult = await generateAvmProof(this.config.bbBinaryPath, workingDirectory, input, logger);
+    const provingResult = await generateAvmProofV2(this.config.bbBinaryPath, workingDirectory, input, logger);
 
     if (provingResult.status === BB_RESULT.FAILURE) {
       logger.error(`Failed to generate AVM proof for TX ${input.hints.tx.hash}: ${provingResult.reason}`);
@@ -536,13 +536,13 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
   private async createAvmProof(
     input: AvmCircuitInputs,
-  ): Promise<ProofAndVerificationKey<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
+  ): Promise<ProofAndVerificationKey<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
     const operation = async (bbWorkingDirectory: string) => {
       const provingResult = await this.generateAvmProofWithBB(input, bbWorkingDirectory);
 
       // TODO(https://github.com/AztecProtocol/aztec-packages/issues/6773): this VK data format is wrong.
       // In particular, the number of public inputs, etc will be wrong.
-      const verificationKey = await extractAvmVkData(provingResult.vkPath!);
+      const verificationKey = await extractAvmVkData(provingResult.vkDirectoryPath!);
       const avmProof = await this.readAvmProofAsFields(provingResult.proofPath!, verificationKey);
 
       const circuitType = 'avm-circuit' as const;
@@ -579,7 +579,7 @@ export class BBNativeRollupProver implements ServerCircuitProver {
 
       // Read the proof as fields
       // TODO(AD): this is the only remaining use of extractVkData.
-      const tubeVK = await extractVkData(provingResult.vkPath!);
+      const tubeVK = await extractVkData(provingResult.vkDirectoryPath!);
       const tubeProof = await readProofAsFields(provingResult.proofPath!, tubeVK, TUBE_PROOF_LENGTH, logger);
 
       this.instrumentation.recordDuration('provingDuration', 'tubeCircuit', provingResult.durationMs);
@@ -728,16 +728,25 @@ export class BBNativeRollupProver implements ServerCircuitProver {
   private async readAvmProofAsFields(
     proofFilename: string,
     vkData: VerificationKeyData,
-  ): Promise<RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>> {
-    const rawProof = await fs.readFile(proofFilename);
+  ): Promise<RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>> {
+    const rawProofBuffer = await fs.readFile(proofFilename);
+    const reader = BufferReader.asReader(rawProofBuffer);
 
-    const reader = BufferReader.asReader(rawProof);
-    const fields = reader.readArray(rawProof.length / Fr.SIZE_IN_BYTES, Fr);
-    const fieldsWithoutPublicCols = fields.slice(-1 * AVM_PROOF_LENGTH_IN_FIELDS);
+    const proofFields: Fr[] = [];
+    while (!reader.isEmpty()) {
+      proofFields.push(Fr.fromBuffer(reader));
+    }
 
-    const proof = new Proof(rawProof, vkData.numPublicInputs);
+    // We extend to a fixed-size padded proof as during development any new AVM circuit column changes the
+    // proof length and we do not have a mechanism to feedback a cpp constant to noir/TS.
+    // TODO(#13390): Revive a non-padded AVM proof
+    while (proofFields.length < AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED) {
+      proofFields.push(new Fr(0));
+    }
 
-    return new RecursiveProof(fieldsWithoutPublicCols, proof, true, AVM_PROOF_LENGTH_IN_FIELDS);
+    const proof = new Proof(rawProofBuffer, vkData.numPublicInputs);
+
+    return new RecursiveProof(proofFields, proof, true, AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED);
   }
 
   private runInDirectory<T>(fn: (dir: string) => Promise<T>) {
