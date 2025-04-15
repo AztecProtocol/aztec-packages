@@ -18,12 +18,17 @@ import {Timestamp, Slot, Epoch, TimeLib} from "@aztec/core/libraries/TimeLib.sol
 import {MessageHashUtils} from "@oz/utils/cryptography/MessageHashUtils.sol";
 import {EnumerableSet} from "@oz/utils/structs/EnumerableSet.sol";
 
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
+import {SafeCast} from "@oz/utils/math/SafeCast.sol";
+
 library ValidatorSelectionLib {
   using EnumerableSet for EnumerableSet.AddressSet;
   using MessageHashUtils for bytes32;
   using SignatureLib for Signature;
   using TimeLib for Timestamp;
   using AddressSnapshotLib for SnapshottedAddressSet;
+  using Checkpoints for Checkpoints.Trace224;
+  using SafeCast for *;
 
   bytes32 private constant VALIDATOR_SELECTION_STORAGE_POSITION =
     keccak256("aztec.validator_selection.storage");
@@ -36,23 +41,34 @@ library ValidatorSelectionLib {
   /**
    * @notice  Performs a setup of an epoch if needed. The setup will
    *          - Sample the validator set for the epoch
-   *          - Set the seed for the epoch
-   *          - Update the last seed
-   *
-   * @dev     Since this is a reference optimising for simplicity, we store the actual validator set in the epoch structure.
-   *          This is very heavy on gas, so start crying because the gas here will melt the poles
-   *          https://i.giphy.com/U1aN4HTfJ2SmgB2BBK.webp
+   *          - Set the seed for the next epoch
    */
-  function setupEpoch(StakingStorage storage _stakingStore) internal {
-    Epoch epochNumber = Timestamp.wrap(block.timestamp).epochFromTimestamp();
+  function setupEpoch(StakingStorage storage _stakingStore, Epoch _epochNumber) internal {
     ValidatorSelectionStorage storage store = getStorage();
-    EpochData storage epoch = store.epochs[epochNumber];
+    EpochData storage epoch = store.epochs[_epochNumber];
 
-    if (epoch.sampleSeed == 0) {
-      epoch.sampleSeed = getSampleSeed(epochNumber);
-      epoch.nextSeed = store.lastSeed = computeNextSeed(epochNumber);
-      epoch.committee = sampleValidators(_stakingStore, epochNumber, epoch.sampleSeed);
+    // Get the sample seed for this current epoch.
+    uint224 sampleSeed = getSampleSeed(_epochNumber);
+
+    // If no sample seed is set, we are are in epoch 0, and we need to set the sample seed to max
+    if (sampleSeed == 0) {
+      sampleSeed = type(uint224).max;
+      store.seeds.push(Epoch.unwrap(_epochNumber).toUint32(), sampleSeed);
     }
+
+
+    // Set the sample seed for the next epoch if required
+
+    // TODO(md): will this need to be max if nothing is found?
+
+    // If the committee is not set for this epoch, we need to sample it
+    uint256 committeeLength = epoch.committee.length;
+    if (committeeLength == 0) {
+      epoch.committee = sampleValidators(_stakingStore, _epochNumber, sampleSeed);
+    }
+
+    // Compute the next seed, function handles the case where it is already set
+    setSampleSeedForEpoch(_epochNumber + Epoch.wrap(1));
   }
 
   /**
@@ -159,7 +175,7 @@ library ValidatorSelectionLib {
    *
    * @return The validators for the given epoch
    */
-  function sampleValidators(StakingStorage storage _stakingStore, Epoch _epoch, uint256 _seed)
+  function sampleValidators(StakingStorage storage _stakingStore, Epoch _epoch, uint224 _seed)
     internal
     returns (address[] memory)
   {
@@ -191,26 +207,18 @@ library ValidatorSelectionLib {
     internal
     returns (address[] memory)
   {
+    setupEpoch(_stakingStore, _epochNumber);
+
     ValidatorSelectionStorage storage store = getStorage();
     EpochData storage epoch = store.epochs[_epochNumber];
 
-    if (epoch.sampleSeed != 0) {
-      uint256 committeeSize = epoch.committee.length;
-      if (committeeSize == 0) {
-        return new address[](0);
-      }
-      return epoch.committee;
-    }
-
-    // Allow anyone if there is no validator set
-    if (_stakingStore.attesters.length() == 0) {
+    // TODO(md): I imagine if the validator set for this epoch is empty, then we need to return an empty array
+    // otherwise we must calculate the epoch at this time
+    uint256 committeeSize = epoch.committee.length;
+    if (committeeSize == 0) {
       return new address[](0);
     }
-
-    // Emulate a sampling of the validators
-    uint256 sampleSeed = getSampleSeed(_epochNumber);
-
-    return sampleValidators(_stakingStore, _epochNumber, sampleSeed);
+    return epoch.committee;
   }
 
   /**
@@ -227,22 +235,31 @@ library ValidatorSelectionLib {
    *
    * @return The sample seed for the epoch
    */
-  function getSampleSeed(Epoch _epoch) internal view returns (uint256) {
-    if (Epoch.unwrap(_epoch) == 0) {
-      return type(uint256).max;
-    }
+  function getSampleSeed(Epoch _epoch) internal view returns (uint224) {
     ValidatorSelectionStorage storage store = getStorage();
-    uint256 sampleSeed = store.epochs[_epoch].sampleSeed;
-    if (sampleSeed != 0) {
-      return sampleSeed;
+    return store.seeds.upperLookup(Epoch.unwrap(_epoch).toUint32());
+  }
+
+  function setSampleSeedForEpoch(Epoch _epoch) internal {
+    ValidatorSelectionStorage storage store = getStorage();
+    uint32 epoch = Epoch.unwrap(_epoch).toUint32();
+
+    // Check if the next epoch has a sample seed set
+    (bool exists, uint32 key, ) = store.seeds.latestCheckpoint();
+
+    // If the sample seed for the next epoch is already set, we can skip the computation
+    // TODO(md): if no checkpoint exists, then we are at the start, THIS should not happen???? think about this
+    uint32 mostRecentSeedEpoch = exists ? key : 0;
+    if (mostRecentSeedEpoch == epoch) {
+      return;
     }
 
-    sampleSeed = store.epochs[_epoch - Epoch.wrap(1)].nextSeed;
-    if (sampleSeed != 0) {
-      return sampleSeed;
+    // If the sample seed for the next epoch is not set, we need to compute it
+    if (mostRecentSeedEpoch < epoch) {
+      // Compute the sample seed for the next epoch
+      uint224 nextSeed = computeNextSeed(_epoch);
+      store.seeds.push(epoch, nextSeed);
     }
-
-    return store.lastSeed;
   }
 
   function getStorage() internal pure returns (ValidatorSelectionStorage storage storageStruct) {
@@ -262,8 +279,9 @@ library ValidatorSelectionLib {
    *
    * @return The computed seed
    */
-  function computeNextSeed(Epoch _epoch) private view returns (uint256) {
-    return uint256(keccak256(abi.encode(_epoch, block.prevrandao)));
+  function computeNextSeed(Epoch _epoch) private view returns (uint224) {
+    // Allow for unsafe (lossy) downcast as we do not care if we loose bits
+    return uint224(uint256(keccak256(abi.encode(_epoch, block.prevrandao))));
   }
 
   /**

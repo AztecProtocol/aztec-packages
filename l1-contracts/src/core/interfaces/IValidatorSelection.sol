@@ -3,7 +3,7 @@
 pragma solidity >=0.8.27;
 
 import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
-
+import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
 /**
  * @notice  The data structure for an epoch
  * @param committee - The attesters for the epoch
@@ -13,15 +13,13 @@ import {Timestamp, Slot, Epoch} from "@aztec/core/libraries/TimeLib.sol";
 struct EpochData {
   // TODO: remove in favor of commitment to comittee
   address[] committee;
-  uint256 sampleSeed;
-  uint256 nextSeed;
 }
 
 struct ValidatorSelectionStorage {
   // A mapping to snapshots of the validator set
   mapping(Epoch => EpochData) epochs;
-  // The last stored randao value, same value as `seed` in the last inserted epoch
-  uint256 lastSeed;
+  // Checkpointed map of epoch -> sample seed
+  Checkpoints.Trace224 seeds;
   uint256 targetCommitteeSize;
 }
 

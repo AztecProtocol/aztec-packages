@@ -189,8 +189,15 @@ contract ValidatorSelectionTest is DecoderBase {
     uint256 expectedSize =
       validatorSetSize > targetCommitteeSize ? targetCommitteeSize : validatorSetSize;
 
-    assertEq(rollup.getEpochCommittee(pre).length, expectedSize, "Invalid committee size");
-    assertEq(rollup.getEpochCommittee(post).length, expectedSize, "Invalid committee size");
+    address[] memory preCommittee = rollup.getEpochCommittee(pre);
+    address[] memory postCommittee = rollup.getEpochCommittee(post);
+    assertEq(preCommittee.length, expectedSize, "Invalid committee size");
+    assertEq(postCommittee.length, expectedSize, "Invalid committee size");
+
+    // Elements in the committee should be the same
+    for (uint256 i = 0; i < expectedSize; i++) {
+      assertEq(preCommittee[i], postCommittee[i], "Committee element has changed");
+    }
   }
 
   function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) {
