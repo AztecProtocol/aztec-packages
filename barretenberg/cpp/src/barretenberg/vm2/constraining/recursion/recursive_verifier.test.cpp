@@ -201,7 +201,7 @@ TEST_F(AvmRecursiveTests, GoblinRecursion)
         return avm_rec_verifier.verify_proof(stdlib_proof, public_inputs_ct, agg_object);
     }();
 
-    outer_circuit.add_ipa_claim(verifier_output.ipa_claim.get_witness_indices());
+    verifier_output.ipa_claim.set_public();
     outer_circuit.ipa_proof = convert_stdlib_proof_to_native(verifier_output.ipa_proof);
 
     // Ensure that the pairing check is satisfied on the outputs of the recursive verifier
