@@ -4,9 +4,10 @@
 #include <cmath>
 #include <cstdint>
 
+#include "barretenberg/vm2/constraining/flavor_settings.hpp"
 #include "barretenberg/vm2/constraining/testing/check_relation.hpp"
-#include "barretenberg/vm2/generated/flavor_settings.hpp"
 #include "barretenberg/vm2/generated/relations/range_check.hpp"
+#include "barretenberg/vm2/testing/fixtures.hpp"
 #include "barretenberg/vm2/testing/macros.hpp"
 #include "barretenberg/vm2/tracegen/range_check_trace.hpp"
 #include "barretenberg/vm2/tracegen/test_trace_container.hpp"
@@ -22,11 +23,7 @@ using range_check = bb::avm2::range_check<FF>;
 
 TEST(RangeCheckConstrainingTest, EmptyRow)
 {
-    TestTraceContainer trace({
-        { { C::precomputed_clk, 1 } },
-    });
-
-    check_relation<range_check>(trace);
+    check_relation<range_check>(testing::empty_trace());
 }
 
 TEST(RangeCheckConstrainingTest, IsLteMutuallyExclusive)

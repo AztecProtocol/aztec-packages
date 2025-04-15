@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {HeaderLib, Header} from "@aztec/core/libraries/RollupLibs/HeaderLib.sol";
+import {HeaderLib, Header} from "@aztec/core/libraries/rollup/HeaderLib.sol";
 
 contract HeaderLibHelper {
   // A wrapper used such that we get "calldata" and not memory

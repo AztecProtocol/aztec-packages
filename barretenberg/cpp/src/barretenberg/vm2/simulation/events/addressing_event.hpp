@@ -35,9 +35,8 @@ struct AddressingEvent {
     Instruction instruction;
     std::vector<Operand> after_relative;
     std::vector<Operand> resolved_operands;
-    MemoryValue base_address_val;
-    MemoryTag base_address_tag;
-    const InstructionSpec* spec = nullptr;
+    MemoryValue base_address;
+    const ExecInstructionSpec* spec = nullptr;
     std::optional<AddressingException> error;
 };
 

@@ -18,6 +18,10 @@ template <typename Builder, typename T> class bigfield {
     using CoefficientAccumulator = bigfield;
     using TParams = T;
     using native = bb::field<T>;
+    using field_ct = field_t<Builder>;
+
+    // Number of bb::fr field elements used to represent a bigfield element in the public inputs
+    static constexpr size_t PUBLIC_INPUTS_SIZE = 4;
 
     struct Basis {
         uint512_t modulus;
@@ -465,6 +469,29 @@ template <typename Builder, typename T> class bigfield {
                              binary_basis_limbs[2].element.tag,
                              binary_basis_limbs[3].element.tag,
                              prime_basis_limb.tag);
+    }
+
+    /**
+     * @brief Set the witness indices of the binary basis limbs to public
+     *
+     * @return uint32_t The public input index at which the representation of the bigfield starts
+     */
+    uint32_t set_public() const
+    {
+        Builder* ctx = get_context();
+        const uint32_t start_index = static_cast<uint32_t>(ctx->public_inputs.size());
+        for (auto& limb : binary_basis_limbs) {
+            ctx->set_public_input(limb.element.normalize().witness_index);
+        }
+        return start_index;
+    }
+
+    /**
+     * @brief Reconstruct a bigfield from limbs (generally stored in the public inputs)
+     */
+    static bigfield reconstruct_from_public(const std::span<const field_ct, PUBLIC_INPUTS_SIZE>& limbs)
+    {
+        return construct_from_limbs(limbs[0], limbs[1], limbs[2], limbs[3], /*can_overflow=*/false);
     }
 
     static constexpr uint512_t get_maximum_unreduced_value()

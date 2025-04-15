@@ -1,11 +1,11 @@
-import { TxHash, TxReceipt, TxStatus, AztecAddress } from "@aztec/aztec.js";
+import { TxHash, TxReceipt, TxStatus, AztecAddress } from '@aztec/aztec.js';
 
-export type ContractFunctionInteractionTx = {
+export type UserTx = {
   txHash?: TxHash;
   receipt?: TxReceipt;
   date?: number;
-  status: "error" | "simulating" | "proving" | "sending" | TxStatus;
-  fnName: string;
+  status: 'error' | 'simulating' | 'proving' | 'sending' | TxStatus;
+  name: string;
   error?: string;
   contractAddress: AztecAddress;
 };

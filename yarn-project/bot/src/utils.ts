@@ -1,6 +1,8 @@
-import { type AztecAddress } from '@aztec/circuits.js';
-import { type EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { ContractBase } from '@aztec/aztec.js';
+import type { AMMContract } from '@aztec/noir-contracts.js/AMM';
+import type { EasyPrivateTokenContract } from '@aztec/noir-contracts.js/EasyPrivateToken';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 
 /**
  * Gets the private and public balance of the given token for the given address.
@@ -22,6 +24,10 @@ export async function getPrivateBalance(token: EasyPrivateTokenContract, who: Az
   return privateBalance;
 }
 
-export function isStandardTokenContract(token: TokenContract | EasyPrivateTokenContract): token is TokenContract {
+export function isStandardTokenContract(token: ContractBase): token is TokenContract {
   return 'mint_to_public' in token.methods;
+}
+
+export function isAMMContract(contract: ContractBase): contract is AMMContract {
+  return 'add_liquidity' in contract.methods;
 }

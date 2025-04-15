@@ -1,5 +1,3 @@
-import { type ChainConfig, chainConfigMappings } from '@aztec/circuit-types/config';
-import { INITIAL_L2_BLOCK_NUM } from '@aztec/circuits.js/constants';
 import {
   type ConfigMappingsType,
   booleanConfigHelper,
@@ -8,7 +6,10 @@ import {
   parseBooleanEnv,
 } from '@aztec/foundation/config';
 import { type DataStoreConfig, dataConfigMappings } from '@aztec/kv-store/config';
-import { type Network } from '@aztec/types/network';
+import { type ChainConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import type { Network } from '@aztec/stdlib/network';
+
+export { getPackageInfo } from './package_info.js';
 
 /**
  * Temporary configuration until WASM can be used instead of native
@@ -30,8 +31,8 @@ export interface KernelProverConfig {
  * Configuration settings for the PXE.
  */
 export interface PXEConfig {
-  /** L2 block to start scanning from for new accounts */
-  l2StartingBlock: number;
+  /** Maximum amount of blocks to pull from the stream in one request when synchronizing */
+  l2BlockBatchSize: number;
 }
 
 export type PXEServiceConfig = PXEConfig & KernelProverConfig & BBProverConfig & DataStoreConfig & ChainConfig;
@@ -48,10 +49,10 @@ export type CliPXEOptions = {
 export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   ...dataConfigMappings,
   ...chainConfigMappings,
-  l2StartingBlock: {
-    env: 'PXE_L2_STARTING_BLOCK',
-    ...numberConfigHelper(INITIAL_L2_BLOCK_NUM),
-    description: 'L2 block to start scanning from for new accounts',
+  l2BlockBatchSize: {
+    env: 'PXE_L2_BLOCK_BATCH_SIZE',
+    ...numberConfigHelper(200),
+    description: 'Maximum amount of blocks to pull from the stream in one request when synchronizing',
   },
   bbBinaryPath: {
     env: 'BB_BINARY_PATH',
@@ -69,7 +70,7 @@ export const pxeConfigMappings: ConfigMappingsType<PXEServiceConfig> = {
   proverEnabled: {
     env: 'PXE_PROVER_ENABLED',
     description: 'Enable real proofs',
-    ...booleanConfigHelper(),
+    ...booleanConfigHelper(true),
   },
 };
 
@@ -105,6 +106,7 @@ export const allPxeConfigMappings: ConfigMappingsType<CliPXEOptions & PXEService
     parseEnv: (val: string) => parseBooleanEnv(val) || !!process.env.NETWORK,
     description: 'Enable real proofs',
     isBoolean: true,
+    defaultValue: true,
   },
 };
 

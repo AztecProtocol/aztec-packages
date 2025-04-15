@@ -11,12 +11,15 @@
 #include <gtest/gtest.h>
 
 using namespace bb;
+using namespace cdg;
 
 /**
- * @brief this test checks graph description of the circuit with arithmetic gates
-    the number of connected components = the number of pair (i, j), 0<=i, j <16, i.e 256
+ * @brief Test graph description of circuit with arithmetic gates
+ *
+ * @details This test verifies that:
+ * - The number of connected components equals the number of pairs (i,j), where 0<=i,j<16
+ * - Each pair creates an isolated component, resulting in 256 total components
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -38,17 +41,18 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates)
 
     Graph graph = Graph(circuit_constructor);
     auto connected_components = graph.find_connected_components();
-    auto num_connected_components = connected_components.size();
     auto variables_in_one_gate = graph.show_variables_in_one_gate(circuit_constructor);
-    bool result = num_connected_components == 256;
-    EXPECT_EQ(result, true);
+    EXPECT_EQ(variables_in_one_gate.size(), 1024);
+    EXPECT_EQ(connected_components.size(), 256);
 }
 
 /**
- * @brief This test checks graph description of Ultra Circuit Builder with arithmetic gates with shifts
- * It must be one connected component, cause all gates have shifts
+ * @brief Test graph description of Ultra Circuit Builder with arithmetic gates with shifts
+ *
+ * @details This test verifies that:
+ * - When all gates have shifts, they form a single connected component
+ * - The shift operation connects all variables in the circuit
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_shifts)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -75,10 +79,13 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_arithmetic_gates_with_s
 }
 
 /**
- * @brief this test checks graph description of the circuit with boolean gates.
-    all variables must be isolated and the number of connected components = 0, all variables in one gate
+ * @brief Test graph description of circuit with boolean gates
+ *
+ * @details This test verifies that:
+ * - All variables are isolated with boolean gates
+ * - The number of connected components is 0
+ * - All variables are in one gate
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_boolean_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -99,11 +106,13 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_boolean_gates)
 }
 
 /**
- * @brief  this test checks graph decription for the circuit with one elliptic addition gate.
- *  The result is one connected component for 6 variables:
- *  x1, y1, x2, y2, x3, y3
+ * @brief Test graph description for circuit with one elliptic addition gate
+ *
+ * @details This test verifies that:
+ * - The circuit forms one connected component containing 6 variables
+ * - The variables represent the coordinates of three points: (x1,y1), (x2,y2), (x3,y3)
+ * - Where (x3,y3) is the result of adding (x1,y1) and (x2,y2)
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
 {
     typedef grumpkin::g1::affine_element affine_element;
@@ -132,11 +141,13 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_add_gate)
 }
 
 /**
- * @brief this test checks graph description of the circuit with one elliptic double gate.
-   The result is one connected component for 4 variables:
-   x1, y1, x3, y3
+ * @brief Test graph description for circuit with one elliptic double gate
+ *
+ * @details This test verifies that:
+ * - The circuit forms one connected component containing 4 variables
+ * - The variables represent the coordinates of two points: (x1,y1) and (x3,y3)
+ * - Where (x3,y3) is the result of doubling (x1,y1)
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
 {
     typedef grumpkin::g1::affine_element affine_element;
@@ -161,12 +172,14 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_double_gate)
 }
 
 /**
- * @brief this test checks the graph description of the circuit has elliptic addition and multiplication
-   gates together. The result is 2 connected components:
-   x1, y1, x2, y2, x3, y3, x4, y4
-   x5, y5, x6, y6, x7, y7, x8, y8
+ * @brief Test graph description for circuit with elliptic addition and multiplication gates
+ *
+ * @details This test verifies that:
+ * - The circuit forms 2 connected components
+ * - First component contains: x1, y1, x2, y2, x3, y3, x4, y4
+ * - Second component contains: x5, y5, x6, y6, x7, y7, x8, y8
+ * - Each component represents a separate elliptic curve operation sequence
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_together)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -216,11 +229,14 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_elliptic_together)
 }
 
 /**
- * @brief this test check graph description of the circuit with 2 sort_constraint. The result is 2 connected components:
-   a_idx, b_idx, c_idx, d_idx
-   e_idx, f_idx, g_idx, h_idx
+ * @brief Test graph description for circuit with 2 sort constraints
+ *
+ * @details This test verifies that:
+ * - The circuit forms 2 connected components
+ * - First component contains: a_idx, b_idx, c_idx, d_idx
+ * - Second component contains: e_idx, f_idx, g_idx, h_idx
+ * - Each sort constraint creates its own connected component
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -253,12 +269,14 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints)
 }
 
 /**
- * @brief this test checks graph description of the circuit with 2 sorted_constraints with edges.
-    The result is 2 connected components:
-    a_idx, b_idx, ... , h_idx
-    a1_idx, b1_idx, ..., h1_idx
+ * @brief Test graph description for circuit with 2 sorted constraints with edges
+ *
+ * @details This test verifies that:
+ * - The circuit forms 2 connected components
+ * - First component contains: a_idx through h_idx
+ * - Second component contains: a1_idx through h1_idx
+ * - Each sort constraint with edges creates its own connected component
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints_with_edges)
 {
     fr a = fr::one();
@@ -310,10 +328,12 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_sort_constraints_with_e
 }
 
 /**
- * @brief this test checks graph decription for circuit with gates that were created from plookup accumulators
-   the result is one connected component
+ * @brief Test graph description for circuit with gates created from plookup accumulators
+ *
+ * @details This test verifies that:
+ * - The circuit forms one connected component
+ * - Plookup accumulator gates connect all variables in the circuit
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_graph_with_plookup_accumulators)
 {
     UltraCircuitBuilder circuit_builder = UltraCircuitBuilder();
@@ -339,10 +359,12 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_with_plookup_accumulators)
 }
 
 /**
- * @brief this test checks variable gates counts for variable from arithmetic gates without shifts
-    in circuit
+ * @brief Test variable gate counts for variables from arithmetic gates without shifts
+ *
+ * @details This test verifies that:
+ * - Each variable (except index 0) appears in exactly one gate
+ * - Variables with index 0 appear in no gates
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -372,11 +394,13 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithm
 }
 
 /**
- * @brief this test checks variables gates count for variable in circuit with gates with shifts.
- * All variables except for zero index, which index == 0 mod 4 and index != 4 have gates count == 2.
- * Other variables have gates count = 1.
+ * @brief Test variable gate counts for variables in circuit with gates with shifts
+ *
+ * @details This test verifies that:
+ * - Variables with index == 0 mod 4 and index != 4 have gate count == 2
+ * - All other variables (except index 0) have gate count == 1
+ * - Variables with index 0 have gate count == 0
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithmetic_gate_with_shifts)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -410,10 +434,12 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_arithm
 }
 
 /**
- * @brief this test checks variables gates count for variables in circuit with boolean gates
- * all variables except for zero index must have gates count = 1.
+ * @brief Test variable gate counts for variables in circuit with boolean gates
+ *
+ * @details This test verifies that:
+ * - All variables (except index 0) have gate count == 1
+ * - Variables with index 0 have gate count == 0
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_boolean_gates)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -434,10 +460,12 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_boolea
 }
 
 /**
- * @brief this test checks variables gate counts in circuit with sorted constraints.
- * all variables in 2 connected components must have gates count = 1
+ * @brief Test variable gate counts in circuit with sorted constraints
+ *
+ * @details This test verifies that:
+ * - All variables in both connected components have gate count == 1
+ * - Each sort constraint creates a separate component with consistent gate counts
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints)
 {
     UltraCircuitBuilder circuit_constructor = UltraCircuitBuilder();
@@ -478,10 +506,12 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
 }
 
 /**
- * @brief this test checks variable gates count for variables in circuit with sorted constraints with edges
- * all variables in 2 connected components must have gates count = 1
+ * @brief Test variable gate counts for variables in circuit with sorted constraints with edges
+ *
+ * @details This test verifies that:
+ * - All variables in both connected components have gate count == 1
+ * - Each sort constraint with edges creates a separate component with consistent gate counts
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted_constraints_with_edges)
 {
     fr a = fr::one();
@@ -541,10 +571,12 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_sorted
 }
 
 /**
- * @brief this test checks variables gates count for variables in circuit with 1 elliptic addition gates
- * all variables in connected components must have gates count = 1
+ * @brief Test variable gate counts for variables in circuit with elliptic addition gates
+ *
+ * @details This test verifies that:
+ * - All variables in the connected component have gate count == 1
+ * - The component contains the 6 variables representing the coordinates of the points
  */
-
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_add_gates)
 {
     typedef grumpkin::g1::affine_element affine_element;
@@ -579,8 +611,11 @@ TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_ad
 }
 
 /**
- * @brief this test checks variables gates count for variables in circuit with 1 elliptic double gates
- * all variables in connected components must have gates count = 1.
+ * @brief Test variable gate counts for variables in circuit with elliptic double gates
+ *
+ * @details This test verifies that:
+ * - All variables in the connected component have gate count == 1
+ * - The component contains the 4 variables representing the coordinates of the point
  */
 
 TEST(boomerang_ultra_circuit_constructor, test_variables_gates_counts_for_ecc_dbl_gate)
@@ -622,8 +657,10 @@ std::vector<uint32_t> add_variables(UltraCircuitBuilder& circuit_constructor, st
 }
 
 /**
- * @brief this test checks graph description of circuit with range constraints.
- * all variables must be in one connected component.
+ * @brief Test graph description of circuit with range constraints
+ *
+ * @details This test verifies that:
+ * - All variables must be in one connected component
  */
 
 TEST(boomerang_ultra_circuit_constructor, test_graph_for_range_constraints)
@@ -640,8 +677,10 @@ TEST(boomerang_ultra_circuit_constructor, test_graph_for_range_constraints)
 }
 
 /**
- * @brief this checks graph description of circuit with decompose function.
- * all variables must be in one connected component
+ * @brief Test graph description of circuit with decompose function
+ *
+ * @details This test verifies that:
+ * - All variables must be in one connected component
  */
 
 TEST(boomerang_ultra_circuit_constructor, composed_range_constraint)

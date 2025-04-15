@@ -27,8 +27,7 @@ template <typename FF_> class eccImpl {
                            [[maybe_unused]] const RelationParameters<FF>&,
                            [[maybe_unused]] const FF& scaling_factor)
     {
-        const auto ecc_INFINITY_X = FF(
-            uint256_t{ 11669102379873075201UL, 10671829228508198984UL, 15863968012492123182UL, 1743499133401485332UL });
+        const auto ecc_INFINITY_X = FF(0);
         const auto ecc_INFINITY_Y = FF(0);
         const auto ecc_X_DIFF = (new_term.ecc_q_x - new_term.ecc_p_x);
         const auto ecc_Y_DIFF = (new_term.ecc_q_y - new_term.ecc_p_y);
@@ -116,13 +115,13 @@ template <typename FF_> class eccImpl {
             tmp *= scaling_factor;
             std::get<10>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // DOUBLE_PRED
             using Accumulator = typename std::tuple_element_t<11, ContainerOverSubrelations>;
             auto tmp = (new_term.ecc_double_op - new_term.ecc_x_match * new_term.ecc_y_match);
             tmp *= scaling_factor;
             std::get<11>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // INFINITY_RESULT
             using Accumulator = typename std::tuple_element_t<12, ContainerOverSubrelations>;
             auto tmp = new_term.ecc_sel *
                        (new_term.ecc_result_infinity - (ecc_INFINITY_PRED * ecc_BOTH_NON_INF + ecc_BOTH_INF));
@@ -136,7 +135,7 @@ template <typename FF_> class eccImpl {
             tmp *= scaling_factor;
             std::get<13>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // COMPUTED_LAMBDA
             using Accumulator = typename std::tuple_element_t<14, ContainerOverSubrelations>;
             auto tmp = new_term.ecc_sel *
                        (new_term.ecc_lambda -
@@ -145,7 +144,7 @@ template <typename FF_> class eccImpl {
             tmp *= scaling_factor;
             std::get<14>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OUTPUT_X_COORD
             using Accumulator = typename std::tuple_element_t<15, ContainerOverSubrelations>;
             auto tmp =
                 new_term.ecc_sel * (((new_term.ecc_r_x - ecc_EITHER_INF * (new_term.ecc_p_is_inf * new_term.ecc_q_x +
@@ -155,7 +154,7 @@ template <typename FF_> class eccImpl {
             tmp *= scaling_factor;
             std::get<15>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OUTPUT_Y_COORD
             using Accumulator = typename std::tuple_element_t<16, ContainerOverSubrelations>;
             auto tmp =
                 new_term.ecc_sel * (((new_term.ecc_r_y - ecc_EITHER_INF * (new_term.ecc_p_is_inf * new_term.ecc_q_y +
@@ -165,7 +164,7 @@ template <typename FF_> class eccImpl {
             tmp *= scaling_factor;
             std::get<16>(evals) += typename Accumulator::View(tmp);
         }
-        {
+        { // OUTPUT_INF_FLAG
             using Accumulator = typename std::tuple_element_t<17, ContainerOverSubrelations>;
             auto tmp = new_term.ecc_sel * (new_term.ecc_r_is_inf - new_term.ecc_result_infinity);
             tmp *= scaling_factor;

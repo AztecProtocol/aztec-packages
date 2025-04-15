@@ -67,7 +67,7 @@ Markdown links by file (with extension).
 Can be relative to current path (`./`, `../`), eg within a section, or absolute (relative to docs).
 [link1](https://docusaurus.io/docs/markdown-features/links), [link2](https://docusaurus.io/docs/versioning#link-docs-by-file-paths)
 
-If you spot a broken URL, ping us in Discord or create an issue :)
+If you spot a broken URL, ping us in [Discord](https://discord.com/invite/aztec) or create an issue :)
 
 ## Keywords
 

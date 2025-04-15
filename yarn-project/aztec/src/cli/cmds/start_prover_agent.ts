@@ -1,7 +1,7 @@
 import { times } from '@aztec/foundation/collection';
-import { type NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
+import type { NamespacedApiHandlers } from '@aztec/foundation/json-rpc/server';
 import { Agent, makeUndiciFetch } from '@aztec/foundation/json-rpc/undici';
-import { type LogFn } from '@aztec/foundation/log';
+import type { LogFn } from '@aztec/foundation/log';
 import { buildServerCircuitProver } from '@aztec/prover-client';
 import {
   InlineProofStore,
@@ -13,7 +13,7 @@ import {
 import { getProverNodeAgentConfigFromEnv } from '@aztec/prover-node';
 import { initTelemetryClient, makeTracedFetch, telemetryClientConfigMappings } from '@aztec/telemetry-client';
 
-import { extractRelevantOptions } from '../util.js';
+import { extractRelevantOptions, preloadCrsDataForServerSideProving } from '../util.js';
 import { getVersions } from '../versioning.js';
 
 export async function startProverAgent(
@@ -39,6 +39,8 @@ export async function startProverAgent(
   if (!config.proverBrokerUrl) {
     process.exit(1);
   }
+
+  await preloadCrsDataForServerSideProving(config, userLog);
 
   const fetch = makeTracedFetch([1, 2, 3], false, makeUndiciFetch(new Agent({ connections: 10 })));
   const broker = createProvingJobBrokerClient(config.proverBrokerUrl, getVersions(), fetch);

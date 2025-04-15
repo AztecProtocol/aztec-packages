@@ -222,7 +222,8 @@ void compute_grand_product(typename Flavor::ProverPolynomials& full_polynomials,
  */
 template <typename Flavor>
 void compute_grand_products(typename Flavor::ProverPolynomials& full_polynomials,
-                            bb::RelationParameters<typename Flavor::FF>& relation_parameters)
+                            bb::RelationParameters<typename Flavor::FF>& relation_parameters,
+                            const size_t size_override = 0)
 {
     using GrandProductRelations = typename Flavor::GrandProductRelations;
 
@@ -230,7 +231,7 @@ void compute_grand_products(typename Flavor::ProverPolynomials& full_polynomials
     bb::constexpr_for<0, NUM_RELATIONS, 1>([&]<size_t i>() {
         using GrandProdRelation = typename std::tuple_element<i, GrandProductRelations>::type;
 
-        compute_grand_product<Flavor, GrandProdRelation>(full_polynomials, relation_parameters);
+        compute_grand_product<Flavor, GrandProdRelation>(full_polynomials, relation_parameters, size_override);
     });
 }
 

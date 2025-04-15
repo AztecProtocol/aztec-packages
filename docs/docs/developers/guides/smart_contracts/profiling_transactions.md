@@ -21,49 +21,46 @@ In this guide, we will look at how to profile the private execution of a transac
 
 The profiling tool is integrated into the `aztec-wallet`.
 
-In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr#L269) method in the token contract.
-If you want to follow along, you'll need to clone the Aztec [monorepo](https://github.com/AztecProtocol/aztec-packages) and [compile](./how_to_compile_contract.md) the `token_contract` in `noir-projects/noir-contracts` by running `aztec-nargo compile --package token_contract`.
-
-Let's deploy the necessary account and token contracts first:
+In this example, we will profile a simple "private token transfer" transaction which uses the [transfer](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr#L263) method in the token contract.
+Let us start by deploying the token contarct (included in the Sandbox) and minting some tokens to the test account.
 
 ```bash
-# Deploy accounts
-aztec-wallet create-account -a owner
-aztec-wallet create-account -a user
+# Import some test accounts included in cli-wallet
+aztec-wallet import-test-accounts
 
-# Deploy a token contract and mint 100 tokens to the user
-# Run this from noir-projects/noir-contracts to determine the path to the token_contract
-aztec-wallet deploy token_contract@Token --args accounts:owner Test TST 18 -f owner -a token
-aztec-wallet send mint_to_private -ca token --args accounts:owner accounts:user 100 -f owner
+# Deploy a token contract.
+aztec-wallet deploy TokenContractArtifact --from accounts:test0 --args accounts:test0 TestToken TST 18 -a token
+
+# Mint some tokens to the test0 account
+aztec-wallet send mint_to_private -ca token --args accounts:test0 accounts:test0 100 -f test0
 ```
 
-Now, the `user` can transfer tokens by running:
+Now, the `test0` account can transfer tokens by running:
 
 ```bash
-# Send the tokens back to the owner
-aztec-wallet send transfer -ca token --args accounts:owner 40 -f user
+# Send 40 tokens from test0 to test1
+aztec-wallet send transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
 
-Instead of sending the above transaction, you can simulate it by running the `simulate` command with the same parameters, and then add a `--profile` flag to profile the gate count of each private function in the transaction.
+Instead of sending the above transaction, you can profile it by running the `profile` command with the same parameters.
 
-For the time being, you also need to set `BB_BINARY_PATH` and `BB_WORKING_DIRECTORY` environment variables with the below values.
 
 ```bash
-BB_BINARY_PATH=/usr/src/barretenberg/cpp/build/bin/bb BB_WORKING_DIRECTORY=~/.bb/work-dir aztec-wallet simulate --profile transfer -ca token --args accounts:owner 40 -f user
+aztec-wallet profile transfer -ca token --args accounts:test1 40 -f accounts:test0
 ```
 
 This will print the following results after some time:
 
 ```bash
 Gate count per circuit:
-   SchnorrAccount:entrypoint                          Gates: 26,487     Acc: 26,487
-   private_kernel_init                                Gates: 48,562     Acc: 75,049
-   Token:transfer                                     Gates: 32,869     Acc: 107,918
-   private_kernel_inner                               Gates: 89,062     Acc: 196,980
-   private_kernel_reset                               Gates: 105,077    Acc: 302,057
-   private_kernel_tail                                Gates: 27,501     Acc: 329,558
+   SchnorrAccount:entrypoint                          Gates: 21,724     Acc: 21,724
+   private_kernel_init                                Gates: 45,351     Acc: 67,075
+   Token:transfer                                     Gates: 31,559     Acc: 98,634
+   private_kernel_inner                               Gates: 78,452     Acc: 177,086
+   private_kernel_reset                               Gates: 91,444     Acc: 268,530
+   private_kernel_tail                                Gates: 31,201     Acc: 299,731
 
-Total gates: 329,558
+Total gates: 299,731
 ```
 
 Here you can see the gate count of each private function call in the transaction along with the kernel circuits needed in between, and the total gate count.

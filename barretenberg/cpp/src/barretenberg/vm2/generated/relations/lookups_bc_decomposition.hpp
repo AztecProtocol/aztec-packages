@@ -10,11 +10,12 @@
 
 namespace bb::avm2 {
 
-/////////////////// lookup_bytecode_bytes_are_bytes ///////////////////
+/////////////////// lookup_bc_decomposition_bytes_are_bytes ///////////////////
 
-class lookup_bytecode_bytes_are_bytes_lookup_settings {
+class lookup_bc_decomposition_bytes_are_bytes_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BYTECODE_BYTES_ARE_BYTES";
+    static constexpr std::string_view NAME = "LOOKUP_BC_DECOMPOSITION_BYTES_ARE_BYTES";
+    static constexpr std::string_view RELATION_NAME = "bc_decomposition";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
@@ -28,10 +29,12 @@ class lookup_bytecode_bytes_are_bytes_lookup_settings {
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::bc_decomposition_sel;
     static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_8;
-    static constexpr Column COUNTS = Column::lookup_bytecode_bytes_are_bytes_counts;
-    static constexpr Column INVERSES = Column::lookup_bytecode_bytes_are_bytes_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = { Column::bc_decomposition_bytes };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk };
+    static constexpr Column COUNTS = Column::lookup_bc_decomposition_bytes_are_bytes_counts;
+    static constexpr Column INVERSES = Column::lookup_bc_decomposition_bytes_are_bytes_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_bytes
+    };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
@@ -59,8 +62,8 @@ class lookup_bytecode_bytes_are_bytes_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_bytecode_bytes_are_bytes_inv(),
-                                     in._lookup_bytecode_bytes_are_bytes_counts(),
+        return std::forward_as_tuple(in._lookup_bc_decomposition_bytes_are_bytes_inv(),
+                                     in._lookup_bc_decomposition_bytes_are_bytes_counts(),
                                      in._bc_decomposition_sel(),
                                      in._precomputed_sel_range_8(),
                                      in._bc_decomposition_bytes(),
@@ -69,15 +72,16 @@ class lookup_bytecode_bytes_are_bytes_lookup_settings {
 };
 
 template <typename FF_>
-class lookup_bytecode_bytes_are_bytes_relation
-    : public GenericLookupRelation<lookup_bytecode_bytes_are_bytes_lookup_settings, FF_> {
+class lookup_bc_decomposition_bytes_are_bytes_relation
+    : public GenericLookupRelation<lookup_bc_decomposition_bytes_are_bytes_settings, FF_> {
   public:
-    using Settings = lookup_bytecode_bytes_are_bytes_lookup_settings;
-    static constexpr std::string_view NAME = lookup_bytecode_bytes_are_bytes_lookup_settings::NAME;
+    using Settings = lookup_bc_decomposition_bytes_are_bytes_settings;
+    static constexpr std::string_view NAME = lookup_bc_decomposition_bytes_are_bytes_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_bc_decomposition_bytes_are_bytes_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_range_8.is_zero();
+        return in.lookup_bc_decomposition_bytes_are_bytes_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)
@@ -91,35 +95,35 @@ class lookup_bytecode_bytes_are_bytes_relation
     }
 };
 
-/////////////////// lookup_bytecode_to_read_unary ///////////////////
+/////////////////// lookup_bc_decomposition_abs_diff_is_u16 ///////////////////
 
-class lookup_bytecode_to_read_unary_lookup_settings {
+class lookup_bc_decomposition_abs_diff_is_u16_settings {
   public:
-    static constexpr std::string_view NAME = "LOOKUP_BYTECODE_TO_READ_UNARY";
+    static constexpr std::string_view NAME = "LOOKUP_BC_DECOMPOSITION_ABS_DIFF_IS_U16";
+    static constexpr std::string_view RELATION_NAME = "bc_decomposition";
 
     static constexpr size_t READ_TERMS = 1;
     static constexpr size_t WRITE_TERMS = 1;
     static constexpr size_t READ_TERM_TYPES[READ_TERMS] = { 0 };
     static constexpr size_t WRITE_TERM_TYPES[WRITE_TERMS] = { 0 };
-    static constexpr size_t LOOKUP_TUPLE_SIZE = 2;
+    static constexpr size_t LOOKUP_TUPLE_SIZE = 1;
     static constexpr size_t INVERSE_EXISTS_POLYNOMIAL_DEGREE = 4;
     static constexpr size_t READ_TERM_DEGREE = 0;
     static constexpr size_t WRITE_TERM_DEGREE = 0;
 
     // Columns using the Column enum.
     static constexpr Column SRC_SELECTOR = Column::bc_decomposition_sel;
-    static constexpr Column DST_SELECTOR = Column::precomputed_sel_unary;
-    static constexpr Column COUNTS = Column::lookup_bytecode_to_read_unary_counts;
-    static constexpr Column INVERSES = Column::lookup_bytecode_to_read_unary_inv;
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
-        Column::bc_decomposition_bytes_to_read, Column::bc_decomposition_bytes_to_read_unary
+    static constexpr Column DST_SELECTOR = Column::precomputed_sel_range_16;
+    static constexpr Column COUNTS = Column::lookup_bc_decomposition_abs_diff_is_u16_counts;
+    static constexpr Column INVERSES = Column::lookup_bc_decomposition_abs_diff_is_u16_inv;
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> SRC_COLUMNS = {
+        ColumnAndShifts::bc_decomposition_abs_diff
     };
-    static constexpr std::array<Column, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { Column::precomputed_clk,
-                                                                           Column::precomputed_as_unary };
+    static constexpr std::array<ColumnAndShifts, LOOKUP_TUPLE_SIZE> DST_COLUMNS = { ColumnAndShifts::precomputed_clk };
 
     template <typename AllEntities> static inline auto inverse_polynomial_is_computed_at_row(const AllEntities& in)
     {
-        return (in._bc_decomposition_sel() == 1 || in._precomputed_sel_unary() == 1);
+        return (in._bc_decomposition_sel() == 1 || in._precomputed_sel_range_16() == 1);
     }
 
     template <typename Accumulator, typename AllEntities>
@@ -127,7 +131,7 @@ class lookup_bytecode_to_read_unary_lookup_settings {
     {
         using View = typename Accumulator::View;
         const auto is_operation = View(in._bc_decomposition_sel());
-        const auto is_table_entry = View(in._precomputed_sel_unary());
+        const auto is_table_entry = View(in._precomputed_sel_range_16());
         return (is_operation + is_table_entry - is_operation * is_table_entry);
     }
 
@@ -143,27 +147,26 @@ class lookup_bytecode_to_read_unary_lookup_settings {
 
     template <typename AllEntities> static inline auto get_entities(AllEntities&& in)
     {
-        return std::forward_as_tuple(in._lookup_bytecode_to_read_unary_inv(),
-                                     in._lookup_bytecode_to_read_unary_counts(),
+        return std::forward_as_tuple(in._lookup_bc_decomposition_abs_diff_is_u16_inv(),
+                                     in._lookup_bc_decomposition_abs_diff_is_u16_counts(),
                                      in._bc_decomposition_sel(),
-                                     in._precomputed_sel_unary(),
-                                     in._bc_decomposition_bytes_to_read(),
-                                     in._bc_decomposition_bytes_to_read_unary(),
-                                     in._precomputed_clk(),
-                                     in._precomputed_as_unary());
+                                     in._precomputed_sel_range_16(),
+                                     in._bc_decomposition_abs_diff(),
+                                     in._precomputed_clk());
     }
 };
 
 template <typename FF_>
-class lookup_bytecode_to_read_unary_relation
-    : public GenericLookupRelation<lookup_bytecode_to_read_unary_lookup_settings, FF_> {
+class lookup_bc_decomposition_abs_diff_is_u16_relation
+    : public GenericLookupRelation<lookup_bc_decomposition_abs_diff_is_u16_settings, FF_> {
   public:
-    using Settings = lookup_bytecode_to_read_unary_lookup_settings;
-    static constexpr std::string_view NAME = lookup_bytecode_to_read_unary_lookup_settings::NAME;
+    using Settings = lookup_bc_decomposition_abs_diff_is_u16_settings;
+    static constexpr std::string_view NAME = lookup_bc_decomposition_abs_diff_is_u16_settings::NAME;
+    static constexpr std::string_view RELATION_NAME = lookup_bc_decomposition_abs_diff_is_u16_settings::RELATION_NAME;
 
     template <typename AllEntities> inline static bool skip(const AllEntities& in)
     {
-        return in.bc_decomposition_sel.is_zero() && in.precomputed_sel_unary.is_zero();
+        return in.lookup_bc_decomposition_abs_diff_is_u16_inv.is_zero();
     }
 
     static std::string get_subrelation_label(size_t index)

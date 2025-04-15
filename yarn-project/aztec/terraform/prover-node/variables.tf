@@ -7,7 +7,7 @@ variable "IMAGE_TAG" {
   default = "latest"
 }
 
-variable "ETHEREUM_HOST" {
+variable "ETHEREUM_HOSTS" {
   type    = string
   default = ""
 }

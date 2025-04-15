@@ -1,7 +1,7 @@
 #include "barretenberg/client_ivc/client_ivc.hpp"
 #include "barretenberg/plonk/composer/ultra_composer.hpp"
 #ifndef __wasm__
-#include "barretenberg/bb/exec_pipe.hpp"
+#include "barretenberg/api/exec_pipe.hpp"
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/streams.hpp"
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
@@ -308,7 +308,7 @@ INSTANTIATE_TEST_SUITE_P(AcirTests,
                                          "regression_4202",
                                          "regression_4449",
                                          "regression_4709",
-                                         //"regression_5045",
+                                         "regression_5045",
                                          "regression_capacity_tracker",
                                          "regression_mem_op_predicate",
                                          "regression_method_cannot_be_found",

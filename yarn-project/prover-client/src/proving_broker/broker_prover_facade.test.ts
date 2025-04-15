@@ -1,8 +1,10 @@
-import { makePublicInputsAndRecursiveProof } from '@aztec/circuit-types';
-import { RECURSIVE_PROOF_LENGTH, VerificationKeyData, makeRecursiveProof } from '@aztec/circuits.js';
-import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/circuits.js/testing';
+import { RECURSIVE_PROOF_LENGTH } from '@aztec/constants';
 import { promiseWithResolvers } from '@aztec/foundation/promise';
 import { sleep } from '@aztec/foundation/sleep';
+import { type ProvingJobStatus, makePublicInputsAndRecursiveProof } from '@aztec/stdlib/interfaces/server';
+import { makeRecursiveProof } from '@aztec/stdlib/proofs';
+import { makeBaseParityInputs, makeParityPublicInputs } from '@aztec/stdlib/testing';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 
 import { jest } from '@jest/globals';
 
@@ -179,5 +181,24 @@ describe('BrokerCircuitProverFacade', () => {
     await facade.stop();
 
     await expect(promise).resolves.toEqual({ err: new Error('Broker facade stopped') });
+  });
+
+  // Regression test for #13166
+  it('handles stopping while sending a proof to the broker', async () => {
+    const inputs = makeBaseParityInputs();
+    const controller = new AbortController();
+
+    // make sure the job hangs on waiting for the broker
+    const enqueueJobPromise = promiseWithResolvers<ProvingJobStatus>();
+    jest.spyOn(broker, 'enqueueProvingJob').mockReturnValue(enqueueJobPromise.promise);
+    const promise = facade.getBaseParityProof(inputs, controller.signal, 42);
+
+    // now stop the facade after giving it time, which will trigger a rejection
+    await sleep(agentPollInterval);
+    await facade.stop();
+
+    // and expect we don't blow up the entire node process
+    enqueueJobPromise.resolve({ status: 'in-queue' });
+    await expect(promise).rejects.toThrow('Broker facade stopped');
   });
 });

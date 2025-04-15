@@ -10,8 +10,8 @@
 #include "translator_circuit_builder.hpp"
 #include "barretenberg/ecc/curves/bn254/fr.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
+#include "barretenberg/op_queue/ecc_op_queue.hpp"
 #include "barretenberg/plonk/proof_system/constants.hpp"
-#include "barretenberg/stdlib_circuit_builders/op_queue/ecc_op_queue.hpp"
 #include <cstddef>
 namespace bb {
 
@@ -559,7 +559,7 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_wi
     const Fq evaluation_input_x)
 {
     // Get the Opcode value
-    Fr op(ecc_op.get_opcode_value());
+    Fr op(ecc_op.op_code.value());
     Fr p_x_lo(0);
     Fr p_x_hi(0);
     Fr p_y_lo(0);
@@ -588,13 +588,16 @@ TranslatorCircuitBuilder::AccumulationInput TranslatorCircuitBuilder::compute_wi
                                    batching_challenge_v,
                                    evaluation_input_x);
 }
+
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1266): Evaluate whether this method can reuse existing data
+// in the op queue for improved efficiency
 void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_ptr<ECCOpQueue> ecc_op_queue)
 {
     using Fq = bb::fq;
-    const auto& raw_ops = ecc_op_queue->get_raw_ops();
+    const auto& eccvm_ops = ecc_op_queue->get_eccvm_ops();
     std::vector<Fq> accumulator_trace;
     Fq current_accumulator(0);
-    if (raw_ops.empty()) {
+    if (eccvm_ops.empty()) {
         return;
     }
     // Rename for ease of use
@@ -603,19 +606,19 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
 
     // We need to precompute the accumulators at each step, because in the actual circuit we compute the values starting
     // from the later indices. We need to know the previous accumulator to create the gate
-    for (size_t i = 0; i < raw_ops.size(); i++) {
-        const auto& ecc_op = raw_ops[raw_ops.size() - 1 - i];
+    for (size_t i = 0; i < eccvm_ops.size(); i++) {
+        const auto& ecc_op = eccvm_ops[eccvm_ops.size() - 1 - i];
         current_accumulator *= x;
         const auto [x_256, y_256] = ecc_op.get_base_point_standard_form();
         current_accumulator +=
-            (Fq(ecc_op.get_opcode_value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
+            (Fq(ecc_op.op_code.value()) + v * (x_256 + v * (y_256 + v * (ecc_op.z1 + v * ecc_op.z2))));
         accumulator_trace.push_back(current_accumulator);
     }
 
     // We don't care about the last value since we'll recompute it during witness generation anyway
     accumulator_trace.pop_back();
 
-    for (const auto& raw_op : raw_ops) {
+    for (const auto& eccvm_op : eccvm_ops) {
         Fq previous_accumulator = 0;
         // Pop the last value from accumulator trace and use it as previous accumulator
         if (!accumulator_trace.empty()) {
@@ -623,7 +626,7 @@ void TranslatorCircuitBuilder::feed_ecc_op_queue_into_circuit(const std::shared_
             accumulator_trace.pop_back();
         }
         // Compute witness values
-        auto one_accumulation_step = compute_witness_values_for_one_ecc_op(raw_op, previous_accumulator, v, x);
+        auto one_accumulation_step = compute_witness_values_for_one_ecc_op(eccvm_op, previous_accumulator, v, x);
 
         // And put them into the wires
         create_accumulation_gate(one_accumulation_step);
@@ -672,7 +675,7 @@ bool TranslatorCircuitBuilder::check_circuit()
      * @brief Reconstruct the value of one regular limb used in relation computation from micro chunks used to
      * create range constraints
      *
-     * @details We might ant to skip several items at the end, since those will be shifted or used
+     * @details We might want to skip several items at the end, since those will be shifted or used
      * for another decomposition
      *
      */

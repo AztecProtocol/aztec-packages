@@ -1,24 +1,26 @@
+import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
+import { type Logger, createLogger } from '@aztec/foundation/log';
+import { BatchQueue } from '@aztec/foundation/queue';
+import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
+import { openVersionedStoreAt } from '@aztec/kv-store/lmdb-v2';
 import {
   type ProofUri,
   ProvingJob,
   type ProvingJobId,
   ProvingJobSettledResult,
   getEpochFromProvingJobId,
-} from '@aztec/circuit-types';
-import { jsonParseWithSchema, jsonStringify } from '@aztec/foundation/json-rpc';
-import { type Logger, createLogger } from '@aztec/foundation/log';
-import { BatchQueue } from '@aztec/foundation/queue';
-import type { AztecAsyncKVStore, AztecAsyncMap } from '@aztec/kv-store';
-import { AztecLMDBStoreV2 } from '@aztec/kv-store/lmdb-v2';
+} from '@aztec/stdlib/interfaces/server';
 import { Attributes, LmdbMetrics, type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
 import { mkdir, readdir } from 'fs/promises';
 import { join } from 'path';
 
-import { type ProverBrokerConfig } from '../config.js';
-import { type ProvingBrokerDatabase } from '../proving_broker_database.js';
+import type { ProverBrokerConfig } from '../config.js';
+import type { ProvingBrokerDatabase } from '../proving_broker_database.js';
 
 class SingleEpochDatabase {
+  public static readonly SCHEMA_VERSION = 1;
+
   private jobs: AztecAsyncMap<ProvingJobId, string>;
   private jobResults: AztecAsyncMap<ProvingJobId, string>;
 
@@ -136,7 +138,12 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       logger.info(
         `Loading broker database for epoch ${epochNumber} from ${fullDirectory} with map size ${config.dataStoreMapSizeKB}KB`,
       );
-      const db = await AztecLMDBStoreV2.new(fullDirectory, config.dataStoreMapSizeKB);
+      const db = await openVersionedStoreAt(
+        fullDirectory,
+        SingleEpochDatabase.SCHEMA_VERSION,
+        config.l1Contracts.rollupAddress,
+        config.dataStoreMapSizeKB,
+      );
       const epochDb = new SingleEpochDatabase(db);
       epochs.set(epochNumber, epochDb);
     }
@@ -196,7 +203,12 @@ export class KVBrokerDatabase implements ProvingBrokerDatabase {
       this.logger.info(
         `Creating broker database for epoch ${epochNumber} at ${newEpochDirectory} with map size ${this.config.dataStoreMapSizeKB}`,
       );
-      const db = await AztecLMDBStoreV2.new(newEpochDirectory, this.config.dataStoreMapSizeKB);
+      const db = await openVersionedStoreAt(
+        newEpochDirectory,
+        SingleEpochDatabase.SCHEMA_VERSION,
+        this.config.l1Contracts.rollupAddress,
+        this.config.dataStoreMapSizeKB,
+      );
       epochDb = new SingleEpochDatabase(db);
       this.epochs.set(epochNumber, epochDb);
     }

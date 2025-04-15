@@ -1,24 +1,28 @@
-import { type AuthWitnessProvider } from '@aztec/aztec.js/account';
-import { AuthWitness, type CompleteAddress } from '@aztec/circuit-types';
-import { Ecdsa } from '@aztec/circuits.js/barretenberg';
-import { type ContractArtifact } from '@aztec/foundation/abi';
-import { type Fr } from '@aztec/foundation/fields';
+import type { AuthWitnessProvider } from '@aztec/aztec.js/account';
+import { Ecdsa } from '@aztec/foundation/crypto';
+import type { Fr } from '@aztec/foundation/fields';
+import { AuthWitness } from '@aztec/stdlib/auth-witness';
+import { CompleteAddress } from '@aztec/stdlib/contract';
 
 import { DefaultAccountContract } from '../../defaults/account_contract.js';
-import { EcdsaKAccountContractArtifact } from './artifact.js';
 
 /**
  * Account contract that authenticates transactions using ECDSA signatures
  * verified against a secp256k1 public key stored in an immutable encrypted note.
+ * This abstract version does not provide a way to retrieve the artifact, as it
+ * can be implemented with or without lazy loading.
  */
-export class EcdsaKAccountContract extends DefaultAccountContract {
+export abstract class EcdsaKBaseAccountContract extends DefaultAccountContract {
   constructor(private signingPrivateKey: Buffer) {
-    super(EcdsaKAccountContractArtifact as ContractArtifact);
+    super();
   }
 
-  async getDeploymentArgs() {
+  async getDeploymentFunctionAndArgs() {
     const signingPublicKey = await new Ecdsa().computePublicKey(this.signingPrivateKey);
-    return [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)];
+    return {
+      constructorName: 'constructor',
+      constructorArgs: [signingPublicKey.subarray(0, 32), signingPublicKey.subarray(32, 64)],
+    };
   }
 
   getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider {

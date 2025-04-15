@@ -43,7 +43,7 @@ You can use the code generator to autogenerate type-safe typescript classes for 
 aztec codegen ./aztec-nargo/output/target/path -o src/artifacts
 ```
 
-Below is typescript code generated from the example [Token contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract:
+Below is typescript code generated from the example [Token contract (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) contract:
 
 ```ts showLineNumbers
 export type Transfer = {
@@ -224,17 +224,6 @@ export class TokenContract extends ContractBase {
 
     /** cancel_authwit(inner_hash: field) */
     cancel_authwit: ((inner_hash: FieldLike) => ContractFunctionInteraction) &
-      Pick<ContractMethod, "selector">;
-
-    /** compute_note_hash_and_optionally_a_nullifier(contract_address: struct, nonce: field, storage_slot: field, note_type_id: field, compute_nullifier: boolean, serialized_note: array) */
-    compute_note_hash_and_optionally_a_nullifier: ((
-      contract_address: AztecAddressLike,
-      nonce: FieldLike,
-      storage_slot: FieldLike,
-      note_type_id: FieldLike,
-      compute_nullifier: boolean,
-      serialized_note: FieldLike[]
-    ) => ContractFunctionInteraction) &
       Pick<ContractMethod, "selector">;
 
     /** constructor(admin: struct, name: string, symbol: string, decimals: integer) */
@@ -452,7 +441,7 @@ An Aztec.nr contract can [call a function](./writing_contracts/call_contracts.md
 
 To make this easier, the compiler automatically generates interface structs that expose a convenience method for each function listed in a given contract artifact. These structs are intended to be used from another contract project that calls into the current one.
 
-Below is an example of interface usage generated from the [Token (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/token_contract/src/main.nr) contract, used from the [FPC (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/fpc_contract/src/main.nr):
+Below is an example of interface usage generated from the [Token (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr) contract, used from the [FPC (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/master/noir-projects/noir-contracts/contracts/fees/fpc_contract/src/main.nr):
 
 ```rust
 contract FPC {

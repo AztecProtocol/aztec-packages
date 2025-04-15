@@ -10,7 +10,7 @@
       "path": "../foundation"
     },
     {
-      "path": "../types"
+      "path": "../stdlib"
     }
   ],
   "include": ["src", "src/*.json"]

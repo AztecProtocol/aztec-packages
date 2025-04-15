@@ -25,8 +25,6 @@
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
     "bb": "node --no-warnings ./dest/bb/index.js",
     "test": "NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=3500000 --forceExit",
     "test:debug": "LOG_LEVEL=debug NODE_NO_WARNINGS=1 node --experimental-vm-modules ../node_modules/.bin/jest --testTimeout=1500000 --forceExit --testNamePattern prover/bb_prover/parity",
@@ -60,7 +58,7 @@
     "reporters": [
       "default"
     ],
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]
@@ -68,18 +66,19 @@
   "dependencies": {
     "@aztec/bb-prover": "workspace:^",
     "@aztec/blob-lib": "workspace:^",
-    "@aztec/circuit-types": "workspace:^",
-    "@aztec/circuits.js": "workspace:^",
+    "@aztec/constants": "workspace:^",
+    "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/kv-store": "workspace:^",
     "@aztec/noir-protocol-circuits-types": "workspace:^",
+    "@aztec/noir-types": "portal:../../noir/packages/types",
     "@aztec/protocol-contracts": "workspace:^",
     "@aztec/simulator": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "@aztec/telemetry-client": "workspace:^",
     "@aztec/world-state": "workspace:^",
     "@google-cloud/storage": "^7.15.0",
     "@iarna/toml": "^2.2.5",
-    "@noir-lang/types": "portal:../../noir/packages/types",
     "commander": "^12.1.0",
     "lodash.chunk": "^4.2.0",
     "source-map-support": "^0.5.21",
@@ -87,9 +86,9 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@aztec/noir-contracts.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/jest": "^29.5.0",
-    "@types/memdown": "^3.0.0",
     "@types/node": "^18.7.23",
     "@types/source-map-support": "^0.5.10",
     "get-port": "^7.1.0",

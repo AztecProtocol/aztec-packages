@@ -5,7 +5,6 @@ use crate::merkle_tree::membership::MembershipWitness;
 pub struct ContractFunction {
     pub data: FunctionData,
     pub vk_hash: Field,
-    pub acir_hash: Field,
     pub membership_witness: MembershipWitness<FUNCTION_TREE_HEIGHT>,
 }
 
@@ -15,7 +14,6 @@ pub global default_vk: [Field; 143] = [0; CLIENT_IVC_VERIFICATION_KEY_LENGTH_IN_
 pub global default_private_function: ContractFunction = ContractFunction {
     data: FunctionData { selector: FunctionSelector { inner: 1010101 }, is_private: true },
     vk_hash: crate::hash::verification_key_hash(default_vk),
-    acir_hash: 1111,
     membership_witness: MembershipWitness {
         leaf_index: 0,
         sibling_path: [
@@ -35,7 +33,6 @@ pub fn get_protocol_contract_function(contract_index: u32) -> ContractFunction {
             is_private: true,
         },
         vk_hash: crate::hash::verification_key_hash(default_vk),
-        acir_hash: 5555 + contract_index as Field,
         membership_witness: MembershipWitness {
             leaf_index: contract_index as Field,
             sibling_path: [

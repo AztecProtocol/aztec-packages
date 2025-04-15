@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 
-echo "Installing foundry..."
 rm -rf broadcast cache out
-. ./scripts/install_foundry.sh
-forge install --no-commit
+forge install
 # Ensure libraries are at the correct version
 git submodule update --init --recursive ./lib
 

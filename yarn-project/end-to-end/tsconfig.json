@@ -13,6 +13,9 @@
       "path": "../archiver"
     },
     {
+      "path": "../aztec"
+    },
+    {
       "path": "../aztec-node"
     },
     {
@@ -31,10 +34,10 @@
       "path": "../bot"
     },
     {
-      "path": "../circuit-types"
+      "path": "../cli"
     },
     {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../entrypoints"
@@ -85,10 +88,10 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../validator-client"

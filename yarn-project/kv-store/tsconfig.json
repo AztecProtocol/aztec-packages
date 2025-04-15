@@ -7,9 +7,6 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
-    },
-    {
       "path": "../ethereum"
     },
     {
@@ -19,7 +16,7 @@
       "path": "../native"
     },
     {
-      "path": "../circuits.js"
+      "path": "../stdlib"
     }
   ],
   "include": ["src"]

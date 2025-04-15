@@ -1,9 +1,10 @@
-import { Blob, makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib';
+import { Blob, type BlobJson } from '@aztec/blob-lib';
+import { makeEncodedBlob, makeUnencodedBlob } from '@aztec/blob-lib/testing';
 import { Fr } from '@aztec/foundation/fields';
 
 import { jest } from '@jest/globals';
 import http from 'http';
-import { type AddressInfo } from 'net';
+import type { AddressInfo } from 'net';
 
 import { BlobSinkServer } from '../server/server.js';
 import { runBlobSinkClientTests } from './blob-sink-client-tests.js';
@@ -59,6 +60,8 @@ describe('HttpBlobSinkClient', () => {
     let consensusHostServer: http.Server | undefined = undefined;
     let consensusHostPort: number | undefined = undefined;
 
+    let blobData: BlobJson[];
+
     const MOCK_SLOT_NUMBER = 1;
 
     beforeEach(async () => {
@@ -69,6 +72,36 @@ describe('HttpBlobSinkClient', () => {
 
       testNonEncodedBlob = await makeUnencodedBlob(3);
       testNonEncodedBlobHash = testNonEncodedBlob.getEthVersionedBlobHash();
+
+      blobData = [
+        // Correctly encoded blob
+        {
+          index: 0,
+          blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testEncodedBlob.proof.toString('hex')}`,
+        },
+        // Correctly encoded blob, but we do not ask for it in the client
+        {
+          index: 1,
+          blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
+        },
+        // Incorrectly encoded blob
+        {
+          index: 2,
+          blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
+          // eslint-disable-next-line camelcase
+          kzg_proof: `0x${testNonEncodedBlob.proof.toString('hex')}`,
+        },
+      ];
     });
 
     const startExecutionHostServer = (): Promise<void> => {
@@ -85,8 +118,27 @@ describe('HttpBlobSinkClient', () => {
       });
     };
 
-    const startConsensusHostServer = (): Promise<void> => {
+    const startConsensusHostServer = (requireApiKey?: string, requireApiKeyHeader?: string): Promise<void> => {
       consensusHostServer = http.createServer((req, res) => {
+        let isAuthorized = true;
+        if (requireApiKey) {
+          if (requireApiKeyHeader) {
+            const authHeader = req.headers[requireApiKeyHeader.toLowerCase()];
+            isAuthorized = authHeader === requireApiKey;
+          } else {
+            const url = new URL(req.url || '', `http://${req.headers.host}`);
+            const apiKey = url.searchParams.get('key');
+            isAuthorized = apiKey === requireApiKey;
+          }
+        }
+
+        // If API key is required but not valid, reject the request
+        if (requireApiKey && !isAuthorized) {
+          res.writeHead(401, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ error: 'Unauthorized: Invalid API key' }));
+          return;
+        }
+
         if (req.url?.includes('/eth/v1/beacon/headers/')) {
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ data: { header: { message: { slot: MOCK_SLOT_NUMBER } } } }));
@@ -97,39 +149,7 @@ describe('HttpBlobSinkClient', () => {
             res.end(JSON.stringify({ error: 'Not Found' }));
           } else {
             res.writeHead(200, { 'Content-Type': 'application/json' });
-            res.end(
-              JSON.stringify({
-                data: [
-                  // Correctly encoded blob
-                  {
-                    index: 0,
-                    blob: `0x${Buffer.from(testEncodedBlob.data).toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_commitment: `0x${testEncodedBlob.commitment.toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_proof: `0x${testEncodedBlob.proof.toString('hex')}`,
-                  },
-                  // Correctly encoded blob, but we do not ask for it in the client
-                  {
-                    index: 1,
-                    blob: `0x${Buffer.from(testBlobIgnore.data).toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_commitment: `0x${testBlobIgnore.commitment.toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_proof: `0x${testBlobIgnore.proof.toString('hex')}`,
-                  },
-                  // Incorrectly encoded blob
-                  {
-                    index: 2,
-                    blob: `0x${Buffer.from(testNonEncodedBlob.data).toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_commitment: `0x${testNonEncodedBlob.commitment.toString('hex')}`,
-                    // eslint-disable-next-line camelcase
-                    kzg_proof: `0x${testNonEncodedBlob.proof.toString('hex')}`,
-                  },
-                ],
-              }),
-            );
+            res.end(JSON.stringify({ data: blobData }));
           }
         } else {
           res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -167,7 +187,7 @@ describe('HttpBlobSinkClient', () => {
 
       const client = new HttpBlobSinkClient({
         blobSinkUrl: `http://localhost:${blobSinkServer.port}`,
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
       });
 
       const success = await client.sendBlobsToBlobSink('0x1234', [testEncodedBlob]);
@@ -187,21 +207,162 @@ describe('HttpBlobSinkClient', () => {
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
-        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
       expect(retrievedBlobs).toEqual([testEncodedBlob]);
     });
 
-    it('Even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+    it('should handle when multiple consensus hosts are provided', async () => {
       await startExecutionHostServer();
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
-        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: ['invalidURL', `http://localhost:${consensusHostPort}`, 'invalidURL'],
+      });
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+    });
+
+    it('should handle API keys without headers', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer('test-api-key');
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeys: ['test-api-key'],
+      });
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+
+      const clientWithNoKey = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeys: [],
+      });
+
+      const retrievedBlobsWithNoKey = await clientWithNoKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobsWithNoKey).toEqual([]);
+
+      const clientWithInvalidKey = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeys: ['invalid-key'],
+      });
+
+      const retrievedBlobsWithInvalidKey = await clientWithInvalidKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobsWithInvalidKey).toEqual([]);
+    });
+
+    it('should handle API keys in headers', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer('header-api-key', 'X-API-KEY');
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeys: ['header-api-key'],
+        l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
+      });
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+
+      const clientWithWrongHeader = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeys: ['header-api-key'],
+        l1ConsensusHostApiKeyHeaders: ['WRONG-HEADER'],
+      });
+
+      const retrievedBlobsWithWrongHeader = await clientWithWrongHeader.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobsWithWrongHeader).toEqual([]);
+
+      const clientWithWrongKey = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeys: ['invalid-key'],
+        l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
+      });
+
+      const retrievedBlobsWithWrongKey = await clientWithWrongKey.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobsWithWrongKey).toEqual([]);
+    });
+
+    it('should handle multiple consensus hosts with different API key methods', async () => {
+      await startExecutionHostServer();
+
+      // Create three separate servers for each API key scenario
+      await startConsensusHostServer();
+      const consensusPort1 = consensusHostPort;
+      const consensusServer1 = consensusHostServer;
+      await startConsensusHostServer('test-api-key');
+      const consensusPort2 = consensusHostPort;
+      const consensusServer2 = consensusHostServer;
+      await startConsensusHostServer('header-api-key', 'X-API-KEY');
+      const consensusPort3 = consensusHostPort;
+
+      // Verify that the first consensus host works
+      let client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [
+          `http://localhost:${consensusPort1}`,
+          `http://localhost:${consensusPort2}`,
+          `http://localhost:${consensusPort3}`,
+        ],
+        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'],
+        l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
+      });
+
+      let retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+
+      // Verify that the second consensus host works when the first host fails
+      consensusServer1?.close();
+      client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [
+          `http://localhost:${consensusPort1}`,
+          `http://localhost:${consensusPort2}`,
+          `http://localhost:${consensusPort3}`,
+        ],
+        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'],
+        l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
+      });
+
+      retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+
+      // Verify that the third consensus host works when the first and second hosts fail
+      consensusServer2?.close();
+      client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [
+          `http://localhost:${consensusPort1}`,
+          `http://localhost:${consensusPort2}`,
+          `http://localhost:${consensusPort3}`,
+        ],
+        l1ConsensusHostApiKeys: ['', 'test-api-key', 'header-api-key'],
+        l1ConsensusHostApiKeyHeaders: ['', '', 'X-API-KEY'],
+      });
+
+      retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+    });
+
+    it('even if we ask for non-encoded blobs, we should only get encoded blobs', async () => {
+      await startExecutionHostServer();
+      await startConsensusHostServer();
+
+      const client = new HttpBlobSinkClient({
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
       });
 
       const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash, testNonEncodedBlobHash]);
@@ -214,28 +375,51 @@ describe('HttpBlobSinkClient', () => {
       await startConsensusHostServer();
 
       const client = new HttpBlobSinkClient({
-        l1RpcUrl: `http://localhost:${executionHostPort}`,
-        l1ConsensusHostUrl: `http://localhost:${consensusHostPort}`,
+        l1RpcUrls: [`http://localhost:${executionHostPort}`],
+        l1ConsensusHostUrls: [`http://localhost:${consensusHostPort}`],
+        l1ConsensusHostApiKeyHeaders: ['X-API-KEY'],
+        l1ConsensusHostApiKeys: ['my-api-key'],
       });
 
       // Add spy on the fetch method
       const fetchSpy = jest.spyOn(client as any, 'fetch');
 
-      const retrievedBlobs = await client.getBlobSidecarFrom(`http://localhost:${consensusHostPort}`, 33, [
-        testEncodedBlobHash,
-      ]);
+      const retrievedBlobs = await client.getBlobSidecarFrom(
+        `http://localhost:${consensusHostPort}`,
+        33,
+        [testEncodedBlobHash],
+        [],
+        3,
+        0,
+      );
 
       expect(retrievedBlobs).toEqual([testEncodedBlob]);
 
-      // Verify we hit the 404 for slot 33 before trying slot 34
+      // Verify we hit the 404 for slot 33 before trying slot 34, and that we use the api key header
+      // (see issue https://github.com/AztecProtocol/aztec-packages/issues/13415)
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining('/eth/v1/beacon/blob_sidecars/33'),
-        expect.any(Object),
+        expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
       expect(fetchSpy).toHaveBeenCalledWith(
         expect.stringContaining('/eth/v1/beacon/blob_sidecars/34'),
-        expect.any(Object),
+        expect.objectContaining({ headers: { ['X-API-KEY']: 'my-api-key' } }),
       );
+    });
+
+    it('should fall back to archive client', async () => {
+      const client = new TestHttpBlobSinkClient({ archiveApiUrl: `http://api.blobscan.com` });
+      const archiveSpy = jest.spyOn(client.getArchiveClient(), 'getBlobsFromBlock').mockResolvedValue(blobData);
+
+      const retrievedBlobs = await client.getBlobSidecar('0x1234', [testEncodedBlobHash]);
+      expect(retrievedBlobs).toEqual([testEncodedBlob]);
+      expect(archiveSpy).toHaveBeenCalledWith('0x1234');
     });
   });
 });
+
+class TestHttpBlobSinkClient extends HttpBlobSinkClient {
+  public getArchiveClient() {
+    return this.archiveClient!;
+  }
+}

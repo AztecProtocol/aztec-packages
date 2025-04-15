@@ -1,7 +1,11 @@
 use crate::tests::private_call_data_validator_builder::PrivateCallDataValidatorBuilder;
 use dep::types::address::AztecAddress;
 use std::embedded_curve_ops::{EmbeddedCurveScalar, fixed_base_scalar_mul as derive_public_key};
+use types::contract_class_id::ContractClassId;
 use types::hash::verification_key_hash;
+use types::shared_mutable::scheduled_value_change::ScheduledValueChange;
+use types::tests::fixtures;
+use types::traits::FromField;
 
 impl PrivateCallDataValidatorBuilder {
     pub fn new_with_regular_contract() -> Self {
@@ -158,6 +162,66 @@ fn validate_contract_address_regular_address_wrong_low_leaf() {
     let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
 
     builder.private_call.protocol_contract_leaf.address += 1;
+
+    builder.validate();
+}
+
+#[test]
+fn validate_contract_address_with_updated_contract_succeeds() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
+    let original_class_id = ContractClassId::from_field(27);
+    builder.private_call.contract_address = AztecAddress::compute_from_class_id(
+        original_class_id,
+        builder.private_call.salted_initialization_hash,
+        builder.private_call.public_keys,
+    );
+    builder.private_call.updated_class_id_value_change = ScheduledValueChange::new(
+        original_class_id,
+        fixtures::contracts::default_contract.contract_class_id,
+        builder.private_call.historical_header.global_variables.block_number as u32,
+    );
+
+    builder.private_call.compute_update_tree_and_hints();
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "computed contract address does not match expected one")]
+fn validate_contract_address_not_yet_updated_contract_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
+    let original_class_id = ContractClassId::from_field(27);
+    builder.private_call.contract_address = AztecAddress::compute_from_class_id(
+        original_class_id,
+        builder.private_call.salted_initialization_hash,
+        builder.private_call.public_keys,
+    );
+    builder.private_call.updated_class_id_value_change = ScheduledValueChange::new(
+        original_class_id,
+        fixtures::contracts::default_contract.contract_class_id,
+        (builder.private_call.historical_header.global_variables.block_number + 1) as u32,
+    );
+
+    builder.private_call.compute_update_tree_and_hints();
+
+    builder.validate();
+}
+
+#[test(should_fail_with = "computed contract address does not match expected one")]
+fn validate_contract_address_updated_to_different_class_fails() {
+    let mut builder = PrivateCallDataValidatorBuilder::new_with_regular_contract();
+    let original_class_id = ContractClassId::from_field(27);
+    builder.private_call.contract_address = AztecAddress::compute_from_class_id(
+        original_class_id,
+        builder.private_call.salted_initialization_hash,
+        builder.private_call.public_keys,
+    );
+    builder.private_call.updated_class_id_value_change = ScheduledValueChange::new(
+        original_class_id,
+        ContractClassId::from_field(28),
+        builder.private_call.historical_header.global_variables.block_number as u32,
+    );
+
+    builder.private_call.compute_update_tree_and_hints();
 
     builder.validate();
 }

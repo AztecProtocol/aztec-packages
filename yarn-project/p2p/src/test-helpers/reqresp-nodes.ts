@@ -1,35 +1,35 @@
-import {
-  type ClientProtocolCircuitVerifier,
-  type L2BlockSource,
-  type P2PClientType,
-  type Tx,
-  type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
-import { type ChainConfig, emptyChainConfig } from '@aztec/circuit-types/config';
-import { type EpochCache } from '@aztec/epoch-cache';
+import type { EpochCache } from '@aztec/epoch-cache';
 import { timesParallel } from '@aztec/foundation/collection';
-import { type DataStoreConfig } from '@aztec/kv-store/config';
+import type { DataStoreConfig } from '@aztec/kv-store/config';
 import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import { type ChainConfig, emptyChainConfig } from '@aztec/stdlib/config';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import type { ClientProtocolCircuitVerifier, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { P2PClientType } from '@aztec/stdlib/p2p';
+import type { Tx } from '@aztec/stdlib/tx';
 import { type TelemetryClient, getTelemetryClient } from '@aztec/telemetry-client';
 
+import { SignableENR } from '@chainsafe/enr';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { identify } from '@libp2p/identify';
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { tcp } from '@libp2p/tcp';
+import { multiaddr } from '@multiformats/multiaddr';
 import getPort from 'get-port';
 import { type Libp2p, type Libp2pOptions, createLibp2p } from 'libp2p';
 
 import { BootstrapNode } from '../bootstrap/bootstrap.js';
-import { type BootnodeConfig, type P2PConfig } from '../config.js';
-import { type MemPools } from '../mem_pools/interface.js';
+import type { BootnodeConfig, P2PConfig } from '../config.js';
+import type { MemPools } from '../mem_pools/interface.js';
 import { DiscV5Service } from '../services/discv5/discV5_service.js';
 import { LibP2PService } from '../services/libp2p/libp2p_service.js';
-import { type PeerScoring } from '../services/peer-manager/peer_scoring.js';
-import { type P2PReqRespConfig } from '../services/reqresp/config.js';
+import type { PeerScoring } from '../services/peer-manager/peer_scoring.js';
+import type { P2PReqRespConfig } from '../services/reqresp/config.js';
 import {
   ReqRespSubProtocol,
   type ReqRespSubProtocolHandlers,
@@ -38,7 +38,7 @@ import {
 } from '../services/reqresp/interface.js';
 import { pingHandler, statusHandler } from '../services/reqresp/protocols/index.js';
 import { ReqResp } from '../services/reqresp/reqresp.js';
-import { type PubSubLibp2p } from '../util.js';
+import { type PubSubLibp2p, convertToMultiaddr, createLibP2PPeerIdFromPrivateKey } from '../util.js';
 
 /**
  * Creates a libp2p node, pre configured.
@@ -56,8 +56,8 @@ export async function createLibp2pNode(
   const options: Libp2pOptions = {
     start,
     addresses: {
-      listen: [`/ip4/0.0.0.0/tcp/${port}`],
-      announce: [`/ip4/0.0.0.0/tcp/${port}`],
+      listen: [`/ip4/127.0.0.1/tcp/${port}`],
+      announce: [`/ip4/127.0.0.1/tcp/${port}`],
     },
     connectionEncryption: [noise()],
     streamMuxers: [yamux()],
@@ -99,7 +99,7 @@ export async function createLibp2pNode(
 export async function createTestLibP2PService<T extends P2PClientType>(
   clientType: T,
   boostrapAddrs: string[] = [],
-  l2BlockSource: L2BlockSource,
+  archiver: L2BlockSource & ContractDataSource,
   worldStateSynchronizer: WorldStateSynchronizer,
   epochCache: EpochCache,
   mempools: MemPools<T>,
@@ -110,10 +110,8 @@ export async function createTestLibP2PService<T extends P2PClientType>(
 ) {
   peerId = peerId ?? (await createSecp256k1PeerId());
   const config = {
-    tcpAnnounceAddress: `127.0.0.1:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
-    tcpListenAddress: `0.0.0.0:${port}`,
-    udpListenAddress: `0.0.0.0:${port}`,
+    p2pIp: `127.0.0.1`,
+    p2pPort: port,
     bootstrapNodes: boostrapAddrs,
     peerCheckIntervalMS: 1000,
     maxPeerCount: 5,
@@ -134,7 +132,7 @@ export async function createTestLibP2PService<T extends P2PClientType>(
     p2pNode as PubSubLibp2p,
     discoveryService,
     mempools,
-    l2BlockSource,
+    archiver,
     epochCache,
     proofVerifier,
     worldStateSynchronizer,
@@ -235,13 +233,14 @@ export class AlwaysFalseCircuitVerifier implements ClientProtocolCircuitVerifier
 // Bootnodes
 export function createBootstrapNodeConfig(privateKey: string, port: number, chainConfig: ChainConfig): BootnodeConfig {
   return {
-    udpListenAddress: `0.0.0.0:${port}`,
-    udpAnnounceAddress: `127.0.0.1:${port}`,
+    l1ChainId: chainConfig.l1ChainId,
+    p2pIp: '127.0.0.1',
+    p2pPort: port,
     peerIdPrivateKey: privateKey,
-    maxPeerCount: 100,
     dataDirectory: undefined,
     dataStoreMapSizeKB: 0,
-    ...chainConfig,
+    bootstrapNodes: [],
+    listenAddress: '127.0.0.1',
   };
 }
 
@@ -253,6 +252,21 @@ export function createBootstrapNodeFromPrivateKey(
 ): Promise<BootstrapNode> {
   const config = createBootstrapNodeConfig(privateKey, port, chainConfig);
   return startBootstrapNode(config, telemetry);
+}
+
+/**
+ * Create a bootstrap node ENR
+ * @param privateKey - the private key of the bootstrap node
+ * @param port - the port of the bootstrap node
+ * @returns the bootstrap node ENR
+ */
+export async function getBootstrapNodeEnr(privateKey: string, port: number) {
+  const peerId = await createLibP2PPeerIdFromPrivateKey(privateKey);
+  const enr = SignableENR.createFromPeerId(peerId);
+  const listenAddrUdp = multiaddr(convertToMultiaddr('127.0.0.1', port, 'udp'));
+  enr.setLocationMultiaddr(listenAddrUdp);
+
+  return enr;
 }
 
 export async function createBootstrapNode(

@@ -1,50 +1,43 @@
 import {
-  L2Block,
-  MerkleTreeId,
-  type ProcessedTx,
-  type ServerCircuitProver,
-  type Tx,
-  toNumBlobFields,
-} from '@aztec/circuit-types';
-import {
-  type EpochProver,
-  type ForkMerkleTreeOperations,
-  type MerkleTreeWriteOperations,
-  type ProofAndVerificationKey,
-} from '@aztec/circuit-types/interfaces';
-import { type CircuitName } from '@aztec/circuit-types/stats';
-import {
   AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type AppendOnlyTreeSnapshot,
-  BaseParityInputs,
-  type BlockHeader,
-  Fr,
-  type GlobalVariables,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
   NUM_BASE_PARITY_PER_ROOT_PARITY,
   type TUBE_PROOF_LENGTH,
-  VerificationKeyData,
-  makeEmptyRecursiveProof,
-} from '@aztec/circuits.js';
+} from '@aztec/constants';
+import { padArrayEnd, times } from '@aztec/foundation/collection';
+import { AbortError } from '@aztec/foundation/error';
+import { Fr } from '@aztec/foundation/fields';
+import { createLogger } from '@aztec/foundation/log';
+import { promiseWithResolvers } from '@aztec/foundation/promise';
+import { assertLength } from '@aztec/foundation/serialize';
+import { pushTestData } from '@aztec/foundation/testing';
+import { elapsed } from '@aztec/foundation/timer';
+import type { TreeNodeLocation } from '@aztec/foundation/trees';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { L2Block } from '@aztec/stdlib/block';
+import type {
+  EpochProver,
+  ForkMerkleTreeOperations,
+  MerkleTreeWriteOperations,
+  ProofAndVerificationKey,
+  ServerCircuitProver,
+} from '@aztec/stdlib/interfaces/server';
+import { BaseParityInputs } from '@aztec/stdlib/parity';
+import { makeEmptyRecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type BaseRollupHints,
   EmptyBlockRootRollupInputs,
   PrivateBaseRollupInputs,
   SingleTxBlockRootRollupInputs,
   TubeInputs,
-} from '@aztec/circuits.js/rollup';
-import { padArrayEnd, times } from '@aztec/foundation/collection';
-import { AbortError } from '@aztec/foundation/error';
-import { createLogger } from '@aztec/foundation/log';
-import { promiseWithResolvers } from '@aztec/foundation/promise';
-import { assertLength } from '@aztec/foundation/serialize';
-import { pushTestData } from '@aztec/foundation/testing';
-import { elapsed } from '@aztec/foundation/timer';
-import { type TreeNodeLocation } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
+} from '@aztec/stdlib/rollup';
+import type { CircuitName } from '@aztec/stdlib/stats';
+import { type AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import { type BlockHeader, type GlobalVariables, type ProcessedTx, type Tx, toNumBlobFields } from '@aztec/stdlib/tx';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import {
   Attributes,
   type TelemetryClient,
@@ -65,7 +58,7 @@ import {
   validatePartialState,
   validateTx,
 } from './block-building-helpers.js';
-import { type BlockProvingState } from './block-proving-state.js';
+import type { BlockProvingState } from './block-proving-state.js';
 import { EpochProvingState, type ProvingResult, type TreeSnapshots } from './epoch-proving-state.js';
 import { ProvingOrchestratorMetrics } from './orchestrator_metrics.js';
 import { TxProvingState } from './tx-proving-state.js';
@@ -97,7 +90,7 @@ export class ProvingOrchestrator implements EpochProver {
   constructor(
     private dbProvider: ForkMerkleTreeOperations,
     private prover: ServerCircuitProver,
-    private readonly proverId: Fr = Fr.ZERO,
+    private readonly proverId: Fr,
     telemetryClient: TelemetryClient = getTelemetryClient(),
   ) {
     this.metrics = new ProvingOrchestratorMetrics(telemetryClient, 'ProvingOrchestrator');
@@ -244,7 +237,7 @@ export class ProvingOrchestrator implements EpochProver {
     }
     for (const tx of txs) {
       const txHash = (await tx.getTxHash()).toString();
-      const tubeInputs = new TubeInputs(tx.clientIvcProof);
+      const tubeInputs = new TubeInputs(!!tx.data.forPublic, tx.clientIvcProof);
       const tubeProof = promiseWithResolvers<ProofAndVerificationKey<typeof TUBE_PROOF_LENGTH>>();
       logger.debug(`Starting tube circuit for tx ${txHash}`);
       this.doEnqueueTube(txHash, tubeInputs, proof => tubeProof.resolve(proof));
@@ -538,7 +531,6 @@ export class ProvingOrchestrator implements EpochProver {
         }`,
         {
           [Attributes.TX_HASH]: processedTx.hash.toString(),
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
@@ -608,7 +600,6 @@ export class ProvingOrchestrator implements EpochProver {
         'ProvingOrchestrator.prover.getTubeProof',
         {
           [Attributes.TX_HASH]: txHash,
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'tube-circuit' satisfies CircuitName,
         },
         signal => this.prover.getTubeProof(inputs, signal, this.provingState!.epochNumber),
@@ -633,7 +624,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'merge-rollup' satisfies CircuitName,
         },
         signal => this.prover.getMergeRollupProof(inputs, signal, provingState.epochNumber),
@@ -666,7 +656,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: rollupType,
         },
         signal => {
@@ -717,7 +706,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBaseParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'base-parity' satisfies CircuitName,
         },
         signal => this.prover.getBaseParityProof(inputs, signal, provingState.epochNumber),
@@ -753,7 +741,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootParityProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-parity' satisfies CircuitName,
         },
         signal => this.prover.getRootParityProof(inputs, signal, provingState.epochNumber),
@@ -781,7 +768,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getBlockMergeRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'block-merge-rollup' satisfies CircuitName,
         },
         signal => this.prover.getBlockMergeRollupProof(inputs, signal, provingState.epochNumber),
@@ -809,7 +795,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getEmptyBlockRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'empty-block-root-rollup' satisfies CircuitName,
         },
         signal => this.prover.getEmptyBlockRootRollupProof(inputs, signal, provingState.epochNumber),
@@ -839,7 +824,6 @@ export class ProvingOrchestrator implements EpochProver {
         this.tracer,
         'ProvingOrchestrator.prover.getRootRollupProof',
         {
-          [Attributes.PROTOCOL_CIRCUIT_TYPE]: 'server',
           [Attributes.PROTOCOL_CIRCUIT_NAME]: 'root-rollup' satisfies CircuitName,
         },
         signal => this.prover.getRootRollupProof(inputs, signal, provingState.epochNumber),

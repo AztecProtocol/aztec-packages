@@ -1,13 +1,20 @@
-use crate::{filter::filter_notes_min_sum, value_note::{VALUE_NOTE_LEN, ValueNote}};
-use dep::aztec::encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note;
-use dep::aztec::note::note_getter_options::SortOrder;
-use dep::aztec::prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet};
+use crate::{filter::filter_notes_min_sum, value_note::ValueNote};
+
+use aztec::{
+    messages::logs::note::encode_and_encrypt_note,
+    note::{note_getter_options::SortOrder, note_interface::NoteProperties},
+    prelude::{AztecAddress, NoteGetterOptions, PrivateContext, PrivateSet},
+    protocol_types::traits::Packable,
+};
 
 // Sort the note values (0th field) in descending order.
 // Pick the fewest notes whose sum is equal to or greater than `amount`.
-pub fn create_note_getter_options_for_decreasing_balance(
+pub fn create_note_getter_options_for_decreasing_balance<let N: u32>(
     amount: Field,
-) -> NoteGetterOptions<ValueNote, VALUE_NOTE_LEN, Field, Field> {
+) -> NoteGetterOptions<ValueNote, N, Field, Field>
+where
+    ValueNote: Packable<N>,
+{
     NoteGetterOptions::with_filter(filter_notes_min_sum, amount).sort(
         ValueNote::properties().value,
         SortOrder.DESC,
@@ -23,10 +30,10 @@ pub fn increment(
     recipient: AztecAddress, // docs:end:increment_args
     sender: AztecAddress,
 ) {
-    let mut note = ValueNote::new(amount, recipient);
+    let note = ValueNote::new(amount, recipient);
     // Insert the new note to the owner's set of notes and emit the log if value is non-zero.
     // TODO: consider how to give devs choice over this `encode_and_encrypt_note` function. At the moment, it's hard-coded as one of many potential strategies.
-    balance.insert(&mut note).emit(encode_and_encrypt_note(balance.context, recipient, sender));
+    balance.insert(note).emit(encode_and_encrypt_note(balance.context, recipient, sender));
 }
 
 // Find some of the `owner`'s notes whose values add up to the `amount`.
@@ -64,7 +71,7 @@ pub fn decrement_by_at_most(
     for i in 0..options.limit {
         if i < notes.len() {
             let note = notes.get_unchecked(i);
-            decremented += note.value;
+            decremented += note.value();
         }
     }
 

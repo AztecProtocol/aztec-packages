@@ -1,6 +1,8 @@
-import { type FunctionCall, HashedValues } from '@aztec/circuit-types';
-import { type AztecAddress, Fr, GeneratorIndex } from '@aztec/circuits.js';
-import { poseidon2HashWithSeparator } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import type { FunctionCall } from '@aztec/stdlib/abi';
+import { computeInnerAuthWitHash, computeOuterAuthWitHash } from '@aztec/stdlib/auth-witness';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { computeVarArgsHash } from '@aztec/stdlib/hash';
 
 import { ContractFunctionInteraction } from '../contract/contract_function_interaction.js';
 
@@ -55,12 +57,13 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
   const version = metadata.version;
 
   if ('caller' in intent) {
-    const action = intent.action instanceof ContractFunctionInteraction ? await intent.action.request() : intent.action;
+    const fnCall =
+      intent.action instanceof ContractFunctionInteraction ? (await intent.action.request()).calls[0] : intent.action;
     return computeOuterAuthWitHash(
-      action.to,
+      fnCall.to,
       chainId,
       version,
-      await computeInnerAuthWitHashFromAction(intent.caller, action),
+      await computeInnerAuthWitHashFromFunctionCall(intent.caller, fnCall),
     );
   } else {
     const inner = Buffer.isBuffer(intent.innerHash) ? Fr.fromBuffer(intent.innerHash) : intent.innerHash;
@@ -69,39 +72,29 @@ export const computeAuthWitMessageHash = async (intent: IntentInnerHash | Intent
 };
 // docs:end:authwit_computeAuthWitMessageHash
 
-export const computeInnerAuthWitHashFromAction = async (caller: AztecAddress, action: FunctionCall) =>
-  computeInnerAuthWitHash([
-    caller.toField(),
-    action.selector.toField(),
-    (await HashedValues.fromValues(action.args)).hash,
-  ]);
-
 /**
- * Compute the inner hash for an authentication witness.
- * This is the "intent" of the message, before siloed with the consumer.
- * It is used as part of the `computeAuthWitMessageHash` but can also be used
- * in case the message is not a "call" to a function, but arbitrary data.
- * @param args - The arguments to hash
- * @returns The inner hash for the witness
- */
-export const computeInnerAuthWitHash = (args: Fr[]) => {
-  return poseidon2HashWithSeparator(args, GeneratorIndex.AUTHWIT_INNER);
+ * Computes the inner authwitness hash for a function call, for it to later be combined with the metadata
+ * required for the outer hash and eventually the full AuthWitness.
+ * @param caller - Who is going to be calling the function
+ * @param fnCall - The function call to compute the inner hash from
+ * @returns The inner hash for the function call
+ **/
+export const computeInnerAuthWitHashFromFunctionCall = async (caller: AztecAddress, fnCall: FunctionCall) => {
+  return computeInnerAuthWitHash([caller.toField(), fnCall.selector.toField(), await computeVarArgsHash(fnCall.args)]);
 };
 
 /**
- * Compute the outer hash for an authentication witness.
- * This is the value siloed with its "consumer" and what the `on_behalf_of`
- * should be signing.
- * The consumer is who will be consuming the message, for token approvals it
- * is the token contract itself (because the token makes the call to check the approval).
- * It is used as part of the `computeAuthWitMessageHash` but can also be used
- * in case the message is not a "call" to a function, but arbitrary data.
- * @param consumer - The address that can "consume" the authwit
- * @param chainId - The chain id that can "consume" the authwit
- * @param version - The version that can "consume" the authwit
- * @param innerHash - The inner hash for the witness
- * @returns The outer hash for the witness
- */
-const computeOuterAuthWitHash = (consumer: AztecAddress, chainId: Fr, version: Fr, innerHash: Fr) => {
-  return poseidon2HashWithSeparator([consumer.toField(), chainId, version, innerHash], GeneratorIndex.AUTHWIT_OUTER);
+ * Computes the inner authwitness hash for an action, that can either be a ContractFunctionInteraction
+ * or an isolated FunctionCall. Since the former is just a wrapper around the latter, we can just extract
+ * the first (and only) call from the ContractFunctionInteraction and use it to compute the inner hash.
+ * @param caller - Who is going to be performing the action
+ * @param action - The ContractFunctionInteraction or FunctionCall to compute the inner hash for
+ * @returns The inner hash for the action
+ **/
+export const computeInnerAuthWitHashFromAction = async (
+  caller: AztecAddress,
+  action: FunctionCall | ContractFunctionInteraction,
+) => {
+  action = action instanceof ContractFunctionInteraction ? (await action.request()).calls[0] : action;
+  return computeInnerAuthWitHash([caller.toField(), action.selector.toField(), await computeVarArgsHash(action.args)]);
 };

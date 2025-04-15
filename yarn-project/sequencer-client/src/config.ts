@@ -1,11 +1,4 @@
 import {
-  type AllowedElement,
-  type ChainConfig,
-  type SequencerConfig,
-  chainConfigMappings,
-} from '@aztec/circuit-types/config';
-import { AztecAddress, Fr, FunctionSelector } from '@aztec/circuits.js';
-import {
   type L1ContractsConfig,
   type L1ReaderConfig,
   l1ContractsConfigMappings,
@@ -19,6 +12,10 @@ import {
   pickConfigMappings,
 } from '@aztec/foundation/config';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { type P2PConfig, p2pConfigMappings } from '@aztec/p2p';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { type ChainConfig, type SequencerConfig, chainConfigMappings } from '@aztec/stdlib/config';
+import { type ValidatorClientConfig, validatorClientConfigMappings } from '@aztec/validator-client';
 
 import {
   type PublisherConfig,
@@ -28,17 +25,22 @@ import {
 } from './publisher/config.js';
 
 export * from './publisher/config.js';
-export { SequencerConfig };
+export type { SequencerConfig };
 
 /**
  * Configuration settings for the SequencerClient.
  */
 export type SequencerClientConfig = PublisherConfig &
+  ValidatorClientConfig &
   TxSenderConfig &
   SequencerConfig &
   L1ReaderConfig &
   ChainConfig &
-  Pick<L1ContractsConfig, 'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration'>;
+  Pick<P2PConfig, 'txPublicSetupAllowList'> &
+  Pick<
+    L1ContractsConfig,
+    'ethereumSlotDuration' | 'aztecSlotDuration' | 'aztecEpochDuration' | 'aztecProofSubmissionWindow'
+  >;
 
 export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   transactionPollingIntervalMS: {
@@ -68,7 +70,7 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
   },
   coinbase: {
     env: 'COINBASE',
-    parseEnv: (val: string) => EthAddress.fromString(val),
+    parseEnv: (val: string) => (val ? EthAddress.fromString(val) : undefined),
     description: 'Recipient of block reward.',
   },
   feeRecipient: {
@@ -84,28 +86,16 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     env: 'ACVM_BINARY_PATH',
     description: 'The path to the ACVM binary',
   },
-  allowedInSetup: {
-    env: 'SEQ_ALLOWED_SETUP_FN',
-    parseEnv: (val: string) => parseSequencerAllowList(val),
-    description: 'The list of functions calls allowed to run in setup',
-    printDefault: () =>
-      'AuthRegistry, FeeJuice.increase_public_balance, Token.increase_public_balance, FPC.prepare_fee',
-  },
   maxBlockSizeInBytes: {
     env: 'SEQ_MAX_BLOCK_SIZE_IN_BYTES',
     description: 'Max block size',
     ...numberConfigHelper(1024 * 1024),
   },
-  enforceFees: {
-    env: 'ENFORCE_FEES',
-    description: 'Whether to require every tx to have a fee payer',
-    ...booleanConfigHelper(),
-  },
   enforceTimeTable: {
     env: 'SEQ_ENFORCE_TIME_TABLE',
     description: 'Whether to enforce the time table when building blocks',
     ...booleanConfigHelper(),
-    defaultValue: false,
+    defaultValue: true,
   },
   governanceProposerPayload: {
     env: 'GOVERNANCE_PROPOSER_PAYLOAD_ADDRESS',
@@ -118,15 +108,22 @@ export const sequencerConfigMappings: ConfigMappingsType<SequencerConfig> = {
     description: 'How many seconds into an L1 slot we can still send a tx and get it mined.',
     parseEnv: (val: string) => (val ? parseInt(val, 10) : undefined),
   },
+  ...pickConfigMappings(p2pConfigMappings, ['txPublicSetupAllowList']),
 };
 
 export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientConfig> = {
+  ...validatorClientConfigMappings,
   ...sequencerConfigMappings,
   ...l1ReaderConfigMappings,
   ...getTxSenderConfigMappings('SEQ'),
   ...getPublisherConfigMappings('SEQ'),
   ...chainConfigMappings,
-  ...pickConfigMappings(l1ContractsConfigMappings, ['ethereumSlotDuration', 'aztecSlotDuration', 'aztecEpochDuration']),
+  ...pickConfigMappings(l1ContractsConfigMappings, [
+    'ethereumSlotDuration',
+    'aztecSlotDuration',
+    'aztecEpochDuration',
+    'aztecProofSubmissionWindow',
+  ]),
 };
 
 /**
@@ -134,54 +131,4 @@ export const sequencerClientConfigMappings: ConfigMappingsType<SequencerClientCo
  */
 export function getConfigEnvVars(): SequencerClientConfig {
   return getConfigFromMappings<SequencerClientConfig>(sequencerClientConfigMappings);
-}
-
-/**
- * Parses a string to a list of allowed elements.
- * Each encoded is expected to be of one of the following formats
- * `I:${address}`
- * `I:${address}:${selector}`
- * `C:${classId}`
- * `C:${classId}:${selector}`
- *
- * @param value The string to parse
- * @returns A list of allowed elements
- */
-export function parseSequencerAllowList(value: string): AllowedElement[] {
-  const entries: AllowedElement[] = [];
-
-  if (!value) {
-    return entries;
-  }
-
-  for (const val of value.split(',')) {
-    const [typeString, identifierString, selectorString] = val.split(':');
-    const selector = selectorString !== undefined ? FunctionSelector.fromString(selectorString) : undefined;
-
-    if (typeString === 'I') {
-      if (selector) {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          address: AztecAddress.fromString(identifierString),
-        });
-      }
-    } else if (typeString === 'C') {
-      if (selector) {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-          selector,
-        });
-      } else {
-        entries.push({
-          classId: Fr.fromHexString(identifierString),
-        });
-      }
-    }
-  }
-
-  return entries;
 }

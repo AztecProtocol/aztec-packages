@@ -13,9 +13,6 @@ on:
       test:
         description: The test to run, e.g. spartan/smoke.test.ts
         required: true
-      aztec_e2e_docker_image:
-        description: The Aztec E2E Docker image to use, e.g. aztecprotocol/end-to-end:da809c58290f9590836f45ec59376cbf04d3c4ce-x86_64
-        required: true
 
 jobs:
   network_test:

@@ -1,10 +1,13 @@
-import { L2Block, type L2BlockSource, PeerErrorSeverity, TxHash, mockTx } from '@aztec/circuit-types';
 import { Fr } from '@aztec/foundation/fields';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import { PeerErrorSeverity } from '@aztec/stdlib/p2p';
+import { mockTx } from '@aztec/stdlib/testing';
+import { TxHash } from '@aztec/stdlib/tx';
 
 import { describe, expect, it, jest } from '@jest/globals';
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { CollectiveReqRespTimeoutError, IndividualReqRespTimeoutError } from '../../errors/reqresp.error.js';
@@ -17,8 +20,8 @@ import {
   startNodes,
   stopNodes,
 } from '../../test-helpers/reqresp-nodes.js';
-import { type PeerManager } from '../peer-manager/peer_manager.js';
-import { type PeerScoring } from '../peer-manager/peer_scoring.js';
+import type { PeerManager } from '../peer-manager/peer_manager.js';
+import type { PeerScoring } from '../peer-manager/peer_scoring.js';
 import { ReqRespSubProtocol, RequestableBuffer } from './interface.js';
 import { reqRespBlockHandler } from './protocols/block.js';
 import { GoodByeReason, reqGoodbyeHandler } from './protocols/goodbye.js';
@@ -143,7 +146,9 @@ describe('ReqResp', () => {
     expect(rateLimitResponse).toBeDefined();
 
     // Make sure the error message is logged
-    const errorMessage = `Rate limit exceeded for ${ReqRespSubProtocol.PING} from ${nodes[0].p2p.peerId.toString()}`;
+    const errorMessage = `Rate limit exceeded DeniedPeer for ${
+      ReqRespSubProtocol.PING
+    } from ${nodes[0].p2p.peerId.toString()}`;
     expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining(errorMessage));
   });
 

@@ -1,18 +1,12 @@
-import { type NullifierMembershipWitness } from '@aztec/circuit-types';
-import {
-  type ContractInstanceWithAddress,
-  type FunctionSelector,
-  type L1_TO_L2_MSG_TREE_HEIGHT,
-} from '@aztec/circuits.js';
-import { type AztecAddress } from '@aztec/foundation/aztec-address';
-import { type Fr } from '@aztec/foundation/fields';
-
-import { type MessageLoadOracleInputs } from '../common/message_load_oracle_inputs.js';
+import type { Fr } from '@aztec/foundation/fields';
+import type { FunctionSelector } from '@aztec/stdlib/abi';
+import type { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { ContractClassPublic, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
 /**
  * Database interface for providing access to public state.
  */
-export interface PublicStateDB {
+export interface PublicStateDBInterface {
   /**
    * Reads a value from public storage, returning zero if none.
    * @param contract - Owner of the storage.
@@ -26,101 +20,41 @@ export interface PublicStateDB {
    * @param contract - Owner of the storage.
    * @param slot - Slot to read in the contract storage.
    * @param newValue - The new value to store.
-   * @returns The slot of the written leaf in the public data tree.
    */
-  storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<bigint>;
-
-  /**
-   * Mark the uncommitted changes in this TX as a checkpoint.
-   */
-  checkpoint(): Promise<void>;
-
-  /**
-   * Rollback to the last checkpoint.
-   */
-  rollbackToCheckpoint(): Promise<void>;
-
-  /**
-   * Commit the changes in this TX. Includes all changes since the last commit,
-   * even if they haven't been covered by a checkpoint.
-   */
-  commit(): Promise<void>;
-
-  /**
-   * Rollback to the last commit.
-   */
-  rollbackToCommit(): Promise<void>;
+  storageWrite(contract: AztecAddress, slot: Fr, newValue: Fr): Promise<void>;
 }
 
 /**
  * Database interface for providing access to public contract data.
  */
-export interface PublicContractsDB {
-  /**
-   * Returns the brillig (public bytecode) of a function.
-   * @param address - The contract address that owns this function.
-   * @param selector - The selector for the function.
-   * @returns The bytecode or undefined if not found.
-   */
-  getBytecode(address: AztecAddress, selector: FunctionSelector): Promise<Buffer | undefined>;
-
+export interface PublicContractsDBInterface {
   /**
    * Returns a publicly deployed contract instance.
    * @param address - Address of the contract.
+   * @param blockNumber - The block number at which to retrieve the contract instance.
    * @returns The contract instance or undefined if not found.
    */
-  getContractInstance(address: AztecAddress): Promise<ContractInstanceWithAddress | undefined>;
+  getContractInstance(address: AztecAddress, blockNumber: number): Promise<ContractInstanceWithAddress | undefined>;
 
+  /**
+   * Returns a publicly deployed contract class.
+   * @param contractClassId - ID of the contract class.
+   * @returns The contract class or undefined if not found
+   */
+  getContractClass(contractClassId: Fr): Promise<ContractClassPublic | undefined>;
+
+  /**
+   * Returns the commitment to the bytecode of a contract class.
+   * @param contractClassId - ID of the contract class.
+   * @returns The commitment to the bytecode or undefined if not found.
+   */
+  getBytecodeCommitment(contractClassId: Fr): Promise<Fr | undefined>;
+
+  /**
+   * Returns the function name of a contract's function given its selector.
+   * @param contractAddress - Address of the contract.
+   * @param selector - Selector of the function.
+   * @returns The name of the function or undefined if not found.
+   */
   getDebugFunctionName(contractAddress: AztecAddress, selector: FunctionSelector): Promise<string | undefined>;
-}
-
-/** Database interface for providing access to commitment tree, l1 to l2 message tree, and nullifier tree. */
-export interface CommitmentsDB {
-  /**
-   * Fetches a message from the db, given its key.
-   * @param contractAddress - Address of a contract by which the message was emitted.
-   * @param messageHash - Hash of the message.
-   * @param secret - Secret used to compute a nullifier.
-   * @dev Contract address and secret are only used to compute the nullifier to get non-nullified messages
-   * @returns The l1 to l2 membership witness (index of message in the tree and sibling path).
-   */
-  getL1ToL2MembershipWitness(
-    contractAddress: AztecAddress,
-    messageHash: Fr,
-    secret: Fr,
-  ): Promise<MessageLoadOracleInputs<typeof L1_TO_L2_MSG_TREE_HEIGHT>>;
-
-  /**
-   * @param leafIndex the leaf to look up
-   * @returns The l1 to l2 leaf value or undefined if not found.
-   */
-  getL1ToL2LeafValue(leafIndex: bigint): Promise<Fr | undefined>;
-
-  /**
-   * Gets the index of a commitment in the note hash tree.
-   * @param commitment - The commitment.
-   * @returns - The index of the commitment. Undefined if it does not exist in the tree.
-   */
-  getCommitmentIndex(commitment: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Gets commitment in the note hash tree given a leaf index.
-   * @param leafIndex - the leaf to look up.
-   * @returns - The commitment at that index. Undefined if leaf index is not found.
-   */
-  getCommitmentValue(leafIndex: bigint): Promise<Fr | undefined>;
-
-  /**
-   * Gets the index of a nullifier in the nullifier tree.
-   * @param nullifier - The nullifier.
-   * @returns - The index of the nullifier. Undefined if it does not exist in the tree.
-   */
-  getNullifierIndex(nullifier: Fr): Promise<bigint | undefined>;
-
-  /**
-   * Returns a nullifier membership witness for the given nullifier or undefined if not found.
-   * REFACTOR: Same as getL1ToL2MembershipWitness, can be combined with aztec-node method that does almost the same thing.
-   * @param nullifier - Nullifier we're looking for.
-   */
-  getNullifierMembershipWitnessAtLatestBlock(nullifier: Fr): Promise<NullifierMembershipWitness | undefined>;
 }

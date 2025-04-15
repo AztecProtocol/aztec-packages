@@ -1,4 +1,4 @@
-import { getSchnorrAccount } from '@aztec/accounts/schnorr';
+import { getSchnorrWallet } from '@aztec/accounts/schnorr';
 import { type AccountWallet, type CompleteAddress, type Logger, type PXE, createLogger } from '@aztec/aztec.js';
 import { ChildContract } from '@aztec/noir-contracts.js/Child';
 import { ParentContract } from '@aztec/noir-contracts.js/Parent';
@@ -6,8 +6,8 @@ import { ParentContract } from '@aztec/noir-contracts.js/Parent';
 import {
   type ISnapshotManager,
   type SubsystemsContext,
-  addAccounts,
   createSnapshotManager,
+  deployAccounts,
   publicDeployAccounts,
 } from '../fixtures/snapshot_manager.js';
 
@@ -23,9 +23,9 @@ export class NestedContractTest {
   parentContract!: ParentContract;
   childContract!: ChildContract;
 
-  constructor(testName: string) {
+  constructor(testName: string, private numberOfAccounts = 1) {
     this.logger = createLogger(`e2e:e2e_nested_contract:${testName}`);
-    this.snapshotManager = createSnapshotManager(`e2e_nested_contract/${testName}`, dataPath);
+    this.snapshotManager = createSnapshotManager(`e2e_nested_contract/${testName}-${numberOfAccounts}`, dataPath);
   }
 
   /**
@@ -34,18 +34,16 @@ export class NestedContractTest {
    * 2. Publicly deploy accounts
    */
   async applyBaseSnapshots() {
-    await this.snapshotManager.snapshot('3_accounts', addAccounts(3, this.logger), async ({ accountKeys }, { pxe }) => {
-      this.wallets = await Promise.all(
-        accountKeys.map(async ak => {
-          const account = await getSchnorrAccount(pxe, ak[0], ak[1], 1);
-          return account.getWallet();
-        }),
-      );
-      this.accounts = await pxe.getRegisteredAccounts();
-      this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
-
-      this.pxe = pxe;
-    });
+    await this.snapshotManager.snapshot(
+      'accounts',
+      deployAccounts(this.numberOfAccounts, this.logger),
+      async ({ deployedAccounts }, { pxe }) => {
+        this.wallets = await Promise.all(deployedAccounts.map(a => getSchnorrWallet(pxe, a.address, a.signingKey)));
+        this.accounts = await pxe.getRegisteredAccounts();
+        this.wallets.forEach((w, i) => this.logger.verbose(`Wallet ${i} address: ${w.getAddress()}`));
+        this.pxe = pxe;
+      },
+    );
 
     await this.snapshotManager.snapshot(
       'public_deploy',

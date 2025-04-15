@@ -3,7 +3,7 @@ import { BufferReader, FieldReader } from '@aztec/foundation/serialize';
 
 import type { Blob as BlobBuffer } from 'c-kzg';
 
-// Note duplicated from circuit-types !
+// Note duplicated from stdlib !
 // This will appear as 0x74785f7374617274 in logs
 export const TX_START_PREFIX = 8392562855083340404n;
 // These are helper constants to decode tx effects from blob encoded fields
@@ -85,7 +85,6 @@ export function getLengthFromFirstField(firstField: Fr): number {
   return new Fr(buf.subarray(TX_START_PREFIX_BYTES_LENGTH + 1, TX_START_PREFIX_BYTES_LENGTH + 3)).toNumber();
 }
 
-// NOTE: duplicated from circuit-types tx effect!
 /**
  * Determines whether a field is the first field of a tx effect
  */

@@ -19,7 +19,7 @@ const getLatestStable = async () => {
 
 const version = await getLatestStable();
 const tag = version.match(/^\d+\.\d+\.\d+$/)
-  ? `aztec-packages-v${version}`
+  ? `v${version}`
   : version;
 
 describe("Token contract", () => {

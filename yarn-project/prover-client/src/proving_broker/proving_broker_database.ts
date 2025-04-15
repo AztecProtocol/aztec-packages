@@ -1,4 +1,4 @@
-import { type ProofUri, type ProvingJob, type ProvingJobId, type ProvingJobSettledResult } from '@aztec/circuit-types';
+import type { ProofUri, ProvingJob, ProvingJobId, ProvingJobSettledResult } from '@aztec/stdlib/interfaces/server';
 
 /**
  * A database for storing proof requests and their results

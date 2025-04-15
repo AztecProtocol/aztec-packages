@@ -3,14 +3,16 @@
 pragma solidity >=0.8.27;
 
 import {Inbox} from "@aztec/core/messagebridge/Inbox.sol";
-
+import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 import {Constants} from "@aztec/core/libraries/ConstantsGen.sol";
 import {FrontierLib} from "@aztec/core/libraries/crypto/FrontierLib.sol";
 
 contract InboxHarness is Inbox {
   using FrontierLib for FrontierLib.Tree;
 
-  constructor(address _rollup, uint256 _height) Inbox(_rollup, _height) {}
+  constructor(address _rollup, IERC20 _feeAsset, uint256 _version, uint256 _height)
+    Inbox(_rollup, _feeAsset, _version, _height)
+  {}
 
   function getSize() external view returns (uint256) {
     return SIZE;

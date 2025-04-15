@@ -1,12 +1,13 @@
 use dep::types::{
     abis::{
-        accumulated_data::PrivateToPublicAccumulatedData, gas::Gas, log_hash::ScopedLogHash,
+        accumulated_data::PrivateToPublicAccumulatedData,
+        gas::{Gas, get_emitted_contract_class_logs_len, get_emitted_private_logs_len},
         public_call_request::PublicCallRequest,
     },
     constants::{
-        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS, L2_GAS_PER_L2_TO_L1_MSG,
-        L2_GAS_PER_LOG_BYTE, L2_GAS_PER_NOTE_HASH, L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
-        PRIVATE_LOG_SIZE_IN_FIELDS,
+        DA_BYTES_PER_FIELD, DA_GAS_PER_BYTE, FIXED_AVM_STARTUP_L2_GAS,
+        L2_GAS_PER_CONTRACT_CLASS_LOG, L2_GAS_PER_L2_TO_L1_MSG, L2_GAS_PER_NOTE_HASH,
+        L2_GAS_PER_NULLIFIER, L2_GAS_PER_PRIVATE_LOG,
     },
     traits::{Empty, is_empty},
     utils::arrays::array_length,
@@ -29,14 +30,18 @@ fn meter_accumulated_data_gas_used(data: PrivateToPublicAccumulatedData) -> Gas 
     metered_l2_gas += num_l2_to_l1_msgs * L2_GAS_PER_L2_TO_L1_MSG;
 
     let num_private_logs = array_length(data.private_logs);
-    metered_da_fields += num_private_logs * PRIVATE_LOG_SIZE_IN_FIELDS;
+    let total_num_private_log_fields = get_emitted_private_logs_len(data.private_logs);
+    metered_da_fields += total_num_private_log_fields;
     metered_l2_gas += num_private_logs * L2_GAS_PER_PRIVATE_LOG;
 
+    let num_contract_class_logs = array_length(data.contract_class_logs_hashes);
+    // We use log_hash.length below, then constrain the .lengths in the base rollup.
+    let contract_class_log_emitted_fields =
+        get_emitted_contract_class_logs_len(data.contract_class_logs_hashes);
+    metered_da_fields += contract_class_log_emitted_fields;
+    metered_l2_gas += num_contract_class_logs * L2_GAS_PER_CONTRACT_CLASS_LOG;
+
     let mut metered_da_bytes = metered_da_fields * DA_BYTES_PER_FIELD;
-    let contract_class_log_preimages_length =
-        data.contract_class_logs_hashes.fold(0, |len, l: ScopedLogHash| len + l.log_hash.length);
-    metered_da_bytes += contract_class_log_preimages_length as u32;
-    metered_l2_gas += contract_class_log_preimages_length as u32 * L2_GAS_PER_LOG_BYTE;
 
     metered_l2_gas += array_length(data.public_call_requests) * FIXED_AVM_STARTUP_L2_GAS;
 

@@ -1,7 +1,7 @@
 Compile with:
 
 ```
-~/aztec-packages/bb-pilcom/target/release/bb_pil pil/vm2/execution.pil --name Avm2 -y -o src/barretenberg/vm2/generated && ./format.sh changed
+barretenberg/cpp/scripts/avm2_gen.sh
 ```
 
-while on the `barretenberg/cpp` directory.
+The script can be invoked from any location.

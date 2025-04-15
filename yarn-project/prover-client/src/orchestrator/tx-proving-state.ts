@@ -1,13 +1,7 @@
-import { type MerkleTreeId, type ProcessedTx, type ProofAndVerificationKey } from '@aztec/circuit-types';
-import { type CircuitName } from '@aztec/circuit-types/stats';
-import {
-  type AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VK_INDEX,
-  type AppendOnlyTreeSnapshot,
-  type TUBE_PROOF_LENGTH,
-  TUBE_VK_INDEX,
-  VkWitnessData,
-} from '@aztec/circuits.js';
+import { type AVM_PROOF_LENGTH_IN_FIELDS, AVM_VK_INDEX, type TUBE_PROOF_LENGTH, TUBE_VK_INDEX } from '@aztec/constants';
+import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import type { ProofAndVerificationKey } from '@aztec/stdlib/interfaces/server';
 import {
   AvmProofData,
   type BaseRollupHints,
@@ -18,8 +12,11 @@ import {
   PublicBaseRollupInputs,
   PublicTubeData,
   TubeInputs,
-} from '@aztec/circuits.js/rollup';
-import { getVKIndex, getVKSiblingPath } from '@aztec/noir-protocol-circuits-types/vks';
+} from '@aztec/stdlib/rollup';
+import type { CircuitName } from '@aztec/stdlib/stats';
+import type { AppendOnlyTreeSnapshot, MerkleTreeId } from '@aztec/stdlib/trees';
+import type { ProcessedTx } from '@aztec/stdlib/tx';
+import { VkWitnessData } from '@aztec/stdlib/vks';
 
 /**
  * Helper class to manage the proving cycle of a transaction
@@ -45,10 +42,10 @@ export class TxProvingState {
   }
 
   public getTubeInputs() {
-    return new TubeInputs(this.processedTx.clientIvcProof);
+    return new TubeInputs(!!this.processedTx.data.forPublic, this.processedTx.clientIvcProof);
   }
 
-  public getAvmInputs() {
+  public getAvmInputs(): AvmCircuitInputs {
     return this.processedTx.avmProvingRequest!.inputs;
   }
 

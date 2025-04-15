@@ -1,8 +1,8 @@
 import { createLogger } from '@aztec/foundation/log';
 
-import { type PeerId } from '@libp2p/interface';
+import type { PeerId } from '@libp2p/interface';
 
-import { type ConnectionSampler } from './connection_sampler.js';
+import type { ConnectionSampler } from './connection_sampler.js';
 
 /**
  * Manages batches of peers for parallel request processing.

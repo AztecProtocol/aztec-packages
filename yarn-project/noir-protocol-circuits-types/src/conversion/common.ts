@@ -1,46 +1,46 @@
 import {
-  AppendOnlyTreeSnapshot,
-  AztecAddress,
-  BlockHeader,
-  ContentCommitment,
-  EthAddress,
-  Fr,
-  FunctionSelector,
-  Gas,
-  GasFees,
-  GasSettings,
-  GlobalVariables,
-  GrumpkinScalar,
-  L2ToL1Message,
-  LogHash,
   MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_L2_TO_L1_MSGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
   MAX_PRIVATE_LOGS_PER_TX,
-  MaxBlockNumber,
-  type MembershipWitness,
-  NUM_BYTES_PER_SHA256,
-  type NullifierLeafPreimage,
-  OptionalNumber,
   type PRIVATE_LOG_SIZE_IN_FIELDS,
-  PartialStateReference,
-  Point,
-  PrivateLog,
+} from '@aztec/constants';
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { EthAddress } from '@aztec/foundation/eth-address';
+import { Fr, GrumpkinScalar, Point } from '@aztec/foundation/fields';
+import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
+import { FunctionSelector } from '@aztec/stdlib/abi';
+import type { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import { Gas, GasFees, GasSettings } from '@aztec/stdlib/gas';
+import {
+  LogHash,
+  OptionalNumber,
   PrivateToRollupAccumulatedData,
-  type ProtocolContractLeafPreimage,
   PublicCallRequest,
-  type PublicDataTreeLeafPreimage,
-  type PublicDataWrite,
-  PublicLog,
-  ScopedL2ToL1Message,
   ScopedLogHash,
+} from '@aztec/stdlib/kernel';
+import { PrivateLog, PublicLog } from '@aztec/stdlib/logs';
+import { L2ToL1Message, ScopedL2ToL1Message } from '@aztec/stdlib/messaging';
+import {
+  AppendOnlyTreeSnapshot,
+  type NullifierLeafPreimage,
+  type ProtocolContractLeafPreimage,
+  type PublicDataTreeLeafPreimage,
+} from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  GlobalVariables,
+  MaxBlockNumber,
+  NUM_BYTES_PER_SHA256,
+  PartialStateReference,
   StateReference,
   TxContext,
-  type VerificationKeyAsFields,
-} from '@aztec/circuits.js';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { type Tuple, mapTuple, toTruncField } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/tx';
+import type { VerificationKeyAsFields } from '@aztec/stdlib/vks';
 
 import type {
   AppendOnlyTreeSnapshot as AppendOnlyTreeSnapshotNoir,
@@ -292,7 +292,7 @@ export function mapTupleFromNoir<T, N extends number, M>(
 
 /**
  * Maps a AOT snapshot to noir.
- * @param snapshot - The circuits.js AOT snapshot.
+ * @param snapshot - The stdlib AOT snapshot.
  * @returns The noir AOT snapshot.
  */
 export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapshotNoir): AppendOnlyTreeSnapshot {
@@ -303,9 +303,9 @@ export function mapAppendOnlyTreeSnapshotFromNoir(snapshot: AppendOnlyTreeSnapsh
 }
 
 /**
- * Maps a AOT snapshot from noir to the circuits.js type.
+ * Maps a AOT snapshot from noir to the stdlib type.
  * @param snapshot - The noir AOT snapshot.
- * @returns The circuits.js AOT snapshot.
+ * @returns The stdlib AOT snapshot.
  */
 export function mapAppendOnlyTreeSnapshotToNoir(snapshot: AppendOnlyTreeSnapshot): AppendOnlyTreeSnapshotNoir {
   return {
@@ -466,9 +466,8 @@ export function mapPublicCallRequestFromNoir(request: PublicCallRequestNoir) {
   return new PublicCallRequest(
     mapAztecAddressFromNoir(request.msg_sender),
     mapAztecAddressFromNoir(request.contract_address),
-    mapFunctionSelectorFromNoir(request.function_selector),
     request.is_static_call,
-    mapFieldFromNoir(request.args_hash),
+    mapFieldFromNoir(request.calldata_hash),
   );
 }
 
@@ -476,9 +475,8 @@ export function mapPublicCallRequestToNoir(request: PublicCallRequest): PublicCa
   return {
     msg_sender: mapAztecAddressToNoir(request.msgSender),
     contract_address: mapAztecAddressToNoir(request.contractAddress),
-    function_selector: mapFunctionSelectorToNoir(request.functionSelector),
     is_static_call: request.isStaticCall,
-    args_hash: mapFieldToNoir(request.argsHash),
+    calldata_hash: mapFieldToNoir(request.calldataHash),
   };
 }
 
@@ -601,8 +599,8 @@ export function mapNullifierLeafPreimageToNoir(
   nullifierLeafPreimage: NullifierLeafPreimage,
 ): NullifierLeafPreimageNoir {
   return {
-    nullifier: mapFieldToNoir(nullifierLeafPreimage.nullifier),
-    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextNullifier),
+    nullifier: mapFieldToNoir(nullifierLeafPreimage.leaf.nullifier),
+    next_nullifier: mapFieldToNoir(nullifierLeafPreimage.nextKey),
     next_index: mapNumberToNoir(Number(nullifierLeafPreimage.nextIndex)),
   };
 }
@@ -612,9 +610,9 @@ export function mapNullifierLeafPreimageToNoir(
  */
 export function mapPublicDataTreePreimageToNoir(preimage: PublicDataTreeLeafPreimage): PublicDataTreeLeafPreimageNoir {
   return {
-    slot: mapFieldToNoir(preimage.slot),
-    value: mapFieldToNoir(preimage.value),
-    next_slot: mapFieldToNoir(preimage.nextSlot),
+    slot: mapFieldToNoir(preimage.leaf.slot),
+    value: mapFieldToNoir(preimage.leaf.value),
+    next_slot: mapFieldToNoir(preimage.nextKey),
     next_index: mapNumberToNoir(Number(preimage.nextIndex)),
   };
 }
@@ -647,11 +645,11 @@ export function mapMembershipWitnessToNoir<N extends number>(witness: Membership
  * @param logHash - The LogHash.
  * @returns The noir log hash.
  */
-function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
+export function mapLogHashToNoir(logHash: LogHash): LogHashNoir {
   return {
     value: mapFieldToNoir(logHash.value),
     counter: mapNumberToNoir(logHash.counter),
-    length: mapFieldToNoir(logHash.length),
+    length: mapNumberToNoir(logHash.length),
   };
 }
 
@@ -664,7 +662,7 @@ function mapLogHashFromNoir(logHash: LogHashNoir): LogHash {
   return new LogHash(
     mapFieldFromNoir(logHash.value),
     mapNumberFromNoir(logHash.counter),
-    mapFieldFromNoir(logHash.length),
+    mapNumberFromNoir(logHash.length),
   );
 }
 
@@ -685,7 +683,7 @@ export function mapScopedLogHashToNoir(scopedLogHash: ScopedLogHash): ScopedLogH
  * @param logHash - The noir LogHash.
  * @returns The TS log hash.
  */
-function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
+export function mapScopedLogHashFromNoir(scopedLogHash: ScopedLogHashNoir): ScopedLogHash {
   return new ScopedLogHash(
     mapLogHashFromNoir(scopedLogHash.log_hash),
     mapAztecAddressFromNoir(scopedLogHash.contract_address),
@@ -716,7 +714,6 @@ export function mapPrivateToRollupAccumulatedDataToNoir(
       privateToRollupAccumulatedData.contractClassLogsHashes,
       mapScopedLogHashToNoir,
     ),
-    contract_class_log_preimages_length: mapFieldToNoir(privateToRollupAccumulatedData.contractClassLogPreimagesLength),
   };
 }
 
@@ -743,7 +740,6 @@ export function mapPrivateToRollupAccumulatedDataFromNoir(
       MAX_CONTRACT_CLASS_LOGS_PER_TX,
       mapScopedLogHashFromNoir,
     ),
-    mapFieldFromNoir(privateToRollupAccumulatedData.contract_class_log_preimages_length),
   );
 }
 

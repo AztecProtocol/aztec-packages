@@ -1,7 +1,7 @@
 import { logs as otelLogs } from '@opentelemetry/api-logs';
 import { OTLPLogExporter } from '@opentelemetry/exporter-logs-otlp-http';
 import { CompressionAlgorithm } from '@opentelemetry/otlp-exporter-base';
-import { type IResource } from '@opentelemetry/resources';
+import type { IResource } from '@opentelemetry/resources';
 import { BatchLogRecordProcessor, LoggerProvider } from '@opentelemetry/sdk-logs';
 
 export function registerOtelLoggerProvider(resource: IResource, otelLogsUrl?: URL) {

@@ -16,10 +16,7 @@
       "path": "../blob-sink"
     },
     {
-      "path": "../circuit-types"
-    },
-    {
-      "path": "../circuits.js"
+      "path": "../constants"
     },
     {
       "path": "../epoch-cache"
@@ -35,6 +32,9 @@
     },
     {
       "path": "../l1-artifacts"
+    },
+    {
+      "path": "../node-lib"
     },
     {
       "path": "../noir-protocol-circuits-types"
@@ -55,10 +55,10 @@
       "path": "../simulator"
     },
     {
-      "path": "../telemetry-client"
+      "path": "../stdlib"
     },
     {
-      "path": "../types"
+      "path": "../telemetry-client"
     },
     {
       "path": "../world-state"

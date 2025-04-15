@@ -4,9 +4,9 @@ namespace bb::stdlib::recursion::honk {
 
 /**
  * @brief Runs the Goblin recursive verifier consisting of ECCVM, Translator and Merge verifiers.
- *
- * @todo https://github.com/AztecProtocol/barretenberg/issues/934: Add logic for accumulating the pairing points
- * produced by the translator and merge verifier (and potentially IPA accumulators for ECCVM verifier)
+ * // TODO(https://github.com/AztecProtocol/barretenberg/issues/1309): Implement correct pairing point aggregation.
+ * Method needs to accept an input agg object, aggregate the pairing points from both translator and merge, then return
+ * the updated agg object.
  */
 GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof& proof)
 {
@@ -18,7 +18,8 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
     TranslatorVerifier translator_verifier{ builder,
                                             verification_keys.translator_verification_key,
                                             eccvm_verifier.transcript };
-    translator_verifier.verify_proof(proof.translator_proof);
+    [[maybe_unused]] auto translator_pairing_points = translator_verifier.verify_proof(
+        proof.translator_proof, eccvm_verifier.evaluation_challenge_x, eccvm_verifier.batching_challenge_v);
 
     // Verify the consistency between the ECCVM and Translator transcript polynomial evaluations
     // In reality the Goblin Proof is going to already be a stdlib proof and this conversion is not going to happen here
@@ -32,10 +33,11 @@ GoblinRecursiveVerifierOutput GoblinRecursiveVerifier::verify(const GoblinProof&
                                 TranslatorBF::from_witness(builder, native_translation_evaluations.z2)
 
         };
-    translator_verifier.verify_translation(translation_evaluations);
+    translator_verifier.verify_translation(translation_evaluations, eccvm_verifier.translation_masking_term_eval);
 
     MergeVerifier merge_verifier{ builder };
-    merge_verifier.verify_proof(proof.merge_proof);
+    StdlibProof<Builder> stdlib_merge_proof = bb::convert_native_proof_to_stdlib(builder, proof.merge_proof);
+    [[maybe_unused]] auto merge_pairing_points = merge_verifier.verify_proof(stdlib_merge_proof);
     return { opening_claim, ipa_transcript };
 }
 } // namespace bb::stdlib::recursion::honk

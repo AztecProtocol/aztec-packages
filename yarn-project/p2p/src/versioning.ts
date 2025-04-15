@@ -1,18 +1,18 @@
+import { toBufferBE } from '@aztec/foundation/bigint-buffer';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import type { ChainConfig } from '@aztec/stdlib/config';
 import {
   type ComponentsVersions,
   checkCompressedComponentVersion,
   compressComponentVersions,
   getComponentsVersionsFromConfig,
-} from '@aztec/circuit-types';
-import { type ChainConfig } from '@aztec/circuit-types/config';
-import { toBufferBE } from '@aztec/foundation/bigint-buffer';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+} from '@aztec/stdlib/versioning';
 
-import { type SignableENR } from '@chainsafe/enr';
+import type { SignableENR } from '@chainsafe/enr';
 import xxhashFactory from 'xxhash-wasm';
 
-import { AZTEC_ENR_KEY } from './services/types.js';
+import { AZTEC_ENR_KEY } from './types/index.js';
 
 const USE_XX_HASH = false; // Enable to reduce the size of the ENR record for production
 const XX_HASH_LEN = 8;

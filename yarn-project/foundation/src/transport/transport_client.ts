@@ -3,8 +3,8 @@ import { format } from 'util';
 
 import { createLogger } from '../log/index.js';
 import { type EventMessage, type ResponseMessage, isEventMessage } from './dispatch/messages.js';
-import { type Connector } from './interface/connector.js';
-import { type Socket } from './interface/socket.js';
+import type { Connector } from './interface/connector.js';
+import type { Socket } from './interface/socket.js';
 
 const log = createLogger('foundation:transport_client');
 

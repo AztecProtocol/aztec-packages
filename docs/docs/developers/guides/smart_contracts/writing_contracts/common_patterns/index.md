@@ -58,7 +58,7 @@ contract Bridge {
         amount: Field,
     ) -> Field {
         ...
-    #include_code assert_token_is_same /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr raw
+    #include_code assert_token_is_same /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr raw
     }
 }
 ```
@@ -81,10 +81,14 @@ See [partial notes](../../../../../aztec/concepts/advanced/storage/partial_notes
 
 When you send someone a note, the note hash gets added to the note hash tree. To spend the note, the receiver needs to get the note itself (the note hash preimage). There are two ways you can get a hold of your notes:
 
-1. When sending someone a note, emit the note contents to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
-2. Manually using `pxe.addNote()` - If you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
+1. When sending someone a note, emit the note log to the recipient (the function encrypts the log in such a way that only a recipient can decrypt it). PXE then tries to decrypt all the encrypted logs, and stores the successfully decrypted one. [More info here](../how_to_emit_event.md)
+2. Manually delivering it via a custom contract method, if you choose to not emit logs to save gas or when creating a note in the public domain and want to consume it in private domain (`encrypt_and_emit_note` shouldn't be called in the public domain because everything is public), like in the previous section where we created a note in public that doesn't have a designated owner.
 
-#include_code pxe_add_note yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
+#include_code offchain_delivery yarn-project/end-to-end/src/composed/e2e_persistence.test.ts typescript
+
+Note that this requires your contract to have a utility function that processes these notes and adds them to PXE.
+
+#include_code deliver_note_contract_method noir-projects/noir-contracts/contracts/app/token_blacklist_contract/src/main.nr rust
 
 ### Revealing encrypted logs conditionally
 
@@ -142,6 +146,8 @@ PS: when calling from private to public, `msg_sender` is the contract address wh
 
 In the [Prevent the same user flow from happening twice using nullifier](#prevent-the-same-user-flow-from-happening-twice-using-nullifiers), we recommended using nullifiers. But what you put in the nullifier is also as important.
 
-E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../../aztec/concepts/accounts/keys.md#nullifier-keys). E.g.:
+E.g. for a voting contract, if your nullifier simply emits just the `user_address`, then privacy can easily be leaked via a preimage attack as nullifiers are deterministic (have no randomness), especially if there are few users of the contract. So you need some kind of randomness. You can add the user's secret key into the nullifier to add randomness. We call this "nullifier secrets" as explained [here](../../../../../aztec/concepts/accounts/keys.md#nullifier-keys).
 
-#include_code nullifier /noir-projects/aztec-nr/value-note/src/value_note.nr rust
+Here is an example from the voting contract:
+
+#include_code cast_vote /noir-projects/noir-contracts/contracts/app/easy_private_voting_contract/src/main.nr rust

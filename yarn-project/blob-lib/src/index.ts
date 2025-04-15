@@ -4,10 +4,11 @@ import cKzg from 'c-kzg';
 const { loadTrustedSetup } = cKzg;
 
 export * from './blob.js';
-export * from './mocks.js';
 export * from './encoding.js';
 export * from './interface.js';
 export * from './errors.js';
+export * from './blob_public_inputs.js';
+export * from './sponge_blob.js';
 
 try {
   loadTrustedSetup();

@@ -36,7 +36,7 @@ mod tests {
 
         pub fn execute_to_equal(self, expected: u32) {
             let private_call = self.private_call.to_private_circuit_public_inputs();
-            /// Safety: this is a test
+            // Safety: this is a test
             let index = unsafe {
                 find_first_revertible_item_index(
                     private_call.min_revertible_side_effect_counter,

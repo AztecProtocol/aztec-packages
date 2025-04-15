@@ -1,14 +1,17 @@
-import { type MerkleTreeWriteOperations } from '@aztec/circuit-types';
-import { type AvmCircuitInputs, AztecAddress, VerificationKeyData } from '@aztec/circuits.js';
 import { PublicTxSimulationTester, type TestEnqueuedCall } from '@aztec/simulator/public/fixtures';
-import { WorldStateDB } from '@aztec/simulator/server';
+import { SimpleContractDataSource } from '@aztec/simulator/server';
+import type { AvmCircuitInputs } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { makeAvmCircuitInputs } from '@aztec/stdlib/testing';
+import type { GlobalVariables } from '@aztec/stdlib/tx';
+import { VerificationKeyData } from '@aztec/stdlib/vks';
 import { NativeWorldStateService } from '@aztec/world-state';
 
 import fs from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'path';
 
-import { SimpleContractDataSource } from '../../../simulator/src/avm/fixtures/simple_contract_data_source.js';
 import {
   type BBResult,
   type BBSuccess,
@@ -26,28 +29,20 @@ export class AvmProvingTester extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
     private checkCircuitOnly: boolean,
-    worldStateDB: WorldStateDB,
+    merkleTree: MerkleTreeWriteOperations,
     contractDataSource: SimpleContractDataSource,
-    merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments: boolean,
+    globals?: GlobalVariables,
   ) {
-    super(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
+    super(merkleTree, contractDataSource, globals);
   }
 
-  static override async create(checkCircuitOnly: boolean = false, skipContractDeployments: boolean = false) {
+  // overriding parent class' create is a pain, so we use a different nam
+  static async new(checkCircuitOnly: boolean = false, globals?: GlobalVariables) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new AvmProvingTester(
-      bbWorkingDirectory,
-      checkCircuitOnly,
-      worldStateDB,
-      contractDataSource,
-      merkleTrees,
-      skipContractDeployments,
-    );
+    return new AvmProvingTester(bbWorkingDirectory, checkCircuitOnly, merkleTrees, contractDataSource, globals);
   }
 
   async prove(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
@@ -87,7 +82,7 @@ export class AvmProvingTester extends PublicTxSimulationTester {
     appCalls: TestEnqueuedCall[],
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
-    feePayer?: AztecAddress,
+    feePayer = sender,
   ) {
     const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);
@@ -114,27 +109,19 @@ export class AvmProvingTester extends PublicTxSimulationTester {
 export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   constructor(
     private bbWorkingDirectory: string,
-    worldStateDB: WorldStateDB,
     contractDataSource: SimpleContractDataSource,
     merkleTrees: MerkleTreeWriteOperations,
-    skipContractDeployments: boolean,
+    globals?: GlobalVariables,
   ) {
-    super(worldStateDB, contractDataSource, merkleTrees, skipContractDeployments);
+    super(merkleTrees, contractDataSource, globals);
   }
 
-  static override async create(skipContractDeployments: boolean = false) {
+  static async new(globals?: GlobalVariables) {
     const bbWorkingDirectory = await fs.mkdtemp(path.join(tmpdir(), 'bb-'));
 
     const contractDataSource = new SimpleContractDataSource();
     const merkleTrees = await (await NativeWorldStateService.tmp()).fork();
-    const worldStateDB = new WorldStateDB(merkleTrees, contractDataSource);
-    return new AvmProvingTesterV2(
-      bbWorkingDirectory,
-      worldStateDB,
-      contractDataSource,
-      merkleTrees,
-      skipContractDeployments,
-    );
+    return new AvmProvingTesterV2(bbWorkingDirectory, contractDataSource, merkleTrees, globals);
   }
 
   async proveV2(avmCircuitInputs: AvmCircuitInputs): Promise<BBResult> {
@@ -148,19 +135,15 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
   }
 
   async verifyV2(proofRes: BBSuccess): Promise<BBResult> {
-    // Then we verify.
-    // Placeholder for now.
-    const publicInputs = {
-      dummy: [] as any[],
-    };
+    // TODO: Placeholder for now. They get ignored in C++.
+    const inputs = await makeAvmCircuitInputs();
 
-    const rawVkPath = path.join(proofRes.vkPath!, 'vk');
     return await verifyAvmProofV2(
       BB_PATH,
       this.bbWorkingDirectory,
       proofRes.proofPath!,
-      publicInputs,
-      rawVkPath,
+      inputs.publicInputs,
+      proofRes.vkPath!,
       this.logger,
     );
   }
@@ -171,7 +154,7 @@ export class AvmProvingTesterV2 extends PublicTxSimulationTester {
     appCalls: TestEnqueuedCall[],
     teardownCall: TestEnqueuedCall | undefined,
     expectRevert: boolean | undefined,
-    feePayer?: AztecAddress,
+    feePayer = sender,
   ) {
     const simRes = await this.simulateTx(sender, setupCalls, appCalls, teardownCall, feePayer);
     expect(simRes.revertCode.isOK()).toBe(expectRevert ? false : true);

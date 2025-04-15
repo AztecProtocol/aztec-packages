@@ -1,4 +1,4 @@
-import { type LogFn, type Logger } from '@aztec/foundation/log';
+import type { LogFn, Logger } from '@aztec/foundation/log';
 
 import { Command } from 'commander';
 
@@ -43,6 +43,14 @@ export function injectAztecCommands(program: Command, userLog: LogFn, debugLogge
       $ aztec-nargo test --silence-warnings --oracle-resolver=<TXE_ADDRESS> [options]
     `,
   );
+
+  program
+    .command('preload-crs')
+    .description('Preload the points data needed for proving and verifying')
+    .action(async options => {
+      const { preloadCrs } = await import('./preload_crs.js');
+      return await preloadCrs(options, userLog, debugLogger);
+    });
 
   return program;
 }

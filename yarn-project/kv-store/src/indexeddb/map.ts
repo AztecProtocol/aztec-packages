@@ -1,22 +1,23 @@
-import { type IDBPDatabase, type IDBPObjectStore } from 'idb';
+import type { IDBPDatabase, IDBPObjectStore } from 'idb';
+import { hash } from 'ohash';
 
-import { type Key, type Range } from '../interfaces/common.js';
-import { type AztecAsyncMultiMap } from '../interfaces/map.js';
-import { type AztecIDBSchema } from './store.js';
+import type { Key, Range, Value } from '../interfaces/common.js';
+import type { AztecAsyncMap } from '../interfaces/map.js';
+import type { AztecIDBSchema } from './store.js';
 
 /**
  * A map backed by IndexedDB.
  */
-export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K, V> {
+export class IndexedDBAztecMap<K extends Key, V extends Value> implements AztecAsyncMap<K, V> {
   protected name: string;
-  #container: string;
+  protected container: string;
 
   #_db?: IDBPObjectStore<AztecIDBSchema, ['data'], 'data', 'readwrite'>;
   #rootDB: IDBPDatabase<AztecIDBSchema>;
 
   constructor(rootDB: IDBPDatabase<AztecIDBSchema>, mapName: string) {
     this.name = mapName;
-    this.#container = `map:${mapName}`;
+    this.container = `map:${mapName}`;
     this.#rootDB = rootDB;
   }
 
@@ -29,21 +30,8 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
   }
 
   async getAsync(key: K): Promise<V | undefined> {
-    const data = await this.db.get(this.#slot(key));
+    const data = await this.db.get(this.slot(key));
     return data?.value as V;
-  }
-
-  async *getValuesAsync(key: K): AsyncIterableIterator<V> {
-    const index = this.db.index('keyCount');
-    const rangeQuery = IDBKeyRange.bound(
-      [this.#container, this.#normalizeKey(key), 0],
-      [this.#container, this.#normalizeKey(key), Number.MAX_SAFE_INTEGER],
-      false,
-      false,
-    );
-    for await (const cursor of index.iterate(rangeQuery)) {
-      yield cursor.value.value as V;
-    }
   }
 
   async hasAsync(key: K): Promise<boolean> {
@@ -52,15 +40,13 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
   }
 
   async set(key: K, val: V): Promise<void> {
-    const count = await this.db
-      .index('key')
-      .count(IDBKeyRange.bound([this.#container, this.#normalizeKey(key)], [this.#container, this.#normalizeKey(key)]));
     await this.db.put({
       value: val,
-      container: this.#container,
-      key: this.#normalizeKey(key),
-      keyCount: count + 1,
-      slot: this.#slot(key, count),
+      hash: hash(val),
+      container: this.container,
+      key: this.normalizeKey(key),
+      keyCount: 1,
+      slot: this.slot(key),
     });
   }
 
@@ -77,30 +63,14 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
   }
 
   async delete(key: K): Promise<void> {
-    await this.db.delete(this.#slot(key));
-  }
-
-  async deleteValue(key: K, val: V): Promise<void> {
-    const index = this.db.index('keyCount');
-    const rangeQuery = IDBKeyRange.bound(
-      [this.#container, this.#normalizeKey(key), 0],
-      [this.#container, this.#normalizeKey(key), Number.MAX_SAFE_INTEGER],
-      false,
-      false,
-    );
-    for await (const cursor of index.iterate(rangeQuery)) {
-      if (JSON.stringify(cursor.value.value) === JSON.stringify(val)) {
-        await cursor.delete();
-        return;
-      }
-    }
+    await this.db.delete(this.slot(key));
   }
 
   async *entriesAsync(range: Range<K> = {}): AsyncIterableIterator<[K, V]> {
     const index = this.db.index('key');
     const rangeQuery = IDBKeyRange.bound(
-      [this.#container, range.start ?? ''],
-      [this.#container, range.end ?? '\uffff'],
+      [this.container, range.start ?? ''],
+      [this.container, range.end ?? '\uffff'],
       !!range.reverse,
       !range.reverse,
     );
@@ -131,12 +101,12 @@ export class IndexedDBAztecMap<K extends Key, V> implements AztecAsyncMultiMap<K
     return (denormalizedKey.length > 1 ? denormalizedKey : key) as K;
   }
 
-  #normalizeKey(key: K): string {
+  protected normalizeKey(key: K): string {
     const arrayKey = Array.isArray(key) ? key : [key];
     return arrayKey.join(',');
   }
 
-  #slot(key: K, index: number = 0): string {
-    return `map:${this.name}:slot:${this.#normalizeKey(key)}:${index}`;
+  protected slot(key: K, index: number = 0): string {
+    return `map:${this.name}:slot:${this.normalizeKey(key)}:${index}`;
   }
 }

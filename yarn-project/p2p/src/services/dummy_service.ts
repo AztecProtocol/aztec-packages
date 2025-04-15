@@ -1,9 +1,12 @@
-import type { BlockAttestation, BlockProposal, Gossipable, PeerInfo, TxHash } from '@aztec/circuit-types';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
+import type { BlockAttestation, BlockProposal, Gossipable } from '@aztec/stdlib/p2p';
+import { TxHash } from '@aztec/stdlib/tx';
 
+import type { ENR } from '@chainsafe/enr';
 import type { PeerId } from '@libp2p/interface';
 import EventEmitter from 'events';
 
-import { type ReqRespSubProtocol, type SubProtocolMap } from './reqresp/interface.js';
+import type { ReqRespSubProtocol, SubProtocolMap } from './reqresp/interface.js';
 import { type P2PService, type PeerDiscoveryService, PeerDiscoveryState } from './service.js';
 
 /**
@@ -88,7 +91,7 @@ export class DummyP2PService implements P2PService {
  */
 export class DummyPeerDiscoveryService extends EventEmitter implements PeerDiscoveryService {
   private currentState = PeerDiscoveryState.STOPPED;
-  public bootstrapNodes: string[] = [];
+  public bootstrapNodeEnrs: ENR[] = [];
 
   /**
    * Starts the dummy implementation.

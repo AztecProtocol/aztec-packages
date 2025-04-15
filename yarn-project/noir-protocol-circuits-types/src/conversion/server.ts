@@ -1,36 +1,33 @@
+import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/blob-lib';
 import {
   type AVM_PROOF_LENGTH_IN_FIELDS,
   AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
   AZTEC_MAX_EPOCH_DURATION,
-  type AvmAccumulatedData,
-  type AvmCircuitPublicInputs,
   BLOBS_PER_BLOCK,
-  type BaseParityInputs,
-  Fr,
+  CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS,
   HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type MembershipWitness,
   type NESTED_RECURSIVE_PROOF_LENGTH,
   type NULLIFIER_TREE_HEIGHT,
-  ParityPublicInputs,
+  type RECURSIVE_PROOF_LENGTH,
+  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  type TUBE_PROOF_LENGTH,
+} from '@aztec/constants';
+import { toHex } from '@aztec/foundation/bigint-buffer';
+import { Fr } from '@aztec/foundation/fields';
+import { type Tuple, mapTuple } from '@aztec/foundation/serialize';
+import type { MembershipWitness } from '@aztec/foundation/trees';
+import { type AvmAccumulatedData, type AvmCircuitPublicInputs, PublicDataHint, RevertCode } from '@aztec/stdlib/avm';
+import {
   type PrivateToAvmAccumulatedData,
   type PrivateToAvmAccumulatedDataArrayLengths,
   type PrivateToPublicAccumulatedData,
   type PrivateToPublicKernelCircuitPublicInputs,
   PrivateToRollupKernelCircuitPublicInputs,
-  type PublicDataHint,
-  type RECURSIVE_PROOF_LENGTH,
-  ROLLUP_HONK_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-  type RecursiveProof,
-  RevertCode,
   RollupValidationRequests,
-  type RootParityInput,
-  type RootParityInputs,
-  type TUBE_PROOF_LENGTH,
-  type TreeSnapshots,
-  TxConstantData,
-  type VkWitnessData,
-} from '@aztec/circuits.js';
-import { BlobPublicInputs, BlockBlobPublicInputs, Poseidon2Sponge, SpongeBlob } from '@aztec/circuits.js/blobs';
+} from '@aztec/stdlib/kernel';
+import type { ContractClassLog } from '@aztec/stdlib/logs';
+import { BaseParityInputs, ParityPublicInputs, type RootParityInput, RootParityInputs } from '@aztec/stdlib/parity';
+import type { RecursiveProof } from '@aztec/stdlib/proofs';
 import {
   type AvmProofData,
   BaseOrMergeRollupPublicInputs,
@@ -53,9 +50,9 @@ import {
   type RootRollupInputs,
   RootRollupPublicInputs,
   type SingleTxBlockRootRollupInputs,
-} from '@aztec/circuits.js/rollup';
-import { toHex } from '@aztec/foundation/bigint-buffer';
-import { mapTuple } from '@aztec/foundation/serialize';
+} from '@aztec/stdlib/rollup';
+import { TreeSnapshots, TxConstantData } from '@aztec/stdlib/tx';
+import type { VkWitnessData } from '@aztec/stdlib/vks';
 
 import type {
   AvmAccumulatedData as AvmAccumulatedDataNoir,
@@ -73,6 +70,7 @@ import type {
   BlockRootRollupData as BlockRootRollupDataNoir,
   BlockRootRollupInputs as BlockRootRollupInputsNoir,
   ConstantRollupData as ConstantRollupDataNoir,
+  ContractClassLog as ContractClassLogNoir,
   EmptyBlockRootRollupInputs as EmptyBlockRootRollupInputsNoir,
   FeeRecipient as FeeRecipientNoir,
   FixedLengthArray,
@@ -182,7 +180,7 @@ export function mapFeeRecipientFromNoir(feeRecipient: FeeRecipientNoir): FeeReci
 
 /**
  * Maps poseidon sponge to noir.
- * @param sponge - The circuits.js poseidon sponge.
+ * @param sponge - The stdlib poseidon sponge.
  * @returns The noir poseidon sponge.
  */
 export function mapPoseidon2SpongeToNoir(sponge: Poseidon2Sponge): Poseidon2SpongeNoir {
@@ -197,7 +195,7 @@ export function mapPoseidon2SpongeToNoir(sponge: Poseidon2Sponge): Poseidon2Spon
 /**
  * Maps poseidon sponge from noir.
  * @param sponge - The noir poseidon sponge.
- * @returns The circuits.js poseidon sponge.
+ * @returns The stdlib poseidon sponge.
  */
 export function mapPoseidon2SpongeFromNoir(sponge: Poseidon2SpongeNoir): Poseidon2Sponge {
   return new Poseidon2Sponge(
@@ -210,7 +208,7 @@ export function mapPoseidon2SpongeFromNoir(sponge: Poseidon2SpongeNoir): Poseido
 
 /**
  * Maps sponge blob to noir.
- * @param spongeBlob - The circuits.js sponge blob.
+ * @param spongeBlob - The stdlib sponge blob.
  * @returns The noir sponge blob.
  */
 export function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
@@ -224,7 +222,7 @@ export function mapSpongeBlobToNoir(spongeBlob: SpongeBlob): SpongeBlobNoir {
 /**
  * Maps sponge blob from noir.
  * @param spongeBlob - The noir sponge blob.
- * @returns The circuits.js sponge blob.
+ * @returns The stdlib sponge blob.
  */
 export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
   return new SpongeBlob(
@@ -236,7 +234,7 @@ export function mapSpongeBlobFromNoir(spongeBlob: SpongeBlobNoir): SpongeBlob {
 
 /**
  * Maps blob commitment to noir.
- * @param commitment - The circuits.js commitment.
+ * @param commitment - The stdlib commitment.
  * @returns The noir commitment.
  */
 export function mapBlobCommitmentToNoir(commitment: [Fr, Fr]): BlobCommitmentNoir {
@@ -247,7 +245,7 @@ export function mapBlobCommitmentToNoir(commitment: [Fr, Fr]): BlobCommitmentNoi
 
 /**
  * Maps blob public inputs to noir.
- * @param blobPublicInputs - The circuits.js blob public inputs.
+ * @param blobPublicInputs - The stdlib blob public inputs.
  * @returns The noir blob public inputs.
  */
 export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): BlobPublicInputsNoir {
@@ -261,7 +259,7 @@ export function mapBlobPublicInputsToNoir(blobPublicInputs: BlobPublicInputs): B
 /**
  * Maps blob public inputs from noir.
  * @param blobPublicInputs - The noir blob public inputs.
- * @returns The circuits.js blob public inputs.
+ * @returns The stdlib blob public inputs.
  */
 export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNoir): BlobPublicInputs {
   return new BlobPublicInputs(
@@ -273,7 +271,7 @@ export function mapBlobPublicInputsFromNoir(blobPublicInputs: BlobPublicInputsNo
 
 /**
  * Maps block blob public inputs to noir.
- * @param blockBlobPublicInputs - The circuits.js block blob public inputs.
+ * @param blockBlobPublicInputs - The stdlib block blob public inputs.
  * @returns The noir block blob public inputs.
  */
 export function mapBlockBlobPublicInputsToNoir(
@@ -287,7 +285,7 @@ export function mapBlockBlobPublicInputsToNoir(
 /**
  * Maps block blob public inputs from noir.
  * @param blockBlobPublicInputs - The noir block blob public inputs.
- * @returns The circuits.js block blob public inputs.
+ * @returns The stdlib block blob public inputs.
  */
 export function mapBlockBlobPublicInputsFromNoir(
   blockBlobPublicInputs: BlockBlobPublicInputsNoir,
@@ -295,6 +293,23 @@ export function mapBlockBlobPublicInputsFromNoir(
   return new BlockBlobPublicInputs(
     mapTupleFromNoir(blockBlobPublicInputs.inner, BLOBS_PER_BLOCK, mapBlobPublicInputsFromNoir),
   );
+}
+
+/**
+ * Maps a contract class log to noir.
+ * @param log - The ts contract class log.
+ * @returns The noir contract class log.
+ */
+export function mapContractClassLogToNoir(log: ContractClassLog): ContractClassLogNoir {
+  return {
+    log: {
+      // @ts-expect-error - below line gives error 'Type instantiation is excessively deep and possibly infinite. ts(2589)'
+      fields: Array.from({ length: CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS }, (_, idx) =>
+        mapFieldToNoir(log.fields[idx]),
+      ) as Tuple<string, typeof CONTRACT_CLASS_LOG_DATA_SIZE_IN_FIELDS>,
+    },
+    contract_address: mapAztecAddressToNoir(log.contractAddress),
+  };
 }
 
 function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
@@ -308,7 +323,7 @@ function mapPublicDataHintToNoir(hint: PublicDataHint): PublicDataHintNoir {
 
 /**
  * Maps a constant rollup data to a noir constant rollup data.
- * @param constantRollupData - The circuits.js constant rollup data.
+ * @param constantRollupData - The stdlib constant rollup data.
  * @returns The noir constant rollup data.
  */
 export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupData): ConstantRollupDataNoir {
@@ -321,9 +336,9 @@ export function mapConstantRollupDataToNoir(constantRollupData: ConstantRollupDa
 }
 
 /**
- * Maps a constant rollup data from noir to the circuits.js type.
+ * Maps a constant rollup data from noir to the stdlib type.
  * @param constantRollupData - The noir constant rollup data.
- * @returns The circuits.js constant rollup data.
+ * @returns The stdlib constant rollup data.
  */
 export function mapConstantRollupDataFromNoir(constantRollupData: ConstantRollupDataNoir): ConstantRollupData {
   return new ConstantRollupData(
@@ -408,7 +423,7 @@ export function mapParityPublicInputsToNoir(parityPublicInputs: ParityPublicInpu
 /**
  * Maps a root rollup public inputs from noir.
  * @param rootRollupPublicInputs - The noir root rollup public inputs.
- * @returns The circuits.js root rollup public inputs.
+ * @returns The stdlib root rollup public inputs.
  */
 export function mapRootRollupPublicInputsFromNoir(
   rootRollupPublicInputs: RootRollupPublicInputsNoir,
@@ -436,7 +451,7 @@ export function mapRootRollupPublicInputsFromNoir(
 /**
  * Maps a parity public inputs from noir.
  * @param parityPublicInputs - The noir parity public inputs.
- * @returns The circuits.js parity public inputs.
+ * @returns The stdlib parity public inputs.
  */
 export function mapParityPublicInputsFromNoir(parityPublicInputs: ParityPublicInputsNoir): ParityPublicInputs {
   return new ParityPublicInputs(
@@ -571,9 +586,9 @@ function mapAvmCircuitPublicInputsToNoir(inputs: AvmCircuitPublicInputs): AvmCir
 }
 
 /**
- * Maps a block root or block merge rollup public inputs from noir to the circuits.js type.
+ * Maps a block root or block merge rollup public inputs from noir to the stdlib type.
  * @param blockRootOrBlockMergePublicInputs - The noir lock root or block merge  rollup public inputs.
- * @returns The circuits.js block root or block merge  rollup public inputs.
+ * @returns The stdlib block root or block merge  rollup public inputs.
  */
 export function mapBlockRootOrBlockMergePublicInputsFromNoir(
   blockRootOrBlockMergePublicInputs: BlockRootOrBlockMergePublicInputsNoir,
@@ -599,8 +614,8 @@ export function mapBlockRootOrBlockMergePublicInputsFromNoir(
 }
 
 /**
- * Maps a previous rollup data from the circuits.js type to noir.
- * @param previousRollupData - The circuits.js previous rollup data.
+ * Maps a previous rollup data from the stdlib type to noir.
+ * @param previousRollupData - The stdlib previous rollup data.
  * @returns The noir previous rollup data.
  */
 export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupData): PreviousRollupDataNoir {
@@ -618,8 +633,8 @@ export function mapPreviousRollupDataToNoir(previousRollupData: PreviousRollupDa
 }
 
 /**
- * Maps a previous rollup data from the circuits.js type to noir.
- * @param previousRollupData - The circuits.js previous rollup data.
+ * Maps a previous rollup data from the stdlib type to noir.
+ * @param previousRollupData - The stdlib previous rollup data.
  * @returns The noir previous rollup data.
  */
 export function mapPreviousRollupBlockDataToNoir(
@@ -670,7 +685,7 @@ function mapBlockRootRollupBlobDataToNoir(data: BlockRootRollupBlobData): BlockR
 
 /**
  * Maps the block root rollup inputs to noir.
- * @param rootRollupInputs - The circuits.js block root rollup inputs.
+ * @param rootRollupInputs - The stdlib block root rollup inputs.
  * @returns The noir block root rollup inputs.
  */
 export function mapBlockRootRollupInputsToNoir(rootRollupInputs: BlockRootRollupInputs): BlockRootRollupInputsNoir {
@@ -693,7 +708,7 @@ export function mapSingleTxBlockRootRollupInputsToNoir(
 
 /**
  * Maps the empty block root rollup inputs to noir.
- * @param rootRollupInputs - The circuits.js block root rollup inputs.
+ * @param rootRollupInputs - The stdlib block root rollup inputs.
  * @returns The noir block root rollup inputs.
  */
 export function mapEmptyBlockRootRollupInputsToNoir(
@@ -708,7 +723,7 @@ export function mapEmptyBlockRootRollupInputsToNoir(
 
 /**
  * Maps the root rollup inputs to noir.
- * @param rootRollupInputs - The circuits.js root rollup inputs.
+ * @param rootRollupInputs - The stdlib root rollup inputs.
  * @returns The noir root rollup inputs.
  */
 export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): RootRollupInputsNoir {
@@ -719,9 +734,9 @@ export function mapRootRollupInputsToNoir(rootRollupInputs: RootRollupInputs): R
 }
 
 /**
- * Maps a base or merge rollup public inputs from noir to the circuits.js type.
+ * Maps a base or merge rollup public inputs from noir to the stdlib type.
  * @param baseOrMergeRollupPublicInputs - The noir base or merge rollup public inputs.
- * @returns The circuits.js base or merge rollup public inputs.
+ * @returns The stdlib base or merge rollup public inputs.
  */
 export function mapBaseOrMergeRollupPublicInputsFromNoir(
   baseOrMergeRollupPublicInputs: BaseOrMergeRollupPublicInputsNoir,
@@ -764,7 +779,7 @@ export function mapPrivateBaseStateDiffHintsToNoir(hints: PrivateBaseStateDiffHi
 
 /**
  * Maps base parity inputs to noir.
- * @param inputs - The circuits.js base parity inputs.
+ * @param inputs - The stdlib base parity inputs.
  * @returns The noir base parity inputs.
  */
 export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityInputsNoir {
@@ -776,7 +791,7 @@ export function mapBaseParityInputsToNoir(inputs: BaseParityInputs): BaseParityI
 
 /**
  * Maps root parity inputs to noir.
- * @param inputs - The circuits.js root parity inputs.
+ * @param inputs - The stdlib root parity inputs.
  * @returns The noir root parity inputs.
  */
 export function mapRootParityInputsToNoir(inputs: RootParityInputs): RootParityInputsNoir {
@@ -795,7 +810,7 @@ function mapPrivateTubeDataToNoir(data: PrivateTubeData): PrivateTubeDataNoir {
 
 /**
  * Maps the inputs to the base rollup to noir.
- * @param input - The circuits.js base rollup inputs.
+ * @param input - The stdlib base rollup inputs.
  * @returns The noir base rollup inputs.
  */
 export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs): PrivateBaseRollupInputsNoir {
@@ -804,10 +819,10 @@ export function mapPrivateBaseRollupInputsToNoir(inputs: PrivateBaseRollupInputs
     start: mapPartialStateReferenceToNoir(inputs.hints.start),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
     state_diff_hints: mapPrivateBaseStateDiffHintsToNoir(inputs.hints.stateDiffHints),
-
-    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
-    constants: mapConstantRollupDataToNoir(inputs.hints.constants),
     fee_payer_fee_juice_balance_read_hint: mapPublicDataHintToNoir(inputs.hints.feePayerFeeJuiceBalanceReadHint),
+    archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
+    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, mapContractClassLogToNoir),
+    constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };
 }
 
@@ -840,15 +855,15 @@ export function mapPublicBaseRollupInputsToNoir(inputs: PublicBaseRollupInputs):
     tube_data: mapPublicTubeDataToNoir(inputs.tubeData),
     avm_proof_data: mapAvmProofDataToNoir(inputs.avmProofData),
     start_sponge_blob: mapSpongeBlobToNoir(inputs.hints.startSpongeBlob),
-
     archive_root_membership_witness: mapMembershipWitnessToNoir(inputs.hints.archiveRootMembershipWitness),
+    contract_class_logs_preimages: mapTuple(inputs.hints.contractClassLogsPreimages, mapContractClassLogToNoir),
     constants: mapConstantRollupDataToNoir(inputs.hints.constants),
   };
 }
 
 /**
  * Maps the merge rollup inputs to noir.
- * @param mergeRollupInputs - The circuits.js merge rollup inputs.
+ * @param mergeRollupInputs - The stdlib merge rollup inputs.
  * @returns The noir merge rollup inputs.
  */
 export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs): MergeRollupInputsNoir {
@@ -859,7 +874,7 @@ export function mapMergeRollupInputsToNoir(mergeRollupInputs: MergeRollupInputs)
 
 /**
  * Maps the block merge rollup inputs to noir.
- * @param mergeRollupInputs - The circuits.js block merge rollup inputs.
+ * @param mergeRollupInputs - The stdlib block merge rollup inputs.
  * @returns The noir block merge rollup inputs.
  */
 export function mapBlockMergeRollupInputsToNoir(mergeRollupInputs: BlockMergeRollupInputs): BlockMergeRollupInputsNoir {

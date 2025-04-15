@@ -2,7 +2,6 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {Test} from "forge-std/Test.sol";
 import {TestBase} from "../base/Base.sol";
 
 // Many of the structs in here match what you see in `header` but with very important exceptions!

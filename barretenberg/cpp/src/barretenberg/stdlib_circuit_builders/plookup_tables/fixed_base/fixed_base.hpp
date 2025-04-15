@@ -46,7 +46,7 @@ class table : public FixedBaseParams {
     // fixed_base_tables = lookup tables of precomputed base points required for our lookup arguments.
     // N.B. these "tables" are not plookup tables, just regular ol' software lookup tables.
     // Used to build the proper plookup table and in the `BasicTable::get_values_from_key` method
-    static const all_multi_tables fixed_base_tables;
+    static const all_multi_tables& fixed_base_tables();
 
     /**
      * @brief offset generators!
@@ -63,7 +63,7 @@ class table : public FixedBaseParams {
      * The final scalar multiplication output will have a precisely-known contribution from the offset generators,
      * which can then be subtracted off with a single point subtraction.
      **/
-    static const std::array<affine_element, table::NUM_FIXED_BASE_MULTI_TABLES> fixed_base_table_offset_generators;
+    static const std::array<affine_element, table::NUM_FIXED_BASE_MULTI_TABLES>& fixed_base_table_offset_generators();
 
     static bool lookup_table_exists_for_point(const affine_element& input);
     static std::optional<std::array<MultiTableId, 2>> get_lookup_table_ids_for_point(const affine_element& input);
@@ -78,7 +78,7 @@ class table : public FixedBaseParams {
     {
         static_assert(multitable_index < NUM_FIXED_BASE_MULTI_TABLES);
         static_assert(table_index < get_num_bits_of_multi_table(multitable_index));
-        const auto& basic_table = fixed_base_tables[multitable_index][table_index];
+        const auto& basic_table = fixed_base_tables()[multitable_index][table_index];
         const auto index = static_cast<size_t>(key[0]);
         return { basic_table[index].x, basic_table[index].y };
     }

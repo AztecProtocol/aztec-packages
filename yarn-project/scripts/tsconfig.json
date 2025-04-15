@@ -7,10 +7,10 @@
   },
   "references": [
     {
-      "path": "../circuit-types"
+      "path": "../foundation"
     },
     {
-      "path": "../foundation"
+      "path": "../stdlib"
     }
   ],
   "include": ["src"]

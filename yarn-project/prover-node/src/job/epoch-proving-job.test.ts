@@ -1,25 +1,21 @@
-import {
-  type EpochProver,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  type Tx,
-  type WorldStateSynchronizer,
-} from '@aztec/circuit-types';
-import { BlockHeader, Proof } from '@aztec/circuits.js';
-import { RootRollupPublicInputs } from '@aztec/circuits.js/rollup';
 import { times, timesParallel } from '@aztec/foundation/collection';
 import { toArray } from '@aztec/foundation/iterable';
 import { sleep } from '@aztec/foundation/sleep';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { L2Block, type L2BlockSource } from '@aztec/stdlib/block';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import type { EpochProver, MerkleTreeWriteOperations, WorldStateSynchronizer } from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { Proof } from '@aztec/stdlib/proofs';
+import { RootRollupPublicInputs } from '@aztec/stdlib/rollup';
+import type { ProcessedTx, Tx } from '@aztec/stdlib/tx';
+import { BlockHeader } from '@aztec/stdlib/tx';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { type MockProxy, mock } from 'jest-mock-extended';
 
 import { ProverNodeMetrics } from '../metrics.js';
-import { type ProverNodePublisher } from '../prover-node-publisher.js';
+import type { ProverNodePublisher } from '../prover-node-publisher.js';
 import { EpochProvingJob } from './epoch-proving-job.js';
 
 describe('epoch-proving-job', () => {
@@ -90,9 +86,12 @@ describe('epoch-proving-job', () => {
 
     l1ToL2MessageSource.getL1ToL2Messages.mockResolvedValue([]);
     l2BlockSource.getBlockHeader.mockResolvedValue(initialHeader);
+    l2BlockSource.getL1Constants.mockResolvedValue({ ethereumSlotDuration: 0.1 } as L1RollupConstants);
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(blocks.map(b => b.header));
     publicProcessorFactory.create.mockReturnValue(publicProcessor);
     db.getInitialHeader.mockReturnValue(initialHeader);
     worldState.fork.mockResolvedValue(db);
+    prover.startNewBlock.mockImplementation(() => sleep(200));
     prover.finaliseEpoch.mockResolvedValue({ publicInputs, proof });
     publisher.submitEpochProof.mockResolvedValue(true);
     publicProcessor.process.mockImplementation(async txs => {
@@ -151,7 +150,6 @@ describe('epoch-proving-job', () => {
   });
 
   it('halts if stopped externally', async () => {
-    prover.startNewBlock.mockImplementation(() => sleep(200));
     const job = createJob();
     void job.run();
     await sleep(100);
@@ -159,5 +157,17 @@ describe('epoch-proving-job', () => {
 
     expect(job.getState()).toEqual('stopped');
     expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+  });
+
+  it('halts if a new block for the epoch is found', async () => {
+    const newBlocks = await timesParallel(NUM_BLOCKS + 1, i => L2Block.random(i + 1, TXS_PER_BLOCK));
+    l2BlockSource.getBlockHeadersForEpoch.mockResolvedValue(newBlocks.map(b => b.header));
+
+    const job = createJob();
+    await job.run();
+
+    expect(job.getState()).toEqual('reorg');
+    expect(publisher.submitEpochProof).not.toHaveBeenCalled();
+    expect(prover.cancel).toHaveBeenCalled();
   });
 });

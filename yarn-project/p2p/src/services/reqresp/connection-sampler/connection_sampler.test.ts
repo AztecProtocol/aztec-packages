@@ -1,7 +1,7 @@
 import { sleep } from '@aztec/foundation/sleep';
 
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
-import { type PeerId, type Stream } from '@libp2p/interface';
+import type { PeerId, Stream } from '@libp2p/interface';
 import { createSecp256k1PeerId } from '@libp2p/peer-id-factory';
 import { type MockProxy, mock } from 'jest-mock-extended';
 

@@ -6,8 +6,8 @@ set -eu
 
 # Check if at least two commands are provided (otherwise what is the point)
 if [ "$#" -lt 2 ]; then
-    echo "Usage: $0 <main-command> <background commands>..."
-    exit 1
+  echo "Usage: $0 <main-command> <background commands>..."
+  exit 1
 fi
 
 # Launches tmux with 1 window that has as many panes as commands
@@ -23,7 +23,7 @@ tmux new-session -d -s "$session_name" -e LOG_LEVEL=${LOG_LEVEL:-"debug"} \
   -e OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:-} \
   -e OTEL_EXPORTER_OTLP_TRACES_ENDPOINT=${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:-} \
   -e L1_CONSENSUS_HOST_URL=${L1_CONSENSUS_HOST_URL:-} \
-  -e ETHEREUM_HOST=${ETHEREUM_HOST:-} \
+  -e ETHEREUM_HOSTS=${ETHEREUM_HOSTS:-} \
   -e LOG_JSON=${LOG_JSON:-}
 
 shift 1
@@ -39,7 +39,7 @@ echo "Using tmux base_index=$base_index"
 
 # Create the necessary number of panes and set titles
 num_commands=${#commands[@]}
-for ((i=0; i<num_commands; i++)); do
+for ((i = 0; i < num_commands; i++)); do
   if [[ $i -gt 0 ]]; then
     # Split the first pane each time
     tmux split-window -t "$session_name:${base_index}.${base_index}" -h
@@ -53,7 +53,7 @@ done
 tmux set-hook -t "$session_name" pane-exited "if-shell -F '#{==:#{pane_index},0}' 'kill-session -t \"$session_name\"'"
 
 # Now send commands to each pane
-for ((i=0; i<num_commands; i++)); do
+for ((i = 0; i < num_commands; i++)); do
   tmux send-keys -t "$session_name:$base_index.$((base_index + i))" "${commands[$i]}" C-m
 done
 

@@ -1,52 +1,45 @@
-import {
-  BlockAttestation,
-  type BlockBuilder,
-  BlockProposal,
-  Body,
-  ConsensusPayload,
-  type L1ToL2MessageSource,
-  L2Block,
-  type L2BlockSource,
-  type MerkleTreeId,
-  type MerkleTreeReadOperations,
-  type MerkleTreeWriteOperations,
-  type Tx,
-  TxHash,
-  WorldStateRunningState,
-  type WorldStateSynchronizer,
-  makeProcessedTxFromPrivateOnlyTx,
-  mockTxForRollup,
-} from '@aztec/circuit-types';
-import {
-  AztecAddress,
-  BlockHeader,
-  type ContractDataSource,
-  EthAddress,
-  Fr,
-  type Gas,
-  GasFees,
-  GlobalVariables,
-  NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-} from '@aztec/circuits.js';
-import { makeAppendOnlyTreeSnapshot } from '@aztec/circuits.js/testing';
+import { Body, L2Block } from '@aztec/aztec.js';
+import { NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP } from '@aztec/constants';
 import { DefaultL1ContractsConfig } from '@aztec/ethereum';
 import { Buffer32 } from '@aztec/foundation/buffer';
 import { times, timesParallel } from '@aztec/foundation/collection';
+import { EthAddress } from '@aztec/foundation/eth-address';
 import { Signature } from '@aztec/foundation/eth-signature';
+import { Fr } from '@aztec/foundation/fields';
 import { toArray } from '@aztec/foundation/iterable';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { TestDateProvider, type Timer } from '@aztec/foundation/timer';
 import { type P2P, P2PClientState } from '@aztec/p2p';
-import { type BlockBuilderFactory } from '@aztec/prover-client/block-builder';
-import { type PublicProcessor, type PublicProcessorFactory } from '@aztec/simulator/server';
-import { type ValidatorClient } from '@aztec/validator-client';
+import type { BlockBuilderFactory } from '@aztec/prover-client/block-builder';
+import type { PublicProcessor, PublicProcessorFactory } from '@aztec/simulator/server';
+import { PublicDataWrite } from '@aztec/stdlib/avm';
+import { AztecAddress } from '@aztec/stdlib/aztec-address';
+import type { L2BlockSource } from '@aztec/stdlib/block';
+import type { ContractDataSource } from '@aztec/stdlib/contract';
+import { Gas, GasFees } from '@aztec/stdlib/gas';
+import {
+  type BlockBuilder,
+  type MerkleTreeReadOperations,
+  type MerkleTreeWriteOperations,
+  WorldStateRunningState,
+  type WorldStateSyncStatus,
+  type WorldStateSynchronizer,
+  type WorldStateSynchronizerStatus,
+} from '@aztec/stdlib/interfaces/server';
+import type { L1ToL2MessageSource } from '@aztec/stdlib/messaging';
+import { BlockAttestation, BlockProposal, ConsensusPayload } from '@aztec/stdlib/p2p';
+import { makeAppendOnlyTreeSnapshot, mockTxForRollup } from '@aztec/stdlib/testing';
+import type { MerkleTreeId } from '@aztec/stdlib/trees';
+import { type Tx, TxHash, makeProcessedTxFromPrivateOnlyTx } from '@aztec/stdlib/tx';
+import { BlockHeader, GlobalVariables } from '@aztec/stdlib/tx';
+import type { ValidatorClient } from '@aztec/validator-client';
 
 import { expect } from '@jest/globals';
 import { type MockProxy, mock, mockFn } from 'jest-mock-extended';
 
-import { type GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
-import { type SequencerPublisher } from '../publisher/sequencer-publisher.js';
-import { type SlasherClient } from '../slasher/index.js';
+import type { GlobalVariableBuilder } from '../global_variable_builder/global_builder.js';
+import type { SequencerPublisher } from '../publisher/sequencer-publisher.js';
+import type { SlasherClient } from '../slasher/index.js';
 import { Sequencer } from './sequencer.js';
 import { SequencerState } from './utils.js';
 
@@ -102,7 +95,11 @@ describe('sequencer', () => {
   };
 
   const processTxs = async (txs: Tx[]) => {
-    return await Promise.all(txs.map(tx => makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, undefined, globalVariables)));
+    return await Promise.all(
+      txs.map(tx =>
+        makeProcessedTxFromPrivateOnlyTx(tx, Fr.ZERO, new PublicDataWrite(Fr.random(), Fr.random()), globalVariables),
+      ),
+    );
   };
 
   const mockTxIterator = async function* (txs: Promise<Tx[]>): AsyncIterableIterator<Tx> {
@@ -180,6 +177,9 @@ describe('sequencer', () => {
     merkleTreeOps.findLeafIndices.mockImplementation((_treeId: MerkleTreeId, _value: any[]) => {
       return Promise.resolve([undefined]);
     });
+    merkleTreeOps.getTreeInfo.mockImplementation((treeId: MerkleTreeId) => {
+      return Promise.resolve({ treeId, root: Fr.random().toBuffer(), size: 99n, depth: 5 });
+    });
 
     p2p = mock<P2P>({
       getStatus: mockFn().mockResolvedValue({
@@ -193,18 +193,25 @@ describe('sequencer', () => {
     });
     worldState = mock<WorldStateSynchronizer>({
       fork: () => Promise.resolve(fork),
+      syncImmediate: () => Promise.resolve(lastBlockNumber),
       getCommitted: () => merkleTreeOps,
       status: mockFn().mockResolvedValue({
         state: WorldStateRunningState.IDLE,
-        syncedToL2Block: { number: lastBlockNumber, hash },
-      }),
+        syncSummary: {
+          latestBlockNumber: lastBlockNumber,
+          latestBlockHash: hash,
+          finalisedBlockNumber: 0,
+          oldestHistoricBlockNumber: 0,
+          treesAreSynched: true,
+        },
+      } satisfies WorldStateSynchronizerStatus),
     });
 
     publicProcessor = mock<PublicProcessor>();
     publicProcessor.process.mockImplementation(async txsIter => {
       const txs = await toArray(txsIter);
       const processed = await processTxs(txs);
-      logger.verbose(`Processed ${txs.length} txs`, { txHashes: txs.map(tx => tx.getTxHash()) });
+      logger.verbose(`Processed ${txs.length} txs`, { txHashes: await Promise.all(txs.map(tx => tx.getTxHash())) });
       return [processed, [], []];
     });
 
@@ -221,6 +228,7 @@ describe('sequencer', () => {
     l1ToL2MessageSource = mock<L1ToL2MessageSource>({
       getL1ToL2Messages: () => Promise.resolve(Array(NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP).fill(Fr.ZERO)),
       getBlockNumber: mockFn().mockResolvedValue(lastBlockNumber),
+      getL2Tips: mockFn().mockResolvedValue({ latest: { number: lastBlockNumber, hash } }),
     });
 
     // all txs use the same allowed FPC class
@@ -303,7 +311,7 @@ describe('sequencer', () => {
   it('does not build a block if it does not have enough time left in the slot', async () => {
     // Trick the sequencer into thinking that we are just too far into slot 1
     sequencer.setL1GenesisTime(
-      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initialTime + 1),
+      Math.floor(Date.now() / 1000) - slotDuration * 1 - (sequencer.getTimeTable().initializeDeadline + 1),
     );
 
     const tx = await makeTx();
@@ -489,7 +497,13 @@ describe('sequencer', () => {
     const currentTip = firstBlock;
     const syncedToL2Block = { number: currentTip.number, hash: (await currentTip.hash()).toString() };
     worldState.status.mockImplementation(() =>
-      Promise.resolve({ state: WorldStateRunningState.IDLE, syncedToL2Block }),
+      Promise.resolve({
+        state: WorldStateRunningState.IDLE,
+        syncSummary: {
+          latestBlockNumber: syncedToL2Block.number,
+          latestBlockHash: syncedToL2Block.hash,
+        } as WorldStateSyncStatus,
+      }),
     );
     p2p.getStatus.mockImplementation(() => Promise.resolve({ state: P2PClientState.IDLE, syncedToL2Block }));
     l2BlockSource.getL2Tips.mockImplementation(() =>
@@ -499,7 +513,13 @@ describe('sequencer', () => {
         finalized: { number: 0, hash: undefined },
       }),
     );
-    l1ToL2MessageSource.getBlockNumber.mockImplementation(() => Promise.resolve(currentTip.number));
+    l1ToL2MessageSource.getL2Tips.mockImplementation(() =>
+      Promise.resolve({
+        latest: syncedToL2Block,
+        proven: { number: 0, hash: undefined },
+        finalized: { number: 0, hash: undefined },
+      }),
+    );
 
     // simulate a synch happening right after
     l2BlockSource.getBlockNumber.mockResolvedValueOnce(currentTip.number);

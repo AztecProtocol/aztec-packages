@@ -1,20 +1,11 @@
 import { Blob } from '@aztec/blob-lib';
 import { EthAddress } from '@aztec/foundation/eth-address';
+import { jsonStringify } from '@aztec/foundation/json-rpc';
 import { createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
 
-import { type Anvil } from '@viem/anvil';
-import {
-  type Abi,
-  type Account,
-  type Chain,
-  type HttpTransport,
-  type PublicClient,
-  type WalletClient,
-  createPublicClient,
-  createWalletClient,
-  http,
-} from 'viem';
+import type { Anvil } from '@viem/anvil';
+import { type Abi, createPublicClient, createWalletClient, fallback, http } from 'viem';
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 
@@ -22,6 +13,7 @@ import { EthCheatCodes } from './eth_cheat_codes.js';
 import { defaultL1TxUtilsConfig } from './l1_tx_utils.js';
 import { L1TxUtilsWithBlobs } from './l1_tx_utils_with_blobs.js';
 import { startAnvil } from './test/start_anvil.js';
+import type { SimpleViemWalletClient, ViemPublicClient } from './types.js';
 import { formatViemError } from './utils.js';
 
 const MNEMONIC = 'test test test test test test test test test test test junk';
@@ -37,17 +29,17 @@ export type PendingTransaction = {
 
 describe('GasUtils', () => {
   let gasUtils: L1TxUtilsWithBlobs;
-  let walletClient: WalletClient<HttpTransport, Chain, Account>;
-  let publicClient: PublicClient<HttpTransport, Chain>;
+  let walletClient: SimpleViemWalletClient;
+  let publicClient: ViemPublicClient;
   let anvil: Anvil;
   let cheatCodes: EthCheatCodes;
   const initialBaseFee = WEI_CONST; // 1 gwei
   const logger = createLogger('ethereum:test:l1_gas_test');
 
   beforeAll(async () => {
-    const { anvil: anvilInstance, rpcUrl } = await startAnvil(1);
+    const { anvil: anvilInstance, rpcUrl } = await startAnvil({ l1BlockTime: 1 });
     anvil = anvilInstance;
-    cheatCodes = new EthCheatCodes(rpcUrl);
+    cheatCodes = new EthCheatCodes([rpcUrl]);
     const hdAccount = mnemonicToAccount(MNEMONIC, { addressIndex: 0 });
     const privKeyRaw = hdAccount.getHdKey().privateKey;
     if (!privKeyRaw) {
@@ -57,12 +49,12 @@ describe('GasUtils', () => {
     const account = privateKeyToAccount(`0x${privKey}`);
 
     publicClient = createPublicClient({
-      transport: http(rpcUrl),
+      transport: fallback([...Array(1)].map(() => http(rpcUrl))),
       chain: foundry,
     });
 
     walletClient = createWalletClient({
-      transport: http(rpcUrl),
+      transport: fallback([...Array(1)].map(() => http(rpcUrl))),
       chain: foundry,
       account,
     });
@@ -77,7 +69,6 @@ describe('GasUtils', () => {
     gasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
-      minGwei: 1n,
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -92,7 +83,7 @@ describe('GasUtils', () => {
   afterAll(async () => {
     // disabling interval mining as it seems to cause issues with stopping anvil
     await cheatCodes.setIntervalMining(0); // Disable interval mining
-    await anvil.stop();
+    await anvil.stop().catch(err => createLogger('cleanup').error(err));
   }, 5_000);
 
   it('sends and monitors a simple transaction', async () => {
@@ -205,7 +196,6 @@ describe('GasUtils', () => {
     const baselineGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 0,
       maxGwei: 500n,
-      minGwei: 10n, // Increased minimum gas price
       maxAttempts: 5,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -225,7 +215,6 @@ describe('GasUtils', () => {
     const bufferedGasUtils = new L1TxUtilsWithBlobs(publicClient, walletClient, logger, {
       gasLimitBufferPercentage: 20,
       maxGwei: 500n,
-      minGwei: 1n,
       maxAttempts: 3,
       checkIntervalMs: 100,
       stallTimeMs: 1000,
@@ -397,6 +386,48 @@ describe('GasUtils', () => {
       }
     }
   }, 10_000);
+
+  it('strips ABI from non-revert errors', async () => {
+    // Create a client with an invalid RPC URL to trigger a real error
+    const invalidClient = createPublicClient({
+      transport: http('https://foobar.com'),
+      chain: foundry,
+    });
+
+    // Define a test ABI to have something to look for
+    const testAbi = [
+      {
+        type: 'function',
+        name: 'uniqueTestFunction',
+        inputs: [{ type: 'uint256', name: 'param1' }],
+        outputs: [{ type: 'bool' }],
+        stateMutability: 'view',
+      },
+    ] as const;
+
+    try {
+      // Try to make a request that will fail
+      await invalidClient.readContract({
+        address: '0x1234567890123456789012345678901234567890',
+        abi: testAbi,
+        functionName: 'uniqueTestFunction',
+        args: [123n],
+      });
+
+      fail('Should have thrown an error');
+    } catch (err: any) {
+      // Verify the original error has the ABI
+      const originalError = jsonStringify(err);
+      expect(originalError).toContain('uniqueTestFunction');
+
+      // Check that the formatted error doesn't have the ABI
+      const formatted = formatViemError(err);
+      const serialized = jsonStringify(formatted);
+      expect(serialized).not.toContain('uniqueTestFunction');
+      expect(formatted.message).toContain('failed');
+    }
+  }, 10_000);
+
   it('handles custom errors', async () => {
     // We're deploying this contract:
     // pragma solidity >=0.8.27;

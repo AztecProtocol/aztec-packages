@@ -7,15 +7,14 @@ namespace bb {
 class UltraRollupFlavor : public bb::UltraFlavor {
   public:
     // Proof length formula:
-    // 1. HONK_PROOF_PUBLIC_INPUT_OFFSET are the circuit_size, num_public_inputs, pub_inputs_offset
-    // 2. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
-    // 3. IPA_CLAIM_SIZE public inputs for IPA claim
-    // 4. NUM_WITNESS_ENTITIES commitments
-    // 5. CONST_PROOF_SIZE_LOG_N sumcheck univariates
-    // 6. NUM_ALL_ENTITIES sumcheck evaluations
-    // 7. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
-    // 8. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
-    // 9. KZG W commitment
+    // 1. PAIRING_POINT_ACCUMULATOR_SIZE public inputs for pairing point accumulator
+    // 2. IPA_CLAIM_SIZE public inputs for IPA claim
+    // 3. NUM_WITNESS_ENTITIES commitments
+    // 4. CONST_PROOF_SIZE_LOG_N sumcheck univariates
+    // 5. NUM_ALL_ENTITIES sumcheck evaluations
+    // 6. CONST_PROOF_SIZE_LOG_N Gemini Fold commitments
+    // 7. CONST_PROOF_SIZE_LOG_N Gemini a evaluations
+    // 8. KZG W commitment
     static constexpr size_t num_frs_comm = bb::field_conversion::calc_num_bn254_frs<Commitment>();
     static constexpr size_t num_frs_fr = bb::field_conversion::calc_num_bn254_frs<FF>();
     static constexpr size_t PROOF_LENGTH_WITHOUT_PUB_INPUTS =
@@ -38,7 +37,7 @@ class UltraRollupFlavor : public bb::UltraFlavor {
      * that, and split out separate PrecomputedPolynomials/Commitments data for clarity but also for portability of our
      * circuits.
      */
-    class VerificationKey : public VerificationKey_<PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
+    class VerificationKey : public VerificationKey_<uint64_t, PrecomputedEntities<Commitment>, VerifierCommitmentKey> {
       public:
         virtual ~VerificationKey() = default;
         bool contains_ipa_claim;

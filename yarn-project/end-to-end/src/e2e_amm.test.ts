@@ -1,11 +1,12 @@
 import { type AccountWallet, Fr, type Logger, type Wallet } from '@aztec/aztec.js';
 import { AMMContract } from '@aztec/noir-contracts.js/AMM';
-import { type TokenContract } from '@aztec/noir-contracts.js/Token';
+import type { TokenContract } from '@aztec/noir-contracts.js/Token';
 
 import { jest } from '@jest/globals';
 
 import { deployToken, mintTokensToPrivate } from './fixtures/token_utils.js';
 import { setup } from './fixtures/utils.js';
+import { capturePrivateExecutionStepsIfEnvSet } from './shared/capture_private_execution_steps.js';
 
 const TIMEOUT = 120_000;
 
@@ -105,7 +106,7 @@ describe('AMM', () => {
       // authwits are for the full amount, since the AMM will first transfer that to itself, and later refund any excess
       // during public execution.
       const nonceForAuthwits = Fr.random();
-      await liquidityProvider.createAuthWit({
+      const token0Authwit = await liquidityProvider.createAuthWit({
         caller: amm.address,
         action: token0.methods.transfer_to_public(
           liquidityProvider.getAddress(),
@@ -114,7 +115,7 @@ describe('AMM', () => {
           nonceForAuthwits,
         ),
       });
-      await liquidityProvider.createAuthWit({
+      const token1Authwit = await liquidityProvider.createAuthWit({
         caller: amm.address,
         action: token1.methods.transfer_to_public(
           liquidityProvider.getAddress(),
@@ -124,11 +125,12 @@ describe('AMM', () => {
         ),
       });
 
-      await amm
+      const addLiquidityInteraction = amm
         .withWallet(liquidityProvider)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
-        .send()
-        .wait();
+        .with({ authWitnesses: [token0Authwit, token1Authwit] });
+      await capturePrivateExecutionStepsIfEnvSet('amm-add-liquidity', addLiquidityInteraction);
+      await addLiquidityInteraction.send().wait();
 
       const ammBalancesAfter = await getAmmBalances();
       const lpBalancesAfter = await getWalletBalances(liquidityProvider);
@@ -171,7 +173,7 @@ describe('AMM', () => {
       // public execution. We expect for there to be excess since our maximum amounts do not have the same balance ratio
       // as the pool currently holds.
       const nonceForAuthwits = Fr.random();
-      await otherLiquidityProvider.createAuthWit({
+      const token1Authwih = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
         action: token0.methods.transfer_to_public(
           otherLiquidityProvider.getAddress(),
@@ -180,7 +182,7 @@ describe('AMM', () => {
           nonceForAuthwits,
         ),
       });
-      await otherLiquidityProvider.createAuthWit({
+      const token2Authwit = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
         action: token1.methods.transfer_to_public(
           otherLiquidityProvider.getAddress(),
@@ -193,7 +195,7 @@ describe('AMM', () => {
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.add_liquidity(amount0Max, amount1Max, amount0Min, amount1Min, nonceForAuthwits)
-        .send()
+        .send({ authWitnesses: [token1Authwih, token2Authwit] })
         .wait();
 
       const ammBalancesAfter = await getAmmBalances();
@@ -222,7 +224,7 @@ describe('AMM', () => {
 
       // Swaps also transfer tokens into the AMM, so we provide an authwit for the full amount in.
       const nonceForAuthwits = Fr.random();
-      await swapper.createAuthWit({
+      const swapAuthwit = await swapper.createAuthWit({
         caller: amm.address,
         action: token0.methods.transfer_to_public(swapper.getAddress(), amm.address, amountIn, nonceForAuthwits),
       });
@@ -233,11 +235,13 @@ describe('AMM', () => {
       const amountOutMin = await amm.methods
         .get_amount_out_for_exact_in(ammBalancesBefore.token0, ammBalancesBefore.token1, amountIn)
         .simulate();
-      await amm
+
+      const swapExactTokensInteraction = amm
         .withWallet(swapper)
         .methods.swap_exact_tokens_for_tokens(token0.address, token1.address, amountIn, amountOutMin, nonceForAuthwits)
-        .send()
-        .wait();
+        .with({ authWitnesses: [swapAuthwit] });
+      await capturePrivateExecutionStepsIfEnvSet('amm-swap-exact-tokens', swapExactTokensInteraction);
+      await swapExactTokensInteraction.send().wait();
 
       // We know exactly how many tokens we're supposed to get because we know nobody else interacted with the AMM
       // before we did.
@@ -263,7 +267,7 @@ describe('AMM', () => {
       // Swaps also transfer tokens into the AMM, so we provide an authwit for the full amount in (any change will be
       // later returned, though in this case there won't be any).
       const nonceForAuthwits = Fr.random();
-      await swapper.createAuthWit({
+      const swapAuthwit = await swapper.createAuthWit({
         caller: amm.address,
         action: token1.methods.transfer_to_public(swapper.getAddress(), amm.address, amountInMax, nonceForAuthwits),
       });
@@ -271,7 +275,7 @@ describe('AMM', () => {
       await amm
         .withWallet(swapper)
         .methods.swap_tokens_for_exact_tokens(token1.address, token0.address, amountOut, amountInMax, nonceForAuthwits)
-        .send()
+        .send({ authWitnesses: [swapAuthwit] })
         .wait();
 
       // Because nobody else interacted with the AMM, we know the amount in will be the maximum (i.e. the value the
@@ -295,7 +299,7 @@ describe('AMM', () => {
       // Because private burning requires first transfering the tokens into the AMM, we again need to provide an
       // authwit.
       const nonceForAuthwits = Fr.random();
-      await otherLiquidityProvider.createAuthWit({
+      const liquidityAuthwit = await otherLiquidityProvider.createAuthWit({
         caller: amm.address,
         action: liquidityToken.methods.transfer_to_public(
           otherLiquidityProvider.getAddress(),
@@ -309,10 +313,11 @@ describe('AMM', () => {
       // real-life scenario we'd need to choose sensible amounts to avoid losing value due to slippage.
       const amount0Min = 1n;
       const amount1Min = 1n;
+
       await amm
         .withWallet(otherLiquidityProvider)
         .methods.remove_liquidity(liquidityTokenBalance, amount0Min, amount1Min, nonceForAuthwits)
-        .send()
+        .send({ authWitnesses: [liquidityAuthwit] })
         .wait();
 
       // The liquidity provider should have no remaining liquidity tokens, and should have recovered the value they

@@ -1,5 +1,5 @@
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
+import { padArrayEnd } from '../collection/array.js';
+import { sha256Trunc } from '../crypto/sha256/index.js';
 
 /**
  * Computes the merkle root for an unbalanced tree.

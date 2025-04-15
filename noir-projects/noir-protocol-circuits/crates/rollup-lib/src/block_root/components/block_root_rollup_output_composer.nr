@@ -207,7 +207,7 @@ impl BlockRootRollupOutputComposer {
                 self.merged_rollup.end_sponge_blob,
             )
         } else {
-            /// Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
+            // Safety: TODO(#10323): this was added to save simulation time, if/when simulation times of unconstrained are improved, remove this.
             unsafe {
                 blob::mock_blob_oracle::evaluate_blobs(
                     data.blobs_fields,

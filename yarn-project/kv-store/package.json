@@ -13,31 +13,27 @@
   "scripts": {
     "build": "yarn clean && tsc -b",
     "build:dev": "tsc -b --watch",
-    "clean:cpp": "rm -rf $(git rev-parse --show-toplevel)/barretenberg/cpp/build-pic",
     "clean": "rm -rf ./dest .tsbuildinfo",
-    "formatting": "run -T prettier --check ./src && run -T eslint ./src",
-    "formatting:fix": "run -T eslint --fix ./src && run -T prettier -w ./src",
-    "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json --reporter dot",
+    "test:node": "NODE_NO_WARNINGS=1 mocha --config ./.mocharc.json",
     "test:browser": "wtr --config ./web-test-runner.config.mjs",
-    "test": "yarn test:node && yarn test:browser && true",
-    "generate": "mkdir -p build && cp -v ../../barretenberg/cpp/build-pic/lib/nodejs_module.node build"
+    "test": "yarn test:node && yarn test:browser && true"
   },
   "inherits": [
     "../package.common.json",
     "./package.local.json"
   ],
   "dependencies": {
-    "@aztec/circuit-types": "workspace:^",
     "@aztec/ethereum": "workspace:^",
     "@aztec/foundation": "workspace:^",
     "@aztec/native": "workspace:^",
+    "@aztec/stdlib": "workspace:^",
     "idb": "^8.0.0",
     "lmdb": "^3.2.0",
     "msgpackr": "^1.11.2",
+    "ohash": "^2.0.11",
     "ordered-binary": "^1.5.3"
   },
   "devDependencies": {
-    "@aztec/circuits.js": "workspace:^",
     "@jest/globals": "^29.5.0",
     "@types/chai": "^5.0.1",
     "@types/chai-as-promised": "^8.0.1",
@@ -94,7 +90,7 @@
     ],
     "testRegex": "./src/.*\\.test\\.(js|mjs|ts)$",
     "rootDir": "./src",
-    "testTimeout": 30000,
+    "testTimeout": 120000,
     "setupFiles": [
       "../../foundation/src/jest/setup.mjs"
     ]

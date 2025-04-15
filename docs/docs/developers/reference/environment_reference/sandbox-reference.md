@@ -14,23 +14,18 @@ For a quick start, follow the [guide](../../getting_started.md) to install the s
 
 There are various environment variables you can use when running the whole sandbox or when running on of the available modes.
 
-To change them, you can open `~/.aztec/docker-compose.sandbox.yml` and edit them directly.
-
 **Sandbox**
 
 ```sh
 LOG_LEVEL=debug # Options are 'fatal', 'error', 'warn', 'info', 'verbose', 'debug', 'trace'
-HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the docker-compose.yml file is stored by default.
-ETHEREUM_HOST=http://ethereum:8545 # The Ethereum JSON RPC URL. We use an anvil instance that runs in parallel to the sandbox on docker by default.
+HOST_WORKDIR='${PWD}' # The location to store log outputs. Will use ~/.aztec where the binaries are stored by default.
+ETHEREUM_HOSTS=http://127.0.0.1:8545 # List of Ethereum JSON RPC URLs. We use an anvil instance that runs in parallel to the sandbox on docker by default.
+ANVIL_PORT=8545 # The port that docker will forward to the anvil instance (default: 8545)
 L1_CHAIN_ID=31337 # The Chain ID that the Ethereum host is using.
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
 MODE='sandbox' # Option to start the sandbox or a standalone part of the system. (default: sandbox)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 AZTEC_NODE_PORT=8080 # The port that Aztec Node will be listening to (default: 8080)
-
-# Ethereum Forking (Optional: not enabled by default) #
-FORK_BLOCK_NUMBER=0 # The block number to fork from
-FORK_URL="" # The URL of the Ethereum node to fork from
 
 ## Polling intervals ##
 ARCHIVER_POLLING_INTERVAL_MS=50
@@ -52,12 +47,11 @@ P2P_ENABLED='false' # A flag to enable P2P networking for this node. (default: f
 P2P_BLOCK_CHECK_INTERVAL_MS=100 # The frequency in which to check for new L2 blocks.
 P2P_PEER_CHECK_INTERVAL_MS=1000 # The frequency in which to check for peers.
 P2P_L2_BLOCK_QUEUE_SIZE=1000 # Size of queue of L2 blocks to store.
-P2P_TCP_LISTEN_ADDR=0.0.0.0:40400 # The tcp address on which the P2P service should listen for connections.(default: 0.0.0.0:40400)
-P2P_UDP_LISTEN_ADDR=0.0.0.0:40400 # The udp address on which the P2P service should listen for peer discovery requests.(default: 0.0.0.0:40400)
+P2P_IP='' # Announce IP of the peer. Defaults to working it out using discV5, otherwise set P2P_QUERY_FOR_IP if you are behind a NAT
+P2P_LISTEN_ADDR=0.0.0.0 # The  address on which the P2P service should listen for connections.(default: 0.0.0.0)
+P2P_PORT=40400 # The Port that will be used for sending & listening p2p messages (default: 40400)
 PEER_ID_PRIVATE_KEY='' # An optional peer id private key. If blank, will generate a random key.
 BOOTSTRAP_NODES='' # A list of bootstrap peers to connect to, separated by commas
-P2P_TCP_ANNOUNCE_ADDR='' # TCP Address to announce to the p2p network. Format: <address>:<port>
-P2P_UDP_ANNOUNCE_ADDR='' # UDP Hostname to announce to the p2p network (used for peer discovery). Uses TCP announce addr if not provided
 P2P_ANNOUNCE_PORT='' # Port to announce to the p2p network
 P2P_NAT_ENABLED='false' # Whether to enable NAT from libp2p
 P2P_MAX_PEERS=100 # The maximum number of peers (a peer count above this will cause the node to refuse connection attempts)
@@ -73,8 +67,6 @@ ROLLUP_CONTRACT_ADDRESS=0x01234567890abcde01234567890abcde
 SEQ_PUBLISHER_PRIVATE_KEY=0x01234567890abcde01234567890abcde # Private key of an ethereum account that will be used by the sequencer to publish blocks.
 SEQ_MAX_TX_PER_BLOCK=32 # Maximum txs to go on a block. (default: 32)
 SEQ_MIN_TX_PER_BLOCK=1 # Minimum txs to go on a block. (default: 1)
-SEQ_MAX_SECONDS_BETWEEN_BLOCKS=0 # Sequencer will produce a block with less than the min number of txs once this threshold is reached. (default: 0, means disabled)
-SEQ_MIN_SECONDS_BETWEEN_BLOCKS=0 # Minimum seconds to wait between consecutive blocks. (default: 0)
 
 ## Validator variables ##
 VALIDATOR_PRIVATE_KEY=0x01234567890abcde01234567890abcde  # Private key of the ethereum account that will be used to perform validator duties
@@ -88,7 +80,6 @@ Variables like `TEST_ACCOUNTS` & `PXE_PORT` are valid here as described above.
 AZTEC_NODE_URL='http://localhost:8079' # The address of an Aztec Node URL that the PXE will connect to (default: http://localhost:8079)
 PXE_PORT=8080 # The port that the PXE will be listening to (default: 8080)
 TEST_ACCOUNTS='true' # Option to deploy 3 test account when sandbox starts. (default: true)
-PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
 ```
 
 **P2P Bootstrap Node**
@@ -96,10 +87,10 @@ PXE_L2_STARTING_BLOCK=1 # L2 Block to start synching the PXE from (default: 1)
 The P2P Bootstrap node is a standalone app whose purpose is to assist new P2P network participants in acquiring peers.
 
 ```sh
-P2P_UDP_LISTEN_ADDR=0.0.0.0:40400 # The udp address on which the P2P service should listen for peer discovery requests. (default: 0.0.0.0:40400)
 PEER_ID_PRIVATE_KEY='' # The private key to be used by the peer for secure communications with other peers. This key will also be used to derive the Peer ID.
-P2P_UDP_ANNOUNCE_ADDR='' # The IPAddress/Hostname that other peers should use to connect to this node, this may be different to P2P_TCP_LISTEN_ADDR if e.g. the node is behind a NAT.
-P2P_ANNOUNCE_PORT='' # The port that other peers should use to connect to this node, this may be different to P2P_UDP_LISTEN_ADDR if e.g. the node is behind a NAT.
+P2P_IP='' # Announce IP of the peer. Defaults to working it out using discV5, otherwise set P2P_QUERY_FOR_IP if you are behind a NAT
+P2P_LISTEN_ADDR=0.0.0.0 # The  address on which the P2P service should listen for connections.(default: 0.0.0.0)
+P2P_PORT=40400 # The Port that will be used for sending & listening p2p messages (default: 40400)
 ```
 
 ## Cheat Codes
@@ -133,7 +124,6 @@ EscrowContractArtifact
 FPCContractArtifact
 FeeJuiceContractArtifact
 ImportTestContractArtifact
-InclusionProofsContractArtifact
 LendingContractArtifact
 MultiCallEntrypointContractArtifact
 ParentContractArtifact

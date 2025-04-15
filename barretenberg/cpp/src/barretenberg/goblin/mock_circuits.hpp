@@ -53,7 +53,7 @@ class GoblinMockCircuits {
     using RecursiveVerificationKey = RecursiveDeciderVerificationKey::VerificationKey;
     using RecursiveVerifierAccumulator = std::shared_ptr<RecursiveDeciderVerificationKey>;
     using VerificationKey = Flavor::VerificationKey;
-    static constexpr size_t NUM_OP_QUEUE_COLUMNS = Flavor::NUM_WIRES;
+    static constexpr size_t NUM_WIRES = Flavor::NUM_WIRES;
 
     struct KernelInput {
         HonkProof proof;
@@ -117,50 +117,6 @@ class GoblinMockCircuits {
             stdlib::generate_ecdsa_verification_test_circuit(builder, 1);
             stdlib::generate_merkle_membership_test_circuit(builder, 10);
         }
-
-        // TODO(https://github.com/AztecProtocol/barretenberg/issues/911): We require goblin ops to be added to the
-        // function circuit because we cannot support zero commtiments. While the builder handles this at
-        // DeciderProvingKey creation stage via the add_gates_to_ensure_all_polys_are_non_zero function for other
-        // MegaHonk circuits (where we don't explicitly need to add goblin ops), in ClientIVC merge proving happens
-        // prior to folding where the absense of goblin ecc ops will result in zero commitments.
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
-    }
-
-    /**
-     * @brief Mock the interactions of a simple curcuit with the op_queue
-     * @todo The transcript aggregation protocol in the Goblin proof system can not yet support an empty "previous
-     * transcript" (see issue #723) because the corresponding commitments are zero / the point at infinity. This
-     * function mocks the interactions with the op queue of a fictional "first" circuit. This way, when we go to
-     * generate a proof over our first "real" circuit, the transcript aggregation protocol can proceed nominally.
-     * The mock data is valid in the sense that it can be processed by all stages of Goblin as if it came from a
-     * genuine circuit.
-     *
-     *
-     * @param op_queue
-     */
-    static void perform_op_queue_interactions_for_mock_first_circuit(
-        std::shared_ptr<bb::ECCOpQueue>& op_queue, std::shared_ptr<CommitmentKey> commitment_key = nullptr)
-    {
-        PROFILE_THIS();
-
-        bb::MegaCircuitBuilder builder{ op_queue };
-
-        // Add some goblinized ecc ops
-        MockCircuits::construct_goblin_ecc_op_circuit(builder);
-
-        op_queue->set_size_data();
-
-        // Manually compute the op queue transcript commitments (which would normally be done by the merge prover)
-        bb::srs::init_crs_factory(bb::srs::get_ignition_crs_path());
-        auto bn254_commitment_key =
-            commitment_key ? commitment_key : std::make_shared<CommitmentKey>(op_queue->get_current_size());
-        std::array<Point, Flavor::NUM_WIRES> op_queue_commitments;
-        size_t idx = 0;
-        for (auto& entry : op_queue->get_aggregate_transcript()) {
-            op_queue_commitments[idx++] = bn254_commitment_key->commit({ 0, entry });
-        }
-        // Store the commitment data for use by the prover of the next circuit
-        op_queue->set_commitment_data(op_queue_commitments);
     }
 
     /**
@@ -227,13 +183,13 @@ class GoblinMockCircuits {
                                             const KernelInput& prev_kernel_accum)
     {
         PROFILE_THIS();
+        using AggregationObject = stdlib::recursion::aggregation_state<MegaBuilder>;
 
         // Execute recursive aggregation of function proof
         auto verification_key = std::make_shared<RecursiveVerificationKey>(&builder, function_accum.verification_key);
         auto proof = bb::convert_native_proof_to_stdlib(&builder, function_accum.proof);
         RecursiveVerifier verifier1{ &builder, verification_key };
-        verifier1.verify_proof(
-            proof, stdlib::recursion::init_default_aggregation_state<MegaBuilder, RecursiveFlavor::Curve>(builder));
+        verifier1.verify_proof(proof, AggregationObject::construct_default(builder));
 
         // Execute recursive aggregation of previous kernel proof if one exists
         if (!prev_kernel_accum.proof.empty()) {
@@ -241,8 +197,7 @@ class GoblinMockCircuits {
                 std::make_shared<RecursiveVerificationKey>(&builder, prev_kernel_accum.verification_key);
             auto proof = bb::convert_native_proof_to_stdlib(&builder, prev_kernel_accum.proof);
             RecursiveVerifier verifier2{ &builder, verification_key };
-            verifier2.verify_proof(
-                proof, stdlib::recursion::init_default_aggregation_state<MegaBuilder, RecursiveFlavor::Curve>(builder));
+            verifier2.verify_proof(proof, AggregationObject::construct_default(builder));
         }
     }
 };

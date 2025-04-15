@@ -1,8 +1,8 @@
-import { type EthAddress } from '@aztec/foundation/eth-address';
-import { type Logger } from '@aztec/foundation/log';
+import type { EthAddress } from '@aztec/foundation/eth-address';
+import type { Logger } from '@aztec/foundation/log';
 
-import { type AztecAsyncSingleton, type AztecSingleton } from './interfaces/singleton.js';
-import { type AztecAsyncKVStore, type AztecKVStore } from './interfaces/store.js';
+import type { AztecAsyncSingleton, AztecSingleton } from './interfaces/singleton.js';
+import type { AztecAsyncKVStore, AztecKVStore } from './interfaces/store.js';
 import { isSyncStore } from './interfaces/utils.js';
 
 /**

@@ -2,6 +2,7 @@
 #include "barretenberg/circuit_checker/circuit_checker.hpp"
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
+#include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
@@ -9,8 +10,8 @@ namespace bb::stdlib::recursion::honk {
 class GoblinRecursiveVerifierTests : public testing::Test {
   public:
     using Builder = GoblinRecursiveVerifier::Builder;
-    using ECCVMVK = GoblinVerifier::ECCVMVerificationKey;
-    using TranslatorVK = GoblinVerifier::TranslatorVerificationKey;
+    using ECCVMVK = Goblin::ECCVMVerificationKey;
+    using TranslatorVK = Goblin::TranslatorVerificationKey;
 
     using OuterFlavor = UltraFlavor;
     using OuterProver = UltraProver_<OuterFlavor>;
@@ -33,7 +34,7 @@ class GoblinRecursiveVerifierTests : public testing::Test {
 
     struct ProverOutput {
         GoblinProof proof;
-        GoblinVerifier::VerifierInput verfier_input;
+        Goblin::VerificationKey verfier_input;
     };
 
     /**
@@ -41,21 +42,18 @@ class GoblinRecursiveVerifierTests : public testing::Test {
      *
      * @return ProverOutput
      */
-    ProverOutput create_goblin_prover_output()
+    static ProverOutput create_goblin_prover_output(const size_t NUM_CIRCUITS = 3)
     {
-        GoblinProver goblin;
+        Goblin goblin;
 
         // Construct and accumulate multiple circuits
-        size_t NUM_CIRCUITS = 3;
         for (size_t idx = 0; idx < NUM_CIRCUITS; ++idx) {
             auto circuit = construct_mock_circuit(goblin.op_queue);
-            goblin.merge(circuit); // appends a recurisve merge verifier if a merge proof exists
+            goblin.prove_merge(circuit); // appends a recurisve merge verifier if a merge proof exists
         }
 
         // Output is a goblin proof plus ECCVM/Translator verification keys
-        return { goblin.prove(),
-                 { std::make_shared<ECCVMVK>(goblin.get_eccvm_proving_key()),
-                   std::make_shared<TranslatorVK>(goblin.get_translator_proving_key()) } };
+        return { goblin.prove(), { std::make_shared<ECCVMVK>(), std::make_shared<TranslatorVK>() } };
     }
 };
 
@@ -67,9 +65,7 @@ TEST_F(GoblinRecursiveVerifierTests, NativeVerification)
 {
     auto [proof, verifier_input] = create_goblin_prover_output();
 
-    GoblinVerifier verifier{ verifier_input };
-
-    EXPECT_TRUE(verifier.verify(proof));
+    EXPECT_TRUE(Goblin::verify(proof));
 }
 
 /**
@@ -103,6 +99,36 @@ TEST_F(GoblinRecursiveVerifierTests, Basic)
     }
 }
 
+// Check that the GoblinRecursiveVerifier circuit does not depend on the inputs.
+TEST_F(GoblinRecursiveVerifierTests, IndependentVKHash)
+{
+    // Retrieves the trace blocks (each consisting of a specific gate) from the recursive verifier circuit
+    auto get_blocks = [](size_t inner_size)
+        -> std::tuple<typename Builder::ExecutionTrace, std::shared_ptr<OuterFlavor::VerificationKey>> {
+        auto [proof, verifier_input] = create_goblin_prover_output(inner_size);
+
+        Builder builder;
+        GoblinRecursiveVerifier verifier{ &builder, verifier_input };
+        verifier.verify(proof);
+
+        info("Recursive Verifier: num gates = ", builder.num_gates);
+
+        // Construct and verify a proof for the Goblin Recursive Verifier circuit
+
+        auto proving_key = std::make_shared<OuterDeciderProvingKey>(builder);
+        OuterProver prover(proving_key);
+        auto outer_verification_key = std::make_shared<typename OuterFlavor::VerificationKey>(proving_key->proving_key);
+        OuterVerifier outer_verifier(outer_verification_key);
+        return { builder.blocks, outer_verification_key };
+    };
+
+    auto [blocks_2, verification_key_2] = get_blocks(2);
+    auto [blocks_4, verification_key_4] = get_blocks(4);
+
+    compare_ultra_blocks_and_verification_keys<OuterFlavor>({ blocks_2, blocks_4 },
+                                                            { verification_key_2, verification_key_4 });
+}
+
 /**
  * @brief Ensure failure of the goblin recursive verification circuit for a bad ECCVM proof
  *
@@ -114,8 +140,6 @@ TEST_F(GoblinRecursiveVerifierTests, ECCVMFailure)
     // Tamper with the ECCVM proof
     for (auto& val : proof.eccvm_proof.pre_ipa_proof) {
         if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
-            // tamper by finding the first non-zero value
-            // and incrementing it by 1
             val += 1;
             break;
         }
@@ -146,7 +170,7 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
     auto [proof, verifier_input] = create_goblin_prover_output();
     // Tamper with the Translator proof preamble
     {
-        auto tampered_proof = proof;
+        GoblinProof tampered_proof = proof;
         for (auto& val : tampered_proof.translator_proof) {
             if (val > 0) { // tamper by finding the first non-zero value and incrementing it by 1
                 val += 1;
@@ -156,7 +180,8 @@ TEST_F(GoblinRecursiveVerifierTests, TranslatorFailure)
 
         Builder builder;
         GoblinRecursiveVerifier verifier{ &builder, verifier_input };
-        EXPECT_ANY_THROW(verifier.verify(tampered_proof));
+        verifier.verify(tampered_proof);
+        EXPECT_FALSE(CircuitChecker::check(builder));
     }
     // Tamper with the Translator proof non-preamble values
     {

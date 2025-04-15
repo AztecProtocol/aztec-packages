@@ -1,16 +1,10 @@
-import { type AztecArray, type AztecAsyncArray } from './array.js';
-import { type Key, type StoreSize } from './common.js';
-import { type AztecAsyncCounter, type AztecCounter } from './counter.js';
-import {
-  type AztecAsyncMap,
-  type AztecAsyncMultiMap,
-  type AztecMap,
-  type AztecMapWithSize,
-  type AztecMultiMap,
-  type AztecMultiMapWithSize,
-} from './map.js';
-import { type AztecAsyncSet, type AztecSet } from './set.js';
-import { type AztecAsyncSingleton, type AztecSingleton } from './singleton.js';
+import type { AztecArray, AztecAsyncArray } from './array.js';
+import type { Key, StoreSize, Value } from './common.js';
+import type { AztecAsyncCounter, AztecCounter } from './counter.js';
+import type { AztecAsyncMap, AztecMap } from './map.js';
+import type { AztecAsyncMultiMap, AztecMultiMap } from './multi_map.js';
+import type { AztecAsyncSet, AztecSet } from './set.js';
+import type { AztecAsyncSingleton, AztecSingleton } from './singleton.js';
 
 /** A key-value store */
 export interface AztecKVStore {
@@ -20,7 +14,7 @@ export interface AztecKVStore {
    * @param name - The name of the map
    * @returns The map
    */
-  openMap<K extends Key, V>(name: string): AztecMap<K, V>;
+  openMap<K extends Key, V extends Value>(name: string): AztecMap<K, V>;
 
   /**
    * Creates a new set.
@@ -34,35 +28,21 @@ export interface AztecKVStore {
    * @param name - The name of the multi-map
    * @returns The multi-map
    */
-  openMultiMap<K extends Key, V>(name: string): AztecMultiMap<K, V>;
-
-  /**
-   * Creates a new multi-map with size.
-   * @param name - The name of the multi-map
-   * @returns The multi-map
-   */
-  openMultiMapWithSize<K extends Key, V>(name: string): AztecMultiMapWithSize<K, V>;
-
-  /**
-   * Creates a new map with size.
-   * @param name - The name of the map
-   * @returns The map
-   */
-  openMapWithSize<K extends Key, V>(name: string): AztecMapWithSize<K, V>;
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecMultiMap<K, V>;
 
   /**
    * Creates a new array.
    * @param name - The name of the array
    * @returns The array
    */
-  openArray<T>(name: string): AztecArray<T>;
+  openArray<T extends Value>(name: string): AztecArray<T>;
 
   /**
    * Creates a new singleton.
    * @param name - The name of the singleton
    * @returns The singleton
    */
-  openSingleton<T>(name: string): AztecSingleton<T>;
+  openSingleton<T extends Value>(name: string): AztecSingleton<T>;
 
   /**
    * Creates a new count map.
@@ -80,11 +60,6 @@ export interface AztecKVStore {
    * Clears all entries in the store
    */
   clear(): Promise<void>;
-
-  /**
-   * Forks the store.
-   */
-  fork(): Promise<AztecKVStore>;
 
   /**
    * Deletes the store
@@ -108,7 +83,7 @@ export interface AztecAsyncKVStore {
    * @param name - The name of the map
    * @returns The map
    */
-  openMap<K extends Key, V>(name: string): AztecAsyncMap<K, V>;
+  openMap<K extends Key, V extends Value>(name: string): AztecAsyncMap<K, V>;
 
   /**
    * Creates a new set.
@@ -122,21 +97,21 @@ export interface AztecAsyncKVStore {
    * @param name - The name of the multi-map
    * @returns The multi-map
    */
-  openMultiMap<K extends Key, V>(name: string): AztecAsyncMultiMap<K, V>;
+  openMultiMap<K extends Key, V extends Value>(name: string): AztecAsyncMultiMap<K, V>;
 
   /**
    * Creates a new array.
    * @param name - The name of the array
    * @returns The array
    */
-  openArray<T>(name: string): AztecAsyncArray<T>;
+  openArray<T extends Value>(name: string): AztecAsyncArray<T>;
 
   /**
    * Creates a new singleton.
    * @param name - The name of the singleton
    * @returns The singleton
    */
-  openSingleton<T>(name: string): AztecAsyncSingleton<T>;
+  openSingleton<T extends Value>(name: string): AztecAsyncSingleton<T>;
 
   /**
    * Creates a new count map.
@@ -150,28 +125,18 @@ export interface AztecAsyncKVStore {
    */
   transactionAsync<T extends Exclude<any, Promise<any>>>(callback: () => Promise<T>): Promise<T>;
 
-  /**
-   * Clears all entries in the store
-   */
+  /** Clears all entries in the store */
   clear(): Promise<void>;
 
-  /**
-   * Forks the store.
-   */
-  fork(): Promise<AztecAsyncKVStore>;
-
-  /**
-   * Deletes the store
-   */
+  /** Deletes the store */
   delete(): Promise<void>;
 
-  /**
-   * Estimates the size of the store in bytes.
-   */
+  /** Estimates the size of the store in bytes. */
   estimateSize(): Promise<StoreSize>;
 
-  /**
-   * Closes the store
-   */
+  /** Closes the store */
   close(): Promise<void>;
+
+  /** Backups the store to the target folder.*/
+  backupTo(dstPath: string, compact?: boolean): Promise<void>;
 }

@@ -1,6 +1,6 @@
 import { type Meter, type Span, type SpanContext, type Tracer, createNoopMeter } from '@opentelemetry/api';
 
-import { type TelemetryClient } from './telemetry.js';
+import type { TelemetryClient } from './telemetry.js';
 
 export class NoopTelemetryClient implements TelemetryClient {
   getMeter(): Meter {

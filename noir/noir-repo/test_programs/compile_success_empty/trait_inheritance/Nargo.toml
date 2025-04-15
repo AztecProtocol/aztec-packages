@@ -1,5 +1,0 @@
-[package]
-name = "trait_inheritance"
-type = "bin"
-authors = [""]
-[dependencies]

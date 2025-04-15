@@ -1,6 +1,6 @@
 import { type EventLoopUtilization, type IntervalHistogram, monitorEventLoopDelay, performance } from 'node:perf_hooks';
 
-import { NODEJS_EVENT_LOOP_STATE } from './attributes.js';
+import * as Attributes from './attributes.js';
 import * as Metrics from './metrics.js';
 import {
   type BatchObservableResult,
@@ -103,8 +103,8 @@ export class EventLoopMonitor {
     // - https://youtu.be/WetXnEPraYM
     obs.observe(this.eventLoopUilization, delta.utilization);
 
-    this.eventLoopTime.add(Math.floor(delta.idle), { [NODEJS_EVENT_LOOP_STATE]: 'idle' });
-    this.eventLoopTime.add(Math.floor(delta.active), { [NODEJS_EVENT_LOOP_STATE]: 'active' });
+    this.eventLoopTime.add(Math.floor(delta.idle), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'idle' });
+    this.eventLoopTime.add(Math.floor(delta.active), { [Attributes.NODEJS_EVENT_LOOP_STATE]: 'active' });
 
     obs.observe(this.eventLoopDelayGauges.min, Math.floor(this.eventLoopDelay.min));
     obs.observe(this.eventLoopDelayGauges.mean, Math.floor(this.eventLoopDelay.mean));

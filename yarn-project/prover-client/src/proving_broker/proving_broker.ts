@@ -1,19 +1,19 @@
-import {
-  type GetProvingJobResponse,
-  type ProofUri,
-  type ProvingJob,
-  type ProvingJobConsumer,
-  type ProvingJobFilter,
-  type ProvingJobId,
-  type ProvingJobProducer,
-  type ProvingJobSettledResult,
-  type ProvingJobStatus,
-  ProvingRequestType,
-} from '@aztec/circuit-types';
 import { createLogger } from '@aztec/foundation/log';
 import { type PromiseWithResolvers, RunningPromise, promiseWithResolvers } from '@aztec/foundation/promise';
 import { PriorityMemoryQueue } from '@aztec/foundation/queue';
 import { Timer } from '@aztec/foundation/timer';
+import type {
+  GetProvingJobResponse,
+  ProofUri,
+  ProvingJob,
+  ProvingJobConsumer,
+  ProvingJobFilter,
+  ProvingJobId,
+  ProvingJobProducer,
+  ProvingJobSettledResult,
+  ProvingJobStatus,
+} from '@aztec/stdlib/interfaces/server';
+import { ProvingRequestType } from '@aztec/stdlib/proofs';
 import {
   type TelemetryClient,
   type Traceable,
@@ -24,21 +24,14 @@ import {
 
 import assert from 'assert';
 
-import { type ProvingBrokerDatabase } from './proving_broker_database.js';
+import { type ProverBrokerConfig, defaultProverBrokerConfig } from './config.js';
+import type { ProvingBrokerDatabase } from './proving_broker_database.js';
 import { type MonitorCallback, ProvingBrokerInstrumentation } from './proving_broker_instrumentation.js';
 
 type InProgressMetadata = {
   id: ProvingJobId;
   startedAt: number;
   lastUpdatedAt: number;
-};
-
-type ProofRequestBrokerConfig = {
-  timeoutIntervalMs?: number;
-  jobTimeoutMs?: number;
-  maxRetries?: number;
-  maxEpochsToKeepResultsFor?: number;
-  maxParallelCleanUps?: number;
 };
 
 type EnqueuedProvingJob = Pick<ProvingJob, 'id' | 'epochNumber'>;
@@ -115,20 +108,28 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
   public constructor(
     private database: ProvingBrokerDatabase,
     {
-      jobTimeoutMs = 30_000,
-      timeoutIntervalMs = 10_000,
-      maxRetries = 3,
-      maxEpochsToKeepResultsFor = 1,
-    }: ProofRequestBrokerConfig = {},
+      proverBrokerJobTimeoutMs,
+      proverBrokerPollIntervalMs,
+      proverBrokerJobMaxRetries,
+      proverBrokerMaxEpochsToKeepResultsFor,
+    }: Required<
+      Pick<
+        ProverBrokerConfig,
+        | 'proverBrokerJobTimeoutMs'
+        | 'proverBrokerPollIntervalMs'
+        | 'proverBrokerJobMaxRetries'
+        | 'proverBrokerMaxEpochsToKeepResultsFor'
+      >
+    > = defaultProverBrokerConfig,
     client: TelemetryClient = getTelemetryClient(),
     private logger = createLogger('prover-client:proving-broker'),
   ) {
     this.tracer = client.getTracer('ProvingBroker');
     this.instrumentation = new ProvingBrokerInstrumentation(client);
-    this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, timeoutIntervalMs);
-    this.jobTimeoutMs = jobTimeoutMs;
-    this.maxRetries = maxRetries;
-    this.maxEpochsToKeepResultsFor = maxEpochsToKeepResultsFor;
+    this.cleanupPromise = new RunningPromise(this.cleanupPass.bind(this), this.logger, proverBrokerPollIntervalMs);
+    this.jobTimeoutMs = proverBrokerJobTimeoutMs!;
+    this.maxRetries = proverBrokerJobMaxRetries!;
+    this.maxEpochsToKeepResultsFor = proverBrokerMaxEpochsToKeepResultsFor!;
   }
 
   private measureQueueDepth: MonitorCallback = (type: ProvingRequestType) => {
@@ -237,10 +238,11 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
     if (this.jobsCache.has(job.id)) {
       const existing = this.jobsCache.get(job.id);
       assert.deepStrictEqual(job, existing, 'Duplicate proving job ID');
-      this.logger.debug(`Duplicate proving job id=${job.id} epochNumber=${job.epochNumber}. Ignoring`, {
+      this.logger.warn(`Cached proving job id=${job.id} epochNumber=${job.epochNumber}. Not enqueuing again`, {
         provingJobId: job.id,
       });
-      return Promise.resolve(jobStatus);
+      this.instrumentation.incCachedJobs(job.type);
+      return jobStatus;
     }
 
     if (this.isJobStale(job)) {
@@ -256,6 +258,7 @@ export class ProvingBroker implements ProvingJobProducer, ProvingJobConsumer, Tr
       this.jobsCache.set(job.id, job);
       await this.database.addProvingJob(job);
       this.enqueueJobInternal(job);
+      this.instrumentation.incTotalJobs(job.type);
     } catch (err) {
       this.logger.error(`Failed to save proving job id=${job.id}: ${err}`, err, { provingJobId: job.id });
       this.jobsCache.delete(job.id);

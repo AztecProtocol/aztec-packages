@@ -1,31 +1,27 @@
 import { Blob } from '@aztec/blob-lib';
-import { type BlobSinkClientInterface } from '@aztec/blob-sink/client';
-import { InboxLeaf, type L1RollupConstants, L2Block } from '@aztec/circuit-types';
-import { GENESIS_ARCHIVE_ROOT, PrivateLog } from '@aztec/circuits.js';
-import { DefaultL1ContractsConfig } from '@aztec/ethereum';
+import type { BlobSinkClientInterface } from '@aztec/blob-sink/client';
+import { GENESIS_ARCHIVE_ROOT } from '@aztec/constants';
+import { DefaultL1ContractsConfig, RollupContract, type ViemPublicClient } from '@aztec/ethereum';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { sleep } from '@aztec/foundation/sleep';
+import { openTmpStore } from '@aztec/kv-store/lmdb-v2';
 import { ForwarderAbi, type InboxAbi, RollupAbi } from '@aztec/l1-artifacts';
+import { L2Block } from '@aztec/stdlib/block';
+import type { L1RollupConstants } from '@aztec/stdlib/epoch-helpers';
+import { PrivateLog } from '@aztec/stdlib/logs';
+import { InboxLeaf } from '@aztec/stdlib/messaging';
 import { getTelemetryClient } from '@aztec/telemetry-client';
 
 import { jest } from '@jest/globals';
 import { type MockProxy, mock } from 'jest-mock-extended';
-import {
-  type Chain,
-  type HttpTransport,
-  type Log,
-  type PublicClient,
-  type Transaction,
-  encodeFunctionData,
-  toHex,
-} from 'viem';
+import { type Log, type Transaction, encodeFunctionData, toHex } from 'viem';
 
 import { Archiver } from './archiver.js';
-import { type ArchiverDataStore } from './archiver_store.js';
-import { type ArchiverInstrumentation } from './instrumentation.js';
-import { MemoryArchiverStore } from './memory_archiver_store/memory_archiver_store.js';
+import type { ArchiverDataStore } from './archiver_store.js';
+import type { ArchiverInstrumentation } from './instrumentation.js';
+import { KVArchiverDataStore } from './kv_archiver_store/kv_archiver_store.js';
 
 interface MockRollupContractRead {
   /** Given an L2 block number, returns the archive. */
@@ -66,7 +62,7 @@ describe('Archiver', () => {
       .map((_, i) => getNumPrivateLogsForTx(i, blockNumber))
       .reduce((accum, num) => accum + num, 0);
 
-  let publicClient: MockProxy<PublicClient<HttpTransport, Chain>>;
+  let publicClient: MockProxy<ViemPublicClient>;
   let instrumentation: MockProxy<ArchiverInstrumentation>;
   let blobSinkClient: MockProxy<BlobSinkClientInterface>;
   let archiverStore: ArchiverDataStore;
@@ -99,7 +95,7 @@ describe('Archiver', () => {
   beforeEach(async () => {
     logger = createLogger('archiver:test');
     now = +new Date();
-    publicClient = mock<PublicClient<HttpTransport, Chain>>({
+    publicClient = mock<ViemPublicClient>({
       // Return a block with a reasonable timestamp
       getBlock: ((args: any) => ({
         timestamp: args.blockNumber * BigInt(DefaultL1ContractsConfig.ethereumSlotDuration) + BigInt(now),
@@ -109,13 +105,14 @@ describe('Archiver', () => {
 
     const tracer = getTelemetryClient().getTracer('');
     instrumentation = mock<ArchiverInstrumentation>({ isEnabled: () => true, tracer });
-    archiverStore = new MemoryArchiverStore(1000);
+    archiverStore = new KVArchiverDataStore(await openTmpStore('archiver_test'), 1000);
     l1Constants = {
       l1GenesisTime: BigInt(now),
       l1StartBlock: 0n,
       epochDuration: 4,
       slotDuration: 24,
       ethereumSlotDuration: 12,
+      proofSubmissionWindow: 8,
     };
 
     archiver = new Archiver(
@@ -151,7 +148,9 @@ describe('Archiver', () => {
       address: rollupAddress.toString(),
     };
 
-    (archiver as any).rollup = mockRollup;
+    const wrapper = new RollupContract(publicClient, rollupAddress.toString());
+    (wrapper as any).rollup = mockRollup;
+    (archiver as any).rollup = wrapper;
 
     mockInboxRead = mock<MockInboxContractRead>();
     mockInboxEvents = mock<MockInboxContractEvents>();
@@ -352,7 +351,7 @@ describe('Archiver', () => {
 
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
-    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
+    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50, no blocks on chain`);
   }, 10_000);
 
   it('handles L2 reorg', async () => {
@@ -366,7 +365,11 @@ describe('Archiver', () => {
     const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
     const blobHashes = await Promise.all(blocks.map(makeVersionedBlobHashes));
 
-    publicClient.getBlockNumber.mockResolvedValueOnce(50n).mockResolvedValueOnce(100n).mockResolvedValueOnce(150n);
+    let mockedBlockNum = 0n;
+    publicClient.getBlockNumber.mockImplementation(() => {
+      mockedBlockNum += 50n;
+      return Promise.resolve(mockedBlockNum);
+    });
 
     // We will return status at first to have an empty round, then as if we have 2 pending blocks, and finally
     // Just a single pending block returning a "failure" for the expected pending block
@@ -404,10 +407,10 @@ describe('Archiver', () => {
     latestBlockNum = await archiver.getBlockNumber();
     expect(latestBlockNum).toEqual(numL2BlocksInTest);
 
-    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50`);
+    expect(loggerSpy).toHaveBeenCalledWith(`No blocks to retrieve from 1 to 50, no blocks on chain`);
 
     // Lets take a look to see if we can find re-org stuff!
-    await sleep(1000);
+    await sleep(2000);
 
     expect(loggerSpy).toHaveBeenCalledWith(`L2 prune has been detected.`);
 
@@ -519,6 +522,40 @@ describe('Archiver', () => {
     expect(await archiver.isEpochComplete(0n)).toBe(true);
   });
 
+  // Regression for https://github.com/AztecProtocol/aztec-packages/issues/12631
+  it('reports an epoch as complete due to timestamp only once all its blocks have been synced', async () => {
+    const { l1StartBlock, slotDuration, ethereumSlotDuration, epochDuration } = l1Constants;
+    const l2Slot = 1;
+    const l1BlockForL2Block = l1StartBlock + BigInt((l2Slot * slotDuration) / ethereumSlotDuration);
+    const lastL1BlockForEpoch = l1StartBlock + BigInt((epochDuration * slotDuration) / ethereumSlotDuration) - 1n;
+
+    logger.info(`Syncing epoch 0 with L2 block on slot ${l2Slot} mined in L1 block ${l1BlockForL2Block}`);
+    const l2Block = blocks[0];
+    l2Block.header.globalVariables.slotNumber = new Fr(l2Slot);
+    blocks = [l2Block];
+    const blobHashes = await makeVersionedBlobHashes(l2Block);
+
+    const rollupTxs = await Promise.all(blocks.map(makeRollupTx));
+    publicClient.getBlockNumber.mockResolvedValueOnce(lastL1BlockForEpoch);
+    mockRollup.read.status.mockResolvedValueOnce([0n, GENESIS_ROOT, 1n, l2Block.archive.root.toString(), GENESIS_ROOT]);
+    makeL2BlockProposedEvent(l1BlockForL2Block, 1n, l2Block.archive.root.toString(), blobHashes);
+
+    rollupTxs.forEach(tx => publicClient.getTransaction.mockResolvedValueOnce(tx));
+    const blobsFromBlocks = await Promise.all(blocks.map(b => makeBlobsFromBlock(b)));
+    blobsFromBlocks.forEach(blobs => blobSinkClient.getBlobSidecar.mockResolvedValueOnce(blobs));
+
+    await archiver.start(false);
+
+    expect(await archiver.isEpochComplete(0n)).toBe(false);
+    while (!(await archiver.isEpochComplete(0n))) {
+      // No sleep, we want to know exactly when the epoch completes
+    }
+
+    // Once epoch is flagged as complete, block number must be 1
+    expect(await archiver.getBlockNumber()).toEqual(1);
+    expect(await archiver.isEpochComplete(0n)).toBe(true);
+  });
+
   // TODO(palla/reorg): Add a unit test for the archiver handleEpochPrune
   xit('handles an upcoming L2 prune', () => {});
 
@@ -569,19 +606,13 @@ describe('Archiver', () => {
  */
 async function makeRollupTx(l2Block: L2Block) {
   const header = toHex(l2Block.header.toBuffer());
-  const body = toHex(l2Block.body.toBuffer());
   const blobInput = Blob.getEthBlobEvaluationInputs(await Blob.getBlobs(l2Block.body.toBlobFields()));
   const archive = toHex(l2Block.archive.root.toBuffer());
   const blockHash = toHex((await l2Block.header.hash()).toBuffer());
   const rollupInput = encodeFunctionData({
     abi: RollupAbi,
     functionName: 'propose',
-    args: [
-      { header, archive, blockHash, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] },
-      [],
-      body,
-      blobInput,
-    ],
+    args: [{ header, archive, blockHash, oracleInput: { feeAssetPriceModifier: 0n }, txHashes: [] }, [], blobInput],
   });
 
   const forwarderInput = encodeFunctionData({

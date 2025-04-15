@@ -1,4 +1,4 @@
-import { type ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
+import type { ServerProtocolArtifact } from '@aztec/noir-protocol-circuits-types/server';
 
 export type UltraHonkFlavor = 'ultra_honk' | 'ultra_keccak_honk' | 'ultra_rollup_honk';
 

@@ -18,10 +18,31 @@ static constexpr uint32_t CONST_ECCVM_LOG_N = 16;
 
 static constexpr uint32_t MAX_DATABUS_SIZE = 10000;
 
-// The number of entries in ProverPolynomials reserved for randomness intended to mask witness commitments, witness
-// evaluation at the sumcheck challenge, and, if necessary, the evaluation of the corresponding shift
-static constexpr uint32_t MASKING_OFFSET = 4;
+// The number of last rows in ProverPolynomials that are randomized to mask
+// 1) witness commitments,
+// 2) multilinear evaluations of witness polynomials in Sumcheck
+// 3*) multilinear evaluations of shifts of witness polynomials in Sumcheck OR univariate evaluations required in ECCVM
+static constexpr uint32_t NUM_MASKED_ROWS = 3;
+
+// To account for the masked entries of witness polynomials in ZK-Sumcheck, we are disabling all relations in the last
+// `NUM_MASKED_ROWS + 1` rows, where `+1` is needed for the shifts. Namely, any relation involving a shift of a masked
+// polynomial w_shift, can't be satisfied on the row `N - (NUM_MASKED_ROWS + 1)`, as `w_shift.at(N - (NUM_MASKED_ROWS +
+// 1))` is equal to the random value `w.at(N - NUM_MASKED_ROWS)`.
+static constexpr uint32_t NUM_DISABLED_ROWS_IN_SUMCHECK = NUM_MASKED_ROWS + 1;
+
 // For ZK Flavors: the number of the commitments required by Libra and SmallSubgroupIPA.
 static constexpr uint32_t NUM_LIBRA_COMMITMENTS = 3;
-static constexpr uint32_t NUM_LIBRA_EVALUATIONS = 4;
+
+// The SmallSubgroupIPA is a sub-protocol used in several Flavors, to prove claimed inner product, the Prover sends 4
+// extra evaluations
+static constexpr uint32_t NUM_SMALL_IPA_EVALUATIONS = 4;
+
+static constexpr uint32_t MERGE_PROOF_SIZE = 65; // used to ensure mock proofs are generated correctly
+
+// There are 5 distinguished wires in ECCVM that have to be opened as univariates to establish the connection between
+// ECCVM and Translator
+static constexpr uint32_t NUM_TRANSLATION_EVALUATIONS = 5;
+// The interleaving trick needed for Translator adds 2 extra claims to Gemini fold claims
+// TODO(https://github.com/AztecProtocol/barretenberg/issues/1293): Decouple Gemini from Interleaving
+static constexpr uint32_t NUM_INTERLEAVING_CLAIMS = 2;
 } // namespace bb

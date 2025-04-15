@@ -1,10 +1,11 @@
-import { type Gossipable } from '@aztec/circuit-types';
+import type { Gossipable } from '@aztec/stdlib/p2p';
 import {
   Attributes,
   type Histogram,
   LmdbMetrics,
   type LmdbStatsCallback,
   Metrics,
+  type MetricsType,
   type TelemetryClient,
   type UpDownCounter,
 } from '@aztec/telemetry-client';
@@ -15,8 +16,8 @@ export enum PoolName {
 }
 
 type MetricsLabels = {
-  objectInMempool: Metrics;
-  objectSize: Metrics;
+  objectInMempool: MetricsType;
+  objectSize: MetricsType;
 };
 
 /**

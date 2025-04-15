@@ -2,3 +2,6 @@ acir_tests
 crs
 **/.yarn/*
 !**/.yarn/releases
+*.jsonl
+bench-out
+internal_test_programs/*/target

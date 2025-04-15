@@ -32,6 +32,9 @@ using HashPolicy = Poseidon2HashPolicy;
 using Store = ContentAddressedCachedTreeStore<NullifierLeafValue>;
 using TreeType = ContentAddressedIndexedTree<Store, HashPolicy>;
 
+using PublicDataStore = ContentAddressedCachedTreeStore<PublicDataLeafValue>;
+using PublicDataTreeType = ContentAddressedIndexedTree<PublicDataStore, Poseidon2HashPolicy>;
+
 using CompletionCallback = TreeType::AddCompletionCallbackWithWitness;
 using SequentialCompletionCallback = TreeType::AddSequentiallyCompletionCallbackWithWitness;
 
@@ -187,7 +190,7 @@ void check_historic_leaf(TypeOfTree& tree,
     auto completion = [&](const TypedResponse<GetIndexedLeafResponse<LeafValueType>>& response) -> void {
         EXPECT_EQ(response.success, expected_success);
         if (response.success) {
-            EXPECT_EQ(response.inner.indexed_leaf.value().value, leaf);
+            EXPECT_EQ(response.inner.indexed_leaf.value().leaf, leaf);
         }
         signal.signal_level();
     };
@@ -662,7 +665,7 @@ void test_batch_insert(uint32_t batchSize, std::string directory, uint64_t mapSi
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
-            fr_sibling_path path = memdb.update_element(batch[j].value);
+            fr_sibling_path path = memdb.update_element(batch[j].nullifier);
             memory_tree_sibling_paths.push_back(path);
         }
         std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
@@ -749,7 +752,7 @@ void test_batch_insert_with_commit_restore(uint32_t batchSize,
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
-            fr_sibling_path path = memdb.update_element(batch[j].value);
+            fr_sibling_path path = memdb.update_element(batch[j].nullifier);
             memory_tree_sibling_paths.push_back(path);
         }
         std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
@@ -891,7 +894,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, reports_an_error_if_batch_conta
     values[8] = values[0];
 
     std::stringstream ss;
-    ss << "Duplicate key not allowed in same batch, key value: " << values[0].value << ", tree: " << name;
+    ss << "Duplicate key not allowed in same batch, key value: " << values[0].nullifier << ", tree: " << name;
 
     Signal signal;
     auto add_completion = [&](const TypedResponse<AddIndexedDataResponse<NullifierLeafValue>>& response) {
@@ -938,7 +941,7 @@ void test_sequential_insert_vs_batch(uint32_t batchSize, std::string directory, 
         std::vector<fr_sibling_path> memory_tree_sibling_paths;
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
-            fr_sibling_path path = memdb.update_element(batch[j].value);
+            fr_sibling_path path = memdb.update_element(batch[j].nullifier);
             memory_tree_sibling_paths.push_back(path);
         }
         std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> sequential_tree_1_low_leaf_witness_data;
@@ -1043,7 +1046,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, sequential_insert_allows_multip
     std::vector<PublicDataLeafValue> values{ PublicDataLeafValue(42, 27), PublicDataLeafValue(42, 28) };
     add_values_sequentially(tree, values);
 
-    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2).value, values[1]);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2).leaf.value, values[1].value);
     check_size(tree, 3);
 }
 
@@ -1268,9 +1271,9 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_indexed_tree)
     std::vector<uint256_t> differences;
     for (uint32_t i = 0; i < uint32_t(21); i++) {
         uint256_t diff_hi =
-            abs_diff(uint256_t(new_member), uint256_t(get_leaf<NullifierLeafValue>(tree, i).value.get_key()));
+            abs_diff(uint256_t(new_member), uint256_t(get_leaf<NullifierLeafValue>(tree, i).leaf.get_key()));
         uint256_t diff_lo =
-            abs_diff(uint256_t(new_member), uint256_t(get_leaf<NullifierLeafValue>(tree, i).value.get_key()));
+            abs_diff(uint256_t(new_member), uint256_t(get_leaf<NullifierLeafValue>(tree, i).leaf.get_key()));
         differences.push_back(diff_hi + diff_lo);
     }
     auto it = std::min_element(differences.begin(), differences.end());
@@ -1723,7 +1726,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_historic_sibling_path_retr
 
         for (uint32_t j = 0; j < batch_size; j++) {
             batch.emplace_back(random_engine.get_random_uint256());
-            memdb.update_element(batch[j].value);
+            memdb.update_element(batch[j].get_key());
         }
         memory_tree_sibling_paths_index_0.push_back(memdb.get_sibling_path(0));
         std::shared_ptr<std::vector<LeafUpdateWitnessData<NullifierLeafValue>>> tree1_low_leaf_witness_data;
@@ -1965,7 +1968,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
     std::vector<NullifierLeafValue> batch1;
     for (uint32_t j = 0; j < batch_size; j++) {
         batch1.emplace_back(random_engine.get_random_uint256());
-        memdb.update_element(batch1[j].value);
+        memdb.update_element(batch1[j].nullifier);
     }
 
     fr_sibling_path block1SiblingPathIndex3 = memdb.get_sibling_path(3 + batch_size);
@@ -1976,7 +1979,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
     std::vector<NullifierLeafValue> batch2;
     for (uint32_t j = 0; j < batch_size; j++) {
         batch2.emplace_back(random_engine.get_random_uint256());
-        memdb.update_element(batch2[j].value);
+        memdb.update_element(batch2[j].nullifier);
     }
 
     add_values(tree1, batch2);
@@ -1990,7 +1993,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
     std::vector<NullifierLeafValue> batch3;
     for (uint32_t j = 0; j < batch_size; j++) {
         batch3.emplace_back(random_engine.get_random_uint256());
-        memdb.update_element(batch3[j].value);
+        memdb.update_element(batch3[j].nullifier);
     }
 
     add_values(tree1, batch3);
@@ -2006,7 +2009,7 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_create_forks_at_histor
     check_root(treeAtBlock2, block2Root);
     check_sibling_path(treeAtBlock2, 3 + batch_size, block2SiblingPathIndex3, false, true);
     auto block2TreeLeaf10 = get_leaf<NullifierLeafValue>(treeAtBlock2, 7 + batch_size);
-    EXPECT_EQ(block2TreeLeaf10.value, batch1[7].value);
+    EXPECT_EQ(block2TreeLeaf10.leaf.nullifier, batch1[7].nullifier);
 
     check_find_leaf_index(treeAtBlock2, batch1[5], 5 + batch_size, true);
     check_find_leaf_index_from(treeAtBlock2, batch1[5], 0, 5 + batch_size, true);
@@ -2773,6 +2776,102 @@ TEST_F(PersistedContentAddressedIndexedTreeTest, can_sync_and_unwind_empty_block
         test_nullifier_tree_unwind(
             _directory, ss.str(), _mapSize, _maxReaders, 20, actualSize, numBlocks, numBlocksToUnwind, values);
     }
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_public_data)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(3, 9), PublicDataLeafValue(5, 7) };
+    auto tree = PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       3       5        0       0       0       0
+     *  val       0       0       9       7        0       0       0       0
+     *  nextIdx   1       2       3       0        0       0       0       0
+     *  nextVal   1       3       5       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType leaf_0 = create_indexed_public_data_leaf(0, 0, 1, 1);
+    IndexedPublicDataLeafType leaf_1 = create_indexed_public_data_leaf(1, 0, 2, 3);
+    IndexedPublicDataLeafType leaf_2 = create_indexed_public_data_leaf(3, 9, 3, 5);
+    IndexedPublicDataLeafType leaf_3 = create_indexed_public_data_leaf(5, 7, 0, 0);
+    check_size(tree, initial_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), leaf_0);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), leaf_1);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), leaf_2);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), leaf_3);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_full_prefilled_public_data)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    std::vector<PublicDataLeafValue> prefilled_values = {
+        PublicDataLeafValue(1, 2), PublicDataLeafValue(3, 4), PublicDataLeafValue(5, 6), PublicDataLeafValue(7, 8)
+    };
+    auto tree = PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values);
+
+    /**
+     * Intial state:
+     *
+     *  index     0       1       2       3        4       5       6       7
+     *  ---------------------------------------------------------------------
+     *  slot      0       1       3       5        0       0       0       0
+     *  val       0       0       9       7        0       0       0       0
+     *  nextIdx   1       2       3       0        0       0       0       0
+     *  nextVal   1       3       5       0        0       0       0       0
+     */
+    IndexedPublicDataLeafType leaf_0 = create_indexed_public_data_leaf(1, 2, 1, 3);
+    IndexedPublicDataLeafType leaf_1 = create_indexed_public_data_leaf(3, 4, 2, 5);
+    IndexedPublicDataLeafType leaf_2 = create_indexed_public_data_leaf(5, 6, 3, 7);
+    IndexedPublicDataLeafType leaf_3 = create_indexed_public_data_leaf(7, 8, 0, 1);
+    check_size(tree, initial_size);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 0), leaf_0);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 1), leaf_1);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 2), leaf_2);
+    EXPECT_EQ(get_leaf<PublicDataLeafValue>(tree, 3), leaf_3);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_unsorted_public_data_should_fail)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    // The prefilled values are not sorted: 5 > 3.
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(5, 7), PublicDataLeafValue(3, 9) };
+    EXPECT_THROW(PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values), std::runtime_error);
+}
+
+TEST_F(PersistedContentAddressedIndexedTreeTest, test_prefilled_default_public_data_should_fail)
+{
+    ThreadPoolPtr workers = make_thread_pool(1);
+    constexpr size_t depth = 3;
+    std::string name = random_string();
+    LMDBTreeStore::SharedPtr db = std::make_shared<LMDBTreeStore>(_directory, name, _mapSize, _maxReaders);
+    std::unique_ptr<PublicDataStore> store = std::make_unique<PublicDataStore>(name, depth, db);
+
+    index_t initial_size = 4;
+    // The first prefilled value is the same as one of the default values (1).
+    std::vector<PublicDataLeafValue> prefilled_values = { PublicDataLeafValue(1, 9), PublicDataLeafValue(5, 7) };
+    EXPECT_THROW(PublicDataTreeType(std::move(store), workers, initial_size, prefilled_values), std::runtime_error);
 }
 
 TEST_F(PersistedContentAddressedIndexedTreeTest, test_can_commit_and_revert_checkpoints)

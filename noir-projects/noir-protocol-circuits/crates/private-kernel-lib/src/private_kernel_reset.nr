@@ -96,7 +96,7 @@ impl<let NH_RR_PENDING: u32, let NH_RR_SETTLED: u32, let NLL_RR_PENDING: u32, le
         };
 
         // Generate output.
-        /// Safety: The output is validated below by ResetOutputValidator.
+        // Safety: The output is validated below by ResetOutputValidator.
         let (output, output_hints) = unsafe {
             self.generate_output(
                 validation_request_processor,
@@ -237,7 +237,7 @@ mod tests {
             let mut nullifier = self.previous_kernel.nullifiers.get(nullifier_index);
             nullifier.nullifier.note_hash = note_hash.value;
             self.previous_kernel.nullifiers.set(nullifier_index, nullifier);
-            /// Safety: this is only used in tests.
+            // Safety: this is only used in tests.
             let num_hints = unsafe {
                 find_index_hint(
                     self.transient_data_index_hints,

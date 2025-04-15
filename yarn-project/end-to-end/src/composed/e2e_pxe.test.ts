@@ -1,5 +1,5 @@
 import { waitForPXE } from '@aztec/aztec.js';
-import { pxeTestSuite } from '@aztec/pxe';
+import { pxeTestSuite } from '@aztec/pxe/testing';
 
 import { setup } from '../fixtures/utils.js';
 

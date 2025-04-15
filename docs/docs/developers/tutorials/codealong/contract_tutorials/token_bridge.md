@@ -44,14 +44,14 @@ sequenceDiagram
     participant L2 Bridge Contract
     participant L2 Token Contract
 
-    User->>TokenPortal: Deposit Tokens
+    L1 User->>L1 TokenPortal: Deposit Tokens
 
-    Note over TokenPortal: 1. Encode mint message<br/>(recipient + amount)<br/>2. Hash message to field<br/>element (~254 bits)
+    Note over L1 TokenPortal: 1. Encode mint message<br/>(recipient + amount)<br/>2. Hash message to field<br/>element (~254 bits)
 
-    TokenPortal->>Aztec Inbox: Send message
-    Note over Aztec Inbox: Validates:<br/>1. Recipient Aztec address<br/>2. Aztec version<br/>3. Message content hash<br/>4. Secret hash
+    L1 TokenPortal->>L1 Aztec Inbox: Send message
+    Note over L1 Aztec Inbox: Validates:<br/>1. Recipient Aztec address<br/>2. Aztec version<br/>3. Message content hash<br/>4. Secret hash
 
-    Aztec Inbox-->>L2 Bridge Contract: Forward message
+    L1 Aztec Inbox-->>L2 Bridge Contract: Forward message
     Note over L2 Bridge Contract: 1. Verify message<br/>2. Process secret<br/>3. Decode mint parameters
 
     L2 Bridge Contract->>L2 Token Contract: Call mint function
@@ -84,7 +84,7 @@ The previous code snippets moved funds to the bridge and created a L1->L2 messag
 
 This happens inside the `TokenBridge` contract on Aztec.
 
-#include_code claim_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code claim_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 What's happening here?
 
@@ -106,13 +106,13 @@ For both the public and private flow, we use the same mechanism to determine the
 
 #### `exit_to_L1_public` (TokenBridge.nr)
 
-#include_code exit_to_l1_public /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code exit_to_l1_public /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 #### `exit_to_L1_private` (TokenBridge.nr)
 
 This function works very similarly to the public version, except here we burn user’s private notes.
 
-#include_code exit_to_l1_private /noir-projects/noir-contracts/contracts/token_bridge_contract/src/main.nr rust
+#include_code exit_to_l1_private /noir-projects/noir-contracts/contracts/app/token_bridge_contract/src/main.nr rust
 
 Since this is a private method, it can't read what token is publicly stored. So instead the user passes a token address, and `_assert_token_is_same()` checks that this user provided address is same as the one in storage.
 
@@ -151,7 +151,7 @@ mkdir token-bridge-tutorial
 cd token-bridge-tutorial
 yarn init -y
 echo "nodeLinker: node-modules" > .yarnrc.yml
-yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @aztec/types @types/node typescript@^5.0.4 viem@^2.22.8 tsx
+yarn add @aztec/aztec.js @aztec/noir-contracts.js @aztec/l1-artifacts @aztec/accounts @aztec/ethereum @types/node typescript@^5.0.4 viem@^2.22.8 tsx
 touch tsconfig.json
 touch index.ts
 ```

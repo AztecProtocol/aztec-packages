@@ -3,7 +3,8 @@ pragma solidity >=0.8.27;
 import "forge-std/Test.sol";
 
 // Rollup Processor
-import {Rollup} from "../harnesses/Rollup.sol";
+import {IRollup, Rollup} from "@aztec/core/Rollup.sol";
+import {TestConstants} from "../harnesses/TestConstants.sol";
 import {Registry} from "@aztec/governance/Registry.sol";
 import {DataStructures} from "@aztec/core/libraries/DataStructures.sol";
 import {DataStructures as PortalDataStructures} from "./DataStructures.sol";
@@ -21,8 +22,9 @@ import {UniswapPortal} from "./UniswapPortal.sol";
 
 import {MockFeeJuicePortal} from "@aztec/mock/MockFeeJuicePortal.sol";
 import {RewardDistributor} from "@aztec/governance/RewardDistributor.sol";
-
 import {stdStorage, StdStorage} from "forge-std/Test.sol";
+
+import {TestERC20} from "@aztec/mock/TestERC20.sol";
 
 contract UniswapPortalTest is Test {
   using stdStorage for StdStorage;
@@ -55,12 +57,20 @@ contract UniswapPortalTest is Test {
     uint256 forkId = vm.createFork(vm.rpcUrl("mainnet_fork"));
     vm.selectFork(forkId);
 
-    registry = new Registry(address(this));
-    RewardDistributor rewardDistributor = new RewardDistributor(DAI, registry, address(this));
+    TestERC20 testERC20 = new TestERC20("test", "TEST", address(this));
+
+    registry = new Registry(address(this), testERC20);
+    RewardDistributor rewardDistributor =
+      RewardDistributor(address(registry.getRewardDistributor()));
     rollup = new Rollup(
-      new MockFeeJuicePortal(), rewardDistributor, DAI, bytes32(0), bytes32(0), address(this)
+      testERC20,
+      rewardDistributor,
+      testERC20,
+      address(this),
+      TestConstants.getGenesisState(),
+      TestConstants.getRollupConfigInput()
     );
-    registry.upgrade(address(rollup));
+    registry.addRollup(IRollup(address(rollup)));
 
     daiTokenPortal = new TokenPortal();
     daiTokenPortal.initialize(address(registry), address(DAI), l2TokenAddress);
@@ -80,7 +90,7 @@ contract UniswapPortalTest is Test {
     // have DAI locked in portal that can be moved when funds are withdrawn
     deal(address(DAI), address(daiTokenPortal), amount);
 
-    outbox = rollup.OUTBOX();
+    outbox = rollup.getOutbox();
   }
 
   /**
@@ -97,7 +107,7 @@ contract UniswapPortalTest is Test {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2TokenAddress, 1),
+      sender: DataStructures.L2Actor(l2TokenAddress, rollup.getVersion()),
       recipient: DataStructures.L1Actor(address(daiTokenPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature("withdraw(address,uint256,address)", _recipient, amount, _caller)
@@ -121,7 +131,7 @@ contract UniswapPortalTest is Test {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2UniswapAddress, 1),
+      sender: DataStructures.L2Actor(l2UniswapAddress, rollup.getVersion()),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(
@@ -150,7 +160,7 @@ contract UniswapPortalTest is Test {
     // The purpose of including the function selector is to make the message unique to that specific call. Note that
     // it has nothing to do with calling the function.
     DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-      sender: DataStructures.L2Actor(l2UniswapAddress, 1),
+      sender: DataStructures.L2Actor(l2UniswapAddress, rollup.getVersion()),
       recipient: DataStructures.L1Actor(address(uniswapPortal), block.chainid),
       content: Hash.sha256ToField(
         abi.encodeWithSignature(

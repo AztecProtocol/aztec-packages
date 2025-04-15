@@ -30,8 +30,6 @@
     // Make sure to select one of the themes suggested
     // (e.g. "Dark+")
     "jeff-hykin.better-cpp-syntax",
-    // Handle CMakeLists.txt editing
-    "twxs.cmake",
     // Integrates LLDB debugger
     "vadimcn.vscode-lldb",
     // Makes the CMake build output slightly prettier.

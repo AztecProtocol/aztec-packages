@@ -2,7 +2,19 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {IRollup, ChainTips} from "@aztec/core/interfaces/IRollup.sol";
+import {
+  IRollup,
+  ChainTips,
+  PublicInputArgs,
+  L1FeeData,
+  ManaBaseFeeComponents,
+  FeeAssetPerEthE9,
+  EpochRewards,
+  BlockLog,
+  BlockHeaderValidationFlags,
+  FeeHeader,
+  RollupConfigInput
+} from "@aztec/core/interfaces/IRollup.sol";
 import {
   IStaking,
   ValidatorInfo,
@@ -11,21 +23,19 @@ import {
   EnumerableSet
 } from "@aztec/core/interfaces/IStaking.sol";
 import {IValidatorSelection} from "@aztec/core/interfaces/IValidatorSelection.sol";
-
-// We allow the unused imports here as they make it much simpler to import the Rollup later
-// solhint-disable no-unused-import
+import {
+  FeeLib, FeeHeaderLib, FeeAssetValue, PriceLib
+} from "@aztec/core/libraries/rollup/FeeLib.sol";
+import {HeaderLib} from "@aztec/core/libraries/rollup/HeaderLib.sol";
+import {EpochProofLib} from "./libraries/rollup/EpochProofLib.sol";
+import {ProposeLib, ValidateHeaderArgs} from "./libraries/rollup/ProposeLib.sol";
+import {ValidatorSelectionLib} from "./libraries/validator-selection/ValidatorSelectionLib.sol";
 import {
   RollupCore,
-  Config,
+  GenesisState,
   IRewardDistributor,
   IFeeJuicePortal,
   IERC20,
-  BlockLog,
-  FeeHeader,
-  ManaBaseFeeComponents,
-  SubmitEpochRootProofArgs,
-  L1FeeData,
-  ValidatorSelectionLib,
   StakingLib,
   TimeLib,
   Slot,
@@ -33,16 +43,13 @@ import {
   Timestamp,
   Errors,
   Signature,
-  DataStructures,
   ExtRollupLib,
-  IntRollupLib,
-  EpochRewards,
-  FeeAssetPerEthE9,
   EthValue,
-  FeeAssetValue,
-  PriceLib
+  STFLib,
+  RollupStore,
+  IInbox,
+  IOutbox
 } from "./RollupCore.sol";
-// solhint-enable no-unused-import
 
 /**
  * @title Rollup
@@ -57,28 +64,146 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   using TimeLib for Timestamp;
   using TimeLib for Slot;
   using TimeLib for Epoch;
-  using IntRollupLib for ManaBaseFeeComponents;
   using PriceLib for EthValue;
 
   constructor(
-    IFeeJuicePortal _fpcJuicePortal,
+    IERC20 _feeAsset,
     IRewardDistributor _rewardDistributor,
     IERC20 _stakingAsset,
-    bytes32 _vkTreeRoot,
-    bytes32 _protocolContractTreeRoot,
-    address _ares,
-    Config memory _config
-  )
-    RollupCore(
-      _fpcJuicePortal,
-      _rewardDistributor,
-      _stakingAsset,
-      _vkTreeRoot,
-      _protocolContractTreeRoot,
-      _ares,
-      _config
-    )
-  {}
+    address _governance,
+    GenesisState memory _genesisState,
+    RollupConfigInput memory _config
+  ) RollupCore(_feeAsset, _rewardDistributor, _stakingAsset, _governance, _genesisState, _config) {}
+
+  /**
+   * @notice  Validate a header for submission
+   *
+   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
+   *          without having to deal with viem or anvil for simulating timestamps in the future.
+   *
+   * @param _header - The header to validate
+   * @param _signatures - The signatures to validate
+   * @param _digest - The digest to validate
+   * @param _currentTime - The current time
+   * @param _blobsHash - The blobs hash for this block
+   * @param _flags - The flags to validate
+   */
+  function validateHeader(
+    bytes calldata _header,
+    Signature[] memory _signatures,
+    bytes32 _digest,
+    Timestamp _currentTime,
+    bytes32 _blobsHash,
+    BlockHeaderValidationFlags memory _flags
+  ) external override(IRollup) {
+    ProposeLib.validateHeader(
+      ValidateHeaderArgs({
+        header: HeaderLib.decode(_header),
+        attestations: _signatures,
+        digest: _digest,
+        currentTime: _currentTime,
+        manaBaseFee: getManaBaseFeeAt(_currentTime, true),
+        blobsHashesCommitment: _blobsHash,
+        flags: _flags
+      })
+    );
+  }
+
+  /**
+   * @notice  Get the validator set for the current epoch
+   * @return The validator set for the current epoch
+   */
+  function getCurrentEpochCommittee()
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
+  }
+
+  /**
+   * @notice  Get the validator set for a given epoch
+   *
+   * @dev     Consider removing this to replace with a `size` and individual getter.
+   *
+   * @param _epoch The epoch number to get the validator set for
+   *
+   * @return The validator set for the given epoch
+   */
+  function getEpochCommittee(Epoch _epoch)
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), _epoch);
+  }
+
+  /**
+   * @notice  Get the committee for a given timestamp
+   *
+   * @param _ts - The timestamp to get the committee for
+   *
+   * @return The committee for the given timestamp
+   */
+  function getCommitteeAt(Timestamp _ts)
+    external
+    override(IValidatorSelection)
+    returns (address[] memory)
+  {
+    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
+  }
+
+  /**
+   * @notice  Get the proposer for the current slot
+   *
+   * @dev     Calls `getCurrentProposer(uint256)` with the current timestamp
+   *
+   * @return The address of the proposer
+   */
+  function getCurrentProposer() external override(IValidatorSelection) returns (address) {
+    return getProposerAt(Timestamp.wrap(block.timestamp));
+  }
+
+  /**
+   * @notice  Check if msg.sender can propose at a given time
+   *
+   * @param _ts - The timestamp to check
+   * @param _archive - The archive to check (should be the latest archive)
+   *
+   * @return uint256 - The slot at the given timestamp
+   * @return uint256 - The block number at the given timestamp
+   */
+  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+    external
+    override(IRollup)
+    returns (Slot, uint256)
+  {
+    Slot slot = _ts.slotFromTimestamp();
+    RollupStore storage rollupStore = STFLib.getStorage();
+
+    uint256 pendingBlockNumber = STFLib.getEffectivePendingBlockNumber(_ts);
+
+    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
+
+    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
+
+    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
+    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
+    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
+
+    Signature[] memory sigs = new Signature[](0);
+
+    ValidatorSelectionLib.verify(
+      StakingLib.getStorage(),
+      slot,
+      slot.epochFromSlot(),
+      sigs,
+      _archive,
+      BlockHeaderValidationFlags({ignoreDA: true, ignoreSignatures: true})
+    );
+
+    return (slot, pendingBlockNumber + 1);
+  }
 
   function getTargetCommitteeSize() external view override(IValidatorSelection) returns (uint256) {
     return ValidatorSelectionLib.getStorage().targetCommitteeSize;
@@ -116,8 +241,16 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return StakingLib.getStorage().attesters.length();
   }
 
+  function getManaTarget() external view override(IRollup) returns (uint256) {
+    return FeeLib.getStorage().manaTarget;
+  }
+
+  function getManaLimit() external view override(IRollup) returns (uint256) {
+    return FeeLib.getManaLimit();
+  }
+
   function getTips() external view override(IRollup) returns (ChainTips memory) {
-    return rollupStore.tips;
+    return STFLib.getStorage().tips;
   }
 
   function status(uint256 _myHeaderBlockNumber)
@@ -133,6 +266,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
       Epoch provenEpochNumber
     )
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return (
       rollupStore.tips.provenBlockNumber,
       rollupStore.blocks[rollupStore.tips.provenBlockNumber].archive,
@@ -154,51 +288,15 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @param  _end - The end of the epoch (inclusive)
    * @param  _args - Array of public inputs to the proof (previousArchive, endArchive, previousBlockHash, endBlockHash, endTimestamp, outHash, proverId)
    * @param  _fees - Array of recipient-value pairs with fees to be distributed for the epoch
-   * @param  _aggregationObject - The aggregation object for the proof
    */
   function getEpochProofPublicInputs(
     uint256 _start,
     uint256 _end,
-    bytes32[7] calldata _args,
+    PublicInputArgs calldata _args,
     bytes32[] calldata _fees,
-    bytes calldata _blobPublicInputs,
-    bytes calldata _aggregationObject
+    bytes calldata _blobPublicInputs
   ) external view override(IRollup) returns (bytes32[] memory) {
-    return ExtRollupLib.getEpochProofPublicInputs(
-      rollupStore, _start, _end, _args, _fees, _blobPublicInputs, _aggregationObject
-    );
-  }
-
-  /**
-   * @notice  Validate a header for submission
-   *
-   * @dev     This is a convenience function that can be used by the sequencer to validate a "partial" header
-   *          without having to deal with viem or anvil for simulating timestamps in the future.
-   *
-   * @param _header - The header to validate
-   * @param _signatures - The signatures to validate
-   * @param _digest - The digest to validate
-   * @param _currentTime - The current time
-   * @param _blobsHash - The blobs hash for this block
-   * @param _flags - The flags to validate
-   */
-  function validateHeader(
-    bytes calldata _header,
-    Signature[] memory _signatures,
-    bytes32 _digest,
-    Timestamp _currentTime,
-    bytes32 _blobsHash,
-    DataStructures.ExecutionFlags memory _flags
-  ) external view override(IRollup) {
-    _validateHeader(
-      ExtRollupLib.decodeHeader(_header),
-      _signatures,
-      _digest,
-      _currentTime,
-      getManaBaseFeeAt(_currentTime, true),
-      _blobsHash,
-      _flags
-    );
+    return ExtRollupLib.getEpochProofPublicInputs(_start, _end, _args, _fees, _blobPublicInputs);
   }
 
   /**
@@ -220,23 +318,34 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    * @return bytes32 - The current archive root
    */
   function archive() external view override(IRollup) returns (bytes32) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     return rollupStore.blocks[rollupStore.tips.pendingBlockNumber].archive;
   }
 
   function getProvenBlockNumber() external view override(IRollup) returns (uint256) {
-    return rollupStore.tips.provenBlockNumber;
+    return STFLib.getStorage().tips.provenBlockNumber;
   }
 
   function getPendingBlockNumber() external view override(IRollup) returns (uint256) {
-    return rollupStore.tips.pendingBlockNumber;
+    return STFLib.getStorage().tips.pendingBlockNumber;
   }
 
   function getBlock(uint256 _blockNumber) external view override(IRollup) returns (BlockLog memory) {
+    RollupStore storage rollupStore = STFLib.getStorage();
     require(
       _blockNumber <= rollupStore.tips.pendingBlockNumber,
       Errors.Rollup__InvalidBlockNumber(rollupStore.tips.pendingBlockNumber, _blockNumber)
     );
     return rollupStore.blocks[_blockNumber];
+  }
+
+  function getFeeHeader(uint256 _blockNumber)
+    external
+    view
+    override(IRollup)
+    returns (FeeHeader memory)
+  {
+    return FeeHeaderLib.decompress(FeeLib.getStorage().feeHeaders[_blockNumber]);
   }
 
   function getBlobPublicInputsHash(uint256 _blockNumber)
@@ -245,7 +354,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bytes32)
   {
-    return rollupStore.blobPublicInputsHashes[_blockNumber];
+    return STFLib.getStorage().blobPublicInputsHashes[_blockNumber];
   }
 
   function getProposerForAttester(address _attester)
@@ -287,53 +396,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     address attester = StakingLib.getStorage().attesters.at(_index);
     return
       OperatorInfo({proposer: StakingLib.getStorage().info[attester].proposer, attester: attester});
-  }
-
-  /**
-   * @notice  Get the validator set for a given epoch
-   *
-   * @dev     Consider removing this to replace with a `size` and individual getter.
-   *
-   * @param _epoch The epoch number to get the validator set for
-   *
-   * @return The validator set for the given epoch
-   */
-  function getEpochCommittee(Epoch _epoch)
-    external
-    view
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getStorage().epochs[_epoch].committee;
-  }
-
-  /**
-   * @notice  Get the validator set for the current epoch
-   * @return The validator set for the current epoch
-   */
-  function getCurrentEpochCommittee()
-    external
-    view
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getCurrentEpoch());
-  }
-
-  /**
-   * @notice  Get the committee for a given timestamp
-   *
-   * @param _ts - The timestamp to get the committee for
-   *
-   * @return The committee for the given timestamp
-   */
-  function getCommitteeAt(Timestamp _ts)
-    external
-    view
-    override(IValidatorSelection)
-    returns (address[] memory)
-  {
-    return ValidatorSelectionLib.getCommitteeAt(StakingLib.getStorage(), getEpochAt(_ts));
   }
 
   /**
@@ -398,17 +460,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
-   * @notice  Get the proposer for the current slot
-   *
-   * @dev     Calls `getCurrentProposer(uint256)` with the current timestamp
-   *
-   * @return The address of the proposer
-   */
-  function getCurrentProposer() external view override(IValidatorSelection) returns (address) {
-    return getProposerAt(Timestamp.wrap(block.timestamp));
-  }
-
-  /**
    * @notice  Computes the slot at a specific time
    *
    * @param _ts - The timestamp to compute the slot for
@@ -436,7 +487,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   function getProofSubmissionWindow() external view override(IRollup) returns (uint256) {
-    return PROOF_SUBMISSION_WINDOW;
+    return STFLib.getStorage().config.proofSubmissionWindow;
   }
 
   function getSequencerRewards(address _sequencer)
@@ -445,7 +496,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return rollupStore.sequencerRewards[_sequencer];
+    return STFLib.getStorage().sequencerRewards[_sequencer];
   }
 
   function getCollectiveProverRewardsForEpoch(Epoch _epoch)
@@ -454,15 +505,30 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (uint256)
   {
-    return rollupStore.epochRewards[_epoch].rewards;
+    return STFLib.getStorage().epochRewards[_epoch].rewards;
   }
 
+  /**
+   * @notice  Get the rewards for a specific prover for a given epoch
+   *          BEWARE! If the epoch is not past its deadline, this value is the "current" value
+   *          and could change if a provers proves a longer series of blocks.
+   *
+   * @param _epoch - The epoch to get the rewards for
+   * @param _prover - The prover to get the rewards for
+   *
+   * @return The rewards for the specific prover for the given epoch
+   */
   function getSpecificProverRewardsForEpoch(Epoch _epoch, address _prover)
     external
     view
     override(IRollup)
     returns (uint256)
   {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    if (rollupStore.proverClaimed[_prover][_epoch]) {
+      return 0;
+    }
+
     EpochRewards storage er = rollupStore.epochRewards[_epoch];
     uint256 length = er.longestProvenLength;
 
@@ -479,11 +545,11 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (bool)
   {
-    return rollupStore.epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
+    return STFLib.getStorage().epochRewards[_epoch].subEpoch[_length].hasSubmitted[_prover];
   }
 
   function getProvingCostPerManaInEth() external view override(IRollup) returns (EthValue) {
-    return rollupStore.provingCostPerMana;
+    return FeeLib.getStorage().provingCostPerMana;
   }
 
   function getProvingCostPerManaInFeeAsset()
@@ -492,97 +558,48 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     override(IRollup)
     returns (FeeAssetValue)
   {
-    return rollupStore.provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
+    return FeeLib.getStorage().provingCostPerMana.toFeeAsset(getFeeAssetPerEth());
   }
 
-  /**
-   * @notice  Check if msg.sender can propose at a given time
-   *
-   * @param _ts - The timestamp to check
-   * @param _archive - The archive to check (should be the latest archive)
-   *
-   * @return uint256 - The slot at the given timestamp
-   * @return uint256 - The block number at the given timestamp
-   */
-  function canProposeAtTime(Timestamp _ts, bytes32 _archive)
+  function getVersion() external view override(IRollup) returns (uint256) {
+    return STFLib.getStorage().config.version;
+  }
+
+  function getInbox() external view override(IRollup) returns (IInbox) {
+    return STFLib.getStorage().config.inbox;
+  }
+
+  function getOutbox() external view override(IRollup) returns (IOutbox) {
+    return STFLib.getStorage().config.outbox;
+  }
+
+  function getFeeAsset() external view override(IRollup) returns (IERC20) {
+    return STFLib.getStorage().config.feeAsset;
+  }
+
+  function getFeeAssetPortal() external view override(IRollup) returns (IFeeJuicePortal) {
+    return STFLib.getStorage().config.feeAssetPortal;
+  }
+
+  function getRewardDistributor() external view override(IRollup) returns (IRewardDistributor) {
+    return STFLib.getStorage().config.rewardDistributor;
+  }
+
+  function getL1FeesAt(Timestamp _timestamp)
     external
     view
     override(IRollup)
-    returns (Slot, uint256)
+    returns (L1FeeData memory)
   {
-    Slot slot = _ts.slotFromTimestamp();
-
-    // Consider if a prune will hit in this slot
-    uint256 pendingBlockNumber =
-      canPruneAtTime(_ts) ? rollupStore.tips.provenBlockNumber : rollupStore.tips.pendingBlockNumber;
-
-    Slot lastSlot = rollupStore.blocks[pendingBlockNumber].slotNumber;
-
-    require(slot > lastSlot, Errors.Rollup__SlotAlreadyInChain(lastSlot, slot));
-
-    // Make sure that the proposer is up to date and on the right chain (ie no reorgs)
-    bytes32 tipArchive = rollupStore.blocks[pendingBlockNumber].archive;
-    require(tipArchive == _archive, Errors.Rollup__InvalidArchive(tipArchive, _archive));
-
-    Signature[] memory sigs = new Signature[](0);
-    DataStructures.ExecutionFlags memory flags =
-      DataStructures.ExecutionFlags({ignoreDA: true, ignoreSignatures: true});
-
-    Epoch currentEpoch = slot.epochFromSlot();
-    ValidatorSelectionLib.validateValidatorSelection(
-      StakingLib.getStorage(), slot, currentEpoch, sigs, _archive, flags
-    );
-
-    return (slot, pendingBlockNumber + 1);
+    return FeeLib.getL1FeesAt(_timestamp);
   }
 
-  /**
-   * @notice  Gets the mana base fee
-   *
-   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
-   *
-   * @return The mana base fee
-   */
-  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset)
-    public
-    view
-    override(IRollup)
-    returns (uint256)
-  {
-    return getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset).summedBaseFee();
+  function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
+    return STFLib.canPruneAtTime(_ts);
   }
 
-  /**
-   * @notice  Get the archive root of a specific block
-   *
-   * @param _blockNumber - The block number to get the archive root of
-   *
-   * @return bytes32 - The archive root of the block
-   */
-  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
-    return _blockNumber <= rollupStore.tips.pendingBlockNumber
-      ? rollupStore.blocks[_blockNumber].archive
-      : bytes32(0);
-  }
-
-  /**
-   * @notice  Computes the epoch at a specific time
-   *
-   * @param _ts - The timestamp to compute the epoch for
-   *
-   * @return The computed epoch
-   */
-  function getEpochAt(Timestamp _ts) public view override(IValidatorSelection) returns (Epoch) {
-    return _ts.epochFromTimestamp();
-  }
-
-  /**
-   * @notice  Get the current epoch number
-   *
-   * @return The current epoch number
-   */
-  function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
-    return Timestamp.wrap(block.timestamp).epochFromTimestamp();
+  function getBurnAddress() external pure override(IRollup) returns (address) {
+    return EpochProofLib.BURN_ADDRESS;
   }
 
   /**
@@ -606,9 +623,81 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The address of the proposer
    */
-  function getProposerAt(Timestamp _ts) public view override(IValidatorSelection) returns (address) {
+  function getProposerAt(Timestamp _ts) public override(IValidatorSelection) returns (address) {
     Slot slot = _ts.slotFromTimestamp();
     Epoch epochNumber = slot.epochFromSlot();
     return ValidatorSelectionLib.getProposerAt(StakingLib.getStorage(), slot, epochNumber);
+  }
+
+  /**
+   * @notice  Gets the mana base fee
+   *
+   * @param _inFeeAsset - Whether to return the fee in the fee asset or ETH
+   *
+   * @return The mana base fee
+   */
+  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset)
+    public
+    view
+    override(IRollup)
+    returns (uint256)
+  {
+    return FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
+  }
+
+  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+    public
+    view
+    override(IRollup)
+    returns (ManaBaseFeeComponents memory)
+  {
+    return ProposeLib.getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset);
+  }
+
+  /**
+   * @notice  Gets the fee asset price as fee_asset / eth with 1e9 precision
+   *
+   * @return The fee asset price
+   */
+  function getFeeAssetPerEth() public view override(IRollup) returns (FeeAssetPerEthE9) {
+    return FeeLib.getFeeAssetPerEthAtBlock(STFLib.getStorage().tips.pendingBlockNumber);
+  }
+
+  function getEpochForBlock(uint256 _blockNumber) public view override(IRollup) returns (Epoch) {
+    return STFLib.getEpochForBlock(_blockNumber);
+  }
+
+  /**
+   * @notice  Get the archive root of a specific block
+   *
+   * @param _blockNumber - The block number to get the archive root of
+   *
+   * @return bytes32 - The archive root of the block
+   */
+  function archiveAt(uint256 _blockNumber) public view override(IRollup) returns (bytes32) {
+    RollupStore storage rollupStore = STFLib.getStorage();
+    return _blockNumber <= rollupStore.tips.pendingBlockNumber
+      ? rollupStore.blocks[_blockNumber].archive
+      : bytes32(0);
+  }
+
+  /**
+   * @notice  Computes the epoch at a specific time
+   *
+   * @param _ts - The timestamp to compute the epoch for
+   *
+   * @return The computed epoch
+   */
+  function getEpochAt(Timestamp _ts) public view override(IValidatorSelection) returns (Epoch) {
+    return _ts.epochFromTimestamp();
+  }
+
+  /**
+   * @notice  Get the current epoch number
+   *
+   * @return The current epoch number
+   */
+  function getCurrentEpoch() public view override(IValidatorSelection) returns (Epoch) {
+    return Timestamp.wrap(block.timestamp).epochFromTimestamp();
   }
 }

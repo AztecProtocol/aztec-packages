@@ -330,6 +330,10 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::operator^(const boo
 template <typename Builder> bool_t<Builder> bool_t<Builder>::operator!() const
 {
     bool_t<Builder> result(*this);
+    if (result.is_constant()) {
+        result.witness_bool = !result.witness_bool;
+        return result;
+    }
     result.witness_inverted = !result.witness_inverted;
     return result;
 }
@@ -441,6 +445,18 @@ bool_t<Builder> bool_t<Builder>::conditional_assign(const bool_t<Builder>& predi
                                                     const bool_t& lhs,
                                                     const bool_t& rhs)
 {
+    if (predicate.is_constant()) {
+        auto result = bool_t(predicate.get_value() ? lhs : rhs);
+        result.set_origin_tag(OriginTag(predicate.get_origin_tag(), lhs.get_origin_tag(), rhs.get_origin_tag()));
+        return result;
+    }
+
+    bool same = lhs.witness_index == rhs.witness_index;
+    bool witness_same = same && lhs.witness_index != IS_CONSTANT && (lhs.witness_inverted == rhs.witness_inverted);
+    bool const_same = same && (lhs.witness_index == IS_CONSTANT) && (lhs.witness_bool == rhs.witness_bool);
+    if (witness_same || const_same) {
+        return lhs;
+    }
     return (predicate && lhs) || (!predicate && rhs);
 }
 
@@ -527,7 +543,8 @@ template <typename Builder> bool_t<Builder> bool_t<Builder>::implies_both_ways(c
 
 template <typename Builder> bool_t<Builder> bool_t<Builder>::normalize() const
 {
-    if (is_constant() || !witness_inverted) {
+    if (is_constant()) {
+        ASSERT(!this->witness_inverted);
         return *this;
     }
 

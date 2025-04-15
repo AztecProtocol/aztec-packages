@@ -32,21 +32,20 @@ Unlike public state variables, which can be arbitrary types, private state varia
 
 Notes are the fundamental elements in the private world.
 
-A note should implement the following traits:
+A note has to implement the following traits:
 
-#include_code note_interface /noir-projects/aztec-nr/aztec/src/note/note_interface.nr rust
-
-#include_code serialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
-
-#include_code deserialize /noir-projects/noir-protocol-circuits/crates/types/src/traits.nr rust
+#include_code note_interfaces /noir-projects/aztec-nr/aztec/src/note/note_interface.nr rust
 
 The interplay between a private state variable and its notes can be confusing. Here's a summary to aid intuition:
 
-A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) may be declared in storage.
+A private state variable (of type `PrivateMutable`, `PrivateImmutable` or `PrivateSet`) may be declared in storage and the purpose of private state variables is to manage notes (inserting their note hashes into the note hash tree, obtaining the notes, grouping the notes together using the storage slot etc.).
 
-Every note contains a header, which contains the contract address and storage slot of the state variable to which it is associated. A note is associated with a private state variable if the storage slot of the private state variable matches the storage slot contained in the note's header. The header provides information that helps the user interpret the note's data.
-
-Management of the header is abstracted-away from developers who use the `PrivateImmutable`, `PrivateMutable` and `PrivateSet` types.
+:::info
+Note that storage slots in private state are not real.
+They do not point to a specific leaf in a merkle tree (as is the case in public).
+Instead, in the case of notes they can be understood only as a tag that is used to associate notes with a private state variable.
+The state variable storage slot can commonly represent an owner, as is the case when using the `at(...)` function of a `Map<>` with an `AztecAddress` as the key.
+:::
 
 A private state variable points to one or many notes (depending on the type). The note(s) are all valid private state if the note(s) haven't yet been nullified.
 
@@ -74,13 +73,13 @@ Like for public state, we define the struct to have context and a storage slot. 
 
 An example of `PrivateMutable` usage in the account contracts is keeping track of public keys. The `PrivateMutable` is added to the `Storage` struct as follows:
 
-#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-private-mutable-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 ### `new`
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows at the specified storage slot.
 
-#include_code start_vars_private_mutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code start_vars_private_mutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 ### `initialize`
 
@@ -104,7 +103,7 @@ Extend on what happens if you try to use non-initialized state.
 
 An unconstrained method to check whether the PrivateMutable has been initialized or not. It takes an optional owner and returns a boolean. You can view the implementation [here (GitHub link)](https://github.com/AztecProtocol/aztec-packages/blob/#include_aztec_version/noir-projects/aztec-nr/aztec/src/state_vars/private_mutable.nr).
 
-#include_code private_mutable_is_initialized /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code private_mutable_is_initialized /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 ### `replace`
 
@@ -112,7 +111,7 @@ To update the value of a `PrivateMutable`, we can use the `replace` method. The 
 
 An example of this is seen in a example card game, where we create a new note (a `CardNote`) containing some new data, and replace the current note with it:
 
-#include_code state_vars-PrivateMutableReplace /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code state_vars-PrivateMutableReplace /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 If two people are trying to modify the PrivateMutable at the same time, only one will succeed as we don't allow duplicate nullifiers! Developers should put in place appropriate access controls to avoid race conditions (unless a race is intended!).
 
@@ -120,7 +119,7 @@ If two people are trying to modify the PrivateMutable at the same time, only one
 
 This function allows us to get the note of a PrivateMutable, essentially reading the value.
 
-#include_code state_vars-PrivateMutableGet /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code state_vars-PrivateMutableGet /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 #### Nullifying Note reads
 
@@ -140,7 +139,7 @@ Functionally similar to [`get_note`](#get_note), but executed in unconstrained f
 
 As part of the initialization of the `Storage` struct, the `PrivateMutable` is created as follows, here at storage slot 1.
 
-#include_code storage-private-immutable-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-private-immutable-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 ### `initialize`
 
@@ -154,7 +153,7 @@ For example, if the storage slot depends on the an address then it is possible t
 
 Set the value of an PrivateImmutable by calling the `initialize` method:
 
-#include_code initialize-private-mutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code initialize-private-mutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 Once initialized, an PrivateImmutable's value remains unchangeable. This method can only be called once.
 
@@ -168,7 +167,7 @@ Similar to the `PrivateMutable`, we can use the `get_note` method to read the va
 
 Use this method to retrieve the value of an initialized PrivateImmutable.
 
-#include_code get_note-private-immutable /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code get_note-private-immutable /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 Unlike a `PrivateMutable`, the `get_note` function for an PrivateImmutable doesn't nullify the current note in the background. This means that multiple accounts can concurrently call this function to read the value.
 
@@ -186,7 +185,7 @@ You can view the implementation [here (GitHub link)](https://github.com/AztecPro
 
 And can be added to the `Storage` struct as follows. Here adding a set for a custom note.
 
-#include_code storage-set-declaration /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-set-declaration /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 ### `new`
 
@@ -194,7 +193,7 @@ The `new` method tells the contract how to operate on the underlying storage.
 
 We can initialize the set as follows:
 
-#include_code storage-set-init /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code storage-set-init /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust
 
 ### `insert`
 
@@ -328,11 +327,11 @@ This method sets the status of notes to retrieve (active or nullified).
 
 The following code snippet creates an instance of `NoteGetterOptions`, which has been configured to find the cards that belong to an account with nullifying key hash equal to `account_npk_m_hash`. The returned cards are sorted by their points in descending order, and the first `offset` cards with the highest points are skipped.
 
-#include_code state_vars-NoteGetterOptionsSelectSortOffset /noir-projects/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+#include_code state_vars-NoteGetterOptionsSelectSortOffset /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr rust
 
 The first value of `.select` and `.sort` indicates the property of the note we're looking for. For this we use helper functions that are autogenerated from the note definition. `CardNote` that has the following fields:
 
-#include_code state_vars-CardNote /noir-projects/noir-contracts/contracts/docs_example_contract/src/types/card_note.nr rust
+#include_code state_vars-CardNote /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/types/card_note.nr rust
 
 `CardNote::properties()` will return a struct with the values to pass for each field, which are related to their indices inside the `CardNote` struct, internal offset and length.
 
@@ -342,21 +341,21 @@ In the example, `.select(CardNote::properties().npk_m_hash, Comparator.EQ, accou
 
 There can be as many conditions as the number of fields a note type has. The following example finds cards whose fields match the three given values:
 
-#include_code state_vars-NoteGetterOptionsMultiSelects /noir-projects/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+#include_code state_vars-NoteGetterOptionsMultiSelects /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr rust
 
 While `selects` lets us find notes with specific values, `filter` lets us find notes in a more dynamic way. The function below picks the cards whose points are at least `min_points`, although this now can be done by using the select function with a GTE comparator:
 
-#include_code state_vars-OptionFilter /noir-projects/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+#include_code state_vars-OptionFilter /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr rust
 
 We can use it as a filter to further reduce the number of the final notes:
 
-#include_code state_vars-NoteGetterOptionsFilter /noir-projects/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+#include_code state_vars-NoteGetterOptionsFilter /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr rust
 
 One thing to remember is, `filter` will be applied on the notes after they are picked from the database, so it is more efficient to use select with comparators where possible. Another side effect of this is that it's possible that the actual notes we end up getting are fewer than the limit.
 
 The limit is `MAX_NOTE_HASH_READ_REQUESTS_PER_CALL` by default. But we can set it to any value **smaller** than that:
 
-#include_code state_vars-NoteGetterOptionsPickOne /noir-projects/noir-contracts/contracts/docs_example_contract/src/options.nr rust
+#include_code state_vars-NoteGetterOptionsPickOne /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/options.nr rust
 
 #### Example 2
 
@@ -366,4 +365,4 @@ An example of how we can use a Comparator to select notes when calling a Noir co
 
 In this example, we use the above typescript code to invoke a call to our Noir contract below. This Noir contract function takes an input to match with, and a comparator to use when fetching and selecting notes from storage.
 
-#include_code state_vars-NoteGetterOptionsComparatorExampleNoir /noir-projects/noir-contracts/contracts/docs_example_contract/src/main.nr rust
+#include_code state_vars-NoteGetterOptionsComparatorExampleNoir /noir-projects/noir-contracts/contracts/docs/docs_example_contract/src/main.nr rust

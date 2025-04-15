@@ -18,7 +18,7 @@ async function main(
   telemetryClient: TelemetryClient = getTelemetryClient(),
   logger = debugLogger,
 ) {
-  const store = await createStore('p2p-bootstrap', config, logger);
+  const store = await createStore('p2p-bootstrap', 1, config, logger);
 
   const bootstrapNode = new BootstrapNode(store, telemetryClient, logger);
   await bootstrapNode.start(config);

@@ -1,15 +1,16 @@
-#!/bin/bash
-set -e
-source ../utils/setup.sh
+#!/usr/bin/env bash
+source $(git rev-parse --show-toplevel)/ci3/source
+source shared/setup.sh
 
 test_title "Private transfer"
 
 MINT_AMOUNT=42
 TRANSFER_AMOUNT=21
 
-source $TEST_FOLDER/token_utils/create_main_and_mint_to_private.sh $MINT_AMOUNT
+source $flows/shared/deploy_main_account_and_token.sh
+source $flows/shared/mint_to_private.sh $MINT_AMOUNT main
 
-aztec-wallet create-account -a recipient
+aztec-wallet create-account -a recipient --register-only
 
 aztec-wallet send transfer -ca token --args accounts:recipient $TRANSFER_AMOUNT -f main
 

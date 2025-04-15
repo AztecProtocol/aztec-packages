@@ -1,25 +1,17 @@
 import { memoize } from '@aztec/foundation/decorators';
 import { EthAddress } from '@aztec/foundation/eth-address';
 import type { ViemSignature } from '@aztec/foundation/eth-signature';
-import { RollupAbi, RollupStorage, SlasherAbi } from '@aztec/l1-artifacts';
+import { RollupAbi } from '@aztec/l1-artifacts/RollupAbi';
+import { RollupStorage } from '@aztec/l1-artifacts/RollupStorage';
+import { SlasherAbi } from '@aztec/l1-artifacts/SlasherAbi';
 
-import {
-  type Account,
-  type Chain,
-  type GetContractReturnType,
-  type Hex,
-  type HttpTransport,
-  type PublicClient,
-  createPublicClient,
-  getAddress,
-  getContract,
-  http,
-} from 'viem';
+import { type Account, type GetContractReturnType, type Hex, getAddress, getContract } from 'viem';
 
-import { createEthereumChain } from '../chain.js';
-import { type DeployL1Contracts } from '../deploy_l1_contracts.js';
-import { type L1ContractAddresses } from '../l1_contract_addresses.js';
-import { type L1ReaderConfig } from '../l1_reader.js';
+import { getPublicClient } from '../client.js';
+import type { DeployL1ContractsReturnType } from '../deploy_l1_contracts.js';
+import type { L1ContractAddresses } from '../l1_contract_addresses.js';
+import type { L1ReaderConfig } from '../l1_reader.js';
+import type { ViemPublicClient } from '../types.js';
 import { formatViemError } from '../utils.js';
 import { SlashingProposerContract } from './slashing_proposer.js';
 
@@ -32,10 +24,21 @@ export type L1RollupContractAddresses = Pick<
   | 'feeJuiceAddress'
   | 'stakingAssetAddress'
   | 'rewardDistributorAddress'
+  | 'slashFactoryAddress'
 >;
 
+export type EpochProofPublicInputArgs = {
+  previousArchive: `0x${string}`;
+  endArchive: `0x${string}`;
+  previousBlockHash: `0x${string}`;
+  endBlockHash: `0x${string}`;
+  endTimestamp: bigint;
+  outHash: `0x${string}`;
+  proverId: `0x${string}`;
+};
+
 export class RollupContract {
-  private readonly rollup: GetContractReturnType<typeof RollupAbi, PublicClient<HttpTransport, Chain>>;
+  private readonly rollup: GetContractReturnType<typeof RollupAbi, ViemPublicClient>;
 
   static get checkBlobStorageSlot(): bigint {
     const asString = RollupStorage.find(storage => storage.label === 'checkBlob')?.slot;
@@ -45,7 +48,7 @@ export class RollupContract {
     return BigInt(asString);
   }
 
-  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1Contracts) {
+  static getFromL1ContractsValues(deployL1ContractsValues: DeployL1ContractsReturnType) {
     const {
       publicClient,
       l1ContractAddresses: { rollupAddress },
@@ -54,20 +57,24 @@ export class RollupContract {
   }
 
   static getFromConfig(config: L1ReaderConfig) {
-    const client = createPublicClient({
-      transport: http(config.l1RpcUrl),
-      chain: createEthereumChain(config.l1RpcUrl, config.l1ChainId).chainInfo,
-    });
+    const client = getPublicClient(config);
     const address = config.l1Contracts.rollupAddress.toString();
     return new RollupContract(client, address);
   }
 
-  constructor(public readonly client: PublicClient<HttpTransport, Chain>, address: Hex) {
+  constructor(public readonly client: ViemPublicClient, address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
     this.rollup = getContract({ address, abi: RollupAbi, client });
   }
 
   public get address() {
     return this.rollup.address;
+  }
+
+  getContract(): GetContractReturnType<typeof RollupAbi, ViemPublicClient> {
+    return this.rollup;
   }
 
   @memoize
@@ -113,8 +120,43 @@ export class RollupContract {
     return this.rollup.read.getMinimumStake();
   }
 
+  @memoize
+  getManaTarget() {
+    return this.rollup.read.getManaTarget();
+  }
+
+  @memoize
+  getProvingCostPerMana() {
+    return this.rollup.read.getProvingCostPerManaInEth();
+  }
+
+  @memoize
+  getProvingCostPerManaInFeeAsset() {
+    return this.rollup.read.getProvingCostPerManaInFeeAsset();
+  }
+
+  @memoize
+  getManaLimit() {
+    return this.rollup.read.getManaLimit();
+  }
+
+  @memoize
+  getVersion() {
+    return this.rollup.read.getVersion();
+  }
+
+  @memoize
+  async getGenesisArchiveTreeRoot(): Promise<`0x${string}`> {
+    const block = await this.rollup.read.getBlock([0n]);
+    return block.archive;
+  }
+
+  getSlasher() {
+    return this.rollup.read.getSlasher();
+  }
+
   public async getSlashingProposerAddress() {
-    const slasherAddress = await this.rollup.read.getSlasher();
+    const slasherAddress = await this.getSlasher();
     const slasher = getContract({
       address: getAddress(slasherAddress.toString()),
       abi: SlasherAbi,
@@ -135,8 +177,15 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
-  getCommitteeAt(timestamp: bigint) {
-    return this.rollup.read.getCommitteeAt([timestamp]);
+  async getCommitteeAt(timestamp: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCommitteeAt',
+      args: [timestamp],
+    });
+
+    return result;
   }
 
   getSampleSeedAt(timestamp: bigint) {
@@ -147,16 +196,52 @@ export class RollupContract {
     return this.rollup.read.getCurrentSampleSeed();
   }
 
-  getCurrentEpochCommittee() {
-    return this.rollup.read.getCurrentEpochCommittee();
+  getCurrentEpoch() {
+    return this.rollup.read.getCurrentEpoch();
   }
 
-  getCurrentProposer() {
-    return this.rollup.read.getCurrentProposer();
+  async getCurrentEpochCommittee() {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCurrentEpochCommittee',
+      args: [],
+    });
+
+    return result;
   }
 
-  getProposerAt(timestamp: bigint) {
-    return this.rollup.read.getProposerAt([timestamp]);
+  async getCurrentProposer() {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getCurrentProposer',
+      args: [],
+    });
+
+    return result;
+  }
+
+  async getProposerAt(timestamp: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getProposerAt',
+      args: [timestamp],
+    });
+
+    return result;
+  }
+
+  async getEpochCommittee(epoch: bigint) {
+    const { result } = await this.client.simulateContract({
+      address: this.address,
+      abi: RollupAbi,
+      functionName: 'getEpochCommittee',
+      args: [epoch],
+    });
+
+    return result;
   }
 
   getBlock(blockNumber: bigint) {
@@ -186,11 +271,11 @@ export class RollupContract {
       stakingAssetAddress,
     ] = (
       await Promise.all([
-        this.rollup.read.INBOX(),
-        this.rollup.read.OUTBOX(),
-        this.rollup.read.FEE_JUICE_PORTAL(),
-        this.rollup.read.REWARD_DISTRIBUTOR(),
-        this.rollup.read.ASSET(),
+        this.rollup.read.getInbox(),
+        this.rollup.read.getOutbox(),
+        this.rollup.read.getFeeAssetPortal(),
+        this.rollup.read.getRewardDistributor(),
+        this.rollup.read.getFeeAsset(),
         this.rollup.read.getStakingAsset(),
       ] as const)
     ).map(EthAddress.fromString);
@@ -206,37 +291,18 @@ export class RollupContract {
     };
   }
 
+  public async getFeeJuicePortal() {
+    return EthAddress.fromString(await this.rollup.read.getFeeAssetPortal());
+  }
+
   public async getEpochNumberForSlotNumber(slotNumber: bigint): Promise<bigint> {
     return await this.rollup.read.getEpochAtSlot([slotNumber]);
   }
 
   getEpochProofPublicInputs(
-    args: readonly [
-      bigint,
-      bigint,
-      readonly [
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-        `0x${string}`,
-      ],
-      readonly `0x${string}`[],
-      `0x${string}`,
-      `0x${string}`,
-    ],
+    args: readonly [bigint, bigint, EpochProofPublicInputArgs, readonly `0x${string}`[], `0x${string}`],
   ) {
     return this.rollup.read.getEpochProofPublicInputs(args);
-  }
-
-  public async getEpochToProve(): Promise<bigint | undefined> {
-    try {
-      return await this.rollup.read.getEpochToProve();
-    } catch (err: unknown) {
-      throw formatViemError(err);
-    }
   }
 
   public async validateHeader(
@@ -254,7 +320,13 @@ export class RollupContract {
     account: `0x${string}` | Account,
   ): Promise<void> {
     try {
-      await this.rollup.read.validateHeader(args, { account });
+      await this.client.simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'validateHeader',
+        args,
+        account,
+      });
     } catch (error: unknown) {
       throw formatViemError(error);
     }
@@ -279,13 +351,91 @@ export class RollupContract {
     }
     const timeOfNextL1Slot = (await this.client.getBlock()).timestamp + slotDuration;
     try {
-      const [slot, blockNumber] = await this.rollup.read.canProposeAtTime(
-        [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
-        { account },
-      );
+      const {
+        result: [slot, blockNumber],
+      } = await this.client.simulateContract({
+        address: this.address,
+        abi: RollupAbi,
+        functionName: 'canProposeAtTime',
+        args: [timeOfNextL1Slot, `0x${archive.toString('hex')}`],
+        account,
+      });
+
       return [slot, blockNumber];
     } catch (err: unknown) {
       throw formatViemError(err);
     }
+  }
+
+  /** Calls getHasSubmitted directly. Returns whether the given prover has submitted a proof with the given length for the given epoch. */
+  public getHasSubmittedProof(epochNumber: number, numberOfBlocksInEpoch: number, prover: Hex | EthAddress) {
+    if (prover instanceof EthAddress) {
+      prover = prover.toString();
+    }
+    return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover]);
+  }
+
+  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
+    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  }
+
+  getSlotAt(timestamp: bigint) {
+    return this.rollup.read.getSlotAt([timestamp]);
+  }
+
+  status(blockNumber: bigint, options?: { blockNumber?: bigint }) {
+    return this.rollup.read.status([blockNumber], options);
+  }
+
+  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    return this.rollup.read.canPruneAtTime([timestamp], options);
+  }
+
+  archive() {
+    return this.rollup.read.archive();
+  }
+
+  archiveAt(blockNumber: bigint) {
+    return this.rollup.read.archiveAt([blockNumber]);
+  }
+
+  getSequencerRewards(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getSequencerRewards([address]);
+  }
+
+  getSpecificProverRewardsForEpoch(epoch: bigint, prover: Hex | EthAddress) {
+    if (prover instanceof EthAddress) {
+      prover = prover.toString();
+    }
+    return this.rollup.read.getSpecificProverRewardsForEpoch([epoch, prover]);
+  }
+
+  getAttesters() {
+    return this.rollup.read.getAttesters();
+  }
+
+  getInfo(address: Hex | EthAddress) {
+    if (address instanceof EthAddress) {
+      address = address.toString();
+    }
+    return this.rollup.read.getInfo([address]);
+  }
+
+  getBlobPublicInputsHash(blockNumber: bigint) {
+    return this.rollup.read.getBlobPublicInputsHash([blockNumber]);
+  }
+
+  getStakingAsset() {
+    return this.rollup.read.getStakingAsset();
+  }
+
+  getProposerForAttester(attester: Hex | EthAddress) {
+    if (attester instanceof EthAddress) {
+      attester = attester.toString();
+    }
+    return this.rollup.read.getProposerForAttester([attester]);
   }
 }

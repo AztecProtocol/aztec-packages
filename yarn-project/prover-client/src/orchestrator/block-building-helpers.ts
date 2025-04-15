@@ -1,39 +1,32 @@
-import { Blob } from '@aztec/blob-lib';
-import {
-  Body,
-  MerkleTreeId,
-  type MerkleTreeWriteOperations,
-  type ProcessedTx,
-  TxEffect,
-  getTreeHeight,
-} from '@aztec/circuit-types';
+import { Blob, type SpongeBlob } from '@aztec/blob-lib';
 import {
   ARCHIVE_HEIGHT,
-  AppendOnlyTreeSnapshot,
-  BlockHeader,
-  ContentCommitment,
-  Fr,
-  type GlobalVariables,
+  MAX_CONTRACT_CLASS_LOGS_PER_TX,
   MAX_NOTE_HASHES_PER_TX,
   MAX_NULLIFIERS_PER_TX,
-  MembershipWitness,
-  MerkleTreeCalculator,
   NOTE_HASH_SUBTREE_HEIGHT,
   NOTE_HASH_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_SUBTREE_HEIGHT,
   NULLIFIER_SUBTREE_SIBLING_PATH_LENGTH,
   NULLIFIER_TREE_HEIGHT,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
-  NullifierLeafPreimage,
   PUBLIC_DATA_TREE_HEIGHT,
-  type ParityPublicInputs,
-  PartialStateReference,
-  PublicDataHint,
-  PublicDataTreeLeaf,
-  PublicDataTreeLeafPreimage,
-  StateReference,
-} from '@aztec/circuits.js';
-import { type SpongeBlob } from '@aztec/circuits.js/blobs';
+} from '@aztec/constants';
+import { makeTuple } from '@aztec/foundation/array';
+import { padArrayEnd } from '@aztec/foundation/collection';
+import { sha256Trunc } from '@aztec/foundation/crypto';
+import { Fr } from '@aztec/foundation/fields';
+import type { Logger } from '@aztec/foundation/log';
+import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
+import { MembershipWitness, MerkleTreeCalculator, computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
+import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vk-tree';
+import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
+import { computeFeePayerBalanceLeafSlot } from '@aztec/protocol-contracts/fee-juice';
+import { PublicDataHint } from '@aztec/stdlib/avm';
+import { Body } from '@aztec/stdlib/block';
+import type { MerkleTreeWriteOperations } from '@aztec/stdlib/interfaces/server';
+import { ContractClassLog } from '@aztec/stdlib/logs';
+import type { ParityPublicInputs } from '@aztec/stdlib/parity';
 import {
   type BaseOrMergeRollupPublicInputs,
   type BlockRootOrBlockMergePublicInputs,
@@ -41,18 +34,26 @@ import {
   PrivateBaseRollupHints,
   PrivateBaseStateDiffHints,
   PublicBaseRollupHints,
-} from '@aztec/circuits.js/rollup';
-import { makeTuple } from '@aztec/foundation/array';
-import { padArrayEnd } from '@aztec/foundation/collection';
-import { sha256Trunc } from '@aztec/foundation/crypto';
-import { type Logger } from '@aztec/foundation/log';
-import { type Tuple, assertLength, serializeToBuffer, toFriendlyJSON } from '@aztec/foundation/serialize';
-import { computeUnbalancedMerkleRoot } from '@aztec/foundation/trees';
-import { getVKTreeRoot } from '@aztec/noir-protocol-circuits-types/vks';
-import { protocolContractTreeRoot } from '@aztec/protocol-contracts';
-import { computeFeePayerBalanceLeafSlot } from '@aztec/simulator/server';
+} from '@aztec/stdlib/rollup';
+import {
+  AppendOnlyTreeSnapshot,
+  MerkleTreeId,
+  NullifierLeafPreimage,
+  PublicDataTreeLeaf,
+  PublicDataTreeLeafPreimage,
+  getTreeHeight,
+} from '@aztec/stdlib/trees';
+import {
+  BlockHeader,
+  ContentCommitment,
+  type GlobalVariables,
+  PartialStateReference,
+  type ProcessedTx,
+  StateReference,
+  TxEffect,
+} from '@aztec/stdlib/tx';
 import { Attributes, type Span, runInSpan } from '@aztec/telemetry-client';
-import { type MerkleTreeReadOperations } from '@aztec/world-state';
+import type { MerkleTreeReadOperations } from '@aztec/world-state';
 
 import { inspect } from 'util';
 
@@ -100,6 +101,10 @@ export const buildBaseRollupHints = runInSpan(
     const noteHashes = padArrayEnd(tx.txEffect.noteHashes, Fr.ZERO, MAX_NOTE_HASHES_PER_TX);
     await db.appendLeaves(MerkleTreeId.NOTE_HASH_TREE, noteHashes);
 
+    // Create data hint for reading fee payer initial balance in Fee Juice
+    const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
+    const feePayerFeeJuiceBalanceReadHint = await getPublicDataHint(db, leafSlot.toBigInt());
+
     // The read witnesses for a given TX should be generated before the writes of the same TX are applied.
     // All reads that refer to writes in the same tx are transient and can be simplified out.
     const txPublicDataUpdateRequestInfo = await processPublicDataUpdateRequests(tx, db);
@@ -136,6 +141,11 @@ export const buildBaseRollupHints = runInSpan(
     const inputSpongeBlob = startSpongeBlob.clone();
     await startSpongeBlob.absorb(tx.txEffect.toBlobFields());
 
+    const contractClassLogsPreimages = makeTuple(
+      MAX_CONTRACT_CLASS_LOGS_PER_TX,
+      i => tx.txEffect.contractClassLogs[i]?.toUnsiloed() || ContractClassLog.empty(),
+    );
+
     if (tx.avmProvingRequest) {
       const blockHash = await tx.constants.historicalHeader.hash();
       const archiveRootMembershipWitness = await getMembershipWitnessFor(
@@ -148,6 +158,7 @@ export const buildBaseRollupHints = runInSpan(
       return PublicBaseRollupHints.from({
         startSpongeBlob: inputSpongeBlob,
         archiveRootMembershipWitness,
+        contractClassLogsPreimages,
         constants,
       });
     } else {
@@ -158,13 +169,6 @@ export const buildBaseRollupHints = runInSpan(
       ) {
         throw new Error(`More than one public data write in a private only tx`);
       }
-
-      // Create data hint for reading fee payer initial balance in Fee Juice
-      // If no fee payer is set, read hint should be empty
-      const leafSlot = await computeFeePayerBalanceLeafSlot(tx.data.feePayer);
-      const feePayerFeeJuiceBalanceReadHint = tx.data.feePayer.isZero()
-        ? PublicDataHint.empty()
-        : await getPublicDataHint(db, leafSlot.toBigInt());
 
       const feeWriteLowLeafPreimage =
         txPublicDataUpdateRequestInfo.lowPublicDataWritesPreimages[0] || PublicDataTreeLeafPreimage.empty();
@@ -207,8 +211,9 @@ export const buildBaseRollupHints = runInSpan(
         start,
         startSpongeBlob: inputSpongeBlob,
         stateDiffHints,
-        feePayerFeeJuiceBalanceReadHint: feePayerFeeJuiceBalanceReadHint,
+        feePayerFeeJuiceBalanceReadHint,
         archiveRootMembershipWitness,
+        contractClassLogsPreimages,
         constants,
       });
     }
@@ -229,8 +234,8 @@ export async function getPublicDataHint(db: MerkleTreeWriteOperations, leafSlot:
     throw new Error(`Cannot find the leaf preimage for public data tree at index ${index}.`);
   }
 
-  const exists = leafPreimage.slot.toBigInt() === leafSlot;
-  const value = exists ? leafPreimage.value : Fr.ZERO;
+  const exists = leafPreimage.leaf.slot.toBigInt() === leafSlot;
+  const value = exists ? leafPreimage.leaf.value : Fr.ZERO;
 
   return new PublicDataHint(new Fr(leafSlot), value, membershipWitness, leafPreimage);
 }
@@ -347,7 +352,7 @@ export const buildHeaderAndBodyFromTxs = runInSpan(
     const contentCommitment = new ContentCommitment(new Fr(numTxs), blobsHash, parityShaRoot, outHash);
 
     const fees = body.txEffects.reduce((acc, tx) => acc.add(tx.transactionFee), Fr.ZERO);
-    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.totalGas.l2Gas)), Fr.ZERO);
+    const manaUsed = txs.reduce((acc, tx) => acc.add(new Fr(tx.gasUsed.billedGas.l2Gas)), Fr.ZERO);
 
     const header = new BlockHeader(previousArchive, contentCommitment, stateReference, globalVariables, fees, manaUsed);
 

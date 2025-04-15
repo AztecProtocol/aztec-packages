@@ -6,9 +6,8 @@
 // This makes its points natively representable in our VM.
 namespace ecc;
 
-    // The canonical coordinates representing the point at infinity from affine_element::infinity in bb
-    // The x-coordinate is equal to (uint256(p) + 1 / 2)
-    pol INFINITY_X = 10944121435919637611123202872628637544274182200208017171849102093287904247809;
+    // Infinity is represented as 0,0,true in the standard form
+    pol INFINITY_X = 0;
     pol INFINITY_Y = 0;
 
     // This is the selector with which other subtraces will reference
