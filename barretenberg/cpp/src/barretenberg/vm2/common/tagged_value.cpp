@@ -5,6 +5,7 @@
 #include <stdexcept>
 #include <variant>
 
+#include "barretenberg/numeric/bitop/get_msb.hpp"
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
@@ -99,8 +100,8 @@ TaggedValue::TaggedValue(TaggedValue::value_type value_)
 
 TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
 {
-    auto assert_bounds = [](const FF& value, uint16_t bits) {
-        if (uint256_t(value) >= uint256_t(1) << bits) {
+    auto assert_bounds = [](const FF& value, uint8_t bits) {
+        if (static_cast<uint256_t>(value).get_msb() >= bits) {
             throw std::runtime_error("Value out of bounds");
         }
     };
@@ -108,7 +109,7 @@ TaggedValue TaggedValue::from_tag(ValueTag tag, FF value)
     // Check bounds first.
     switch (tag) {
     case ValueTag::U1:
-        // No bounds check.
+        assert_bounds(value, 1);
         break;
     case ValueTag::U8:
         assert_bounds(value, 8);
@@ -136,7 +137,7 @@ TaggedValue TaggedValue::from_tag_truncating(ValueTag tag, FF value)
 {
     switch (tag) {
     case ValueTag::U1:
-        return TaggedValue(static_cast<uint1_t>(!value.is_zero()));
+        return TaggedValue(static_cast<uint1_t>(static_cast<uint8_t>(value) % 2));
     case ValueTag::U8:
         return TaggedValue(static_cast<uint8_t>(value));
     case ValueTag::U16:

@@ -53,13 +53,13 @@ TEST(TaggedValueTest, FromTag)
 {
     FF value = 42;
 
-    auto val_u1 = TaggedValue::from_tag(ValueTag::U1, value);
+    auto val_u1 = TaggedValue::from_tag(ValueTag::U1, 1);
     EXPECT_EQ(val_u1.get_tag(), ValueTag::U1);
-    EXPECT_EQ(val_u1.as<uint1_t>().value(), 1); // Non-zero becomes 1
+    EXPECT_EQ(val_u1.as<uint1_t>().value(), 1);
 
     auto val_u1_zero = TaggedValue::from_tag(ValueTag::U1, 0);
     EXPECT_EQ(val_u1_zero.get_tag(), ValueTag::U1);
-    EXPECT_EQ(val_u1_zero.as<uint1_t>().value(), 0); // Zero becomes 0
+    EXPECT_EQ(val_u1_zero.as<uint1_t>().value(), 0);
 
     auto val_u8 = TaggedValue::from_tag(ValueTag::U8, value);
     EXPECT_EQ(val_u8.get_tag(), ValueTag::U8);
@@ -89,8 +89,8 @@ TEST(TaggedValueTest, FromTag)
 // Test from_tag_truncating method
 TEST(TaggedValueTest, FromTagTruncating)
 {
-    // U1 - any non-zero value becomes 1
-    auto val_u1 = TaggedValue::from_tag_truncating(ValueTag::U1, 42);
+    // U1 - truncates to 1 bit
+    auto val_u1 = TaggedValue::from_tag_truncating(ValueTag::U1, 3); // 3 = 1 mod 2
     EXPECT_EQ(val_u1.get_tag(), ValueTag::U1);
     EXPECT_EQ(val_u1.as<uint1_t>().value(), 1);
 
