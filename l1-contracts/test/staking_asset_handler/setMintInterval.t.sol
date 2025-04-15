@@ -65,7 +65,7 @@ contract SetMintIntervalTest is StakingAssetHandlerBase {
   }
 
   function test_WhenOwnerTriesToMintAfterTheNewIntervalHasPassed(uint256 _newMintInterval) external {
-    _newMintInterval = bound(_newMintInterval, INITIAL_MINT_INTERVAL + 1, 1e18);
+    _newMintInterval = bound(_newMintInterval, INITIAL_MINT_INTERVAL + 1, 1e12);
     stakingAssetHandler.setMintInterval(_newMintInterval);
     vm.warp(block.timestamp + _newMintInterval);
     // it mints

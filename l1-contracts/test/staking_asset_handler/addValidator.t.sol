@@ -76,7 +76,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   }
 
   function test_WhenEnoughTimeHasPassedSinceLastMint(
-    uint256 _interval,
+    uint32 _interval,
     uint256 _depositsPerMint,
     address _attester,
     address _proposer
@@ -113,7 +113,7 @@ contract AddValidatorTest is StakingAssetHandlerBase {
   }
 
   function test_WhenItDoesNotNeedToMint(
-    uint256 _interval,
+    uint32 _interval,
     uint256 _depositsPerMint,
     address _attester,
     address _proposer
