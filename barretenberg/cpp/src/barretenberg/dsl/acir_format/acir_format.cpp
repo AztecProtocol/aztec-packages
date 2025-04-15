@@ -376,12 +376,12 @@ void handle_IPA_accumulation(Builder& builder,
     // If we aren't in the root rollup, we should have an output IPA proof.
     if (!is_root_rollup) {
         ASSERT(final_ipa_proof.size() > 0);
+        // Propagate the IPA claim via the public inputs of the outer circuit
+        // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
+        // location/entity to handle this IPA data propagation.
+        final_ipa_claim.set_public();
+        builder.ipa_proof = final_ipa_proof;
     }
-    // Propagate the IPA claim via the public inputs of the outer circuit
-    // TODO(https://github.com/AztecProtocol/barretenberg/issues/1306): Determine the right
-    // location/entity to handle this IPA data propagation.
-    final_ipa_claim.set_public();
-    builder.ipa_proof = final_ipa_proof;
 }
 
 void process_plonk_recursion_constraints(Builder& builder,
