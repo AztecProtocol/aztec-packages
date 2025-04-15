@@ -809,11 +809,10 @@ int parse_and_run_cli_command(int argc, char* argv[])
                                "witness.msgpack "
                                "anymore; it only expects --ivc_inputs_path ivc-inputs.msgpack");
             }
-            if (prove_ivc))
-                {
-                    api.prove(flags, ivc_inputs_path, output_path);
-                    return 0;
-                }
+            if (prove_ivc) {
+                api.prove(flags, ivc_inputs_path, output_path);
+                return 0;
+            }
             if (write_ivc_vk) {
                 api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
