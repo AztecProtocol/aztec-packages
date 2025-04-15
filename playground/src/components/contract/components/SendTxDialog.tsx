@@ -3,7 +3,6 @@ import Dialog from '@mui/material/Dialog';
 import { AuthWitness, ContractFunctionInteraction, type SendMethodOptions } from '@aztec/aztec.js';
 import Button from '@mui/material/Button';
 import TextField from '@mui/material/TextField';
-import { css } from '@mui/styled-engine';
 import { useContext, useEffect, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import FormControl from '@mui/material/FormControl';
@@ -12,23 +11,10 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Typography from '@mui/material/Typography';
 import Autocomplete from '@mui/material/Autocomplete';
 import { parseAliasedBuffersAsString } from '../../../utils/conversion';
-import { progressIndicator } from '../../../styles/common';
+import { dialogBody, form, progressIndicator } from '../../../styles/common';
 import Divider from '@mui/material/Divider';
-
-const dialogBody = css({
-  display: 'flex',
-  flexDirection: 'column',
-  padding: '1rem',
-  alignItems: 'center',
-  minWidth: '350px',
-  minHeight: '500px',
-});
-
-const form = css({
-  width: '100%',
-  display: 'flex',
-  gap: '1rem',
-});
+import { DialogContent } from '@mui/material';
+import { Box, DialogActions } from '@mui/material';
 
 interface SendTxDialogProps {
   name: string;
@@ -71,7 +57,8 @@ export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogP
   return (
     <Dialog onClose={handleClose} open={open}>
       <DialogTitle>Send transaction</DialogTitle>
-      <div css={dialogBody}>
+
+      <DialogContent sx={dialogBody}>
         <FormControl css={form}>
           <FeePaymentSelector setFeePaymentMethod={setFeePaymentMethod} />
         </FormControl>
@@ -106,14 +93,18 @@ export function SendTxDialog({ name, interaction, open, onClose }: SendTxDialogP
             />
           </>
         )}
-        <div css={{ flexGrow: 1, margin: 'auto' }}></div>
-        <Button disabled={!feePaymentMethod} onClick={send}>
-          Send
-        </Button>
-        <Button color="error" onClick={handleClose}>
-          Cancel
-        </Button>
-      </div>
+
+        <Box sx={{ flexGrow: 1 }} />
+
+        <DialogActions>
+          <Button disabled={!feePaymentMethod} onClick={send}>
+            Send
+          </Button>
+          <Button color="error" onClick={handleClose}>
+            Cancel
+          </Button>
+        </DialogActions>
+      </DialogContent>
     </Dialog>
   );
 }

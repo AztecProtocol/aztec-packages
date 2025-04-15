@@ -11,6 +11,7 @@ export const form = css({
   width: '100%',
   display: 'flex',
   gap: '1rem',
+  paddingTop: '0.5rem',
 });
 
 export const progressIndicator = css({
