@@ -1,47 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744732458456,
+  "lastUpdate": 1744732924408,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "End-to-end Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "mara@aztecprotocol.com",
-            "name": "maramihali",
-            "username": "maramihali"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": true,
-          "id": "8c58b76ca152b7896e2c4e731d5bc3d8239f431d",
-          "message": "feat: unify opcode API between ultra and eccvm ops (#13376)\n\nIn this PR:\n* Use the same representation of opcodes for Ultra Ops and ECCVM ops and\nunit tests the equivalence. We favour the ECCVM representation because\nthis is thightly coupled to the correctness and efficiency of some ECCVM\nrelations.\n* Define the Ultra and ECCVM operation structs in the same file and\nremove the double definition of ECCVM operations\n* Move the op_queue outside of the stdlib_circuit_builder target in its\nown target to avoid the dependency of Goblin VMs on this",
-          "timestamp": "2025-04-09T10:15:33Z",
-          "tree_id": "9b5dad3c213ada7fe26507915b188f511c9184fa",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/8c58b76ca152b7896e2c4e731d5bc3d8239f431d"
-        },
-        "date": 1744197281438,
-        "tool": "customSmallerIsBetter",
-        "benches": [
-          {
-            "name": "Sequencer/aztec.sequencer.block.build_duration",
-            "value": 10435,
-            "unit": "ms"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
-            "value": 0.2653747516092325,
-            "unit": "us/mana"
-          },
-          {
-            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
-            "value": 151482,
-            "unit": "us"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -1945,6 +1906,45 @@ window.BENCHMARK_DATA = {
           {
             "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
             "value": 159203,
+            "unit": "us"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "nicolas.venturo@gmail.com",
+            "name": "Nicolás Venturo",
+            "username": "nventuro"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": false,
+          "id": "ea12d56bbd83b127f27787695d398b40aa2a36f7",
+          "message": "fix: make the token use large notes first (#13545)\n\nThis fixes an issue @alexghr has encountered where the AMM bot crashes\ndue to trying to use too many small notes. There's other things to fix\n(make `transfer_to_public` recursive, have better max notes limits,\netc.), but this quick patch will fix most issues (unless someone needs\nto combine more than 15 notes for a transfer), so it's a good stopgap\nmeasure.\n\nThe fix is trivial, but adding tests for it is not, reflecting TXE's\npoor state of affairs. I wanted to test that regardless of the order in\nwhich two notes are created, we always consume the larger one first, but\na) was forced to write two separate tests, since it seems we lack\ncontrol over TXE's execution cache (notably transient nullified notes),\nand b) was forced to use the actual token contract and to call contract\nfunctions due to #13269. Usage of `set_contract_address` is also quite\nobscure.\n\nEach test could e.g. have looked like this, which is much simpler and\nhas way fewer moving pieces:\n\n```noir\nenv.private_tx(|context| => {\n    let storage_slot = 5;\n    let balance_set =\n        BalanceSet::new(context, storage_slot);\n\n    recipient_balance_set.add(owner, small_note_amount);\n    recipient_balance_set.add(owner, large_note_amount);\n});\n\nenv.private_tx(|context| => {\n    let storage_slot = 5;\n    let balance_set =\n        BalanceSet::new(context, storage_slot);\n\n    let emission = recipient_balance_set.sub(owner, small_note_amount);\n    assert_eq(emission.emission.unwrap().note.value, large_mint_amount - small_mint_amount);\n});\n```\n\nI guess we'd need to explicitly deal with note discovery via oracle\nhints in that case, but regardless it seems solvable. It'd also let us\ntest that this works for both transient and settled notes, or even a mix\n(which is something we should have extensive coverage of in the almost\nnon-existent note getter options tests).",
+          "timestamp": "2025-04-15T15:05:29Z",
+          "tree_id": "eb29cd8ce9439d0246d24970dd5d08cd63ff0ea0",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/ea12d56bbd83b127f27787695d398b40aa2a36f7"
+        },
+        "date": 1744732923624,
+        "tool": "customSmallerIsBetter",
+        "benches": [
+          {
+            "name": "Sequencer/aztec.sequencer.block.build_duration",
+            "value": 9631,
+            "unit": "ms"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block.time_per_mana",
+            "value": 0.25878517440438653,
+            "unit": "us/mana"
+          },
+          {
+            "name": "Sequencer/aztec.sequencer.block_builder_tree_insertion_duration",
+            "value": 155851,
             "unit": "us"
           }
         ]
