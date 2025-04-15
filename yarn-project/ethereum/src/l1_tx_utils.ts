@@ -746,13 +746,22 @@ export class L1TxUtils {
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
-    if (!this.walletClient) {
-      throw new Error('L1 tx utils not initialized with wallet client');
-    }
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
 
-    const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+    const call: any = {
+      to: request.to!,
+      data: request.data,
+      maxFeePerGas: gasPrice.maxFeePerGas,
+      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
+      gas: request.gas ?? LARGE_GAS_LIMIT,
+    };
+
+    if (this.walletClient) {
+      const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
+      call.nonce = nonce;
+      call.from = this.walletClient.account.address;
+    }
 
     try {
       const result = await this.publicClient.simulateBlocks({
@@ -762,17 +771,7 @@ export class L1TxUtils {
           {
             blockOverrides,
             stateOverrides,
-            calls: [
-              {
-                from: this.walletClient.account.address,
-                to: request.to!,
-                data: request.data,
-                maxFeePerGas: gasPrice.maxFeePerGas,
-                maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-                gas: request.gas ?? LARGE_GAS_LIMIT,
-                nonce,
-              },
-            ],
+            calls: [call],
           },
         ],
       });
