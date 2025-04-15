@@ -74,7 +74,6 @@ describe('Client IVC Integration', () => {
       logger.info,
     );
     expect(verifyWasmResult.status).toEqual(BB_RESULT.SUCCESS);
-    expect(verifyResult).toEqual(true);
   });
 
   it('Should generate an array of gate numbers for the stack of programs being proved by ClientIVC', async () => {

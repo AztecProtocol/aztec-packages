@@ -30,7 +30,6 @@ import {
   witnessGenMockRollupRootCircuit,
 } from './index.js';
 import { proveAvm, proveClientIVC, proveRollupHonk, proveTube } from './prove_native.js';
-import * as proveWasm from './prove_wasm.js';
 import type { KernelPublicInputs } from './types/index.js';
 
 /* eslint-disable camelcase */
