@@ -287,6 +287,7 @@ export class SequencerPublisher {
       {
         to: this.rollupContract.address,
         data: encodeFunctionData({ abi: RollupAbi, functionName: 'validateHeader', args }),
+        isViewFn: true,
       },
       {
         time: ts + 1n,

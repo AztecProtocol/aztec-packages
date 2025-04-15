@@ -741,7 +741,7 @@ export class L1TxUtils {
    * @returns The gas used and the result of the simulation
    */
   public async simulate(
-    request: L1TxRequest & { gas?: bigint; blockNumber?: bigint },
+    request: L1TxRequest & { gas?: bigint; blockNumber?: bigint; isViewFn?: boolean },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
@@ -754,7 +754,7 @@ export class L1TxUtils {
       data: request.data,
     };
 
-    if (this.walletClient) {
+    if (this.walletClient && !request.isViewFn) {
       const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
       call.nonce = nonce;
       call.from = this.walletClient.account.address;
