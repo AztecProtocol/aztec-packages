@@ -14,8 +14,8 @@ use crate::{
     },
     address::AztecAddress,
     constants::{
-        AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
-        MAX_ENQUEUED_CALLS_PER_TX,
+        AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH, AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
+        MAX_ENQUEUED_CALLS_PER_TX, PROOF_TYPE_AVM,
     },
     proof::{avm_proof::AvmProof, traits::Verifiable, vk_data::VkData},
     traits::{Deserialize, Empty, FromField, Serialize, ToField},
@@ -185,12 +185,18 @@ impl Deserialize<AVM_CIRCUIT_PUBLIC_INPUTS_LENGTH> for AvmCircuitPublicInputs {
 pub struct AvmProofData {
     pub public_inputs: AvmCircuitPublicInputs,
     pub proof: AvmProof,
-    pub vk_data: VkData<AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS>,
+    pub vk_data: VkData<AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED>,
 }
 
 impl Verifiable for AvmProofData {
     fn verify(self) {
-        // TODO(#8470)
+        std::verify_proof_with_type(
+            self.vk_data.vk.key,
+            self.proof.fields,
+            [0], // TODO: Properly pass public inputs.
+            0,
+            PROOF_TYPE_AVM,
+        );
     }
 }
 
