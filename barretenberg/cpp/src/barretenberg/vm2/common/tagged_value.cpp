@@ -8,6 +8,7 @@
 #include "barretenberg/numeric/uint128/uint128.hpp"
 #include "barretenberg/numeric/uint256/uint256.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"
+#include "barretenberg/vm2/common/uint1.hpp"
 
 namespace bb::avm2 {
 
@@ -21,11 +22,25 @@ template <class... Ts> struct overloads : Ts... {
 template <class... Ts> overloads(Ts...) -> overloads<Ts...>;
 
 struct shift_left {
-    template <typename T, typename U> T operator()(const T& a, const U& b) const { return static_cast<T>(a << b); }
+    template <typename T, typename U> T operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, uint1_t>) {
+            return static_cast<T>(a.operator<<(b));
+        } else {
+            return static_cast<T>(a << b);
+        }
+    }
 };
 
 struct shift_right {
-    template <typename T, typename U> T operator()(const T& a, const U& b) const { return static_cast<T>(a >> b); }
+    template <typename T, typename U> T operator()(const T& a, const U& b) const
+    {
+        if constexpr (std::is_same_v<T, uint1_t>) {
+            return static_cast<T>(a.operator>>(b));
+        } else {
+            return static_cast<T>(a >> b);
+        }
+    }
 };
 
 template <typename Op>

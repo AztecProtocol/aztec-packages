@@ -17,30 +17,30 @@ class uint1_t {
     uint1_t(const uint1_t& other) = default;
     uint1_t& operator=(const uint1_t& other) = default;
 
-    // Default constructor initializes to 0
+    // Default constructor initializes to 0.
     constexpr uint1_t() noexcept
         : value_(false)
     {}
 
-    // Constructor from bool
-    constexpr explicit uint1_t(bool b) noexcept
+    // Constructor from bool.
+    constexpr uint1_t(bool b) noexcept
         : value_(b)
     {}
 
     // Constructor from integral types. Zero becomes 0, non-zero becomes 1.
     template <typename T, typename = std::enable_if_t<std::is_integral_v<T>>>
-    constexpr explicit uint1_t(T v) noexcept
+    constexpr uint1_t(T v) noexcept
         : value_(v != 0)
     {}
 
-    // Arithmetic operators
+    // Arithmetic operators.
     constexpr uint1_t operator+(const uint1_t& other) const noexcept { return *this ^ other; }
     constexpr uint1_t operator-(const uint1_t& other) const noexcept { return *this + other; }
     constexpr uint1_t operator*(const uint1_t& other) const noexcept { return *this & other; }
     constexpr uint1_t operator/(const uint1_t& other) const noexcept { return uint1_t(value() / other.value()); }
     constexpr uint1_t operator-() const noexcept { return uint1_t(!value_); }
 
-    // Bitwise operators
+    // Bitwise operators.
     constexpr uint1_t operator&(const uint1_t& other) const noexcept { return uint1_t(value_ && other.value_); }
     constexpr uint1_t operator|(const uint1_t& other) const noexcept { return uint1_t(value_ || other.value_); }
     constexpr uint1_t operator^(const uint1_t& other) const noexcept { return uint1_t(value_ != other.value_); }
@@ -50,7 +50,7 @@ class uint1_t {
     constexpr uint1_t operator<<(const uint1_t& other) const noexcept { return (*this - (*this * other)); }
     constexpr uint1_t operator>>(const uint1_t& other) const noexcept { return (*this - (*this * other)); }
 
-    // Comparison operators
+    // Comparison operators.
     constexpr bool operator==(const uint1_t& other) const noexcept = default;
     constexpr bool operator!=(const uint1_t& other) const noexcept = default;
     constexpr bool operator<(const uint1_t& other) const noexcept { return value_ < other.value_; }

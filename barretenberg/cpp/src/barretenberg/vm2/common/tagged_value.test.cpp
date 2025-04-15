@@ -13,7 +13,7 @@ namespace {
 TEST(TaggedValueTest, ConstructorAndTypeProperties)
 {
     // Test uint1_t
-    auto val_u1 = TaggedValue::from(uint1_t(true));
+    auto val_u1 = TaggedValue::from<uint1_t>(true);
     EXPECT_EQ(val_u1.get_tag(), ValueTag::U1);
     EXPECT_EQ(val_u1.as<uint1_t>().value(), 1);
 
@@ -186,7 +186,7 @@ TEST(TaggedValueTest, FromTagOutOfBounds)
 TEST(TaggedValueTest, AsFF)
 {
     // Test conversion to FF from each type
-    auto val_u1 = TaggedValue::from(uint1_t(1));
+    auto val_u1 = TaggedValue::from<uint1_t>(1);
     EXPECT_EQ(val_u1.as_ff(), FF(1));
 
     auto val_u8 = TaggedValue::from<uint8_t>(42);
@@ -215,25 +215,25 @@ TEST(TaggedValueTest, AsFF)
 TEST(TaggedValueTest, ArithmeticOperations)
 {
     // Test uint1_t operations
-    auto u1_val1 = TaggedValue::from(uint1_t(1));
-    auto u1_val2 = TaggedValue::from(uint1_t(0));
+    auto u1_val0 = TaggedValue::from<uint1_t>(0);
+    auto u1_val1 = TaggedValue::from<uint1_t>(1);
 
-    auto u1_add = u1_val1 + u1_val2;
+    auto u1_add = u1_val1 + u1_val0;
     EXPECT_EQ(u1_add.get_tag(), ValueTag::U1);
-    EXPECT_EQ(u1_add.as<uint1_t>(), uint1_t(1));
+    EXPECT_EQ(u1_add.as<uint1_t>().value(), 1);
 
-    auto u1_sub = u1_val1 - u1_val2;
+    auto u1_sub = u1_val1 - u1_val0;
     EXPECT_EQ(u1_sub.get_tag(), ValueTag::U1);
-    EXPECT_EQ(u1_sub.as<uint1_t>(), uint1_t(1));
+    EXPECT_EQ(u1_sub.as<uint1_t>().value(), 1);
 
-    auto u1_mul = u1_val1 * u1_val2;
+    auto u1_mul = u1_val1 * u1_val0;
     EXPECT_EQ(u1_mul.get_tag(), ValueTag::U1);
-    EXPECT_EQ(u1_mul.as<uint1_t>(), uint1_t(0));
+    EXPECT_EQ(u1_mul.as<uint1_t>().value(), 0);
 
     // Division by zero would throw, so we'll test with non-zero
     auto u1_div = u1_val1 / u1_val1;
     EXPECT_EQ(u1_div.get_tag(), ValueTag::U1);
-    EXPECT_EQ(u1_div.as<uint1_t>(), uint1_t(1));
+    EXPECT_EQ(u1_div.as<uint1_t>().value(), 1);
 
     // Test uint8_t operations
     auto u8_val1 = TaggedValue::from<uint8_t>(40);
@@ -404,7 +404,7 @@ TEST(TaggedValueTest, BitwiseOperations)
 TEST(TaggedValueTest, UnaryOperations)
 {
     // Test unary bit negation.
-    auto u1_val = TaggedValue::from(uint1_t(1));
+    auto u1_val = TaggedValue::from<uint1_t>(1);
     auto u1_not = ~u1_val;
     EXPECT_EQ(u1_not.get_tag(), ValueTag::U1);
     EXPECT_EQ(u1_not.as<uint1_t>().value(), 0);
@@ -445,8 +445,8 @@ TEST(TaggedValueTest, UnaryOperations)
 TEST(TaggedValueTest, Uint1EdgeCases)
 {
     // Test uint1_t operations
-    auto u1_val0 = TaggedValue::from<uint1_t>(uint1_t(0));
-    auto u1_val1 = TaggedValue::from<uint1_t>(uint1_t(1));
+    auto u1_val0 = TaggedValue::from<uint1_t>(0);
+    auto u1_val1 = TaggedValue::from<uint1_t>(1);
 
     // Bitwise operations
     auto u1_and = u1_val1 & u1_val1;
@@ -514,7 +514,7 @@ TEST(TaggedValueTest, ShiftOperationsWithDifferentTypes)
     EXPECT_EQ(result_shl_u16.as<uint32_t>(), 1 << 4);
 
     // Shift with uint1_t
-    auto u1_amount = TaggedValue::from<uint1_t>(uint1_t(1));
+    auto u1_amount = TaggedValue::from<uint1_t>(1);
     auto result_shl_u1 = u32_val << u1_amount;
     EXPECT_EQ(result_shl_u1.get_tag(), ValueTag::U32);
     EXPECT_EQ(result_shl_u1.as<uint32_t>(), 2);
@@ -524,8 +524,8 @@ TEST(TaggedValueTest, ShiftOperationsWithDifferentTypes)
 TEST(TaggedValueTest, BoundaryCases)
 {
     // Test uint1_t overflow
-    auto u1_max = TaggedValue::from(uint1_t(true));
-    auto u1_one = TaggedValue::from(uint1_t(true));
+    auto u1_max = TaggedValue::from<uint1_t>(true);
+    auto u1_one = TaggedValue::from<uint1_t>(true);
     auto u1_overflow = u1_max + u1_one;
     EXPECT_EQ(u1_overflow.get_tag(), ValueTag::U1);
     EXPECT_EQ(u1_overflow.as<uint1_t>().value(), 0); // 1+1=0 with overflow
@@ -566,7 +566,7 @@ TEST(TaggedValueTest, BoundaryCases)
     EXPECT_EQ(u128_overflow.as<uint128_t>(), 0); // Overflow wraps around
 
     // Test underflow for all types
-    auto u1_zero = TaggedValue::from(uint1_t(0));
+    auto u1_zero = TaggedValue::from<uint1_t>(0);
     auto u1_underflow = u1_zero - u1_one;
     EXPECT_EQ(u1_underflow.get_tag(), ValueTag::U1);
     EXPECT_EQ(u1_underflow.as<uint1_t>().value(), 1); // 0-1=1 with underflow
