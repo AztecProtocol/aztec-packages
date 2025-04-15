@@ -483,7 +483,7 @@ TEST(Standard_circuit, optimized_shl_witness)
     circuit[a.get_witness_index()] == a.get_value();
     bool res = smt_timer(&s);
     ASSERT_TRUE(res);
-    auto model_witness = default_model_single({ "a" }, circuit, "optimized_shl_check.out");
+    auto model_witness = default_model_single({ "a" }, circuit, "tmp.out");
 
     ASSERT_EQ(model_witness.size(), builder.get_num_variables());
     for (size_t i = 0; i < model_witness.size(); i++) {
