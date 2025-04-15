@@ -49,7 +49,6 @@ interface IValidatorSelection is IValidatorSelectionCore {
   // Get the current epoch committee
   function getAttesters() external view returns (address[] memory);
 
-  function getSampleSeedAt(Timestamp _ts) external view returns (uint256);
   function getCurrentSampleSeed() external view returns (uint256);
 
   function getEpochAt(Timestamp _ts) external view returns (Epoch);

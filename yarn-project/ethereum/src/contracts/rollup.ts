@@ -188,7 +188,7 @@ export class RollupContract {
     return this.rollup.read.getCurrentSlot();
   }
 
-  async getCommitteeAt(timestamp: bigint) {
+  async getCommitteeAt(timestamp: bigint): Promise<readonly `0x${string}`[]> {
     const { result } = await this.l1TxUtils.simulate(
       {
         to: this.address,
@@ -203,15 +203,29 @@ export class RollupContract {
       },
     );
 
-    return decodeFunctionResult<readonly `0x${string}`[]>({
+    const decodedResult = decodeFunctionResult({
       abi: RollupAbi,
       functionName: 'getCurrentCommittee',
       data: result,
     });
+
+    return decodedResult;
   }
 
-  getSampleSeedAt(timestamp: bigint) {
-    return this.rollup.read.getSampleSeedAt([timestamp]);
+  async getSampleSeedAt(timestamp: bigint) {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'getCurrentSampleSeed' }),
+      },
+      { time: timestamp },
+    );
+
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'getCurrentSampleSeed',
+      data: result,
+    });
   }
 
   getCurrentSampleSeed() {
@@ -396,8 +410,21 @@ export class RollupContract {
     return this.rollup.read.getHasSubmitted([BigInt(epochNumber), BigInt(numberOfBlocksInEpoch), prover]);
   }
 
-  getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
-    return this.rollup.read.getManaBaseFeeAt([timestamp, inFeeAsset]);
+  async getManaBaseFeeAt(timestamp: bigint, inFeeAsset: boolean) {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'getManaBaseFee', args: [inFeeAsset] }),
+      },
+      {
+        time: timestamp,
+      },
+    );
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'getManaBaseFee',
+      data: result,
+    });
   }
 
   getSlotAt(timestamp: bigint) {
@@ -408,8 +435,22 @@ export class RollupContract {
     return this.rollup.read.status([blockNumber], options);
   }
 
-  canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
-    return this.rollup.read.canPruneAtTime([timestamp], options);
+  async canPruneAtTime(timestamp: bigint, options?: { blockNumber?: bigint }) {
+    const { result } = await this.l1TxUtils.simulate(
+      {
+        to: this.address,
+        data: encodeFunctionData({ abi: RollupAbi, functionName: 'canPrune' }),
+        blockNumber: options?.blockNumber,
+      },
+      {
+        time: timestamp,
+      },
+    );
+    return decodeFunctionResult({
+      abi: RollupAbi,
+      functionName: 'canPrune',
+      data: result,
+    });
   }
 
   archive() {

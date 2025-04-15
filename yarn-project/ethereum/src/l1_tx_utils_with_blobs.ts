@@ -13,6 +13,9 @@ export class L1TxUtilsWithBlobs extends L1TxUtils {
    * @returns The hash of the cancellation transaction
    */
   override async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
+    if (!this.walletClient) {
+      throw new Error('L1 tx utils not initialized with wallet client');
+    }
     const account = this.walletClient.account;
 
     // Get gas price with higher priority fee for cancellation

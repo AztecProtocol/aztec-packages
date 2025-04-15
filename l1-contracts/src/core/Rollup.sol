@@ -98,7 +98,7 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
         header: HeaderLib.decode(_header),
         attestations: _signatures,
         digest: _digest,
-        manaBaseFee: getManaBaseFeeAt(Timestamp.wrap(block.timestamp), true),
+        manaBaseFee: getManaBaseFee(true),
         blobsHashesCommitment: _blobsHash,
         flags: _flags
       })
@@ -390,22 +390,6 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
   }
 
   /**
-   * @notice  Get the sample seed for a given timestamp
-   *
-   * @param _ts - The timestamp to get the sample seed for
-   *
-   * @return The sample seed for the given timestamp
-   */
-  function getSampleSeedAt(Timestamp _ts)
-    external
-    view
-    override(IValidatorSelection)
-    returns (uint256)
-  {
-    return ValidatorSelectionLib.getSampleSeed(getEpochAt(_ts));
-  }
-
-  /**
    * @notice  Get the sample seed for the current epoch
    *
    * @return The sample seed for the current epoch
@@ -576,17 +560,14 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
     return STFLib.getStorage().config.rewardDistributor;
   }
 
-  function getL1FeesAt(Timestamp _timestamp)
-    external
-    view
-    override(IRollup)
-    returns (L1FeeData memory)
-  {
-    return FeeLib.getL1FeesAt(_timestamp);
+  function getL1Fees() external view override(IRollup) returns (L1FeeData memory) {
+    Timestamp timestamp = Timestamp.wrap(block.timestamp);
+    return FeeLib.getL1FeesAt(timestamp);
   }
 
-  function canPruneAtTime(Timestamp _ts) external view override(IRollup) returns (bool) {
-    return STFLib.canPruneAtTime(_ts);
+  function canPrune() external view override(IRollup) returns (bool) {
+    Timestamp timestamp = Timestamp.wrap(block.timestamp);
+    return STFLib.canPruneAtTime(timestamp);
   }
 
   function getBurnAddress() external pure override(IRollup) returns (address) {
@@ -627,22 +608,18 @@ contract Rollup is IStaking, IValidatorSelection, IRollup, RollupCore {
    *
    * @return The mana base fee
    */
-  function getManaBaseFeeAt(Timestamp _timestamp, bool _inFeeAsset)
-    public
-    view
-    override(IRollup)
-    returns (uint256)
-  {
-    return FeeLib.summedBaseFee(getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset));
+  function getManaBaseFee(bool _inFeeAsset) public view override(IRollup) returns (uint256) {
+    return FeeLib.summedBaseFee(getManaBaseFeeComponents(_inFeeAsset));
   }
 
-  function getManaBaseFeeComponentsAt(Timestamp _timestamp, bool _inFeeAsset)
+  function getManaBaseFeeComponents(bool _inFeeAsset)
     public
     view
     override(IRollup)
     returns (ManaBaseFeeComponents memory)
   {
-    return ProposeLib.getManaBaseFeeComponentsAt(_timestamp, _inFeeAsset);
+    Timestamp timestamp = Timestamp.wrap(block.timestamp);
+    return ProposeLib.getManaBaseFeeComponentsAt(timestamp, _inFeeAsset);
   }
 
   /**

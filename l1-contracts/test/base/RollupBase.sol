@@ -204,20 +204,18 @@ contract RollupBase is DecoderBase {
         mstore(add(header, add(0x20, 0x0194)), slotNumber)
         mstore(add(header, add(0x20, 0x01b4)), ts)
       }
+
+      // We jump to the time of the block. (unless it is in the past)
+      vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
     }
 
-    uint256 baseFee = rollup.getManaBaseFeeAt(
-      Timestamp.wrap(full.block.decodedHeader.globalVariables.timestamp), true
-    );
+    uint256 baseFee = rollup.getManaBaseFee(true);
     header = _updateHeaderVersion(header, rollup.getVersion());
     header = _updateHeaderBaseFee(header, baseFee);
     header = _updateHeaderManaUsed(header, _manaUsed);
     header = _updateHeaderTotalFees(header, _manaUsed * baseFee);
 
     blockFees[full.block.decodedHeader.globalVariables.blockNumber] = _manaUsed * baseFee;
-
-    // We jump to the time of the block. (unless it is in the past)
-    vm.warp(max(block.timestamp, full.block.decodedHeader.globalVariables.timestamp));
 
     _populateInbox(full.populate.sender, full.populate.recipient, full.populate.l1ToL2Content);
     header = _updateHeaderInboxRoot(

@@ -252,7 +252,7 @@ export class L1TxUtils {
     blobInputs?: L1BlobInputs,
   ): Promise<{ txHash: Hex; gasLimit: bigint; gasPrice: GasPrice }> {
     if (!this.walletClient) {
-      throw new Error('L1 tx utils wallet client not set');
+      throw new Error('L1 tx utils not initialized with wallet client');
     }
     try {
       const gasConfig = { ...this.config, ..._gasConfig };
@@ -324,7 +324,7 @@ export class L1TxUtils {
     isCancelTx: boolean = false,
   ): Promise<TransactionReceipt> {
     if (!this.walletClient) {
-      throw new Error('L1 tx utils wallet client not set');
+      throw new Error('L1 tx utils not initialized with wallet client');
     }
     const isBlobTx = !!_blobInputs;
     const gasConfig = { ...this.config, ..._gasConfig };
@@ -681,7 +681,7 @@ export class L1TxUtils {
     stateOverride: StateOverride = [],
   ) {
     if (!this.walletClient) {
-      throw new Error('L1 tx utils wallet client not set');
+      throw new Error('L1 tx utils not initialized with wallet client');
     }
     try {
       await this.publicClient.simulateContract({
@@ -732,14 +732,22 @@ export class L1TxUtils {
     }
   }
 
+  /**
+   * Simulates an L1 transaction against a local node using eth_simulateV1
+   * @param request - The transaction request (to, data, value) + gas and blockNumber as optional parameters
+   * @param blockOverrides - The block overrides
+   * @param stateOverrides - The state overrides
+   * @param gasConfig - The gas configuration
+   * @returns The gas used and the result of the simulation
+   */
   public async simulate(
-    request: L1TxRequest & { gas?: bigint },
+    request: L1TxRequest & { gas?: bigint; blockNumber?: bigint },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     if (!this.walletClient) {
-      throw new Error('L1 tx utils wallet client not set');
+      throw new Error('L1 tx utils not initialized with wallet client');
     }
     const gasConfig = { ...this.config, ..._gasConfig };
     const gasPrice = await this.getGasPrice(gasConfig, false);
@@ -749,6 +757,7 @@ export class L1TxUtils {
     try {
       const result = await this.publicClient.simulateBlocks({
         validation: true,
+        ...(request.blockNumber && { blockNumber: request.blockNumber }),
         blocks: [
           {
             blockOverrides,
@@ -806,7 +815,7 @@ export class L1TxUtils {
    */
   protected async attemptTxCancellation(nonce: number, isBlobTx = false, previousGasPrice?: GasPrice, attempts = 0) {
     if (!this.walletClient) {
-      throw new Error('L1 tx utils wallet client not set');
+      throw new Error('L1 tx utils not initialized with wallet client');
     }
     if (isBlobTx) {
       throw new Error('Cannot cancel blob transactions, please use L1TxUtilsWithBlobsClass');

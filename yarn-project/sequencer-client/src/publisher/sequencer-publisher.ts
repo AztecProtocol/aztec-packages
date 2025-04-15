@@ -486,7 +486,7 @@ export class SequencerPublisher {
     this.log.debug('Validating blob input', { blobInput });
     const blobEvaluationGas = await this.l1TxUtils
       .estimateGas(
-        this.l1TxUtils.walletClient.account,
+        this.l1TxUtils.walletClient!.account,
         {
           to: this.rollupContract.address,
           data: encodeFunctionData({
