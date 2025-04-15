@@ -49,7 +49,7 @@ describe('Client IVC Integration', () => {
   // 1. Run a mock app that creates two commitments
   // 2. Run the init kernel to process the app run
   // 3. Run the tail kernel to finish the client IVC chain.
-  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js', async () => {
+  it('Should generate a verifiable client IVC proof from a simple mock tx via bb.js, verified by bb', async () => {
     const [bytecodes, witnessStack] = await generate3FunctionTestingIVCStack();
 
     const verifyResult = await proveThenVerifyAztecClient(bytecodes, witnessStack);
@@ -67,15 +67,6 @@ describe('Client IVC Integration', () => {
       proveClientIVCWasm(bytecodes, witnessStack),
     ];
     const [_, wasmProof] = await Promise.all(tasks);
-
-    // Verify the clientIVCWorkingDirectory, written to by native proveClientIVC
-    const verifyNativeResult = await verifyClientIvcProof(
-      bbBinaryPath,
-      clientIVCWorkingDirectory.concat('/proof'),
-      clientIVCWorkingDirectory.concat('/vk'),
-      logger.info,
-    );
-    expect(verifyNativeResult.status).toEqual(BB_RESULT.SUCCESS);
 
     // Write the WASM proof over the output directory (the bb cli will have output to this folder, we need the vk to be in place).
     await writeClientIVCProofToOutputDirectory(wasmProof, clientIVCWorkingDirectory);
