@@ -8,8 +8,6 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 
-import "forge-std/console.sol";
-
 contract AddressSnapshotAtTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
@@ -35,8 +33,11 @@ contract AddressSnapshotAtTest is AddressSnapshotsBase {
     validatorSet.add(address(2));
     validatorSet.add(address(3));
 
+    vm.expectRevert();
     assertEq(validatorSet.at(0), address(0));
+    vm.expectRevert();
     assertEq(validatorSet.at(1), address(0));
+    vm.expectRevert();
     assertEq(validatorSet.at(2), address(0));
 
     // it returns the correct validator after reordering

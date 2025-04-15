@@ -49,8 +49,6 @@ library ValidatorSelectionLib {
     EpochData storage epoch = store.epochs[epochNumber];
 
     if (epoch.sampleSeed == 0) {
-      epoch.validatorSetSize = _stakingStore.attesters.length();
-
       epoch.sampleSeed = getSampleSeed(epochNumber);
       epoch.nextSeed = store.lastSeed = computeNextSeed(epochNumber);
       epoch.committee = sampleValidators(_stakingStore, epochNumber, epoch.sampleSeed);
@@ -166,7 +164,7 @@ library ValidatorSelectionLib {
     returns (address[] memory)
   {
     ValidatorSelectionStorage storage store = getStorage();
-    uint256 validatorSetSize = store.epochs[_epoch].validatorSetSize;
+    uint256 validatorSetSize = _stakingStore.attesters.lengthAtEpoch(_epoch);
 
     if (validatorSetSize == 0) {
       return new address[](0);
@@ -176,7 +174,7 @@ library ValidatorSelectionLib {
 
     // If we have less validators than the target committee size, we just return the full set
     if (validatorSetSize <= targetCommitteeSize) {
-      return _stakingStore.attesters.values();
+      return _stakingStore.attesters.valuesAtEpoch(_epoch);
     }
 
     uint256[] memory indices =
@@ -193,6 +191,7 @@ library ValidatorSelectionLib {
     internal
     returns (address[] memory)
   {
+    // TODO(md): remove this with checkpointing of the sample seed
     setupEpoch(_stakingStore);
 
     ValidatorSelectionStorage storage store = getStorage();

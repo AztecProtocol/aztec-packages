@@ -39,6 +39,23 @@ contract AddressSnapshotValuesTest is AddressSnapshotsBase {
     assertEq(vals[2], address(3));
   }
 
+  function test_WhenValidatorsHaveNotChangedForSomeTime() public {
+    // It returns array with correct length
+    // It returns array with correct addresses in order
+
+    timeCheater.cheat__setEpochNow(1);
+    validatorSet.add(address(1));
+    validatorSet.add(address(2));
+    validatorSet.add(address(3));
+
+    timeCheater.cheat__setEpochNow(100);
+    address[] memory vals = validatorSet.values();
+    assertEq(vals.length, 3);
+    assertEq(vals[0], address(1));
+    assertEq(vals[1], address(2));
+    assertEq(vals[2], address(3));
+  }
+
   function test_WhenValidatorsAreRemoved() public {
     // It returns array of remaining validators
     timeCheater.cheat__setEpochNow(1);

@@ -147,7 +147,7 @@ library AddressSnapshotLib {
     uint256 numCheckpoints = _self.checkpoints[_index].length;
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
 
-    uint256 size = _self.size.lowerLookup(Epoch.unwrap(currentEpoch).toUint32());
+    uint256 size = lengthAtEpoch(_self, currentEpoch);
 
     if (_index >= size) {
       revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
@@ -227,7 +227,18 @@ library AddressSnapshotLib {
    */
   function length(SnapshottedAddressSet storage _self) internal view returns (uint256) {
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
-    return _self.size.upperLookup(Epoch.unwrap(currentEpoch).toUint32());
+    return lengthAtEpoch(_self, currentEpoch);
+  }
+
+  // TODO(md): TEST!
+  /**
+   * @notice Gets the size of the set at a specific epoch
+   * @param _self The storage reference to the set
+   * @param _epoch The epoch number to query
+   * @return uint256 The number of addresses in the set at the given epoch
+   */
+  function lengthAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch) internal view returns (uint256) {
+    return _self.size.upperLookup(Epoch.unwrap(_epoch).toUint32());
   }
 
   /**
@@ -240,6 +251,26 @@ library AddressSnapshotLib {
     address[] memory vals = new address[](size);
     for (uint256 i; i < size;) {
       vals[i] = at(_self, i);
+
+      unchecked {
+        i++;
+      }
+    }
+    return vals;
+  }
+
+  // TODO(md): TEST!
+  /**
+   * @notice Gets all addresses in the set at a specific epoch
+   * @param _self The storage reference to the set
+   * @param _epoch The epoch number to query
+   * @return address[] Array of all addresses in the set at the given epoch
+   */
+  function valuesAtEpoch(SnapshottedAddressSet storage _self, Epoch _epoch) internal view returns (address[] memory) {
+    uint256 size = lengthAtEpoch(_self, _epoch);
+    address[] memory vals = new address[](size);
+    for (uint256 i; i < size;) {
+      vals[i] = getAddressFromIndexAtEpoch(_self, i, _epoch);
 
       unchecked {
         i++;

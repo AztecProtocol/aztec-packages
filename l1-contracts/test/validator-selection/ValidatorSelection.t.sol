@@ -125,13 +125,15 @@ contract ValidatorSelectionTest is DecoderBase {
 
     merkleTestUtil = new MerkleTestUtil();
 
+    // Progress into the next epoch for changes to take effect
+    timeCheater.cheat__progressEpoch();
     _;
   }
 
   function testInitialCommitteeMatch() public setup(4) {
     address[] memory attesters = rollup.getAttesters();
     address[] memory committee = rollup.getCurrentEpochCommittee();
-    assertEq(rollup.getCurrentEpoch(), 0);
+    assertEq(rollup.getCurrentEpoch(), 1);
     assertEq(attesters.length, 4, "Invalid validator set size");
     assertEq(committee.length, 4, "invalid committee set size");
 
