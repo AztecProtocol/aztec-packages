@@ -27,7 +27,7 @@ void Memory::set(MemoryAddress index, MemoryValue value)
     events.emit({ .mode = MemoryMode::WRITE, .addr = index, .value = value, .space_id = space_id });
 }
 
-MemoryValue Memory::get(MemoryAddress index) const
+const MemoryValue& Memory::get(MemoryAddress index) const
 {
     static const auto default_value = MemoryValue::from<FF>(0);
 

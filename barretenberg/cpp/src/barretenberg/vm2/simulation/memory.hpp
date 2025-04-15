@@ -13,8 +13,10 @@ class MemoryInterface {
   public:
     virtual ~MemoryInterface() = default;
 
+    // Returned reference is only valid until the next call to set.
+    virtual const MemoryValue& get(MemoryAddress index) const = 0;
+    // Sets value. Invalidates all references to previous values.
     virtual void set(MemoryAddress index, MemoryValue value) = 0;
-    virtual MemoryValue get(MemoryAddress index) const = 0;
 
     virtual uint32_t get_space_id() const = 0;
 
@@ -29,8 +31,8 @@ class Memory : public MemoryInterface {
         , events(event_emitter)
     {}
 
+    const MemoryValue& get(MemoryAddress index) const override;
     void set(MemoryAddress index, MemoryValue value) override;
-    MemoryValue get(MemoryAddress index) const override;
 
     uint32_t get_space_id() const override { return space_id; }
 

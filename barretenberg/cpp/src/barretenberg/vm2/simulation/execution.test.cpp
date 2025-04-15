@@ -50,7 +50,7 @@ TEST_F(ExecutionSimulationTest, Add)
     MemoryValue b = MemoryValue::from<uint32_t>(5);
 
     EXPECT_CALL(context, get_memory);
-    EXPECT_CALL(memory, get).Times(2).WillOnce(Return(a)).WillOnce(Return(b));
+    EXPECT_CALL(memory, get).Times(2).WillOnce(ReturnRef(a)).WillOnce(ReturnRef(b));
     EXPECT_CALL(alu, add(a, b)).WillOnce(Return(MemoryValue::from<uint32_t>(9)));
     EXPECT_CALL(memory, set(6, MemoryValue::from<uint32_t>(9)));
     execution.add(context, 4, 5, 6);
@@ -61,7 +61,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     AztecAddress parent_address = 1;
     AztecAddress nested_address = 2;
-
+    MemoryValue nested_address_value = MemoryValue::from<FF>(nested_address);
     // Context snapshotting
     EXPECT_CALL(context, get_context_id);
     EXPECT_CALL(context, get_next_pc);
@@ -70,7 +70,7 @@ TEST_F(ExecutionSimulationTest, Call)
 
     EXPECT_CALL(context, get_memory);
     EXPECT_CALL(context, get_address).WillRepeatedly(ReturnRef(parent_address));
-    EXPECT_CALL(memory, get).WillOnce(Return(MemoryValue::from<FF>(nested_address)));
+    EXPECT_CALL(memory, get).WillOnce(ReturnRef(nested_address_value));
 
     auto nested_context = std::make_unique<NiceMock<MockContext>>();
     ON_CALL(*nested_context, halted())
