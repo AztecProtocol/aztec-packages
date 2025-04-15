@@ -40,6 +40,11 @@ contract StakingCheater is IStaking {
     StakingLib.initialize(_stakingAsset, _minimumStake, exitDelay, address(slasher));
   }
 
+  function getVersion() external view returns (uint256) {
+    return
+      uint32(uint256(keccak256(abi.encode(bytes("aztec_rollup"), block.chainid, address(this)))));
+  }
+
   function finaliseWithdraw(address _attester) external {
     StakingLib.finaliseWithdraw(_attester);
   }

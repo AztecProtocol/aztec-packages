@@ -9,13 +9,7 @@ import { padArrayEnd } from '@aztec/foundation/collection';
 import { Fr } from '@aztec/foundation/fields';
 import { type Logger, createLogger } from '@aztec/foundation/log';
 import { assertLength } from '@aztec/foundation/serialize';
-import {
-  type AvmCircuitPublicInputs,
-  AvmExecutionHints,
-  AvmTxHint,
-  PublicDataWrite,
-  RevertCode,
-} from '@aztec/stdlib/avm';
+import { type AvmCircuitPublicInputs, PublicDataWrite, RevertCode } from '@aztec/stdlib/avm';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { SimulationError } from '@aztec/stdlib/errors';
 import { computeTransactionFee } from '@aztec/stdlib/fees';
@@ -32,7 +26,6 @@ import { MerkleTreeId } from '@aztec/stdlib/trees';
 import {
   type GlobalVariables,
   PublicCallRequestWithCalldata,
-  type StateReference,
   TreeSnapshots,
   type Tx,
   TxExecutionPhase,
@@ -42,8 +35,7 @@ import {
 import { strict as assert } from 'assert';
 import { inspect } from 'util';
 
-import type { PublicContractsDBInterface } from '../../server.js';
-import { HintingPublicContractsDB, HintingPublicTreesDB } from '../hinting_db_sources.js';
+import type { PublicContractsDBInterface } from '../db_interfaces.js';
 import type { PublicTreesDB } from '../public_db_sources.js';
 import { SideEffectArrayLengths, SideEffectTrace } from '../side_effect_trace.js';
 import { PublicPersistableStateManager } from '../state_manager/state_manager.js';
@@ -66,12 +58,11 @@ export class PublicTxContext {
   private revertCode: RevertCode = RevertCode.OK;
   /* What caused a revert (if one occurred)? */
   public revertReason: SimulationError | undefined;
-
   private constructor(
     public readonly txHash: TxHash,
     public readonly state: PhaseStateManager,
+    private readonly startTreeSnapshots: TreeSnapshots,
     private readonly globalVariables: GlobalVariables,
-    private readonly startStateReference: StateReference,
     private readonly gasSettings: GasSettings,
     private readonly gasUsedByPrivate: Gas,
     private readonly gasAllocatedToPublic: Gas,
@@ -82,7 +73,6 @@ export class PublicTxContext {
     public readonly revertibleAccumulatedDataFromPrivate: PrivateToPublicAccumulatedData,
     public readonly feePayer: AztecAddress,
     private readonly trace: SideEffectTrace,
-    public readonly hints: AvmExecutionHints, // This is public due to enqueued call hinting.
   ) {
     this.log = createLogger(`simulator:public_tx_context`);
   }
@@ -109,22 +99,10 @@ export class PublicTxContext {
 
     const firstNullifier = nonRevertibleAccumulatedDataFromPrivate.nullifiers[0];
 
-    // We wrap the DB to collect AVM hints.
-    const hints = new AvmExecutionHints(await AvmTxHint.fromTx(tx));
-    const hintingContractsDB = new HintingPublicContractsDB(contractsDB, hints);
-    const hintingTreesDB = new HintingPublicTreesDB(treesDB, hints);
-    const startStateReference = await treesDB.getStateReference();
-    hints.startingTreeRoots = new TreeSnapshots(
-      startStateReference.l1ToL2MessageTree,
-      startStateReference.partial.noteHashTree,
-      startStateReference.partial.nullifierTree,
-      startStateReference.partial.publicDataTree,
-    );
-
     // Transaction level state manager that will be forked for revertible phases.
     const txStateManager = PublicPersistableStateManager.create(
-      hintingTreesDB,
-      hintingContractsDB,
+      treesDB,
+      contractsDB,
       trace,
       doMerkleOperations,
       firstNullifier,
@@ -139,8 +117,8 @@ export class PublicTxContext {
     return new PublicTxContext(
       await tx.getTxHash(),
       new PhaseStateManager(txStateManager),
+      await txStateManager.getTreeSnapshots(),
       globalVariables,
-      await treesDB.getStateReference(),
       gasSettings,
       gasUsedByPrivate,
       gasAllocatedToPublic,
@@ -151,7 +129,6 @@ export class PublicTxContext {
       tx.data.forPublic!.revertibleAccumulatedData,
       tx.data.feePayer,
       trace,
-      hints,
     );
   }
 
@@ -324,20 +301,12 @@ export class PublicTxContext {
     assert(this.halted, 'Can only get AvmCircuitPublicInputs after tx execution ends');
     const stateManager = this.state.getActiveStateManager();
 
-    const startTreeSnapshots = new TreeSnapshots(
-      this.startStateReference.l1ToL2MessageTree,
-      this.startStateReference.partial.noteHashTree,
-      this.startStateReference.partial.nullifierTree,
-      this.startStateReference.partial.publicDataTree,
-    );
-
     // FIXME: We are first creating the PIs with the wrong endTreeSnapshots, then patching them.
     // This is because we need to know the lengths of the accumulated data arrays to pad them.
     // We should refactor this to avoid this hack.
     // We should just get the info we need from the trace, and create the rest of the PIs here.
     const avmCircuitPublicInputs = this.trace.toAvmCircuitPublicInputs(
       this.globalVariables,
-      startTreeSnapshots,
       /*startGasUsed=*/ this.gasUsedByPrivate,
       this.gasSettings,
       this.feePayer,
@@ -351,6 +320,7 @@ export class PublicTxContext {
       /*transactionFee=*/ this.getTransactionFeeUnsafe(),
       /*reverted=*/ !this.revertCode.isOK(),
     );
+    avmCircuitPublicInputs.startTreeSnapshots = this.startTreeSnapshots;
 
     const getArrayLengths = (from: PrivateToPublicAccumulatedData) =>
       new PrivateToAvmAccumulatedDataArrayLengths(
@@ -400,18 +370,11 @@ export class PublicTxContext {
     );
     const numNoteHashesToPad =
       MAX_NOTE_HASHES_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.noteHashes);
-    await stateManager.deprecatedGetTreesForPIGeneration().padTree(MerkleTreeId.NOTE_HASH_TREE, numNoteHashesToPad);
+    await stateManager.padTree(MerkleTreeId.NOTE_HASH_TREE, numNoteHashesToPad);
     const numNullifiersToPad =
       MAX_NULLIFIERS_PER_TX - countAccumulatedItems(avmCircuitPublicInputs.accumulatedData.nullifiers);
-    await stateManager.deprecatedGetTreesForPIGeneration().padTree(MerkleTreeId.NULLIFIER_TREE, numNullifiersToPad);
-
-    const paddedState = await stateManager.deprecatedGetTreesForPIGeneration().getStateReference();
-    avmCircuitPublicInputs.endTreeSnapshots = new TreeSnapshots(
-      paddedState.l1ToL2MessageTree,
-      paddedState.partial.noteHashTree,
-      paddedState.partial.nullifierTree,
-      paddedState.partial.publicDataTree,
-    );
+    await stateManager.padTree(MerkleTreeId.NULLIFIER_TREE, numNullifiersToPad);
+    avmCircuitPublicInputs.endTreeSnapshots = await stateManager.getTreeSnapshots();
 
     return avmCircuitPublicInputs;
   }
