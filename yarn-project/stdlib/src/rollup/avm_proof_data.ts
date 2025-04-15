@@ -1,4 +1,4 @@
-import { AVM_PROOF_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED } from '@aztec/constants';
 import { BufferReader, serializeToBuffer } from '@aztec/foundation/serialize';
 
 import { AvmCircuitPublicInputs } from '../avm/avm_circuit_public_inputs.js';
@@ -8,7 +8,7 @@ import { VkWitnessData } from '../vks/vk_witness_data.js';
 export class AvmProofData {
   constructor(
     public publicInputs: AvmCircuitPublicInputs,
-    public proof: RecursiveProof<typeof AVM_PROOF_LENGTH_IN_FIELDS>,
+    public proof: RecursiveProof<typeof AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED>,
     public vkData: VkWitnessData,
   ) {}
 
@@ -28,7 +28,7 @@ export class AvmProofData {
   static empty() {
     return new AvmProofData(
       AvmCircuitPublicInputs.empty(),
-      makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
+      makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
       VkWitnessData.empty(),
     );
   }

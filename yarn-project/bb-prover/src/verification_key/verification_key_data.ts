@@ -1,5 +1,6 @@
-import { AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS } from '@aztec/constants';
+import { AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED } from '@aztec/constants';
 import { Fr } from '@aztec/foundation/fields';
+import { BufferReader } from '@aztec/foundation/serialize';
 import { hashVK } from '@aztec/stdlib/hash';
 import { VerificationKeyAsFields, VerificationKeyData } from '@aztec/stdlib/vks';
 
@@ -29,17 +30,18 @@ export async function extractVkData(vkDirectoryPath: string): Promise<Verificati
 
 // TODO: This was adapted from the above function. A refactor might be needed.
 export async function extractAvmVkData(vkDirectoryPath: string): Promise<VerificationKeyData> {
-  const [rawFields, rawBinary] = await Promise.all([
-    fs.readFile(path.join(vkDirectoryPath, VK_FIELDS_FILENAME), { encoding: 'utf-8' }),
-    fs.readFile(path.join(vkDirectoryPath, VK_FILENAME)),
-  ]);
-  const fieldsJson = JSON.parse(rawFields);
-  const fields = fieldsJson.map(Fr.fromHexString);
-  // The first item is the hash, this is not part of the actual VK
-  // TODO: is the above actually the case?
-  const vkHash = fields[0];
-  assert(fields.length === AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS, 'Invalid AVM verification key length');
-  const vkAsFields = new VerificationKeyAsFields(fields, vkHash);
+  const rawBinary = await fs.readFile(path.join(vkDirectoryPath, VK_FILENAME));
+
+  const numFields = rawBinary.length / Fr.SIZE_IN_BYTES;
+  assert(numFields <= AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED, 'Invalid AVM verification key length');
+  const reader = BufferReader.asReader(rawBinary);
+  const fieldsArray = reader.readArray(numFields, Fr);
+
+  const fieldsArrayPadded = fieldsArray.concat(
+    Array(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED - fieldsArray.length).fill(new Fr(0)),
+  );
+  const vkHash = await hashVK(fieldsArrayPadded);
+  const vkAsFields = new VerificationKeyAsFields(fieldsArrayPadded, vkHash);
   const vk = new VerificationKeyData(vkAsFields, rawBinary);
   return vk;
 }

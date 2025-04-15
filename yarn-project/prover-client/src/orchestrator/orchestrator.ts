@@ -1,6 +1,6 @@
 import {
-  AVM_PROOF_LENGTH_IN_FIELDS,
-  AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS,
+  AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED,
+  AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED,
   L1_TO_L2_MSG_SUBTREE_HEIGHT,
   L1_TO_L2_MSG_SUBTREE_SIBLING_PATH_LENGTH,
   NUMBER_OF_L1_L2_MESSAGES_PER_ROLLUP,
@@ -945,8 +945,8 @@ export class ProvingOrchestrator implements EpochProver {
               )}.`,
             );
             return {
-              proof: makeEmptyRecursiveProof(AVM_PROOF_LENGTH_IN_FIELDS),
-              verificationKey: VerificationKeyData.makeFake(AVM_VERIFICATION_KEY_LENGTH_IN_FIELDS),
+              proof: makeEmptyRecursiveProof(AVM_V2_PROOF_LENGTH_IN_FIELDS_PADDED),
+              verificationKey: VerificationKeyData.makeFake(AVM_V2_VERIFICATION_KEY_LENGTH_IN_FIELDS_PADDED),
             };
           }
         }
