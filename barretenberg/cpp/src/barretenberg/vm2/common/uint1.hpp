@@ -47,14 +47,8 @@ class uint1_t {
     constexpr uint1_t operator~() const noexcept { return uint1_t(!value_); }
 
     // Shifts are a bit special.
-    constexpr uint1_t operator<<(const uint1_t& other) const noexcept
-    {
-        return uint1_t((value() << other.value()) % 2);
-    }
-    constexpr uint1_t operator>>(const uint1_t& other) const noexcept
-    {
-        return uint1_t((value() >> other.value()) % 2);
-    }
+    constexpr uint1_t operator<<(const uint1_t& other) const noexcept { return (*this - (*this * other)); }
+    constexpr uint1_t operator>>(const uint1_t& other) const noexcept { return (*this - (*this * other)); }
 
     // Comparison operators
     constexpr bool operator==(const uint1_t& other) const noexcept = default;
