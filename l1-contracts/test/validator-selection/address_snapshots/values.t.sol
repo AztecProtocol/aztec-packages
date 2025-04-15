@@ -8,6 +8,7 @@ import {
 } from "@aztec/core/libraries/staking/AddressSnapshotLib.sol";
 import {AddressSnapshotsBase} from "./AddressSnapshotsBase.t.sol";
 import {Epoch} from "@aztec/core/libraries/TimeLib.sol";
+
 contract AddressSnapshotValuesTest is AddressSnapshotsBase {
   using AddressSnapshotLib for SnapshottedAddressSet;
 
