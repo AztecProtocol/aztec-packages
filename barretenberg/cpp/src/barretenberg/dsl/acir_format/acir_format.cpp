@@ -301,12 +301,12 @@ void build_constraints(Builder& builder, AcirProgram& program, const ProgramMeta
 
         // Accumulate the IPA claims and set it to be public inputs
         if constexpr (IsUltraBuilder<Builder>) {
-            // honk_recursion should be set to 2 when we're using RollupHonk and have IPA claims
-            if (metadata.honk_recursion == 2) {
+            // Either we're proving with RollupHonk (honk_recursion=2) or its the root rollup.
+            if (metadata.honk_recursion == 2 || honk_output.is_root_rollup) {
                 handle_IPA_accumulation(
                     builder, honk_output.nested_ipa_claims, honk_output.nested_ipa_proofs, honk_output.is_root_rollup);
             } else {
-                // We shouldn't accidentally have IPA proofs but not set honk_recursion to 2.
+                // We shouldn't accidentally have IPA proofs otherwise.
                 ASSERT(honk_output.nested_ipa_proofs.size() == 0);
             }
         }
