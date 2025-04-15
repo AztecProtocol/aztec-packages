@@ -10,6 +10,7 @@
 #include "barretenberg/ultra_honk/decider_keys.hpp"
 #include "barretenberg/ultra_honk/decider_prover.hpp"
 #include "barretenberg/ultra_honk/decider_verifier.hpp"
+#include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include <algorithm>
 
 namespace bb {
