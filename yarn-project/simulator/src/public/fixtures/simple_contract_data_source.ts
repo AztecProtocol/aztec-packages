@@ -4,7 +4,7 @@ import type { ContractArtifact, FunctionSelector } from '@aztec/stdlib/abi';
 import type { AztecAddress } from '@aztec/stdlib/aztec-address';
 import type { ContractClassPublic, ContractDataSource, ContractInstanceWithAddress } from '@aztec/stdlib/contract';
 
-import { getFunctionSelector } from './index.js';
+import { getFunctionSelector } from '../avm/fixtures/index.js';
 
 /**
  * This class is used during public/avm testing to function as a database of
