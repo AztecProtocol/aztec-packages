@@ -261,11 +261,11 @@ contract FeeRollupTest is FeeModelTestPoints, DecoderBase {
     // trying to be foolproof, for I am a fool.
     uint256 currentTime = block.timestamp;
     uint256 timeOfPrune = block.timestamp;
-    while (!rollup.canPruneAtTime(Timestamp.wrap(timeOfPrune))) {
+    while (!rollup.canPrune()) {
       timeOfPrune += SLOT_DURATION;
+      vm.warp(timeOfPrune);
     }
 
-    vm.warp(timeOfPrune);
     ManaBaseFeeComponents memory componentsPrune = rollup.getManaBaseFeeComponents(true);
     vm.warp(currentTime);
 
