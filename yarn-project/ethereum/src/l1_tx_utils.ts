@@ -752,15 +752,15 @@ export class L1TxUtils {
     const call: any = {
       to: request.to!,
       data: request.data,
-      maxFeePerGas: gasPrice.maxFeePerGas,
-      maxPriorityFeePerGas: gasPrice.maxPriorityFeePerGas,
-      gas: request.gas ?? LARGE_GAS_LIMIT,
     };
 
     if (this.walletClient) {
       const nonce = await this.publicClient.getTransactionCount({ address: this.walletClient.account.address });
       call.nonce = nonce;
       call.from = this.walletClient.account.address;
+      call.maxFeePerGas = gasPrice.maxFeePerGas;
+      call.maxPriorityFeePerGas = gasPrice.maxPriorityFeePerGas;
+      call.gas = request.gas ?? LARGE_GAS_LIMIT;
     }
 
     try {
