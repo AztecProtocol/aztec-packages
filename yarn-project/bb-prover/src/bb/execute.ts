@@ -144,16 +144,15 @@ export async function executeBbClientIvcProof(
   try {
     // Write the bytecode to the working directory
     log(`inputsPath ${inputsPath}`);
-    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
-    if (writeVk) {
-      args.push('--write_vk');
-    }
-
     const timer = new Timer();
     const logFunction = (message: string) => {
       log(`bb - ${message}`);
     };
 
+    const args = ['-o', outputPath, '--ivc_inputs_path', inputsPath, '-v', '--scheme', 'client_ivc'];
+    if (writeVk) {
+      args.push('--write_vk');
+    }
     const result = await executeBB(pathToBB, 'prove', args, logFunction);
     const durationMs = timer.ms();
 

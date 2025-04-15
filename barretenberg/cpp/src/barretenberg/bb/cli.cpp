@@ -801,11 +801,20 @@ int parse_and_run_cli_command(int argc, char* argv[])
         // NEW STANDARD API
         else if (flags.scheme == "client_ivc") {
             ClientIVCAPI api;
-            if (prove->parsed()) {
-                api.prove(flags, ivc_inputs_path, output_path);
-                return 0;
+            bool prove_ivc = prove->parsed();
+            bool write_ivc_vk = write_vk->parsed() && flags.verifier_type == "ivc";
+            if ((prove_ivc || write_ivc_vk) &&
+                (!bytecode_path.empty() || !witness_path.empty() || ivc_inputs_path.empty())) {
+                throw_or_abort("The prove and write_vk commands with ClientIVC mode do not take -b acir.msgpack nor -w "
+                               "witness.msgpack "
+                               "anymore; it only expects --ivc_inputs_path ivc-inputs.msgpack");
             }
-            if (write_vk->parsed() && flags.verifier_type == "ivc") {
+            if (prove_ivc))
+                {
+                    api.prove(flags, ivc_inputs_path, output_path);
+                    return 0;
+                }
+            if (write_ivc_vk) {
                 api.write_ivc_vk(ivc_inputs_path, output_path);
                 return 0;
             }
