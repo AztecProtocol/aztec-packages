@@ -138,6 +138,12 @@ export function ContractComponent() {
     }
   }, [currentContractArtifact, currentContractAddress, wallet]);
 
+  useEffect(() => {
+    if (!currentContractAddress) {
+      setOpenCreateContractDialog(true);
+    }
+  }, [currentContractAddress]);
+
   const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
     publiclyDeploy?: boolean,
@@ -180,7 +186,7 @@ export function ContractComponent() {
               {!currentContractAddress && wallet && (
                 <div css={contractActions}>
                   <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
-                    Register/Deploy
+                    Deploy / Load Contract
                   </Button>
                   {openCreateContractDialog && (
                     <CreateContractDialog

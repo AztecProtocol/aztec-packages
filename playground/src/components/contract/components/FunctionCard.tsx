@@ -140,8 +140,6 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
     }
   };
 
-  console.log(profileResults);
-
   return (
     <Card
       key={fn.name}
