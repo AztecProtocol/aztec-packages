@@ -30,6 +30,11 @@ while [ "$#" -gt 0 ]; do
       export PXE_PROVER_ENABLED=1
       shift 2
       ;;
+    --data-directory)
+      # Set data directory to user-specified directory.
+      DATA_DIRECTORY="$2"
+      shift 2
+      ;;
     *)
       shift
       ;;
@@ -58,6 +63,13 @@ case ${1:-} in
     ;;
   start)
     export ENV_VARS_TO_INJECT="$(get_env_vars)"
+
+    # If the user sets the data directory, we need to mount it into the container.
+    # Unless it is a subdirectory of their home, since home is already mounted by default.
+    if [[ -n "${DATA_DIRECTORY:-}" ]] && [[ "${DATA_DIRECTORY:-}" != ${HOME}* ]]; then
+      export VOLUMES_TO_MOUNT="$DATA_DIRECTORY:/usr/data"
+      export DATA_DIRECTORY="/usr/data"
+    fi
 
     # Dynamic port assignments, .aztec-run will expose the array PORTS_TO_EXPOSE as a space-separated string.
     AZTEC_PORT=${AZTEC_PORT:-8080}
