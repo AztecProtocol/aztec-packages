@@ -76,6 +76,8 @@ aztec:
   ## The number of extra accounts to prefund
   extraAccounts: 10
 
+  governanceProposalPayloadAddress: ""
+
 bootNode:
   enabled: true
   peerIdPrivateKey: ""
