@@ -57,9 +57,6 @@ case "$cmd" in
   "release")
     release_docs
     ;;
-  "release-preview")
-    release_preview
-    ;;
   *)
     echo "Unknown command: $cmd"
     exit 1
