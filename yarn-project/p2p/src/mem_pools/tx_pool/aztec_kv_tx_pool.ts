@@ -105,6 +105,13 @@ export class AztecKVTxPool implements TxPool {
     this.#metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL, () => store.estimateSize());
   }
 
+  public async isEmpty(): Promise<boolean> {
+    for await (const _ of this.#txs.entriesAsync()) {
+      return false;
+    }
+    return true;
+  }
+
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     if (txHashes.length === 0) {
       return Promise.resolve();

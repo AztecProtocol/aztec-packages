@@ -73,4 +73,7 @@ export interface TxPool {
    * @returns Pending or mined depending on its status, or undefined if not found.
    */
   getTxStatus(txHash: TxHash): Promise<'pending' | 'mined' | undefined>;
+
+  /** Returns whether the pool is empty. */
+  isEmpty(): Promise<boolean>;
 }
