@@ -4,6 +4,7 @@
 #include "barretenberg/api/log.hpp"
 #include "barretenberg/api/write_prover_output.hpp"
 #include "barretenberg/client_ivc/mock_circuit_producer.hpp"
+#include "barretenberg/client_ivc/private_execution_steps.hpp"
 #include "barretenberg/common/map.hpp"
 #include "barretenberg/common/throw_or_abort.hpp"
 #include "barretenberg/common/try_catch_shim.hpp"
@@ -11,99 +12,12 @@
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
 #include "libdeflate.h"
+#include "private_execution_steps.hpp"
 #include <stdexcept>
 
-using namespace std;
 namespace bb {
 
-// Open namespace local to this file.
-namespace {
-
-template <typename T> T unpack_from_file(const filesystem::path& filename)
-{
-    ifstream fin;
-    fin.open(filename, ios::ate | ios::binary);
-    if (!fin.is_open()) {
-        THROW invalid_argument("file not found");
-    }
-    if (fin.tellg() == -1) {
-        THROW invalid_argument("something went wrong");
-    }
-
-    size_t fsize = static_cast<size_t>(fin.tellg());
-    fin.seekg(0, ios_base::beg);
-
-    T result;
-    char* encoded_data = new char[fsize];
-    fin.read(encoded_data, static_cast<streamsize>(fsize));
-    msgpack::unpack(encoded_data, fsize).get().convert(result);
-    return result;
-}
-/**
- * @brief This is the msgpack encoding of the objects returned by the following typescript:
- *   const stepToStruct = (step: PrivateExecutionStep) => {
- *    return {
- *       bytecode: step.bytecode,
- *       witness: serializeWitness(step.witness),
- *       vk: step.vk,
- *       functionName: step.functionName
- *     };
- *   };
- *  await fs.writeFile(path, encode(executionSteps.map(stepToStruct)));
- *  See format notes below.
- */
-struct PrivateExecutionStepRaw {
-    // TODO(#7371) we should not have so many levels of serialization here.
-    // Represents gzipped bincode.
-    string bytecode;
-    // Represents bincoded witness data.
-    string witness;
-    // Represents a legacy-serialized vk.
-    string vk;
-    // Represents the function name.
-    string function_name;
-
-    // Unrolled from MSGPACK_FIELDS for custom name for function_name.
-    void msgpack(auto pack_fn) { pack_fn(NVP(bytecode, witness, vk), "functionName", function_name); };
-    static std::vector<PrivateExecutionStepRaw> load(const filesystem::path& input_path)
-    {
-        return unpack_from_file<std::vector<PrivateExecutionStepRaw>>(input_path);
-    }
-};
-
-// TODO(https://github.com/AztecProtocol/barretenberg/issues/1162) this should have a common code path with
-// the WASM folding stack code.
-struct PrivateExecutionSteps {
-    vector<acir_format::AcirProgram> folding_stack;
-    vector<shared_ptr<ClientIVC::MegaVerificationKey>> precomputed_vks;
-
-    void parse(const vector<PrivateExecutionStepRaw>& steps)
-    {
-        for (const PrivateExecutionStepRaw& step : steps) {
-            // TODO(#7371) there is a lot of copying going on in bincode, we should make sure this writes as a
-            // buffer in the future
-            vector<uint8_t> constraint_buf = decompress(step.bytecode.data(), step.bytecode.size()); // NOLINT
-            vector<uint8_t> witness_buf = decompress(step.witness.data(), step.witness.size());      // NOLINT
-
-            acir_format::AcirFormat constraints =
-                acir_format::circuit_buf_to_acir_format(constraint_buf, /*honk_recursion=*/0);
-            acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(witness_buf);
-
-            folding_stack.push_back({ constraints, witness });
-            if (step.vk.empty()) {
-                // For backwards compatibility, but it affects performance and correctness.
-                info("DEPRECATED: No VK was provided for client IVC step and it will be computed.");
-                precomputed_vks.emplace_back();
-            } else {
-                auto vk = from_buffer<shared_ptr<ClientIVC::MegaVerificationKey>>(step.vk);
-                precomputed_vks.push_back(vk);
-            }
-        }
-    }
-};
-} // namespace
-
-acir_format::WitnessVector witness_map_to_witness_vector(map<string, string> const& witness_map)
+acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, std::string> const& witness_map)
 {
     acir_format::WitnessVector wv;
     size_t index = 0;
@@ -122,15 +36,15 @@ acir_format::WitnessVector witness_map_to_witness_vector(map<string, string> con
     return wv;
 }
 
-vector<uint8_t> decompress(const void* bytes, size_t size)
+std::vector<uint8_t> decompress(const void* bytes, size_t size)
 {
-    vector<uint8_t> content;
+    std::vector<uint8_t> content;
     // initial size guess
     content.resize(1024ULL * 128ULL);
     for (;;) {
-        auto decompressor =
-            unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{ libdeflate_alloc_decompressor(),
-                                                                                     libdeflate_free_decompressor };
+        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
+            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
+        };
         size_t actual_size = 0;
         libdeflate_result decompress_result =
             libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
@@ -140,7 +54,7 @@ vector<uint8_t> decompress(const void* bytes, size_t size)
             continue;
         }
         if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            THROW invalid_argument("bad gzip data in bb main");
+            THROW std::invalid_argument("bad gzip data in bb main");
         }
         content.resize(actual_size);
         break;
@@ -156,7 +70,9 @@ vector<uint8_t> decompress(const void* bytes, size_t size)
  * @param bytecode_path
  * @param witness_path
  */
-void write_standalone_vk(const string& output_data_type, const string& bytecode_path, const string& output_path)
+void write_standalone_vk(const std::string& output_data_type,
+                         const std::string& bytecode_path,
+                         const std::string& output_path)
 {
     using Builder = ClientIVC::ClientCircuit;
     using Prover = ClientIVC::MegaProver;
@@ -184,27 +100,26 @@ void write_standalone_vk(const string& output_data_type, const string& bytecode_
     AggregationObject::add_default_pairing_points_to_public_inputs(builder);
 
     // Construct the verification key via the prover-constructed proving key with the proper trace settings
-    auto proving_key = make_shared<DeciderProvingKey>(builder, trace_settings);
+    auto proving_key = std::make_shared<DeciderProvingKey>(builder, trace_settings);
     Prover prover{ proving_key };
     init_bn254_crs(prover.proving_key->proving_key.circuit_size);
-    PubInputsProofAndKey<VerificationKey> to_write{ PublicInputsVector{},
-                                                    HonkProof{},
-                                                    make_shared<VerificationKey>(prover.proving_key->proving_key) };
+    PubInputsProofAndKey<VerificationKey> to_write{
+        PublicInputsVector{}, HonkProof{}, std::make_shared<VerificationKey>(prover.proving_key->proving_key)
+    };
 
     write(to_write, output_data_type, "vk", output_path);
 }
 
-size_t get_num_public_inputs_in_final_circuit(const filesystem::path& input_path)
+size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input_path)
 {
     using namespace acir_format;
     auto steps = PrivateExecutionStepRaw::load(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
-    const vector<uint8_t> bincode_buf = decompress(last_step.bytecode.data(), last_step.bytecode.size());
-    const AcirFormat constraints = circuit_buf_to_acir_format(bincode_buf, /*honk_recursion=*/0);
+    const AcirFormat constraints = circuit_buf_to_acir_format(last_step.bytecode, /*honk_recursion=*/0);
     return constraints.public_inputs.size();
 }
 
-void write_vk_for_ivc(const string& input_path, const filesystem::path& output_dir)
+void write_vk_for_ivc(const std::string& input_path, const std::filesystem::path& output_dir)
 {
     init_bn254_crs(1 << CONST_PG_LOG_N);
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
@@ -241,8 +156,9 @@ void write_vk_for_ivc(const string& input_path, const filesystem::path& output_d
     }
 }
 
-shared_ptr<ClientIVC> _accumulate(vector<acir_format::AcirProgram>& folding_stack,
-                                  const vector<shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
+std::shared_ptr<ClientIVC> _accumulate(
+    std::vector<acir_format::AcirProgram>& folding_stack,
+    const std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
 {
     TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
     auto ivc = make_shared<ClientIVC>(trace_settings);
@@ -262,7 +178,9 @@ shared_ptr<ClientIVC> _accumulate(vector<acir_format::AcirProgram>& folding_stac
     return ivc;
 }
 
-void ClientIVCAPI::prove(const Flags& flags, const filesystem::path& input_path, const filesystem::path& output_dir)
+void ClientIVCAPI::prove(const Flags& flags,
+                         const std::filesystem::path& input_path,
+                         const std::filesystem::path& output_dir)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -271,7 +189,7 @@ void ClientIVCAPI::prove(const Flags& flags, const filesystem::path& input_path,
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load(input_path));
 
-    shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
+    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
     ClientIVC::Proof proof = ivc->prove();
 
     // We verify this proof. Another bb call to verify has the overhead of loading the SRS,
@@ -281,8 +199,8 @@ void ClientIVCAPI::prove(const Flags& flags, const filesystem::path& input_path,
         THROW runtime_error("Failed to verify the private (ClientIVC) transaction proof!");
     }
 
-    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating string
-    // representations of vks that don't feel worth implementing
+    // We'd like to use the `write` function that UltraHonkAPI uses, but there are missing functions for creating
+    // std::string representations of vks that don't feel worth implementing
     const bool output_to_stdout = output_dir == "-";
 
     const auto write_proof = [&]() {
@@ -305,9 +223,9 @@ void ClientIVCAPI::prove(const Flags& flags, const filesystem::path& input_path,
 }
 
 bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
-                          [[maybe_unused]] const filesystem::path& public_inputs_path,
-                          const filesystem::path& proof_path,
-                          const filesystem::path& vk_path)
+                          [[maybe_unused]] const std::filesystem::path& public_inputs_path,
+                          const std::filesystem::path& proof_path,
+                          const std::filesystem::path& vk_path)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163): Set these dynamically
     init_bn254_crs(1);
@@ -323,7 +241,7 @@ bool ClientIVCAPI::verify([[maybe_unused]] const Flags& flags,
     return verified;
 }
 
-bool ClientIVCAPI::prove_and_verify(const filesystem::path& input_path)
+bool ClientIVCAPI::prove_and_verify(const std::filesystem::path& input_path)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
@@ -332,52 +250,53 @@ bool ClientIVCAPI::prove_and_verify(const filesystem::path& input_path)
     PrivateExecutionSteps steps;
     steps.parse(PrivateExecutionStepRaw::load(input_path));
 
-    shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
+    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
     const bool verified = ivc->prove_and_verify();
     return verified;
 }
 
-void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags, [[maybe_unused]] const filesystem::path& bytecode_path)
+void ClientIVCAPI::gates([[maybe_unused]] const Flags& flags,
+                         [[maybe_unused]] const std::filesystem::path& bytecode_path)
 {
     gate_count_for_ivc(bytecode_path, flags.include_gates_per_opcode);
 }
 
 void ClientIVCAPI::write_solidity_verifier([[maybe_unused]] const Flags& flags,
-                                           [[maybe_unused]] const filesystem::path& output_path,
-                                           [[maybe_unused]] const filesystem::path& vk_path)
+                                           [[maybe_unused]] const std::filesystem::path& output_path,
+                                           [[maybe_unused]] const std::filesystem::path& vk_path)
 {
     throw_or_abort("API function contract not implemented");
 }
 
-void ClientIVCAPI::write_ivc_vk(const filesystem::path& input_path, const filesystem::path& output_path)
+void ClientIVCAPI::write_ivc_vk(const std::filesystem::path& input_path, const std::filesystem::path& output_path)
 {
     write_vk_for_ivc(input_path, output_path);
 }
 
 void ClientIVCAPI::write_vk(const Flags& flags,
-                            const filesystem::path& bytecode_path,
-                            const filesystem::path& output_path)
+                            const std::filesystem::path& bytecode_path,
+                            const std::filesystem::path& output_path)
 {
     if (flags.verifier_type == "standalone") {
         write_standalone_vk(flags.output_format, bytecode_path, output_path);
     } else {
-        const string msg = string("Can't write vk for verifier type ") + flags.verifier_type;
+        const std::string msg = std::string("Can't write vk for verifier type ") + flags.verifier_type;
         throw_or_abort(msg);
     }
 }
 
 bool ClientIVCAPI::check([[maybe_unused]] const Flags& flags,
-                         [[maybe_unused]] const filesystem::path& bytecode_path,
-                         [[maybe_unused]] const filesystem::path& witness_path)
+                         [[maybe_unused]] const std::filesystem::path& bytecode_path,
+                         [[maybe_unused]] const std::filesystem::path& witness_path)
 {
     throw_or_abort("API function check_witness not implemented");
     return false;
 }
 
-void gate_count_for_ivc(const string& bytecode_path, bool include_gates_per_opcode)
+void gate_count_for_ivc(const std::string& bytecode_path, bool include_gates_per_opcode)
 {
-    // All circuit reports will be built into the string below
-    string functions_string = "{\"functions\": [\n  ";
+    // All circuit reports will be built into the std::string below
+    std::string functions_std::string = "{\"functions\": [\n  ";
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1181): Use enum for honk_recursion.
     auto constraint_systems = get_constraint_systems(bytecode_path, /*honk_recursion=*/0);
 
@@ -404,15 +323,15 @@ void gate_count_for_ivc(const string& bytecode_path, bool include_gates_per_opco
         builder.blocks.summarize();
 
         // Build individual circuit report
-        string gates_per_opcode_str;
+        std::string gates_per_opcode_str;
         for (size_t j = 0; j < program.constraints.gates_per_opcode.size(); j++) {
-            gates_per_opcode_str += to_string(program.constraints.gates_per_opcode[j]);
+            gates_per_opcode_str += to_std::string(program.constraints.gates_per_opcode[j]);
             if (j != program.constraints.gates_per_opcode.size() - 1) {
                 gates_per_opcode_str += ",";
             }
         }
 
-        auto result_string = format(
+        auto result_std::string = format(
             "{\n        \"acir_opcodes\": ",
             program.constraints.num_acir_opcodes,
             ",\n        \"circuit_size\": ",
@@ -422,17 +341,17 @@ void gate_count_for_ivc(const string& bytecode_path, bool include_gates_per_opco
 
         // Attach a comma if there are more circuit reports to generate
         if (i != (constraint_systems.size() - 1)) {
-            result_string = format(result_string, ",");
+            result_std::string = format(result_std::string, ",");
         }
 
-        functions_string = format(functions_string, result_string);
+        functions_std::string = format(functions_std::string, result_std::string);
 
         i++;
     }
-    cout << format(functions_string, "\n]}");
+    cout << format(functions_std::string, "\n]}");
 }
 
-void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const filesystem::path& output_dir)
+void write_arbitrary_valid_client_ivc_proof_and_vk_to_file(const std::filesystem::path& output_dir)
 {
     // TODO(https://github.com/AztecProtocol/barretenberg/issues/1163) set these dynamically
     init_bn254_crs(1 << CONST_PG_LOG_N);
