@@ -168,6 +168,7 @@ template <IsUltraFlavor Flavor> class DeciderProvingKey_ {
             proving_key.ipa_proof = circuit.ipa_proof;
         }
         // Set the pairing point accumulator indices
+        ASSERT(circuit.contains_pairing_point_accumulator && "Honk circuit must output a pairing point accumulator");
         proving_key.pairing_point_accumulator_public_input_indices =
             circuit.pairing_point_accumulator_public_input_indices;
         proving_key.contains_pairing_point_accumulator = circuit.contains_pairing_point_accumulator;
