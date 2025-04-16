@@ -102,11 +102,6 @@ impl PublicBaseRollupInputs {
         tube_data_validator.verify_proof();
         tube_data_validator.validate_with_rollup_data(self.constants);
 
-        // Warning: Fake verification! TODO(#8470)
-        // if !dep::std::runtime::is_unconstrained() {
-        //    self.avm_proof_data.fake_verify();
-        // }
-
         // TODO(#8470)
         // if !dep::std::runtime::is_unconstrained() {
         //     self.avm_proof_data.verify();
