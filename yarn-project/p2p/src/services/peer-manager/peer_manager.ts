@@ -301,7 +301,7 @@ export class PeerManager {
     const connections = this.libP2PNode.getConnections();
 
     const healthyConnections = this.prioritizePeers(
-      this.getNonProtectedPeers(this.pruneUnhealthyPeers(this.pruneDuplicatePeers(connections))),
+      this.pruneUnhealthyPeers(this.getNonProtectedPeers(this.pruneDuplicatePeers(connections))),
     );
 
     // Calculate how many connections we're looking to make
@@ -371,10 +371,6 @@ export class PeerManager {
     const connectedHealthyPeers: Connection[] = [];
 
     for (const peer of connections) {
-      if (this.isProtectedPeer(peer.remotePeer)) {
-        this.logger.debug(`Not pruning protected peer ${peer.remotePeer.toString()}`);
-        continue;
-      }
       const score = this.peerScoring.getScoreState(peer.remotePeer.toString());
       switch (score) {
         case PeerScoreState.Banned:
