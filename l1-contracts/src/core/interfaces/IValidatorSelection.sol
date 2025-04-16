@@ -10,6 +10,7 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
  * @param sampleSeed - The seed used to sample the attesters of the epoch
  * @param nextSeed - The seed used to influence the NEXT epoch
  */
+
 struct EpochData {
   // TODO: remove in favor of commitment to comittee
   address[] committee;

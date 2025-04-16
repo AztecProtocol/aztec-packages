@@ -105,7 +105,11 @@ contract ValidatorSelectionTest is ValidatorSelectionTestBase {
     }
   }
 
-  function testValidatorSetLargerThanCommittee(bool _insufficientSigs) public setup(100) progressEpoch {
+  function testValidatorSetLargerThanCommittee(bool _insufficientSigs)
+    public
+    setup(100)
+    progressEpoch
+  {
     assertGt(rollup.getAttesters().length, rollup.getTargetCommitteeSize(), "Not enough validators");
     uint256 committeeSize = rollup.getTargetCommitteeSize() * 2 / 3 + (_insufficientSigs ? 0 : 1);
 

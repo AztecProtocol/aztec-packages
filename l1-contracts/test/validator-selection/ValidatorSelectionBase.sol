@@ -116,19 +116,19 @@ contract ValidatorSelectionTestBase is DecoderBase {
   }
 
   function createDepositArgs(uint256 _keySalt) internal returns (CheatDepositArgs memory) {
-      uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", _keySalt)));
-      address attester = vm.addr(attesterPrivateKey);
-      attesterPrivateKeys[attester] = attesterPrivateKey;
-      uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", _keySalt)));
-      address proposer = vm.addr(proposerPrivateKey);
-      proposerPrivateKeys[proposer] = proposerPrivateKey;
-      proposerToAttester[proposer] = attester;
+    uint256 attesterPrivateKey = uint256(keccak256(abi.encode("attester", _keySalt)));
+    address attester = vm.addr(attesterPrivateKey);
+    attesterPrivateKeys[attester] = attesterPrivateKey;
+    uint256 proposerPrivateKey = uint256(keccak256(abi.encode("proposer", _keySalt)));
+    address proposer = vm.addr(proposerPrivateKey);
+    proposerPrivateKeys[proposer] = proposerPrivateKey;
+    proposerToAttester[proposer] = attester;
 
-      return CheatDepositArgs({
-        attester: attester,
-        proposer: proposer,
-        withdrawer: address(this),
-        amount: TestConstants.AZTEC_MINIMUM_STAKE
-      });
+    return CheatDepositArgs({
+      attester: attester,
+      proposer: proposer,
+      withdrawer: address(this),
+      amount: TestConstants.AZTEC_MINIMUM_STAKE
+    });
   }
 }
