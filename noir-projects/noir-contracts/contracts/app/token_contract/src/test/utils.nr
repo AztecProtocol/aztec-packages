@@ -1,16 +1,11 @@
 use crate::Token;
 use dep::uint_note::uint_note::UintNote;
 use aztec::{
-    oracle::{
-        execution::{get_block_number, get_contract_address},
-        random::random,
-        storage::storage_read,
-    },
+    oracle::{execution::{get_block_number, get_contract_address}, storage::storage_read},
     prelude::AztecAddress,
     protocol_types::storage::map::derive_storage_slot_in_map,
     test::helpers::{cheatcodes, test_environment::TestEnvironment},
 };
-use std::test::OracleMock;
 
 pub unconstrained fn setup(
     with_account_contracts: bool,
@@ -82,9 +77,6 @@ pub unconstrained fn mint_to_private(
     recipient: AztecAddress,
     amount: u128,
 ) {
-    let note_randomness = random();
-    let _ = OracleMock::mock("getRandomField").returns(note_randomness);
-
     let from = recipient; // we are setting from to recipient because we need to compute the tag
     Token::at(token_contract_address).mint_to_private(from, recipient, amount).call(
         &mut env.private(),

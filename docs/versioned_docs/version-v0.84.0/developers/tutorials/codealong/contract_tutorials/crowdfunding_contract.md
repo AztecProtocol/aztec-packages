@@ -63,7 +63,7 @@ Open the project in your preferred editor. If using VSCode and the LSP, you'll b
 
 In `main.nr`, rename the contract from `Main`, to `Crowdfunding`.
 
-```rust title="empty-contract" showLineNumbers 
+```rust title="empty-contract" showLineNumbers
 use dep::aztec::macros::aztec;
 
 #[aztec]
@@ -119,7 +119,7 @@ The `aztec::protocol_types` can be browsed [here (GitHub link)](https://github.c
 
 To retain the initializer parameters in the contract's Storage, we'll need to declare them in a preceding `Storage` struct:
 
-```rust title="storage" showLineNumbers 
+```rust title="storage" showLineNumbers
 #[storage]
 struct Storage<Context> {
     config: PublicImmutable<Config, Context>,
@@ -142,7 +142,7 @@ use dep::value_note::value_note::ValueNote;
 
 Now complete the initializer by setting the storage variables with the parameters:
 
-```rust title="init" showLineNumbers 
+```rust title="init" showLineNumbers
 #[public]
 #[initializer]
 fn init(donation_token: AztecAddress, operator: AztecAddress, deadline: u64) {
@@ -162,7 +162,7 @@ To check that the donation occurs before the campaign deadline, we must access t
 
 We read the deadline from public storage in private and use the router contract to assert that the current `timestamp` is before the deadline.
 
-```rust title="call-check-deadline" showLineNumbers 
+```rust title="call-check-deadline" showLineNumbers
 privately_check_timestamp(Comparator.LT, config.deadline, &mut context);
 ```
 > <sup><sub><a href="https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70" target="_blank" rel="noopener noreferrer">Source code: noir-projects/noir-contracts/contracts/crowdfunding_contract/src/main.nr#L68-L70</a></sub></sup>
@@ -174,9 +174,9 @@ If it's unique to this contract, then there'll be a privacy leak regardless, as 
 
 Now conclude adding all dependencies to the `Crowdfunding` contract:
 
-```rust title="all-deps" showLineNumbers 
+```rust title="all-deps" showLineNumbers
 use dep::aztec::{
-    encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+    messages::logs::note::encode_and_encrypt_note,
     event::event_interface::EventInterface,
     macros::{
         events::event,
@@ -214,7 +214,7 @@ With the dependency already `use`d at the start of the contract, the token contr
 
 The last thing to do is create a new value note and add it to the `donation_receipts`. So the full donation function is now
 
-```rust title="donate" showLineNumbers 
+```rust title="donate" showLineNumbers
 #[private]
 fn donate(amount: u128) {
     let config = storage.config.read();
@@ -255,7 +255,7 @@ The last point is achieved by emitting an unencrypted event log.
 
 Copy the last function into your Crowdfunding contract:
 
-```rust title="operator-withdrawals" showLineNumbers 
+```rust title="operator-withdrawals" showLineNumbers
 // Withdraws balance to the operator. Requires that msg_sender() is the operator.
 #[private]
 fn withdraw(amount: u128) {

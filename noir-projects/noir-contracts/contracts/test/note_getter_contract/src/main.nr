@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 pub contract NoteGetter {
     use aztec::{
         // Core functionality
-        encrypted_logs::log_assembly_strategies::default_aes128::note::encode_and_encrypt_note,
+        messages::logs::note::encode_and_encrypt_note,
         note::note_interface::NoteProperties,
         // Macros
         macros::{functions::{private, utility}, storage::storage},

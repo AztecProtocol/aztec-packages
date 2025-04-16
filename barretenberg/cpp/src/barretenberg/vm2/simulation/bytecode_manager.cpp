@@ -3,7 +3,7 @@
 #include <cassert>
 
 #include "barretenberg/common/serialize.hpp"
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/common/aztec_types.hpp"
 #include "barretenberg/vm2/common/constants.hpp"
 #include "barretenberg/vm2/common/stringify.hpp"

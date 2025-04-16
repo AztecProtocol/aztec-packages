@@ -1,6 +1,6 @@
 #include "barretenberg/vm2/tracegen/class_id_derivation_trace.hpp"
 
-#include "barretenberg/vm/aztec_constants.hpp"
+#include "barretenberg/vm2/common/aztec_constants.hpp"
 #include "barretenberg/vm2/simulation/events/class_id_derivation_event.hpp"
 #include "barretenberg/vm2/simulation/events/event_emitter.hpp"
 #include "barretenberg/vm2/tracegen/trace_container.hpp"
