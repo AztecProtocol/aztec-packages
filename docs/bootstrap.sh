@@ -42,6 +42,9 @@ case "$cmd" in
   "hash")
     echo "$hash"
     ;;
+  "release")
+    build_docs
+    ;;
   "release-preview")
     release_preview
     ;;
