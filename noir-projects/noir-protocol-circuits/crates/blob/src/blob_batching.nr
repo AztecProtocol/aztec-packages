@@ -69,14 +69,14 @@ pub fn evaluate_blobs_and_batch(
         if !(y_i.is_zero()) & !(single_blob_fields[0] == 0) {
             // Only accumulate if the blob is non empty
             if is_empty(end_accumulator) {
+                // TODO(MW): move this if is_empty() statement to .accumulate()?
                 // Init only if accumulator is empty:
                 //  - This will be checked in root, where the left input's start acc will be constrained to be zero
-                //  - No other accs can be zero since each block_merge check left's end acc == right's start acc
+                //  - No other accs can be zero since each block_merge checks left's end acc == right's start acc
                 end_accumulator = BlobPublicInputsAcc::init(
                     BlobAccumulationInputs { z_i, y_i, c_i },
                     challenge_gamma,
                 );
-                // TODO(MW): move this if is_empty() statement to .accumulate()?
             } else {
                 end_accumulator = end_accumulator.accumulate(
                     BlobAccumulationInputs { z_i, y_i, c_i },
@@ -90,13 +90,15 @@ pub fn evaluate_blobs_and_batch(
 
 mod tests {
     use crate::{
-        blob_batching::evaluate_blobs_and_batch, blob_batching_public_inputs::BlobPublicInputsAcc,
+        blob_batching::evaluate_blobs_and_batch,
+        blob_batching_public_inputs::{BlobPublicInputsAcc, compress_to_blob_commitment},
     };
     use bigcurve::{BigCurveTrait, curves::bls12_381::BLS12_381 as Point};
     use bigint::{BigNumTrait, BLS12_381_Fq as Q, BLS12_381_Fr as F};
     use types::{
         abis::sponge_blob::SpongeBlob,
         constants::{BLOBS_PER_BLOCK, FIELDS_PER_BLOB},
+        hash::sha256_to_field,
         tests::utils::pad_end,
         traits::Empty,
     };
@@ -162,11 +164,18 @@ mod tests {
             limbs: [0xdde7b57ab99b51e4b06e7d827b6c4c, 0x4f0c0ee5e7dd037110686a4639d191, 0x212c],
         };
         assert_eq(final_acc.y, expected_y);
+
+        // Since i = 1, v is just the sha256 hash of the single (compressed) commitment
+        let expected_v = sha256_to_field(
+            compress_to_blob_commitment(kzg_commitments_in[0]).compressed,
+        );
+        assert_eq(final_acc.v, expected_v);
+
         // Since i = 1, C = gamma^0 * C_0 = C_0
         assert_eq(final_acc.c, kzg_commitments_in[0]);
     }
 
-    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should evaluate full blobs'
+    // All hardcoded values in this test are taken from yarn-project/foundation/src/blob/blob_batching.test.ts -> 'should construct and verify a batch of 3 full blobs'
     #[test]
     unconstrained fn test_full_blobs_batched() {
         // Fill three blobs completely with different values (to avoid a constant polynomial)
@@ -293,7 +302,11 @@ mod tests {
             is_infinity: false,
         };
 
+        // y is a BN Fr field with value 0x00d2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1
+        let expected_v = 0xd2f7bffbc5a9008207a188e348e753087f54557a686efd7f74c90cac52a9a1;
+
         assert_eq(final_acc.y, expected_y);
         assert_eq(final_acc.c, expected_c);
+        assert_eq(final_acc.v, expected_v);
     }
 }

@@ -144,9 +144,9 @@ impl Empty for BlobAccumulationInputs {
 pub struct BlobPublicInputsAcc {
     pub v: Field, // Hash of Cs (to link to L1 blob hashes) (BN254Fr)
     pub z: Field, // Challenge at which the batched blob polynomial is evaluated (BN254Fr)
-    pub gamma: Field, // Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
     pub y: F, // Current state of y's linear combination (sum_i {gamma^i * y_i}) where y_i is blob_i's evaluation y (BLS12Fr)
     pub c: Point, // Current state of C's linear combination (sum_i {gamma^i * C_i}) where C_i is blob_i's commitment C (BLS12 point: { x: BLS12Fq, y: BLS12Fq })
+    pub gamma: Field, // Challenge for linear combination of each blob's y and C (BLS12Fr but represented here as BN254Fr, since it is hashed natively)
     pub gamma_pow: F, // gamma^i for current blob, used above (BLS12Fr)
 }
 
@@ -158,17 +158,17 @@ impl BlobPublicInputsAcc {
     * Each accumulation:
     * - v_acc := sha256(v_acc, C_i)
     * - z_acc := poseidon2(z_acc, z_i)
-    * - gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))
     * - y_acc := y_acc + (gamma^i * y_i)
     * - c_acc := c_acc + (gamma^i * c_i)
+    * - gamma_acc := poseidon2(gamma_acc, poseidon2(y_i.limbs))
     * - gamma^(i + 1) = gamma^i * final_gamma // denoted gamma_pow
     *
     * Final accumulated values (from last blob of last block of epoch):
     * - v := v_acc (hash of all commitments (C_i s) to be checked on L1)
     * - z := z_acc (final challenge, at which all blobs are evaluated)
-    * - gamma := poseidon2(gamma_acc, z) (challenge for linear combination of y and C, below)
     * - y := y_acc (final opening to be checked on L1)
     * - c := c_acc (final commitment to be checked on L1)
+    * - gamma := poseidon2(gamma_acc, z) (challenge for linear combination of y and C, above)
     *
     * Final values z and gamma are injected into each block root circuit. We ensure they are correct by:
     * - Checking equality in each block merge circuit and propagating up
@@ -182,9 +182,9 @@ impl BlobPublicInputsAcc {
         Self {
             v: sha256_to_field(self.v.to_be_bytes::<32>().concat(other.c_i.compressed)),
             z: poseidon2_hash([self.z, other.z_i]),
-            gamma: poseidon2_hash([self.gamma, hashed_y_i]),
             y: self.y.add(other.y_i.mul(self.gamma_pow)),
             c: self.c.add(other.c_i.point.mul(BLS12_381Scalar::from_bignum(self.gamma_pow))),
+            gamma: poseidon2_hash([self.gamma, hashed_y_i]),
             gamma_pow: self.gamma_pow.mul(final_gamma),
         }
     }
@@ -195,9 +195,9 @@ impl BlobPublicInputsAcc {
         Self {
             v: sha256_to_field(first_output.c_i.compressed),
             z: first_output.z_i,
-            gamma: hashed_y_0,
             y: first_output.y_i, // y_acc_0 = gamma^0 * y_0 = y_0
             c: first_output.c_i.point, // c_acc_0 = gamma^0 * c_0 = c_0
+            gamma: hashed_y_0,
             gamma_pow: final_gamma,
         }
     }
@@ -207,9 +207,9 @@ impl BlobPublicInputsAcc {
         Self {
             v: self.v,
             z: self.z,
+            y: self.y,
+            c: self.c,
             gamma: poseidon2_hash([self.gamma, self.z]),
-            y: self.y, // y_acc_0 = gamma^0 * y_0 = y_0
-            c: self.c, // c_acc_0 = gamma^0 * c_0 = c_0
             gamma_pow: self.gamma_pow,
         }
     }
@@ -220,9 +220,9 @@ impl Empty for BlobPublicInputsAcc {
         Self {
             v: 0,
             z: 0,
-            gamma: 0,
             y: F::zero(),
             c: Point::point_at_infinity(),
+            gamma: 0,
             gamma_pow: F::zero(),
         }
     }
@@ -232,9 +232,9 @@ impl Eq for BlobPublicInputsAcc {
     fn eq(self, other: Self) -> bool {
         (self.v.eq(other.v))
             & (self.z.eq(other.z))
-            & (self.gamma.eq(other.gamma))
             & (self.y.eq(other.y))
             & (self.c.eq(other.c))
+            & (self.gamma.eq(other.gamma))
             & (self.gamma_pow.eq(other.gamma_pow))
     }
 }
