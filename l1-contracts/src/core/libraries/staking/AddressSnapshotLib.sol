@@ -11,24 +11,19 @@ import {Checkpoints} from "@oz/utils/structs/Checkpoints.sol";
  * @notice Structure to store a set of addresses with their historical snapshots
  * @param size The current number of addresses in the set
  * @param checkpoints Mapping of index to array of address snapshots
- * @param validatorToIndex Mapping of validator address to its current index in the set
+ * @param attestorToIndex Mapping of attestor address to its current index in the set
  */
 struct SnapshottedAddressSet {
   // This size must also be snapshotted
   Checkpoints.Trace224 size;
-  mapping(uint256 index => AddressSnapshot[]) checkpoints;
-  // Store up to date position for each validator
-  mapping(address validator => uint256 index) validatorToIndex;
+  mapping(uint256 index => Checkpoints.Trace224) checkpoints;
+  // Store up to date position for each address
+  mapping(address addr => Index index) addressToIndex;
 }
 
-/**
- * @notice Structure to store a single address snapshot
- * @param addr The address being snapshotted
- * @param epochNumber The epoch number when this snapshot was taken
- */
-struct AddressSnapshot {
-  address addr;
-  uint96 epochNumber;
+struct Index {
+  bool exists;
+  uint224 index;
 }
 
 /**
@@ -38,7 +33,7 @@ struct AddressSnapshot {
  *      and allows querying the state of addresses at any point in time
  */
 library AddressSnapshotLib {
-  using SafeCast for uint256;
+  using SafeCast for *;
   using Checkpoints for Checkpoints.Trace224;
 
   /**
@@ -49,27 +44,25 @@ library AddressSnapshotLib {
   /**
    * @notice Adds a validator to the set
    * @param _self The storage reference to the set
-   * @param _validator The address of the validator to add
-   * @return bool True if the validator was added, false if it was already present
+   * @param _address The address of the address to add
+   * @return bool True if the address was added, false if it was already present
    */
-  function add(SnapshottedAddressSet storage _self, address _validator) internal returns (bool) {
+  function add(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
     // Prevent against double insertion
-    if (_self.validatorToIndex[_validator] != 0) {
+    if (_self.addressToIndex[_address].exists) {
       return false;
     }
 
     // Insert into the end of the array
     Epoch _nextEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1);
 
-    uint256 index = _self.size.latest();
+    uint224 index = _self.size.latest();
 
     // Include max bit to indicate that the validator is in the set - means 0 index is not 0
-    uint256 indexWithBit = index | PRESENCE_BIT;
+    Index memory storedIndex = Index({exists: true, index: index});
 
-    _self.validatorToIndex[_validator] = indexWithBit;
-    _self.checkpoints[index].push(
-      AddressSnapshot({addr: _validator, epochNumber: Epoch.unwrap(_nextEpoch).toUint96()})
-    );
+    _self.addressToIndex[_address] = storedIndex;
+    _self.checkpoints[index].push(Epoch.unwrap(_nextEpoch).toUint32(), uint160(_address).toUint224());
 
     _self.size.push(Epoch.unwrap(_nextEpoch).toUint32(), (index + 1).toUint224());
     return true;
@@ -81,40 +74,30 @@ library AddressSnapshotLib {
    * @param _index The index of the validator to remove
    * @return bool True if the validator was removed, false otherwise
    */
-  function remove(SnapshottedAddressSet storage _self, uint256 _index) internal returns (bool) {
+  function remove(SnapshottedAddressSet storage _self, uint224 _index) internal returns (bool) {
     // To remove from the list, we push the last item into the index and reduce the size
-    uint256 lastIndex = _self.size.latest() - 1;
-    uint256 lastSnapshotLength = _self.checkpoints[lastIndex].length;
-
+    uint224 lastIndex = _self.size.latest() - 1;
     uint256 nextEpoch =
       Epoch.unwrap(TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp)) + Epoch.wrap(1));
 
-    AddressSnapshot memory lastSnapshot = _self.checkpoints[lastIndex][lastSnapshotLength - 1];
+    address lastValidator = address(_self.checkpoints[lastIndex].latest().toUint160());
 
-    address lastValidator = lastSnapshot.addr;
-    uint256 newLocation = _index | PRESENCE_BIT;
+    Index memory newLocation = Index({exists: true, index: _index.toUint224()});
 
     // If we are removing the last item, we cannot swap it with anything
     // so we append a new address of zero for this epoch
     // And since we are removing it, we set the location to 0
     if (lastIndex == _index) {
-      lastSnapshot.addr = address(0);
-      newLocation = 0;
-    }
+      newLocation.exists = false;
+      newLocation.index = 0;
+      _self.addressToIndex[lastValidator] = newLocation;
 
-    _self.validatorToIndex[lastValidator] = newLocation;
-
-    lastSnapshot.epochNumber = nextEpoch.toUint96();
-    // Check if there's already a checkpoint for this index in the current epoch
-    uint256 checkpointCount = _self.checkpoints[_index].length;
-    if (
-      checkpointCount > 0 && _self.checkpoints[_index][checkpointCount - 1].epochNumber == nextEpoch
-    ) {
-      // If there's already a checkpoint for this epoch, update it instead of adding a new one
-      _self.checkpoints[_index][checkpointCount - 1] = lastSnapshot;
+      _self.checkpoints[_index].push(nextEpoch.toUint32(), uint160(0).toUint224());
     } else {
-      // Otherwise add a new checkpoint
-      _self.checkpoints[_index].push(lastSnapshot);
+      // Otherwise, we swap the last item with the item we are removing
+      // and update the location of the last item
+      _self.addressToIndex[lastValidator] = newLocation;
+      _self.checkpoints[_index].push(nextEpoch.toUint32(), uint160(lastValidator).toUint224());
     }
 
     _self.size.push(nextEpoch.toUint32(), (lastIndex).toUint224());
@@ -122,48 +105,32 @@ library AddressSnapshotLib {
   }
 
   /**
-   * @notice Removes a validator from the set by address
+   * @notice Removes a address from the set by address
    * @param _self The storage reference to the set
-   * @param _validator The address of the validator to remove
-   * @return bool True if the validator was removed, false if it wasn't found
+   * @param _address The address of the address to remove
+   * @return bool True if the address was removed, false if it wasn't found
    */
-  function remove(SnapshottedAddressSet storage _self, address _validator) internal returns (bool) {
-    uint256 index = _self.validatorToIndex[_validator];
-    if (index == 0) {
+  function remove(SnapshottedAddressSet storage _self, address _address) internal returns (bool) {
+    Index memory index = _self.addressToIndex[_address];
+    if (!index.exists) {
       return false;
     }
 
-    // Remove top most bit
-    index = index & ~PRESENCE_BIT;
-    return remove(_self, index);
+    return remove(_self, index.index);
   }
 
   /**
-   * @notice Gets the current address at a specific index
+   * @notice Gets the current address at a specific index at the time right now
    * @param _self The storage reference to the set
    * @param _index The index to query
    * @return address The current address at the given index
    */
   function at(SnapshottedAddressSet storage _self, uint256 _index) internal view returns (address) {
-    uint256 numCheckpoints = _self.checkpoints[_index].length;
     Epoch currentEpoch = TimeLib.epochFromTimestamp(Timestamp.wrap(block.timestamp));
 
     uint256 size = lengthAtEpoch(_self, currentEpoch);
-
     if (_index >= size) {
       revert Errors.AddressSnapshotLib__IndexOutOfBounds(_index, size);
-    }
-
-    if (numCheckpoints == 0) {
-      return address(0);
-    }
-
-    AddressSnapshot memory lastSnapshot = _self.checkpoints[_index][numCheckpoints - 1];
-
-    // The staking set is frozen in time until the end of the epoch, so we must check if the last checkpoint is in the current epoch
-    // If it is, we can return it, otherwise, we must perform a search
-    if (lastSnapshot.epochNumber == Epoch.unwrap(currentEpoch)) {
-      return lastSnapshot.addr;
     }
 
     // Otherwise, we must perform a search
@@ -182,43 +149,10 @@ library AddressSnapshotLib {
     uint256 _index,
     Epoch _epoch
   ) internal view returns (address) {
-    uint256 numCheckpoints = _self.checkpoints[_index].length;
     uint96 epoch = Epoch.unwrap(_epoch).toUint96();
 
-    if (numCheckpoints == 0) {
-      return address(0);
-    }
-
-    // Check the most recent checkpoint
-    AddressSnapshot memory lastSnapshot = _self.checkpoints[_index][numCheckpoints - 1];
-    if (lastSnapshot.epochNumber <= epoch) {
-      return lastSnapshot.addr;
-    }
-
-    // Binary search
-    uint256 lower = 0;
-
-    unchecked {
-      uint256 upper = numCheckpoints - 1;
-      while (upper > lower) {
-        uint256 center = upper - (upper - lower) / 2; // ceil, avoiding overflow
-        AddressSnapshot memory cp = _self.checkpoints[_index][center];
-        if (cp.epochNumber == epoch) {
-          return cp.addr;
-        } else if (cp.epochNumber < epoch) {
-          lower = center;
-        } else {
-          upper = center - 1;
-        }
-      }
-    }
-
-    // Guard against the found epoch being greater than the epoch we are querying
-    if (epoch < _self.checkpoints[_index][lower].epochNumber) {
-      return address(0);
-    }
-
-    return _self.checkpoints[_index][lower].addr;
+    uint224 addr = _self.checkpoints[_index].upperLookup(epoch.toUint32());
+    return address(addr.toUint160());
   }
 
   /**
