@@ -1,86 +1,8 @@
 window.BENCHMARK_DATA = {
-  "lastUpdate": 1744772857291,
+  "lastUpdate": 1744775064000,
   "repoUrl": "https://github.com/AztecProtocol/aztec-packages",
   "entries": {
     "C++ Benchmark": [
-      {
-        "commit": {
-          "author": {
-            "email": "132435771+jeanmon@users.noreply.github.com",
-            "name": "Jean M",
-            "username": "jeanmon"
-          },
-          "committer": {
-            "email": "noreply@github.com",
-            "name": "GitHub",
-            "username": "web-flow"
-          },
-          "distinct": false,
-          "id": "e9922dc3feec3396f2d6611dac625af6e7871f63",
-          "message": "feat: dsl layer for recursive avm verifier v2 (#13362)\n\nThis PR creates the DSL layer for the goblinized avm recursive verifier\nversion 2.\nThe core logic lies in avm2_recursion_constraint.cpp and the goblinized\nv2 verifier is activated in routine process_avm_recursion_constraints()\nof acir_format.cpp.\n\nAs a consequence of enabling this verifier in the DSL layer, the AVM\nintegration tests are hooked with this version. The AVM integration test\nwas upgraded as it now integrates a clientIvc proof as well.\nIn addition, the new avm recursive verifier was added in the\nrollup_ivc_integration test.\n\nDuring this work, we hit an issue related to ipa claim/proof which is\nnot yet properly handled in the DSL layer which required us to\ntemporarily remove them from the goblinized avm recursive verifier. This\nunfortunately led to the unit test AvmRecursiveTests.GoblinRecursion\nbeing temporarily disabled.\n\n---------\n\nCo-authored-by: ledwards2225 <l.edwards.d@gmail.com>\nCo-authored-by: sirasistant <sirasistant@gmail.com>",
-          "timestamp": "2025-04-11T09:34:12Z",
-          "tree_id": "f6f83a48cf4599aebab42a1d0118430b308ee161",
-          "url": "https://github.com/AztecProtocol/aztec-packages/commit/e9922dc3feec3396f2d6611dac625af6e7871f63"
-        },
-        "date": 1744368911412,
-        "tool": "googlecpp",
-        "benches": [
-          {
-            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
-            "value": 20998.283053999785,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 15794.623552000001 ms\nthreads: 1"
-          },
-          {
-            "name": "field_ops_heuristic",
-            "value": 123254055819.3,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "commit(t)",
-            "value": 2132097587,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "Goblin::merge(t)",
-            "value": 234999154,
-            "unit": "ns/iter",
-            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
-          },
-          {
-            "name": "nativeClientIVCBench/Full/6",
-            "value": 19773.351708000064,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 16813.639808999997 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmClientIVCBench/Full/6",
-            "value": 56854.631297,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 56854633000 ms\nthreads: 1"
-          },
-          {
-            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 4061.4933980000387,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 3544.794718 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
-            "value": 12040.16989,
-            "unit": "ms/iter",
-            "extra": "iterations: 1\ncpu: 12040175000 ms\nthreads: 1"
-          },
-          {
-            "name": "wasmUltraHonkVerifierWasmMemory",
-            "value": "2265.56",
-            "unit": "MiB/iter",
-            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
-          }
-        ]
-      },
       {
         "commit": {
           "author": {
@@ -3458,6 +3380,78 @@ window.BENCHMARK_DATA = {
             "value": 1785,
             "unit": "MB/iter",
             "extra": "iterations: undefined\ncpu: undefined MB\nthreads: undefined"
+          }
+        ]
+      },
+      {
+        "commit": {
+          "author": {
+            "email": "lucasxia01@gmail.com",
+            "name": "Lucas Xia",
+            "username": "lucasxia01"
+          },
+          "committer": {
+            "email": "noreply@github.com",
+            "name": "GitHub",
+            "username": "web-flow"
+          },
+          "distinct": true,
+          "id": "df73c0528f56b50604febf3f9d02edbc370c7ce9",
+          "message": "feat: Refactor IPA claim handling in acir format to support them for AVM (#13547)\n\nRefactor where we handle IPA claim handling to be at the acir_format\nlevel instead in within `process_honk_recursion_constraints`. This is\nneeded to handle circuits like the public base which will have AVM\nrecursion constraints and RollupHonk recursion constraints, which will\nnow BOTH produce IPA claims/proofs.\n\nFix Goblin AVM recursive verifier test and clean some small type-related\nthings.",
+          "timestamp": "2025-04-16T02:23:30Z",
+          "tree_id": "fa8082fa5a3086d61e878da4aa7c54d9931fbed7",
+          "url": "https://github.com/AztecProtocol/aztec-packages/commit/df73c0528f56b50604febf3f9d02edbc370c7ce9"
+        },
+        "date": 1744775052826,
+        "tool": "googlecpp",
+        "benches": [
+          {
+            "name": "nativeClientIVCBench/Ambient_17_in_20/6",
+            "value": 17374.060436000036,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 13635.769610000001 ms\nthreads: 1"
+          },
+          {
+            "name": "commit(t)",
+            "value": 2245021070,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "Goblin::merge(t)",
+            "value": 207446971,
+            "unit": "ns/iter",
+            "extra": "iterations: undefined\ncpu: undefined ns\nthreads: undefined"
+          },
+          {
+            "name": "nativeClientIVCBench/Full/6",
+            "value": 19808.939674000158,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 16670.528341999998 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmClientIVCBench/Full/6",
+            "value": 55978.195664,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 55978196000 ms\nthreads: 1"
+          },
+          {
+            "name": "nativeconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 4302.891421999902,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 3752.696621 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmconstruct_proof_ultrahonk_power_of_2/20",
+            "value": 11818.811772000001,
+            "unit": "ms/iter",
+            "extra": "iterations: 1\ncpu: 11818812000 ms\nthreads: 1"
+          },
+          {
+            "name": "wasmUltraHonkVerifierWasmMemory",
+            "value": "2263.75",
+            "unit": "MiB/iter",
+            "extra": "iterations: undefined\ncpu: undefined MiB\nthreads: undefined"
           }
         ]
       }
