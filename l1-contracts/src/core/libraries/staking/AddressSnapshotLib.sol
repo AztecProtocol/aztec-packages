@@ -62,7 +62,9 @@ library AddressSnapshotLib {
     Index memory storedIndex = Index({exists: true, index: index});
 
     _self.addressToIndex[_address] = storedIndex;
-    _self.checkpoints[index].push(Epoch.unwrap(_nextEpoch).toUint32(), uint160(_address).toUint224());
+    _self.checkpoints[index].push(
+      Epoch.unwrap(_nextEpoch).toUint32(), uint160(_address).toUint224()
+    );
 
     _self.size.push(Epoch.unwrap(_nextEpoch).toUint32(), (index + 1).toUint224());
     return true;
