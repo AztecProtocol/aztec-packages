@@ -1,0 +1,18 @@
+{
+  "barretenberg/transcript/origin_tag.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/transcript/origin_tag.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/transcript/transcript.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/transcript/transcript.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "barretenberg/commitment_schemes/commit.bench.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/commitment_key.test.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/gemini/gemini.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/gemini/gemini.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/gemini/gemini_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/ipa/mock_transcript.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/ipa/ipa.fuzzer.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/ipa/ipa.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/kzg/kzg.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/shplonk/shplemini.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/shplonk/shplonk.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa_utils.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/small_subgroup_ipa/small_subgroup_ipa.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/utils/batch_mul_native.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/utils/test_settings.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/utils/test_utils.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/utils/mock_witness_generator.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/verification_key.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/zeromorph/zeromorph.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/commitment_key.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/claim_batcher.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/commitment_schemes/claim.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

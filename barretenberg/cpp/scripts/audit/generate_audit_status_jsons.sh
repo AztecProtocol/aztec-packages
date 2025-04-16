@@ -8,11 +8,12 @@ get_script_dir() {
 
 init_paths() {
   script_dir="$(get_script_dir)"
-  root_dir="$(realpath "$script_dir/../src/barretenberg")"
+  root_dir="$(realpath "$script_dir/../../src/barretenberg")"
   trim_root="$root_dir"
-  audit_status_root="$(realpath "$root_dir/../barretenberg_audit_status")"
+  audit_status_root="$(realpath -m "$root_dir/../barretenberg_audit_status")"
 
   echo "Root directory: $root_dir"
+  echo "Audit status root: $audit_status_root"
   mkdir -p "$audit_status_root"
 }
 
@@ -75,10 +76,40 @@ generate_json_for_dir() {
 
 # --- Main Execution -----------------------------------------------------------
 
+# Subdirectories (relative to root_dir) to exclude from audit
+EXCLUDED_SUBDIRS=(
+  "acir_formal_proofs"
+  "build"
+  "bb"
+  "benchmark"
+  "boomerang_value_detection"
+  "circuit_checker"
+  "commitment_schemes_recursion"
+  "common"
+  "env"
+  "examples"
+  "lmdblib"
+  "messaging"
+  "nodejs_module"
+  "smt_verification"
+  "solidity_helpers"
+  "ultra_vanilla_ivc"
+  "wasi"
+  "world_state"
+)
+
 main() {
   init_paths
 
   for dir in "$root_dir"/*/; do
+    subdir=$(basename "$dir")
+
+    # Skip if subdir is in the excluded list
+    if [[ " ${EXCLUDED_SUBDIRS[*]} " == *" ${subdir} "* ]]; then
+      echo "Skipping excluded subdir: $subdir"
+      continue
+    fi
+
     generate_json_for_dir "$dir"
   done
 }

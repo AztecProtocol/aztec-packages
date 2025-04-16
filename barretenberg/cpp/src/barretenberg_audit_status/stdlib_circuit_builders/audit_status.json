@@ -1,0 +1,174 @@
+{
+  "barretenberg/stdlib_circuit_builders/circuit_builder_base.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mock_circuits.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/aes128.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/blake2s.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/dummy.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base_params.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/fixed_base/fixed_base.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_chi.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_input.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_output.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_rho.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/keccak/keccak_theta.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/non_native_group_generator.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/plookup_tables.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/sha256.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/sparse.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/types.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/plookup_tables/uint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/standard_circuit_builder.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/databus.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mega_circuit_builder.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mega_circuit_builder.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mega_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mega_recursive_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mega_zk_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/circuit_builder_base_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/public_component_key.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/mega_zk_recursive_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/standard_circuit_builder.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_circuit_builder.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_keccak_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_keccak_zk_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_recursive_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_rollup_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_rollup_recursive_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/ultra_zk_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/circuit_builder_base.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/stdlib_circuit_builders/circuit_simulator.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

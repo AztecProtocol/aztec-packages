@@ -1,0 +1,22 @@
+{
+  "barretenberg/goblin/types.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/goblin/mock_circuits.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/goblin/translation_evaluations.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/goblin/goblin.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/goblin/goblin.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

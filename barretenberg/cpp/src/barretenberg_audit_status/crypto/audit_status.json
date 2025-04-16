@@ -1,0 +1,302 @@
+{
+  "barretenberg/crypto/aes128/aes128.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/aes128/aes128.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/aes128/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/aes128/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake2s/blake2-impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake2s/blake2s.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake2s/blake2s.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake2s/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake2s/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake3s/blake3-impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake3s/blake3s.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake3s/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake3s_full/blake3-impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake3s_full/blake3s.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/blake3s_full/blake3s.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/ecdsa/ecdsa.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/ecdsa/ecdsa_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/ecdsa/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/ecdsa/c_bind.h": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/generators/generator_data.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/hashers/hashers.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/hmac/hmac.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/keccak/hash_types.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/keccak/keccak.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/keccak/keccak.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/keccak/keccakf1600.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/append_only_tree/content_addressed_append_only_tree.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/fixtures.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/hash.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/hash_path.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/index.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/indexed_tree/fixtures.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/indexed_tree/content_addressed_indexed_tree.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/indexed_tree/indexed_leaf.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/lmdb_store/lmdb_tree_store.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/membership.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/memory_store.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/memory_tree.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/merkle_tree.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/node_store/array_store.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/node_store/tree_meta.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/node_store/cached_content_addressed_tree_store.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/node_store/content_addressed_cache.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_leaf.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_memory_tree.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_tree.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/nullifier_tree/nullifier_tree.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/response.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/signal.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/test_fixtures.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/merkle_tree/types.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_commitment/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_commitment/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_commitment/pedersen.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_commitment/pedersen.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_hash/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_hash/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_hash/pedersen.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/pedersen_hash/pedersen.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/poseidon2.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/poseidon2.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/poseidon2_params.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/poseidon2_permutation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/poseidon2/sponge/sponge.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/schnorr/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/schnorr/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/schnorr/multisig.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/schnorr/proof_of_possession.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/schnorr/schnorr.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/sha256/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/sha256/sha256.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/crypto/sha256/sha256.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

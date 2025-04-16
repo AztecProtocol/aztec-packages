@@ -1,0 +1,58 @@
+{
+  "barretenberg/translator_vm/translator_verifier.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_prover.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator.fuzzer.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_composer.fuzzer.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_mini.fuzzer.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_prover.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_proving_key.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_proving_key.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_verifier.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_circuit_builder.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_fixed_vk.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_circuit_builder.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_circuit_builder.fuzzer.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/translator_vm/translator_flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

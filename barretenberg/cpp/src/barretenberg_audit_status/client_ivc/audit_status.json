@@ -1,0 +1,18 @@
+{
+  "barretenberg/client_ivc/mock_circuit_producer.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/client_ivc/test_bench_shared.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/client_ivc/client_ivc.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/client_ivc/client_ivc.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

@@ -1,0 +1,238 @@
+{
+  "barretenberg/dsl/acir_format/acir_format_mocks.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/acir_format_mocks.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/aes128_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/aes128_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/bigint_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/bigint_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/blake2s_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/blake2s_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/blake3_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/blake3_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/block_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/block_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ec_operations.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ec_operations.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ecdsa_secp256k1.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ecdsa_secp256k1.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ecdsa_secp256r1.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ecdsa_secp256r1.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/recursion_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/acir_to_constraint_buf.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/proof_surgeon.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/keccak_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/keccak_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/logic_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/logic_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/multi_scalar_mul.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/multi_scalar_mul.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/poseidon2_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/poseidon2_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/range_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/round.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/round.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/serde/binary.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/serde/bincode.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/serde/index.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/serde/serde.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/serde/acir.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/serde/witness_stack.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/sha256_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/sha256_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/witness_constant.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/witness_constant.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/avm2_recursion_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/acir_format.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/acir_format.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/recursion_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/honk_recursion_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/honk_recursion_constraint.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/ivc_recursion_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_format/avm2_recursion_constraint.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/acir_composer.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/acir_composer.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/contract.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/honk_contract.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/dsl/acir_proofs/honk_zk_contract.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

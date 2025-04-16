@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Audit Progress Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 2em; }
+    table { border-collapse: collapse; margin-top: 2em; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 0.5em; text-align: center; }
+    th { background-color: #f2f2f2; }
+  </style>
+</head>
+<body>
+  <h1>Barretenberg Audit Progress</h1>
+
+  <canvas id="statusChart" width="400" height="200"></canvas>
+
+  <script>
+    const ctx = document.getElementById('statusChart').getContext('2d');
+    const chart = new Chart(ctx, {
+      type: 'pie',
+      data: {
+        labels: ['not started'],
+        datasets: [{
+          label: 'Overall Audit Status',
+          data: [1228],
+          backgroundColor: ['#f39c12', '#3498db', '#2ecc71', '#e74c3c', '#9b59b6']
+        }]
+      },
+      options: {
+        responsive: true
+      }
+    });
+  </script>
+
+  <h2>Per-Module Breakdown</h2>
+  <table>
+    <tr>
+      <th>Module</th>
+      <th>Not Started</th>
+      <th>In Progress</th>
+      <th>Audited</th>
+      <th>Other</th>
+    </tr>
+
+    <tr>
+      <td>acir_formal_proofs</td>
+      <td>6</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>api</td>
+      <td>25</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>bb</td>
+      <td>5</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>benchmark</td>
+      <td>33</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>boomerang_value_detection</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>circuit_checker</td>
+      <td>4</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>client_ivc</td>
+      <td>4</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>commitment_schemes</td>
+      <td>23</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>commitment_schemes_recursion</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>common</td>
+      <td>51</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>crypto</td>
+      <td>75</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>dsl</td>
+      <td>59</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>ecc</td>
+      <td>51</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>eccvm</td>
+      <td>14</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>env</td>
+      <td>6</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>examples</td>
+      <td>64</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>flavor</td>
+      <td>6</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>goblin</td>
+      <td>5</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>grumpkin_srs_gen</td>
+      <td>1</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>honk</td>
+      <td>5</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>lmdblib</td>
+      <td>24</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>messaging</td>
+      <td>3</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>nodejs_module</td>
+      <td>18</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>numeric</td>
+      <td>15</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>op_queue</td>
+      <td>4</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>plonk</td>
+      <td>48</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>plonk_honk_shared</td>
+      <td>17</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>polynomials</td>
+      <td>24</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>protogalaxy</td>
+      <td>9</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>relations</td>
+      <td>53</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>serialize</td>
+      <td>15</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>smt_verification</td>
+      <td>18</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>solidity_helpers</td>
+      <td>10</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>srs</td>
+      <td>13</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>stdlib</td>
+      <td>167</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>stdlib_circuit_builders</td>
+      <td>43</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>sumcheck</td>
+      <td>5</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>trace_to_polynomials</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>transcript</td>
+      <td>4</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>translator_vm</td>
+      <td>14</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>ultra_honk</td>
+      <td>22</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>ultra_vanilla_client_ivc</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>vm2</td>
+      <td>249</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>wasi</td>
+      <td>2</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+    <tr>
+      <td>world_state</td>
+      <td>7</td>
+      <td>0</td>
+      <td>0</td>
+      <td>0</td>
+    </tr>
+    
+  </table>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "barretenberg/trace_to_polynomials/trace_to_polynomials.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/trace_to_polynomials/trace_to_polynomials.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

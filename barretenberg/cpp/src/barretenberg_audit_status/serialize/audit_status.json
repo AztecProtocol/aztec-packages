@@ -1,0 +1,62 @@
+{
+  "barretenberg/serialize/cbind_fwd.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_apply.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/check_memory_span.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/concepts.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/drop_keys.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/func_traits.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/msgpack_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/name_value_pair_macro.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/schema_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/schema_name.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack_impl/struct_map_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/raw_pointer.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/test_helper.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/msgpack.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/serialize/cbind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

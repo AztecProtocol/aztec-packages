@@ -1,0 +1,26 @@
+{
+  "barretenberg/flavor/flavor.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/flavor/flavor_macros.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/flavor/plonk_flavors.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/flavor/relation_definitions.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/flavor/repeated_commitments_data.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/flavor/flavor.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

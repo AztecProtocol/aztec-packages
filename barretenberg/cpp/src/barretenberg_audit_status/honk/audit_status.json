@@ -1,0 +1,22 @@
+{
+  "barretenberg/honk/proof_system/logderivative_library.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/honk/proof_system/types/proof.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/honk/utils/testing.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/honk/utils/testing.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/honk/utils/honk_key_gen.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "barretenberg/relations/auxiliary_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/databus_lookup_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/delta_range_constraint_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_op_queue_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_bools_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_bools_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_bools_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_lookup_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_lookup_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_lookup_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_msm_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_msm_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_msm_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_point_table_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_point_table_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_point_table_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_set_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_set_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_transcript_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_transcript_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_transcript_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_wnaf_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_wnaf_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_wnaf_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ecc_vm/ecc_set_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/elliptic_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/generic_lookup/generic_lookup_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/generic_permutation/generic_permutation_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/logderiv_lookup_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/nested_containers.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/permutation_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/poseidon2_external_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/poseidon2_internal_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/relation_parameters.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/relation_types.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_decomposition_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_decomposition_relation_1.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_decomposition_relation_2.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_decomposition_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_extra_relations.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_extra_relations.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_extra_relations_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_non_native_field_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_non_native_field_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_non_native_field_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_permutation_relation.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_delta_range_constraint_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_permutation_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/translator_vm/translator_permutation_relation_impl.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/ultra_arithmetic_relation.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/relations/utils.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}

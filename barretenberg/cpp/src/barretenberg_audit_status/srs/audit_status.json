@@ -1,0 +1,54 @@
+{
+  "barretenberg/srs/c_bind.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/c_bind.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/crs_factory.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/file_crs_factory.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/file_crs_factory.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/mem_bn254_crs_factory.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/mem_bn254_crs_factory.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/mem_grumpkin_crs_factory.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/mem_grumpkin_crs_factory.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/factories/mem_prover_crs.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/io.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/global_crs.hpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  },
+  "barretenberg/srs/global_crs.cpp": {
+    "status": "not started",
+    "auditor(s)": ""
+  }
+}
