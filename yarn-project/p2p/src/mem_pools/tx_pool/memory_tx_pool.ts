@@ -31,6 +31,10 @@ export class InMemoryTxPool implements TxPool {
     this.metrics = new PoolInstrumentation(telemetry, PoolName.TX_POOL);
   }
 
+  public isEmpty(): Promise<boolean> {
+    return Promise.resolve(this.txs.size === 0);
+  }
+
   public markAsMined(txHashes: TxHash[], blockNumber: number): Promise<void> {
     const keys = txHashes.map(x => x.toBigInt());
     for (const key of keys) {

@@ -3,14 +3,14 @@ import { createLogger } from '@aztec/foundation/log';
 import type { AztecAsyncKVStore, AztecAsyncMap, AztecAsyncSingleton } from '@aztec/kv-store';
 import type {
   L2Block,
-  L2BlockId,
   L2BlockSource,
+  L2BlockStream,
   L2BlockStreamEvent,
   L2Tips,
   PublishedL2Block,
 } from '@aztec/stdlib/block';
 import type { ContractDataSource } from '@aztec/stdlib/contract';
-import type { P2PApi, PeerInfo, ProverCoordination } from '@aztec/stdlib/interfaces/server';
+import type { PeerInfo } from '@aztec/stdlib/interfaces/server';
 import { BlockAttestation, type BlockProposal, ConsensusPayload, type P2PClientType } from '@aztec/stdlib/p2p';
 import type { Tx, TxHash } from '@aztec/stdlib/tx';
 import {
@@ -168,6 +168,7 @@ export type P2P<T extends P2PClientType = P2PClientType.Full> = ProverCoordinati
     /** Identifies a p2p client. */
     isP2PClient(): true;
 
+    /** Updates config of the p2p client. */
     updateP2PConfig(config: Partial<P2PConfig>): Promise<void>;
   };
 
@@ -195,14 +196,9 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   private txPool: TxPool;
   private attestationPool: T extends P2PClientType.Full ? AttestationPool : undefined;
 
-  /** How many slots to keep attestations for. */
-  private keepAttestationsInPoolFor: number;
-  /** How many slots to keep proven txs for. */
-  private keepProvenTxsFor: number;
-
-  private blockStream;
-
   private config: P2PConfig;
+
+  private blockStream: L2BlockStream | undefined;
 
   /**
    * In-memory P2P client constructor.
@@ -210,7 +206,6 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
    * @param l2BlockSource - P2P client's source for fetching existing blocks.
    * @param txPool - The client's instance of a transaction pool. Defaults to in-memory implementation.
    * @param p2pService - The concrete instance of p2p networking to use.
-   * @param keepProvenTxsFor - How many blocks have to pass after a block is proven before its txs are deleted (zero to delete immediately once proven).
    * @param log - A logger.
    */
   constructor(
@@ -220,35 +215,20 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     mempools: MemPools<T>,
     private p2pService: P2PService,
     config: Partial<P2PConfig> = {},
-    telemetry: TelemetryClient = getTelemetryClient(),
+    private telemetry: TelemetryClient = getTelemetryClient(),
     private log = createLogger('p2p'),
   ) {
     super(telemetry, 'P2PClient');
 
-    this.config = {
-      ...getP2PDefaultConfig(),
-      ...config,
-    };
+    this.config = { ...getP2PDefaultConfig(), ...config };
+    this.txPool = mempools.txPool;
+    this.attestationPool = mempools.attestationPool!;
 
-    const { keepProvenTxsInPoolFor, blockCheckIntervalMS, blockRequestBatchSize, keepAttestationsInPoolFor } =
-      this.config;
-    this.keepProvenTxsFor = keepProvenTxsInPoolFor;
-    this.keepAttestationsInPoolFor = keepAttestationsInPoolFor;
-
-    const tracer = telemetry.getTracer('P2PL2BlockStream');
-    const logger = createLogger('p2p:l2-block-stream');
-    this.blockStream = new TraceableL2BlockStream(l2BlockSource, this, this, tracer, 'P2PL2BlockStream', logger, {
-      batchSize: blockRequestBatchSize,
-      pollIntervalMS: blockCheckIntervalMS,
-    });
-
+    // REFACTOR: Try replacing these with an L2TipsStore
     this.synchedBlockHashes = store.openMap('p2p_pool_block_hashes');
     this.synchedLatestBlockNumber = store.openSingleton('p2p_pool_last_l2_block');
     this.synchedProvenBlockNumber = store.openSingleton('p2p_pool_last_proven_l2_block');
     this.synchedLatestSlot = store.openSingleton('p2p_pool_last_l2_slot');
-
-    this.txPool = mempools.txPool;
-    this.attestationPool = mempools.attestationPool!;
   }
 
   public isP2PClient(): true {
@@ -350,25 +330,54 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     const syncedLatestBlock = (await this.getSyncedLatestBlockNum()) + 1;
     const syncedProvenBlock = (await this.getSyncedProvenBlockNum()) + 1;
 
-    // if there are blocks to be retrieved, go to a synching state
-    if (syncedLatestBlock <= this.latestBlockNumberAtStart || syncedProvenBlock <= this.provenBlockNumberAtStart) {
+    if (
+      (await this.txPool.isEmpty()) &&
+      (this.attestationPool === undefined || (await this.attestationPool?.isEmpty()))
+    ) {
+      // if mempools are empty, we don't care about syncing prior blocks
+      this.initBlockStream(this.latestBlockNumberAtStart);
+      this.setCurrentState(P2PClientState.RUNNING);
+      this.syncPromise = Promise.resolve();
+      await this.p2pService.start();
+      this.log.info(`Starting p2p client from block ${this.latestBlockNumberAtStart} with empty mempools`);
+    } else if (
+      syncedLatestBlock <= this.latestBlockNumberAtStart ||
+      syncedProvenBlock <= this.provenBlockNumberAtStart
+    ) {
+      // if there are blocks to be retrieved, go to a synching state
+      // this gets resolved on `startServiceIfSynched`
+      this.initBlockStream();
       this.setCurrentState(P2PClientState.SYNCHING);
       this.syncPromise = new Promise(resolve => {
         this.syncResolve = resolve;
       });
-      this.log.verbose(`Starting sync from ${syncedLatestBlock} (last proven ${syncedProvenBlock})`);
+      this.log.verbose(`Initiating p2p sync from ${syncedLatestBlock}`, { syncedLatestBlock, syncedProvenBlock });
     } else {
       // if no blocks to be retrieved, go straight to running
+      this.initBlockStream();
       this.setCurrentState(P2PClientState.RUNNING);
       this.syncPromise = Promise.resolve();
       await this.p2pService.start();
-      this.log.debug(`Block ${syncedLatestBlock} (proven ${syncedProvenBlock}) already beyond current block`);
+      this.log.info(`Starting P2P client synced to ${syncedLatestBlock}`, { syncedLatestBlock, syncedProvenBlock });
     }
 
-    this.blockStream.start();
-    this.log.verbose(`Started block downloader from block ${syncedLatestBlock}`);
-
+    this.blockStream!.start();
     return this.syncPromise;
+  }
+
+  private initBlockStream(startingBlock?: number) {
+    if (!this.blockStream) {
+      const { blockRequestBatchSize: batchSize, blockCheckIntervalMS: pollIntervalMS } = this.config;
+      this.blockStream = new TraceableL2BlockStream(
+        this.l2BlockSource,
+        this,
+        this,
+        this.telemetry.getTracer('P2PL2BlockStream'),
+        'P2PL2BlockStream',
+        createLogger('p2p:l2-block-stream'),
+        { batchSize, pollIntervalMS, startingBlock },
+      );
+    }
   }
 
   /**
@@ -379,7 +388,7 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
     this.log.debug('Stopping p2p client...');
     await this.p2pService.stop();
     this.log.debug('Stopped p2p service');
-    await this.blockStream.stop();
+    await this.blockStream?.stop();
     this.log.debug('Stopped block downloader');
     await this.runningPromise;
     this.setCurrentState(P2PClientState.STOPPED);
@@ -388,7 +397,8 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
 
   /** Triggers a sync to the archiver. Used for testing. */
   public async sync() {
-    await this.blockStream.sync();
+    this.initBlockStream();
+    await this.blockStream!.sync();
   }
 
   @trackSpan('p2pClient.broadcastProposal', async proposal => ({
@@ -720,23 +730,25 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
       return Promise.resolve();
     }
 
+    const { keepAttestationsInPoolFor, keepProvenTxsInPoolFor: keepProvenTxsFor } = this.config;
+
     const firstBlockNum = blocks[0].number;
     const lastBlockNum = blocks[blocks.length - 1].number;
     const lastBlockSlot = blocks[blocks.length - 1].header.globalVariables.slotNumber.toBigInt();
 
     // If keepProvenTxsFor is 0, we delete all txs from all proven blocks.
-    if (this.keepProvenTxsFor === 0) {
+    if (keepProvenTxsFor === 0) {
       await this.deleteTxsFromBlocks(blocks);
-    } else if (lastBlockNum - this.keepProvenTxsFor >= INITIAL_L2_BLOCK_NUM) {
-      const fromBlock = Math.max(INITIAL_L2_BLOCK_NUM, firstBlockNum - this.keepProvenTxsFor);
-      const toBlock = lastBlockNum - this.keepProvenTxsFor;
+    } else if (lastBlockNum - keepProvenTxsFor >= INITIAL_L2_BLOCK_NUM) {
+      const fromBlock = Math.max(INITIAL_L2_BLOCK_NUM, firstBlockNum - keepProvenTxsFor);
+      const toBlock = lastBlockNum - keepProvenTxsFor;
       const limit = toBlock - fromBlock + 1;
       const blocksToDeleteTxsFrom = await this.l2BlockSource.getBlocks(fromBlock, limit, true);
       await this.deleteTxsFromBlocks(blocksToDeleteTxsFrom);
     }
 
     // We delete attestations older than the last block slot minus the number of slots we want to keep in the pool.
-    const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(this.keepAttestationsInPoolFor);
+    const lastBlockSlotMinusKeepAttestationsInPoolFor = lastBlockSlot - BigInt(keepAttestationsInPoolFor);
     if (lastBlockSlotMinusKeepAttestationsInPoolFor >= BigInt(INITIAL_L2_BLOCK_NUM)) {
       await this.attestationPool?.deleteAttestationsOlderThan(lastBlockSlotMinusKeepAttestationsInPoolFor);
     }
@@ -802,12 +814,17 @@ export class P2PClient<T extends P2PClientType = P2PClientType.Full>
   }
 
   private async startServiceIfSynched() {
-    if (
-      this.currentState === P2PClientState.SYNCHING &&
-      (await this.getSyncedLatestBlockNum()) >= this.latestBlockNumberAtStart &&
-      (await this.getSyncedProvenBlockNum()) >= this.provenBlockNumberAtStart
-    ) {
-      this.log.debug(`Synched to blocks at start`);
+    if (this.currentState !== P2PClientState.SYNCHING) {
+      return;
+    }
+    const syncedProvenBlock = await this.getSyncedProvenBlockNum();
+    const syncedLatestBlock = await this.getSyncedLatestBlockNum();
+
+    if (syncedLatestBlock >= this.latestBlockNumberAtStart && syncedProvenBlock >= this.provenBlockNumberAtStart) {
+      this.log.info(`Completed P2P client sync to block ${syncedLatestBlock}. Starting service.`, {
+        syncedLatestBlock,
+        syncedProvenBlock,
+      });
       this.setCurrentState(P2PClientState.RUNNING);
       if (this.syncResolve !== undefined) {
         this.syncResolve();
