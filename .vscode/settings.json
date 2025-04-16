@@ -133,6 +133,11 @@
     "editor.formatOnSave": true
   },
   //
+  // Clangd. Note that this setting may be overridden by user settings
+  // to the default value "clangd".
+  //
+  "clangd.path": "clangd-16",
+  //
   // C/C++ (should be disabled)
   //
   // Make sure all C++ IntelliSense features are disabled

@@ -323,7 +323,7 @@ export class AztecClientBackend {
 
   protected api!: Barretenberg;
 
-  constructor(protected acirMsgpack: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
+  constructor(protected acirBuf: Uint8Array[], protected options: BackendOptions = { threads: 1 }) {}
 
   /** @ignore */
   async instantiate(): Promise<void> {
@@ -334,14 +334,14 @@ export class AztecClientBackend {
     }
   }
 
-  async prove(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
-    if (vksMsgpack.length === 0) {
-      vksMsgpack = witnessMsgpack.map(() => Uint8Array.from([]));
-    } else if (vksMsgpack.length !== witnessMsgpack.length) {
+  async prove(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<[Uint8Array, Uint8Array]> {
+    if (vksBuf.length === 0) {
+      vksBuf = witnessBuf.map(() => Uint8Array.from([]));
+    } else if (vksBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
     await this.instantiate();
-    const proofAndVk = await this.api.acirProveAztecClient(this.acirMsgpack, witnessMsgpack, vksMsgpack);
+    const proofAndVk = await this.api.acirProveAztecClient(this.acirBuf, witnessBuf, vksBuf);
     const [proof, vk] = proofAndVk;
     if (!(await this.verify(proof, vk))) {
       throw new AztecClientBackendError('Failed to verify the private (ClientIVC) transaction proof!');
@@ -354,20 +354,20 @@ export class AztecClientBackend {
     return this.api.acirVerifyAztecClient(proof, vk);
   }
 
-  async proveAndVerify(witnessMsgpack: Uint8Array[], vksMsgpack: Uint8Array[] = []): Promise<boolean> {
-    if (vksMsgpack.length === 0) {
-      vksMsgpack = witnessMsgpack.map(() => Uint8Array.from([]));
-    } else if (vksMsgpack.length !== witnessMsgpack.length) {
+  async proveAndVerify(witnessBuf: Uint8Array[], vksBuf: Uint8Array[] = []): Promise<boolean> {
+    if (vksBuf.length === 0) {
+      vksBuf = witnessBuf.map(() => Uint8Array.from([]));
+    } else if (vksBuf.length !== witnessBuf.length) {
       throw new AztecClientBackendError('Witness and VKs must have the same stack depth!');
     }
     await this.instantiate();
-    return this.api.acirProveAndVerifyAztecClient(this.acirMsgpack, witnessMsgpack, vksMsgpack);
+    return this.api.acirProveAndVerifyAztecClient(this.acirBuf, witnessBuf, vksBuf);
   }
 
   async gates(): Promise<number[]> {
     // call function on API
     await this.instantiate();
-    const resultBuffer = await this.api.acirGatesAztecClient(this.acirMsgpack);
+    const resultBuffer = await this.api.acirGatesAztecClient(this.acirBuf);
     return parseBigEndianU32Array(resultBuffer, /*hasSizePrefix=*/ true);
   }
 

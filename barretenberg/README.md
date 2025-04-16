@@ -541,5 +541,5 @@ To get more detailed information use the following (NOTE: takes >10 minutes!):
 ```
 cmake --preset wasm-threads-dbg
 cmake --build --preset wasm-threads-dbg --target barretenberg-debug.wasm.gz
-cp build-wasm-threads-dbg/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
+cp build-wasm-threads-dbg/bin/barretenberg-debug.wasm.gz ../ts/dest/node/barretenberg_wasm/barretenberg-threads.wasm.gz
 ```

@@ -192,22 +192,24 @@ struct PrivateExecutionSteps {
 
     void parse(uint8_t const* acir_stack, uint8_t const* witness_stack, uint8_t const* vk_stack)
     {
-        std::vector<std::vector<uint8_t>> witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
-        std::vector<std::vector<uint8_t>> acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+        auto acirs = from_buffer<std::vector<std::vector<uint8_t>>>(acir_stack);
+        auto witnesses = from_buffer<std::vector<std::vector<uint8_t>>>(witness_stack);
         std::vector<acir_format::AcirProgram> folding_stack;
 
         for (auto [bincode, wit] : zip_view(acirs, witnesses)) {
-            acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
+            info("acir_stack size: ", bincode.size());
+            info("witness_stack size: ", wit.size());
             acir_format::AcirFormat constraints =
                 acir_format::circuit_buf_to_acir_format(bincode, /*honk_recursion=*/0);
+            acir_format::WitnessVector witness = acir_format::witness_buf_to_witness_data(wit);
             folding_stack.push_back({ constraints, witness });
         }
 
-        std::vector<std::vector<uint8_t>> vks = from_buffer<std::vector<std::vector<uint8_t>>>(vk_stack);
+        auto vks = from_buffer<std::vector<std::vector<uint8_t>>>(vk_stack);
+        info("vk_stack size: ", vks.size());
         for (auto& vk : vks) {
             if (vk.empty()) {
                 // For backwards compatibility, but it affects performance and correctness.
-                info("DEPRECATED: No VK was provided for client IVC step and it will be computed.");
                 precomputed_vks.emplace_back();
             } else {
                 auto parsed_vk = from_buffer<std::shared_ptr<ClientIVC::MegaVerificationKey>>(vk);
@@ -218,6 +220,29 @@ struct PrivateExecutionSteps {
 };
 } // namespace
 
+// TODO(#7371) dedupe this and the rest of similar code
+std::shared_ptr<ClientIVC> _accumulate(
+    std::vector<acir_format::AcirProgram>& folding_stack,
+    const std::vector<std::shared_ptr<ClientIVC::MegaVerificationKey>>& precomputed_vks)
+{
+    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
+    auto ivc = std::make_shared<ClientIVC>(trace_settings);
+
+    const acir_format::ProgramMetadata metadata{ ivc };
+
+    // Accumulate the entire program stack into the IVC
+    for (auto [program, precomputed_vk] : zip_view(folding_stack, precomputed_vks)) {
+        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
+        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
+
+        // Do one step of ivc accumulator or, if there is only one circuit in the stack, prove that circuit. In this
+        // case, no work is added to the Goblin opqueue, but VM proofs for trivials inputs are produced.
+        ivc->accumulate(circuit, precomputed_vk);
+    }
+
+    return ivc;
+}
+
 WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
                                                     uint8_t const* witness_stack,
                                                     uint8_t const* vk_stack,
@@ -226,30 +251,9 @@ WASM_EXPORT void acir_prove_and_verify_aztec_client(uint8_t const* acir_stack,
     PrivateExecutionSteps steps;
     steps.parse(acir_stack, witness_stack, vk_stack);
 
-    // TODO(#7371) dedupe this with the rest of the similar code
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
     // Accumulate the entire program stack into the IVC
-    bool is_kernel = false;
     auto start = std::chrono::steady_clock::now();
-    for (auto [program, vk] : zip_view(steps.folding_stack, steps.precomputed_vks)) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        vinfo("constructing circuit...");
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        // Set the internal is_kernel flag based on the local mechanism only if it has not already been set to true
-        if (!circuit.databus_propagation_data.is_kernel) {
-            circuit.databus_propagation_data.is_kernel = is_kernel;
-        }
-        is_kernel = !is_kernel;
-
-        vinfo("done constructing circuit. calling ivc.accumulate...");
-        ivc->accumulate(circuit);
-        vinfo("done accumulating.");
-    }
+    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct and accumulate all circuits: ", diff.count());
@@ -274,22 +278,9 @@ WASM_EXPORT void acir_prove_aztec_client(uint8_t const* acir_stack,
     PrivateExecutionSteps steps;
     steps.parse(acir_stack, witness_stack, vk_stack);
 
-    TraceSettings trace_settings{ AZTEC_TRACE_STRUCTURE };
-    auto ivc = std::make_shared<ClientIVC>(trace_settings);
-
-    const acir_format::ProgramMetadata metadata{ ivc };
-
     // Accumulate the entire program stack into the IVC
     auto start = std::chrono::steady_clock::now();
-    for (auto [program, vk] : zip_view(steps.folding_stack, steps.precomputed_vks)) {
-        // Construct a bberg circuit from the acir representation then accumulate it into the IVC
-        vinfo("constructing circuit...");
-        auto circuit = acir_format::create_circuit<MegaCircuitBuilder>(program, metadata);
-
-        vinfo("done constructing circuit. calling ivc.accumulate...");
-        ivc->accumulate(circuit, vk);
-        vinfo("done accumulating.");
-    }
+    std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
     auto end = std::chrono::steady_clock::now();
     auto diff = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
     vinfo("time to construct and accumulate all circuits: ", diff.count());
