@@ -176,6 +176,11 @@ export interface P2PConfig extends P2PReqRespConfig, ChainConfig {
   trustedPeers: string[];
 
   /**
+   * A list of private peers.
+   */
+  privatePeers: string[];
+
+  /**
    * The maximum possible size of the P2P DB in KB. Overwrites the general dataStoreMapSizeKB.
    */
   p2pStoreMapSizeKb?: number;
@@ -357,7 +362,14 @@ export const p2pConfigMappings: ConfigMappingsType<P2PConfig> = {
   trustedPeers: {
     env: 'P2P_TRUSTED_PEERS',
     parseEnv: (val: string) => val.split(','),
-    description: 'A list of trusted peers ENRs. Separated by commas.',
+    description: 'A list of trusted peer ENRs that will always be persisted. Separated by commas.',
+    defaultValue: [],
+  },
+  privatePeers: {
+    env: 'P2P_PRIVATE_PEERS',
+    parseEnv: (val: string) => val.split(','),
+    description:
+      'A list of private peer ENRs that will always be persisted and not be used for discovery. Separated by commas.',
     defaultValue: [],
   },
   p2pStoreMapSizeKb: {
