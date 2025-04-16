@@ -1,0 +1,91 @@
+name: Update Docs on Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - master
+
+jobs:
+  update-docs:
+    name: Update docs for release
+    if: github.event.pull_request.merged == true
+    env:
+      GITHUB_TOKEN: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+    runs-on: ubuntu-latest
+
+    steps:
+      # Only run when the PR is merged and has the autorelease: tagged label
+      - name: Check for release label
+        id: check-label
+        run: |
+          if [[ "${{ github.event.pull_request.labels.*.name }}" == *"autorelease: tagged"* ]]; then
+            echo "has_label=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_label=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout code
+        if: steps.check-label.outputs.has_label == 'true'
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+
+      - name: Run corepack enable
+        run: corepack enable
+
+      - name: Configure Git
+        run: |
+          git config --global user.name AztecBot
+          git config --global user.email tech@aztecprotocol.com
+
+      - name: Build dependencies
+        run: |
+          for project in noir barretenberg l1-contracts yarn-project; do
+            $project/bootstrap.sh
+          done
+
+      - name: Query new version
+        id: version
+        run: |
+          # Extract version from .release-please-manifest.json
+          AZTEC_VERSION=$(jq -r '."."' .release-please-manifest.json)
+
+          # Add v prefix
+          AZTEC_VERSION="v$AZTEC_VERSION"
+
+          echo "semver=$AZTEC_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Cut version
+        working-directory: ./docs
+        run: |
+          COMMIT_TAG=${{ steps.version.outputs.semver }}
+          echo "[]" > versions.json
+          yarn
+          COMMIT_TAG=$COMMIT_TAG yarn build
+          COMMIT_TAG=$COMMIT_TAG yarn docusaurus docs:version ${{ steps.version.outputs.semver }}
+
+      - name: Update versions.json with new version
+        working-directory: ./docs/scripts
+        run: |
+          ./update_versions.sh
+
+      - name: Create docs update branch
+        run: |
+          git checkout -b docs/update-${{ steps.version.outputs.semver }}
+
+      - name: Commit docs changes
+        run: |
+          git add .
+          git commit -m "chore(docs): cut new docs version for tag ${{ steps.version.outputs.semver }}"
+          git push origin docs/update-${{ steps.version.outputs.semver }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.AZTEC_BOT_GITHUB_TOKEN }}
+          branch: docs/update-${{ steps.version.outputs.semver }}
+          base: master
+          title: "chore(docs): update docs for ${{ steps.version.outputs.semver }}"
+          body: "Automated docs update for release ${{ steps.version.outputs.semver }}"
+          labels: documentation
