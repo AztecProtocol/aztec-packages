@@ -3,6 +3,7 @@
 #include "barretenberg/common/test.hpp"
 #include "barretenberg/goblin/goblin.hpp"
 #include "barretenberg/stdlib/honk_verifier/ultra_verification_keys_comparator.hpp"
+#include "barretenberg/stdlib_circuit_builders/mock_circuits.hpp"
 #include "barretenberg/ultra_honk/ultra_prover.hpp"
 #include "barretenberg/ultra_honk/ultra_verifier.hpp"
 
