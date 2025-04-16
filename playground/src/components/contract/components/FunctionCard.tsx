@@ -17,6 +17,7 @@ import CircularProgress from '@mui/material/CircularProgress';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import SendIcon from '@mui/icons-material/Send';
 import VpnKeyIcon from '@mui/icons-material/VpnKey';
+import TroubleshootIcon from '@mui/icons-material/Troubleshoot';
 
 import FormGroup from '@mui/material/FormGroup';
 import { FunctionParameter } from '../../common/FnParameter';
@@ -24,6 +25,13 @@ import { useContext, useState } from 'react';
 import { AztecContext } from '../../../aztecEnv';
 import { SendTxDialog } from './SendTxDialog';
 import { CreateAuthwitDialog } from './CreateAuthwitDialog';
+import TableHead from '@mui/material/TableHead';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableRow from '@mui/material/TableRow';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import { Box, Paper, Tooltip } from '@mui/material';
 
 type SimulationResult = {
   success: boolean;
@@ -60,6 +68,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
   const [isWorking, setIsWorking] = useState(false);
   const [parameters, setParameters] = useState<any[]>([]);
   const [simulationResults, setSimulationResults] = useState<SimulationResult>();
+  const [profileResults, setProfileResults] = useState({});
 
   const [openSendTxDialog, setOpenSendTxDialog] = useState(false);
   const [openCreateAuthwitDialog, setOpenCreateAuthwitDialog] = useState(false);
@@ -76,6 +85,28 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
       setSimulationResults({ success: true, data: result });
     } catch (e) {
       setSimulationResults({ success: false, error: e.message });
+    }
+
+    setIsWorking(false);
+  };
+
+  const profile = async (fnName: string) => {
+    setIsWorking(true);
+
+    try {
+      const call = contract.methods[fnName](...parameters);
+
+      const profileResult = await call.profile({ profileMode: 'gates' });
+      setProfileResults({
+        ...profileResults,
+        ...{ [fnName]: { success: true, executionSteps: profileResult.executionSteps } },
+      });
+    } catch (e) {
+      console.error(e);
+      setProfileResults({
+        ...profileResults,
+        ...{ [fnName]: { success: false, error: e.message } },
+      });
     }
 
     setIsWorking(false);
@@ -114,7 +145,7 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
       key={fn.name}
       variant="outlined"
       sx={{
-        backgroundColor: 'primary.light',
+        backgroundColor: 'white',
         margin: '0.5rem',
         overflow: 'hidden',
       }}
@@ -168,39 +199,94 @@ export function FunctionCard({ fn, contract, onSendTxRequested }: FunctionCardPr
             )}{' '}
           </div>
         )}
+
+        {!isWorking && profileResults[fn.name] !== undefined && (
+          <Box>
+            {profileResults[fn.name].success ? (
+              <TableContainer component={Paper} sx={{ backgroundColor: 'var(--mui-palette-grey-A100)' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Function</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 'bold' }}>Gate Count</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {profileResults[fn.name].executionSteps.map((row) => (
+                      <TableRow key={row.functionName}>
+                        <TableCell component="th" scope="row">
+                          {row.functionName}
+                        </TableCell>
+                        <TableCell align="right">{Number(row.gateCount).toLocaleString()}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )
+              : (
+                <Typography variant="body1" color="error">
+                  {profileResults?.[fn.name]?.error}
+                </Typography>
+              )}
+          </Box>
+        )}
+
         {isWorking ? <CircularProgress size={'1rem'} /> : <></>}
       </CardContent>
-      <CardActions>
-        <Button
-          disabled={!wallet || !contract || isWorking}
-          color="primary"
-          variant="contained"
-          size="small"
-          onClick={() => simulate(fn.name)}
-          endIcon={<PsychologyIcon />}
-        >
-          Simulate
-        </Button>
-        <Button
-          disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
-          size="small"
-          color="primary"
-          variant="contained"
-          onClick={() => setOpenSendTxDialog(true)}
-          endIcon={<SendIcon />}
-        >
-          Send
-        </Button>
-        <Button
-          disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
-          size="small"
-          color="primary"
-          variant="contained"
-          onClick={() => setOpenCreateAuthwitDialog(true)}
-          endIcon={<VpnKeyIcon />}
-        >
-          Authwit
-        </Button>
+      <CardActions sx={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+        <Tooltip title="Simulate this function call and see the return value. Can be used to query the state of the contract.">
+          <Button
+            disabled={!wallet || !contract || isWorking}
+            color="primary"
+            variant="contained"
+            size="small"
+            onClick={() => simulate(fn.name)}
+            endIcon={<PsychologyIcon />}
+          >
+            Simulate
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Execute this function and send a transaction to the blockchain.">
+          <Button
+            disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+            size="small"
+            color="primary"
+            variant="contained"
+            onClick={() => setOpenSendTxDialog(true)}
+            endIcon={<SendIcon />}
+          >
+            Send
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Create an authwit to allow other contracts to execute this function on your behalf.">
+          <Button
+            disabled={!wallet || !contract || isWorking || fn.functionType === FunctionType.UTILITY}
+            size="small"
+            color="primary"
+            variant="contained"
+            onClick={() => setOpenCreateAuthwitDialog(true)}
+            endIcon={<VpnKeyIcon />}
+          >
+            Authwit
+          </Button>
+        </Tooltip>
+
+        <Tooltip title="Profile this method and get the number of gates used per step. Requires valid function arguments to be set as this runs a simulation internally.">
+          <Button
+            disabled={!wallet || !contract || isWorking || fn.functionType !== 'private'}
+            color="primary"
+            variant="contained"
+            size="small"
+            onClick={() => profile(fn.name)}
+            endIcon={<TroubleshootIcon />}
+          >
+            Profile
+          </Button>
+        </Tooltip>
+
       </CardActions>
       {contract && openSendTxDialog && (
         <SendTxDialog

@@ -105,9 +105,9 @@ const docsButton = css({
   '@media (max-width: 1200px)': {
     padding: 0,
     fontSize: '14px',
-    width: '85px',
+    width: '100px',
     gap: 0,
-    right: '12px',
+    right: '10px',
   },
 });
 
@@ -170,13 +170,13 @@ export default function Home() {
         <img css={logo} src={logoURL} alt="Aztec Logo" />
         <div css={headerTitle}>PLAYGROUND</div>
         <a
-          href="https://docs.aztec.network/developers/inspiration"
+          href="https://docs.aztec.network/"
           target="_blank"
           rel="noopener noreferrer"
           css={docsButton}
           style={{ textDecoration: 'none' }}
         >
-          Inspiration
+          Start Building
         </a>
       </div>
       <AztecContext.Provider value={AztecContextInitialValue}>

@@ -19,6 +19,7 @@ import { formatFrAsString } from '../../utils/conversion';
 import { CreateContractDialog } from './components/CreateContractDialog';
 import ClearIcon from '@mui/icons-material/Clear';
 import { CopyToClipboardButton } from '../common/CopyToClipboardButton';
+
 import { ContractUpload } from './components/ContractUpload';
 import { ContractFilter } from './components/ContractFilter';
 import { FunctionCard } from './components/FunctionCard';
@@ -137,6 +138,12 @@ export function ContractComponent() {
     }
   }, [currentContractArtifact, currentContractAddress, wallet]);
 
+  useEffect(() => {
+    if (!currentContractAddress) {
+      setOpenCreateContractDialog(true);
+    }
+  }, [currentContractAddress]);
+
   const handleContractCreation = async (
     contract?: ContractInstanceWithAddress,
     publiclyDeploy?: boolean,
@@ -179,7 +186,7 @@ export function ContractComponent() {
               {!currentContractAddress && wallet && (
                 <div css={contractActions}>
                   <Button size="small" variant="contained" onClick={() => setOpenCreateContractDialog(true)}>
-                    Register/Deploy
+                    Deploy / Load Contract
                   </Button>
                   {openCreateContractDialog && (
                     <CreateContractDialog

@@ -111,14 +111,14 @@ export function SidebarComponent() {
 
   const getAccountButtonText = () => {
     if (!wallet) return 'Connect Account';
-    return `${walletAlias || formatFrAsString(wallet.getAddress().toString())} Account`;
+    return `Account: ${walletAlias || formatFrAsString(wallet.getAddress().toString())}`;
   };
 
   const getContractButtonText = () => {
     if (!currentContractArtifact) return 'Select Contract';
     const name = currentContractArtifact.name;
     if (currentContractAddress) {
-      return `${contractAlias ?? name} (${formatFrAsString(currentContractAddress.toString())})`;
+      return `Contract: ${contractAlias ?? name} (${formatFrAsString(currentContractAddress.toString())})`;
     } else {
       return name;
     }
