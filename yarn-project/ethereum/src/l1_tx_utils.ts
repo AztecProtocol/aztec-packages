@@ -746,6 +746,7 @@ export class L1TxUtils {
     request: L1TxRequest & { gas?: bigint; blockNumber?: bigint; from?: `0x${string}` },
     blockOverrides: BlockOverrides<bigint, number> = {},
     stateOverrides: StateOverride = [],
+    abi: Abi = RollupAbi,
     _gasConfig?: L1TxUtilsConfig & { fallbackGasEstimate?: bigint },
   ): Promise<{ gasUsed: bigint; result: `0x${string}` }> {
     const gasConfig = { ...this.config, ..._gasConfig };
@@ -787,13 +788,11 @@ export class L1TxUtils {
         });
 
         const decodedError = decodeErrorResult({
-          abi: RollupAbi,
+          abi,
           data: result[0].calls[0].data,
         });
 
-        console.log('decodedError', decodedError, decodedError.abiItem.inputs);
-
-        throw new Error(`L1 transaction simulation failed with error: ${result[0].calls[0].error.message}`);
+        throw new Error(`L1 transaction simulation failed with error: ${decodedError.errorName}`);
       }
       return { gasUsed: result[0].gasUsed, result: result[0].calls[0].data };
     } catch (err) {

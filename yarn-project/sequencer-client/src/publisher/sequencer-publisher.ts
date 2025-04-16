@@ -461,14 +461,23 @@ export class SequencerPublisher {
       txHashes: txHashes ?? [],
     };
 
-    // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
-    //        This means that we can avoid the simulation issues in later checks.
-    //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
-    //        make time consistency checks break.
-    const ts = await this.validateBlockForSubmission(block, {
-      digest: digest.toBuffer(),
-      signatures: attestations ?? [],
-    });
+    let ts: bigint;
+    try {
+      // @note  This will make sure that we are passing the checks for our header ASSUMING that the data is also made available
+      //        This means that we can avoid the simulation issues in later checks.
+      //        By simulation issue, I mean the fact that the block.timestamp is equal to the last block, not the next, which
+      //        make time consistency checks break.
+      ts = await this.validateBlockForSubmission(block, {
+        digest: digest.toBuffer(),
+        signatures: attestations ?? [],
+      });
+    } catch (err) {
+      this.log.error(`Block validation failed. ${err ?? 'No error message'}`, undefined, {
+        ...block.getStats(),
+        slotNumber: block.header.globalVariables.slotNumber.toBigInt(),
+      });
+      throw err;
+    }
 
     this.log.debug(`Submitting propose transaction`);
     await this.addProposeTx(block, proposeTxArgs, opts, ts);
@@ -672,15 +681,15 @@ export class SequencerPublisher {
             ],
           },
         ],
+        RollupAbi,
         {
           // @note fallback gas estimate to use if the node doesn't support simulation API
           fallbackGasEstimate: SequencerPublisher.PROPOSE_GAS_GUESS,
         },
       )
       .catch(err => {
-        const { message, metaMessages } = formatViemError(err);
-        this.log.error(`Failed to simulate gas used`, message, { metaMessages });
-        throw new Error('Failed to simulate gas used');
+        this.log.error(`Failed to simulate propose tx`, err);
+        throw err;
       });
 
     return { rollupData, simulationResult };
