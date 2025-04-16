@@ -7,8 +7,9 @@ source $ci3/source_refname
 cmd=$1
 
 # Defaults. Can be overridden.
+# We can schedule on
 CPU_LIST=${CPU_LIST:-"0-$(($(nproc)-1))"}
-CPUS=${CPUS:-$(cpuset_count $CPU_LIST)}
+CPUS=${CPUS:-2}
 # TODO: Only currently enforced by docker. Investigate ulimit.
 MEM=${MEM:-8g}
 TIMEOUT=${TIMEOUT:-600s}

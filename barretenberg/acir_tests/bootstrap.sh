@@ -117,7 +117,7 @@ function test {
 }
 
 function test_cmds {
-  # Prefix the test hash on each command. Each test gets 4 cpus and 8g of memory.
+  # Prefix the test hash on each command.
   test_cmds_internal | awk "{ print \"$tests_hash \" \$0 }"
 }
 
