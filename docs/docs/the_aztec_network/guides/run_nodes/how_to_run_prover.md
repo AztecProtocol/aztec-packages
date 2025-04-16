@@ -23,6 +23,8 @@ tags:
   - infrastructure
 ---
 
+## Background
+
 Prover nodes are a critical part of the Aztec network's infrastructure. They generate cryptographic proofs that attest to the correctness of public transactions, ultimately producing a single rollup proof that is submitted to Ethereum.
 
 Operating a prover node requires a solid grasp of blockchain protocols, cryptographic systems, DevOps best practices, and high-performance hardware. It’s a resource-intensive role typically undertaken by experienced engineers or specialized teams due to its technical and operational complexity.
@@ -60,25 +62,7 @@ The Proving Agent is very resource intensive, with each agent using up to 16core
 
 ## Setting Up Your Prover
 
-Aztec provides a modular CLI command, `aztec start`, which makes it easy to launch and configure the prover system. Each component can run independently or together on a single machine, depending on your architecture.
-
-Here are the main flags and what they control:
-
-| Flag                                             | Env Var                        | Description                                                             |
-| ------------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
-| `--network <network>`                            | `NETWORK`                      | Selects the Docker image for the target network (e.g., `alpha-testnet`) |
-| `--archiver`                                     | n/a                            | Starts the archiver service to store synced data                        |
-| `--prover-node`                                  | n/a                            | Starts a prover node                                                    |
-| `--prover-broker`                                | n/a                            | Starts a prover broker                                                  |
-| `--prover-agent`                                 | n/a                            | Starts a proving agent                                                  |
-| `--l1-rpc-urls`                                  | `ETHEREUM_HOSTS`               | The URL(s) of your L1 execution node. Comma seperated string.           |
-| `--l1-consensus-host-urls`                       | `L1_CONSENSUS_HOST_URLS`       | The URL(s) of your L1 consensus node. Comma seperated string.           |
-| `--p2p.p2pIp <your-ip>`                          | `P2P_IP`                       | Your node's public IP                                                   |
-| `--proverNode.publisherPrivateKey <private-key>` | `PROVER_PUBLISHER_PRIVATE_KEY` | Your private key for submitting proofs to L1                            |
-
-You can run all components on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
-
-#### L1 Access
+### L1 Access
 
 Before running a prover, it’s important to understand that it must interface directly with Ethereum (Layer 1) to detect epochs ready to prove and to publish proofs. To do this, the prover requires access to both:
 
@@ -110,9 +94,40 @@ network_mode: "host"
 ```
 
 ⚠️ Note: network_mode: "host" only works on Linux. On macOS and Windows, use `host.docker.internal`.
-
-Make sure your local node is listening on 0.0.0.0, not just 127.0.0.1. Otherwise, it won’t be accessible from Docker.
 :::
+
+:::info
+
+You can run your own Sepolia ETH Node. However, at the moment only [`geth`](https://github.com/ethereum/go-ethereum) and [`reth`](https://github.com/paradigmxyz/reth) nodes are confirmed to work reliably with Aztec.
+
+:::
+
+#### Get Some Sepolia ETH
+
+You'll need Sepolia ETH to post proofs to the L1. Here are some options:
+
+- Use a PoW faucet like [Sepolia PoW Faucet](https://sepolia-faucet.pk910.de/)
+- Ask in our Discord community (and remember to pay it forward when you can!)
+
+### Aztec CLI
+
+Aztec provides a modular CLI command, `aztec start`, which makes it easy to launch and configure the prover system. Each component can run independently or together on a single machine, depending on your architecture.
+
+Here are the main flags and what they control:
+
+| Flag                                             | Env Var                        | Description                                                             |
+| ------------------------------------------------ | ------------------------------ | ----------------------------------------------------------------------- |
+| `--network <network>`                            | `NETWORK`                      | Selects the Docker image for the target network (e.g., `alpha-testnet`) |
+| `--archiver`                                     | n/a                            | Starts the archiver service to store synced data                        |
+| `--prover-node`                                  | n/a                            | Starts a prover node                                                    |
+| `--prover-broker`                                | n/a                            | Starts a prover broker                                                  |
+| `--prover-agent`                                 | n/a                            | Starts a proving agent                                                  |
+| `--l1-rpc-urls`                                  | `ETHEREUM_HOSTS`               | The URL(s) of your L1 execution node. Comma seperated string.           |
+| `--l1-consensus-host-urls`                       | `L1_CONSENSUS_HOST_URLS`       | The URL(s) of your L1 consensus node. Comma seperated string.           |
+| `--p2p.p2pIp <your-ip>`                          | `P2P_IP`                       | Your node's public IP                                                   |
+| `--proverNode.publisherPrivateKey <private-key>` | `PROVER_PUBLISHER_PRIVATE_KEY` | Your private key for submitting proofs to L1                            |
+
+You can run all components on the same machine. However, you can tweak the environment in many ways to achieve multi-machine proving clusters (ex. running just with `--prover-agent` and setting `--proverAgent.proverBrokerUrl` to a central broker).
 
 ### Example Command
 
@@ -121,8 +136,8 @@ Here's an example of a complete command to run a prover on the alpha-testnet.
 ```bash
 aztec start \
   --network alpha-testnet \
-  --l1-rpc-urls https://eth-sepolia.g.alchemy.com/v2/your-key \
-  --l1-consensus-host-urls \
+  --l1-rpc-urls yourRPCUrl \
+  --l1-consensus-host-urls beaconChainEndpoint\
   --prover-node \
   --prover-broker \
   --prover-agent \
@@ -162,6 +177,7 @@ aztec start --network alpha-testnet --prover-node --prover-broker --prover-agent
 For a complete review of all environment variables, refer to the [reference](./cli_reference.md).
 
 ### Running in a Docker Compose
+
 If you would like to run in a docker compose, you can use a configuration like the one below:
 
 ```
@@ -169,7 +185,7 @@ name: aztec-node
 services:
   network_mode: host # Optional, run with host networking
   node:
-    image: aztecprotocol/aztec:0.84.0-alpha-testnet.3
+    image: aztecprotocol/aztec:0.85.0-alpha-testnet.2
     environment:
       ETHEREUM_HOSTS: ""
       L1_CONSENSUS_HOST_URLS: ""
@@ -186,27 +202,6 @@ services:
   volumes:
     - aztec_data:/var/lib/aztec
 ```
-
-### Customization Options
-
-Using environment variables or command flags, you can customize:
-
-- Hardware resource allocation for proving operations
-- Network ports and connection settings
-- Storage paths and database configurations
-- Proving parallelism and optimization levels
-- And many more options
-
-Run `aztec start --help` for a complete list of available options.
-
-## Monitoring and Maintenance
-
-For optimal operation:
-
-- Monitor your prover node's performance and resource usage
-- Regularly check logs for errors or inefficiencies
-- Keep your system updated with the latest patches
-- Set up alerts for any downtime or performance degradation
 
 ## Troubleshooting
 
