@@ -11,8 +11,6 @@
 #include "barretenberg/dsl/acir_format/acir_to_constraint_buf.hpp"
 #include "barretenberg/dsl/acir_format/ivc_recursion_constraint.hpp"
 #include "barretenberg/serialize/msgpack.hpp"
-#include "libdeflate.h"
-#include "private_execution_steps.hpp"
 #include <stdexcept>
 
 namespace bb {
@@ -34,32 +32,6 @@ acir_format::WitnessVector witness_map_to_witness_vector(std::map<std::string, s
         index++;
     }
     return wv;
-}
-
-std::vector<uint8_t> decompress(const void* bytes, size_t size)
-{
-    std::vector<uint8_t> content;
-    // initial size guess
-    content.resize(1024ULL * 128ULL);
-    for (;;) {
-        auto decompressor = std::unique_ptr<libdeflate_decompressor, void (*)(libdeflate_decompressor*)>{
-            libdeflate_alloc_decompressor(), libdeflate_free_decompressor
-        };
-        size_t actual_size = 0;
-        libdeflate_result decompress_result =
-            libdeflate_gzip_decompress(decompressor.get(), bytes, size, content.data(), content.size(), &actual_size);
-        if (decompress_result == LIBDEFLATE_INSUFFICIENT_SPACE) {
-            // need a bigger buffer
-            content.resize(content.size() * 2);
-            continue;
-        }
-        if (decompress_result == LIBDEFLATE_BAD_DATA) {
-            THROW std::invalid_argument("bad gzip data in bb main");
-        }
-        content.resize(actual_size);
-        break;
-    }
-    return content;
 }
 
 /**
@@ -113,7 +85,7 @@ void write_standalone_vk(const std::string& output_data_type,
 size_t get_num_public_inputs_in_final_circuit(const std::filesystem::path& input_path)
 {
     using namespace acir_format;
-    auto steps = PrivateExecutionStepRaw::load(input_path);
+    auto steps = PrivateExecutionStepRaw::load_and_decompress(input_path);
     const PrivateExecutionStepRaw& last_step = steps.back();
     const AcirFormat constraints = circuit_buf_to_acir_format(last_step.bytecode, /*honk_recursion=*/0);
     return constraints.public_inputs.size();
@@ -187,7 +159,7 @@ void ClientIVCAPI::prove(const Flags& flags,
     init_grumpkin_crs(1 << CONST_ECCVM_LOG_N);
 
     PrivateExecutionSteps steps;
-    steps.parse(PrivateExecutionStepRaw::load(input_path));
+    steps.parse(PrivateExecutionStepRaw::load_and_decompress(input_path));
 
     std::shared_ptr<ClientIVC> ivc = _accumulate(steps.folding_stack, steps.precomputed_vks);
     ClientIVC::Proof proof = ivc->prove();

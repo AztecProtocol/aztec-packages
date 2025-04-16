@@ -1,5 +1,7 @@
 CompileFlags: # Tweak the parse settings
-  Remove: -fconstexpr-ops-limit=* -Wfatal-errors
+  Remove:
+    - "-fconstexpr-ops-limit=*"
+    - "-Wfatal-errors"
 ---
 # Applies all barretenberg source files
 If:
