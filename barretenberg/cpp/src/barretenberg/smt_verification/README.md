@@ -181,7 +181,7 @@ After generating all the constrains you should call `bool res = solver.check()` 
 In case you expected `false` but `true` was returned you can then check what went wrong.
 You have three choices:
 - You can access each of the terms directly by calling `solver[term]`, or `solver.get(term)`
-- You can generate an unordered map with `str->term` values and ask the solver to obtain `unoredered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`.
+- You can generate an unordered map with `str->term` values and ask the solver to obtain `unordered_map<str, str> res = solver.model(unordered_map<str, FFTerm> terms)`.
 - You can generate a vector of terms and pass them to `unordered_map<str, str> res = solver.model(vector<FFTerm> terms)`. In this case the mapping name will be taken directly from solver. Specifically either it's the name that you have set or `var_{i}`.
 
 **!Note that the resulting values are strings and you can't use them to generate further constraints.**
